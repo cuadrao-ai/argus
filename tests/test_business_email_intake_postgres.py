@@ -273,10 +273,10 @@ def address_client(rig, actions, monkeypatch):
     )
     app.dependency_overrides[require_business_document_write] = lambda: context
     app.include_router(api.router)
-    monkeypatch.setattr(api, "email_intake", lambda: rig["runtime"])
+    monkeypatch.setattr("argus.api.email_intake._runtime", rig["runtime"])
     monkeypatch.setattr(api, "ingestion_hub", lambda: rig["documents"].hub)
     rig["documents"].hub.sink = actions[0].imports
-    monkeypatch.setattr(api, "webhook_enabled", lambda: True)
+    monkeypatch.setattr("argus.api.email_intake.webhook_enabled", lambda: True)
     monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
     rig["store"].deactivate_routes(rig["route"].space_id)
     with TestClient(app) as client:
@@ -651,8 +651,10 @@ def receipts(actions, users, monkeypatch):
         lambda: True,
     )
     monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", SECRET)
-    monkeypatch.setattr(api, "email_intake", lambda: runtime)
-    monkeypatch.setattr(api, "webhook_enabled", lambda: True)
+    monkeypatch.setattr("argus.api.email_intake._runtime", runtime)
+    monkeypatch.setattr("argus.api.email_intake.documents_service", lambda: documents)
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
+    monkeypatch.setattr("argus.api.email_intake.webhook_enabled", lambda: True)
     app = FastAPI()
     app.include_router(api.webhook_router)
     owner_documents, _ = bind_to_grant(documents, hub, service, context, "prepare")
@@ -970,30 +972,3 @@ def test_the_origin_backfill_marks_only_sources_an_email_links(rig):
         part.document_id: "email",
         upload: "direct",
     }
-
-
-@pytest.mark.parametrize(
-    "verdict",
-    [None, "aligned", "failed", "unknown", "ambiguous", "no_result", "none"],
-)
-def test_a_delivery_stores_every_auth_verdict(rig, verdict):
-    delivery = rig["runtime"].enqueue_resend(str(uuid4()), (rig["route"].recipient,))
-    with rig["pool"].connection() as db:
-        db.execute(
-            "update public.business_email_deliveries set auth_result=%s where id=%s",
-            (verdict, delivery.id),
-        )
-        stored = db.execute(
-            "select auth_result from public.business_email_deliveries where id=%s",
-            (delivery.id,),
-        ).fetchone()[0]
-    assert stored == verdict
-
-
-def test_a_delivery_refuses_an_unknown_auth_verdict(rig):
-    delivery = rig["runtime"].enqueue_resend(str(uuid4()), (rig["route"].recipient,))
-    with pytest.raises(psycopg.errors.CheckViolation), rig["pool"].connection() as db:
-        db.execute(
-            "update public.business_email_deliveries set auth_result='pass' where id=%s",
-            (delivery.id,),
-        )

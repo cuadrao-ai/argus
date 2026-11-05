@@ -1,9 +1,7 @@
 "use client";
 
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -25,6 +23,8 @@ import {
 } from "@/components/chat/ChatWorkspace";
 import {
   businessChatAvailable,
+  businessReceivingChannels,
+  type ReceivingChannels,
   businessInvoicingAvailable,
   type BusinessCapture,
   type BusinessOverview,
@@ -40,6 +40,7 @@ import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/respo
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
+import { BusinessContext } from "./business-context";
 import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
 import BusinessInvitationForm from "./BusinessInvitationForm";
@@ -100,6 +101,7 @@ const BUSINESS_TABS = new Set<string>(["datos", "equipo", "correo"]);
 
 type Records = {
   workspace: BusinessWorkspaceInfo | null;
+  workspaceGrant?: string | null;
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
   receiptActivity?: ReceiptActivityCounts | null;
@@ -140,6 +142,7 @@ export type BusinessContextValue = Readonly<{
   records: Records;
   /** Absent means the server has not answered, so nothing shows. */
   invoicing?: InvoicingState;
+  receivingChannels?: ReceivingChannels;
   directoryStatus?: BusinessDirectoryStatus;
   /** Every Business the person may enter, the server's list; null until read. */
   spaces: GrantedSpace[] | null;
@@ -178,14 +181,7 @@ export type BusinessContextValue = Readonly<{
 /** Decides whether the open panel may change; `proceed` makes the change. */
 export type PanelGuard = (next: BusinessPanelState, proceed: () => void) => void;
 
-/** Exported for DOM tests that mount one panel with a hand-made context; the app provides it through BusinessWorkspaceProvider. */
-export const BusinessContext = createContext<BusinessContextValue | null>(null);
-
-export function useBusiness(): BusinessContextValue {
-  const value = useContext(BusinessContext);
-  if (!value) throw new Error("useBusiness must be used inside BusinessWorkspaceProvider");
-  return value;
-}
+export { BusinessContext, useBusiness } from "./business-context";
 
 const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor, so `has_more` sends the rest to search.
@@ -495,7 +491,7 @@ function BusinessWorkspaceContent({
     ]))
       .then(([workspace, overview, page]) => {
         if (cancelled) return;
-        setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
+        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, overview, inbox: page.items, receiptActivity: page.activity, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
         reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {
@@ -534,8 +530,9 @@ function BusinessWorkspaceContent({
     return () => {
       cancelled = true;
     };
-  }, [onRecord, period.from, period.to, revision, source, reloadWaits]);
+  }, [chosenGrant, onRecord, period.from, period.to, revision, source, reloadWaits]);
 
+  const receivingChannels = useMemo(() => businessReceivingChannels(records.workspaceGrant === chosenGrant ? records.workspace : null), [chosenGrant, records.workspace, records.workspaceGrant]);
   const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant, onAnswered: emailsAnswered });
   const workspaceRecords = useMemo<Records>(
     () => ({ ...records, emails: emailDeliveries.items, emailsFailure: emailDeliveries.failure }),
@@ -634,6 +631,7 @@ function BusinessWorkspaceContent({
       source,
       records: workspaceRecords,
       invoicing,
+      receivingChannels,
       spaces,
       closedSpaces,
       chosen,
@@ -658,7 +656,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
@@ -678,6 +676,7 @@ function BusinessWorkspaceContent({
     openExport,
     listScope,
     adaptive: true,
+    emailAvailable: receivingChannels.email.available,
   });
 
   const keyboardShortcuts = useBusinessKeyboardShortcuts({ openPanel, actions, chosen });
@@ -712,7 +711,7 @@ function BusinessWorkspaceContent({
           </button>
         </Tooltip> : null}
         <AmountsToggle />
-        <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen?.name} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} />
+        <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen?.name} emailAvailable={receivingChannels.email.available} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} />
       </>,
       headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
@@ -738,7 +737,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId]);
+  }, [receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>

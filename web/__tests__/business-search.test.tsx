@@ -142,7 +142,7 @@ async function businessSearch(partial: Partial<BusinessSearchResult>, notes: Bus
   const actions = { create: [{ id: "upload_receipt" as const, label: "Add", icon: Banknote, run: noop }], composer: [], starterEntries: [] };
   let built: WorkspaceSearch | null = null;
   function Probe() {
-    built = useBusinessSearch({
+    built = useBusinessSearch({ emailAvailable: true,
       source,
       accounts: [{ id: "acct-1", nickname: "Caja", type: "cash", currency: "DOP" }],
       openPanel: (panel) => opened.push(panel),

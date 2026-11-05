@@ -111,7 +111,11 @@ from argus.api.documents import (
     document_problem,
     read_document_upload,
 )
-from argus.api.email_intake import arrived_by_email, email_receipt_flags
+from argus.api.email_intake import (
+    arrived_by_email,
+    email_receipt_flags,
+    email_receiving_available,
+)
 from argus.api.financial_accounts import domain_problem
 from argus.api.ingestion import ingestion_hub
 from argus.api.profile_images import picture_urls
@@ -124,6 +128,7 @@ from argus.api.routers.business_notifications import (
     router as business_notifications_router,
 )
 from argus.api.routers.business_search import router as business_search_router
+from argus.api.whatsapp import whatsapp_receiving_available
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
@@ -825,6 +830,10 @@ def get_workspace(
         **context.service.workspace(context.scope),
         "invoicing_available": invoicing_available(request),
         "notifications_available": notifications_available(),
+        "receiving_channels": {
+            "email": {"available": email_receiving_available()},
+            "whatsapp": {"available": whatsapp_receiving_available(context.scope)},
+        },
         "logo_url": picture_urls("business", [space_id])[space_id],
     }
     if not context.scope.acting_as_owner:

@@ -1,4 +1,4 @@
-"""No automatic second charge: a dead `preparing` draft is re-dispatched only
+"""No automatic second charge: a dead `preparing` draft is requeued unpaid only
 when its current, unmarked attempt provably wrote that state."""
 
 from datetime import datetime, timedelta, timezone
@@ -12,7 +12,6 @@ from argus.domain.ingestion.documents.jobs import (
     DISPATCH_WINDOW,
     MAX_ATTEMPTS,
     OUTCOME_UNKNOWN,
-    PreparationJobs,
     run_attempt,
 )
 from argus.domain.ingestion.documents.models import DraftProposal, ExtractionBatch
@@ -24,6 +23,7 @@ from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.owner_scope import PERSONAL
 
 from tests.document_extractor_support import StubPreparation, start_request
+from tests.document_reads_support import TakenAtOnce
 
 
 class Clock:
@@ -65,11 +65,9 @@ def rig():
     sink.submit.return_value = SubmitResult(1, 0, 0)
     repo = InMemoryConnectionRepository()
     hub = IngestionHub(repo, box=None, sink=sink, clock=clock)
-    service = DocumentsService(
-        hub, InMemoryDocumentStore(repo), extractor, jobs_recover_interruptions=True
-    )
+    service = DocumentsService(hub, InMemoryDocumentStore(repo), extractor)
     dispatched: list[str] = []
-    jobs = PreparationJobs(service, lambda _, attempt: dispatched.append(attempt))
+    jobs = TakenAtOnce(service, lambda _, attempt: dispatched.append(attempt))
     return service, jobs, clock, extractor, dispatched
 
 
@@ -86,8 +84,9 @@ async def queued(service: DocumentsService) -> str:
 
 
 def die_while_preparing(service: DocumentsService, connection: str) -> None:
-    """A writer that is not the current attempt (a flag-off background task, or
-    an attempt for an older draft version) claims the draft and dies mid-call."""
+    """A writer that is not the current attempt (an attempt for an older draft
+    version, or a writer from before attempts) claims the draft and dies
+    mid-call."""
     hub = service.hub
     hub.connections.lease(connection_id=connection, holder="other", now=hub.clock())
     draft = service.store.draft(user_id="owner", connection_id=connection)

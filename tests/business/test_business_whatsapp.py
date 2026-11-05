@@ -249,3 +249,46 @@ def test_dossier_attachment_sources_that_arrived_by_whatsapp_say_so(monkeypatch)
     composed = api.with_source_channels(dossier, space_id="space", owner_id="owner")
     assert [s.channel for s in composed.sources] == ["whatsapp", "web", "email", "web"]
     assert asked == ["owner"]
+
+
+@pytest.mark.parametrize("runtime_present", [True, False])
+def test_saved_whatsapp_provenance_survives_receiving_off(
+    wa_biz, identities, monkeypatch, runtime_present
+):
+    from types import SimpleNamespace
+
+    from argus.api import account_deletion_runtime
+    from argus.api import whatsapp as whatsapp_api
+    from argus.domain.ingestion.whatsapp import store_postgres
+
+    client, _ = wa_biz
+    alice = started(Owner(client, ALICE, identities[ALICE]["id"]))
+    bob = started(Owner(client, BOB))
+    link_alice(client)
+    assert post(client, fixture("image_message.json")).status_code == 200
+    [saved] = alice.get("/receipts", view="all").json()["items"]
+    store = whatsapp_runtime().intake.store
+    monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
+    if not runtime_present:
+        configure_whatsapp(None)
+        pool = object()
+        documents = SimpleNamespace(
+            business_actions=SimpleNamespace(authority=SimpleNamespace(pool=pool))
+        )
+        monkeypatch.setattr(whatsapp_api, "documents_service", lambda: documents)
+
+        def cleanup_pool_forbidden(*args):
+            raise AssertionError("History must use the Business authority pool")
+
+        def history_store(selected):
+            assert selected is pool
+            return store
+
+        monkeypatch.setattr(account_deletion_runtime, "deletion_pool", cleanup_pool_forbidden)
+        monkeypatch.setattr(store_postgres, "PostgresWhatsAppStore", history_store)
+    [still_saved] = alice.get("/receipts", view="all").json()["items"]
+    assert still_saved["id"] == saved["id"]
+    assert still_saved["channel"] == "whatsapp"
+    assert alice.detail(saved["id"])["channel"] == "whatsapp"
+    assert bob.get("/receipts", view="all").json()["items"] == []
+    assert bob.get(f"/receipts/{saved['id']}").status_code == 404

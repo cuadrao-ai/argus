@@ -209,7 +209,6 @@ def _ingest(args: argparse.Namespace, plan, manifest_path: Path) -> int:  # noqa
             hub,
             store,
             _SeedExtractor(plan.documents),
-            jobs_recover_interruptions=False,
             business_actions=actions,
             business_preparation_required=True,
         )

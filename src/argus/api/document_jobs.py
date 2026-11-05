@@ -1,13 +1,12 @@
-"""Default-off durable dispatch and recovery for document preparation (#823).
+"""Document reads in the API process: one puller per instance, and its sweep.
 
-Settings are ``DocumentJobSettings`` (``ARGUS_DOCUMENT_JOBS_*``). Disabled
-leaves the routes on FastAPI background tasks, exactly as before. Enabled, each
-accepted preparation becomes a recorded attempt: a Render Workflow task when
-``workflow_task`` is set in durable mode (the local Render dev server under
-``RENDER_USE_LOCAL_DEV``), otherwise a task on this process's event loop. A
-sweep in this process settles or re-dispatches attempts whose worker died, once
-at startup and every ``sweep_seconds``. With ``pull`` on, this process only
-records attempts: ``workflows/document_worker.py`` reads them and runs the sweep.
+Every accepted preparation becomes a recorded attempt that waits on its row.
+This process's ``DocumentWorker`` pulls it under ``max_reads``, the cap
+``store.pull`` holds across every API instance and any standalone worker, and
+runs the sweep that settles or requeues attempts whose process died, once at
+startup and every ``sweep_seconds``. Shutdown stops the pulls, joins a running
+sweep, gives reads in flight ``drain_seconds`` and cancels the rest; the host's
+shutdown delay must cover the WhatsApp drain, that drain and ``CANCEL_SECONDS``.
 """
 
 from __future__ import annotations
@@ -16,84 +15,53 @@ import asyncio
 
 from loguru import logger
 
-from argus.api import state as api_state
 from argus.domain.ingestion.documents.config import DocumentJobSettings
-from argus.domain.ingestion.documents.jobs import (
-    Dispatch,
-    PreparationJobs,
-    run_attempt,
-    sweep_forever,
-)
 from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.documents.worker import DocumentWorker
 
-_jobs: PreparationJobs | None = None
-_sweeper: asyncio.Task[None] | None = None
-
-
-def document_jobs() -> PreparationJobs | None:
-    return _jobs
+_worker: DocumentWorker | None = None
+_stop: asyncio.Event | None = None
+_running: asyncio.Task[None] | None = None
 
 
-class InProcessDispatcher:
-    """Local fallback: each attempt runs as a task on the API's event loop."""
-
-    def __init__(
-        self, loop: asyncio.AbstractEventLoop, service: DocumentsService
-    ) -> None:
-        self.loop, self.service = loop, service
-        self.tasks: set[asyncio.Task[str]] = set()
-
-    def __call__(self, connection_id: str, attempt_id: str) -> None:
-        self.loop.call_soon_threadsafe(self._spawn, connection_id, attempt_id)
-
-    def _spawn(self, connection_id: str, attempt_id: str) -> None:
-        task = self.loop.create_task(run_attempt(self.service, connection_id, attempt_id))
-        self.tasks.add(task)
-        task.add_done_callback(self.tasks.discard)
-
-
-def render_dispatcher(task_id: str) -> Dispatch:
-    from argus.api.render_workflows import RenderWorkflowDispatcher
-
-    dispatcher = RenderWorkflowDispatcher(task_id=task_id)
-
-    def dispatch(connection_id: str, attempt_id: str) -> None:
-        run = dispatcher.dispatch(job_id=connection_id, nonce=attempt_id)
-        logger.info(
-            "Document preparation dispatched",
-            connection_id=connection_id,
-            task_run_id=run.get("id"),
-        )
-
-    return dispatch
+def document_worker() -> DocumentWorker | None:
+    return _worker
 
 
 def start_document_jobs(service: DocumentsService, settings: DocumentJobSettings) -> None:
-    global _jobs, _sweeper
+    global _worker, _stop, _running
     stop_document_jobs()
-    if settings.pull:
-        _jobs = PreparationJobs(service, None)
-        return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
-        logger.warning("Document jobs need a running event loop; jobs stay off")
+        logger.warning("Document reads need a running event loop; attempts only wait")
         return
-    task_id = settings.workflow_task.strip()
-    dispatch: Dispatch = (
-        render_dispatcher(task_id)
-        if task_id and api_state.PERSISTENCE_MODE == "supabase"
-        else InProcessDispatcher(loop, service)
-    )
-    _jobs = PreparationJobs(service, dispatch)
-    _sweeper = loop.create_task(sweep_forever(_jobs, settings.sweep_seconds))
+    _worker, _stop = DocumentWorker(service, settings), asyncio.Event()
+    _running = loop.create_task(_worker.run(_stop))
+
+
+async def wake_document_reads() -> None:
+    """Runs on the loop once an attempt is recorded here: pull now, not at the
+    next poll. Pullers in other processes take it at their own next poll."""
+    if _worker is not None:
+        _worker.wake()
+
+
+async def drain_document_jobs() -> None:
+    """Shutdown: the puller stops, joins its sweep and drains its reads."""
+    global _running, _stop
+    if _stop is not None:
+        _stop.set()
+    if _running is not None:
+        await _running
+    _running, _stop = None, None
 
 
 def stop_document_jobs() -> None:
-    global _jobs, _sweeper
-    if _sweeper is not None:
-        _sweeper.cancel()
-    if _jobs is not None and isinstance(_jobs.dispatch, InProcessDispatcher):
-        for task in list(_jobs.dispatch.tasks):
-            task.cancel()
-    _jobs, _sweeper = None, None
+    global _worker, _stop, _running
+    if _running is not None:
+        _running.cancel()
+    if _worker is not None:
+        for read in list(_worker.reads):
+            read.cancel()
+    _worker, _stop, _running = None, None, None

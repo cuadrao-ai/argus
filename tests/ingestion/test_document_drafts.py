@@ -11,6 +11,8 @@ from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.owner_scope import PERSONAL
 from pydantic import ValidationError
 
+from tests.document_reads_support import read_queued
+
 
 @pytest.mark.parametrize("participant", ["", "p" * 101])
 @pytest.mark.parametrize("nested", [False, True])
@@ -130,7 +132,7 @@ def test_receipt_items_are_retained_and_ambiguous_purchases_withheld(ambiguous):
 
 
 @pytest.mark.asyncio
-async def test_background_prepare_logs_exception_type_and_receipt_id(rig):
+async def test_a_failed_read_logs_its_type_and_receipt_id_only(rig):
     from loguru import logger
 
     from tests.ingestion.test_document_service import fake
@@ -150,17 +152,15 @@ async def test_background_prepare_logs_exception_type_and_receipt_id(rig):
     records = []
     sink = logger.add(lambda message: records.append(message.record), level="WARNING")
     try:
-        await service.background_prepare(
-            user_id=user, connection_id=saved.connection_id, scope=PERSONAL
-        )
+        await read_queued(service, user, saved.connection_id)
     finally:
         logger.remove(sink)
-    logged = [str(record["message"]) for record in records]
-    assert logged == [
-        "document_prepare_failed"
-        f" failure_mode=RuntimeError connection_id={saved.connection_id}"
-    ]
-    blob = "\n".join(logged)
+    logged = [(str(r["message"]), r["extra"]) for r in records]
+    assert ("Document preparation attempt failed", {
+        "connection_id": saved.connection_id,
+        "failure_mode": "RuntimeError",
+    }) in logged
+    blob = repr(logged)
     assert secret not in blob
     assert "secret-name.pdf" not in blob
     assert user not in blob
@@ -181,9 +181,7 @@ async def test_failure_keeps_source_and_duplicate_does_not_retry(rig):
         consent=True,
     )
     first = await service.upload(**upload, scope=PERSONAL)
-    await service.background_prepare(
-        user_id=user, connection_id=first.connection_id, scope=PERSONAL
-    )
+    await read_queued(service, user, first.connection_id)
     assert (
         service.get(
             user_id=user, connection_id=first.connection_id, scope=PERSONAL
@@ -191,9 +189,7 @@ async def test_failure_keeps_source_and_duplicate_does_not_retry(rig):
         == "needs_attention"
     )
     duplicate = await service.upload(**upload, scope=PERSONAL)
-    await service.background_prepare(
-        user_id=user, connection_id=duplicate.connection_id, scope=PERSONAL
-    )
+    await read_queued(service, user, duplicate.connection_id)
     assert duplicate.connection_id == first.connection_id
     assert extractor.extract.await_count == 1
     assert (
@@ -217,9 +213,7 @@ async def test_saved_without_consent_requires_explicit_preparation(rig):
         media_type="application/pdf",
         scope=PERSONAL,
     )
-    await service.background_prepare(
-        user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
-    )
+    await read_queued(service, "owner", saved.connection_id)
     extractor.extract.assert_not_awaited()
     with pytest.raises(DocumentServiceError, match="consent_required"):
         service.queue(
@@ -231,9 +225,7 @@ async def test_saved_without_consent_requires_explicit_preparation(rig):
     service.queue(
         user_id="owner", connection_id=saved.connection_id, consent=True, scope=PERSONAL
     )
-    await service.background_prepare(
-        user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
-    )
+    await read_queued(service, "owner", saved.connection_id)
     assert (
         service.get(
             user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
@@ -244,7 +236,9 @@ async def test_saved_without_consent_requires_explicit_preparation(rig):
 
 
 @pytest.mark.asyncio
-async def test_interrupted_attempt_needs_attention_without_automatic_retry(rig):
+async def test_an_interrupted_attempt_is_the_sweeps_to_settle_not_a_reads(rig):
+    """A dead ``preparing`` draft keeps its state past the lease: the sweep
+    decides whether it is rerun or settled, and a read starts nothing."""
     from datetime import timedelta
 
     service, hub, extractor, _ = rig
@@ -268,12 +262,12 @@ async def test_interrupted_attempt_needs_attention_without_automatic_retry(rig):
     reopened = service.get(
         user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
     )
-    assert reopened.status == "needs_attention"
-    assert reopened.error_code == "document_preparation_interrupted"
-    await service.background_prepare(
-        user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
-    )
+    assert (reopened.status, reopened.error_code) == ("preparing", None)
+    await read_queued(service, "owner", saved.connection_id)
     extractor.extract.assert_not_awaited()
+    assert service.get(
+        user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
+    ).status == "preparing"
 
 
 @pytest.mark.asyncio
@@ -291,9 +285,7 @@ async def test_proposal_version_and_owner_checks_preserve_preparation(rig):
         consent=True,
         scope=PERSONAL,
     )
-    await service.background_prepare(
-        user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
-    )
+    await read_queued(service, "owner", saved.connection_id)
     before = service.store.get(user_id="owner", connection_id=saved.connection_id)
     draft = service.get(
         user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
@@ -347,9 +339,7 @@ async def test_legacy_checkpoint_reupload_retains_source_without_model(rig):
         consent=True,
         scope=PERSONAL,
     )
-    await service.background_prepare(
-        user_id="owner", connection_id=saved.connection_id, scope=PERSONAL
-    )
+    await read_queued(service, "owner", saved.connection_id)
     original = service.store.get(user_id="owner", connection_id=saved.connection_id)
     service.store._drafts.clear()
     service.store._sources.clear()

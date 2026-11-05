@@ -17,7 +17,7 @@ async function i18n(lng: "es-419" | "en") {
 
 async function render(detail: Parameters<typeof ReceiptSourcePreview>[0]["detail"], lng: "es-419" | "en" = "es-419") {
   const instance = await i18n(lng);
-  const value = { source: { receiptSource: () => new Promise<Blob>(() => undefined), mode: "live" }, openPanel: () => undefined } as unknown as BusinessContextValue;
+  const value = { receivingChannels: { email: { available: false }, whatsapp: { available: false } }, source: { receiptSource: () => new Promise<Blob>(() => undefined), mode: "live" }, openPanel: () => undefined } as unknown as BusinessContextValue;
   return renderToStaticMarkup(
     createElement(I18nextProvider, { i18n: instance }, createElement(BusinessContext.Provider, { value }, createElement(ReceiptSourcePreview, { detail }))),
   );

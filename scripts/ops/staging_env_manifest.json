@@ -119,19 +119,9 @@
           "value": "210"
         },
         {
-          "name": "CUADRAO_DOCUMENT_JOBS_ENABLED",
-          "kind": "plain",
-          "value": "false"
-        },
-        {
           "name": "CUADRAO_DOCUMENT_JOBS_MAX_READS",
           "kind": "plain",
           "value": "3"
-        },
-        {
-          "name": "CUADRAO_DOCUMENT_JOBS_PULL_ENABLED",
-          "kind": "plain",
-          "value": "false"
         },
         {
           "name": "CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT",
@@ -403,11 +393,6 @@
         },
         {
           "name": "NEXT_PUBLIC_BUSINESS_ONLY_WEB",
-          "kind": "plain",
-          "value": "true"
-        },
-        {
-          "name": "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED",
           "kind": "plain",
           "value": "true"
         },

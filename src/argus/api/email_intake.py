@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
+from dataclasses import dataclass
 from datetime import datetime
 
 import httpx
+from fastapi import Request
 from loguru import logger
 
 from argus.api import state as api_state
-from argus.api.documents import documents_service
+from argus.api.dependencies import problem
+from argus.api.documents import NO_STORE, documents_service
 from argus.api.ingestion import ingestion_enabled
 from argus.domain.business.config import business_pilot_enabled
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
+from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
 from argus.domain.ingestion.email_intake.models import EmailDelivery, EmailDeliveryPart
 from argus.domain.ingestion.email_intake.provider import ResendReceivingClient
@@ -25,7 +29,11 @@ from argus.domain.ingestion.email_intake.standing import (
     EmailStanding,
     email_standing,
 )
-from argus.domain.ingestion.email_intake.store import EmailRelation, PostgresEmailStore
+from argus.domain.ingestion.email_intake.store import (
+    EmailRelation,
+    EmailStore,
+    PostgresEmailStore,
+)
 
 RESEND_DOWNLOAD_HOSTS = ("cdn.resend.app",)
 
@@ -34,6 +42,27 @@ _runtime: EmailCapture | None = None
 
 def email_intake() -> EmailCapture | None:
     return _runtime
+
+
+@dataclass(frozen=True)
+class EmailHistory:
+    store: EmailStore
+    documents: DocumentsService
+
+
+def email_history() -> EmailHistory | None:
+    """Saved email rows stay readable without a running capture worker."""
+    runtime = email_intake()
+    if runtime is not None:
+        return EmailHistory(runtime.store, runtime.documents)
+    documents = documents_service()
+    if documents is None:
+        return None
+    authority = getattr(documents.business_actions, "authority", None)
+    pool = getattr(authority, "pool", None)
+    if pool is None:
+        return None
+    return EmailHistory(PostgresEmailStore(pool), documents)
 
 
 def configure_email_intake(runtime: EmailCapture | None) -> None:
@@ -57,6 +86,32 @@ def webhook_enabled() -> bool:
         and settings.receiving_enabled
         and bool(settings.webhook_secret.get_secret_value())
     )
+
+
+def email_receiving_available() -> bool:
+    """Receiving readiness, independent of whether a Business has an address."""
+    runtime = email_intake()
+    return bool(
+        runtime is not None
+        and runtime.provider is not None
+        and webhook_enabled()
+        and EmailIntakeSettings().receiving_domain.strip()
+    )
+
+
+def require_email_receiving(request: Request) -> EmailCapture:
+    if not email_receiving_available():
+        raise problem(
+            request,
+            status_code=404,
+            code="email_intake_unavailable",
+            title="Not Found",
+            detail="Email receiving is not available.",
+            headers=NO_STORE,
+        )
+    runtime = email_intake()
+    assert runtime is not None
+    return runtime
 
 
 async def _drain(runtime: EmailCapture) -> None:
@@ -218,9 +273,10 @@ def email_receipt_flags(
 ) -> dict[str, tuple[tuple[str, ...], bool, datetime | None]]:
     """Per document: the deliveries it arrived in, earliest first; whether it is
     a grouped email original; and when the earliest delivery arrived. Empty
-    when email receiving is off."""
+    when no email history is stored."""
 
-    if _runtime is None:
+    history = email_history()
+    if history is None:
         return {}
     return {
         document: (
@@ -228,17 +284,19 @@ def email_receipt_flags(
             relation["grouped"],
             relation["first_received_at"],
         )
-        for document, relation in _runtime.store.membership(space_id).items()
+        for document, relation in history.store.membership(space_id).items()
     }
 
 
 def email_review_note(space_id: str, delivery_ids, store=None) -> str | None:  # noqa: ANN001
     """The review note of the first of these deliveries that carries one, from
-    ``store`` or the running intake's store."""
+    ``store`` or the saved email history."""
 
-    if store is None and _runtime is None:
-        return None
-    store = store or _runtime.store
+    if store is None:
+        history = email_history()
+        if history is None:
+            return None
+        store = history.store
     for delivery_id in sorted(delivery_ids):
         delivery = store.get(delivery_id, space_id)
         if delivery is not None and delivery.review_note:
@@ -247,7 +305,7 @@ def email_review_note(space_id: str, delivery_ids, store=None) -> str | None:  #
 
 
 def part_repeat(
-    runtime: EmailCapture,
+    runtime: EmailHistory,
     delivery: EmailDelivery,
     part: EmailDeliveryPart,
     relations: dict[str, EmailRelation],
@@ -278,11 +336,11 @@ def part_repeat(
 
 def email_standings(space_id: str) -> list[EmailStanding]:
     """The standing of every email in this Business that is a Bandeja row of its
-    own. Empty when email receiving is off."""
+    own, independent of receiving availability."""
 
-    if _runtime is None:
+    runtime = email_history()
+    if runtime is None:
         return []
-    runtime = _runtime
     relations = runtime.store.membership(space_id)
     parts = runtime.store.parts_by_delivery(space_id)
     standings = (

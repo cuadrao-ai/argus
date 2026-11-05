@@ -16,7 +16,6 @@ from loguru import logger
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.read_budget import READ_BUDGET_REFUSALS
 from argus.domain.ingestion.connections import (
-    DEFAULT_LEASE,
     LIVE,
     ConnectionNotFound,
     DuplicateConnection,
@@ -146,7 +145,6 @@ class DocumentsService:
         store: DocumentStore,
         extractor: Extractor,
         *,
-        jobs_recover_interruptions: bool = False,
         business_actions: BusinessActions | None = None,
         business_preparation_required: bool = False,
         read_budget: ReadBudget | None = None,
@@ -164,9 +162,6 @@ class DocumentsService:
         # An app with a Postgres pool never falls back to legacy Business
         # delivery; without a pool there is no canonical wiring to require.
         self.business_preparation_required = business_preparation_required
-        # With preparation jobs on, the job reconciler decides what an expired
-        # attempt becomes; a read never settles it.
-        self.jobs_recover_interruptions = jobs_recover_interruptions
         hub.register(self)
 
     def revoke(self, connection: SourceConnection, credential: str | None) -> None:
@@ -206,27 +201,7 @@ class DocumentsService:
                 created_at=connection.created_at,
                 updated_at=connection.updated_at,
             )
-        now = self.hub.clock()
-        # With jobs off nothing redispatches a queued read whose task never ran
-        # (a restart drops it), so it is presumed lost after one lease window.
-        lost_queue = draft.status == "queued" and draft.updated_at + DEFAULT_LEASE <= now
-        if (
-            (draft.status == "preparing" or lost_queue)
-            and not self.jobs_recover_interruptions
-            and not lease_live(connection, now)
-        ):
-            try:
-                draft = self._update(
-                    user_id,
-                    draft,
-                    status="needs_attention",
-                    error_code="document_preparation_interrupted",
-                )
-            except DocumentServiceError as error:
-                if error.code != "document_version_conflict":
-                    raise
-                # A worker or another read moved the draft first; theirs stands.
-                draft = self.store.draft(user_id=user_id, connection_id=connection_id)
+        # An expired attempt is the sweep's to settle; a read never settles it.
         return draft
 
     def _read_source(self, user_id: str, connection_id: str) -> bytes:
@@ -602,24 +577,6 @@ class DocumentsService:
         return await self.resume(
             user_id=user_id, connection_id=connection_id, scope=scope
         )
-
-    async def background_prepare(
-        self, *, user_id: str, connection_id: str, scope: OwnerScope
-    ) -> None:
-        try:
-            await self.resume(
-                user_id=user_id,
-                connection_id=connection_id,
-                queued_only=True,
-                scope=scope,
-            )
-        except Exception as error:
-            logger.warning(
-                "document_prepare_failed failure_mode={} connection_id={}",
-                type(error).__name__,
-                connection_id,
-            )
-            return
 
     async def resume(
         self,

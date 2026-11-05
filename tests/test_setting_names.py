@@ -30,10 +30,7 @@ NAMES = (
     "DOCUMENT_EXTRACTION_ENABLED",
     "DOCUMENT_EXTRACTION_MAX_BYTES",
     "DOCUMENT_EXTRACTION_MAX_PAGES",
-    "DOCUMENT_JOBS_ENABLED",
-    "DOCUMENT_JOBS_WORKFLOW_TASK",
     "DOCUMENT_JOBS_SWEEP_SECONDS",
-    "DOCUMENT_JOBS_PULL_ENABLED",
     "DOCUMENT_JOBS_MAX_READS",
     "DOCUMENT_JOBS_DRAIN_SECONDS",
     "VISION_MODEL",
@@ -81,8 +78,6 @@ def test_the_shared_reader_prefers_the_cuadrao_name(
             "DOCUMENT_EXTRACTION_ENABLED",
             lambda: load_document_extraction_settings().enabled,
         ),
-        ("DOCUMENT_JOBS_ENABLED", lambda: load_document_job_settings().enabled),
-        ("DOCUMENT_JOBS_PULL_ENABLED", lambda: load_document_job_settings().pull),
         ("BUSINESS_EMAIL_CAPTURE_ENABLED", lambda: EmailIntakeSettings().capture_enabled),
         (
             "BUSINESS_EMAIL_INTAKE_ENABLED",
@@ -125,22 +120,22 @@ def test_business_chat_stays_inside_the_pilot(monkeypatch: pytest.MonkeyPatch) -
 
 def test_valued_settings_follow_the_same_rule(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_MAX_PAGES", "5")
-    monkeypatch.setenv("ARGUS_DOCUMENT_JOBS_WORKFLOW_TASK", "argus-task")
+    monkeypatch.setenv("ARGUS_DOCUMENT_JOBS_MAX_READS", "4")
     monkeypatch.setenv("ARGUS_BUSINESS_EMAIL_DOMAIN", "recibos.argus.test")
     monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", "whsec_argus")
     assert load_document_extraction_settings().max_pages == 5
-    assert load_document_job_settings().workflow_task == "argus-task"
+    assert load_document_job_settings().max_reads == 4
     intake = EmailIntakeSettings()
     assert (intake.receiving_domain, intake.webhook_secret.get_secret_value()) == (
         "recibos.argus.test",
         "whsec_argus",
     )
     monkeypatch.setenv("CUADRAO_DOCUMENT_EXTRACTION_MAX_PAGES", "3")
-    monkeypatch.setenv("CUADRAO_DOCUMENT_JOBS_WORKFLOW_TASK", "cuadrao-task")
+    monkeypatch.setenv("CUADRAO_DOCUMENT_JOBS_MAX_READS", "2")
     monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.cuadrao.test")
     monkeypatch.setenv("CUADRAO_RESEND_WEBHOOK_SECRET", "whsec_cuadrao")
     assert load_document_extraction_settings().max_pages == 3
-    assert load_document_job_settings().workflow_task == "cuadrao-task"
+    assert load_document_job_settings().max_reads == 2
     intake = EmailIntakeSettings()
     assert (intake.receiving_domain, intake.webhook_secret.get_secret_value()) == (
         "recibos.cuadrao.test",

@@ -3,8 +3,9 @@
 import asyncio
 import hashlib
 import threading
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import Mock
@@ -13,6 +14,8 @@ from uuid import uuid4
 import pytest
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.contract import ImportCandidate, SourceRef
+from argus.domain.ingestion.documents import worker as reading
+from argus.domain.ingestion.documents.config import DocumentJobSettings
 from argus.domain.ingestion.documents.jobs import (
     DISPATCH_WINDOW,
     PreparationJobs,
@@ -27,6 +30,7 @@ from argus.domain.ingestion.documents.models import (
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
+from argus.domain.ingestion.documents.worker import DocumentWorker
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.owner_scope import PERSONAL
@@ -35,6 +39,7 @@ from psycopg_pool import ConnectionPool
 from tests import test_financial_accounts_postgres as shared
 from tests.business_reading_support import ROUTE, reading_setting, turn_reading
 from tests.document_extractor_support import StubPreparation, start_request
+from tests.document_reads_support import TakenAtOnce
 from tests.document_sources_support import source_objects, stored_paths
 
 users = shared.users
@@ -208,7 +213,8 @@ class GatedStore(PostgresDocumentStore):
 
 @dataclass
 class Instance:
-    """One API process: its own pool, service and dispatch log over one database."""
+    """One API process: its own pool, service and the attempts its puller took
+    at once, over one database."""
 
     service: DocumentsService
     jobs: PreparationJobs
@@ -224,7 +230,6 @@ def instance(
     clock: Clock,
     extractor: Extractor,
     store: PostgresDocumentStore | None = None,
-    dispatch: Callable[[DocumentsService], Callable[[str, str], None]] | None = None,
 ) -> Instance:
     sink = Mock()
     sink.submit.return_value = SubmitResult(1, 0, 0)
@@ -235,17 +240,10 @@ def instance(
         hub,
         store or PostgresDocumentStore(pool, source_objects()),
         extractor,
-        jobs_recover_interruptions=True,
     )
-    dispatched: list[tuple[str, str]] = []
-    forward = dispatch(service) if dispatch else None
-
-    def record(connection_id: str, attempt_id: str) -> None:
-        dispatched.append((connection_id, attempt_id))
-        if forward is not None:
-            forward(connection_id, attempt_id)
-
-    return Instance(service, PreparationJobs(service, record), dispatched, sink)
+    taken: list[tuple[str, str]] = []
+    jobs = TakenAtOnce(service, lambda *attempt: taken.append(attempt))
+    return Instance(service, jobs, taken, sink)
 
 
 async def capture(service: DocumentsService, owner: str) -> str:
@@ -306,7 +304,7 @@ async def test_kill_before_the_marker_recovers_with_one_provider_call(
 
 
 @pytest.mark.asyncio
-async def test_kill_after_the_marker_settles_until_a_consented_retry(
+async def test_kill_after_the_marker_is_rerun_once_and_both_completions_save_once(
     pool: ConnectionPool, users: dict[str, str]
 ) -> None:
     clock, extractor = Clock(), Extractor(hang=True)
@@ -321,31 +319,187 @@ async def test_kill_after_the_marker_settles_until_a_consented_retry(
 
     clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
     report = api.jobs.sweep()
-    assert connection in report.outcome_unknown
-    assert connection not in report.redispatched
-    settled = api.service.get(user_id=owner, connection_id=connection, scope=PERSONAL)
-    assert (settled.status, settled.error_code) == (
-        "needs_attention",
-        "document_preparation_outcome_unknown",
-    )
-    assert connection not in api.jobs.sweep().redispatched
-    assert api.attempts(connection) == [first]
-    assert extractor.calls == 1
+    assert connection in report.rerun
+    assert connection not in report.outcome_unknown
+    [_, rerun] = api.attempts(connection)
+    assert api.service.store.job(user_id=owner, connection_id=connection).reruns == 1
+    assert await run_attempt(api.service, connection, rerun) == "prepared"
+    assert connection not in api.jobs.sweep().rerun
+    assert extractor.calls == 2
 
-    api.service.queue(
-        user_id=owner, connection_id=connection, consent=True, scope=PERSONAL
-    )
-    api.jobs.start(user_id=owner, connection_id=connection)
-    [_, retried] = api.attempts(connection)
-    assert await run_attempt(api.service, connection, retried) == "prepared"
     extractor.release.set()
-    assert await dead == "document_lease_lost"
+    assert await dead == "document_lease_lost", "the first call's late answer is refused"
 
     batch = api.service.store.get(user_id=owner, connection_id=connection)
-    assert [c.amount for c in batch.candidates] == ["129.5"]
-    assert extractor.calls == 2
+    assert [c.amount for c in batch.candidates] == ["129.5"], "the rerun's read is kept"
+    read = api.service.get(user_id=owner, connection_id=connection, scope=PERSONAL)
+    assert (read.status, read.error_code) == ("review_ready", None)
     api.sink.submit.assert_called_once()
     forget(api.service, owner, connection)
+
+
+def far_clock() -> Clock:
+    """Years ahead: the cap counts every live lease in the database, and rows
+    other tests leave behind hold none this far along."""
+    clock = Clock()
+    clock.now += timedelta(days=3650)
+    return clock
+
+
+def puller_settings(**changes: Any) -> DocumentJobSettings:
+    return DocumentJobSettings(
+        **{"sweep_seconds": 3600, "max_reads": 3, "drain_seconds": 5, **changes}
+    )
+
+
+@asynccontextmanager
+async def running_pullers(
+    *services: DocumentsService, **changes: Any
+) -> AsyncIterator[list[asyncio.Task[None]]]:
+    """One API instance's puller per service, over one database, stopped and
+    drained on exit whatever the test raised."""
+    stops = [asyncio.Event() for _ in services]
+    pullers = [
+        asyncio.create_task(DocumentWorker(service, puller_settings(**changes)).run(stop))
+        for service, stop in zip(services, stops, strict=False)
+    ]
+    try:
+        yield pullers
+    finally:
+        for stop in stops:
+            stop.set()
+        await asyncio.wait(pullers, timeout=10)
+
+
+async def settled(service: DocumentsService, owner: str, connection: str) -> DocumentDraft:
+    for _ in range(1000):
+        draft = service.get(user_id=owner, connection_id=connection, scope=PERSONAL)
+        if draft.status == "review_ready":
+            return draft
+        await asyncio.sleep(0.01)
+    return draft
+
+
+@pytest.mark.asyncio
+async def test_a_deploy_that_cuts_a_read_is_rerun_by_the_next_boot(
+    pool: ConnectionPool, users: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
+    monkeypatch.setattr(reading, "POLL_SECONDS", 0.01)
+    clock, extractor, owner = far_clock(), Extractor(hang=True), users["owner"]
+    old = instance(pool, clock, extractor)
+    with ConnectionPool(shared.DSN, min_size=0, max_size=4) as other_pool:
+        new = instance(other_pool, clock, extractor)
+        connection = await capture(old.service, owner)
+        PreparationJobs(old.service).start(user_id=owner, connection_id=connection)
+        old_stop = asyncio.Event()
+        old_puller = asyncio.create_task(
+            DocumentWorker(old.service, puller_settings(drain_seconds=0.05)).run(old_stop)
+        )
+        while extractor.calls == 0:
+            await asyncio.sleep(0.01)
+        next_boot = PreparationJobs(new.service)
+        assert next_boot.sweep().rerun == [], "a live lease is never reclaimed"
+
+        old_stop.set()
+        await asyncio.wait_for(old_puller, 5)
+
+        assert next_boot.sweep().rerun == [connection]
+        async with running_pullers(new.service):
+            draft = await settled(new.service, owner, connection)
+        assert draft.status == "review_ready"
+        assert extractor.calls == 2
+        assert new.service.store.job(user_id=owner, connection_id=connection).reruns == 1
+        new.sink.submit.assert_called_once()
+        old.sink.submit.assert_not_called()
+        forget(new.service, owner, connection)
+
+
+@dataclass
+class Meter:
+    """Reads in provider calls at once across every instance on this loop.
+    Each holds until ``open`` is set, so the cap is reached and held."""
+
+    running: int = 0
+    peak: int = 0
+    reads: list[tuple[str, str]] = field(default_factory=list)
+    open: asyncio.Event = field(default_factory=asyncio.Event)
+
+
+class Gauge(Extractor):
+    def __init__(self, meter: Meter, name: str) -> None:
+        super().__init__()
+        self.meter, self.name = meter, name
+
+    async def extract(self, **kwargs: Any) -> ExtractionBatch:
+        meter = self.meter
+        meter.running += 1
+        meter.peak = max(meter.peak, meter.running)
+        meter.reads.append((self.name, kwargs["connection_id"]))
+        try:
+            await meter.open.wait()
+        finally:
+            meter.running -= 1
+        return await super().extract(**kwargs)
+
+
+async def until(condition: Callable[[], bool]) -> None:
+    for _ in range(1000):
+        if condition():
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError("condition not reached")
+
+
+@pytest.mark.asyncio
+async def test_many_uploads_at_once_never_run_more_than_the_cap_across_two_instances(
+    pool: ConnectionPool, users: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
+    monkeypatch.setattr(reading, "POLL_SECONDS", 0.01)
+    clock, meter = far_clock(), Meter()
+    with ConnectionPool(shared.DSN, min_size=0, max_size=4) as other_pool:
+        instances = [
+            instance(pool, clock, Gauge(meter, "first")),
+            instance(other_pool, clock, Gauge(meter, "second")),
+        ]
+        people = [users["owner"], users["other"]]
+        uploads: list[tuple[str, str]] = []
+        for n in range(12):
+            api, owner = instances[n % 2], people[n % 2]
+            connection = await capture(api.service, owner)
+            PreparationJobs(api.service).start(user_id=owner, connection_id=connection)
+            uploads.append((owner, connection))
+        ours = {connection for _, connection in uploads}
+
+        async with running_pullers(instances[0].service, max_reads=3):
+            await until(lambda: meter.running == 3)
+            async with running_pullers(instances[1].service, max_reads=3):
+                # The second instance polls 30 times with nothing of its own running.
+                await asyncio.sleep(0.3)
+                assert meter.running == 3
+                assert [name for name, _ in meter.reads] == ["first"] * 3, (
+                    "the cap held in Postgres stopped the second instance"
+                )
+                meter.open.set()
+                drafts = [
+                    await settled(instances[0].service, owner, connection)
+                    for owner, connection in uploads
+                ]
+
+        assert [draft.status for draft in drafts] == ["review_ready"] * 12
+        assert meter.peak == 3, f"reads at once peaked at {meter.peak}"
+        read = sorted(connection for _, connection in meter.reads if connection in ours)
+        assert read == sorted(ours), "each receipt read once"
+        submitted = sorted(
+            call.kwargs["connection_id"]
+            for api in instances
+            for call in api.sink.submit.call_args_list
+            if call.kwargs["connection_id"] in ours
+        )
+        assert submitted == sorted(ours), "each receipt saved once"
+        for owner, connection in uploads:
+            forget(instances[0].service, owner, connection)
 
 
 def test_concurrent_sweepers_dispatch_each_attempt_once(
@@ -366,7 +520,9 @@ def test_concurrent_sweepers_dispatch_each_attempt_once(
             store, advance = api.service.store, api.service.store.advance
 
             def gated(advance=advance, **kwargs: Any) -> bool:
-                barrier.wait(5)
+                # The sweeps race on their requeue; the puller's take runs after.
+                if kwargs["job"].dispatched_at is None:
+                    barrier.wait(5)
                 return advance(**kwargs)
 
             store.advance = gated  # type: ignore[method-assign]
@@ -392,71 +548,44 @@ def test_concurrent_sweepers_dispatch_each_attempt_once(
 async def test_two_running_instances_recover_a_dead_worker_without_restart(
     pool: ConnectionPool, users: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from argus.api.document_jobs import InProcessDispatcher, sweep_forever
-
-    # The sweep waits while extraction is off.
     monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
-
-    loop = asyncio.get_running_loop()
-    clock, extractor, owner = Clock(), Extractor(), users["owner"]
+    monkeypatch.setattr(reading, "POLL_SECONDS", 0.01)
+    clock, extractor, owner = far_clock(), Extractor(), users["owner"]
     gated = GatedStore(pool, blocked=1)
     with ConnectionPool(shared.DSN, min_size=0, max_size=4) as other_pool:
-        apis = [
-            instance(
-                pool,
-                clock,
-                extractor,
-                gated,
-                lambda service: InProcessDispatcher(loop, service),
-            ),
-            instance(
-                other_pool,
-                clock,
-                extractor,
-                dispatch=lambda service: InProcessDispatcher(loop, service),
-            ),
-        ]
-        # The sweepers scan every row in the database on a real clock, so they
-        # must not outlive this test whatever it raises.
-        sweepers = [asyncio.create_task(sweep_forever(api.jobs, 0.02)) for api in apis]
+        apis = [instance(pool, clock, extractor, gated), instance(other_pool, clock, extractor)]
         try:
-            connection = await capture(apis[0].service, owner)
-            apis[0].jobs.start(user_id=owner, connection_id=connection)
-            for _ in range(500):
-                if gated.entered:
-                    break
-                await asyncio.sleep(0.01)
-            assert gated.entered == 1
-            await asyncio.sleep(0.2)
-            assert sum(len(api.attempts(connection)) for api in apis) == 1
-
-            clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
-            for _ in range(500):
-                draft = apis[0].service.get(
-                    user_id=owner, connection_id=connection, scope=PERSONAL
+            # The gated instance pulls alone first, so its read is the one that dies.
+            async with running_pullers(apis[0].service, sweep_seconds=0.02):
+                connection = await capture(apis[0].service, owner)
+                PreparationJobs(apis[0].service).start(
+                    user_id=owner, connection_id=connection
                 )
-                if draft.status == "review_ready":
-                    break
-                await asyncio.sleep(0.01)
-            await asyncio.sleep(0.2)
+                for _ in range(500):
+                    if gated.entered:
+                        break
+                    await asyncio.sleep(0.01)
+                assert gated.entered == 1, "the first instance's puller took it"
+                async with running_pullers(apis[1].service, sweep_seconds=0.02):
+                    await asyncio.sleep(0.2)
+                    store = apis[1].service.store
+                    assert store.job(user_id=owner, connection_id=connection).attempt == 1
+
+                    clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
+                    draft = await settled(apis[1].service, owner, connection)
         finally:
-            for sweeper in sweepers:
-                sweeper.cancel()
             gated.release.set()
 
         assert draft.status == "review_ready"
-        assert sum(len(api.attempts(connection)) for api in apis) == 2
+        assert store.job(user_id=owner, connection_id=connection).attempt == 2
         assert extractor.calls == 1
-        forget(apis[0].service, owner, connection)
+        forget(apis[1].service, owner, connection)
 
 
-def test_workflow_worker_prepares_the_dispatched_attempt(
+def test_the_worker_command_graph_reads_the_attempt_it_pulled(
     pool: ConnectionPool, users: dict[str, str]
 ) -> None:
-    from workflows.document_job import (
-        postgres_documents_service,
-        run_document_preparation,
-    )
+    from workflows.document_job import postgres_documents_service
 
     class Prepared(StubPreparation):
         calls = 0
@@ -480,21 +609,14 @@ def test_workflow_worker_prepares_the_dispatched_attempt(
 
     objects = source_objects()
     api = postgres_documents_service(pool, objects, Prepared())
-    outcomes: list[dict[str, str]] = []
-    jobs = PreparationJobs(
-        api,
-        lambda connection_id, attempt_id: outcomes.append(
-            asyncio.run(
-                run_document_preparation(
-                    connection_id,
-                    attempt_id,
-                    env={"ARGUS_WORKFLOW_DATABASE_URL": shared.DSN},
-                    objects=objects,
-                    extractor=Prepared(),
-                )
-            )
-        ),
-    )
+    outcomes: list[str] = []
+
+    def worker_reads(connection_id: str, attempt_id: str) -> None:
+        with ConnectionPool(shared.DSN, min_size=0, max_size=2) as own:
+            worker = postgres_documents_service(own, objects, Prepared())
+            outcomes.append(asyncio.run(run_attempt(worker, connection_id, attempt_id)))
+
+    jobs = TakenAtOnce(api, worker_reads)
     owner = users["owner"]
     captured = asyncio.run(
         api.upload(
@@ -509,7 +631,7 @@ def test_workflow_worker_prepares_the_dispatched_attempt(
 
     jobs.start(user_id=owner, connection_id=captured.connection_id)
 
-    assert [outcome["outcome"] for outcome in outcomes] == ["prepared"]
+    assert outcomes == ["prepared"]
     assert Prepared.calls == 1
     assert api.get(
         user_id=owner, connection_id=captured.connection_id, scope=PERSONAL
@@ -538,15 +660,12 @@ def test_workflow_worker_prepares_the_dispatched_attempt(
     )
 
 
-def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
+def test_the_worker_command_never_reads_a_business_receipt_once_reading_is_off(
     pool: ConnectionPool, users: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from argus.domain.owner_scope import BusinessSpace
 
-    from workflows.document_job import (
-        postgres_documents_service,
-        run_document_preparation,
-    )
+    from workflows.document_job import postgres_documents_service
 
     monkeypatch.setattr(
         "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route",
@@ -579,10 +698,7 @@ def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
     api = postgres_documents_service(pool, objects, Counted())
     api.business_receipt_consent = setting
     dispatched: list[tuple[str, str]] = []
-    jobs = PreparationJobs(
-        api,
-        lambda connection_id, attempt_id: dispatched.append((connection_id, attempt_id)),
-    )
+    jobs = TakenAtOnce(api, lambda *attempt: dispatched.append(attempt))
     captured = asyncio.run(
         api.upload(
             user_id=owner,
@@ -597,18 +713,12 @@ def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
     [(connection_id, attempt_id)] = dispatched
 
     turn_reading(setting, scope.space_id, owner, enabled=False)
-    outcome = asyncio.run(
-        run_document_preparation(
-            connection_id,
-            attempt_id,
-            env={"ARGUS_WORKFLOW_DATABASE_URL": shared.DSN},
-            objects=objects,
-            extractor=Counted(),
-        )
-    )
+    with ConnectionPool(shared.DSN, min_size=0, max_size=2) as own:
+        worker = postgres_documents_service(own, objects, Counted())
+        outcome = asyncio.run(run_attempt(worker, connection_id, attempt_id))
 
     assert Counted.calls == 0
-    assert outcome["outcome"] == "document_reading_not_allowed"
+    assert outcome == "document_reading_not_allowed"
     draft = api.get(user_id=owner, connection_id=connection_id, scope=scope)
     assert (draft.status, draft.consent) == ("saved", False)
 

@@ -32,6 +32,7 @@ type Props = {
   businessId?: string;
   businessName?: string;
   preview?: boolean;
+  emailAvailable?: boolean;
   onAction?: (target: NotificationTarget) => void;
   onInvitationAccepted?: (grantId:string)=>void;
 };
@@ -77,7 +78,7 @@ function NotificationFilter({ value, onChange }: { value: Filter; onChange: (val
   </div>;
 }
 
-export default function BusinessNotifications({ businessId, businessName, preview = false, onAction, onInvitationAccepted }: Props) {
+export default function BusinessNotifications({ businessId, businessName, preview = false, emailAvailable = false, onAction, onInvitationAccepted }: Props) {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
   const [open, setOpen] = useState(false);
@@ -93,12 +94,13 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const [pendingSenders,setPendingSenders]=useState(0);
   const invitationLive=useRef(true);
   useEffect(()=>{
-    if(preview){setPendingSenders(0);return undefined;}
+    setPendingSenders(0);
+    if(preview || !emailAvailable)return undefined;
     let current=true;
     const controller=new AbortController();
     listEmailSenders(controller.signal).then((items)=>{if(current)setPendingSenders(pendingSenderCount(items));},()=>{if(current)setPendingSenders(0);});
     return()=>{current=false;controller.abort();};
-  },[preview,businessId,invitationAttempt]);
+  },[preview,emailAvailable,businessId,invitationAttempt]);
   useEffect(()=>{
     invitationLive.current=true;
     if(!preview){setInvitationError(false);getBusinessInvitations().then(value=>{if(invitationLive.current)setInvitations(value);},()=>{if(invitationLive.current)setInvitationError(true);});}
@@ -126,9 +128,9 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const unreadId = useId();
   const title = t("business.notifications.title");
   const keyFor = (notice: Notice) => JSON.stringify([businessId, notice.id]);
-  const samples = preview && businessId && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? SAMPLE_NOTICES.filter((notice) => !dismissed[keyFor(notice)]) : [];
+  const samples = preview && businessId && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? SAMPLE_NOTICES.filter((notice) => (emailAvailable || notice.target !== "correo") && !dismissed[keyFor(notice)]) : [];
   const senderNotice: Notice = { id: "sender", target: "correo", unread: true };
-  const liveSender = !preview && pendingSenders > 0 && !dismissed[keyFor(senderNotice)] ? [senderNotice] : [];
+  const liveSender = emailAvailable && !preview && pendingSenders > 0 && !dismissed[keyFor(senderNotice)] ? [senderNotice] : [];
   const notices = [...liveSender, ...samples];
   const isUnread = (notice: Notice) => notice.unread && !read[keyFor(notice)];
   const unread = notices.filter(isUnread);

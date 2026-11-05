@@ -1445,6 +1445,10 @@
       "password_required": "Enter your password.",
       "password_short": "Use at least {{min}} characters."
     },
+    "invite_only": {
+      "body": "Cuadrao is in early access, by invitation only.",
+      "request_access": "Request access"
+    },
     "login": {
       "brand": "cuadrao",
       "subtitle": "Sign in to continue",
@@ -4044,6 +4048,7 @@
         "empty_attention_help": "When a receipt needs something from you, it shows here.",
         "empty_listos": "No receipts are ready",
         "empty_listos_help": "When a receipt has everything confirmed, it shows here to approve.",
+        "empty_start_upload_help": "Add a file.",
         "listos": "Ready",
         "open": "Open",
         "reason": {

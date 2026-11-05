@@ -21,7 +21,6 @@ from argus.api.email_intake import _read_receipt, configure_email_intake
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
 from argus.domain.business.receipt_consent import SCOPE_VERSION
-from argus.domain.ingestion.documents.jobs import PreparationJobs
 from argus.domain.ingestion.email_intake.provider import ReceivedEmail
 from argus.domain.ingestion.email_intake.service import (
     EmailCapture,
@@ -36,6 +35,7 @@ from tests.business.receipt_stub import PURCHASE, ReceiptStub
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import SECRET, WEBHOOK, signed
 from tests.business_reading_support import ROUTE
+from tests.document_reads_support import leave_reads_waiting, read_receipt
 from tests.local_supabase_support import local_supabase_gateway
 from tests.test_business_scope_switch_routes_postgres import API, ENV, _person
 
@@ -210,7 +210,8 @@ def _email(attachment: bytes) -> bytes:
 
 def _email_runtime(web, monkeypatch: pytest.MonkeyPatch, raw: bytes):  # noqa: ANN001, ANN202
     monkeypatch.setenv("ARGUS_RESEND_WEBHOOK_SECRET", SECRET)
-    monkeypatch.setattr("argus.api.routers.email_intake.webhook_enabled", lambda: True)
+    monkeypatch.setattr("argus.api.email_intake.webhook_enabled", lambda: True)
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
     pool = app.state.financial_accounts_pool
     with Connection.connect(shared.DSN) as db:
         [grant] = db.execute(
@@ -358,26 +359,23 @@ def test_a_worker_read_lands_exactly_like_an_api_read(
     web,
     monkeypatch: pytest.MonkeyPatch,  # noqa: ANN001
 ) -> None:
-    """The Render Workflow worker reads a Business receipt through the same
-    canonical bridge as the API: one provider call each, the same saved state.
-    Its own purchase keeps the second receipt from being the first's duplicate."""
+    """The worker command reads a Business receipt through the same canonical
+    bridge as the API: one provider call each, the same saved state. Its own
+    purchase keeps the second receipt from being the first's duplicate."""
 
-    from workflows.document_job import run_document_preparation
+    from psycopg_pool import ConnectionPool
+
+    from workflows.document_job import postgres_documents_service
 
     assert _reading(web, True).status_code == 200
     by_api = _upload(web, RECEIPT + b"\x14")
     assert by_api.status_code == 200, by_api.text
     api_id = by_api.json()["id"]
 
-    attempts: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        "argus.api.documents.document_jobs",
-        lambda: PreparationJobs(web.documents, lambda *attempt: attempts.append(attempt)),
-    )
+    leave_reads_waiting(monkeypatch)
     by_worker = _upload(web, RECEIPT + b"\x15")
     assert by_worker.status_code == 200, by_worker.text
     worker_id = by_worker.json()["id"]
-    [(connection_id, attempt_id)] = attempts
     worker = ReceiptStub(
         {
             **PURCHASE,
@@ -396,22 +394,12 @@ def test_a_worker_read_lands_exactly_like_an_api_read(
             "total": "1200.00",
         },
     )
-    outcome = asyncio.run(
-        run_document_preparation(
-            connection_id,
-            attempt_id,
-            env={"ARGUS_WORKFLOW_DATABASE_URL": shared.DSN},
-            objects=web.documents.store.objects,
-            extractor=worker,
-        )
-    )
+    with ConnectionPool(shared.DSN, min_size=0, max_size=2) as own:
+        graph = postgres_documents_service(own, web.documents.store.objects, worker)
+        outcome = asyncio.run(read_receipt(graph, web.alice.id, worker_id))
 
     assert (web.stub.calls, worker.calls) == ([api_id], [worker_id])
-    assert outcome == {
-        "connection_id": worker_id,
-        "attempt_id": attempt_id,
-        "outcome": "prepared",
-    }
+    assert outcome == "prepared"
     assert _landed(web, api_id) == _landed_as(
         "FERRETERIA LA ESQUINA SRL", "2026-10-06", "3450"
     )

@@ -15,16 +15,17 @@ from typing import Any
 
 import pytest
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+from argus.domain.ingestion.documents import worker as document_worker
 from argus.domain.ingestion.documents.config import DocumentJobSettings
 from argus.domain.ingestion.documents.jobs import (
     DISPATCH_WINDOW,
-    OUTCOME_UNKNOWN,
     PreparationJobs,
     run_attempt,
 )
 from argus.domain.ingestion.documents.models import ExtractionBatch
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
+from argus.domain.ingestion.documents.worker import DocumentWorker
 from argus.domain.owner_scope import PERSONAL
 from psycopg_pool import ConnectionPool
 
@@ -32,9 +33,7 @@ from tests import test_document_jobs_postgres as support
 from tests import test_financial_accounts_postgres as shared
 from tests.document_extractor_support import start_request
 from tests.document_sources_support import source_objects
-from workflows import document_worker
 from workflows.document_job import postgres_documents_service
-from workflows.document_worker import DocumentWorker
 
 users = shared.users
 pytestmark = pytest.mark.skipif(
@@ -91,11 +90,11 @@ def puller(service: DocumentsService, *mine: str) -> PreparationJobs:
     service.store.pending = lambda *, limit: [  # type: ignore[method-assign]
         (service.store.owner(connection_id=connection), connection) for connection in mine
     ]
-    return PreparationJobs(service, None)
+    return PreparationJobs(service)
 
 
 async def waiting(service: DocumentsService, owner: str, count: int) -> list[str]:
-    jobs = PreparationJobs(service, None)
+    jobs = PreparationJobs(service)
     connections = []
     for _ in range(count):
         connection = await support.capture(service, owner)
@@ -160,7 +159,7 @@ async def test_two_workers_share_one_cap_and_read_each_receipt_once(
     first = support.instance(pool, clock, gauge)
     second = support.instance(other_pool, clock, gauge)
     connections = await waiting(first.service, owner, 9)
-    settings = DocumentJobSettings(enabled=True, pull=True, max_reads=3)
+    settings = DocumentJobSettings(max_reads=3)
     stop = asyncio.Event()
     workers = [
         asyncio.create_task(DocumentWorker(api.service, settings).run(stop))
@@ -257,7 +256,7 @@ async def test_a_kill_before_the_marker_reads_once_and_records_once(
 
 
 @pytest.mark.asyncio
-async def test_a_kill_after_the_marker_waits_for_the_owner_and_records_once(
+async def test_a_kill_after_the_marker_is_read_once_more_and_records_once(
     pool: ConnectionPool, users: dict[str, str]
 ) -> None:
     clock, extractor, owner = Clock(), support.Extractor(hang=True), users["owner"]
@@ -272,13 +271,10 @@ async def test_a_kill_after_the_marker_waits_for_the_owner_and_records_once(
         await asyncio.sleep(0.01)
 
     clock.now += DISPATCH_WINDOW + timedelta(seconds=1)
-    assert jobs.sweep().outcome_unknown == [connection]
+    assert jobs.sweep().rerun == [connection]
     draft = service.get(user_id=owner, connection_id=connection, scope=PERSONAL)
-    assert draft.error_code == OUTCOME_UNKNOWN
-    assert service.store.pull(now=clock(), cap=3) is None
+    assert (draft.status, draft.error_code) == ("queued", None)
 
-    service.queue(user_id=owner, connection_id=connection, consent=True, scope=PERSONAL)
-    jobs.start(user_id=owner, connection_id=connection)
     assert await run_attempt(service, *service.store.pull(now=clock(), cap=3)) == (
         "prepared"
     )
@@ -287,13 +283,12 @@ async def test_a_kill_after_the_marker_waits_for_the_owner_and_records_once(
 
     assert extractor.calls == 2
     assert observations(pool, owner, connection) == 1
+    assert jobs.sweep().rerun == []
 
 
 def test_the_worker_command_starts_and_stops_on_sigterm() -> None:
     env = {
         **os.environ,
-        "CUADRAO_DOCUMENT_JOBS_ENABLED": "true",
-        "CUADRAO_DOCUMENT_JOBS_PULL_ENABLED": "true",
         "CUADRAO_DOCUMENT_EXTRACTION_ENABLED": "false",
         "ARGUS_WORKFLOW_DATABASE_URL": shared.DSN,
         "SUPABASE_URL": os.environ.get("ARGUS_LOCAL_SUPABASE_URL", "http://127.0.0.1:9"),

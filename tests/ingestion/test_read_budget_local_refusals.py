@@ -243,7 +243,7 @@ async def test_final_local_admission_refusal_never_spends_budget(
         user_id=owner, content=content, filename="receipt", media_type=media_type,
         consent=True, scope=scope,
     )
-    jobs = PreparationJobs(service, None)
+    jobs = PreparationJobs(service)
     jobs.start(user_id=owner, connection_id=saved.connection_id)
     attempt = service.store.job(user_id=owner, connection_id=saved.connection_id)
     if failure == "reading":

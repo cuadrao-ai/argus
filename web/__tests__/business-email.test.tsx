@@ -6,9 +6,13 @@ import { I18nextProvider } from "react-i18next";
 
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
+import { BusinessContext } from "@/components/business-app/business-context";
+import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import { EmailDeliveryDetail, EmailDeliveryRow, EmailReceivingAddress, useEmailWords } from "../components/business-app/BusinessEmailDeliveries";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { businessReceivingAddress, emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "../lib/business-email";
+
+const enabledChannels = { receivingChannels: { email: { available: true }, whatsapp: { available: true } } } as BusinessContextValue;
 
 const delivery = (overrides: Partial<BusinessEmailDelivery> = {}): BusinessEmailDelivery => ({
   id: "email-1", state: "captured", received_at: "2026-10-12T14:00:00Z", updated_at: "2026-10-12T14:01:00Z",
@@ -31,13 +35,13 @@ describe("received emails in the Inbox", () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
     const row = renderToStaticMarkup(
-      <I18nextProvider i18n={i18n}><ul><EmailDeliveryRow delivery={delivery()} onOpen={() => undefined} /></ul></I18nextProvider>,
+      <I18nextProvider i18n={i18n}><BusinessContext.Provider value={enabledChannels}><ul><EmailDeliveryRow delivery={delivery()} onOpen={() => undefined} /></ul></BusinessContext.Provider></I18nextProvider>,
     );
     assert.ok(row.includes("Factura 0041") && row.includes("ventas@proveedor.example"));
     assert.ok(row.includes("1 adjunto") && row.includes(">Guardado<"));
     assert.ok(!row.includes("IMG_2214.jpg"));
     const open = renderToStaticMarkup(
-      <I18nextProvider i18n={i18n}><EmailDeliveryDetail delivery={delivery()} loadDetail={async () => ({ ...delivery(), text_body: "hola" })} openReceipt={() => undefined} retryDelivery={async () => ({ id: "email-1" })} /></I18nextProvider>,
+      <I18nextProvider i18n={i18n}><BusinessContext.Provider value={enabledChannels}><EmailDeliveryDetail delivery={delivery()} loadDetail={async () => ({ ...delivery(), text_body: "hola" })} openReceipt={() => undefined} retryDelivery={async () => ({ id: "email-1" })} /></BusinessContext.Provider></I18nextProvider>,
     );
     assert.ok(open.includes("IMG_2214.jpg") && open.includes("Abrir recibo") && open.includes("Abrir el correo original"));
   });
@@ -46,7 +50,7 @@ describe("received emails in the Inbox", () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } } });
     const detail = (over: Partial<BusinessEmailDelivery>) => renderToStaticMarkup(
-      <I18nextProvider i18n={i18n}><EmailDeliveryDetail delivery={delivery(over)} loadDetail={async () => ({ ...delivery(over), text_body: null })} openReceipt={() => undefined} retryDelivery={async () => ({ id: "email-1" })} /></I18nextProvider>,
+      <I18nextProvider i18n={i18n}><BusinessContext.Provider value={enabledChannels}><EmailDeliveryDetail delivery={delivery(over)} loadDetail={async () => ({ ...delivery(over), text_body: null })} openReceipt={() => undefined} retryDelivery={async () => ({ id: "email-1" })} /></BusinessContext.Provider></I18nextProvider>,
     );
     // One captured part on the wire, three saved by the server's count: the count wins.
     assert.ok(detail({ saved_receipt_count: 3, original_document_id: null }).includes("3 recibos llegaron a la Bandeja."));
@@ -54,7 +58,7 @@ describe("received emails in the Inbox", () => {
     function Reason({ item }: { item: BusinessEmailDelivery }) { return <p>{useEmailWords().noReceipt(item)}</p>; }
     const reason = (over: Partial<BusinessEmailDelivery>, lng = "es-419") => {
       void i18n.changeLanguage(lng);
-      return renderToStaticMarkup(<I18nextProvider i18n={i18n}><Reason item={delivery({ standing: "no_receipt", state: "rejected", ...over })} /></I18nextProvider>);
+      return renderToStaticMarkup(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={enabledChannels}><Reason item={delivery({ standing: "no_receipt", state: "rejected", ...over })} /></BusinessContext.Provider></I18nextProvider>);
     };
     // The parts and error code point elsewhere; the server's reason is the one said.
     const refused = { error_code: "email_parts_rejected", parts: [{ id: "1.2", filename: "a.zip", media_type: "application/zip", state: "rejected" as const, document_id: null, error_code: "unsupported_media_type" }] };
@@ -78,7 +82,7 @@ describe("received emails in the Inbox", () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
     const render = (intake: { enabled: boolean; receiving_address: string | null }) => renderToStaticMarkup(
-      <I18nextProvider i18n={i18n}><EmailReceivingAddress intake={intake} onActivate={async () => undefined} /></I18nextProvider>,
+      <I18nextProvider i18n={i18n}><BusinessContext.Provider value={enabledChannels}><EmailReceivingAddress intake={intake} onActivate={async () => undefined} /></BusinessContext.Provider></I18nextProvider>,
     );
     assert.ok(render({ enabled: false, receiving_address: null }).includes("Obtener una dirección"));
     // The address may break after the @; the reader still sees one address.
@@ -112,10 +116,10 @@ for (const [locale, resources, label, resume] of [
     const waiting = delivery({ state: "received", retryable: true, error_code: "email_daily_message_budget", parts: [], original_document_id: null,
       waiting: { reason: "daily_budget", retry_at: "2026-10-15T00:00:00Z" } });
     const render = (item: BusinessEmailDelivery) => renderToStaticMarkup(
-      <I18nextProvider i18n={i18n}>
+      <I18nextProvider i18n={i18n}><BusinessContext.Provider value={enabledChannels}>
         <ul><EmailDeliveryRow delivery={item} onOpen={() => undefined} /></ul>
         <EmailDeliveryDetail delivery={item} loadDetail={async () => ({ ...item, text_body: null })} openReceipt={() => undefined} retryDelivery={async () => ({ id: item.id })} />
-      </I18nextProvider>,
+      </BusinessContext.Provider></I18nextProvider>,
     );
     for (const code of ["email_daily_message_budget", "email_daily_byte_budget"]) {
       const item = { ...waiting, error_code: code };

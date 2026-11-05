@@ -39,6 +39,7 @@ export function useBusinessSearch({
   openExport,
   listScope = null,
   adaptive = false,
+  emailAvailable = false,
 }: {
   source: BusinessDataSource;
   accounts: readonly BusinessAccount[];
@@ -54,11 +55,12 @@ export function useBusinessSearch({
   /** The list on screen that lends its query (Bandeja, Registros, a Facturación section): the search starts scoped to it. */
   listScope?: { list: SearchableList; apply?: (query: string) => void } | null;
   adaptive?: boolean;
+  emailAvailable?: boolean;
 }): WorkspaceSearch {
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
   const categoryLabel = useCategoryLabel();
-  const forwardAddress = useSourceForwardAddress(owner ? source : null);
+  const forwardAddress = useSourceForwardAddress(owner && emailAvailable ? source : null);
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
 
   const recentsServer = useMemo<WorkspaceRecentSearchesServer | undefined>(() => {
@@ -90,7 +92,7 @@ export function useBusinessSearch({
           go("transactions", ReceiptText, t("business.nav.transactions", "Transactions"), { kind: "transactions" }),
           go("business", Building2, t("business.nav.business", "Business"), { kind: "business" }, t("business.search.keywords_business", "settings details tax")),
           go("team", Users, t("business.search.go_team", "Team and access"), { kind: "business", tab: "equipo" }, t("business.search.keywords_team", "accountant people")),
-          go("correo", Mail, t("business.settings.tab_correo", "Receipt email"), { kind: "business", tab: "correo" }, t("business.search.keywords_correo", "emails history forwarding")),
+          ...(emailAvailable ? [go("correo", Mail, t("business.settings.tab_correo", "Receipt email"), { kind: "business", tab: "correo" }, t("business.search.keywords_correo", "emails history forwarding"))] : []),
         ],
       },
       {
@@ -106,6 +108,7 @@ export function useBusinessSearch({
     const scoped = listScope ? { ...SEARCHABLE_LISTS[listScope.list], apply: listScope.apply } : null;
     const place = scoped ? t(scoped.place) : "";
     return {
+      identity: JSON.stringify([scope, emailAvailable]),
       previewAvailable: true,
       adaptive,
       scope: scoped ? {
@@ -159,8 +162,8 @@ export function useBusinessSearch({
             open: () => openPanel({ kind: "draft", draftId: note.draft_id, list: "inbox" }),
           })) : [],
         };
-        return [kinds.expenses, kinds.ventas, kinds.receipts, notes, kinds.accounts, kinds.email_deliveries, kinds.email_senders];
+        return [kinds.expenses, kinds.ventas, kinds.receipts, notes, kinds.accounts, kinds.email_deliveries, ...(emailAvailable ? [kinds.email_senders] : [])];
       },
     };
-  }, [accounts, actions.create, adaptive, canExport, categoryLabel, forwardAddress, listScope, locale, openPanel, owner, recentsServer, scope, source, stateWord, t]);
+  }, [emailAvailable, accounts, actions.create, adaptive, canExport, categoryLabel, forwardAddress, listScope, locale, openExport, openPanel, owner, recentsServer, scope, source, stateWord, t]);
 }

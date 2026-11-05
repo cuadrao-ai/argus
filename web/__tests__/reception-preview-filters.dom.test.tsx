@@ -5,12 +5,14 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz" }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-test("Bandeja filter parents share mixed/all/none behavior and restrict bulk selection to search results", async () => {
+test("Bandeja filters preserve historical channels while intake is off and restrict bulk selection to search results", async () => {
   const { act, useState } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
   const i18n = (await import("i18next")).default.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } } });
+  const { BusinessContext } = await import("@/components/business-app/business-context");
+  const available = { receivingChannels: { email: { available: false }, whatsapp: { available: false } } } as unknown as import("@/components/business-app/BusinessWorkspace").BusinessContextValue;
   const Filters = (await import("@/components/business-app/recepcion/ReceptionFilters")).default;
   const { emptyReceptionFilters } = await import("@/components/business-app/recepcion/reception-filters");
   function Harness() { const [value, setValue] = useState(emptyReceptionFilters); return <><Filters value={value} onChange={setValue} senders={[{ id: "a", name: "Ana", address: "ana@example.test" }, { id: "b", name: "Bea", address: "bea@example.test" }]} /><output>{JSON.stringify(value)}</output></>; }
@@ -19,7 +21,7 @@ test("Bandeja filter parents share mixed/all/none behavior and restrict bulk sel
   const checkbox = (text: string) => { const label = [...document.querySelectorAll("label")].find(node => node.textContent === text); assert.ok(label); return label.querySelector<HTMLInputElement>("input")!; };
   const click = (node: HTMLElement) => act(async () => { assert.ok(node); node.click(); });
   try {
-    await act(async () => { root.render(<I18nextProvider i18n={i18n}><Harness /></I18nextProvider>); });
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={available}><Harness /></BusinessContext.Provider></I18nextProvider>); });
     await click(button("Filtros"));
     const parent = () => checkbox("Seleccionar todo");
     assert.ok(parent()); await click(checkbox("WhatsApp"));

@@ -37,7 +37,7 @@ async function mount(list: SearchableList | null, search: () => Promise<Business
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   function Harness() {
-    const workspaceSearch = useBusinessSearch({
+    const workspaceSearch = useBusinessSearch({ emailAvailable: true,
       source, accounts: [], openPanel: () => undefined, actions, owner: true, scope: "own", canExport: true, openExport: () => undefined,
       listScope: list ? { list, apply: (query) => applied.push(query) } : null,
     });

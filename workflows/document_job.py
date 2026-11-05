@@ -1,9 +1,7 @@
-"""Render Workflow worker for one document preparation attempt (#823).
+"""The document graph a standalone puller reads with, outside the API.
 
-The task input is ``[connection_id, attempt_id]``; the owner comes from the
-stored row, never from the input. The worker runs the same ``run_attempt`` as
-the API's in-process fallback and never dispatches: retries and dead-worker
-recovery belong to the API's reconciler sweep.
+``python -m workflows.document_worker`` builds it over its own pool and source
+bucket, so its reads and saves are the API's own.
 """
 
 from __future__ import annotations
@@ -17,7 +15,6 @@ from argus.domain.business.read_budget import PostgresReadBudget
 from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.extractor import DocumentExtractor
-from argus.domain.ingestion.documents.jobs import run_attempt
 from argus.domain.ingestion.documents.objects import (
     SourceObjects,
     SupabaseSourceObjects,
@@ -76,40 +73,9 @@ def postgres_documents_service(
         hub,
         PostgresDocumentStore(pool, objects),
         extractor or DocumentExtractor(),
-        jobs_recover_interruptions=True,
         business_actions=BusinessActions(pool, sink),
         business_preparation_required=True,
         read_budget=PostgresReadBudget(pool),
     )
     service.business_receipt_consent = BusinessReceiptConsentStore(pool)
     return service
-
-
-async def run_document_preparation(
-    connection_id: str,
-    attempt_id: str,
-    *,
-    env: Mapping[str, str] | None = None,
-    objects: SourceObjects | None = None,
-    extractor: Extractor | None = None,
-) -> dict[str, str]:
-    # Imported per run, as main.py's siblings are, so importing main.py never
-    # depends on proof.py's names.
-    try:
-        from workflows.proof import require_database_url
-    except ModuleNotFoundError:  # pragma: no cover - `python workflows/main.py`
-        from proof import require_database_url
-
-    objects = objects if objects is not None else storage_source_objects(env)
-    with ConnectionPool(
-        require_database_url(env),
-        min_size=0,
-        max_size=2,
-        kwargs={"prepare_threshold": None},
-    ) as pool:
-        outcome = await run_attempt(
-            postgres_documents_service(pool, objects, extractor),
-            connection_id,
-            attempt_id,
-        )
-    return {"connection_id": connection_id, "attempt_id": attempt_id, "outcome": outcome}

@@ -11,6 +11,7 @@ import { ArrowDown, ArrowUp, ChevronRight, CircleAlert, FilePenLine, FileSearch,
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { readStored, writeStored } from "@/lib/browser-storage";
 import type { ReceiptSummary } from "@/lib/business-api";
+import { useReceivingChannels } from "../business-context";
 import { invoicingShown, useBusiness, type BusinessPanelState } from "../BusinessWorkspace";
 import { formatRelativeTime } from "../business-format";
 import { bandejaAttentionCount } from "../inbox-count";
@@ -348,7 +349,8 @@ function StepRow({ step, c, onOpen }: { step: SetupStep; c: Copy; onOpen: (step:
 function GuidedSetup({ c, stage }: { c: Copy; stage: "active" | "new" }) {
   const { openPanel, chosen, source, invoicing } = useBusiness();
   const [open, setOpen] = useState(false);
-  const steps = SETUP_STATE[stage].filter((s) => s.key !== "invoicing" || invoicingShown(invoicing));
+  const channels = useReceivingChannels();
+  const steps = SETUP_STATE[stage].filter((s) => (s.key !== "invoicing" || invoicingShown(invoicing)) && (s.key !== "receiving_address" || channels.email.available) && (s.key !== "whatsapp" || channels.whatsapp.available));
   const required = steps.filter((s) => s.required);
   const done = required.filter((s) => s.done).length;
   // Every step is a configuration action (details, reception, access, invoicing), so setup shows only to people

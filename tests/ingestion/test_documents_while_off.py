@@ -12,10 +12,11 @@ from unittest.mock import patch
 
 import pytest
 from argus.api import state as api_state
-from argus.api.document_jobs import document_jobs, sweep_forever
+from argus.api.document_jobs import document_worker
 from argus.api.documents import documents_service
 from argus.api.ingestion import ingestion_hub
 from argus.api.main import app
+from argus.domain.ingestion.documents.jobs import sweep_forever
 from argus.domain.ingestion.documents.objects import owner_prefix
 from argus.domain.owner_scope import PERSONAL
 from fastapi.testclient import TestClient
@@ -141,14 +142,13 @@ def test_ingestion_off_at_start_serves_reading_and_removal_only(
 ):
     monkeypatch.setenv("ARGUS_INGESTION_ENABLED", "false")
     monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_DOCUMENT_JOBS_ENABLED", "true")
     with (
         patch.object(api_state, "supabase_gateway", gateway),
         patch("argus.api.dependencies.auth_session_is_active", return_value=True),
         TestClient(app) as client,
     ):
         assert ingestion_hub() is None
-        assert document_jobs() is None
+        assert document_worker() is None
         assert documents_service() is not None
         listed = client.get(DOCUMENTS, headers=bearer(ALICE))
         assert (listed.status_code, listed.json()["items"]) == (200, [])

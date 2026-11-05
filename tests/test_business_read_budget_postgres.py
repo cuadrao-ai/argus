@@ -22,6 +22,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as shared
 from tests import test_financial_accounts_postgres as accounts
+from tests.document_reads_support import read_receipt
 from tests.test_business_email_intake_postgres import deliver, receipts  # noqa: F401
 
 actions = shared.actions
@@ -170,6 +171,8 @@ def test_an_emailed_receipt_spends_the_same_budget(receipts):  # noqa: ANN001, F
     async def read() -> None:
         await dispatch_preparation(documents, owner, attachment, tasks, scope=scope)
         await tasks()
+        # The dispatch only records the attempt; a puller takes it.
+        await read_receipt(documents, owner, attachment)
 
     asyncio.run(read())
     draft = documents.get(user_id=owner, connection_id=attachment, scope=scope)

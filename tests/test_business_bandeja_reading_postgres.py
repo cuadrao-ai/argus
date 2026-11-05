@@ -3,9 +3,8 @@ in neither Bandeja tab and no tab count, and a failed read needs attention."""
 
 from __future__ import annotations
 
-from argus.domain.ingestion.documents.jobs import PreparationJobs
-
 from tests.business.test_business_api import RECEIPT
+from tests.document_reads_support import leave_reads_waiting
 from tests.test_business_listos_postgres import (  # noqa: F401
     _counts,
     _get,
@@ -24,10 +23,7 @@ def test_a_receipt_still_reading_is_in_no_tab_and_a_failed_read_stays(
 ) -> None:
     rig.stub.failure = "encrypted_document"
     failed = _upload(rig, RECEIPT + b"\xa5").json()["id"]
-    monkeypatch.setattr(
-        "argus.api.documents.document_jobs",
-        lambda: PreparationJobs(rig.documents, lambda *attempt: None),
-    )
+    leave_reads_waiting(monkeypatch)
     reading = _upload(rig, RECEIPT + b"\xa6").json()["id"]
 
     assert _group(rig, reading) == ("reading", "reading")

@@ -17,7 +17,6 @@ import pytest
 from argus.api.documents import documents_service
 from argus.domain.business.actions import approval
 from argus.domain.business.contracts.checks import EcfCheck, EcfVerification
-from argus.domain.ingestion.documents.jobs import PreparationJobs
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from psycopg import Connection
 from psycopg.types.json import Jsonb
@@ -28,6 +27,7 @@ from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
 from tests.business_reading_support import ROUTE
+from tests.document_reads_support import leave_reads_waiting
 from tests.test_business_approve_unpaid_postgres import _declaration
 from tests.test_business_fiscal_routes_postgres import _known
 from tests.test_business_reading_setting_postgres import (
@@ -310,11 +310,7 @@ def test_a_receipt_not_yet_read_has_no_draft_to_approve(rig, monkeypatch) -> Non
     assert _row(rig, unread)["bandeja_group"]["draft_id"] is None
     assert _reading(rig, True).status_code == 200
 
-    attempts: list = []
-    monkeypatch.setattr(
-        "argus.api.documents.document_jobs",
-        lambda: PreparationJobs(rig.documents, lambda *attempt: attempts.append(attempt)),
-    )
+    leave_reads_waiting(monkeypatch)
     reading = _upload(rig, RECEIPT + b"\xa2").json()["id"]
     assert _group(rig, reading) == ("reading", "reading")
     assert _counts(rig)[0] == 0

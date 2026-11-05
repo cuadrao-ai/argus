@@ -170,7 +170,7 @@ async def test_a_refused_pull_attempt_is_not_pulled_or_swept_again(rig):
     service, extractor, _ = rig
     budget(service, per_day=1)
     scope, owner = business(service)
-    jobs = PreparationJobs(service, None)
+    jobs = PreparationJobs(service)
     read_first, refused = [await queued(service, owner, scope) for _ in range(2)]
     for receipt in (read_first, refused):
         jobs.start(user_id=owner, connection_id=receipt)

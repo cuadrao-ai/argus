@@ -46,7 +46,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   let reloads = 0;
   let exports = 0;
   const opened: BusinessPanelState[] = [];
-  let context: BusinessContextValue = {
+  let context: BusinessContextValue = { receivingChannels: { email: { available: true }, whatsapp: { available: true } },
     userId: "count-person", source: { ...source, receiptPage: async () => ({ items: receipts, activity: globalActivity }), ...(markRead ? { markReceiptRead: markRead } : {}), ...(approveListos ? { approveListos } : {}) },
     records: { workspace: await source.workspace(), overview: null, inbox: receipts, notes, notesTruncated: false, emails, error: false, receiptActivity: globalActivity },
     spaces: [chosen], chosen, chooseBusiness: () => {}, markAccessSeen: async () => {}, lostAccess: false, clearLostAccess: () => {}, revision: 0, reload: () => { reloads++; }, refresh: async () => "updated",

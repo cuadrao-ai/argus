@@ -43,17 +43,6 @@ export const businessOnlyWebEnabled = businessOnlyWebFromEnv(
   process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB,
 );
 
-// Business Preferencias WhatsApp number. Default off. The row stays hidden
-// until intake is connected. Personal preferences do not read this flag.
-export function businessWhatsappPreferencesEnabledFromEnv(
-  value: string | undefined = process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED,
-): boolean {
-  return value === "true";
-}
-
-export const businessWhatsappPreferencesEnabled =
-  businessWhatsappPreferencesEnabledFromEnv();
-
 // Statement match cards. Default off, and nested under the Business pilot.
 // CUADRAO wins when both names are set.
 export const businessBankMatchingEnabled = (() => {
