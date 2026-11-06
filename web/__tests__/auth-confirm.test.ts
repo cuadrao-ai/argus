@@ -274,7 +274,7 @@ test("signup and magic link are code only and name the recipient", async () => {
 
 test("dashboard paste wires confirm links and code-only templates", async () => {
   const records = await buildDashboardAuthPaste();
-  expect(records.map((record) => record.file)).toEqual(["confirmation", "magic_link", "recovery", "invite", "email_change"]);
+  expect(records.map((record) => record.file)).toEqual(["confirmation", "magic_link", "recovery", "invite", "email_change", "reauthentication", "password_changed_notification", "email_changed_notification"]);
   const byFile = Object.fromEntries(records.map((record) => [record.file, record]));
   expect(byFile.confirmation.subjectField).toBe("mailer_subjects_confirmation");
   expect(byFile.confirmation.bodyField).toBe("mailer_templates_confirmation_content");

@@ -74,6 +74,7 @@ describe("shared account email layout", () => {
   });
   test("the deployed web copy derives exactly from the canonical marketing renderer", () => {
     const canonical = readFileSync(new URL("../../marketing/lib/email/account-layout.ts", import.meta.url),"utf8")
+      .replace('"./email-otp-contract.generated"', '"../../lib/email-otp-contract"')
       .replace('import accountCopy from "./account-copy.generated.json";', `import spanish from "../../public/locales/es-419/common.json";
 import english from "../../public/locales/en/common.json";
 const accountCopy = { "es-419": spanish.account_email, en: english.account_email };`);

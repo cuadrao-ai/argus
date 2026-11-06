@@ -1,7 +1,7 @@
-import { renderAccountEmail } from "./account-layout.generated";
+import { renderAccountEmail, type EmailLayoutOptions } from "./account-layout.generated";
 import { emailExpiry } from "./expiry";
 
-export async function renderResetPasswordEmail(recoveryUrl: string, expirySeconds: number) {
+export async function renderResetPasswordEmail(recoveryUrl: string, expirySeconds: number, options: EmailLayoutOptions = {}) {
   const expires = emailExpiry(expirySeconds);
   return { subject: "Cambio de contraseña en Cuadrao", ...renderAccountEmail({
     title: "Cambio de contraseña en Cuadrao",
@@ -11,5 +11,5 @@ export async function renderResetPasswordEmail(recoveryUrl: string, expirySecond
     action: { label: "Cambiar mi contraseña", url: recoveryUrl },
     expiryNote: `El enlace vence en ${expires} y solo se puede usar una vez.`,
     afterAction: "Si no fuiste tú, ignora este correo. Tu contraseña sigue igual.",
-  }) };
+  }, options) };
 }

@@ -1,13 +1,14 @@
-import { renderAccountEmail } from "./account-layout.generated";
+import { renderAccountEmail, type EmailLayoutOptions } from "./account-layout.generated";
 import { z } from "zod";
+import { EMAIL_OTP_LENGTH, isEmailOtp } from "../../lib/email-otp-contract";
 import { renderResetPasswordEmail } from "./reset-password";
 import { emailExpiry } from "./expiry";
 import { DISABLED_SECURITY_NOTICES, renderSecurityMail, type SecurityMail } from "./security-notices";
-import { authConfirmHref, confirmLinkNext } from "../../lib/auth-confirm";
+import { AUTH_TEMPLATE_ORIGIN, AUTH_TEMPLATE_OTP, authConfirmHref, confirmLinkNext } from "../../lib/auth-confirm";
 
 const address = z.email().max(254);
 const tokenHash = z.string().regex(/^(?:pkce_)?[a-f0-9]{32,128}$/);
-const otp = z.string().regex(/^[0-9]{6,10}$/);
+const otp = z.string().refine(isEmailOtp, "Invalid email code");
 const payloadSchema = z.object({
   user: z.object({ email: address, new_email: address.optional() }),
   email_data: z.object({
@@ -16,8 +17,8 @@ const payloadSchema = z.object({
     redirect_to: z.string().max(2048),
     token_hash: z.string().max(133).optional(),
     token_hash_new: z.string().max(133).optional(),
-    token: z.string().max(10).optional(),
-    token_new: z.string().max(10).optional(),
+    token: z.string().max(EMAIL_OTP_LENGTH).optional(),
+    token_new: z.string().max(EMAIL_OTP_LENGTH).optional(),
     old_email: z.string().max(254).optional(),
   }),
 });
@@ -83,8 +84,9 @@ function confirmUrl(mail: Extract<AuthMail, { action: "recovery" | "email_change
   );
 }
 
-export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySeconds: number, sentAt = new Date()) {
-  if (mail.action === "password_changed_notification" || mail.action === "email_changed_notification") return renderSecurityMail(mail, sentAt);
+export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySeconds: number, sentAt = new Date(), options: EmailLayoutOptions = {}) {
+  if (mail.action === "password_changed_notification" || mail.action === "email_changed_notification") return renderSecurityMail(mail, sentAt, options);
+  if ("token" in mail && !(linkHost === AUTH_TEMPLATE_ORIGIN && mail.token === AUTH_TEMPLATE_OTP)) otp.parse(mail.token);
   const expires = emailExpiry(expirySeconds);
   if (mail.action === "reauthentication") {
     return { subject: `${mail.token} es tu código de verificación de Cuadrao`, ...renderAccountEmail({
@@ -92,7 +94,7 @@ export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySec
       intro: ["Hola,", "Usa este código para confirmar que eres tú:"], paragraphs: [], code: mail.token,
       expiryNote: `El código vence en ${expires} y solo se puede usar una vez.`,
       afterAction: "Si no fuiste tú, no compartas este código y escríbenos.",
-    }) };
+    }, options) };
   }
   if (mail.action === "signup" || mail.action === "magiclink") {
     const signup = mail.action === "signup";
@@ -108,7 +110,7 @@ export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySec
       afterAction: signup
         ? `Lo pediste para ${mail.recipient}. Si no fuiste tú, ignora este correo.`
         : `Lo pediste para ${mail.recipient}. Si no fuiste tú, ignora este correo. Nadie puede entrar sin este código.`,
-    }) };
+    }, options) };
   }
   const url = confirmUrl(mail, linkHost);
   if (mail.action === "invite") {
@@ -120,9 +122,9 @@ export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySec
       action: { label: "Acepta aquí", url },
       expiryNote: `El enlace vence en ${expires} y solo se puede usar una vez.`,
       afterAction: "Si no fuiste tú, ignora este correo.",
-    }) };
+    }, options) };
   }
-  if (mail.action === "recovery") return renderResetPasswordEmail(url, expirySeconds);
+  if (mail.action === "recovery") return renderResetPasswordEmail(url, expirySeconds, options);
   const old = mail.audience === "old_address";
   return { subject: old ? "Cambio de correo en tu cuenta de Cuadrao" : "Confirma tu nuevo correo", ...renderAccountEmail({
     title: old ? "Cambio de correo en tu cuenta" : "Confirma tu nuevo correo",
@@ -134,5 +136,5 @@ export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySec
     action: { label: old ? "Confirmar el cambio" : "Confirmar mi correo", url },
     expiryNote: `El enlace vence en ${expires} y solo se puede usar una vez.`,
     afterAction: old ? "Si no fuiste tú, no confirmes el cambio y escríbenos." : "Si no fuiste tú, ignora este correo.",
-  }) };
+  }, options) };
 }

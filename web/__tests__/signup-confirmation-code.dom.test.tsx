@@ -71,7 +71,7 @@ async function renderSpanishSignup(props: {
 }
 
 describe("signup confirmation code", () => {
-  test.each(["12345678", "1234 5678", "0123 4567"])("Spanish signup accepts code %s and names the address", async (enteredCode) => {
+  test.each(["12345678", "01234567"])("Spanish signup accepts code %s and names the address", async (enteredCode) => {
     const confirmed: Array<{ email: string; code: string }> = [];
     let finished = 0;
     const page = await renderSpanishSignup({
@@ -109,7 +109,7 @@ describe("signup confirmation code", () => {
       confirmForm?.requestSubmit(confirmForm.querySelector("button[type='submit']") as HTMLButtonElement);
     });
 
-    expect(confirmed).toEqual([{ email: "ada@example.com", code: enteredCode.replaceAll(" ", "") }]);
+    expect(confirmed).toEqual([{ email: "ada@example.com", code: enteredCode }]);
     expect(finished).toBe(1);
     expect(code?.readOnly).toBe(true);
     expect(state?.querySelector("[data-otp-status]")?.getAttribute("data-otp-status")).toBe("verified");
@@ -191,6 +191,50 @@ describe("confirmation integration safety", () => {
     const page = await renderSpanishSignup({ onConfirmEmailCode: async () => { requests++; } });
     const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
     await setNativeValue(code, value);
+    await act(async () => { code.closest("form")?.requestSubmit(); });
+    expect(requests).toBe(0);
+    expect(code.getAttribute("aria-invalid")).toBe("true");
+    await act(async () => { page.root.unmount(); });
+  });
+
+  const malformedCodes = [
+    "1234 5678",
+    " 12345678",
+    "12345678 ",
+    "1234\t5678",
+    "１２３４５６７８",
+    "١٢٣٤٥٦٧٨",
+    "1234\u00a05678",
+  ];
+
+  for (const method of ["typed", "pasted"] as const) {
+    const values = method === "pasted" ? [...malformedCodes, "12345678\n"] : malformedCodes;
+    test.each(values)(`${method} malformed code %j never verifies`, async (value) => {
+      let requests = 0;
+      const page = await renderSpanishSignup({ onConfirmEmailCode: async () => { requests += 1; } });
+      const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+      if (method === "typed") {
+        await setNativeValue(code, value);
+      } else {
+        const clipboardData = new DataTransfer();
+        clipboardData.setData("text", value);
+        await act(async () => {
+          code.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData }));
+        });
+      }
+      await act(async () => { code.closest("form")?.requestSubmit(); });
+      expect(requests).toBe(0);
+      expect(code.getAttribute("aria-invalid")).toBe("true");
+      await act(async () => { page.root.unmount(); });
+    });
+  }
+
+  test("a typed newline is stripped by the text input and an incomplete code never verifies", async () => {
+    let requests = 0;
+    const page = await renderSpanishSignup({ onConfirmEmailCode: async () => { requests += 1; } });
+    const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+    await setNativeValue(code, "1234567\n");
+    expect(code.value).toBe("1234567");
     await act(async () => { code.closest("form")?.requestSubmit(); });
     expect(requests).toBe(0);
     expect(code.getAttribute("aria-invalid")).toBe("true");

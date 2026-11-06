@@ -8,6 +8,7 @@ import Image from "next/image";
 import { type FormEvent, type MouseEvent, useEffect, useId, useRef, useState } from "react";
 import { FormField, PasswordField, useFieldChecks } from "@/components/ui/FormField";
 import { fieldLabelClass } from "@/components/ui/form-field";
+import { EMAIL_OTP_LENGTH } from "@/lib/email-otp-contract";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password-strength";
 import { Trans, useTranslation } from "react-i18next";
 import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
@@ -21,8 +22,6 @@ import {
 } from "@/lib/email-otp";
 import { blockingErrorBannerClass } from "@/lib/failure-treatment";
 import { InviteOnlyNotice } from "./InviteOnlyNotice";
-
-const CONFIRMATION_CODE_LENGTH = 8;
 
 export type AuthFormMode = "login" | "signup";
 
@@ -258,8 +257,8 @@ export default function AuthForm({
   };
   const codeErrorMessage = codeErrorKind !== null ? AUTH_ERROR_MESSAGE_BY_CODE[codeErrorKind] ?? GENERIC_AUTH_ERROR : null;
   const codeError = codeErrorKind === "incomplete"
-    ? t("auth.signup.confirmation_code_incomplete", { count: CONFIRMATION_CODE_LENGTH })
-    : codeErrorKind === "malformed" ? t("auth.signup.confirmation_code_malformed", { count: CONFIRMATION_CODE_LENGTH })
+    ? t("auth.signup.confirmation_code_incomplete", { count: EMAIL_OTP_LENGTH })
+    : codeErrorKind === "malformed" ? t("auth.signup.confirmation_code_malformed", { count: EMAIL_OTP_LENGTH })
     : codeErrorKind === "otp_transient" ? t("auth.signup.confirmation_temporary_error")
     : codeErrorKind === "otp_rejected" || codeErrorKind === "otp_expired" ? t("auth.signup.confirmation_code_rejected")
     : codeErrorKind === "too_many_requests" ? t("auth.signup.confirmation_rate_limited")
@@ -349,13 +348,13 @@ export default function AuthForm({
     : t("auth.signup.confirmation_resend_failed") : null;
 
   const updateConfirmationCode = (value: string) => {
-    const digits = value.replace(/\s+/g, "");
-    if (!/^[0-9]*$/.test(digits) || digits.length > CONFIRMATION_CODE_LENGTH) {
+    const digits = value;
+    if (/[^0-9]/.test(digits) || digits.length > EMAIL_OTP_LENGTH) {
       setCodeErrorKind("malformed");
       return;
     }
     setConfirmationCode(digits);
-    setActiveSlot(Math.min(digits.length, CONFIRMATION_CODE_LENGTH - 1));
+    setActiveSlot(Math.min(digits.length, EMAIL_OTP_LENGTH - 1));
     setCodeErrorKind(null);
   };
 
@@ -418,7 +417,7 @@ export default function AuthForm({
   const handleConfirmCode = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (confirming.current || (isVerified && !codeErrorKind)) return;
-    if (!isVerified && (codeErrorKind === "malformed" || confirmationCode.length !== CONFIRMATION_CODE_LENGTH)) {
+    if (!isVerified && (codeErrorKind === "malformed" || confirmationCode.length !== EMAIL_OTP_LENGTH)) {
       setCodeErrorKind(codeErrorKind === "malformed" ? "malformed" : "incomplete");
       confirmationInputRef.current?.focus();
       return;
@@ -522,9 +521,9 @@ export default function AuthForm({
                   aria-invalid={codeError && !isVerified ? true : undefined}
                   aria-describedby="auth-confirmation-code-note"
                   onChange={(event) => updateConfirmationCode(event.target.value)}
-                  onSelect={(event) => setActiveSlot(Math.min(event.currentTarget.selectionStart ?? confirmationCode.length, CONFIRMATION_CODE_LENGTH - 1))}
+                  onSelect={(event) => setActiveSlot(Math.min(event.currentTarget.selectionStart ?? confirmationCode.length, EMAIL_OTP_LENGTH - 1))}
                   onBlur={() => {
-                    if (codeErrorKind !== "malformed" && confirmationCode && confirmationCode.length !== CONFIRMATION_CODE_LENGTH) setCodeErrorKind("incomplete");
+                    if (codeErrorKind !== "malformed" && confirmationCode && confirmationCode.length !== EMAIL_OTP_LENGTH) setCodeErrorKind("incomplete");
                   }}
                   onPaste={(event) => {
                     if (isConfirming || isResending || isVerified) return;
@@ -533,7 +532,7 @@ export default function AuthForm({
                   }}
                 />
                 <div key={rejectionCount} data-otp-slots data-otp-rejected={rejectionCount > 0} aria-hidden="true">
-                  {Array.from({ length: CONFIRMATION_CODE_LENGTH }, (_, index) => (
+                  {Array.from({ length: EMAIL_OTP_LENGTH }, (_, index) => (
                     <span
                       key={index}
                       data-otp-slot={index}
@@ -545,7 +544,7 @@ export default function AuthForm({
                         const position = Math.min(index, confirmationCode.length);
                         input?.focus();
                         input?.setSelectionRange(position, position < confirmationCode.length ? position + 1 : position);
-                        setActiveSlot(Math.min(position, CONFIRMATION_CODE_LENGTH - 1));
+                        setActiveSlot(Math.min(position, EMAIL_OTP_LENGTH - 1));
                       }}
                     >{confirmationCode[index] ?? ""}</span>
                   ))}
@@ -554,7 +553,7 @@ export default function AuthForm({
               <div className="mt-1.5 grid text-[14px] leading-[22px]">
                 {["auth.signup.confirmation_code_rejected", "auth.signup.confirmation_code_incomplete", "auth.errors.generic"].map((key) => (
                   <p key={key} aria-hidden="true" className="invisible col-start-1 row-start-1 flex gap-1.5">
-                    <span className="h-4 w-4 shrink-0" />{t(key, { count: CONFIRMATION_CODE_LENGTH })}
+                    <span className="h-4 w-4 shrink-0" />{t(key, { count: EMAIL_OTP_LENGTH })}
                   </p>
                 ))}
                 <p id="auth-confirmation-code-note" aria-live="polite" className={`col-start-1 row-start-1 flex min-h-[22px] gap-1.5 ${(codeError || resend.status === "failed") ? "text-[#9e2f39]! dark:text-[#ec9aa0]!" : "text-[#2f5a49]! dark:text-[#8fcbb0]!"}`}>

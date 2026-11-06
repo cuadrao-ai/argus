@@ -1,3 +1,4 @@
+import { isEmailOtp } from "./email-otp-contract.generated";
 import accountCopy from "./account-copy.generated.json";
 
 export const emailPalette = {
@@ -54,7 +55,7 @@ export function renderAccountEmail(content: AccountEmail, options: EmailLayoutOp
   const assets = emailAssets(options);
   const locale = options.locale ?? "es-419";
   const footer = accountCopy[locale].footer;
-  if (content.code !== undefined && (!/^(?:\d{6,10}|\{\{ \.Token \}\})$/.test(content.code) || content.unsubscribeUrl)) {
+  if (content.code !== undefined && ((!isEmailOtp(content.code) && content.code !== "{{ .Token }}") || content.unsubscribeUrl)) {
     throw new Error("Invalid account email code");
   }
   let legalLine = footer.legal;
