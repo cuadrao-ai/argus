@@ -12,8 +12,8 @@ test("recovery preserves its verification URL and Spanish safety copy in the sha
     assert.ok(email.html.includes(copy));
     assert.ok(email.text.includes(copy));
   }
-  assert.ok(email.html.includes("Saludos,<br>Cuadrao"));
-  assert.ok(email.text.includes("Saludos,\nCuadrao"));
+  assert.ok(!email.html.includes("Saludos,<br>Cuadrao"));
+  assert.ok(!email.text.includes("Saludos,\nCuadrao"));
   assert.ok(email.text.split("\n").includes(url));
   assert.ok(!email.text.includes(`${url}.`));
   assert.ok(!email.text.includes("supabase.co"));

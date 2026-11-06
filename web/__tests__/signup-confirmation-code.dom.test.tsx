@@ -71,7 +71,7 @@ async function renderSpanishSignup(props: {
 }
 
 describe("signup confirmation code", () => {
-  test.each(["12345678", "1234 5678", "0123 4567"])("Spanish signup accepts code %s and names the address", async (enteredCode) => {
+  test.each(["12345678", "01234567"])("Spanish signup accepts code %s and names the address", async (enteredCode) => {
     const confirmed: Array<{ email: string; code: string }> = [];
     let finished = 0;
     const page = await renderSpanishSignup({
@@ -109,7 +109,7 @@ describe("signup confirmation code", () => {
       confirmForm?.requestSubmit(confirmForm.querySelector("button[type='submit']") as HTMLButtonElement);
     });
 
-    expect(confirmed).toEqual([{ email: "ada@example.com", code: enteredCode.replaceAll(" ", "") }]);
+    expect(confirmed).toEqual([{ email: "ada@example.com", code: enteredCode }]);
     expect(finished).toBe(1);
     expect(code?.readOnly).toBe(true);
     expect(state?.querySelector("[data-otp-status]")?.getAttribute("data-otp-status")).toBe("verified");
@@ -191,6 +191,64 @@ describe("confirmation integration safety", () => {
     const page = await renderSpanishSignup({ onConfirmEmailCode: async () => { requests++; } });
     const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
     await setNativeValue(code, value);
+    await act(async () => { code.closest("form")?.requestSubmit(); });
+    expect(requests).toBe(0);
+    expect(code.getAttribute("aria-invalid")).toBe("true");
+    await act(async () => { page.root.unmount(); });
+  });
+
+  const malformedCodes = ["123456789", "1234a678", "１２３４５６７８", "١٢٣٤٥٦٧٨", " 123456 ", "1234567\n", " 123456789 "];
+  const whitespaceCodes = ["0123 4567", "01234567 ", "01234567\n", " 01234567", "0123\t4567", "0123\u00a04567"];
+  for (const method of ["typed", "pasted"] as const) {
+    test.each(whitespaceCodes)(`${method} whitespace code %j submits all eight digits with the leading zero`, async (value) => {
+      const confirmed: Array<{ email: string; code: string }> = [];
+      const page = await renderSpanishSignup({ onConfirmEmailCode: async input => { confirmed.push(input); } });
+      try {
+        const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+        if (method === "typed") {
+          await setNativeValue(code, value);
+        } else {
+          const clipboardData = new DataTransfer();
+          clipboardData.setData("text", value);
+          await act(async () => { code.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData })); });
+        }
+        expect(code.value).toBe("01234567");
+        await act(async () => { code.closest("form")?.requestSubmit(); });
+        expect(confirmed).toEqual([{ email: "ada@example.com", code: "01234567" }]);
+      } finally {
+        await act(async () => { page.root.unmount(); });
+      }
+    });
+  }
+
+  for (const method of ["typed", "pasted"] as const) {
+    const values = malformedCodes;
+    test.each(values)(`${method} malformed code %j never verifies`, async (value) => {
+      let requests = 0;
+      const page = await renderSpanishSignup({ onConfirmEmailCode: async () => { requests += 1; } });
+      const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+      if (method === "typed") {
+        await setNativeValue(code, value);
+      } else {
+        const clipboardData = new DataTransfer();
+        clipboardData.setData("text", value);
+        await act(async () => {
+          code.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData }));
+        });
+      }
+      await act(async () => { code.closest("form")?.requestSubmit(); });
+      expect(requests).toBe(0);
+      expect(code.getAttribute("aria-invalid")).toBe("true");
+      await act(async () => { page.root.unmount(); });
+    });
+  }
+
+  test("a typed newline is stripped by the text input and an incomplete code never verifies", async () => {
+    let requests = 0;
+    const page = await renderSpanishSignup({ onConfirmEmailCode: async () => { requests += 1; } });
+    const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+    await setNativeValue(code, "1234567\n");
+    expect(code.value).toBe("1234567");
     await act(async () => { code.closest("form")?.requestSubmit(); });
     expect(requests).toBe(0);
     expect(code.getAttribute("aria-invalid")).toBe("true");

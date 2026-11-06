@@ -112,17 +112,41 @@ try {
       await page.evaluate(() => document.fonts.ready);
       const before = await position(confirm);
       const stable = async () => { await page.evaluate(() => document.fonts.ready); assert.ok(Math.abs(before - await position(confirm)) < 1, `${prefix} CTA moved ${before} to ${await position(confirm)} for ${await page.locator("#auth-confirmation-code-note").textContent()}`); await noOverflow(); };
-      await code.fill("012");
-      await confirm.click();
-      assert.equal(verifies, 0);
-      await stable();
+      const note = page.locator("#auth-confirmation-code-note");
+      for (const incomplete of ["012", "012345", "0123456"]) {
+        await code.fill(incomplete);
+        await confirm.click();
+        await expect(code).toHaveValue(incomplete);
+        await expect(code).toHaveAttribute("aria-invalid", "true");
+        await expect(note).toHaveText(copy.auth.signup.confirmation_code_incomplete_other.replace("{{count}}", "8"));
+        assert.equal(verifies, 0);
+        await stable();
+      }
       await code.fill("012345678");
       await confirm.click();
+      await expect(code).toHaveValue("0123456");
+      await expect(code).toHaveAttribute("aria-invalid", "true");
+      await expect(note).toHaveText(copy.auth.signup.confirmation_code_malformed_other.replace("{{count}}", "8"));
       assert.equal(verifies, 0);
-      await expect(page.locator("#auth-confirmation-code-note")).toHaveText(copy.auth.signup.confirmation_code_malformed_other.replace("{{count}}", "8"));
       await stable();
-      await code.evaluate(element => { const transfer = new DataTransfer(); transfer.setData("text", "0123 4567"); element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true })); });
+      for (const pasted of ["0123 4567", "01234567 ", "01234567\n"]) {
+        await code.fill("");
+        await code.evaluate((element, value) => { const transfer = new DataTransfer(); transfer.setData("text", value); element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true })); }, pasted);
+        await expect(code).toHaveValue("01234567");
+        await expect(code).not.toHaveAttribute("aria-invalid", "true");
+        assert.equal(verifies, 0);
+        await stable();
+      }
+      await code.fill("");
+      await code.pressSequentially("01234567");
       await expect(code).toHaveValue("01234567");
+      await expect(code).not.toHaveAttribute("aria-invalid", "true");
+      assert.equal(verifies, 0);
+      await code.fill("");
+      await code.evaluate(element => { const transfer = new DataTransfer(); transfer.setData("text", "01234567"); element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true })); });
+      await expect(code).toHaveValue("01234567");
+      await expect(code).not.toHaveAttribute("aria-invalid", "true");
+      assert.equal(verifies, 0);
       await code.press("End");
       await code.press("Backspace");
       await code.press("7");

@@ -22,7 +22,7 @@ const payload = (action = "recovery") => ({
     email_action_type: action,
     site_url: config.appOrigin,
     redirect_to: `${config.appOrigin}/auth/recovery`,
-    token: "123456", token_new: "654321",
+    token: "01234567", token_new: "76543210",
     token_hash: "a".repeat(64), token_hash_new: "b".repeat(64),
   },
 });
@@ -91,10 +91,10 @@ describe("staging Auth email hook", () => {
 
   test("renders the approved Spanish copy and shared layout for each action", async () => {
     const cases = [
-      ["signup", "123456 es tu código de Cuadrao", "Escribe este código en Cuadrao para confirmar tu cuenta:"],
-      ["magiclink", "123456 es tu código para entrar a Cuadrao", "Escribe este código en Cuadrao para entrar:"],
+      ["signup", "01234567 es tu código de Cuadrao", "Escribe este código en Cuadrao para confirmar tu cuenta:"],
+      ["magiclink", "01234567 es tu código para entrar a Cuadrao", "Escribe este código en Cuadrao para entrar:"],
       ["invite", "Te invitaron a Cuadrao", "Te invitaron a usar Cuadrao."],
-      ["reauthentication", "123456 es tu código de verificación de Cuadrao", "123456"],
+      ["reauthentication", "01234567 es tu código de verificación de Cuadrao", "01234567"],
     ];
     for (const [action, subject, body] of cases) {
       const sent: AuthDelivery[] = [];
@@ -103,10 +103,10 @@ describe("staging Auth email hook", () => {
       assert.equal((sent).length, 1);
       assert.equal(sent[0].subject, subject);
       assert.ok((sent[0].text).includes(body));
-      assert.ok(sent[0].html.includes("Saludos,<br>Cuadrao"));
+      assert.ok(!sent[0].html.includes("Saludos,<br>Cuadrao"));
       assert.ok(!sent[0].html.includes("Salir de la lista"));
       if (action === "signup" || action === "magiclink") {
-        assert.ok(sent[0].subject.startsWith("123456 "));
+        assert.ok(sent[0].subject.startsWith("01234567 "));
         assert.ok(sent[0].text.includes("Lo pediste para owner@example.test."));
         assert.equal(/https?:\/\//.test(sent[0].text), false);
         assert.equal(sent[0].html.includes('href="https:'), false);

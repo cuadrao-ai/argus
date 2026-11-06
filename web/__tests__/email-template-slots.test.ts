@@ -38,10 +38,10 @@ test("all nine empty slots refuse delivery and share the preview layout", () => 
 
 
 test("intro precedes the code and both formats share the approved footer", () => {
-  const email = renderAccountEmail({ title: "Título", intro: ["Intro & detalle"], code: "123456", paragraphs: ["Después"] });
+  const email = renderAccountEmail({ title: "Título", intro: ["Intro & detalle"], code: "01234567", paragraphs: ["Después"] });
   expect(email.html.indexOf("Intro &amp; detalle")).toBeLessThan(email.html.indexOf('class="code"'));
   expect(email.html.indexOf('class="code"')).toBeLessThan(email.html.indexOf("Después"));
-  expect(email.text.indexOf("Intro & detalle")).toBeLessThan(email.text.indexOf("123456"));
+  expect(email.text.indexOf("Intro & detalle")).toBeLessThan(email.text.indexOf("01234567"));
   expect(email.html).toContain("Saludos,<br>Cuadrao");
   expect(email.text).toContain("Saludos,\nCuadrao");
   expect(email.html).toContain("Cuadrao LLC");

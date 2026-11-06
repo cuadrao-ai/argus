@@ -26,7 +26,7 @@ describe("Auth email compatibility and delivery", () => {
       assert.equal(rendered.subject.startsWith("55070219 "), carriesCode);
       assert.equal(rendered.text.includes("55070219"), carriesCode);
       assert.ok(rendered.html.includes('alt="Cuadrao"'));
-      assert.ok(rendered.html.includes("Saludos,<br>Cuadrao"));
+      assert.ok(!rendered.html.includes("Saludos,<br>Cuadrao"));
       assert.ok(!rendered.html.includes("Salir de la lista"));
       assert.ok(rendered.text.includes("Cuadrao LLC"));
       assert.ok(!rendered.text.includes("Cuadrao LLC,"));
