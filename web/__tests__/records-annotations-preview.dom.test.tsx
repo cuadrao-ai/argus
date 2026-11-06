@@ -25,7 +25,7 @@ async function mount(width = 1440, readOnly = false) {
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const { RecordsAnnotationsPreview, useRecordPreviewSearch } = await import("@/components/business-app/transacciones/RecordsAnnotationsPreview");
   const { RecordsTable, RecordsNarrowList } = await import("@/components/business-app/transacciones/TransaccionesRecords");
-  const { defaultRecordsPreferences } = await import("@/components/business-app/transacciones/records-view-preferences");
+  const { sampleRecordsPreferences } = await import("@/components/business-app/transacciones/sample-records-preferences");
   const calls = { opens: 0, network: 0, urls: 0, revoked: [] as string[] };
   const originalFetch = globalThis.fetch;
   const originalCreate = URL.createObjectURL;
@@ -45,7 +45,7 @@ async function mount(width = 1440, readOnly = false) {
     const [narrow, setNarrow] = useState(width < 1024);
     const value = { chosen: { space_id: scope, capabilities: read ? prepare ? ["read", "prepare"] : ["read"] : [] }, records: { workspace: { receipt_limits: { max_bytes: 100, media_types: ["application/pdf", "image/png"] } } }, panel: { kind: "transactions" }, openPanel: () => { calls.opens++; } } as unknown as BusinessContextValue;
     const records = filtered ? [record("venta")] : [record("gasto"), record("venta"), record("gasto", "unknown", null), record("gasto", "original", true), { ...record("gasto", "unavailable", true), opens: null }];
-    return <BusinessContext.Provider value={value}><RecordsAnnotationsPreview><SearchProbe /><button onClick={() => setScope(scope === "fixture-space" ? "other" : "fixture-space")}>Business</button><button onClick={() => setPrepare(!prepare)}>Permission</button><button onClick={() => setRead(!read)}>Read</button><button onClick={() => setFiltered(!filtered)}>Filter</button><button onClick={() => setNarrow(!narrow)}>Viewport</button>{narrow ? <RecordsNarrowList records={records} rowRef={() => {}} /> : <RecordsTable records={records} preferences={defaultRecordsPreferences()} density="normal" rowRef={() => {}} />}</RecordsAnnotationsPreview></BusinessContext.Provider>;
+    return <BusinessContext.Provider value={value}><RecordsAnnotationsPreview><SearchProbe /><button onClick={() => setScope(scope === "fixture-space" ? "other" : "fixture-space")}>Business</button><button onClick={() => setPrepare(!prepare)}>Permission</button><button onClick={() => setRead(!read)}>Read</button><button onClick={() => setFiltered(!filtered)}>Filter</button><button onClick={() => setNarrow(!narrow)}>Viewport</button>{narrow ? <RecordsNarrowList records={records} rowRef={() => {}} /> : <RecordsTable records={records} preferences={sampleRecordsPreferences()} density="normal" rowRef={() => {}} />}</RecordsAnnotationsPreview></BusinessContext.Provider>;
   }
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}><Harness /></I18nextProvider>));

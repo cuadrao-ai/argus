@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
 import { defaultReportRequest } from "../lib/business-reporting-wire";
 import { reportAnswerSchema } from "../lib/business-reports-api";
+import recordedAnswer from "../test-fixtures/records-default-report-answer.json";
 
 function syntheticRoute(path = "reports/query", method = "POST", body = JSON.stringify(defaultReportRequest())) {
   const responses: unknown[] = [];
@@ -24,6 +25,7 @@ describe("synthetic Business fallback", () => {
     expect(route.responses).toHaveLength(1);
     const answer = reportAnswerSchema.parse(route.responses[0]);
     expect(answer).toEqual({
+      presentation: recordedAnswer.presentation,
       items: [],
       overview: { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 },
       effective_sort: "date_desc",
