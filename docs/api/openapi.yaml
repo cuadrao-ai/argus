@@ -22875,6 +22875,59 @@ components:
       - previous_name
       - tax_id
       - previous_tax_id
+    FiscalReportTotal:
+      properties:
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+        kind:
+          type: string
+        basis:
+          type: string
+          enum:
+          - itbis
+          - goods
+          - services
+        applicable_count:
+          type: integer
+        populated_count:
+          type: integer
+        known_amount_minor:
+          type: integer
+        unknown_count:
+          type: integer
+        unsupported_count:
+          type: integer
+        complete:
+          type: boolean
+        amount_minor:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        known_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - currency
+      - kind
+      - basis
+      - applicable_count
+      - populated_count
+      - known_amount_minor
+      - unknown_count
+      - unsupported_count
+      - complete
+      - amount_minor
+      - known_amount
+      - amount
     FiscalReview:
       properties:
         fiscal:
@@ -31443,6 +31496,11 @@ components:
           items:
             $ref: '#/components/schemas/Total'
           type: array
+        fiscal_totals:
+          items:
+            $ref: '#/components/schemas/FiscalReportTotal'
+          type: array
+          default: []
         fingerprint:
           type: string
         captured_at:
@@ -32076,6 +32134,18 @@ components:
           - type: string
           - type: 'null'
         gross_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        itbis_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        goods_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        services_amount:
           anyOf:
           - type: string
           - type: 'null'

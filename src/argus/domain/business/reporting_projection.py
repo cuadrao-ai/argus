@@ -216,6 +216,13 @@ def project(
             separators=(",", ":"),
         ).encode()
     ).hexdigest()
+    purchase = purchase_606(approved, family, marks)
+    declaration = confirmed_declaration(approved)
+    purchase_amounts = (
+        declaration
+        if purchase is not None and isinstance(declaration, PurchaseDeclaration)
+        else None
+    )
     return ReportRecord(
         row_id=f"draft:{draft.event.id}"
         if draft
@@ -231,6 +238,9 @@ def project(
         workflow_blockers=blocked,
         currency=currency,
         gross_amount=gross,
+        itbis_amount=fact_value(approved, "itbis"),
+        goods_amount=purchase_amounts.goods_amount if purchase_amounts else None,
+        services_amount=purchase_amounts.services_amount if purchase_amounts else None,
         recorded_amount=str(activity["amount"]),
         recorded_currency=recorded.row.currency,
         money_kind=recorded.row.kind,
@@ -256,7 +266,7 @@ def project(
         ),
         personal=is_personal(marks),
         include_606=fiscal_inclusion(marks),
-        dgii_606=purchase_606(approved, family, marks),
+        dgii_606=purchase,
         document_kind=document_kind,
         fiscal_classification=fiscal_number[:3]
         if fiscal_number

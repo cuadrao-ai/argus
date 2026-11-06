@@ -2,7 +2,7 @@ import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createBusinessReportHttpFixture } from "./fixtures/business-report-http-fixture";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
-import { appendBusinessReportSupportingFile, exportBusinessReport, listBusinessReportViews, mutateBusinessReportView, queryBusinessReport, reportRecordSchema, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, type ReportScope } from "@/lib/business-reports-api";
+import { appendBusinessReportSupportingFile, exportBusinessReport, listBusinessReportViews, mutateBusinessReportView, queryBusinessReport, reportFiscalTotalSchema, reportRecordSchema, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, type ReportScope } from "@/lib/business-reports-api";
 
 const scope: ReportScope = { userId: "synthetic-person", businessId: "synthetic-business", grantId: "00000000-0000-4000-8000-000000000001" };
 const answer = () => ({ ...recordedReportAnswer, items: [], matching_count: 102, page: 1, page_size: 25, page_count: 5, totals: [{ currency: "DOP", kind: "expense", basis: "recorded_activity_amount", matching_count: 102, known_amount_minor: 123456789, unknown_count: 1, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "1234567.89", amount: null }], fingerprint: "a".repeat(64), captured_at: "2026-10-26T00:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
@@ -45,6 +45,16 @@ describe("Business report transport", () => {
     expect(reportTotalSchema.parse(total).amount).toBe("-20.00");
     expect(reportTotalSchema.safeParse({ ...total, known_amount_minor: 1.5 }).success).toBe(false);
     expect(reportTotalSchema.safeParse({ ...total, amount_minor: Infinity }).success).toBe(false);
+  });
+  test("keeps server fiscal amounts, partial coverage and currencies without calculating totals", async () => {
+    const partial = { currency: "DOP", kind: "expense", basis: "goods", applicable_count: 40, populated_count: 12, known_amount_minor: 1234, unknown_count: 28, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "12.34", amount: null };
+    const foreign = { ...partial, currency: "USD", basis: "itbis", known_amount_minor: -567, known_amount: "-5.67" };
+    respond({ ...answer(), fiscal_totals: [partial, foreign] });
+    const result = await queryBusinessReport(scope, reportRequestSchema.parse({}));
+    expect(result.fiscal_totals).toEqual([partial, foreign]);
+    expect(reportFiscalTotalSchema.safeParse({ ...partial, populated_count: 1.5 }).success).toBe(false);
+    expect(reportFiscalTotalSchema.safeParse({ ...partial, applicable_count: -1 }).success).toBe(false);
+    expect(reportFiscalTotalSchema.safeParse({ ...partial, known_amount_minor: 1.5 }).success).toBe(false);
   });
   test("refuses unsupported preference/sort keys before sending", async () => {
     const calls = respond(answer());

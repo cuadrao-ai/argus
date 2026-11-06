@@ -71,6 +71,7 @@ export const reportRecordSchema = z.object({
   row_id: z.string().min(1), draft_id: z.string().nullable(), linked_activity_ids: z.array(z.string()), revision: count,
   report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), export_missing: z.string().nullable().optional(), export_missing_several: z.boolean().optional(), export_line: z.boolean().optional(),
   technical_state: z.string().nullable(), workflow_blockers: z.array(z.string()), currency: z.string().nullable(), gross_amount: decimal.nullable(),
+  itbis_amount: decimal.nullable().optional(), goods_amount: decimal.nullable().optional(), services_amount: decimal.nullable().optional(),
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),
   money_effect: effect, adjustment_effect: effect.nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),
   category_key: z.string(), funding_key: z.string().nullable(), funding_label: z.string().nullable(), funding_kind: z.string().nullable(),
@@ -83,9 +84,16 @@ export const reportTotalSchema = z.object({
   matching_count: count, known_amount_minor: minorNumber, unknown_count: count, unsupported_count: count, complete: z.boolean(),
   amount_minor: minorNumber.nullable(), known_amount: decimal.nullable(), amount: decimal.nullable(),
 });
+export const reportFiscalTotalSchema = z.object({
+  currency: z.string().nullable(), kind: z.string(), basis: z.enum(["itbis", "goods", "services"]),
+  applicable_count: count, populated_count: count, known_amount_minor: minorNumber,
+  unknown_count: count, unsupported_count: count, complete: z.boolean(),
+  amount_minor: minorNumber.nullable(), known_amount: decimal.nullable(), amount: decimal.nullable(),
+});
 export const reportAnswerSchema = z.object({
   presentation: reportPresentationSchema,
   items: z.array(reportRecordSchema), matching_count: count, page: z.number().int().positive(), page_size: z.union([z.literal(25), z.literal(50), z.literal(100)]), page_count: count,
+  fiscal_totals: z.array(reportFiscalTotalSchema).optional(),
   totals: z.array(reportTotalSchema), fingerprint: z.string().regex(/^[0-9a-f]{64}$/), captured_at: z.string(),
   resolved_period: z.object({ from_date: day.nullable(), to_date: day.nullable(), calendar: z.literal("America/Santo_Domingo") }),
   excluded_unknown_dates: count, excluded_personal: z.object({ income: count, expense: count }).optional(),
@@ -106,6 +114,7 @@ export type ReportRequest = z.infer<typeof reportRequestSchema>;
 export type ReportRecord = z.infer<typeof reportRecordSchema>;
 export type DgiiChoice = z.infer<typeof dgiiChoiceSchema>;
 export type Purchase606 = z.infer<typeof purchase606Schema>;
+export type ReportFiscalTotal = z.infer<typeof reportFiscalTotalSchema>;
 export type ReportTotal = z.infer<typeof reportTotalSchema>;
 export type ReportAnswer = z.infer<typeof reportAnswerSchema>;
 export type SavedReportView = z.infer<typeof savedReportViewSchema>;

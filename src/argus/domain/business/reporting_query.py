@@ -11,7 +11,13 @@ from typing import Literal
 from zoneinfo import ZoneInfo
 
 from argus.domain.business.contracts.facts import personal_mark_admits
-from argus.domain.business.reporting import ReportIdentity, ReportRow, summarize
+from argus.domain.business.reporting import (
+    FiscalAmount,
+    ReportIdentity,
+    ReportRow,
+    summarize,
+    summarize_fiscal,
+)
 from argus.domain.business.reporting_preferences import (
     DEFAULT_COLUMNS as DEFAULT_COLUMNS,
 )
@@ -89,6 +95,9 @@ class ReportRecord(Contract):
     workflow_blockers: tuple[str, ...] = ()
     currency: str | None = None
     gross_amount: str | None = None
+    itbis_amount: str | None = None
+    goods_amount: str | None = None
+    services_amount: str | None = None
     recorded_amount: str | None = None
     recorded_currency: str | None = None
     proposed_amount: str | None = None
@@ -128,6 +137,21 @@ class Total(Contract):
         "document_family_amount",
     ]
     matching_count: int
+    known_amount_minor: int
+    unknown_count: int
+    unsupported_count: int
+    complete: bool
+    amount_minor: int | None
+    known_amount: str | None
+    amount: str | None
+
+
+class FiscalReportTotal(Contract):
+    currency: str | None
+    kind: str
+    basis: Literal["itbis", "goods", "services"]
+    applicable_count: int
+    populated_count: int
     known_amount_minor: int
     unknown_count: int
     unsupported_count: int
@@ -178,6 +202,7 @@ class ReportAnswer(Contract):
     page_size: int
     page_count: int
     totals: tuple[Total, ...]
+    fiscal_totals: tuple[FiscalReportTotal, ...] = ()
     fingerprint: str
     captured_at: datetime
     resolved_period: ResolvedPeriod
@@ -378,6 +403,50 @@ def _totals(
     return tuple(result)
 
 
+def _fiscal_totals(rows: tuple[ReportRecord, ...]) -> tuple[FiscalReportTotal, ...]:
+    components = []
+    for row in filter(_admitted, rows):
+        kind = {"sale": "income", "purchase": "expense"}.get(row.family, "unknown")
+        credit = row.document_kind == "credit_note"
+        for basis, amount in (
+            ("itbis", row.itbis_amount),
+            ("goods", row.goods_amount),
+            ("services", row.services_amount),
+        ):
+            if basis != "itbis" and row.dgii_606 is None:
+                continue
+            effect = (row.adjustment_effect or "unknown") if credit else row.money_effect
+            if amount is None or row.currency is None or kind == "unknown":
+                effect = "unknown"
+            components.append(
+                FiscalAmount(
+                    currency=row.currency,
+                    kind=kind,
+                    basis=basis,
+                    amount_minor=parse_minor_units(amount, row.currency)
+                    if amount is not None and row.currency is not None
+                    else None,
+                    populated=amount is not None,
+                    effect=effect,
+                    sign=-1 if credit else 1,
+                )
+            )
+    return tuple(
+        FiscalReportTotal(
+            **asdict(total),
+            complete=total.complete,
+            amount_minor=total.amount_minor,
+            known_amount=format_minor_units(total.known_amount_minor, total.currency)
+            if total.currency
+            else None,
+            amount=format_minor_units(total.amount_minor, total.currency)
+            if total.currency and total.amount_minor is not None
+            else None,
+        )
+        for total in summarize_fiscal(components)
+    )
+
+
 def _document_totals(
     components: list[Total], rows: tuple[ReportRecord, ...]
 ) -> list[Total]:
@@ -563,6 +632,7 @@ def run_query(
         page_size=request.page_size,
         page_count=(len(rows) + request.page_size - 1) // request.page_size,
         totals=_totals(rows, identity, observed_at),
+        fiscal_totals=_fiscal_totals(rows),
         fingerprint=fingerprint,
         captured_at=observed_at,
         resolved_period=period,

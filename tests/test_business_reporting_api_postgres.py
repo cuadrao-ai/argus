@@ -390,3 +390,45 @@ def test_personal_rows_stay_listed_but_count_in_no_total(client, actions):
             1,
             "850.00",
         )
+
+
+def test_fiscal_totals_use_current_hand_entered_declaration_and_filtered_records(
+    client, actions
+):
+    from argus.domain.business.contracts.actions import ReviewDraft
+    from argus.domain.business.contracts.dgii import PurchaseReview
+
+    from tests.test_business_dgii_postgres import approve, cash_account, reviewed
+
+    http, _ = client
+    service, context, _ = actions
+    account = cash_account(service, context)
+    first = approve(service, context, reviewed(service, context, account, 0))
+    second = approve(service, context, reviewed(service, context, account, 1))
+    sale = approve(service, context, reviewed(service, context, account, 4))
+    assert first.outcome == second.outcome == sale.outcome == "applied"
+    before = query(http, filters={"q": "P01"})
+    changed = service.review(
+        context,
+        first.draft_id,
+        ReviewDraft(
+            version=service.dossier(context, first.draft_id).version,
+            purchase=PurchaseReview(goods_amount="12.34", services_amount="56.78"),
+        ),
+        str(uuid4()),
+    )
+    assert changed.outcome == "applied", changed
+    after = query(http, filters={"q": "P01"})
+    assert after["matching_count"] == 1
+    assert after["items"][0]["draft_id"] == str(first.draft_id)
+    assert after["fingerprint"] != before["fingerprint"]
+    assert after["totals"] == before["totals"]
+    totals = {item["basis"]: item for item in after["fiscal_totals"]}
+    for basis, expected in (("goods", 1234), ("services", 5678), ("itbis", 18000)):
+        total = totals[basis]
+        assert (total["currency"], total["kind"]) == ("DOP", "expense")
+        assert total["amount_minor"] == expected
+        assert (total["populated_count"], total["applicable_count"]) == (1, 1)
+    sales = query(http, filters={"record_families": ["sale"]})
+    assert sales["matching_count"] == 1
+    assert {item["basis"] for item in sales["fiscal_totals"]} == {"itbis"}
