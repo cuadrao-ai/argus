@@ -11,7 +11,7 @@ The label map is locked for the Dominican Republic Business pilot as of November
 - Tipo de gasto codes 01–11 and Forma de pago codes 01–07 are fixed across locales.
 - The 12-column pilot export keeps its exact Spanish headers as that file format, even in EN UI.
 - `category` and `payment_method` are edited on "Para el 606", not inside the Más datos editor. Their rows below describe shared field semantics, not extra editor controls.
-- Tipo Id displays `1 — RNC` / `2 — Cédula`.
+- Tipo Id displays `1 - RNC` / `2 - Cédula`.
 
 The tables preserve the confirmed engineering map's keys. Registros column keys and derived values are identified separately from stored fields.
 
@@ -21,7 +21,7 @@ The tables preserve the confirmed engineering map's keys. Registros column keys 
 |---|---|---|---|---|---|---|
 | counterparty | Contraparte / Counterparty | — | Contraparte / Counterparty | — | — | Name only. Never show RNC here. Use Contraparte on both dossier and Registros. Optional helper: "comercio o persona del comprobante". "Comercio o persona" is not the label. |
 | rnc | RNC / RNC | — | — (not a column) | RNC EMISOR | RNC o Cédula | Identity number. Distinct from Contraparte. |
-| id_type | — | Tipo Id / ID type | — | — (the pilot sheet has none) | Tipo Id | Values: `1` = RNC, `2` = Cédula. Show as "1 — RNC" / "2 — Cédula". |
+| id_type | — | Tipo Id / ID type | — | — (the pilot sheet has none) | Tipo Id | Values: `1` = RNC, `2` = Cédula. Show as "1 - RNC" / "2 - Cédula". |
 | occurred_on | Fecha del comprobante / Receipt date | — | Fecha / Date | FECHA DEL COMPROBANTE | Fecha Comprobante | One meaning; column shortens the same phrase. "Fecha de actividad" is not the label. |
 | amount | Monto / Amount | — | Monto {{currency}} / Amount {{currency}} | TOTAL | — | **Gross** (what the receipt shows). The pilot TOTAL export rule: use `amount` when present; else servicios+bienes+itbis. Not DGII net. |
 | (derived) total_monto_facturado | — | — | — | — | Total Monto Facturado | **Net** = servicios + bienes. Never label this "Monto" or "TOTAL". |
