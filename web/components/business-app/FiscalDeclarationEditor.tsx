@@ -94,17 +94,18 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
       setValues((current) => ({ ...current, [field.name]: next }));
       setBroken((current) => { const kept = new Set(current); if (invalid) kept.add(field.name); else kept.delete(field.name); return kept; });
     };
-    const title = <span className={FIELD_LABEL_CLASS}>{field.label}</span>;
+    const label = t([`business.dgii.field_${form}.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name });
+    const title = <span className={FIELD_LABEL_CLASS}>{label}</span>;
     const dateProblem = checked && broken.has(field.name);
     if (field.kind === "date") return <div key={field.name}>
       <label htmlFor={id}>{title}</label>
-      <DatePicker id={id} label={field.label} value={value} disabled={locked} invalid={dateProblem} onChange={(iso, invalid) => setValue(iso ?? "", invalid)} />
+      <DatePicker id={id} label={label} value={value} disabled={locked} invalid={dateProblem} onChange={(iso, invalid) => setValue(iso ?? "", invalid)} />
       <span role={dateProblem ? "alert" : undefined} className={FIELD_NOTE_CLASS}>{dateProblem ? t("business.date_range.invalid_date", { format: t("business.date_picker.placeholder", "dd/mm/aaaa"), defaultValue: "Enter a valid date as {{format}}." }) : null}</span>
     </div>;
-    if (field.kind === "money") return <label key={field.name} className={`block ${MONEY_NOTE_CLASS}`}>{title}<MoneyInput flush label={field.label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} /></label>;
+    if (field.kind === "money") return <label key={field.name} className={`block ${MONEY_NOTE_CLASS}`}>{title}<MoneyInput flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} /></label>;
     return <label key={field.name} className="block">{title}
       {field.kind === "select"
-        ? <ReviewSelect id={id} name={field.name} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{field.labels?.[option] ?? option}</option>)}</ReviewSelect>
+        ? <ReviewSelect id={id} name={field.name} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{t(`business.dgii.option.${field.name}.${option}`, { defaultValue: option }) || option}</option>)}</ReviewSelect>
         : <input id={id} name={field.name} className={REVIEW_INPUT_CLASS} autoComplete="off" value={value} disabled={locked} onChange={(event) => setValue(event.target.value)} />}
       <span className={FIELD_NOTE_CLASS} />
     </label>;

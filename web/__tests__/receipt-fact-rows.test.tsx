@@ -183,7 +183,7 @@ describe("the record facts on the review page", () => {
     const dossier = { ...base, facts: { ...base.facts, fiscal: { rnc: { ...known("qr_decoded"), value: "131999888" }, ncf: known("extracted"), ecf: unknown, itbis: known("extracted") } }, fiscal_value: "ncf", blockers: [], questions: [] } as unknown as BusinessDossier;
     const { html } = await render(dossier, "es-419", true, [], true);
     assert.deepEqual([...html.matchAll(/data-fact="([a-z_0-9]+)"/g)].map((match) => match[1]), ["counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis"]);
-    for (const row of ["Comercio", "Fecha", "Monto", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
+    for (const row of ["Contraparte", "Fecha", "Monto", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
   });
 
   test("an open draft brings a row back only while the server waits on it, so a blocker always has a way forward", async () => {

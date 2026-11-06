@@ -11,6 +11,7 @@ import BusinessFiscalProfile from "@/components/business-app/BusinessFiscalProfi
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import spanish from "@/public/locales/es-419/common.json";
+import english from "@/public/locales/en/common.json";
 
 const fields = { "606": [
   { name: "rnc", label: "RNC o Cédula", kind: "text", options: [] },
@@ -34,19 +35,22 @@ function registerDom() {
   };
 }
 
-async function mountEditor(shape: { fields?: DgiiFields; dossier?: (dossier: BusinessDossier) => BusinessDossier } = {}) {
+async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiFields; dossier?: (dossier: BusinessDossier) => BusinessDossier } = {}) {
   const release = registerDom();
   const fixture = await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "PRÁCTICA caja" }]).dossier(dossierFixtureIds.fiscal);
   const dossier = shape.dossier?.(fixture) ?? fixture;
-  const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const writes: { key: string | null; input: Record<string, unknown> }[] = [];
   let fail = false;
   globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith("/locales/")) return Response.json(String(url).includes("/en/") ? english : spanish);
     writes.push({ key: new Headers(init?.headers).get("Idempotency-Key"), input: JSON.parse(String(init?.body)) });
     if (fail) throw new Error("lost response");
     return Response.json({ ...dossier, version: dossier.version + 1 });
   };
+  const options = shape.productionI18n ? (await import("@/lib/i18n")).default.options : {};
+  const namespace = shape.productionI18n ? "common" : "translation";
+  const i18n = i18next.createInstance();
+  await i18n.init({ ...options, lng: "es-419", resources: { "es-419": { [namespace]: spanish }, en: { [namespace]: english } } });
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const changes: BusinessDossier[] = [];
@@ -62,7 +66,7 @@ async function mountEditor(shape: { fields?: DgiiFields; dossier?: (dossier: Bus
     });
   };
   const save = async () => { const button = [...host.querySelectorAll("button")].find((node) => node.textContent === "Guardar revisión fiscal"); assert.ok(button); await act(async () => button.click()); };
-  return { host, dossier, writes, dirty, changes, input, save, fail: () => { fail = true; }, dispose: async () => { await act(async () => root.unmount()); host.remove(); await release(); } };
+  return { host, dossier, writes, dirty, changes, input, save, i18n, fail: () => { fail = true; }, dispose: async () => { await act(async () => root.unmount()); host.remove(); await release(); } };
 }
 
 test("the form holds the rest of the 606: the facts with their own row are not fields here, and it sends them unchanged", async () => {
@@ -98,7 +102,7 @@ test("the fields read in five groups, every field the server sends stays, and no
   try {
     assert.deepEqual(groupsOf(view.host), [["identity", "Identificación"], ["amounts", "Montos"], ["itbis", "ITBIS"], ["retentions", "Retenciones"], ["other", "Otros"]]);
     const other = view.host.querySelector('[data-group="other"]');
-    assert.ok(other?.textContent?.includes("Columna nueva"), "a column no group names still shows");
+    assert.ok(other?.textContent?.includes("a_new_server_column"), "an unknown field keeps its code instead of backend Spanish");
     assert.equal(view.host.querySelectorAll('input[type="date"]').length, 0);
     assert.ok(view.host.querySelector('[data-group="identity"] [aria-label="Abrir calendario"]'), "the date is our calendar");
     assert.ok(view.host.querySelector('[data-testid="fiscal-declaration-services_amount"]'), "an amount is our money field");
@@ -221,3 +225,76 @@ test("the owner can save an eleven-digit filer cedula without losing leading zer
     assert.equal(kind.value, "cedula");
   } finally { await act(async () => root.unmount()); host.remove(); await release(); }
 });
+
+
+test("the 606 editor localizes labels and ID choices without inventing backend options", async () => {
+  const view = await mountEditor({ fields: fullForm });
+  try {
+    assert.ok(view.host.textContent?.includes("NCF ó Documento Modificado"));
+    assert.ok(view.host.textContent?.includes("Monto Facturado en Servicios"));
+    const ids = view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!;
+    assert.deepEqual([...ids.options].map((option) => [option.value, option.text]), [["", "Desconocido"], ["1", "1 - RNC"], ["2", "2 - Cédula"]]);
+    await act(async () => { await view.i18n.changeLanguage("en"); });
+    assert.ok(view.host.textContent?.includes("ID type"));
+    assert.ok(view.host.textContent?.includes("Modified NCF or document"));
+    assert.ok(view.host.textContent?.includes("Amount billed for services"));
+    assert.ok(view.host.textContent?.includes("Payment date"));
+    assert.ok(!view.host.textContent?.includes("Fecha Pago"));
+    assert.deepEqual([...ids.options].map((option) => option.value), ["", "1", "2"]);
+  } finally { await view.dispose(); }
+});
+
+test("the 607 editor uses its form-specific dictionary labels in both languages", async () => {
+  const view = await mountEditor({
+    fields: { "606": [], "607": [field("id_type", "Tipo Identificación", "select", ["1", "2", "3"]), field("modified_ncf", "Número Comprobante Fiscal Modificado", "text"), field("itbis_perceived", "ITBIS Percibido"), field("other_taxes", "Otros Impuestos/Tasas"), field("bank", "Cheque/ Transferencia/ Depósito"), field("gift", "Bonos o Certificados de Regalo")] },
+    dossier: (dossier) => ({ ...dossier, dgii: { form: "607" } }),
+  });
+  try {
+    for (const label of ["Tipo Identificación", "Número Comprobante Fiscal Modificado", "ITBIS Percibido", "Otros Impuestos/Tasas", "Cheque·Transferencia·Depósito", "Bonos…"]) assert.ok(view.host.textContent?.includes(label), label);
+    await act(async () => { await view.i18n.changeLanguage("en"); });
+    for (const label of ["Identification type", "Modified fiscal receipt number", "ITBIS perceived", "Other taxes/fees", "Check·transfer·deposit", "Vouchers…"]) assert.ok(view.host.textContent?.includes(label), label);
+    assert.ok(!view.host.textContent?.includes("Número Comprobante"));
+    assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3"]]);
+  } finally { await view.dispose(); }
+});
+
+for (const form of ["606", "607"] as const) {
+  const title = `the ${form} editor preserves untranslated option codes with production i18n`;
+  test(title, async () => {
+    // Production initialization changes the shared singleton; keep it out of other tests.
+    if (process.env.CUADRAO_TEST_FISCAL_I18N !== "true") {
+      const result = Bun.spawnSync({
+        cmd: [process.execPath, "test", import.meta.filename, "--test-name-pattern", title],
+        cwd: `${import.meta.dir}/..`,
+        env: { ...process.env, CUADRAO_TEST_FISCAL_I18N: "true" },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      assert.equal(result.exitCode, 0, result.stderr.toString());
+      return;
+    }
+    const name = form === "606" ? "income_withholding_type" : "income_type";
+    const codes = form === "606" ? ["01", "02", "03", "04", "05", "06", "07", "08", "09"] : ["1", "2", "3", "4", "5", "6"];
+    const formFields = [field(name, name, "select", codes)];
+    if (form === "607") formFields.push(field("id_type", "Tipo Identificación", "select", ["1", "2", "3"]));
+    const view = await mountEditor({
+      productionI18n: true,
+      fields: { "606": [], "607": [], [form]: formFields },
+      dossier: (dossier) => ({ ...dossier, dgii: { form } }),
+    });
+    try {
+      for (const language of ["es-419", "en"]) {
+        await act(async () => { await view.i18n.changeLanguage(language); });
+        assert.equal(view.i18n.t(`business.dgii.option.${name}.${codes[0]}`, { defaultValue: codes[0] }), "", "the real missing-key handler overrides defaultValue");
+        const select = view.host.querySelector<HTMLSelectElement>(`#fiscal-declaration-${name}`);
+        assert.ok(select);
+        assert.deepEqual([...select.options].filter((option) => option.value).map((option) => [option.value, option.text]), codes.map((code) => [code, code]));
+        if (form === "607") {
+          const ids = view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type");
+          assert.ok(ids);
+          assert.deepEqual([...ids.options].filter((option) => option.value).map((option) => [option.value, option.text]), [["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3"]]);
+        }
+      }
+    } finally { await view.dispose(); }
+  });
+}

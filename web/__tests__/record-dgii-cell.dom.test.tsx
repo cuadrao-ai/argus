@@ -31,7 +31,7 @@ async function cell(lng: "en" | "es-419", row: Partial<RecordRow>, field: keyof 
 }
 const live = (dgii_606: ReportRecord["dgii_606"]): Partial<RecordRow> => ({ report: { dgii_606 } as ReportRecord });
 
-test("a live purchase shows the server's DGII name, truncated with the full name on hover", async () => {
+test("a live purchase shows the locale text for the server code, truncated with the full name on hover", async () => {
   const host = await cell("es-419", live({ expense_type: LONG, payment_form: null }));
   const text = host.querySelector(".truncate")!;
   assert.equal(text.textContent, LONG.label);
@@ -61,4 +61,17 @@ test("the sample rows carry every case the mock needs", async () => {
   assert.equal(cases[3], null, "the Personal purchase carries none");
   assert.equal(record606(row("exp-gas", "venta"), "fixture-space"), null, "a sale carries none");
   assert.equal(record606(row("exp-hosting"), "other-business"), undefined, "nothing outside the sample Business");
+});
+
+
+test("an English 606 cell ignores the backend Spanish label for both choice fields", async () => {
+  const expense = await cell("en", live({ expense_type: LONG, payment_form: null }));
+  assert.equal(expense.textContent, "Purchases and expenses that are part of the cost of sales");
+  const payment = await cell("en", live({ expense_type: null, payment_form: { code: "02", label: "Cheques/transferencias/depósito" } }), "payment_form");
+  assert.equal(payment.textContent, "Checks, transfers or deposits");
+});
+
+test("an unknown backend code stays a code and never leaks backend option text", async () => {
+  const host = await cell("en", live({ expense_type: { code: "99", label: "Texto del servidor" }, payment_form: null }));
+  assert.equal(host.textContent, "99");
 });

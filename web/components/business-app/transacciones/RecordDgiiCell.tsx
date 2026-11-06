@@ -14,7 +14,7 @@ export function record606(row: RecordRow, businessId: string | null): Purchase60
   return row.report ? row.report.dgii_606 : previewRecordMetadata(row, businessId)?.dgii606;
 }
 
-/** One 606 answer as Registros shows it: the DGII name, truncated with the full name on hover; the word Bandeja uses for a missing answer; a dash for a record the 606 never lists. */
+/** One 606 answer as Registros shows it: the localized DGII name, truncated with the full name on hover; the word Bandeja uses for a missing answer; a dash for a record the 606 never lists. */
 export default function RecordDgiiCell({ row, field }: { row: RecordRow; field: keyof Purchase606 }) {
   const { chosen } = useBusiness();
   const { t } = useTransaccionesWords();
@@ -23,5 +23,5 @@ export default function RecordDgiiCell({ row, field }: { row: RecordRow; field: 
   if (purchase === null) return <Unknown meaning={t("business.export.form_no_aplica")} />;
   const choice = purchase[field];
   if (!choice) return <span data-dgii-missing={field} className={`${styles.workflow} ${palette.review}`}>{t("business.dossier.standing.missing")}</span>;
-  return <Truncated text={choice.label} />;
+  return <Truncated text={t(`business.dgii.option.${field === "expense_type" ? "category" : "payment_method"}.${choice.code}`, { defaultValue: choice.code }) || choice.code} />;
 }
