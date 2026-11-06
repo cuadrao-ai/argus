@@ -348,7 +348,7 @@ export default function AuthForm({
     : t("auth.signup.confirmation_resend_failed") : null;
 
   const updateConfirmationCode = (value: string) => {
-    const digits = value;
+    const digits = value.replace(/\s+/g, "");
     if (/[^0-9]/.test(digits) || digits.length > EMAIL_OTP_LENGTH) {
       setCodeErrorKind("malformed");
       return;

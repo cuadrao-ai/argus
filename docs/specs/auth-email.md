@@ -37,16 +37,16 @@ The generation and publication rule applies to all eight slots, including notice
 
 ## Eight-digit code contract
 
-The form, local email Auth configuration, and code-bearing templates use eight digits. Codes are never trimmed, truncated, or padded to force a match. A length mismatch is drift, not a reason to alter the issued code.
+The form, local email Auth configuration, and code-bearing templates use eight digits. The form and verification helper remove whitespace from user input, then require exactly eight ASCII digits. They never cut or pad digits. For example, `0123 4567` becomes `01234567`, with its leading zero intact. Issued codes, runtime payloads and email rendering remain strict. A length mismatch is drift, not a reason to alter the issued code.
 
 Hosted Auth already uses eight digits according to the November 5 record. That is recorded context, not a fresh hosted readback performed for this document.
 
 | Surface | Repo evidence | Status |
 | --- | --- | --- |
 | Shared contract | [web/lib/email-otp-contract.ts](../../web/lib/email-otp-contract.ts) | Owns the length, ASCII pattern and exact-length validator. |
-| Signup form | [web/components/auth/AuthForm.tsx](../../web/components/auth/AuthForm.tsx) | Reads the shared length and rejects whitespace without changing the code. |
+| Signup form | [web/components/auth/AuthForm.tsx](../../web/components/auth/AuthForm.tsx) | Removes whitespace from input, then requires the shared eight-digit length without cutting or padding digits. |
 | Local email Auth configuration | [supabase/config.toml](../../supabase/config.toml), `[auth.email].otp_length` | Specifies eight digits, checked against the shared contract by tests. |
-| OTP verification helper | [web/lib/email-otp.ts](../../web/lib/email-otp.ts) | Accepts exactly eight ASCII digits and forwards them unchanged. |
+| OTP verification helper | [web/lib/email-otp.ts](../../web/lib/email-otp.ts) | Removes whitespace from input, accepts exactly eight ASCII digits and forwards those digits unchanged. |
 | Auth rendering input validation | [web/server/emails/auth-actions.tsx](../../web/server/emails/auth-actions.tsx) | Parsing and runtime rendering use the shared validator. Trusted template rendering accepts the exact token placeholder. |
 | Shared layout code validation | [marketing/lib/email/account-layout.ts](../../marketing/lib/email/account-layout.ts) | Uses the generated shared validator; accepts exactly eight digits or the exact Auth token placeholder. |
 

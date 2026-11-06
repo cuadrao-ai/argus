@@ -197,18 +197,32 @@ describe("confirmation integration safety", () => {
     await act(async () => { page.root.unmount(); });
   });
 
-  const malformedCodes = [
-    "1234 5678",
-    " 12345678",
-    "12345678 ",
-    "1234\t5678",
-    "１２３４５６７８",
-    "١٢٣٤٥٦٧٨",
-    "1234\u00a05678",
-  ];
+  const malformedCodes = ["123456789", "1234a678", "１２３４５６７８", "١٢٣٤٥٦٧٨", " 123456 ", "1234567\n", " 123456789 "];
+  const whitespaceCodes = ["0123 4567", "01234567 ", "01234567\n", " 01234567", "0123\t4567", "0123\u00a04567"];
+  for (const method of ["typed", "pasted"] as const) {
+    test.each(whitespaceCodes)(`${method} whitespace code %j submits all eight digits with the leading zero`, async (value) => {
+      const confirmed: Array<{ email: string; code: string }> = [];
+      const page = await renderSpanishSignup({ onConfirmEmailCode: async input => { confirmed.push(input); } });
+      try {
+        const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+        if (method === "typed") {
+          await setNativeValue(code, value);
+        } else {
+          const clipboardData = new DataTransfer();
+          clipboardData.setData("text", value);
+          await act(async () => { code.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData })); });
+        }
+        expect(code.value).toBe("01234567");
+        await act(async () => { code.closest("form")?.requestSubmit(); });
+        expect(confirmed).toEqual([{ email: "ada@example.com", code: "01234567" }]);
+      } finally {
+        await act(async () => { page.root.unmount(); });
+      }
+    });
+  }
 
   for (const method of ["typed", "pasted"] as const) {
-    const values = method === "pasted" ? [...malformedCodes, "12345678\n"] : malformedCodes;
+    const values = malformedCodes;
     test.each(values)(`${method} malformed code %j never verifies`, async (value) => {
       let requests = 0;
       const page = await renderSpanishSignup({ onConfirmEmailCode: async () => { requests += 1; } });

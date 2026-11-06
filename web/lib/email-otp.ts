@@ -55,7 +55,8 @@ function safeError(error: unknown): EmailOtpError {
 }
 
 export function normalizeEmailOtp(value: string): string | null {
-  return isEmailOtp(value) ? value : null;
+  const digits = value.replace(/\s+/g, "");
+  return isEmailOtp(digits) ? digits : null;
 }
 
 type EmailOtpVerifyInput = {

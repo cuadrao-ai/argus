@@ -129,15 +129,14 @@ try {
       await expect(note).toHaveText(copy.auth.signup.confirmation_code_malformed_other.replace("{{count}}", "8"));
       assert.equal(verifies, 0);
       await stable();
-      await code.fill("012");
-      await code.evaluate(element => { const transfer = new DataTransfer(); transfer.setData("text", "0123 4567"); element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true })); });
-      await expect(code).toHaveValue("012");
-      await expect(code).toHaveAttribute("aria-invalid", "true");
-      await expect(note).toHaveText(copy.auth.signup.confirmation_code_malformed_other.replace("{{count}}", "8"));
-      await confirm.click();
-      assert.equal(verifies, 0);
-      await expect(code).toHaveValue("012");
-      await stable();
+      for (const pasted of ["0123 4567", "01234567 ", "01234567\n"]) {
+        await code.fill("");
+        await code.evaluate((element, value) => { const transfer = new DataTransfer(); transfer.setData("text", value); element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true })); }, pasted);
+        await expect(code).toHaveValue("01234567");
+        await expect(code).not.toHaveAttribute("aria-invalid", "true");
+        assert.equal(verifies, 0);
+        await stable();
+      }
       await code.fill("");
       await code.pressSequentially("01234567");
       await expect(code).toHaveValue("01234567");

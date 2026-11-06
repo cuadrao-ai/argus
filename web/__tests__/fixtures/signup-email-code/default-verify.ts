@@ -29,7 +29,12 @@ assert.deepEqual(
   })),
 );
 
-for (const token of ["nope", "654 321", "0065 4321", "00654321\n"]) {
+for (const token of ["0065 4321", "00654321 ", "00654321\n"]) {
+  await verifyEmailOtp({ email: "person@example.com", token, type: "signup" });
+  assert.deepEqual(calls.at(-1), { email: "person@example.com", token: "00654321", type: "signup" });
+}
+
+for (const token of ["nope", "654 321"]) {
   await assert.rejects(
     () => verifyEmailOtp({ email: "person@example.com", token, type: "signup" }),
     (error: unknown) => {
@@ -38,6 +43,6 @@ for (const token of ["nope", "654 321", "0065 4321", "00654321\n"]) {
     },
   );
 }
-assert.equal(calls.length, EMAIL_OTP_TYPES.length);
+assert.equal(calls.length, EMAIL_OTP_TYPES.length + 3);
 
 process.exit(0);

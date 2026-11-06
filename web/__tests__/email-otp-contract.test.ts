@@ -19,7 +19,6 @@ test("the form and local email config use the shared eight-digit contract", () =
   expect(config.auth.email.otp_length).toBe(EMAIL_OTP_LENGTH);
   const form = readFileSync(new URL("../components/auth/AuthForm.tsx", import.meta.url), "utf8");
   expect(form).toContain('import { EMAIL_OTP_LENGTH } from "@/lib/email-otp-contract"');
-  expect(form).not.toContain("value.replace(/\\s+/g");
 });
 
 test("every code boundary preserves exact digits and leading zeros", async () => {
@@ -41,10 +40,6 @@ test("every code boundary preserves exact digits and leading zeros", async () =>
 
 test.each(invalid)("every runtime boundary rejects unchanged invalid code %j", async token => {
   expect(isEmailOtp(token)).toBe(false);
-  expect(normalizeEmailOtp(token)).toBeNull();
-  let called = false;
-  await expect(verifyEmailOtp({ email: "person@example.test", token, type: "signup" }, async () => { called = true; return { error: null }; })).rejects.toMatchObject({ code: "otp_rejected" });
-  expect(called).toBe(false);
   for (const action of ["signup", "magiclink", "reauthentication"]) {
     expect(() => parseAuthMail(payload(token, action), "https://app.example.test")).toThrow();
     await expect(renderAuthMail({ action: "signup", recipient: "person@example.test", tokenHash: "a".repeat(64), redirectTo: "", token }, "https://app.example.test", 3600)).rejects.toThrow();
@@ -64,4 +59,19 @@ test.each(invalid)("every runtime boundary rejects unchanged invalid code %j", a
 test("runtime payloads and rendering reject the trusted template placeholder", async () => {
   expect(() => parseAuthMail(payload("{{ .Token }}"), "https://app.example.test")).toThrow();
   await expect(renderAuthMail({ action: "signup", recipient: "person@example.test", tokenHash: "a".repeat(64), redirectTo: "", token: "{{ .Token }}" }, "https://app.example.test", 3600)).rejects.toThrow();
+});
+
+
+test.each(["0123 4567", "01234567 ", "01234567\n", " 01234567", "0123\t4567"])("input helper removes whitespace from %j without changing digits", async token => {
+  expect(normalizeEmailOtp(token)).toBe("01234567");
+  const calls: unknown[] = [];
+  await verifyEmailOtp({ email: "person@example.test", token, type: "signup" }, async input => { calls.push(input); return { error: null }; });
+  expect(calls).toEqual([{ email: "person@example.test", token: "01234567", type: "signup" }]);
+});
+
+test.each(["", "123456", "1234567", "123456789", "1234567890", " 123456 ", "1234567\n", " 123456789 ", "０１２３４５６７", "0123456a"])("input helper rejects %j after removing only whitespace", async token => {
+  expect(normalizeEmailOtp(token)).toBeNull();
+  let called = false;
+  await expect(verifyEmailOtp({ email: "person@example.test", token, type: "signup" }, async () => { called = true; return { error: null }; })).rejects.toMatchObject({ code: "otp_rejected" });
+  expect(called).toBe(false);
 });
