@@ -10,7 +10,7 @@ export type SecurityMail =
   | { action: "email_changed_notification"; recipient: string; newEmail: string };
 
 export function renderSecurityMail(mail: SecurityMail, _sentAt: Date, options: EmailLayoutOptions = {}) {
-  const shared = "Cuadrao nunca te pedirá tu contraseña ni tus códigos.";
+  const shared = "Nunca te pediremos tu contraseña ni tus códigos de acceso por correo o por teléfono. Escríbelos solo en app.cuadrao.ai.";
   if (mail.action === "password_changed_notification") {
     return { subject: "Tu contraseña de Cuadrao cambió", ...renderAccountEmail({
       signOff: false,

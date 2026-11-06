@@ -27,6 +27,8 @@ test("registry renders environment-neutral Auth slots with only the approved cop
     }
     const greeting = '<p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola,</p>';
     const signOff = '<p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p>';
+    const oldSafetyCopy = "Cuadrao nunca te pedirá tu contraseña ni tus códigos.";
+    const safetyCopy = "Nunca te pediremos tu contraseña ni tus códigos de acceso por correo o por teléfono. Escríbelos solo en app.cuadrao.ai.";
     const historicalDigests = {
       "confirmation": "63843850cfcc195f328b1118d2fa14462ae320e0543474d9b1cb87fb8771736c",
       "magic_link": "8a3fd5e39edfb7cc06396cc9ee815eeec4f1ebbd5050e972177d9a4dcd9ae262",
@@ -42,9 +44,13 @@ test("registry renders environment-neutral Auth slots with only the approved cop
       expect(record.html).not.toContain("Saludos,<br>Cuadrao");
       expect(record.text).not.toContain("Hola,");
       expect(record.text).not.toContain("Saludos,\nCuadrao");
-      const historicalHtml = record.html.replace("</h1>", `</h1>${greeting}`)
+      for (const part of [record.html, record.text]) {
+        expect(part).not.toContain(oldSafetyCopy);
+        if (record.file.endsWith("_notification")) expect(part).toContain(safetyCopy);
+      }
+      const historicalHtml = record.html.replace(safetyCopy, oldSafetyCopy).replace("</h1>", `</h1>${greeting}`)
         .replace('class="footer" style="padding:20px 32px 28px;background:#ffffff">', `class="footer" style="padding:20px 32px 28px;background:#ffffff">${signOff}`);
-      const historicalText = record.text.replace("\n\n", "\n\nHola,\n\n")
+      const historicalText = record.text.replace(safetyCopy, oldSafetyCopy).replace("\n\n", "\n\nHola,\n\n")
         .replace("\n\n¿Necesitas ayuda?", "\n\nSaludos,\nCuadrao\n\n¿Necesitas ayuda?");
       expect(createHash("sha256").update(`${record.subject}\n${historicalHtml}\n${historicalText}`).digest("hex"))
         .toBe(historicalDigests[record.file]);
