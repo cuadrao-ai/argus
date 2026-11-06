@@ -1437,30 +1437,44 @@ shared delayed shimmer and reduced-motion behavior, not generic list placeholder
 Command-K focuses the mounted Records search and must not steal focus from an open
 overlay; Home retains its existing global search.
 
-### Registros metric shelf, 26 October 2026
+### Registros metric shelf, 2026-11-06
 
-The sales and expense summary uses three compact metric cards, with the rounded
-shape, icon placement and neutral text of the overview cards. Use quieter neutral,
-sage and cream surfaces, with dark-theme equivalents. The cards remain read-only
-until the amount drill-down contract is connected. Todos still hides this summary.
+Approved by Lucas, reviewed with Iris. This replaces the 26 October 2026 metric
+shelf layout and presentation. The [field dictionary, Score cards](../../../docs/specs/field-dictionary.md#score-cards)
+owns card meanings and number rules; this section owns their visual presentation
+and interaction.
 
-Show at most two currency rows in each metric, in the same order across all three
-cards. Do not add currencies together or create a second currency filter. When
-more than two currencies occur, one shared action opens every currency in the
-existing dossier. Group that breakdown by currency, with total, settled amount
-and balance inside each group. Phone uses the shared sheet. Close or Escape
-returns focus to the trigger. Retain the dossier gradient and privacy masking.
+Keep the existing compact content width. Show six separate, equal summary cards
+in two rows of three: Total, ITBIS and Cantidad in the first row; Bienes,
+Servicios and Faltan datos fiscales in the second. Below them, keep the existing
+filters, active filter chips and column picker. Follow those controls with the
+existing Compras/Ventas money subcards only when an applicable filter is active,
+then the table.
 
-On narrow containers, stack the three cards with labels on the left and amounts
-aligned on the right. Keep unknown settlement values unknown. Exclusions remain
-available through the first card's information control. Existing financial
-eligibility and filters retain their current meaning.
+Every card places its icon at the top left, metric label at the top right, large
+value below left and footer or helper at the bottom left. Make the cards shallower
+while keeping the same readability. Use Cuadrao's own typography, soft fills,
+rounded corners and colors, with the corresponding dark-theme treatment.
 
-Financial summaries appear automatically for the Sales or Expenses record filter.
-The mixed Todos view has no financial summary. There is no summary visibility
-preference or separate Summary settings tab. Desktop table settings contain
-Columns and Row height. Phone retains Filters and Sort without an empty settings
-shortcut. A display preference must never change record eligibility or totals.
+Only Faltan datos fiscales is an action card. Clicking it or pressing Enter or
+Space applies its table filter. Show a directional cue at the bottom right,
+hover feedback and a visible focus state. The active filter remains visible and
+clearable. Do not add a "Ver..." label or make the arrow a separate target.
+
+The other five cards are static: no card click, pointer cursor or card-level tab
+stop. Existing controls inside them, such as "Ver desglose", keep working with
+their own interaction and focus behavior.
+
+For money, make fractional digits smaller and raised. Preserve the decimal
+separator, precision, rounding and currency identity, and keep the full amount
+readable by screen readers. Retain the existing currency display and breakdown
+controls, including dossier/sheet behavior, return focus and privacy masking.
+
+Actual fit is still unverified. Before build sign-off, render at the real compact
+content width and actual size with filters, headers and first table rows visible.
+Check long amounts, ES/EN labels, zero, empty and partial values, and the action
+card's default, hover, keyboard-focus and active-filter states. This decision does
+not establish that those checks have passed.
 
 ### Invoicing: customers, schedules and empty states
 
