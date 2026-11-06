@@ -1594,6 +1594,12 @@
     }
   },
   "account_email": {
+    "auth_security": {
+      "email_changed_description": "El correo de tu cuenta de Cuadrao cambió de {{oldEmail}} a {{newEmail}}.",
+      "password_changed_description": "La contraseña de tu cuenta de Cuadrao se cambió.",
+      "recovery_contact": "Si no fuiste tú, escríbenos de inmediato a hola@cuadrao.ai para recuperar tu cuenta.",
+      "safety_warning": "Nunca te pediremos tu contraseña ni tus códigos de acceso por correo o por teléfono. Escríbelos solo en app.cuadrao.ai."
+    },
     "business_lifecycle": {
       "member_reopened": {
         "cta": "Abrir Cuadrao",

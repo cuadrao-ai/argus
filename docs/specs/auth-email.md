@@ -28,7 +28,8 @@ The current repo paths establish the source and generation boundaries.
 | Layout and shared copy generation | [scripts/emails/sync-layout.mjs](../../scripts/emails/sync-layout.mjs) | Generates the web layout, marketing shared copy, and marketing OTP contract from repo sources. |
 | Generated web layout | [web/server/emails/account-layout.generated.ts](../../web/server/emails/account-layout.generated.ts) | Generated output, not a second design authority. |
 | Auth message copy and rendering | [web/server/emails/auth-actions.tsx](../../web/server/emails/auth-actions.tsx) | Defines action-specific copy and rendering. |
-| Security notice copy | [web/server/emails/security-notices.ts](../../web/server/emails/security-notices.ts) | Defines password and email change notices and disabled notice kinds. |
+| Revised security notice copy | [Spanish catalog](../../web/public/locales/es-419/common.json) and [English catalog](../../web/public/locales/en/common.json) | `account_email.auth_security` owns the revised descriptions, recovery contact and safety warning. Auth continues to select Spanish. |
+| Security notice rendering | [web/server/emails/security-notices.ts](../../web/server/emails/security-notices.ts) | Renders password and email change notices and defines disabled notice kinds. Older unchanged hardcoded copy is deferred in #1839. |
 | Auth template slot map | [web/server/emails/auth-paste.ts](../../web/server/emails/auth-paste.ts) | Owns the typed registry for confirmation, magic-link, recovery, invite, email-change, reauthentication, password-changed notice, and email-changed notice slots. |
 | Local template rendering | [scripts/emails/render-staging-auth.ts](../../scripts/emails/render-staging-auth.ts) | Syncs shared sources and writes or checks local template artifacts. Does not publish configuration or send mail. |
 

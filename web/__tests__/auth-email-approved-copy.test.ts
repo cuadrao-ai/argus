@@ -6,7 +6,9 @@ import { parseAuthMail, renderAuthMail, type AuthMail } from "../server/emails/a
 import { renderAccountEmail } from "../server/emails/account-layout.generated";
 import { assertEmailPresentation } from "./helpers/email-presentation";
 import { emailExpiry } from "../server/emails/expiry";
-import { DISABLED_SECURITY_NOTICES } from "../server/emails/security-notices";
+import spanish from "../public/locales/es-419/common.json";
+import english from "../public/locales/en/common.json";
+import { DISABLED_SECURITY_NOTICES, renderSecurityMail } from "../server/emails/security-notices";
 
 const base = { recipient: "old@example.test", tokenHash: "a".repeat(64), redirectTo: "https://app.example.test/" };
 const signin: AuthMail[] = [
@@ -131,5 +133,49 @@ test("notification recipients derive from signed documented fields and disabled 
   }
   for (const old_email of ["", "victim@example.test\r\nBcc: another@example.test"]) {
     expect(() => parseAuthMail({...payload, email_data: {...payload.email_data, old_email}}, "https://app.example.test")).toThrow();
+  }
+});
+
+
+test("Auth security catalogs have matching keys and placeholders", () => {
+  const spanishCopy = spanish.account_email.auth_security;
+  const englishCopy = english.account_email.auth_security;
+  const keys = ["email_changed_description", "password_changed_description", "recovery_contact", "safety_warning"] as const;
+  expect(Object.keys(spanishCopy)).toEqual([...keys]);
+  expect(Object.keys(englishCopy)).toEqual([...keys]);
+  for (const key of keys) {
+    expect(englishCopy[key].trim()).not.toBe("");
+    const placeholders = (value: string) => [...value.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]).sort();
+    expect(placeholders(englishCopy[key])).toEqual(placeholders(spanishCopy[key]));
+  }
+  expect(spanishCopy.email_changed_description).toContain("{{oldEmail}}");
+  expect(spanishCopy.email_changed_description).toContain("{{newEmail}}");
+});
+
+test("security rendering reads Spanish catalog values and preserves literal address replacements", () => {
+  const copy = spanish.account_email.auth_security;
+  const original = { ...copy };
+  try {
+    for (const key of Object.keys(copy) as Array<keyof typeof copy>) copy[key] = `Synthetic ${key} <&>`;
+    const password = renderSecurityMail({ action: "password_changed_notification", recipient: base.recipient }, sentAt);
+    const changed = renderSecurityMail({ action: "email_changed_notification", recipient: base.recipient, newEmail: "new@example.test" }, sentAt);
+    for (const [rendered, keys] of [
+      [password, ["password_changed_description", "safety_warning"]],
+      [changed, ["email_changed_description", "recovery_contact", "safety_warning"]],
+    ] as const) {
+      for (const key of keys) {
+        expect(rendered.text).toContain(`Synthetic ${key} <&>`);
+        expect(rendered.html).toContain(`Synthetic ${key} &lt;&amp;&gt;`);
+      }
+    }
+    copy.email_changed_description = original.email_changed_description;
+    for (const [recipient, newEmail] of [["old$&{{newEmail}}@example.test", "new$'@example.test"], ["{{ .OldEmail }}", "{{ .Email }}"]]) {
+      const rendered = renderSecurityMail({ action: "email_changed_notification", recipient, newEmail }, sentAt);
+      expect(rendered.text).toContain(`de ${recipient} a ${newEmail}.`);
+      expect(rendered.html).toContain(recipient.replaceAll("&", "&amp;"));
+      expect(rendered.html).toContain(newEmail.replace("'", "&#39;"));
+    }
+  } finally {
+    Object.assign(copy, original);
   }
 });

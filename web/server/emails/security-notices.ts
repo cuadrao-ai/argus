@@ -1,3 +1,4 @@
+import spanish from "../../public/locales/es-419/common.json";
 import { renderAccountEmail, type EmailLayoutOptions } from "./account-layout.generated";
 
 export const DISABLED_SECURITY_NOTICES = [
@@ -10,26 +11,28 @@ export type SecurityMail =
   | { action: "email_changed_notification"; recipient: string; newEmail: string };
 
 export function renderSecurityMail(mail: SecurityMail, _sentAt: Date, options: EmailLayoutOptions = {}) {
-  const shared = "Nunca te pediremos tu contraseña ni tus códigos de acceso por correo o por teléfono. Escríbelos solo en app.cuadrao.ai.";
+  const copy = spanish.account_email.auth_security;
+  const shared = copy.safety_warning;
   if (mail.action === "password_changed_notification") {
     return { subject: "Tu contraseña de Cuadrao cambió", ...renderAccountEmail({
       signOff: false,
       title: "Tu contraseña cambió", preheader: "Si hiciste este cambio, no tienes que hacer nada.",
       intro: [], paragraphs: [
-        "La contraseña de tu cuenta de Cuadrao se cambió.",
+        copy.password_changed_description,
         "Si fuiste tú, no tienes que hacer nada.",
         'Si no fuiste tú, abre Cuadrao, toca "¿Olvidaste tu contraseña?" en la pantalla para entrar y crea una nueva. Luego escríbenos de inmediato.', shared,
       ],
     }, options) };
   }
+  const addresses = { oldEmail: mail.recipient, newEmail: mail.newEmail };
   return { subject: "El correo de tu cuenta de Cuadrao cambió", ...renderAccountEmail({
     signOff: false,
     title: "Tu correo cambió", preheader: "Te avisamos aquí porque era el correo de tu cuenta.",
     intro: [], paragraphs: [
-      `El correo de tu cuenta de Cuadrao cambió de ${mail.recipient} a ${mail.newEmail}.`,
+      copy.email_changed_description.replace(/\{\{(oldEmail|newEmail)\}\}/g, (_match, key: keyof typeof addresses) => addresses[key]),
       "Te avisamos a esta dirección porque era la de tu cuenta. Desde ahora, los avisos llegarán a la dirección nueva.",
       "Si fuiste tú, no tienes que hacer nada.",
-      "Si no fuiste tú, escríbenos de inmediato a hola@cuadrao.ai para recuperar tu cuenta.", shared,
+      copy.recovery_contact, shared,
     ],
   }, options) };
 }

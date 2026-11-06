@@ -1594,6 +1594,12 @@
     }
   },
   "account_email": {
+    "auth_security": {
+      "email_changed_description": "The email address for your Cuadrao account changed from {{oldEmail}} to {{newEmail}}.",
+      "password_changed_description": "The password for your Cuadrao account was changed.",
+      "recovery_contact": "If this was not you, email us immediately at hola@cuadrao.ai to recover your account.",
+      "safety_warning": "We will never ask for your password or access codes by email or phone. Enter them only at app.cuadrao.ai."
+    },
     "business_lifecycle": {
       "member_reopened": {
         "cta": "Open Cuadrao",
