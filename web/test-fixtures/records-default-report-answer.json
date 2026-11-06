@@ -35,6 +35,7 @@
   "page_size": 25,
   "page_count": 0,
   "totals": [],
+  "fiscal_totals": [],
   "fingerprint": "816622634cd50615c25a64e59fadad0bcd7a650ccc26f630483ee4c0bddb203b",
   "captured_at": "2026-11-06T00:00:00Z",
   "resolved_period": {

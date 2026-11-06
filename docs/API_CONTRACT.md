@@ -11310,6 +11310,47 @@ accept path recorded.
   amounts. `coverage_notes` explicitly includes absent legal-cancellation coverage,
   unknown source subtype and evidence separation.
 
+  `fiscal_totals` is separate from those existing gross/activity totals. It is
+  reduced on the server over the same full filtered records, before pagination,
+  with the same Personal admission rule. Entries partition by nullable `currency`,
+  family `kind` (`income` for sales, `expense` for purchases), and `basis`:
+  `itbis`, `goods`, or `services`. No currency conversion or cross-currency sum
+  occurs, and gross is never reconciled to the three fiscal amounts.
+
+  ITBIS has one source: the known `facts.fiscal.itbis` read through `fact_value`,
+  as in both 606 and 607 export. Neither declaration has another billed-ITBIS
+  field. Goods and services read the populated `goods_amount` and
+  `services_amount` of the existing confirmed purchase declaration, including
+  hand-entered values. No new split or fiscal mapping is computed. Each row
+  carries nullable decimal `itbis_amount`, `goods_amount`, and `services_amount`.
+
+  For each metric, `applicable_count` counts records where it can have a value;
+  `populated_count` counts those whose source field is present, including an
+  explicit zero. Missing values are never treated as populated zeroes. ITBIS
+  applies to every admitted matching record. Goods/services apply only where
+  the existing `dgii_606` projection is non-null: an admitted purchase not
+  explicitly sin comprobante, even if its declaration or amount is missing.
+  Sales have no goods/services fields and contribute to neither denominator.
+  A metric with no applicable records has no entry; an empty result has no
+  fiscal totals. Currency eligibility for a filed TXT does not remove foreign
+  purchases from their own currency's coverage.
+
+  `known_amount_minor` is the exact signed sum of known effects, with decimal
+  `known_amount` for display. Missing values, unknown currency/family, or unknown
+  effects increment `unknown_count`; unsupported effects increment
+  `unsupported_count`. Fiscal amounts with only redundant fractional zeroes
+  are normalized exactly to the currency's precision and counted. A populated
+  fiscal amount that the exact minor-unit parser cannot represent, including
+  real extra precision such as DOP `1.234`, contributes no money and increments
+  `unsupported_count` without failing the query or changing other records.
+  It is never rounded. `complete` requires both counts to be zero, otherwise
+  final `amount_minor` and `amount` are null. A zero known subtotal with no
+  populated values is not a complete zero amount. Coverage counts field presence
+  even when an effect cannot be included safely. A validated linked credit is
+  negative, using the existing document adjustment effect; an unresolved credit
+  leaves the sum incomplete. Unknown currency is null and has no display amount.
+  The web accepts these server fields without computing totals or coverage.
+
 - POST `/api/v1/business/reports/export` takes `{report, expected_fingerprint}`
   and returns a no-store ZIP of the full filtered answer: `records.csv`,
   `records.xlsx`, and `manifest.json`. It includes unresolved matching rows with
