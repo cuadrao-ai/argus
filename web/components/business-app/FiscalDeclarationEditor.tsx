@@ -105,7 +105,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     if (field.kind === "money") return <label key={field.name} className={`block ${MONEY_NOTE_CLASS}`}>{title}<MoneyInput flush label={label} currency={currency} value={value || null} allowZero disabled={locked} testId={id} onValueChange={({ value: next, invalid }) => setValue(next ?? "", invalid)} /></label>;
     return <label key={field.name} className="block">{title}
       {field.kind === "select"
-        ? <ReviewSelect id={id} name={field.name} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{t(`business.dgii.option.${field.name}.${option}`, { defaultValue: option })}</option>)}</ReviewSelect>
+        ? <ReviewSelect id={id} name={field.name} value={value} disabled={locked} onChange={(event) => setValue(event.target.value)}><option value="">{t("business.dossier.unknown", "Unknown")}</option>{field.options.map((option) => <option key={option} value={option}>{t(`business.dgii.option.${field.name}.${option}`, { defaultValue: option }) || option}</option>)}</ReviewSelect>
         : <input id={id} name={field.name} className={REVIEW_INPUT_CLASS} autoComplete="off" value={value} disabled={locked} onChange={(event) => setValue(event.target.value)} />}
       <span className={FIELD_NOTE_CLASS} />
     </label>;

@@ -35,7 +35,7 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
   const row = (choice: Choice, label: string) => {
     const field: DgiiField | undefined = fields?.["606"].find((item) => item.name === choice);
     const value = String(dossier.dgii?.[choice] ?? "");
-    const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code });
+    const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code }) || code;
     const suggestion = choice === "category" && !value ? dossier.expense_type_suggestion : null;
     if (readOnly) return (
       <div key={choice} data-fact={choice} className={FACT_ROW_CLASS}>

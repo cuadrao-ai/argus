@@ -23,5 +23,5 @@ export default function RecordDgiiCell({ row, field }: { row: RecordRow; field: 
   if (purchase === null) return <Unknown meaning={t("business.export.form_no_aplica")} />;
   const choice = purchase[field];
   if (!choice) return <span data-dgii-missing={field} className={`${styles.workflow} ${palette.review}`}>{t("business.dossier.standing.missing")}</span>;
-  return <Truncated text={t(`business.dgii.option.${field === "expense_type" ? "category" : "payment_method"}.${choice.code}`, { defaultValue: choice.code })} />;
+  return <Truncated text={t(`business.dgii.option.${field === "expense_type" ? "category" : "payment_method"}.${choice.code}`, { defaultValue: choice.code }) || choice.code} />;
 }

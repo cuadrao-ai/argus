@@ -35,19 +35,22 @@ function registerDom() {
   };
 }
 
-async function mountEditor(shape: { fields?: DgiiFields; dossier?: (dossier: BusinessDossier) => BusinessDossier } = {}) {
+async function mountEditor(shape: { productionI18n?: boolean; fields?: DgiiFields; dossier?: (dossier: BusinessDossier) => BusinessDossier } = {}) {
   const release = registerDom();
   const fixture = await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "PRÁCTICA caja" }]).dossier(dossierFixtureIds.fiscal);
   const dossier = shape.dossier?.(fixture) ?? fixture;
-  const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } } });
   const writes: { key: string | null; input: Record<string, unknown> }[] = [];
   let fail = false;
   globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith("/locales/")) return Response.json(String(url).includes("/en/") ? english : spanish);
     writes.push({ key: new Headers(init?.headers).get("Idempotency-Key"), input: JSON.parse(String(init?.body)) });
     if (fail) throw new Error("lost response");
     return Response.json({ ...dossier, version: dossier.version + 1 });
   };
+  const options = shape.productionI18n ? (await import("@/lib/i18n")).default.options : {};
+  const namespace = shape.productionI18n ? "common" : "translation";
+  const i18n = i18next.createInstance();
+  await i18n.init({ ...options, lng: "es-419", resources: { "es-419": { [namespace]: spanish }, en: { [namespace]: english } } });
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const changes: BusinessDossier[] = [];
@@ -254,3 +257,31 @@ test("the 607 editor uses its form-specific dictionary labels in both languages"
     assert.deepEqual([...view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type")!.options].map((option) => [option.value, option.text]), [["", "Unknown"], ["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3"]]);
   } finally { await view.dispose(); }
 });
+
+for (const form of ["606", "607"] as const) {
+  test(`the ${form} editor preserves untranslated option codes with production i18n`, async () => {
+    const name = form === "606" ? "income_withholding_type" : "income_type";
+    const codes = form === "606" ? ["01", "02", "03", "04", "05", "06", "07", "08", "09"] : ["1", "2", "3", "4", "5", "6"];
+    const formFields = [field(name, name, "select", codes)];
+    if (form === "607") formFields.push(field("id_type", "Tipo Identificación", "select", ["1", "2", "3"]));
+    const view = await mountEditor({
+      productionI18n: true,
+      fields: { "606": [], "607": [], [form]: formFields },
+      dossier: (dossier) => ({ ...dossier, dgii: { form } }),
+    });
+    try {
+      for (const language of ["es-419", "en"]) {
+        await act(async () => { await view.i18n.changeLanguage(language); });
+        assert.equal(view.i18n.t(`business.dgii.option.${name}.${codes[0]}`, { defaultValue: codes[0] }), "", "the real missing-key handler overrides defaultValue");
+        const select = view.host.querySelector<HTMLSelectElement>(`#fiscal-declaration-${name}`);
+        assert.ok(select);
+        assert.deepEqual([...select.options].filter((option) => option.value).map((option) => [option.value, option.text]), codes.map((code) => [code, code]));
+        if (form === "607") {
+          const ids = view.host.querySelector<HTMLSelectElement>("#fiscal-declaration-id_type");
+          assert.ok(ids);
+          assert.deepEqual([...ids.options].filter((option) => option.value).map((option) => [option.value, option.text]), [["1", "1 - RNC"], ["2", "2 - Cédula"], ["3", "3"]]);
+        }
+      }
+    } finally { await view.dispose(); }
+  });
+}
