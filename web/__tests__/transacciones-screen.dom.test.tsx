@@ -200,7 +200,7 @@ describe("the gate", () => {
     assert.match(row.querySelector('[data-col="monto"]')!.textContent ?? "", /123,456,789,012,345\.67/);
     const account = row.querySelector('[data-col="cuenta"] .truncate')!;
     const detail = row.querySelector('[data-col="detalle"] > span')!;
-    for (const [target, expected] of [[account, /Dinero del dueño/], [detail, /Gasto · Personal · Falta NCF · Marcado por Ana/]] as const) {
+    for (const [target, expected] of [[account, /Dinero del dueño/], [detail, /Compra · Personal · Falta NCF · Marcado por Ana/]] as const) {
       await page.act(async () => { target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 330)); });
       assert.match(document.querySelector('[role="tooltip"]')?.textContent ?? "", expected);
       await page.act(async () => target.dispatchEvent(new MouseEvent("mouseout", { bubbles: true })));
@@ -354,9 +354,9 @@ describe("the gate", () => {
       assert.equal(amount.textContent, "2,100.00");
       assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]')!.textContent, "RD$");
       assert.ok(amount.querySelector(".cuadrao-amount"), "document amount respects privacy masking");
-      assert.equal(page.records()[0].querySelector('[data-col="detalle"]')!.textContent, "Gasto");
+      assert.equal(page.records()[0].querySelector('[data-col="detalle"]')!.textContent, "Compra");
       await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Filtros")!);
-      await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Gasto")!);
+      await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Compra")!);
       await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
       assert.equal(page.records().length, 3);
       assert.equal(summary()!.querySelectorAll('[data-summary-part]').length, 3);
@@ -400,7 +400,7 @@ describe("the gate", () => {
     const summary = document.querySelector('[data-testid="transacciones-summary"]')!.textContent;
     const toolbar = document.querySelector('[data-testid="records-toolbar"]')!;
     await page.click([...toolbar.querySelectorAll("button")].find((button) => button.getAttribute("aria-label")?.startsWith("Tipo:"))!);
-    await page.click([...toolbar.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent === "Gasto")!);
+    await page.click([...toolbar.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent === "Compra")!);
     assert.ok(page.records().length < total);
     assert.ok(page.records().every((row) => row.dataset.kind === "gasto"));
     assert.equal(document.querySelector('[data-testid="transacciones-summary"]')!.textContent, summary);

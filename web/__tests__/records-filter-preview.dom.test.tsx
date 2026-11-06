@@ -196,11 +196,11 @@ test("record kind is drafted and applied with filters, counted and removable ind
   const page = await mount("filters"); await page.click(page.button("Filtros"));
   assert.equal(document.querySelector('[role="tab"]')?.textContent, "Registro");
   const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
-  await page.click(label("Gasto"));
+  await page.click(label("Compra"));
   assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "all");
   await page.escape(); await page.click(page.button("Filtros"));
-  assert.equal(label("Gasto").querySelector<HTMLInputElement>("input")!.checked, false);
-  await page.click(label("Gasto")); await page.click(page.button("Revisión")); await page.click(label("Por revisar")); await page.click(page.button("Aplicar"));
+  assert.equal(label("Compra").querySelector<HTMLInputElement>("input")!.checked, false);
+  await page.click(label("Compra")); await page.click(page.button("Revisión")); await page.click(label("Por revisar")); await page.click(page.button("Aplicar"));
   assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
   assert.equal(page.host.querySelector('button[aria-haspopup="dialog"]')?.textContent, "Filtros2");
   await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
@@ -221,7 +221,7 @@ test("desktop kind lives in Filters and saved views restore its controlled value
     const type = (field: HTMLInputElement, value: string) => page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value); field.dispatchEvent(new Event("input", { bubbles: true })); });
     const search = document.querySelector<HTMLInputElement>('input[type="search"]')!;
     await type(search, "Nube");
-    await page.click(page.button("Filtros")); await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Gasto")); await page.click(page.button("Aplicar"));
+    await page.click(page.button("Filtros")); await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Compra")); await page.click(page.button("Aplicar"));
     await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
     await type(document.querySelector<HTMLInputElement>('[role="dialog"] input')!, "Gastos de Nube");
     await page.click(document.querySelector('[role="dialog"] button[type="submit"]'));
@@ -229,7 +229,7 @@ test("desktop kind lives in Filters and saved views restore its controlled value
     assert.equal(search.value, "Nube");
     await page.click(page.button("Vistas")); await page.click(page.button("Gastos de Nube"));
     assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
-    assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Registro · Gasto/);
+    assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Registro · Compra/);
     await page.click(page.button("Limpiar búsqueda"));
     assert.equal(search.value, ""); assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
     await page.click(page.button("Limpiar filtros"));
@@ -254,7 +254,7 @@ test("phone filters keep one draft across group navigation and discard it on clo
   assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.indeterminate, true);
   await page.click(page.button("Todos los filtros"));
   assert.equal(document.activeElement?.getAttribute("data-group"), "review");
-  await page.click(page.button("Registro")); await page.click(label("Gasto"));
+  await page.click(page.button("Registro")); await page.click(label("Compra"));
   await page.click(page.button("Todos los filtros")); await page.click(document.querySelector('[data-group="review"]'));
   assert.equal(label("Por revisar").querySelector<HTMLInputElement>("input")!.checked, true);
   await page.click(page.button("Aplicar"));
