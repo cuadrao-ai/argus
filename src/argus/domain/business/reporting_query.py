@@ -10,8 +10,6 @@ from datetime import date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from pydantic import Field
-
 from argus.domain.business.contracts.facts import personal_mark_admits
 from argus.domain.business.reporting import ReportIdentity, ReportRow, summarize
 from argus.domain.business.reporting_preferences import (
@@ -170,13 +168,7 @@ class ExcludedPersonal(Contract):
 
 
 class ReportAnswer(Contract):
-    presentation: Presentation = Field(
-        description=(
-            "Effective table layout: explicit requested presentation or the backend "
-            "Presentation default, owned in "
-            "src/argus/domain/business/reporting_preferences.py."
-        )
-    )
+    presentation: Presentation
     items: tuple[ReportRecord, ...]
     overview: ReportOverview = ReportOverview()
     effective_sort: str = "date_desc"

@@ -31412,8 +31412,6 @@ components:
       properties:
         presentation:
           $ref: '#/components/schemas/Presentation'
-          description: 'Effective table layout: explicit requested presentation or the backend
-            Presentation default, owned in src/argus/domain/business/reporting_preferences.py.'
         items:
           items:
             $ref: '#/components/schemas/ReportRecord'

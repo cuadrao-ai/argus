@@ -11353,9 +11353,10 @@ accept path recorded.
   Version-2 recipes also save `page_size` (25/50/100) and optional
   `presentation`. The backend `Presentation` in
   `src/argus/domain/business/reporting_preferences.py` owns the default table
-  layout. When version 2 omits `presentation`, the backend supplies that default.
-  Version 1 still rejects `presentation` in its request. Both versions return
-  the effective typed `presentation` in every answer. The web leaves omitted
+  layout. Every answer's `presentation` is the explicitly requested layout when
+  supplied, or that backend default when omitted. Version 1 still rejects
+  `presentation` in its request. Both versions return the effective typed
+  `presentation` in every answer. The web leaves omitted
   request presentation absent and renders the answer; it defines no table defaults.
   Before the answer, it shows pending UI without invented columns or options.
   Restore omits presentation and queries again. Saving a view records the effective
