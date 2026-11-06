@@ -42,6 +42,7 @@ from argus.domain.recording.currency import (
     format_minor_units,
     parse_minor_units,
 )
+from argus.domain.recording.errors import RecordingInputError
 
 CALENDAR = "America/Santo_Domingo"
 
@@ -403,6 +404,15 @@ def _totals(
     return tuple(result)
 
 
+def _fiscal_minor_units(amount: str, currency: str) -> int:
+    """Discard only redundant fractional zeroes, then use the exact money parser."""
+    whole, dot, fraction = amount.strip().partition(".")
+    if dot and fraction:
+        fraction = fraction.rstrip("0")
+        amount = whole + ("." + fraction if fraction else "")
+    return parse_minor_units(amount, currency)
+
+
 def _fiscal_totals(rows: tuple[ReportRecord, ...]) -> tuple[FiscalReportTotal, ...]:
     components = []
     for row in filter(_admitted, rows):
@@ -418,14 +428,18 @@ def _fiscal_totals(rows: tuple[ReportRecord, ...]) -> tuple[FiscalReportTotal, .
             effect = (row.adjustment_effect or "unknown") if credit else row.money_effect
             if amount is None or row.currency is None or kind == "unknown":
                 effect = "unknown"
+            amount_minor = None
+            if amount is not None and row.currency is not None:
+                try:
+                    amount_minor = _fiscal_minor_units(amount, row.currency)
+                except RecordingInputError:
+                    effect = "unsupported"
             components.append(
                 FiscalAmount(
                     currency=row.currency,
                     kind=kind,
                     basis=basis,
-                    amount_minor=parse_minor_units(amount, row.currency)
-                    if amount is not None and row.currency is not None
-                    else None,
+                    amount_minor=amount_minor,
                     populated=amount is not None,
                     effect=effect,
                     sign=-1 if credit else 1,

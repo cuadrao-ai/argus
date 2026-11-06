@@ -11338,7 +11338,12 @@ accept path recorded.
   `known_amount_minor` is the exact signed sum of known effects, with decimal
   `known_amount` for display. Missing values, unknown currency/family, or unknown
   effects increment `unknown_count`; unsupported effects increment
-  `unsupported_count`. `complete` requires both counts to be zero, otherwise
+  `unsupported_count`. Fiscal amounts with only redundant fractional zeroes
+  are normalized exactly to the currency's precision and counted. A populated
+  fiscal amount that the exact minor-unit parser cannot represent, including
+  real extra precision such as DOP `1.234`, contributes no money and increments
+  `unsupported_count` without failing the query or changing other records.
+  It is never rounded. `complete` requires both counts to be zero, otherwise
   final `amount_minor` and `amount` are null. A zero known subtotal with no
   populated values is not a complete zero amount. Coverage counts field presence
   even when an effect cannot be included safely. A validated linked credit is

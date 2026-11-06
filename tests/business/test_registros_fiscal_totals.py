@@ -288,3 +288,115 @@ def test_projection_sales_take_export_tax_without_inventing_goods_or_services():
     assert Decimal(row.itbis_amount) == Decimal(exported["itbis"])
     assert row.dgii_606 is row.goods_amount is row.services_amount is None
     assert {item.basis for item in run([row]).fiscal_totals} == {"itbis"}
+
+
+@pytest.mark.parametrize("field", ["itbis", "goods", "services"])
+@pytest.mark.parametrize(
+    "currency,amount,expected",
+    [
+        ("DOP", "1.2300", 123),
+        ("JPY", "100.00", 100),
+        ("BHD", "1.234000", 1234),
+        ("DOP", "0.0000", 0),
+        ("JPY", "0.00", 0),
+    ],
+)
+def test_fiscal_trailing_zero_precision_is_normalized_exactly(
+    field, currency, amount, expected
+):
+    row = purchase(
+        currency=currency,
+        gross_amount="100",
+        itbis_amount="2",
+        goods_amount="2",
+        services_amount="2",
+    ).model_copy(update={field + "_amount": amount})
+    result = totals(run([row]))[currency, "expense", field]
+    assert result.amount_minor == result.known_amount_minor == expected
+    assert result.complete
+    assert (result.populated_count, result.applicable_count) == (1, 1)
+    assert result.unknown_count == result.unsupported_count == 0
+    assert getattr(run([row]).items[0], field + "_amount") == amount
+
+
+@pytest.mark.parametrize("field", ["itbis", "goods", "services"])
+@pytest.mark.parametrize(
+    "currency,amount,scale",
+    [("DOP", "1.234", 100), ("JPY", "100.01", 1), ("BHD", "1.2345", 1000)],
+)
+def test_fiscal_real_extra_precision_is_unsupported_without_affecting_other_records(
+    field, currency, amount, scale
+):
+    rows = [
+        purchase(
+            "unrepresentable",
+            currency=currency,
+            gross_amount="100",
+            itbis_amount="2",
+            goods_amount="2",
+            services_amount="2",
+        ).model_copy(update={field + "_amount": amount}),
+        purchase(
+            "healthy",
+            counterparty="healthy",
+            currency=currency,
+            gross_amount="100",
+            itbis_amount="3",
+            goods_amount="3",
+            services_amount="3",
+        ),
+        purchase(
+            "foreign",
+            currency="USD",
+            gross_amount="100",
+            itbis_amount="4",
+            goods_amount="4",
+            services_amount="4",
+        ),
+    ]
+    answer = run(rows)
+    result = totals(answer)
+    unsupported = result[currency, "expense", field]
+    assert answer.matching_count == len(answer.items) == 3
+    assert unsupported.known_amount_minor == 3 * scale
+    assert (unsupported.unsupported_count, unsupported.unknown_count) == (1, 0)
+    assert (unsupported.populated_count, unsupported.applicable_count) == (2, 2)
+    assert not unsupported.complete
+    assert unsupported.amount is unsupported.amount_minor is None
+    for basis in {"itbis", "goods", "services"} - {field}:
+        assert result[currency, "expense", basis].amount_minor == 5 * scale
+    assert result["USD", "expense", field].amount_minor == 400
+    assert all(
+        total.complete
+        for total in answer.totals
+        if total.basis == "document_family_amount"
+    )
+    filtered = run(rows, ReportFilters(q="healthy"))
+    assert filtered.matching_count == 1
+    assert totals(filtered)[currency, "expense", field].amount_minor == 3 * scale
+    assert totals(filtered)[currency, "expense", field].unsupported_count == 0
+
+
+@pytest.mark.parametrize("family,kind", [("purchase", "expense"), ("sale", "income")])
+def test_itbis_precision_rules_apply_to_both_sales_and_purchases(family, kind):
+    rows = [
+        record(
+            "exact",
+            family=family,
+            money_kind=kind,
+            itbis_amount="1.2300",
+            counterparty="exact",
+        ),
+        record(
+            "unsupported",
+            family=family,
+            money_kind=kind,
+            itbis_amount="1.234",
+            counterparty="unsupported",
+        ),
+    ]
+    all_rows = totals(run(rows))["DOP", kind, "itbis"]
+    assert (all_rows.known_amount_minor, all_rows.unsupported_count) == (123, 1)
+    exact = run(rows, ReportFilters(q="exact"))
+    assert exact.matching_count == 1
+    assert totals(exact)["DOP", kind, "itbis"].amount_minor == 123
