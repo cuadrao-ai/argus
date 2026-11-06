@@ -136,6 +136,8 @@ Registros has six summary cards. This records the decision approved by Lucas, re
 
 Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Cards and table always describe the same filtered records. Currency behavior is unchanged: never add incompatible currencies.
 
+Bienes and Servicios coverage counts only applicable purchases because sales have no goods/services split. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
+
 Faltan datos fiscales stays as the action card; Listos para exportar and Ya exportados leave the summary. Export workflows are untouched.
 
 The server supplies every number; the web computes none. [#1842](https://github.com/cuadrao-ai/argus/issues/1842) adds server totals for ITBIS, Bienes and Servicios, with coverage for Bienes and Servicios.
