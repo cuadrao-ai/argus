@@ -259,7 +259,20 @@ test("the 607 editor uses its form-specific dictionary labels in both languages"
 });
 
 for (const form of ["606", "607"] as const) {
-  test(`the ${form} editor preserves untranslated option codes with production i18n`, async () => {
+  const title = `the ${form} editor preserves untranslated option codes with production i18n`;
+  test(title, async () => {
+    // Production initialization changes the shared singleton; keep it out of other tests.
+    if (process.env.CUADRAO_TEST_FISCAL_I18N !== "true") {
+      const result = Bun.spawnSync({
+        cmd: [process.execPath, "test", import.meta.filename, "--test-name-pattern", title],
+        cwd: `${import.meta.dir}/..`,
+        env: { ...process.env, CUADRAO_TEST_FISCAL_I18N: "true" },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      assert.equal(result.exitCode, 0, result.stderr.toString());
+      return;
+    }
     const name = form === "606" ? "income_withholding_type" : "income_type";
     const codes = form === "606" ? ["01", "02", "03", "04", "05", "06", "07", "08", "09"] : ["1", "2", "3", "4", "5", "6"];
     const formFields = [field(name, name, "select", codes)];
