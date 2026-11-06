@@ -123,9 +123,24 @@ NCF, NCF afectado, servicios, bienes, ITBIS, ISC, and propina legal are pilot ex
 
 Home card renames are deferred. Keep Ingresos / Gastos. No Home Ingresos-to-Ventas rename is included.
 
-The three Registros export-status cards are dropped from this map for the pilot. This is product intent, not a claim that code has changed.
+Registros has six summary cards. This records the decision approved by Lucas, reviewed with Iris, on 2026-11-06; it is product intent, not a claim that code has changed.
 
-Registros money labels change when filtered by kind. These are product semantics for later code changes.
+| Card | Meaning |
+|---|---|
+| Total | Gross amount, using the existing source and fallback rules. |
+| ITBIS | Tax amount only. |
+| Cantidad | Record count, as a whole number. |
+| Bienes | Populated net (pre-tax) goods amounts, including values entered by hand. Its own coverage helper reports populated records, for example "12 de 40 registros". |
+| Servicios | Populated net (pre-tax) services amounts, including values entered by hand. Its own coverage helper reports populated records, for example "12 de 40 registros". |
+| Faltan datos fiscales | Count by the existing fiscal-completeness definition. |
+
+Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Cards and table always describe the same filtered records. Currency behavior is unchanged: never add incompatible currencies.
+
+Faltan datos fiscales stays as the action card; Listos para exportar and Ya exportados leave the summary. Export workflows are untouched.
+
+The server supplies every number; the web computes none. [#1842](https://github.com/cuadrao-ai/argus/issues/1842) adds server totals for ITBIS, Bienes and Servicios, with coverage for Bienes and Servicios.
+
+The existing money subcards apply only when filtered by kind, using these labels:
 
 | Filter | ES | EN |
 |---|---|---|
