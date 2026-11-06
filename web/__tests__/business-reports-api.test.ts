@@ -1,10 +1,11 @@
+import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createBusinessReportHttpFixture } from "./fixtures/business-report-http-fixture";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 import { appendBusinessReportSupportingFile, exportBusinessReport, listBusinessReportViews, mutateBusinessReportView, queryBusinessReport, reportRecordSchema, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, type ReportScope } from "@/lib/business-reports-api";
 
 const scope: ReportScope = { userId: "synthetic-person", businessId: "synthetic-business", grantId: "00000000-0000-4000-8000-000000000001" };
-const answer = () => ({ items: [], matching_count: 102, page: 1, page_size: 25, page_count: 5, totals: [{ currency: "DOP", kind: "expense", basis: "recorded_activity_amount", matching_count: 102, known_amount_minor: 123456789, unknown_count: 1, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "1234567.89", amount: null }], fingerprint: "a".repeat(64), captured_at: "2026-10-26T00:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
+const answer = () => ({ ...recordedReportAnswer, items: [], matching_count: 102, page: 1, page_size: 25, page_count: 5, totals: [{ currency: "DOP", kind: "expense", basis: "recorded_activity_amount", matching_count: 102, known_amount_minor: 123456789, unknown_count: 1, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "1234567.89", amount: null }], fingerprint: "a".repeat(64), captured_at: "2026-10-26T00:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
 type Call = { path: string; options: RequestInit };
 function respond(body: unknown, status = 200, contentType = "application/json") {
   const calls: Call[] = [];
@@ -53,13 +54,13 @@ describe("Business report transport", () => {
   });
   test("v2 sends complete presentation and keeps intended sort separate from the server fallback", async () => {
     const calls = respond({ ...answer(), overview: { needs_review: 40, needs_fiscal_data: 60, ready_for_export: 2, exported: 1 }, effective_sort: "date_desc", sort_unavailable_reason: "amount_sort_requires_single_known_currency" });
-    const report = reportRequestSchema.parse({ schema_version: 2, sort: "amount_asc", page_size: 100, presentation: { density: 56, hidden: ["funding", "note"] } });
+    const report = reportRequestSchema.parse({ schema_version: 2, sort: "amount_asc", page_size: 100, presentation: { ...recordedReportAnswer.presentation, density: 56, hidden: ["funding", "note"] } });
     const result = await queryBusinessReport(scope, report);
     expect(JSON.parse(String(calls[0].options.body))).toEqual(report);
     expect(result.effective_sort).toBe("date_desc");
     expect(result.overview?.needs_review).toBe(40);
     expect(report.sort).toBe("amount_asc");
-    expect(report.schema_version === 2 && report.presentation.density).toBe(56);
+    expect(report.schema_version === 2 && report.presentation?.density).toBe(56);
     expect(() => reportRequestSchema.parse({ ...report, presentation: { ...report.schema_version === 2 ? report.presentation : {}, hidden: ["gross_amount"] } })).toThrow();
   });
   test("a changed grant before or during a response never yields records", async () => {
@@ -136,4 +137,9 @@ describe("Business report transport", () => {
     expect(decodeURIComponent(headers.get("X-Document-Filename")!)).toBe(file.name);
     expect(headers.get("Idempotency-Key")).toBe("supporting-command");
   });
+});
+
+test("a fresh version-two request leaves presentation to the server", () => {
+  const request = reportRequestSchema.parse({ schema_version: 2 });
+  expect(Object.hasOwn(JSON.parse(JSON.stringify(request)), "presentation")).toBe(false);
 });

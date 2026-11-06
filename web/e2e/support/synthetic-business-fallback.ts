@@ -1,5 +1,6 @@
 import type { Request } from "@playwright/test";
 import { reportAnswerSchema, reportRequestSchema } from "../../lib/business-reports-api";
+import recordedAnswer from "../../test-fixtures/records-default-report-answer.json";
 
 type SyntheticBusinessRoute = {
   request(): Pick<Request, "url" | "method" | "postDataJSON">;
@@ -15,6 +16,7 @@ export async function fulfillSyntheticBusinessFallback(route: SyntheticBusinessR
   const report = reportRequestSchema.parse(request.postDataJSON());
   if (report.filters.period.kind !== "all" || report.sort !== "date_desc") throw new Error("Synthetic reports/query supports only all periods and date_desc");
   return route.fulfill({ json: reportAnswerSchema.parse({
+    presentation: report.schema_version === 2 ? report.presentation ?? recordedAnswer.presentation : recordedAnswer.presentation,
     items: [],
     overview: { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 },
     effective_sort: "date_desc",

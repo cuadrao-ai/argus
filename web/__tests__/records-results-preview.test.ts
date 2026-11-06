@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
-import { defaultRecordsPreferences, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
+import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
+import { toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
 import { previewRecordMetadata, summarizePreviewRecords } from "@/components/business-app/transacciones/records-results-preview";
 import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
 import es from "@/public/locales/es-419/common.json";
@@ -10,12 +11,12 @@ const record = (id: string, kind: RecordRow["kind"], amount: string, currency: s
 const rows = [record("exp-gas", "gasto", "-2100.00", "DOP"), record("exp-hosting", "gasto", "-24.00", "USD"), record("exp-lunch", "gasto", "-1250.00", "DOP"), record("exp-gas", "venta", "2100.00", "DOP"), record("exp-hosting", "venta", "24.00", "USD"), record("exp-lunch", "venta", "1250.00", "DOP")];
 
 test("preview defaults add status, currency and notes while keeping account optional", () => {
-  const prefs = defaultRecordsPreferences();
+  const prefs = sampleRecordsPreferences();
   assert.equal(prefs.order.length, 11);
-  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["contraparte", "fecha", "monto", "moneda", "detalle", "tipo_gasto", "estado", "notas", "comprobante"]);
-  assert.deepEqual(prefs.hidden, ["cuenta", "forma_pago"]);
-  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "cuenta")).length, 10);
-  assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(prefs, "forma_pago")).map(({ key }) => key).slice(5, 7), ["tipo_gasto", "forma_pago"], "Forma de pago shows beside Tipo de gasto once chosen");
+  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["contraparte", "fecha", "monto", "moneda", "detalle", "estado", "notas", "comprobante"]);
+  assert.deepEqual(prefs.hidden, ["cuenta", "forma_pago", "tipo_gasto"]);
+  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "cuenta")).length, 9);
+  assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(toggleRecordsColumn(prefs, "tipo_gasto"), "forma_pago")).map(({ key }) => key).slice(5, 7), ["tipo_gasto", "forma_pago"], "Forma de pago shows beside Tipo de gasto once chosen");
   assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "estado")).some(({ key }) => key === "estado"), false);
 });
 

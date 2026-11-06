@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import type { BusinessExpense } from "../../lib/business-api";
 import { reportAnswerSchema, reportFiltersSchema, reportRequestSchema, type ReportRecord } from "../../lib/business-reports-api";
+import recordedAnswer from "../../test-fixtures/records-default-report-answer.json";
 import { installReceiptBusiness } from "./business-receipt-fixture";
 
 export async function installBusinessRouteFixture(page: Page) {
@@ -76,6 +77,7 @@ export async function installBusinessRouteFixture(page: Page) {
         attachment_sources: [],
       }));
       return reportAnswerSchema.parse({
+        presentation: report.schema_version === 2 ? report.presentation ?? recordedAnswer.presentation : recordedAnswer.presentation,
         items, matching_count: items.length, page: report.page, page_size: report.page_size, page_count: 1,
         totals: [], fingerprint: "0".repeat(64), captured_at: "2026-11-02T12:00:00Z",
         resolved_period: { from_date: from, to_date: to, calendar: "America/Santo_Domingo" },

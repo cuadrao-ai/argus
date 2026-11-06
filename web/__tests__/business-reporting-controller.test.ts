@@ -1,9 +1,10 @@
+import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { describe, expect, test } from "bun:test";
 import { businessReportRow, createBusinessReportController, defaultReportRequest, recipeFromRequest, recordsPresentationToReport, reportPresentationToRecords, reportFailure, reportLocation, restoreReportLocation, type ReportingTransport } from "@/lib/business-reporting-wire";
 import type { ReportAnswer, ReportRequest, ReportViewCommand, SavedReportView } from "@/lib/business-reports-api";
 import { reportRequestSchema } from "@/lib/business-reports-api";
 
-const answer = (request: ReportRequest, count = 125): ReportAnswer => ({ items: [], matching_count: count, page: request.page, page_size: request.page_size, page_count: Math.ceil(count / request.page_size), totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
+const answer = (request: ReportRequest, count = 125): ReportAnswer => ({ ...recordedReportAnswer, items: [], matching_count: count, page: request.page, page_size: request.page_size, page_count: Math.ceil(count / request.page_size), totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
 const scope = { userId: "person", businessId: "business-a", grantId: null };
 const problem = (status: number, code: string) => Object.assign(new Error(code), { status, code });
 const transport = (overrides: Partial<ReportingTransport> = {}): ReportingTransport => ({ query: async (_scope, request) => answer(request), export: async () => new Blob(["archive"]), listViews: async () => [], mutateView: async () => null, ...overrides });
@@ -42,7 +43,7 @@ describe("Business report controller", () => {
     expect(requests.at(-1)?.page).toBe(1);
   });
   test("a v2 saved recipe preserves relative period, presentation, intended sort and saved size at page one", async () => {
-    const request = reportRequestSchema.parse({ schema_version: 2, page: 4, page_size: 100, filters: { period: { kind: "last_month" } }, sort: "name_asc", presentation: { density: 40, hidden: ["attachment"] } });
+    const request = reportRequestSchema.parse({ schema_version: 2, page: 4, page_size: 100, filters: { period: { kind: "last_month" } }, sort: "name_asc", presentation: { ...recordedReportAnswer.presentation, density: 40, hidden: ["attachment"] } });
     const recipe = recipeFromRequest(request);
     const controller = createBusinessReportController(scope, undefined, transport());
     await controller.openView({ id: "saved", name: "Compras", recipe, version: 3, created_at: "now", updated_at: "now" });
@@ -50,8 +51,8 @@ describe("Business report controller", () => {
     expect(recipe).not.toHaveProperty("page");
   });
   test("presentation round trips all columns and changes density without another query or page reset", async () => {
-    const request = reportRequestSchema.parse({ schema_version: 2, page: 4 });
-    if (request.schema_version !== 2) throw new Error("Expected v2 request");
+    const request = reportRequestSchema.parse({ schema_version: 2, page: 4, presentation: recordedReportAnswer.presentation });
+    if (request.schema_version !== 2 || !request.presentation) throw new Error("Expected v2 request");
     const preferences = reportPresentationToRecords(request.presentation, "name_desc");
     expect(recordsPresentationToReport(preferences)).toEqual(request.presentation);
     let reads = 0;
@@ -63,7 +64,7 @@ describe("Business report controller", () => {
     expect(controller.getSnapshot().request.page).toBe(4);
     expect(controller.getSnapshot().load).toBe(before);
     const updated = controller.getSnapshot().request;
-    expect(updated.schema_version === 2 && updated.presentation.density).toBe(56);
+    expect(updated.schema_version === 2 && updated.presentation?.density).toBe(56);
   });
   test("late query and disposed Business responses cannot replace current scope", async () => {
     const first = deferred<ReportAnswer>();

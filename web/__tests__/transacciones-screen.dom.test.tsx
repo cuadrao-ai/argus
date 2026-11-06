@@ -243,6 +243,10 @@ describe("the gate", () => {
       assert.ok(page.records()[0].querySelector('[data-col="forma_pago"]'), "every row gets the Forma de pago cell");
       await page.click(document.querySelector('[data-column-setting="forma_pago"] label'));
       const category = document.querySelector('[data-column-setting="tipo_gasto"] label')!;
+      assert.equal(document.querySelector('th[data-col="tipo_gasto"]'), null, "Tipo de gasto starts hidden");
+      await page.click(category);
+      assert.equal(document.querySelector('th[data-col="tipo_gasto"]')?.textContent, "Tipo de gasto");
+      assert.ok(page.records()[0].querySelector('[data-col="tipo_gasto"]'));
       await page.click(category);
       assert.equal(document.querySelector('th[data-col="tipo_gasto"]'), null);
       assert.equal(page.records()[0].querySelector('[data-col="tipo_gasto"]'), null);
@@ -346,10 +350,10 @@ describe("the gate", () => {
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
       await page.settle(() => page.records().length === 6, "fixture scope summary");
       assert.equal(summary(), null, "Todos has no monetary summary");
-      assert.equal(document.querySelectorAll('thead th').length, 9);
+      assert.equal(document.querySelectorAll('thead th').length, 8);
       assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
-      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["contraparte", "fecha", "monto", "moneda", "detalle", "tipo_gasto", "estado", "notas", "comprobante"]);
-      assert.equal(document.querySelector('th[data-col="tipo_gasto"]')?.textContent, "Tipo de gasto");
+      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["contraparte", "fecha", "monto", "moneda", "detalle", "estado", "notas", "comprobante"]);
+      assert.equal(document.querySelector('th[data-col="tipo_gasto"]'), null);
       const amount = page.records().find((row) => row.dataset.kind === "gasto")!.querySelector('[data-col="monto"]')!;
       assert.equal(amount.textContent, "2,100.00");
       assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]')!.textContent, "RD$");

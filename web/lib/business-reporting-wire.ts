@@ -52,9 +52,9 @@ export function reportSummary(answer: ReportAnswer | undefined, kind: RecordRow[
 }
 
 export const defaultReportRequest = (): ReportRequest => reportRequestSchema.parse({});
-export const recipeFromRequest = (request: ReportRequest): ReportRecipe => {
+export const recipeFromRequest = (request: ReportRequest, presentation?: ReportPresentation): ReportRecipe => {
   const recipe = { schema_version: request.schema_version, filters: request.filters, columns: request.columns, sort: request.sort };
-  return reportRecipeSchema.parse(request.schema_version === 2 ? { ...recipe, presentation: request.presentation, page_size: request.page_size } : recipe);
+  return reportRecipeSchema.parse(request.schema_version === 2 ? { ...recipe, presentation: request.presentation ?? presentation, page_size: request.page_size } : recipe);
 };
 export type ReportFailure = { kind: "access" | "changed" | "version" | "conflict" | "unavailable" | "uncertain" | "failed"; code: string; requestId?: string };
 export function reportFailure(error: unknown, mutation = false): ReportFailure {
@@ -133,6 +133,12 @@ export function createBusinessReportController(scope: ReportScope, initial = def
     setPresentation(presentation: ReportPresentation) {
       if (state.request.schema_version !== 2) throw new Error("Report presentation requires schema version 2");
       publish({ request: reportRequestSchema.parse({ ...state.request, presentation }) });
+    },
+    restorePresentation() {
+      if (state.request.schema_version !== 2) throw new Error("Report presentation requires schema version 2");
+      const request = { ...state.request };
+      delete request.presentation;
+      return controller.load(request);
     },
     refresh: () => controller.load(),
     recoverPage: () => state.load.kind === "invalid-page" ? controller.setPage(state.load.recoveryPage) : Promise.resolve(),
