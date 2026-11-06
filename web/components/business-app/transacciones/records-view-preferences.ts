@@ -1,5 +1,5 @@
 import type { ColumnKey } from "./TransaccionesTable";
-import { DEFAULT_RECORDS_SORT, type RecordsSort } from "./records-pagination";
+import { type RecordsSort } from "./records-pagination";
 import type { Density } from "./table-density";
 
 /** The Registros columns: the ledger's, with Categoría's slot given to the 606 tipo de gasto, forma de pago beside it, and Estado, Moneda and Notas added. */
@@ -24,7 +24,6 @@ export type TableColumnKey = RecordsColumnKey | ColumnKey;
 export const recordsColumnLabelKey = (key: TableColumnKey) => key === "detalle" ? "business.transactions.layout.column_type" : key === "estado" ? "business.transactions.layout.column_state" : key === "comprobante" ? "business.transactions.layout.column_attachment" : key === "tipo_gasto" ? "business.dossier.placeholder.expense_type" : key === "forma_pago" ? "business.dossier.placeholder.payment_form" : `business.transactions.columns.${key}`;
 export type RecordsViewPreferences = { order: RecordsColumnKey[]; hidden: RecordsColumnKey[]; density: Density; sort: RecordsSort };
 export const requiredColumn = (key: RecordsColumnKey) => key === "contraparte" || key === "monto" || key === "moneda";
-export const defaultRecordsPreferences = (): RecordsViewPreferences => ({ order: RECORDS_PREVIEW_COLUMNS.map(({ key }) => key), hidden: ["cuenta", "forma_pago"], density: "normal", sort: { ...DEFAULT_RECORDS_SORT } });
 export function moveRecordsColumn(value: RecordsViewPreferences, key: RecordsColumnKey, target: number): RecordsViewPreferences {
   if (key === "contraparte") return value;
   const order = value.order.filter((item) => item !== key);

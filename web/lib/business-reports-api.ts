@@ -22,9 +22,9 @@ export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "na
 export const REPORT_PRESENTATION_KEYS = ["counterparty", "date", "gross_amount", "currency", "family", "expense_type", "payment_form", "stage", "note", "attachment", "funding"] as const;
 const presentationKey = z.enum(REPORT_PRESENTATION_KEYS);
 export const reportPresentationSchema = z.strictObject({
-  order: z.array(presentationKey).length(REPORT_PRESENTATION_KEYS.length).refine((values) => values[0] === "counterparty" && new Set(values).size === REPORT_PRESENTATION_KEYS.length).default([...REPORT_PRESENTATION_KEYS]),
-  hidden: z.array(presentationKey).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount", "currency"].includes(key))).default(["funding", "payment_form"]),
-  density: z.union([z.literal(40), z.literal(48), z.literal(56)]).default(48),
+  order: z.array(presentationKey).length(REPORT_PRESENTATION_KEYS.length).refine((values) => values[0] === "counterparty" && new Set(values).size === REPORT_PRESENTATION_KEYS.length),
+  hidden: z.array(presentationKey).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount", "currency"].includes(key))),
+  density: z.union([z.literal(40), z.literal(48), z.literal(56)]),
 });
 const pageSize = z.union([z.literal(25), z.literal(50), z.literal(100)]);
 const column = z.enum(["date", "family", "stage", "counterparty", "currency", "gross_amount", "recorded_amount", "proposed_amount", "category", "funding", "document_kind", "fiscal_classification", "note"]);
@@ -53,7 +53,7 @@ const reportRecipeV1Schema = z.strictObject({
 });
 const reportRecipeV2Schema = reportRecipeV1Schema.extend({
   schema_version: z.literal(2), sort: reportSortSchema.default("date_desc"),
-  presentation: reportPresentationSchema.default(() => reportPresentationSchema.parse({})), page_size: pageSize.default(25),
+  presentation: reportPresentationSchema.optional(), page_size: pageSize.default(25),
 });
 export const reportRecipeSchema = z.union([reportRecipeV1Schema, reportRecipeV2Schema]);
 export const reportRequestSchema = z.union([
@@ -84,6 +84,7 @@ export const reportTotalSchema = z.object({
   amount_minor: minorNumber.nullable(), known_amount: decimal.nullable(), amount: decimal.nullable(),
 });
 export const reportAnswerSchema = z.object({
+  presentation: reportPresentationSchema,
   items: z.array(reportRecordSchema), matching_count: count, page: z.number().int().positive(), page_size: z.union([z.literal(25), z.literal(50), z.literal(100)]), page_count: count,
   totals: z.array(reportTotalSchema), fingerprint: z.string().regex(/^[0-9a-f]{64}$/), captured_at: z.string(),
   resolved_period: z.object({ from_date: day.nullable(), to_date: day.nullable(), calendar: z.literal("America/Santo_Domingo") }),

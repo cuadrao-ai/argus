@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 import { formatRecordActivityDate, previewAmountColumnSize } from "@/components/business-app/transacciones/records-row-preview";
-import { defaultRecordsPreferences, moveRecordsColumn, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
+import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
+import { moveRecordsColumn, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
 
 test("activity dates show a year in the selected language and reject missing or impossible days", () => {
   assert.equal(formatRecordActivityDate("2026-10-25", "es-419"), "25 oct 2026");
@@ -10,7 +11,7 @@ test("activity dates show a year in the selected language and reject missing or 
 });
 
 test("amount and currency are required and adjacent only by default", () => {
-  const initial = defaultRecordsPreferences();
+  const initial = sampleRecordsPreferences();
   for (const key of ["contraparte", "monto", "moneda"] as const) assert.equal(toggleRecordsColumn(initial, key), initial);
   const keys = visibleRecordsColumns(initial).map(({ key }) => key);
   assert.equal(keys[keys.indexOf("monto") + 1], "moneda");
@@ -39,7 +40,7 @@ test("preview labels exist at their exact EN and ES paths without renaming the o
 });
 
 test("amount and currency move independently and rendered columns keep their chosen order", () => {
-  const initial = defaultRecordsPreferences();
+  const initial = sampleRecordsPreferences();
   for (const key of ["monto", "moneda"] as const) {
     for (const target of [1, initial.order.indexOf(key), initial.order.indexOf(key) + 1, initial.order.length - 1]) {
       const moved = moveRecordsColumn(initial, key, target);
@@ -52,7 +53,7 @@ test("amount and currency move independently and rendered columns keep their cho
 });
 
 test("column movement clamps after fixed counterparty and preserves required visibility", () => {
-  const initial = defaultRecordsPreferences();
+  const initial = sampleRecordsPreferences();
   assert.equal(moveRecordsColumn(initial, "contraparte", initial.order.length - 1), initial);
   for (const key of ["monto", "moneda", "detalle"] as const) {
     const first = moveRecordsColumn(initial, key, -5);

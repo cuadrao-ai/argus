@@ -23,7 +23,8 @@ import { KeyHint, MoneyList, Unknown } from "./transacciones-parts";
 import { recordRowKey, RecordsList, RecordsTable } from "./TransaccionesRecords";
 import { EMPTY_RECORDS_FILTER, RecordsToolbar, type RecordsFilter } from "./RecordsToolbar";
 import RecordsSettingsPreview from "./RecordsSettingsPreview";
-import { defaultRecordsPreferences } from "./records-view-preferences";
+import type { RecordsViewPreferences } from "./records-view-preferences";
+import { sampleRecordsPreferences } from "./sample-records-preferences";
 import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
 import { activeFilterGroups, emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment } from "./records-filter-preview-model";
@@ -53,13 +54,13 @@ export default function TransaccionesPanel() {
 
 function LegacyTransaccionesPanel() {
   const { t, locale } = useTransaccionesWords();
-  const { period, setPeriod, panel, records, actions, chosen, openExport, openPanel } = useBusiness();
+  const { period, setPeriod, panel, records, actions, chosen, openExport, openPanel, source } = useBusiness();
   const igualarOn = useIgualarEnabled();
   const periodLabel = usePeriodLabel();
   const { isBelowTablet: phone } = useResponsiveLayout();
   const densityState = useTableDensity();
   const density = densityState.density;
-  const [viewPreferences, setViewPreferences] = useState(defaultRecordsPreferences);
+  const [viewPreferences, setViewPreferences] = useState<RecordsViewPreferences | undefined>(() => source.mode === "fixture" ? sampleRecordsPreferences() : undefined);
   const controller = useTransacciones();
   const { list, movements, tray, segment, view: bank } = controller;
   const view = list.kind === "ready" ? list.view : null;
@@ -91,7 +92,7 @@ function LegacyTransaccionesPanel() {
   const [previewFilters, setPreviewFilters] = useState(emptyPreviewFilters);
   const [previewPeriod, setPreviewPeriod] = useState(period);
   const [previewRevision, setPreviewRevision] = useState(0);
-  const localPaging = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const localPaging = viewPreferences !== undefined && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.review, previewFilters.attachment, previewFilters.expense_type]);
   const query = filter.query.trim().toLocaleLowerCase(locale);
   const matchesPreviewSearch = useRecordPreviewSearch();
@@ -148,7 +149,7 @@ function LegacyTransaccionesPanel() {
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
         {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview loading={list.kind === "loading"} counts={overviewPreviewCounts(periodRecords, chosen?.space_id ?? null)} selected={previewFilters.review} onChoose={(review) => setPreviewFilters((current) => ({ ...current, review: current.review.includes(review) ? [] : [review] }))} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} /> : null}
-        {!igualar ? <RecordsToolbar appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={setPreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{phone ? null : <RecordsExportButton onExport={openExport} />}{localPaging ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
+        {!igualar ? <RecordsToolbar appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={setPreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{phone ? null : <RecordsExportButton onExport={openExport} />}{localPaging && viewPreferences ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
@@ -164,9 +165,9 @@ function LegacyTransaccionesPanel() {
             <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />
           </div>
         ) : list.kind === "loading" ? (
-          igualar ? <LoadingRows density={phone ? "amplio" : density} /> : <RecordsLoadingPreview density={localPaging ? viewPreferences.density : density} preferences={localPaging ? viewPreferences : undefined} />
+          igualar ? <LoadingRows density={phone ? "amplio" : density} /> : <RecordsLoadingPreview density={localPaging && viewPreferences ? viewPreferences.density : density} preferences={localPaging ? viewPreferences : undefined} />
         ) : saved ? (
-          localPaging ? <RecordsPagePreview onSortChange={(sort) => setViewPreferences((current) => ({ ...current, sort }))} preferences={viewPreferences} records={visibleRecords ?? saved} density={viewPreferences.density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
+          localPaging && viewPreferences ? <RecordsPagePreview onSortChange={(sort) => setViewPreferences((current) => current ? { ...current, sort } : current)} preferences={viewPreferences} records={visibleRecords ?? saved} density={viewPreferences.density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
             : saved.length === 0 || visibleRecords?.length === 0 ? recordsEmptyContent
               : phone ? <RecordsList records={visibleRecords ?? saved} rowRef={rowRef} /> : <RecordsTable records={visibleRecords ?? saved} density={density} rowRef={rowRef} />
         ) : !bank ? null : bank.counts !== null && bank.counts.movimientos + bank.counts.sinMovimiento === 0 ? (

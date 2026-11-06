@@ -11350,18 +11350,31 @@ accept path recorded.
   Version-2 input bounds allow at most 15 significant whole digits and currency
   precision; historical version-1 bounds and exact response strings remain valid.
 
-  Version-2 recipes also save `page_size` (25/50/100) and `presentation`.
-  `presentation.order` contains each of `counterparty`, `date`, `gross_amount`,
-  `currency`, `family`, `expense_type`, `payment_form`, `stage`, `note`,
-  `attachment`, `funding` once. Counterparty stays first. `hidden` cannot hide
-  counterparty, amount or currency. The default order is that sequence, with
-  funding and payment form hidden. A saved presentation from before the 606
-  columns is read as current: `category` becomes `expense_type` in place, and
-  `payment_form` joins the order after it, hidden. `category` is no longer a
-  table column. Density is 40/48/56,
-  default 48. Amount and currency move independently. `columns` remains the
-  separate export field selection. No summary or widget preference is accepted.
-  Page, page size, columns and presentation do not alter the result fingerprint.
+  Version-2 recipes also save `page_size` (25/50/100) and optional
+  `presentation`. The backend `Presentation` in
+  `src/argus/domain/business/reporting_preferences.py` owns the default table
+  layout. Every answer's `presentation` is the explicitly requested layout when
+  supplied, or that backend default when omitted. Version 1 still rejects
+  `presentation` in its request. Both versions return the effective typed
+  `presentation` in every answer. The web leaves omitted
+  request presentation absent and renders the answer; it defines no table defaults.
+  Before the answer, it shows pending UI without invented columns or options.
+  Restore omits presentation and queries again. Saving a view records the effective
+  layout, including when the original request omitted it. Explicit saved layouts
+  keep their order, hidden columns and density without migration.
+
+  `presentation.order` contains each supported table key once, with counterparty
+  first. `hidden` cannot hide counterparty, amount or currency. A saved presentation
+  from before the 606 columns is read as current: `category` becomes `expense_type`
+  in place, and `payment_form` joins the order after it, hidden. `category` is no
+  longer a table column. Density is 40/48/56, default 48. Amount and currency move
+  independently. `columns` remains the separate export field selection. No summary
+  or widget preference is accepted. Page, page size, columns and presentation do
+  not alter the result fingerprint. The preview reads the recorded empty answer
+  `web/test-fixtures/records-default-report-answer.json`; it is not a live fallback.
+  `test_query_returns_backend_default_presentation`,
+  `test_recorded_preview_answer_matches_backend`, `records-default-authority.test.ts`
+  and `business-reports-connected.dom.test.tsx` enforce these boundaries.
 
   Every report answer adds `overview` with `needs_review`, `needs_fiscal_data`,
   `ready_for_export`, `exported` and `export_lines` counts from the same

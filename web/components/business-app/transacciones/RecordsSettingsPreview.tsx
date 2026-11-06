@@ -6,21 +6,21 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import { DENSITIES } from "./table-density";
-import { recordsColumnLabelKey, type RecordsColumnKey, defaultRecordsPreferences, moveRecordsColumn, requiredColumn, toggleRecordsColumn, type RecordsViewPreferences } from "./records-view-preferences";
+import { recordsColumnLabelKey, type RecordsColumnKey, moveRecordsColumn, requiredColumn, toggleRecordsColumn, type RecordsViewPreferences } from "./records-view-preferences";
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-filter-preview.module.css";
 
-export default function RecordsSettingsPreview({ value, onChange }: { value: RecordsViewPreferences; onChange: (value: RecordsViewPreferences) => void }) {
+export default function RecordsSettingsPreview({ value, onChange, onRestore }: { value: RecordsViewPreferences; onChange: (value: RecordsViewPreferences) => void; onRestore: () => void }) {
   const { t } = useTransaccionesWords();
   const { isBelowDesktop: phone } = useResponsiveLayout();
   const cancelMove = useRef<(() => boolean) | null>(null);
   const registerCancel = useCallback((handler: (() => boolean) | null) => { cancelMove.current = handler; }, []);
   if (phone) return null;
   return <RecordsPreviewPopover beforeEscape={() => cancelMove.current?.() ?? false} iconOnly label={t("business.transactions.density.options")} icon={<SlidersHorizontal size={18} aria-hidden="true" />} width={440}>
-    {() => <Settings value={value} onChange={onChange} registerCancel={registerCancel} />}
+    {() => <Settings value={value} onChange={onChange} onRestore={onRestore} registerCancel={registerCancel} />}
   </RecordsPreviewPopover>;
 }
-function Settings({ value, onChange, registerCancel }: { registerCancel: (handler: (() => boolean) | null) => void; value: RecordsViewPreferences; onChange: (value: RecordsViewPreferences) => void }) {
+function Settings({ value, onChange, onRestore, registerCancel }: { registerCancel: (handler: (() => boolean) | null) => void; value: RecordsViewPreferences; onChange: (value: RecordsViewPreferences) => void; onRestore: () => void }) {
   const { t } = useTransaccionesWords();
   const word = (key: string) => t(`business.transactions.layout.settings.${key}`);
   const label = (key: RecordsColumnKey) => t(recordsColumnLabelKey(key), { currency: "" }).trim();
@@ -58,6 +58,6 @@ function Settings({ value, onChange, registerCancel }: { registerCancel: (handle
       </li>)}</ul>
       <span className={styles.srOnly} role="status" aria-live="polite">{message}</span>
     </section> : <section aria-label={word("height")}>{DENSITIES.map((density) => <label className={styles.choice} key={density}><input type="radio" name="records-preview-density" checked={value.density === density} onChange={() => onChange({ ...value, density })} /><span>{t(`business.transactions.density.${density}`)}</span></label>)}</section>}
-    <div className={styles.settingsFooter}><button type="button" className={styles.clear} onClick={() => { before.current = null; setGrabbed(null); setDragging(null); setDropTarget(null); onChange(defaultRecordsPreferences()); }}>{word("restore")}</button></div>
+    <div className={styles.settingsFooter}><button type="button" className={styles.clear} onClick={() => { before.current = null; setGrabbed(null); setDragging(null); setDropTarget(null); onRestore(); }}>{word("restore")}</button></div>
   </div>;
 }

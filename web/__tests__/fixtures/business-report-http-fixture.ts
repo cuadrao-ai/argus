@@ -1,3 +1,4 @@
+import { recordedReportAnswer } from "./recorded-report-answer";
 import { reportAnswerSchema, reportRequestSchema, type ReportRecord, type ReportTotal } from "@/lib/business-reports-api";
 
 export const fixtureId = (value: number) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
@@ -44,7 +45,7 @@ export function createBusinessReportHttpFixture() {
   const views: { id: string; name: string; recipe: unknown; version: number; created_at: string; updated_at: string }[] = [];
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
-  const controls = { exportChanged: false, noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false };
+  const controls = { presentation: recordedReportAnswer.presentation, exportChanged: false, noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false };
   const dossier = (row: ReportRecord) => ({ draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
   const problem = (status: number, code: string) => Response.json({ code, detail: code }, { status });
   const request = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
@@ -67,7 +68,7 @@ export function createBusinessReportHttpFixture() {
       const effective_sort = blocked ? "date_desc" : report.sort;
       if (effective_sort.startsWith("name_")) matching.sort((a, b) => (a.counterparty ?? "").localeCompare(b.counterparty ?? "") * (effective_sort.endsWith("asc") ? 1 : -1));
       const items = matching.slice((report.page - 1) * report.page_size, report.page * report.page_size).map((row) => ({ ...row, can_edit_note: !controls.readOnly, can_append_supporting: !controls.readOnly, attachment_sources: row.attachment_sources?.map((source) => ({ ...source, source_available: source.receipt_id === fixtureId(700) ? controls.originalAvailable : source.source_available, download_available: !controls.readOnly && (source.receipt_id !== fixtureId(700) || controls.originalAvailable) })) }));
-      return Response.json(reportAnswerSchema.parse({ items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
+      return Response.json(reportAnswerSchema.parse({ presentation: report.schema_version === 2 && report.presentation ? report.presentation : controls.presentation, items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
         totals: documentFamilyTotals(matching),
         fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: report.filters.period.kind === "latest_month" ? latestMonth(records) : { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
         counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: [{ code: "02", label: "Gastos por trabajos, suministros y servicios" }], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],

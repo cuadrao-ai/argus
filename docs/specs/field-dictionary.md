@@ -101,7 +101,7 @@ Tipo de gasto: 01–11 · Forma de pago: 01–07
 
 ## Registros columns
 
-The existing column picker stays. Notas remains available. More of the pilot Excel columns become choosable Registros columns over time.
+The backend `Presentation` in `src/argus/domain/business/reporting_preferences.py` owns the default layout. The report answer returns the effective `presentation`; the connected table uses it. The preview uses `web/test-fixtures/records-default-report-answer.json`, recorded from the backend. `test_recorded_preview_answer_matches_backend` checks that fixture and `records-default-authority.test.ts` prevents web defaults. Saved layouts keep their explicit order, hidden columns and density. The existing column picker stays. More of the pilot Excel columns become choosable Registros columns over time.
 
 | Column key | Pilot default | ES / EN | Why |
 |---|---|---|---|
@@ -110,12 +110,12 @@ The existing column picker stays. Notas remains available. More of the pilot Exc
 | monto | On | Monto / Amount | Gross |
 | moneda | On | Moneda / Currency | |
 | detalle | On | Tipo / Type | Compra/Venta |
-| tipo_gasto | On | Tipo de gasto / Expense type | The pilot needs it |
-| forma_pago | On (was default-hidden) | Forma de pago / Payment method | Turn on for pilot |
+| tipo_gasto | Available (hidden by default) | Tipo de gasto / Expense type | Applies to purchases only, so hidden by default |
+| forma_pago | Available (hidden by default) | Forma de pago / Payment method | Applies to purchases only, so hidden by default |
 | estado | On | Estado / Status | |
 | comprobante | On | Adjunto / Attachment | |
-| notas | Available (stays) | Notas / Notes | Notas stays available, not stripped or forced hidden. |
-| cuenta | Available; not in the pilot 12 | Cuenta / Account | Forma de pago ≠ Cuenta |
+| notas | On | Notas / Notes | Notas stays available, not stripped or forced hidden. |
+| cuenta | Available (hidden by default) | Cuenta / Account | Forma de pago ≠ Cuenta |
 
 NCF, NCF afectado, servicios, bienes, ITBIS, ISC, and propina legal are pilot export fields, not Registros columns today. They belong in the choosable set over time. These are semantic targets, not a ship list. They already exist in Más datos or export. The evolved export column and file-type picker is out of scope.
 

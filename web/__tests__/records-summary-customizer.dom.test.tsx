@@ -25,11 +25,11 @@ async function mount(width = 1440, records = [row(false)], language = "es-419", 
   await i18n.init({ lng: language, resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default }, en: { translation: (await import("@/public/locales/en/common.json")).default } } });
   const { default: Summary, RecordsSummaryCards } = await import("@/components/business-app/transacciones/RecordsResultsSummary");
   const Settings = (await import("@/components/business-app/transacciones/RecordsSettingsPreview")).default;
-  const { defaultRecordsPreferences } = await import("@/components/business-app/transacciones/records-view-preferences");
+  const { sampleRecordsPreferences } = await import("@/components/business-app/transacciones/sample-records-preferences");
   function Harness() {
-    const [preferences, setPreferences] = useState(defaultRecordsPreferences);
+    const [preferences, setPreferences] = useState(sampleRecordsPreferences);
     const [kind, setKind] = useState<RecordRow["kind"] | "all">("gasto");
-    return <><button onClick={() => setKind("all")}>All</button><button onClick={() => setKind("venta")}>Sales</button><button onClick={() => setKind("gasto")}>Expenses</button><Settings value={preferences} onChange={setPreferences} />{summaryOverride ? <RecordsSummaryCards summary={summaryOverride} kind="gasto" /> : <Summary kind={kind} records={records} businessId="fixture-space" />}</>;
+    return <><button onClick={() => setKind("all")}>All</button><button onClick={() => setKind("venta")}>Sales</button><button onClick={() => setKind("gasto")}>Expenses</button><Settings value={preferences} onChange={setPreferences} onRestore={() => setPreferences(sampleRecordsPreferences())} />{summaryOverride ? <RecordsSummaryCards summary={summaryOverride} kind="gasto" /> : <Summary kind={kind} records={records} businessId="fixture-space" />}</>;
   }
   const host = document.createElement("div"); document.body.appendChild(host);
   const root = createRoot(host);

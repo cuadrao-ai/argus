@@ -12,6 +12,8 @@ import { reportRequestSchema, type ReportRecord, type ReportRequest } from "@/li
 import { restoreReportLocation } from "@/lib/business-reporting-wire";
 import { setChosenGrant } from "@/lib/business-grant";
 import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-report-http-fixture";
+import english from "@/public/locales/en/common.json";
+import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import spanish from "@/public/locales/es-419/common.json";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 
@@ -22,16 +24,16 @@ const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
-async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
+async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
   const { createRoot } = await import("react-dom/client");
-  const fixture = createBusinessReportHttpFixture(); options.edit?.(fixture.records); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
+  const fixture = createBusinessReportHttpFixture(); if (options.presentation) fixture.controls.presentation = options.presentation; options.edit?.(fixture.records); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
   const computedStyle = globalThis.getComputedStyle;
   if (options.width && options.width < 1024) globalThis.getComputedStyle = ((element: Element) => {
     const style = computedStyle(element);
     return new Proxy(style, { get(target, key) { if (key === 'getPropertyValue') return (name: string) => name === '--records-narrow' ? '1' : target.getPropertyValue(name); const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value; } });
   }) as typeof getComputedStyle;
-  const originalFetch = globalThis.fetch; globalThis.fetch = fixture.request as typeof fetch;
+  const originalFetch = globalThis.fetch; globalThis.fetch = (async (input, init) => { if (options.queryGate && String(input).endsWith("/reports/query")) await options.queryGate; return fixture.request(input, init); }) as typeof fetch;
   const originalCreate = URL.createObjectURL, originalRevoke = URL.revokeObjectURL;
   const downloads: Blob[] = []; URL.createObjectURL = (blob) => { downloads.push(blob as Blob); return "blob:synthetic"; }; URL.revokeObjectURL = () => undefined;
   setChosenGrant(null);
@@ -39,7 +41,7 @@ async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: bo
   const opened: unknown[] = [];
   const receiptActivity = options.waiting === undefined ? null : options.waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: options.waiting, needs_attention_count: 0, ready_to_review_count: options.waiting };
   const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: await source.workspace(), inbox: [], receiptActivity } } as unknown as BusinessContextValue;
-  const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const i18n = i18next.createInstance(); await i18n.init({ lng: options.language ?? "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
   await act(async () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ConnectedBusinessReports initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: null }} /></BusinessContext.Provider></I18nextProvider></StrictMode>));
   cleanup = async () => { await act(async () => root.unmount()); globalThis.fetch = originalFetch; globalThis.getComputedStyle = computedStyle; URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; };
@@ -47,7 +49,7 @@ async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: bo
   const click = async (element: Element | undefined | null) => { assert.ok(element); await act(async () => (element as HTMLElement).click()); };
   const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || button.getAttribute("aria-label") === label);
   const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => { await act(async () => { const prototype = element instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); }); };
-  await settle(() => document.querySelector(`[data-report-schema="${options.legacy ? 1 : 2}"] [data-testid="records-count"]`) !== null);
+  if (options.waitForAnswer !== false) await settle(() => document.querySelector(`[data-report-schema="${options.legacy ? 1 : 2}"] [data-testid="records-count"]`) !== null);
   return { fixture, settle, click, button, type, downloads, opened, context };
 }
 
@@ -490,8 +492,8 @@ test("the Estado chip names the one missing fact on the live panel", async () =>
   assert.equal(chip(2), "Faltan datos fiscales");
 });
 
-test("Tipo de gasto takes Categoría's slot with the server's name, Bandeja's missing word and a dash for a sale", async () => {
-  const page = await mount();
+test("chosen purchase columns use the server's name, missing word and a dash for a sale", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, hidden: ["funding", "payment_form"] } }) });
   const cell = (id: number, column: string) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="${column}"]`);
   const headings = [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
   assert.ok(!headings.includes("categoria") && headings.indexOf("tipo_gasto") === headings.indexOf("detalle") + 1, "Tipo de gasto sits where Categoría sat");
@@ -508,7 +510,7 @@ test("Tipo de gasto takes Categoría's slot with the server's name, Bandeja's mi
   assert.equal(cell(1, "forma_pago")?.textContent, "Falta");
   assert.equal(cell(3, "forma_pago")?.textContent, "Efectivo");
   const request = restoreReportLocation(new URL(window.location.href).searchParams).request;
-  assert.deepEqual(request.schema_version === 2 ? request.presentation.hidden : null, ["funding"], "the chosen columns travel with the saved presentation");
+  assert.deepEqual(request.schema_version === 2 ? request.presentation?.hidden : null, ["funding"], "the chosen columns travel with the saved presentation");
 });
 
 test("Filtros offers Tipo de gasto from the server's catalogue plus Falta, and sends expense_types", async () => {
@@ -678,4 +680,81 @@ test("closing the phone Filtros sheet without a choice sends no query", async ()
   await page.settle(() => document.querySelector('[role="dialog"]') === null);
   await pause(200);
   assert.equal(sentFilters(page).length, before);
+});
+
+const renderedColumnKeys = () => [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
+for (const language of ["es-419", "en"] as const) test(`server defaults show eight columns and all optional columns remain available in ${language}`, async () => {
+  const page = await mount({ language });
+  assert.deepEqual(renderedColumnKeys(), ["contraparte", "fecha", "monto", "moneda", "detalle", "estado", "notas", "comprobante"]);
+  assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).every((call) => !Object.hasOwn(call.body as object, "presentation")), "fresh V1 and V2 requests leave defaults to the server");
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  for (const [key, label] of language === "en" ? [["tipo_gasto", "Expense type"], ["forma_pago", "Payment method"], ["cuenta", "Account"]] : [["tipo_gasto", "Tipo de gasto"], ["forma_pago", "Forma de pago"], ["cuenta", "Cuenta"]]) {
+    const row = document.querySelector(`[data-column-setting="${key}"]`);
+    assert.ok(row?.textContent?.includes(label));
+    assert.equal(row?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked, false);
+  }
+});
+
+test("server layout changes render, saved views retain the effective layout, and Restore asks for fresh defaults", async () => {
+  const chosen: typeof recordedReportAnswer.presentation = { ...recordedReportAnswer.presentation, order: ["counterparty", ...recordedReportAnswer.presentation.order.slice(1).reverse()], hidden: [], density: 40 as const };
+  const page = await mount({ presentation: chosen });
+  assert.deepEqual(renderedColumnKeys(), ["contraparte", "cuenta", "comprobante", "notas", "estado", "forma_pago", "tipo_gasto", "detalle", "moneda", "monto", "fecha"]);
+  assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
+  await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
+  await page.type(document.querySelector('input[maxlength="120"]')!, "Mi diseño"); await page.click(page.button("Guardar"));
+  await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
+  assert.deepEqual((page.fixture.views[0].recipe as { presentation: unknown }).presentation, chosen);
+  const fresh = { ...recordedReportAnswer.presentation, hidden: ["attachment" as const, "funding" as const], density: 56 as const };
+  page.fixture.controls.presentation = fresh;
+  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.settle(() => !renderedColumnKeys().includes("comprobante"));
+  await page.click(page.button("Vistas")); await page.click(page.button("Mi diseño"));
+  await page.settle(() => renderedColumnKeys()[1] === "cuenta");
+  assert.deepEqual((page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as { presentation: unknown }).presentation, chosen);
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  await page.click(page.button("Restaurar valores iniciales"));
+  await page.settle(() => !renderedColumnKeys().includes("comprobante") && document.querySelector("table")?.getAttribute("data-density") === "amplio");
+  const restored = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as object;
+  assert.equal(Object.hasOwn(restored, "presentation"), false);
+  assert.ok(renderedColumnKeys().includes("tipo_gasto") && renderedColumnKeys().includes("forma_pago"), "Restore uses the new server layout, not the preview fixture");
+});
+
+for (const outcome of ["ready", "failed"] as const) test(`Restore cannot save a stale custom layout while pending or ${outcome}`, async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, hidden: [], density: 40 } }) });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  globalThis.fetch = (async (input, init) => {
+    if (String(input).endsWith("/reports/query")) {
+      await gate;
+      if (outcome === "failed") return new Response("{}", { status: 503 });
+    }
+    return page.fixture.request(input, init);
+  }) as typeof fetch;
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  await page.click(page.button("Restaurar valores iniciales"));
+  await page.click(page.button("Vistas"));
+  try {
+    assert.equal(page.button("Guardar vista")?.disabled, true, "saving must await the server's restored layout");
+  } finally { await act(async () => release()); }
+  if (outcome === "failed") {
+    await page.settle(() => document.querySelector('[role="alert"]') !== null);
+    assert.equal(page.button("Guardar vista")?.disabled, true, "failed Restore has no new layout to save");
+  } else {
+    await page.settle(() => page.button("Guardar vista")?.disabled === false);
+  }
+  assert.equal(page.fixture.views.length, 0);
+});
+
+
+test("a fresh connected table waits for server columns and offers no layout before the answer", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ queryGate: gate, waitForAnswer: false });
+  try {
+    assert.equal(document.querySelector("th[data-col]"), null);
+    assert.equal(document.querySelector('[data-testid="transacciones-view-options"]'), null);
+    assert.equal(document.querySelector("[data-column-setting]"), null);
+    await page.settle(() => document.querySelector('[data-testid="fullscreen-loading"]') !== null);
+  } finally { await act(async () => release()); }
+  await page.settle(() => document.querySelector('th[data-col="moneda"]') !== null);
 });
