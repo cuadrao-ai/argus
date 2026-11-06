@@ -104,7 +104,7 @@ test("security notices omit send time and show the full new address without acti
   expect(password.text).toContain('"¿Olvidaste tu contraseña?"');
   const changed = await renderAuthMail(security[1], "https://app.example.test", 3600, sentAt);
   expect(changed.text).toContain("de old@example.test a new@example.test.");
-  expect(changed.text).toContain("respondiendo a este correo para recuperar tu cuenta.");
+  expect(changed.text).toContain("Si no fuiste tú, escríbenos de inmediato a hola@cuadrao.ai para recuperar tu cuenta.");
   for (const part of [changed.html, changed.text]) {
     expect(part).not.toContain("contraseña?");
     expect(part).not.toContain("/auth/");

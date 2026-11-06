@@ -29,7 +29,7 @@ export function renderSecurityMail(mail: SecurityMail, _sentAt: Date, options: E
       `El correo de tu cuenta de Cuadrao cambió de ${mail.recipient} a ${mail.newEmail}.`,
       "Te avisamos a esta dirección porque era la de tu cuenta. Desde ahora, los avisos llegarán a la dirección nueva.",
       "Si fuiste tú, no tienes que hacer nada.",
-      "Si no fuiste tú, escríbenos de inmediato respondiendo a este correo para recuperar tu cuenta.", shared,
+      "Si no fuiste tú, escríbenos de inmediato a hola@cuadrao.ai para recuperar tu cuenta.", shared,
     ],
   }, options) };
 }
