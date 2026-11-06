@@ -19,6 +19,7 @@ The current brief bounds the work. A spec, roadmap, old assignment or green test
 | --- | --- | --- |
 | Who is Cuadrao for, and what does it do today? | [README](../README.md) and [product overview](PRODUCT.md) | Small businesses and their accountants, through the web app |
 | How should Bandeja, the dossier and month close work in the pilot? | [Pilot review spec](specs/cuadrao-pilot-review-spec.md) | Approved pilot behavior and acceptance criteria, not proof that every item has shipped |
+| What labels and field semantics apply across the Business pilot? | [Field dictionary](specs/field-dictionary.md) | ES and EN labels, export headers, DGII semantics, and unchanged storage keys. |
 | What design and delivery rules apply to Auth emails? | [Auth email source of truth](specs/auth-email.md) | Shared layout, Auth-owned codes, repo-generated templates, explicit publication and readback, and pilot notice scope. |
 | What architecture, payloads and persistence contracts apply? | [Architecture](ARCHITECTURE.md), [API contract](API_CONTRACT.md), [API schema](api/openapi.yaml) and [data model](DATA_MODEL.md) | Verify the relevant contract against code. Legacy personal and chat sections do not override current product scope. |
 | What are the month-close data and API rules? | [Month-close contract](contracts/business-month-close.md) | Request and response shapes, settlement grain, open items and sin comprobante rules. The pilot spec owns the review experience. |
