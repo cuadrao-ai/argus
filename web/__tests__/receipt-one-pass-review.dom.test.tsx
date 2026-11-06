@@ -242,7 +242,7 @@ describe("a receipt with no currency", () => {
   test("the rows the box points at open the same way", async () => {
     const page = await setup("fiscalBlocked");
     try {
-      await page.act(async () => button(page.host.querySelector('[data-testid="dossier-attention"]')!, "Fecha de actividad").click());
+      await page.act(async () => button(page.host.querySelector('[data-testid="dossier-attention"]')!, "Fecha del comprobante").click());
       assert.equal(document.activeElement, page.row("occurred_on").querySelector('[data-testid="edit-occurred_on"] input'));
     } finally { await page.close(); }
     const unpaid = await setup("fiscalBlocked", (dossier) => { dossier.facts.funding = unknownFact; dossier.blockers = [{ code: "unknown_funding", field: "funding" }]; });
@@ -275,11 +275,46 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
+  test("the Spanish review uses the dictionary fact labels and official 606 options", async () => {
+    const page = await setup();
+    try {
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Contraparte");
+      assert.equal(page.row("occurred_on").querySelector("dt")?.textContent, "Fecha del comprobante");
+      const spanish = (await import("@/public/locales/es-419/common.json")).default;
+      for (const field of ["category", "payment_method"] as const) {
+        const options = [...page.row(field).querySelectorAll("option")].filter((option) => option.value);
+        const expected = spanish.business.dgii.option[field];
+        assert.equal(options.length, Object.keys(expected).length);
+        for (const option of options) assert.equal(option.textContent, expected[option.value as keyof typeof expected]);
+      }
+    } finally { await page.close(); }
+  });
+
+  test("the English review and 606 selects translate every backend code without Spanish option text", async () => {
+    const page = await setup();
+    try {
+      await page.act(async () => { await page.i18n.changeLanguage("en"); });
+      assert.equal(page.row("counterparty").querySelector("dt")?.textContent, "Counterparty");
+      assert.equal(page.row("occurred_on").querySelector("dt")?.textContent, "Receipt date");
+      const english = (await import("@/public/locales/en/common.json")).default;
+      const spanish = (await import("@/public/locales/es-419/common.json")).default;
+      const fields = await page.source.dgiiFields();
+      for (const field of ["category", "payment_method"] as const) {
+        const options = [...page.row(field).querySelectorAll("option")].filter((option) => option.value);
+        assert.deepEqual(options.map((option) => option.value), fields["606"].find((item) => item.name === field)!.options);
+        const expected = english.business.dgii.option[field];
+        for (const option of options) assert.equal(option.textContent, expected[option.value as keyof typeof expected]);
+        for (const label of Object.values(spanish.business.dgii.option[field])) assert.ok(!page.host.textContent?.includes(label), label);
+      }
+      assert.equal(page.writes.length, 0);
+    } finally { await page.close(); }
+  });
+
   test("the top box and the footer say what blocks, and only that", async () => {
     const page = await setup("fiscalBlocked");
     try {
       const box = page.host.querySelector('[data-testid="dossier-attention"]');
-      assert.deepEqual([...box!.querySelectorAll("li")].map((item) => item.textContent), ["Fecha de actividad"]);
+      assert.deepEqual([...box!.querySelectorAll("li")].map((item) => item.textContent), ["Fecha del comprobante"]);
       assert.ok(box?.textContent?.startsWith("Falta para aprobar"));
       assert.equal(page.host.querySelector('[data-testid="approve-reason"]'), null, "the box says it, so the footer does not");
       assert.equal(page.host.querySelector('[data-testid="business-record-review"]')?.textContent?.includes("Agrega la fecha para aprobar"), false, "nor does the row");
@@ -451,7 +486,7 @@ describe("the receipt dossier on an open draft", () => {
       await page.press('[data-testid="edit-counterparty"] input', "Enter");
       await page.wait(() => Boolean(page.host.querySelector('[data-testid="row-save-failed"]')));
       const failure = page.row("counterparty").querySelector('[data-testid="row-save-failed"]')!;
-      assert.ok(failure.textContent?.includes("No pudimos confirmar si Comercio o persona se guardó."));
+      assert.ok(failure.textContent?.includes("No pudimos confirmar si Contraparte se guardó."));
       assert.ok(failure.querySelector('[data-testid="error-reference"]'), "a lost answer still shows a reference");
       assert.equal(button(page.host, "Aprobar").disabled, true);
       assert.equal(page.action("counterparty", "Cancelar").disabled, true, "nothing may be dropped while its outcome is unknown");
@@ -800,7 +835,7 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("Historial shows the owner choices by the server's labels", async () => {
+  test("Historial shows owner choices by code in the reader's language", async () => {
     const page = await setup("fiscalDeclared");
     try {
       const fold = page.host.querySelector('[data-testid="receipt-history"]');
@@ -811,6 +846,12 @@ describe("the receipt dossier on an open draft", () => {
       const values = [...fold!.querySelectorAll("details dd")].map((item) => item.textContent);
       assert.equal(values.includes("02"), false);
       assert.equal(values.includes("03"), false);
+      await page.act(async () => { await page.i18n.changeLanguage("en"); });
+      const translated = fold?.querySelector("details")?.textContent ?? "";
+      assert.match(translated, /Work, supplies and services/);
+      assert.match(translated, /Credit or debit card/);
+      assert.ok(!translated.includes("Gastos por trabajos"));
+      assert.ok(!translated.includes("Tarjeta crédito"));
     } finally { await page.close(); }
   });
 

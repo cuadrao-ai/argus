@@ -57,7 +57,7 @@ async function picker(value: string, onChange: (iso: string | null, invalid: boo
   const { useState } = await import("react");
   function Harness() {
     const [day, setDay] = useState(value);
-    return <><label htmlFor="day">Fecha de actividad</label><DatePicker id="day" label="Fecha de actividad" value={day} onChange={(iso, invalid) => { onChange(iso, invalid); setDay(iso ?? ""); }} /></>;
+    return <><label htmlFor="day">Fecha del comprobante</label><DatePicker id="day" label="Fecha del comprobante" value={day} onChange={(iso, invalid) => { onChange(iso, invalid); setDay(iso ?? ""); }} /></>;
   }
   const page = await render(<Harness />);
   const input = page.host.querySelector<HTMLInputElement>("#day")!;
@@ -239,7 +239,7 @@ describe("receipt detail uses the picker for its date", () => {
     const page = await render(<ReceiptFactEditor field="occurred_on" facts={dossier.facts} patch={{}} accounts={[]} currencies={[]} disabled={false} autoFocus={false} onChange={(patch, invalid) => patches.push([patch, invalid])} />);
     assert.equal(page.host.querySelector('input[type="date"]'), null);
     const input = page.host.querySelector<HTMLInputElement>('input[placeholder="dd/mm/aaaa"]')!;
-    assert.equal(page.host.querySelector(`label[for="${CSS.escape(input.id)}"]`)?.textContent, "Fecha de actividad");
+    assert.equal(page.host.querySelector(`label[for="${CSS.escape(input.id)}"]`)?.textContent, "Fecha del comprobante");
     assert.ok(page.host.querySelector('button[aria-haspopup="dialog"]'));
     await page.act(async () => { input.focus(); });
     await page.type(input, "02/10/2026");
