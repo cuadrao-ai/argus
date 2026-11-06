@@ -30,13 +30,13 @@ for (const [index, mail] of [...signin, ...security].entries()) {
     expect(rendered).toMatchSnapshot();
     assertEmailPresentation(rendered.html, rendered.text);
     expect(rendered.html).toContain('<div class="preheader" style="display:none;');
-    expect(rendered.text).toContain("Hola,");
-    expect(rendered.text).toContain("Saludos,\nCuadrao");
+    expect(rendered.html).not.toContain(">Hola,</p>");
+    expect(rendered.text).not.toContain("Hola,");
+    expect(rendered.html).not.toContain("Saludos,<br>Cuadrao");
+    expect(rendered.text).not.toContain("Saludos,\nCuadrao");
     expect(rendered.html).not.toMatch(/Argus|get-argus|onrender\.com/);
     if ("token" in mail) {
       expect(rendered.subject).toStartWith("01234567 ");
-      expect(rendered.html.indexOf("Hola,")).toBeLessThan(rendered.html.indexOf('class="code"'));
-      expect(rendered.text.indexOf("Hola,")).toBeLessThan(rendered.text.indexOf("01234567"));
     }
   });
 }

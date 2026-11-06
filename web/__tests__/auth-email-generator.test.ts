@@ -6,7 +6,7 @@ import { AUTH_TEMPLATE_SLOTS, buildDashboardAuthPaste } from "../server/emails/a
 
 const root = resolve(import.meta.dir, "../..");
 
-test("registry renders environment-neutral Auth slots and preserves the confirmation bytes", async () => {
+test("registry renders environment-neutral Auth slots with only the approved copy removals", async () => {
   const before = process.env.CUADRAO_EMAIL_ASSET_ORIGIN;
   process.env.CUADRAO_EMAIL_ASSET_ORIGIN = "https://different.example.test";
   try {
@@ -25,9 +25,36 @@ test("registry renders environment-neutral Auth slots and preserves the confirma
       expect(record.html).toContain('background:#ffffff;border-radius:12px');
       expect(record.html).toContain('padding:24px 32px;background:#172b26;');
     }
+    const greeting = '<p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola,</p>';
+    const signOff = '<p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p>';
+    const historicalDigests = {
+      "confirmation": "63843850cfcc195f328b1118d2fa14462ae320e0543474d9b1cb87fb8771736c",
+      "magic_link": "8a3fd5e39edfb7cc06396cc9ee815eeec4f1ebbd5050e972177d9a4dcd9ae262",
+      "recovery": "98727bc6ed3fae215cebc88bbedb9868360b661865fecaaf9007329a41d9d084",
+      "invite": "0fea99344a73bcadf492dd92540a39895f4bc3ecc7d11d698230c3125ea76e6e",
+      "email_change": "b64b7ce9aa2a20812dccc61016d251adbd621cbb9e6e9689ddbe587f904e9bba",
+      "reauthentication": "c5e34cc0715c13ba6f90f2854ac0a90d0bb441428de353b2f4510a647f515fb6",
+      "password_changed_notification": "9818bba8bab6d15a3e85d4b9aa41bca970f4b6bd4cf3554bc78ba77ce4638595",
+      "email_changed_notification": "cbb21e36085499bc57c1fa5696a53aac8199ea0fd8df8742ed904f36d991084b",
+    } as const;
+    for (const record of records) {
+      expect(record.html).not.toContain(">Hola,</p>");
+      expect(record.html).not.toContain("Saludos,<br>Cuadrao");
+      expect(record.text).not.toContain("Hola,");
+      expect(record.text).not.toContain("Saludos,\nCuadrao");
+      const historicalHtml = record.html.replace("</h1>", `</h1>${greeting}`)
+        .replace('class="footer" style="padding:20px 32px 28px;background:#ffffff">', `class="footer" style="padding:20px 32px 28px;background:#ffffff">${signOff}`);
+      const historicalText = record.text.replace("\n\n", "\n\nHola,\n\n")
+        .replace("\n\n¿Necesitas ayuda?", "\n\nSaludos,\nCuadrao\n\n¿Necesitas ayuda?");
+      expect(createHash("sha256").update(`${record.subject}\n${historicalHtml}\n${historicalText}`).digest("hex"))
+        .toBe(historicalDigests[record.file]);
+      if (record.file === "confirmation") {
+        expect(createHash("sha256").update(historicalHtml).digest("hex"))
+          .toBe("85caa91d4d77aced00f58a6461b76c8212a45a47c702579cd4b969e5ae95fbc8");
+      }
+    }
     const confirmation = records.find(record => record.file === "confirmation")!;
     const digest = (value: string) => createHash("sha256").update(value).digest("hex");
-    expect(digest(confirmation.html)).toBe("85caa91d4d77aced00f58a6461b76c8212a45a47c702579cd4b969e5ae95fbc8");
     expect(digest(`${confirmation.subject}\n`)).toBe("9f6d6beb0209fe97d303d902e9a16d7dccce49715fe5df09ec7ff6dd422cfbaf");
   } finally {
     if (before === undefined) delete process.env.CUADRAO_EMAIL_ASSET_ORIGIN;

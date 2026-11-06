@@ -103,7 +103,7 @@ describe("staging Auth email hook", () => {
       assert.equal((sent).length, 1);
       assert.equal(sent[0].subject, subject);
       assert.ok((sent[0].text).includes(body));
-      assert.ok(sent[0].html.includes("Saludos,<br>Cuadrao"));
+      assert.ok(!sent[0].html.includes("Saludos,<br>Cuadrao"));
       assert.ok(!sent[0].html.includes("Salir de la lista"));
       if (action === "signup" || action === "magiclink") {
         assert.ok(sent[0].subject.startsWith("01234567 "));

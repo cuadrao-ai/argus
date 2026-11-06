@@ -6,7 +6,7 @@ The repo enforces the eight-digit contract and generates all eight Auth template
 
 ## Design standard
 
-Auth emails use a light card with the dark-green Cuadrao header and short copy. Code-bearing emails show the eight-digit code prominently.
+Auth emails use a light card with the dark-green Cuadrao header and short copy. Code-bearing emails show the eight-digit code prominently. All eight Auth emails open directly with their purpose, followed by the existing code or action and safety copy. They omit the “Hola,” greeting and “Saludos, Cuadrao” sign-off. The help, contact and legal footer stays.
 
 Signup, recovery, invite, and security notices share the same layout. Only the message and action change. A notice does not become a code challenge merely because it shares the layout.
 
@@ -77,7 +77,7 @@ bun scripts/emails/render-staging-auth.ts --output temp/generated-auth-email --e
 
 Each generation command syncs the shared generated sources and writes each of the eight slots' `.html`, `.txt` and `.subject.txt` files. Each `--check` command checks both the shared sources and artifacts without rewriting them. Output uses Auth placeholders for site URL, token hash, token, email and old email, with `https://cuadrao.ai` as the explicit asset origin. It contains no environment-specific app origin or example recipient.
 
-`manifest.json` says the artifacts are generated, records `expirySeconds`, lists their filenames, and maps each slot to its hosted subject and HTML field. The HTML itself has no added generated comment, so confirmation preserves the bytes from #1831. Do not edit generated artifacts.
+`manifest.json` says the artifacts are generated, records `expirySeconds`, lists their filenames, and maps each slot to its hosted subject and HTML field. The HTML itself has no added generated comment. The approved #1832 copy removes only the greeting and sign-off, so confirmation intentionally differs from #1831 and the previously published staging copy. Publication of this copy remains pending in #1833. Do not edit generated artifacts.
 
 [scripts/emails/auth-hosted-settings.json](../../scripts/emails/auth-hosted-settings.json) owns the intended sender name, email rate limit and pilot notice flags. It contains values only. The shared OTP contract owns code length; the settings file does not duplicate it.
 

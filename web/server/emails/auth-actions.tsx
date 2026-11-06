@@ -90,8 +90,9 @@ export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySec
   const expires = emailExpiry(expirySeconds);
   if (mail.action === "reauthentication") {
     return { subject: `${mail.token} es tu código de verificación de Cuadrao`, ...renderAccountEmail({
+      signOff: false,
       title: "Tu código de verificación", preheader: `Úsalo para confirmar que eres tú. Vence en ${expires}.`,
-      intro: ["Hola,", "Usa este código para confirmar que eres tú:"], paragraphs: [], code: mail.token,
+      intro: ["Usa este código para confirmar que eres tú:"], paragraphs: [], code: mail.token,
       expiryNote: `El código vence en ${expires} y solo se puede usar una vez.`,
       afterAction: "Si no fuiste tú, no compartas este código y escríbenos.",
     }, options) };
@@ -99,11 +100,12 @@ export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySec
   if (mail.action === "signup" || mail.action === "magiclink") {
     const signup = mail.action === "signup";
     return { subject: `${mail.token} es tu código ${signup ? "de Cuadrao" : "para entrar a Cuadrao"}`, ...renderAccountEmail({
+      signOff: false,
       title: signup ? "Tu código de Cuadrao" : "Tu código para entrar",
       preheader: signup
         ? `Escríbelo en Cuadrao para confirmar tu cuenta. Vence en ${expires}.`
         : `Escríbelo en Cuadrao para entrar. Vence en ${expires}.`,
-      intro: ["Hola,", signup ? "Escribe este código en Cuadrao para confirmar tu cuenta:" : "Escribe este código en Cuadrao para entrar:"],
+      intro: [signup ? "Escribe este código en Cuadrao para confirmar tu cuenta:" : "Escribe este código en Cuadrao para entrar:"],
       paragraphs: [],
       code: mail.token,
       expiryNote: `El código vence en ${expires} y solo se puede usar una vez.`,
@@ -115,9 +117,10 @@ export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySec
   const url = confirmUrl(mail, linkHost);
   if (mail.action === "invite") {
     return { subject: "Te invitaron a Cuadrao", ...renderAccountEmail({
+      signOff: false,
       title: "Te invitaron a Cuadrao",
       preheader: `Te invitaron a usar Cuadrao. El enlace vence en ${expires}.`,
-      intro: ["Hola,"],
+      intro: [],
       paragraphs: ["Te invitaron a usar Cuadrao."],
       action: { label: "Acepta aquí", url },
       expiryNote: `El enlace vence en ${expires} y solo se puede usar una vez.`,
@@ -127,9 +130,10 @@ export async function renderAuthMail(mail: AuthMail, linkHost: string, expirySec
   if (mail.action === "recovery") return renderResetPasswordEmail(url, expirySeconds, options);
   const old = mail.audience === "old_address";
   return { subject: old ? "Cambio de correo en tu cuenta de Cuadrao" : "Confirma tu nuevo correo", ...renderAccountEmail({
+    signOff: false,
     title: old ? "Cambio de correo en tu cuenta" : "Confirma tu nuevo correo",
     preheader: old ? `Recibimos una solicitud para cambiar tu correo a ${mail.newEmail}.` : `Confirma que quieres usar este correo en Cuadrao. Vence en ${expires}.`,
-    intro: ["Hola,"], paragraphs: old ? [
+    intro: [], paragraphs: old ? [
       `Recibimos una solicitud para cambiar el correo de tu cuenta de Cuadrao a ${mail.newEmail}.`,
       "Si fuiste tú, confirma el cambio desde este enlace:",
     ] : ["Recibimos una solicitud para usar este correo en tu cuenta de Cuadrao. Para confirmarlo, usa este enlace:"],
