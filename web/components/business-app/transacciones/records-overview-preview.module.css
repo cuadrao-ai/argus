@@ -4,7 +4,7 @@
 .total { position:relative; }
 .totalAction { position:absolute; inset:0; border:0; background:transparent; color:inherit; cursor:pointer; }
 .totalAction > svg { position:absolute; right:16px; bottom:16px; }
-.totalAction:focus-visible { outline:none; }
+:global(.business-foundation) .total .totalAction:focus-visible { outline:none; transition:none; }
 .total:has(.totalAction:focus-visible) { outline:2px solid currentColor; outline-offset:3px; }
 .total:has(.totalAction:hover) { box-shadow:inset 0 0 0 1px currentColor; }
 .total:has(.totalAction[aria-expanded="true"]) { box-shadow:inset 0 0 0 2px currentColor; }
