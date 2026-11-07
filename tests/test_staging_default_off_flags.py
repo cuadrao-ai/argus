@@ -48,7 +48,7 @@ def production_values(manifest: dict) -> dict:
                 "env": {
                     entry["name"]: entry["production"]["value"]
                     for entry in service["entries"]
-                    if "value" in entry["production"]
+                    if not entry.get("local_only") and "value" in entry["production"]
                 }
             }
             for label, service in manifest["services"].items()

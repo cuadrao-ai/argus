@@ -160,18 +160,16 @@ echo "🔵 [Setup] Validating environment files..."
 
 # Check root .env exists
 if [ ! -f .env ]; then
-    echo "⚠️ [Setup] Root .env missing. Copy from .env.example:"
-    echo "   cp .env.example .env"
-    echo "   Then fill in ALPACA_API_KEY, ALPACA_SECRET_KEY, Supabase credentials"
+    echo "[Setup] Root .env missing. Fast dev needs no secrets."
+    echo "   Select CUADRAO_LOCAL_ENV_STORE when you need credentials."
 else
     echo "🟢 [Setup] Root .env exists"
 fi
 
 # Check web/.env.local exists
 if [ ! -f web/.env.local ]; then
-    echo "⚠️ [Setup] web/.env.local missing. Create from example:"
-    echo "   cp web/.env.local.example web/.env.local"
-    echo "   Fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    echo "[Setup] web/.env.local missing. Use NEXT_PUBLIC_MOCK_AUTH=true for fast dev."
+    echo "   A selected CUADRAO_LOCAL_ENV_STORE generates public QA settings."
 else
     echo "🟢 [Setup] web/.env.local exists"
 fi

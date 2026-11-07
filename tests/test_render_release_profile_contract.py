@@ -153,7 +153,7 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
     assert declared == {
         entry["name"]: _blueprint_env_item(entry)
         for entry in manifest["services"]["api"]["entries"]
-        if not entry.get("production_only")
+        if not entry.get("production_only") and not entry.get("local_only")
     }
     assert services["cuadrao-marketing-staging"]["branch"] == "main"
     assert "NEXT_PUBLIC_CUADRAO_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")

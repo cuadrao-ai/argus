@@ -21,6 +21,11 @@ def test_local_qa_env_writer_does_not_overwrite_shared_symlink_targets(
     shutil.copy2(WRITE_LOCAL_ENV, scripts / WRITE_LOCAL_ENV.name)
     shutil.copy2(ASSERT_NONPROD, scripts / ASSERT_NONPROD.name)
 
+    operations = worker / "scripts/ops"
+    operations.mkdir()
+    for name in ("staging_env.py", "staging_env_manifest.json"):
+        shutil.copy2(ROOT / "scripts/ops" / name, operations / name)
+
     canonical_backend = tmp_path / "canonical.env"
     canonical_frontend = tmp_path / "canonical.web.env"
     canonical_backend.write_text("CANONICAL_BACKEND=unchanged\n", encoding="utf-8")
@@ -49,6 +54,7 @@ EOF
     fake_supabase.chmod(fake_supabase.stat().st_mode | stat.S_IXUSR)
 
     env = os.environ.copy()
+    env.pop("CUADRAO_LOCAL_ENV_STORE", None)
     env["PATH"] = f"{fake_bin}{os.pathsep}{env['PATH']}"
     result = subprocess.run(
         ["bash", str(scripts / WRITE_LOCAL_ENV.name)],
@@ -59,18 +65,13 @@ EOF
         check=False,
     )
 
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "symlink refused" in result.stdout + result.stderr
     assert canonical_backend.read_text(encoding="utf-8") == (
         "CANONICAL_BACKEND=unchanged\n"
     )
     assert canonical_frontend.read_text(encoding="utf-8") == (
         "CANONICAL_FRONTEND=unchanged\n"
     )
-    assert not (worker / ".env").is_symlink()
-    assert not (worker / "web" / ".env.local").is_symlink()
-    assert "SUPABASE_URL=http://127.0.0.1:54321" in (worker / ".env").read_text(
-        encoding="utf-8"
-    )
-    assert "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321" in (
-        worker / "web" / ".env.local"
-    ).read_text(encoding="utf-8")
+    assert (worker / ".env").is_symlink()
+    assert (worker / "web" / ".env.local").is_symlink()

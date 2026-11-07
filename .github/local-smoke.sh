@@ -9,7 +9,7 @@ cd "$ROOT_DIR"
 
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/argus-env.sh"
-argus_load_root_env >/dev/null || true
+argus_load_root_env >/dev/null || [ -z "${CUADRAO_LOCAL_ENV_STORE:-}" ]
 
 usage() {
   cat <<'USAGE'

@@ -40,7 +40,7 @@ def _production_rules(label: str) -> dict[str, dict]:
     return {
         entry["name"]: entry["production"]
         for entry in manifest["services"][label]["entries"]
-        if "not_set" not in entry["production"]
+        if not entry.get("local_only") and "not_set" not in entry["production"]
     }
 
 
@@ -452,7 +452,7 @@ def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
     entries = [
         entry
         for entry in manifest["services"]["web"]["entries"]
-        if not entry.get("production_only")
+        if not entry.get("production_only") and not entry.get("local_only")
     ]
     held = {entry["name"] for entry in manifest["services"]["web"]["hold"]}
     assert set(stage) == {entry["name"] for entry in entries} | held | {
