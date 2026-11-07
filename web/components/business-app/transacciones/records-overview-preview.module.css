@@ -10,9 +10,7 @@
 .total:has(.totalAction[aria-expanded="true"]) { box-shadow:inset 0 0 0 2px currentColor; }
 .total .breakdown { position:relative; z-index:1; margin-right:24px; }
 .total .helpers { padding-right:27px; }
-.total, .goods { background:#e9e4dc; }
-.itbis, .services { background:#b8d0be; }
-.quantity { background:#e9e4dc; }
+.total, .itbis, .goods, .services, .quantity { background:#e9e4dc; }
 .review, .fiscal { background:#f8b69f; }
 .export { --workflow-ink:#2f5a49; background:#b8d0be; }
 .exported { background:#e9e4dc; }
@@ -53,8 +51,7 @@
 .waitingLink { font:inherit; color:inherit; text-decoration:underline; text-underline-offset:4px; cursor:pointer; background:none; border:0; padding:0; }
 .waitingLink:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
 :global(.dark) .card { color:#f8eee7; border-color:rgb(255 255 255 / 9%); }
-:global(.dark) .total, :global(.dark) .goods, :global(.dark) .quantity { background:#3a3632; }
-:global(.dark) .itbis, :global(.dark) .services { background:#293b32; }
+:global(.dark) .total, :global(.dark) .itbis, :global(.dark) .goods, :global(.dark) .services, :global(.dark) .quantity { background:var(--cuadrao-menu-surface); }
 :global(.dark) .review, :global(.dark) .fiscal { background:#50382f; }
 :global(.dark) .action:hover:not(:disabled) { background:#644235; }
 :global(.dark) .export { --workflow-ink:#8fcbb0; background:#293b32; }
