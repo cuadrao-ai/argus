@@ -53,7 +53,7 @@ async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: bo
   return { fixture, settle, click, button, type, downloads, opened, context };
 }
 
-test("connected pages, full count, accent search and period-only overview use real transport", async () => {
+test("connected pages, full count, accent search and filtered overview use real transport", async () => {
   const page = await mount();
   assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /126/);
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
@@ -64,7 +64,7 @@ test("connected pages, full count, accent search and period-only overview use re
   await page.type(document.querySelector('input[type="search"]')!, "pena");
   await page.settle(() => document.querySelector('[data-testid="records-count"]')?.textContent?.includes("1 de 1") ?? false);
   assert.match(document.querySelector('[data-testid="transacciones-records"]')!.textContent!, /José Peña/);
-  assert.match(document.querySelector('[data-overview-filter="fiscal"]')!.textContent!, /60/);
+  assert.equal(document.querySelector('[data-overview-filter="fiscal"]')!.querySelector(".font-display")?.textContent, "0");
   assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).some((call) => (call.body as { filters: { q: string }; page: number }).filters.q === "pena" && (call.body as { page: number }).page === 1));
 });
 
@@ -100,7 +100,7 @@ test("Total toggles only the purchase document subcard without requests, filters
 });
 
 test("six cards show report scope and only fiscal applies its stage", async () => {
-  const page = await mount();
+  const page = await mount({ edit: (rows) => rows.slice(3, 63).forEach((row) => { row.stage = "needs_fiscal_data"; }) });
   assert.deepEqual(overviewCards().map((card) => card.getAttribute("data-overview-filter")), ["fiscal"]);
   assert.equal(document.querySelectorAll("[data-overview-card]").length, 6);
   assert.match(document.querySelector('[data-overview-card="quantity"]')!.textContent!, /126/);
@@ -781,4 +781,116 @@ test("a fresh connected table waits for server columns and offers no layout befo
     await page.settle(() => document.querySelector('[data-testid="fullscreen-loading"]') !== null);
   } finally { await act(async () => release()); }
   await page.settle(() => document.querySelector('th[data-col="moneda"]') !== null);
+});
+
+const fiscalCard = () => document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!;
+const fiscalCount = () => fiscalCard().querySelector(".font-display")?.textContent;
+const fiscalRecords = (rows: ReportRecord[]) => rows.forEach((row, index) => { row.stage = index < 60 ? "needs_fiscal_data" : "ready_for_export"; });
+
+test("Fiscal narrows all pages then restores mixed statuses while preserving search edits", async () => {
+  const prior = ["needs_fiscal_data", "ready_for_export"];
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: prior, currencies: ["DOP"], record_families: ["purchase"] } }), edit: fiscalRecords });
+  assert.equal(fiscalCount(), "29");
+  assert.equal(fiscalCard().getAttribute("aria-pressed"), "false");
+  await page.click(fiscalCard());
+  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 1 && !fiscalCard().disabled);
+  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["needs_fiscal_data"]);
+  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /29/);
+  assert.equal(document.querySelectorAll("tbody tr").length, 25);
+  await page.type(document.querySelector('input[type="search"]')!, "Proveedor 11");
+  await page.settle(() => sentFilters(page).at(-1)?.q === "Proveedor 11" && !fiscalCard().disabled);
+  await page.click(fiscalCard());
+  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 2);
+  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, prior);
+  assert.equal(sentFilters(page).at(-1)!.q, "Proveedor 11");
+  assert.deepEqual(sentFilters(page).at(-1)!.currencies, ["DOP"]);
+  assert.deepEqual(sentFilters(page).at(-1)!.record_families, ["purchase"]);
+});
+
+test("Fiscal cannot replace an incompatible status filter with more rows", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["ready_for_export"] } }), edit: fiscalRecords });
+  assert.equal(fiscalCount(), "0");
+  assert.equal(fiscalCard().disabled, true);
+  const before = sentFilters(page).length;
+  await page.click(fiscalCard());
+  assert.equal(sentFilters(page).length, before);
+});
+
+test("clearing the status chip discards Fiscal's saved status selection", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["needs_fiscal_data", "ready_for_export"] } }), edit: fiscalRecords });
+  await page.click(fiscalCard());
+  await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
+  await page.click(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
+  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0 && !fiscalCard().disabled);
+  await page.click(fiscalCard());
+  await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
+  await page.click(fiscalCard());
+  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
+});
+
+test("a failed filtered request hides the prior Fiscal count", async () => {
+  const page = await mount({ edit: fiscalRecords });
+  assert.equal(fiscalCount(), "60");
+  page.fixture.controls.reportUnavailable = true;
+  await page.type(document.querySelector('input[type="search"]')!, "no matches");
+  await page.settle(() => document.querySelector('[role="alert"]') !== null);
+  assert.notEqual(fiscalCount(), "60");
+  assert.equal(fiscalCount(), "-sin dato");
+  assert.equal(fiscalCard().disabled, true);
+});
+
+test("an active empty Fiscal result can be cleared without losing a new search", async () => {
+  const page = await mount({ edit: fiscalRecords });
+  await page.click(fiscalCard());
+  await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
+  await page.type(document.querySelector('input[type="search"]')!, "no matches");
+  await page.settle(() => fiscalCount() === "0");
+  assert.equal(fiscalCard().disabled, false);
+  await page.click(fiscalCard());
+  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
+  assert.equal(sentFilters(page).at(-1)!.q, "no matches");
+});
+
+test("history restoring the same Fiscal stage discards the old toggle snapshot", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["needs_fiscal_data", "ready_for_export"] } }), edit: fiscalRecords });
+  await page.click(fiscalCard());
+  await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
+  const before = sentFilters(page).length;
+  await act(async () => window.dispatchEvent(new PopStateEvent("popstate")));
+  await page.settle(() => sentFilters(page).length > before && !fiscalCard().disabled);
+  await page.click(fiscalCard());
+  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
+});
+
+test("manual status edits replace the remembered Fiscal selection", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["needs_fiscal_data", "needs_review"] } }), edit: fiscalRecords });
+  await page.click(fiscalCard());
+  await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
+  await page.click([...document.querySelectorAll("button")].find((button) => button.textContent?.startsWith("Filtros")));
+  await page.click(document.querySelector('[data-group="review"]'));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Listos para exportar"));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => sentFilters(page).at(-1)?.review_stages.includes("ready_for_export") === true && !fiscalCard().disabled);
+  assert.equal(fiscalCard().getAttribute("aria-pressed"), "false");
+  await page.click(fiscalCard());
+  await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
+  await page.click(fiscalCard());
+  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 2);
+  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["needs_fiscal_data", "ready_for_export"]);
+});
+
+test("selecting a saved Fiscal view discards the prior status snapshot", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["needs_fiscal_data", "ready_for_export"] } }), edit: fiscalRecords });
+  await page.click(fiscalCard());
+  await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
+  await page.click(page.button("Vistas"));
+  await page.click(page.button("Guardar vista"));
+  await page.type(document.querySelector('input[maxlength="120"]')!, "Fiscales");
+  await page.click(page.button("Guardar"));
+  await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
+  await page.click(page.button("Vistas"));
+  await page.click(page.button("Fiscales"));
+  await page.settle(() => !fiscalCard().disabled);
+  await page.click(fiscalCard());
+  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
 });

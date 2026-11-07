@@ -101,12 +101,13 @@ function CountCard({ icon, title, value, helper, loading, children }: { icon: Lu
 export default function RecordsOverviewPreview({ answer, fiscalCount, totalExpanded, onToggleTotal, selected, onChoose, loading = false, waiting, onOpenBandeja }: { answer?: ShelfAnswer; fiscalCount: number | null; totalExpanded: boolean; onToggleTotal: () => void; loading?: boolean; selected: readonly ReviewFilter[]; onChoose: (value: CardFilter) => void; waiting: number | null; onOpenBandeja: () => void }) {
   const { t } = useTransaccionesWords();
   const current = loading ? undefined : answer;
+  const fiscalActive = selected.length === 1 && selected[0] === "fiscal";
   return <div data-testid="records-overview-preview" className={styles.overview} aria-busy={loading}>
     <div className={styles.cards}>
       {METRICS.slice(0, 2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} icon={metric.icon} answer={current} loading={loading} totalAction={metric.key === "total" ? { expanded: totalExpanded, toggle: onToggleTotal } : undefined} />)}
       <div className={`${styles.card} ${styles.quantity}`} data-overview-card="quantity"><CountCard icon={Hash} title={t(`${PREFIX}quantity.title`)} value={current?.matching_count ?? null} loading={loading} helper={t(`${PREFIX}quantity_helper_placeholder`)} /></div>
       {METRICS.slice(2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} icon={metric.icon} answer={current} loading={loading} />)}
-      <button type="button" data-overview-card="fiscal" data-overview-filter="fiscal" aria-pressed={selected.includes("fiscal")} disabled={fiscalCount === null || loading} onClick={() => onChoose("fiscal")} className={`${styles.card} ${styles.fiscal} ${styles.action}`}><CountCard icon={FileSearch} title={t(`${PREFIX}fiscal.title`)} value={fiscalCount} loading={loading} helper={t(`${PREFIX}fiscal.description`)}><Filter size={19} fill={selected.includes("fiscal") ? "currentColor" : "none"} aria-hidden="true" /></CountCard></button>
+      <button type="button" data-overview-card="fiscal" data-overview-filter="fiscal" aria-pressed={fiscalActive} disabled={fiscalCount === null || loading || fiscalCount === 0 && !fiscalActive} onClick={() => onChoose("fiscal")} className={`${styles.card} ${styles.fiscal} ${styles.action}`}><CountCard icon={FileSearch} title={t(`${PREFIX}fiscal.title`)} value={loading ? null : fiscalCount} loading={loading} helper={t(`${PREFIX}fiscal.description`)}><Filter size={19} fill={fiscalActive ? "currentColor" : "none"} aria-hidden="true" /></CountCard></button>
     </div>
     {waiting ? <p className={styles.waiting} data-testid="records-bandeja-waiting"><button type="button" className={styles.waitingLink} onClick={onOpenBandeja}>{t(`${PREFIX}bandeja_waiting`, { count: waiting })}</button></p> : null}
   </div>;

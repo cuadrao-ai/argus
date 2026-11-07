@@ -132,13 +132,12 @@ Registros has six summary cards. Lucas approved the purchase-side meanings on 20
 | Cantidad | The server's `matching_count` for the current table filters, as a whole number. Static. |
 | Bienes | Populated net (pre-tax) goods amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
 | Servicios | Populated net (pre-tax) services amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
-| Faltan datos fiscales | Count by the existing fiscal-completeness definition. Its action applies the table filter. A second click clears it. The active filter stays visible and clearable. |
+| Faltan datos fiscales | Server count by the existing fiscal-completeness definition within all current table filters, across all pages. Its action narrows the status selection to missing fiscal data. A second click restores the previous status selection and preserves the other current filters. The active filter stays visible and clearable. |
 
 Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Currency behavior is unchanged: never add incompatible currencies. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
 
 Known limitations:
 
-- Faltan datos fiscales uses the server's date-only `overview.needs_fiscal_data` count for the selected period, independent of the table's other filters.
 - Bienes and Servicios coverage counts applicable purchases only.
 
 Listos para exportar and Ya exportados stay out of the summary. Export workflows and data are untouched.

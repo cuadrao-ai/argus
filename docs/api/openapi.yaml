@@ -31812,9 +31812,9 @@ components:
           default: 0
       additionalProperties: false
       type: object
-      description: 'The period''s recorded rows by stage. The three Registros cards read
+      description: 'Fiscal count uses all table filters before pagination.
 
-        `needs_fiscal_data`, `ready_for_export` and `exported`.'
+        Other counts cover the period''s recorded rows.'
     ReportRecipe-Input:
       properties:
         schema_version:

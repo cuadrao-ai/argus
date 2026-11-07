@@ -55,8 +55,8 @@ test("coverage is per metric, partial and unsupported stay explicit, absent valu
   assert.equal(card("goods").querySelector(".cuadrao-amount .sr-only")?.textContent, "DOP 5.00"); assert.ok(card("goods").querySelector(".cuadrao-amount")); assert.ok(card("goods").querySelector("sup"));
   await cleanup(); await mount({ answer: undefined, fiscalCount: null }); assert.doesNotMatch(card("total").textContent!, /0\.00/); assert.equal((card("fiscal") as HTMLButtonElement).disabled, true);
 });
-test("loading clears old answer values while retaining the date-only fiscal count", async () => {
-  await mount({ loading: true }); assert.doesNotMatch(card("total").textContent!, /111\.11/); assert.doesNotMatch(card("quantity").textContent!, /1,828/); assert.match(card("fiscal").textContent!, /71/);
+test("loading clears every old card count", async () => {
+  await mount({ loading: true }); assert.doesNotMatch(card("total").textContent!, /111\.11/); assert.doesNotMatch(card("quantity").textContent!, /1,828/); assert.doesNotMatch(card("fiscal").textContent!, /71/);
 });
 test("currency overflow opens the existing sheet and returns focus", async () => {
   const rows = ["DOP", "USD", "EUR"].map((currency) => ({ ...answer.totals[0], currency, amount: "9007199254740993.01" }));
@@ -203,3 +203,15 @@ for (const language of ["es-419", "en"]) {
     });
   }
 }
+
+test("Fiscal only marks an exclusive stage active and keeps an active zero clearable", async () => {
+  const page = await mount({ fiscalCount: 0, selected: ["export"] });
+  assert.equal((card("fiscal") as HTMLButtonElement).disabled, true);
+  await page.render({ fiscalCount: 4, selected: ["fiscal", "export"] });
+  assert.equal(card("fiscal").getAttribute("aria-pressed"), "false");
+  await page.render({ fiscalCount: 0, selected: ["fiscal"] });
+  assert.equal((card("fiscal") as HTMLButtonElement).disabled, false);
+  assert.equal(card("fiscal").getAttribute("aria-pressed"), "true");
+  await act(async () => card("fiscal").click());
+  assert.deepEqual(page.chosen, ["fiscal"]);
+});

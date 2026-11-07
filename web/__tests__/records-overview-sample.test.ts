@@ -7,7 +7,7 @@ import type { RecordRow } from "@/components/business-app/transacciones/transacc
 const record = (id: string, kind: RecordRow["kind"], amount: string, currency = "DOP"): RecordRow => ({ id, kind, occurredOn: "2026-11-02", counterparty: "Sample", money: { amount, currency }, categoryId: null, account: null, hasProof: null, marks: { personal: false, markedBy: null, fiscal: null }, opens: null });
 const purchases = [record("exp-gas", "gasto", "-2100.00"), record("exp-imprenta", "gasto", "-4800.00")];
 const rows = [...purchases, ...Array.from({ length: 5 }, (_, index) => record(`venta-${index + 1}`, "venta", "500.00"))];
-const sample = (visible: readonly RecordRow[], periodRows = rows, sourceMode: "fixture" | "live" = "fixture", businessId = "fixture-space") => sampleRecordsOverview({ sourceMode, businessId, rows: visible, periodRows });
+const sample = (visible: readonly RecordRow[], sourceMode: "fixture" | "live" = "fixture", businessId = "fixture-space") => sampleRecordsOverview({ sourceMode, businessId, rows: visible });
 
 test("sample cards count every row but sum only purchases and retain partial fiscal facts", () => {
   const result = sample(rows)!;
@@ -23,15 +23,15 @@ test("sample cards count every row but sum only purchases and retain partial fis
   assert.equal(result.purchaseSummary.currencies[0].total, "6900.00");
 });
 
-test("search and fiscal subsets change totals while the fiscal card retains its period count", () => {
+test("search and fiscal subsets change totals and the fiscal count", () => {
   assert.equal(sample([purchases[0]])!.answer.totals[0].amount, "2100.00");
   assert.equal(sample([purchases[0]])!.answer.matching_count, 1);
-  assert.equal(sample([purchases[0]])!.fiscalCount, 2);
+  assert.equal(sample([purchases[0]])!.fiscalCount, 1);
   const fiscalRows = rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["fiscal"]));
   assert.equal(sample(fiscalRows)!.answer.matching_count, 2);
   assert.equal(sample(fiscalRows)!.answer.totals[0].amount, "6900.00");
-  assert.equal(sample([], [])!.fiscalCount, 0);
-  assert.deepEqual(sample([], [])!.answer, { matching_count: 0, totals: [], fiscal_totals: [] });
+  assert.equal(sample([])!.fiscalCount, 0);
+  assert.deepEqual(sample([])!.answer, { matching_count: 0, totals: [], fiscal_totals: [] });
 });
 
 test("known zero stays known, currencies stay separate, and unknown rows stay incomplete", () => {
@@ -50,6 +50,6 @@ test("known zero stays known, currencies stay separate, and unknown rows stay in
 
 test("sample money stays exact for large amounts and never populates live or other businesses", () => {
   assert.equal(sample([record("exp-gas", "gasto", "-90071992547409.93")])!.answer.totals[0].amount, "90071992547409.93");
-  assert.equal(sample(rows, rows, "live"), undefined);
-  assert.equal(sample(rows, rows, "fixture", "fixture-client"), undefined);
+  assert.equal(sample(rows, "live"), undefined);
+  assert.equal(sample(rows, "fixture", "fixture-client"), undefined);
 });

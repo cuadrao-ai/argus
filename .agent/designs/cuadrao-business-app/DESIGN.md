@@ -1459,7 +1459,12 @@ rounded corners and colors, with the corresponding dark-theme treatment.
 Total and Faltan datos fiscales are the two action cards. Clicking Total or
 pressing Enter or Space shows its subcard. A second activation hides it. Clicking
 Faltan datos fiscales or pressing Enter or Space applies its table filter. A
-second activation clears it. The active filter remains visible and clearable.
+second activation restores the prior status selection. The active filter remains
+visible and clearable. A mixed status selection is not an active Fiscal card.
+An inactive Fiscal card with zero matches is disabled; an active card remains
+clearable at zero. Editing statuses directly, clearing their chip, choosing a
+saved view or navigating history discards the previous status selection saved by
+the card. Changing other filters keeps it.
 Both cards show a directional cue at the bottom right, hover feedback, a visible
 focus state, and an active state. Total exposes its expanded state and names the
 subcard it controls. Do not add a "Ver..." label or make the arrow a separate

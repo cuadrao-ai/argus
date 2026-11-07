@@ -12,7 +12,7 @@ const FISCAL_SAMPLES: Readonly<Record<string, FiscalSample>> = {
 };
 type SampleOverview = { answer: Pick<ReportAnswer, "matching_count" | "totals" | "fiscal_totals">; fiscalCount: number; purchaseSummary: SettlementSummary };
 
-export function sampleRecordsOverview({ sourceMode, businessId, rows, periodRows }: { sourceMode: BusinessDataSource["mode"]; businessId: string | null; rows: readonly RecordRow[]; periodRows: readonly RecordRow[] }): SampleOverview | undefined {
+export function sampleRecordsOverview({ sourceMode, businessId, rows }: { sourceMode: BusinessDataSource["mode"]; businessId: string | null; rows: readonly RecordRow[] }): SampleOverview | undefined {
   if (sourceMode !== "fixture" || businessId !== "fixture-space") return undefined;
   const purchases = rows.filter((row) => row.kind === "gasto" && !row.marks.personal && previewRecordMetadata(row, businessId)?.financialEligibility !== "personal");
   const totals: ReportTotal[] = [];
@@ -46,7 +46,7 @@ export function sampleRecordsOverview({ sourceMode, businessId, rows, periodRows
   }
   return {
     answer: { matching_count: rows.length, totals, fiscal_totals: fiscalTotals },
-    fiscalCount: periodRows.filter((row) => matchesPreviewWorkflow(row, businessId, ["fiscal"])).length,
+    fiscalCount: rows.filter((row) => matchesPreviewWorkflow(row, businessId, ["fiscal"])).length,
     purchaseSummary: {
       currencies: totals.map((line) => ({ currency: line.currency ?? "", total: line.amount, known: line.known_amount, settled: null, balance: null })),
       exclusions: summarizePreviewRecords(rows.filter((row) => row.kind === "gasto"), businessId).excludedByKind.expenses,
