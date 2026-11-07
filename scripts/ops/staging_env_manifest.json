@@ -18,11 +18,40 @@
       "service_name": "cuadrao-api-staging",
       "entries": [
         {
+          "name": "ALPACA_API_KEY",
+          "kind": "secret",
+          "local_only": true,
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
+        },
+        {
+          "name": "ALPACA_PAPER_TRADING",
+          "kind": "plain",
+          "local_only": true,
+          "local": {
+            "value": "true"
+          }
+        },
+        {
+          "name": "ALPACA_SECRET_KEY",
+          "kind": "secret",
+          "local_only": true,
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
+        },
+        {
           "name": "APP_ENV",
           "kind": "plain",
           "keep_current": true,
           "production": {
             "value": "production"
+          },
+          "local": {
+            "value": "local"
           }
         },
         {
@@ -64,6 +93,10 @@
           "optional": true,
           "production": {
             "not_set": true
+          },
+          "local": {
+            "enter": "the selected local store",
+            "optional": true
           }
         },
         {
@@ -107,6 +140,9 @@
           "keep_current": true,
           "production": {
             "copy_from": "ARGUS_APP_ORIGIN"
+          },
+          "local": {
+            "value": "http://localhost:3000"
           }
         },
         {
@@ -402,7 +438,19 @@
           "keep_current": true,
           "production": {
             "enter": "the production database project (lgdhvepyrzbnscqssgqq) settings: the session pooler connection string"
+          },
+          "local": {
+            "copy_from": "SUPABASE_POSTGRES_SESSION_POOLER_URL"
           }
+        },
+        {
+          "name": "OPENROUTER_API_KEY",
+          "kind": "secret",
+          "local_only": true,
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "SUPABASE_ANON_KEY",
@@ -410,6 +458,33 @@
           "keep_current": true,
           "production": {
             "enter": "the production database project (lgdhvepyrzbnscqssgqq) settings: the anon public key"
+          },
+          "local": {
+            "copy_from": "SUPABASE_ANON_PUBLIC_KEY"
+          }
+        },
+        {
+          "name": "SUPABASE_ANON_PUBLIC_KEY",
+          "kind": "plain",
+          "local_only": true,
+          "local": {
+            "enter": "the selected local store"
+          }
+        },
+        {
+          "name": "SUPABASE_POSTGRES_SESSION_POOLER_URL",
+          "kind": "secret",
+          "local_only": true,
+          "local": {
+            "enter": "the selected local store"
+          }
+        },
+        {
+          "name": "SUPABASE_PROJECT_URL",
+          "kind": "plain",
+          "local_only": true,
+          "local": {
+            "enter": "the selected local store"
           }
         },
         {
@@ -418,6 +493,9 @@
           "keep_current": true,
           "production": {
             "enter": "the production database project (lgdhvepyrzbnscqssgqq) settings: the service role key"
+          },
+          "local": {
+            "enter": "the selected local store"
           }
         },
         {
@@ -426,6 +504,9 @@
           "keep_current": true,
           "production": {
             "value": "https://lgdhvepyrzbnscqssgqq.supabase.co"
+          },
+          "local": {
+            "copy_from": "SUPABASE_PROJECT_URL"
           }
         },
         {
@@ -505,6 +586,10 @@
           "kind": "generated",
           "production": {
             "not_set": true
+          },
+          "local": {
+            "enter": "the selected local store",
+            "optional": true
           }
         },
         {
@@ -512,6 +597,10 @@
           "kind": "generated",
           "production": {
             "enter": "a new random value: python3 -c 'import secrets; print(secrets.token_urlsafe(48))'"
+          },
+          "local": {
+            "enter": "the selected local store",
+            "optional": true
           }
         },
         {
@@ -520,6 +609,10 @@
           "b64_bytes": 32,
           "production": {
             "not_set": true
+          },
+          "local": {
+            "enter": "the selected local store",
+            "optional": true
           }
         },
         {
@@ -536,6 +629,9 @@
           "value": "https://cuadrao-web-staging.onrender.com",
           "production": {
             "copy_from": "ARGUS_APP_ORIGIN"
+          },
+          "local": {
+            "value": "http://localhost:3000"
           }
         },
         {
@@ -600,7 +696,11 @@
           "production_only": true,
           "production": {
             "value": "qwen/qwen3.5-9b"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_CHAT_MODEL",
@@ -608,7 +708,11 @@
           "production_only": true,
           "production": {
             "value": "deepseek/deepseek-v4-flash"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_CONTEXT_FALLBACK_MODEL",
@@ -616,7 +720,11 @@
           "production_only": true,
           "production": {
             "value": "deepseek/deepseek-v4-flash"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_CONTEXT_MODEL",
@@ -624,7 +732,11 @@
           "production_only": true,
           "production": {
             "value": "openai/gpt-oss-120b"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED",
@@ -672,6 +784,10 @@
           "production_only": true,
           "production": {
             "enter": "a new random value: python3 -c 'import secrets; print(secrets.token_urlsafe(48))'"
+          },
+          "local": {
+            "enter": "the selected local store",
+            "optional": true
           }
         },
         {
@@ -680,7 +796,11 @@
           "production_only": true,
           "production": {
             "value": "openai/gpt-5.6-luna"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_READOUT_MODEL",
@@ -688,7 +808,11 @@
           "production_only": true,
           "production": {
             "value": "openai/gpt-5.6-luna"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_REGISTERED_DAILY_TURN_CEILING",
@@ -712,7 +836,11 @@
           "production_only": true,
           "production": {
             "value": "anthropic/claude-haiku-4.5"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_STRUCTURED_MODEL",
@@ -720,7 +848,11 @@
           "production_only": true,
           "production": {
             "value": "x-ai/grok-4.3"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_UTILITY_FALLBACK_MODEL",
@@ -728,7 +860,11 @@
           "production_only": true,
           "production": {
             "value": "qwen/qwen3.5-9b"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "CUADRAO_UTILITY_MODEL",
@@ -736,7 +872,11 @@
           "production_only": true,
           "production": {
             "value": "google/gemini-2.5-flash-lite"
-          }
+          },
+          "local": {
+            "enter": "the selected local store"
+          },
+          "local_stack_value": "local-qa-disabled"
         },
         {
           "name": "POSTHOG_PROJECT_TOKEN",
@@ -760,6 +900,9 @@
           "production_only": true,
           "production": {
             "not_set": true
+          },
+          "local": {
+            "enter": "the selected local store"
           }
         }
       ],
@@ -800,6 +943,9 @@
           "production": {
             "copy_from": "ARGUS_APP_ORIGIN",
             "service": "api"
+          },
+          "local": {
+            "value": "http://localhost:3000"
           }
         },
         {
@@ -827,10 +973,21 @@
           }
         },
         {
+          "name": "NEXT_PUBLIC_ARGUS_API_URL",
+          "kind": "plain",
+          "local_only": true,
+          "local": {
+            "value": "http://localhost:8000/api/v1"
+          }
+        },
+        {
           "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED",
           "kind": "plain",
           "value": "true",
           "production": {
+            "value": "true"
+          },
+          "local": {
             "value": "true"
           }
         },
@@ -839,6 +996,9 @@
           "kind": "plain",
           "value": "true",
           "production": {
+            "value": "true"
+          },
+          "local": {
             "value": "true"
           }
         },
@@ -864,6 +1024,9 @@
           "keep_current": true,
           "production": {
             "copy_from": "NEXT_PUBLIC_ARGUS_API_URL"
+          },
+          "local": {
+            "value": "http://localhost:8000/api/v1"
           }
         },
         {
@@ -880,6 +1043,9 @@
           "keep_current": true,
           "production": {
             "value": "true"
+          },
+          "local": {
+            "value": "true"
           }
         },
         {
@@ -888,6 +1054,10 @@
           "keep_current": true,
           "production": {
             "enter": "the production database project (lgdhvepyrzbnscqssgqq) settings: the anon public key"
+          },
+          "local": {
+            "copy_from": "SUPABASE_ANON_PUBLIC_KEY",
+            "service": "api"
           }
         },
         {
@@ -896,6 +1066,10 @@
           "keep_current": true,
           "production": {
             "value": "https://lgdhvepyrzbnscqssgqq.supabase.co"
+          },
+          "local": {
+            "copy_from": "SUPABASE_PROJECT_URL",
+            "service": "api"
           }
         },
         {
@@ -920,6 +1094,9 @@
           "production_only": true,
           "production": {
             "value": "false"
+          },
+          "local": {
+            "value": "false"
           }
         },
         {
@@ -927,6 +1104,9 @@
           "kind": "plain",
           "production_only": true,
           "production": {
+            "value": "true"
+          },
+          "local": {
             "value": "true"
           }
         },

@@ -47,6 +47,7 @@ def _production(label: str) -> dict[str, dict[str, Any]]:
     return {
         entry["name"]: entry["production"]
         for entry in manifest["services"][label]["entries"]
+        if not entry.get("local_only")
     }
 
 

@@ -99,11 +99,32 @@ bash scripts/qa/write-local-env.sh               # untracked .env + web/.env.loc
 bash scripts/qa/run-local-auth-qa.sh             # guard -> backend -> identities -> journeys
 ```
 
-New worktrees normally inherit `.env` and `web/.env.local` as symlinks to the
-canonical integration worktree. `write-local-env.sh` safely detaches those
-links and writes regular lane-local files before local-stack QA. Do not replace
-this command with `cat > .env` or similar redirection, which follows symlinks
-and can corrupt the shared canonical environment.
+New worktrees have no shared env links. For credentials, set
+`CUADRAO_LOCAL_ENV_STORE=/absolute/path/local-secrets.env` before setup or a QA
+command. The store must be external, owned by you, and mode `0600`. The manifest
+owns the required names. Run `python3 scripts/ops/staging_env.py names local api required`
+to list them. See [worktree setup](../../.github/WORKTREE_CLEANUP.md) for the literal
+value format and replacement rules.
+
+`write-local-env.sh` reads local stack discovery as data and uses the same
+manifest resolver. It creates regular private files in this worktree. Existing
+user-owned files need `--replace`. Legacy symlinks must be removed by the user
+first. Never write into a linked `.env` or `web/.env.local`.
+
+Later setup and QA commands refuse a selected store that conflicts with the
+generated database target or credentials. This applies to every generated target,
+including ordinary store regeneration. `--replace` does not bypass it, and
+`--check` reports the same conflict. Provider and model settings can still change.
+Unset `CUADRAO_LOCAL_ENV_STORE` to keep using discovered files, or rerun
+`write-local-env.sh` to discover the local target and credentials again. For a
+deliberate store target change, first remove the worktree `.env` and
+`web/.env.local` files yourself, then rerun setup. Keep or remove the pair together;
+a generated web file without its generated root file refuses regeneration.
+
+The browser guard uses the installed web framework environment loader, including
+its file precedence, comments, quotes, and variable expansion. Install web
+dependencies before QA. Set `NODE_ENV=production` when checking a production
+build; otherwise the guard follows development mode (or test mode when selected).
 
 The local stack uses the stable `project_id = "argus-qa"` (containers such as
 `supabase_db_argus-qa`) and a same-site topology — app on

@@ -588,6 +588,9 @@ def _offline(capsys, *argv):
 def test_every_entry_has_a_production_rule(manifest):
     for label, service in manifest["services"].items():
         for entry in service["entries"]:
+            if entry.get("local_only"):
+                assert "local" in entry and "production" not in entry
+                continue
             modes = set(entry["production"]) & set(se.PRODUCTION_MODES)
             assert len(modes) == 1, f"{label}:{entry['name']}"
     entry = manifest["services"]["web"]["entries"][0]
@@ -598,7 +601,11 @@ def test_every_entry_has_a_production_rule(manifest):
 
 @pytest.mark.parametrize("kind", ["secret", "generated"])
 def test_a_secret_cannot_hold_a_production_value(manifest, kind):
-    entry = next(e for e in manifest["services"]["api"]["entries"] if e["kind"] == kind)
+    entry = next(
+        e
+        for e in manifest["services"]["api"]["entries"]
+        if e["kind"] == kind and not e.get("local_only")
+    )
     entry["production"] = {"value": "plain-looking"}
     with pytest.raises(se.ManifestError, match="looks like a secret"):
         se.validate_manifest(manifest)
@@ -610,6 +617,8 @@ def test_a_secret_cannot_hold_a_production_value(manifest, kind):
 def test_paste_ready_files_carry_plain_names_only(manifest, environment, capsys):
     for label, service in manifest["services"].items():
         if environment == "staging" and "service_id" not in service:
+            continue
+        if environment == "local" and label not in ("api", "web"):
             continue
         kinds = {e["name"]: e["kind"] for e in service["entries"]}
         lines = _offline(capsys, "print", environment, label).splitlines()
@@ -649,7 +658,8 @@ def test_to_fill_lists_each_supplied_name_blank_with_its_source(manifest, capsys
     assert all(line.startswith("# ") and len(line) > 2 for line in comments)
     assert all(re.fullmatch(r"[A-Z][A-Z0-9_]*=", line) for line in assignments)
     production = {
-        e["name"]: e["production"] for e in manifest["services"]["api"]["entries"]
+        e["name"]: e["production"]
+        for e in se.entries_for(manifest["services"]["api"], "production")
     }
     supplied = sorted(n for n, r in production.items() if {"enter", "copy_from"} & set(r))
     assert [line[:-1] for line in assignments] == supplied
