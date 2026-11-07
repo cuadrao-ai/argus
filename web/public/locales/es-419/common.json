@@ -2661,7 +2661,6 @@
             "title": "Total"
           },
           "total_helper_placeholder": "Importe bruto",
-          "unavailable_placeholder": "Sin importe disponible",
           "unsupported_placeholder_one": "{{count}} importe no compatible",
           "unsupported_placeholder_other": "{{count}} importes no compatibles"
         },

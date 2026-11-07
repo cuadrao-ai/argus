@@ -2661,7 +2661,6 @@
             "title": "Total"
           },
           "total_helper_placeholder": "Gross amount",
-          "unavailable_placeholder": "No amount available",
           "unsupported_placeholder_one": "{{count}} unsupported amount",
           "unsupported_placeholder_other": "{{count}} unsupported amounts"
         },

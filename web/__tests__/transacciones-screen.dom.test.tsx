@@ -337,7 +337,7 @@ describe("the gate", () => {
     } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
 
-  test("fixture filters reveal no subcards and Total never computes purchase amounts from rows", async () => {
+  test("fixture filters keep Total collapsed until opened and sample purchases exclude personal rows", async () => {
     const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
     Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
     try {
@@ -367,11 +367,14 @@ describe("the gate", () => {
       const total = document.querySelector<HTMLButtonElement>('[data-overview-card="total"] button[aria-controls]')!;
       await page.click(total);
       assert.equal(summary()!.querySelectorAll("[data-summary-part]").length, 1);
-      assert.equal(summary()!.querySelectorAll(".cuadrao-amount").length, 0, "no server answer means unknown purchase total");
+      assert.deepEqual([...summary()!.querySelectorAll(".cuadrao-amount")].map((node) => node.textContent), ["RD$2,100.00", "US$24.00"]);
+      assert.match(summary()!.textContent!, /1 personal/);
+      assert.doesNotMatch(summary()!.textContent!, /3,350|1,250/);
       assert.doesNotMatch(summary()!.textContent!, /Pagado|Por pagar|Cobrado|Por cobrar/);
       const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nube"); input.dispatchEvent(new Event("input", { bubbles: true })); });
-      assert.equal(page.records().length, 1); assert.equal(summary()!.querySelectorAll(".cuadrao-amount").length, 0);
+      assert.equal(page.records().length, 1);
+      assert.deepEqual([...summary()!.querySelectorAll(".cuadrao-amount")].map((node) => node.textContent), ["US$24.00"]);
       await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
       assert.equal(page.records().length, 2);
       assert.ok(summary(), "family filter does not control the Total subcard");
@@ -1028,7 +1031,7 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
 });
 
 
-for (const width of [1440, 390]) test(`local overview remains unknown without a report answer at ${width}px`, async () => {
+for (const width of [1440, 390]) test(`fixture overview shows sample purchases and toggles only fiscal expenses at ${width}px`, async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -1041,14 +1044,23 @@ for (const width of [1440, 390]) test(`local overview remains unknown without a 
     await page.settle(() => page.records().length === 6, "six fixture records");
     const overview = document.querySelector('[data-testid="records-overview-preview"]')!;
     assert.equal(overview.querySelectorAll("[data-overview-card]").length, 6);
-    assert.equal(overview.querySelectorAll(".cuadrao-amount").length, 0, "local rows never become shelf money");
+    const total = overview.querySelector('[data-overview-card="total"]')!;
+    assert.deepEqual([...total.querySelectorAll(".cuadrao-amount")].map((node) => node.getAttribute("aria-label")), ["DOP 2,100.00", "USD 24.00"]);
+    assert.doesNotMatch(total.textContent!, /3,350|1,250/, "personal purchases stay outside sample totals");
+    assert.equal(overview.querySelectorAll(".cuadrao-amount").length, 6, "sample money retains privacy masking");
     const fiscal = overview.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!;
-    assert.equal(fiscal.disabled, true, "local workflow metadata never becomes a fiscal count");
-    assert.match(fiscal.textContent!, /sin dato/);
+    assert.equal(fiscal.disabled, false);
+    assert.equal(fiscal.querySelector(".font-display")?.textContent, "1");
+    await page.click(fiscal);
+    assert.deepEqual(page.records().map((row) => ({ kind: row.dataset.kind, id: row.dataset.recordId })), [{ kind: "gasto", id: "exp-gas" }], "the same-id sale is outside fiscal review");
+    assert.equal(fiscal.getAttribute("aria-pressed"), "true");
+    assert.ok(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
     await page.click(fiscal);
     assert.equal(page.records().length, 6);
+    assert.equal(fiscal.getAttribute("aria-pressed"), "false");
     assert.equal(document.querySelector('button[aria-label="Quitar filtro Revisión"]'), null);
-    assert.match(overview.querySelector('[data-overview-card="quantity"]')!.textContent!, /sin dato/);
+    assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, "1–6 de 6 registros");
+    assert.equal(overview.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "6");
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
