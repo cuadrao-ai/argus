@@ -18,7 +18,7 @@ const answer = { matching_count: 1828, totals: [
   { basis: "document_family_amount", currency: "DOP", kind: "expense", matching_count: 500, known_amount_minor: 11111, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 11111, amount: "111.11", known_amount: "111.11" },
   { basis: "document_family_amount", currency: "DOP", kind: "income", matching_count: 400, known_amount_minor: 22222, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 22222, amount: "222.22", known_amount: "222.22" },
   { basis: "recorded_activity_amount", currency: "DOP", kind: "expense", matching_count: 900, known_amount_minor: 99999, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 99999, amount: "999.99", known_amount: "999.99" },
-], fiscal_totals: [fiscal({ basis: "itbis", amount: "18.18", complete: true, unknown_count: 0 }), fiscal({}), fiscal({ basis: "services", populated_count: 7, known_amount: "9.00", unsupported_count: 2 })] } satisfies Pick<ReportAnswer, "totals" | "fiscal_totals" | "matching_count">;
+], fiscal_totals: [fiscal({ basis: "itbis", amount: "18.18", complete: true, unknown_count: 0 }), fiscal({ basis: "itbis", kind: "income", amount: "36.36", complete: true, unknown_count: 0 }), fiscal({}), fiscal({ basis: "services", populated_count: 7, known_amount: "9.00", unsupported_count: 2 })] } satisfies Pick<ReportAnswer, "totals" | "fiscal_totals" | "matching_count">;
 async function mount(props: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}, language = "es-419") {
   const { createRoot } = await import("react-dom/client");
   const i18n = i18next.createInstance(); await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
@@ -31,13 +31,15 @@ test("six cards use server totals, family lines, matching count and separate fis
   const page = await mount();
   assert.deepEqual([...document.querySelectorAll("[data-overview-card]")].map((el) => el.getAttribute("data-overview-card")), ["total", "itbis", "quantity", "goods", "services", "fiscal"]);
   assert.match(card("total").textContent!, /Compras.*111\.11.*Ventas.*222\.22/); assert.doesNotMatch(card("total").textContent!, /999\.99|333\.33/);
-  assert.match(card("itbis").textContent!, /18\.18/); assert.match(card("quantity").textContent!, /1,828/); assert.match(card("fiscal").textContent!, /71/);
+  assert.equal(card("itbis").querySelector('[data-family="purchase"] .sr-only')?.textContent, "DOP 18.18"); assert.equal(card("itbis").querySelector('[data-family="sale"] .sr-only')?.textContent, "DOP 36.36"); assert.match(card("quantity").textContent!, /1,828/); assert.match(card("fiscal").textContent!, /71/);
   for (const key of ["total", "itbis", "quantity", "goods", "services"]) { assert.equal(card(key).tagName, "DIV"); assert.equal(card(key).hasAttribute("tabindex"), false); assert.equal(card(key).getAttribute("role"), null); }
   for (const key of ["total", "itbis", "quantity", "goods", "services"]) await act(async () => card(key).click()); assert.deepEqual(page.chosen, []);
   assert.equal(card("fiscal").tagName, "BUTTON"); await act(async () => card("fiscal").click()); assert.deepEqual(page.chosen, ["fiscal"]);
   assert.equal(card("fiscal").getAttribute("type"), "button");
   assert.doesNotMatch(document.body.textContent!, /Listos para exportar|Ya exportados/);
   await page.render({ families: ["sale"] }); assert.doesNotMatch(card("total").textContent!, /Compras|111\.11/); assert.match(card("total").textContent!, /Ventas.*222\.22/); assert.doesNotMatch(card("goods").textContent!, /12 de 25|5\.00/);
+  assert.match(card("itbis").textContent!, /Ventas.*36\.36/); assert.doesNotMatch(card("itbis").textContent!, /Compras|18\.18/);
+  await page.render({ families: ["purchase"] }); assert.match(card("itbis").textContent!, /Compras.*18\.18/); assert.doesNotMatch(card("itbis").textContent!, /Ventas|36\.36/);
 });
 test("coverage is per metric, partial and unsupported stay explicit, absent values stay unknown", async () => {
   await mount(); assert.match(card("goods").textContent!, /12 de 25 compras/); assert.match(card("services").textContent!, /7 de 25 compras/);
