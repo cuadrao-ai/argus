@@ -44,9 +44,11 @@ The interpreter and model-facing text rules below apply to it.
 
 - Python is pinned by `.python-version` (3.10.20); run it through `poetry run`. Frontend
   packages use bun, not npm. Docs-only work skips setup and every env write.
-- Run `.github/setup.sh` once per runtime worktree; it links missing `.env` files to the
-  integration worktree. Check (prints no values): `bash .github/setup-worktree-env.sh --check "$PWD"`.
-  `missing` or `conflicting-link` means stop and fix first.
+- Run `.github/setup.sh` once per runtime worktree. Fast dev needs no secrets.
+  Select an external private store with `CUADRAO_LOCAL_ENV_STORE=/absolute/path/local.env`
+  to generate private worktree files. No staging or production store is selected by default.
+  Validate without writes or value output: `bash .github/setup-worktree-env.sh --check "$PWD"`.
+  Remove legacy env symlinks yourself before setup. Setup never follows or replaces them.
 - Fast mode: `.github/dev.sh` (memory store, synthetic fixtures, mock auth), then
   `cd web && bun run dev` with `NEXT_PUBLIC_MOCK_AUTH=true`. Parity: `.github/qa.sh`.
 - The `web/` framework breaks older APIs: read `web/node_modules/next/dist/docs/` first.

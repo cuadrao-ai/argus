@@ -34,6 +34,7 @@ def _production(manifest: dict) -> dict[str, dict]:
     return {
         entry["name"]: entry["production"]
         for entry in manifest["services"]["api"]["entries"]
+        if not entry.get("local_only")
     }
 
 

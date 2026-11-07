@@ -12,12 +12,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/argus-env.sh"
 
-if [ ! -f .env ]; then
-  echo "❌ Root .env missing. Copy .env.example to .env and fill QA credentials."
+if ! argus_load_root_env; then
+  echo "Root .env missing; select CUADRAO_LOCAL_ENV_STORE first." >&2
   exit 1
 fi
-
-argus_load_root_env
+bash "$SCRIPT_DIR/../scripts/qa/assert-nonprod-target.sh"
 argus_require_qa_env
 argus_export_qa_mode
 # SUPABASE_POSTGRES_DIRECT_URL and SUPABASE_POSTGRES_TRANSACTION_POOLER_URL may

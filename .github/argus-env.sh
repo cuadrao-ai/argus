@@ -14,29 +14,17 @@ ARGUS_RENDER_API_START_COMMAND="poetry run uvicorn argus.api.main:app --host 0.0
 ARGUS_RENDER_WORKFLOW_BUILD_COMMAND="poetry config virtualenvs.create false && poetry install --only main,workflows --no-interaction"
 ARGUS_RENDER_WORKFLOW_START_COMMAND="poetry run python workflows/main.py"
 
-ARGUS_QA_REQUIRED_ENV=(
-  SUPABASE_PROJECT_URL
-  SUPABASE_ANON_PUBLIC_KEY
-  SUPABASE_SERVICE_ROLE_KEY
-  SUPABASE_JWT_SECRET
-  SUPABASE_POSTGRES_SESSION_POOLER_URL
-  ALPACA_API_KEY
-  ALPACA_SECRET_KEY
-  OPENROUTER_API_KEY
-  CUADRAO_UTILITY_MODEL
-  CUADRAO_UTILITY_FALLBACK_MODEL
-  CUADRAO_CHAT_MODEL
-  CUADRAO_CHAT_FALLBACK_MODEL
-  CUADRAO_STRUCTURED_MODEL
-  CUADRAO_STRUCTURED_FALLBACK_MODEL
-  CUADRAO_CONTEXT_MODEL
-  CUADRAO_CONTEXT_FALLBACK_MODEL
-  CUADRAO_READOUT_MODEL
-  CUADRAO_READOUT_FALLBACK_MODEL
-)
-
 # scripts/ops/staging_env_manifest.json owns every hosted setting; this reads its production rules.
 ARGUS_SETTINGS_TOOL="${BASH_SOURCE[0]%/*}/../scripts/ops/staging_env.py"
+
+if ! _qa_names="$(python3 "$ARGUS_SETTINGS_TOOL" names local api required)"; then
+  exit 1
+fi
+ARGUS_QA_REQUIRED_ENV=()
+while IFS= read -r name; do
+  [ -n "$name" ] && ARGUS_QA_REQUIRED_ENV+=("$name")
+done <<< "$_qa_names"
+unset _qa_names name
 
 ARGUS_RENDER_API_ENV_KEYS="$(python3 "$ARGUS_SETTINGS_TOOL" names production api allowed)" || exit 1
 ARGUS_RENDER_API_ENV=()
@@ -75,6 +63,13 @@ ARGUS_FORBIDDEN_LEGACY_ENV=(
 )
 
 argus_load_root_env() {
+  if [ -n "${CUADRAO_LOCAL_ENV_STORE:-}" ]; then
+    python3 "$ARGUS_SETTINGS_TOOL" local "$PWD" || exit 1
+  fi
+  if [ -L .env ]; then
+    echo ".env: symlink refused" >&2
+    exit 1
+  fi
   if [ -f .env ]; then
     set -a
     set +u
@@ -117,6 +112,7 @@ argus_require_qa_env() {
 }
 
 argus_export_dev_mode() {
+  export APP_ENV="${APP_ENV:-local}"
   export CUADRAO_PERSISTENCE_MODE=memory
   export ARGUS_DEV_MEMORY_FALLBACK=true
   export ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture

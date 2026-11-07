@@ -8,34 +8,58 @@ another Argus checkout. Nested worktrees can inherit the parent `.env` through
 dotenv upward search, which can silently turn mocked runs into live LLM/provider
 calls.
 
-Run `.github/setup.sh` once in each new sibling worktree. Setup automatically
-links a missing `.env` and `web/.env.local` from the worktree checked out on
-`codex/private-alpha-next`. Existing files and links to other sources are kept
-unchanged. If the canonical integration worktree is not available, setup warns
-and continues without provisioning secrets, which keeps clean checkouts and CI
-safe.
+Run `.github/setup.sh` once in each new sibling worktree. With no selected
+store, setup creates no environment files and fast dev can start without secrets.
 
-At agent Phase 0, make the topology explicit without reading any values:
+For QA credentials, select an environment-specific external file. The store
+must be a regular file owned by you, with mode `0600`. No staging or production
+store is selected by default. Setup reads it as data and never changes it.
 
 ```bash
+export CUADRAO_LOCAL_ENV_STORE=/absolute/path/local-secrets.env
 bash .github/setup-worktree-env.sh "$PWD"
 bash .github/setup-worktree-env.sh --check "$PWD"
 ```
 
-The read-only check reports `canonical-linked`, `canonical-source`,
-`worktree-local`, `missing`, or `conflicting-link`. Missing and conflicting
-topology return a nonzero status; intentional canonical or worktree-local files
-remain valid.
+The manifest in `scripts/ops/staging_env_manifest.json` owns local names and
+rules. List the required store names without reading any values:
 
-When a lane needs its own disposable local-Supabase configuration, run
-`scripts/qa/write-local-env.sh`. It atomically replaces that lane's symlinks
-with regular worktree-local files; it must never write through a symlink into
-the canonical integration environment. Do not use direct shell redirection to
-rewrite a linked `.env` or `web/.env.local`.
+```bash
+python3 scripts/ops/staging_env.py names local api required
+```
 
-For local recovery only, `ARGUS_CANONICAL_WORKTREE_ROOT=/absolute/path` can
-select the canonical source explicitly. Normal sibling worktrees do not need
-this override.
+Use one unquoted `NAME=value` per line. Blank lines and comment lines are allowed.
+Values use letters, digits, and `_ . / : @ % + , = -`, with no spaces.
+Dollar signs, backticks, quotes, backslashes, `#`, and multiline values are
+rejected. This common literal subset has the same value in Bash, Python dotenv,
+and the web loader. Unknown names and duplicate names fail before any write.
+
+Setup writes private, gitignored `.env` and `web/.env.local` files in the target
+worktree. It validates both destinations before it replaces either file. Each
+worktree has its own files. A generated file can be regenerated when its database
+target and credentials agree with the selected store. This also applies to
+ordinary store regeneration, not just discovered stacks. A target conflict
+refuses before either file changes, including with `--replace` or `--check`.
+Unrelated provider and model settings can still change. An existing user-owned
+file requires `--replace`, unless its content already matches.
+`--check` validates a selected store without writing files. Without a selected
+store, it requires both regular worktree files.
+
+Legacy env symlinks fail before loading or writing. Remove each link yourself
+and rerun setup. Do not redirect into a linked file. The old canonical checkout
+lookup and `ARGUS_CANONICAL_WORKTREE_ROOT` override have been removed.
+
+For a disposable local database stack, `scripts/qa/write-local-env.sh` feeds
+local discovery data to the same manifest resolver. It uses explicit disabled
+provider defaults from the manifest unless the selected store supplies those
+values. It refuses symlink destinations too.
+
+After discovery, unset `CUADRAO_LOCAL_ENV_STORE` to keep using the discovered
+files, or rerun `scripts/qa/write-local-env.sh` to discover the local target and
+credentials again. To change the store target deliberately, first remove the
+worktree `.env` and `web/.env.local` files yourself, then rerun setup. A generated
+web file without its generated root file refuses regeneration because the full
+target and credentials cannot be checked.
 
 Safe mode removes known generated bloat and keeps local untracked files such as
 `.env` and `web/.env.local` intact:
