@@ -105,7 +105,7 @@ test.describe("Business preview", () => {
     await expect(trigger).toHaveAccessibleName("Más acciones");
     const menu = page.getByRole("menu", { name: "Más acciones" });
     await trigger.click();
-    await expect(menu.getByRole("menuitem")).toHaveCount(2);
+    await expect(menu.getByRole("menuitem")).toHaveCount(1);
     await trigger.click();
     await expect(menu).toHaveCount(0);
 
@@ -121,10 +121,10 @@ test.describe("Business preview", () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
 
     const items = menu.getByRole("menuitem");
-    await expect(items).toHaveText(["Exportar registros", "Copiar dirección de reenvío"]);
+    await expect(items).toHaveText(["Copiar dirección de reenvío"]);
     await expect(items.nth(0)).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(items.nth(1)).toBeFocused();
+    await expect(items.nth(0)).toBeFocused();
 
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);

@@ -126,17 +126,17 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(page.screen().querySelector("#business-overview-title"), null, "no duplicate desktop greeting");
   });
 
-  test("the owner's Agregar opens the upload, and its menu offers Exportar registros and Copiar dirección de reenvío", async () => {
+  test("the owner's Agregar opens the upload, and its menu offers only Copiar dirección de reenvío", async () => {
     const page = await mount();
     await page.ready();
     const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
     const add = menu.querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]')!;
     assert.equal(add.textContent, "Agregar");
     await page.ready();
-    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros", "Copiar dirección de reenvío"]);
+    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Copiar dirección de reenvío"]);
     const copied: string[] = [];
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
-    await page.act(async () => page.menuItems()[1].click());
+    await page.act(async () => page.menuItems()[0].click());
     assert.equal(copied.length, 1);
     assert.match(copied[0], /@/);
     await page.act(async () => add.click());
@@ -151,7 +151,7 @@ describe("the Business top bar on a desktop", () => {
     await page.openMenu(menu);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("refused"); } } });
     document.execCommand = () => false;
-    await page.act(async () => page.menuItems()[1].click());
+    await page.act(async () => page.menuItems()[0].click());
     await page.settle(() => (page.api().panel as { tab?: string }).tab === "correo", "Correo de recibos");
     assert.deepEqual(page.api().panel, { kind: "business", tab: "correo" });
     assert.equal(document.querySelector('[data-testid="toast"]'), null, "a failed copy is not a toast");
@@ -160,18 +160,28 @@ describe("the Business top bar on a desktop", () => {
   test("an owner without a forwarding address gets no Copiar dirección", async () => {
     const page = await mount({ overrides: { emailIntake: async () => ({ enabled: false, receiving_address: null }) as never } });
     await page.ready();
-    assert.deepEqual((await page.openMenu(page.bar())).map((item) => item.textContent), ["Exportar registros"]);
+    assert.equal(page.bar().querySelector('[data-testid="add-menu-more"]'), null);
   });
 
-  test("a contador gets the menu alone, with no Agregar and no copy of the owner's address", async () => {
+  test("a contador has no add control even with export permission", async () => {
     const page = await mount({ grant: "fixture-grant-client" });
     await page.settle(() => page.api().chosen?.role === "accountant", "the client business");
-    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
-    assert.equal(menu.querySelector('[data-testid="business-primary-upload"]'), null);
-    const trigger = menu.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!;
-    assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
-    assert.ok(trigger.textContent?.trim(), "the lone trigger names itself");
-    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros"]);
+    await page.wait(400);
+    assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null);
+  });
+
+  test("server email availability hides an existing address and restores its copy action", async () => {
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const fixture = createFixtureBusinessDataSource();
+    let available = false;
+    const page = await mount({ overrides: { workspace: async () => ({ ...await fixture.workspace(), receiving_channels: { email: { available }, whatsapp: { available: false } } }) } });
+    await page.ready();
+    assert.equal(page.bar().querySelector('[data-testid="add-menu-more"]'), null);
+    assert.ok(page.bar().querySelector('[data-testid="business-primary-upload"]'));
+    available = true;
+    await page.act(async () => { void page.api().refresh(); });
+    await page.settle(() => page.bar().querySelector('[data-testid="add-menu-more"]') !== null, "email copy action restored");
+    assert.deepEqual((await page.openMenu(page.bar())).map((item) => item.textContent), ["Copiar dirección de reenvío"]);
   });
 
   test("a Viewer, whose grant lacks the export permission, gets no menu trigger at all", async () => {
@@ -197,19 +207,6 @@ describe("the Business top bar on a desktop", () => {
     assert.ok(ownerBand?.querySelector('[data-testid="add-menu-page"]'), "an owner's band holds the menu");
   });
 
-  for (const kind of ["overview", "inbox", "transactions"] as const) test(`Exportar registros from the menu opens the one export sheet over ${kind}`, async () => {
-    const page = await mount();
-    await page.ready();
-    await page.open({ kind });
-    assert.equal(document.querySelector('[data-testid="export-records-panel"]'), null);
-    const items = await page.openMenu(page.bar());
-    const exportItem = items.find((item) => item.textContent === "Exportar registros")!;
-    await page.act(async () => exportItem.click());
-    await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
-    assert.equal(page.api().panel.kind, kind, "the screen underneath stays");
-    assert.equal(document.querySelectorAll('[data-testid="export-records-panel"]').length, 1);
-  });
-
   test("Agregar sits once in the bar after search on every screen but Negocio, and no content heading carries it", async () => {
     const page = await mount();
     await page.ready();
@@ -225,6 +222,7 @@ describe("the Business top bar on a desktop", () => {
       const add = tools.querySelector<HTMLElement>('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]')!;
       assert.match(add.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
       assert.equal(add.getAttribute("data-primary"), "true", kind);
+      await page.settle(() => tools.querySelector('[data-testid="add-menu-more"]') !== null, "forwarding address");
       assert.match(tools.querySelector('[data-testid="add-menu-more"]')!.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
       assert.equal(page.screen().querySelector('[data-testid="business-primary-upload"]'), null, `${kind}: Agregar appears once, in the bar`);
       assert.equal(page.screen().querySelector('[data-testid="add-menu-header"]'), null, kind);
