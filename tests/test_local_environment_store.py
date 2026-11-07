@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -596,3 +597,111 @@ def test_browser_guard_checks_next_environment_file_precedence(tmp_path, monkeyp
     monkeypatch.delenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", raising=False)
     with pytest.raises(se.ManifestError, match="NEXT_PUBLIC_SUPABASE_ANON_KEY"):
         se.guard_local(root, se.load_manifest())
+
+
+@pytest.fixture
+def discovered_stack(tmp_path, store):
+    root = worker(tmp_path)
+    for name in (
+        ".github/argus-env.sh",
+        ".github/qa.sh",
+        ".github/dev.sh",
+        ".github/local-smoke.sh",
+        ".github/warmup-render.sh",
+        ".github/render-env-sync.sh",
+        ".github/setup-worktree-env.sh",
+        "scripts/qa/run-local-auth-qa.sh",
+        "scripts/qa/write-local-env.sh",
+        "scripts/qa/assert-nonprod-target.sh",
+        "scripts/ops/staging_env.py",
+        "scripts/ops/staging_env_manifest.json",
+    ):
+        target = root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / name, target)
+    binary = root / "bin"
+    binary.mkdir()
+    discovery = binary / "supabase"
+    discovery.write_text(
+        "#!/bin/sh\ncat <<'EOF'\nAPI_URL=\"http://localhost:54331\"\n"
+        'ANON_KEY="stack-anon"\nSERVICE_ROLE_KEY="stack-service"\n'
+        'JWT_SECRET="stack-jwt"\nDB_URL="postgresql://test:test@localhost:54332/test"\nEOF\n'
+    )
+    discovery.chmod(0o755)
+    for name in ("poetry", "curl", "bun", "bunx", "sleep"):
+        stub = binary / name
+        stub.write_text('#!/bin/sh\nprintf "called\\n" >> "$CAPTURE"\nexit 79\n')
+        stub.chmod(0o755)
+    env = {
+        "PATH": f"{binary}:{os.environ['PATH']}",
+        "HOME": str(tmp_path),
+        "CUADRAO_LOCAL_ENV_STORE": str(store),
+        "ARGUS_QA_APPROVED_SUPABASE_REF": "syntheticproject",
+        "CAPTURE": str(root / "launched"),
+    }
+    result = subprocess.run(
+        ["bash", "scripts/qa/write-local-env.sh"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    return root, env
+
+
+@pytest.mark.parametrize("store_target", ["other-local", "hosted"])
+@pytest.mark.parametrize(
+    "caller",
+    [
+        "loader",
+        "qa",
+        "auth",
+        "dev",
+        "smoke",
+        "warmup",
+        "sync",
+        "setup",
+        "replace",
+        "check",
+        "cli",
+    ],
+)
+def test_regeneration_refuses_to_switch_discovered_stack(
+    discovered_stack, store, caller, store_target
+):
+    root, env = discovered_stack
+    if store_target == "hosted":
+        store.write_text(
+            store.read_text()
+            .replace("http://127.0.0.1:54321", "https://syntheticproject.supabase.co")
+            .replace(
+                "postgresql://test:test@localhost:54322/test",
+                "postgresql://test:test@db.syntheticproject.supabase.co:5432/test",
+            )
+        )
+    commands = {
+        "loader": ["bash", "-c", "source .github/argus-env.sh; argus_load_root_env"],
+        "qa": ["bash", ".github/qa.sh"],
+        "auth": ["bash", "scripts/qa/run-local-auth-qa.sh"],
+        "dev": ["bash", ".github/dev.sh"],
+        "smoke": ["bash", ".github/local-smoke.sh", "--contract-only"],
+        "warmup": ["bash", ".github/warmup-render.sh", "--help"],
+        "sync": ["bash", ".github/render-env-sync.sh", "--help"],
+        "setup": ["bash", ".github/setup-worktree-env.sh", str(root)],
+        "replace": ["bash", ".github/setup-worktree-env.sh", "--replace", str(root)],
+        "check": ["bash", ".github/setup-worktree-env.sh", "--check", str(root)],
+        "cli": ["python3", "scripts/ops/staging_env.py", "local", str(root)],
+    }
+    paths = [root / ".env", root / "web/.env.local"]
+    before = [path.read_bytes() for path in paths]
+    result = subprocess.run(
+        commands[caller], cwd=root, env=env, capture_output=True, text=True, timeout=15
+    )
+    assert [path.read_bytes() for path in paths] == before
+    assert result.returncode != 0
+    assert "target" in result.stderr and "conflict" in result.stderr
+    assert not (root / "launched").exists()
+    for value in ("stack-service", "stack-jwt", "server-service-secret"):
+        assert value not in result.stdout + result.stderr
