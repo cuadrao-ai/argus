@@ -337,7 +337,7 @@ describe("the gate", () => {
     } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
 
-  test("fixture results summary follows loaded search and kind while preview amounts describe records", async () => {
+  test("fixture filters reveal no subcards and Total never computes purchase amounts from rows", async () => {
     const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
     Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
     try {
@@ -363,14 +363,20 @@ describe("the gate", () => {
       await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Compra")!);
       await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
       assert.equal(page.records().length, 3);
-      assert.equal(summary()!.querySelectorAll('[data-summary-part]').length, 3);
-      assert.equal(summary()!.querySelectorAll(".cuadrao-amount").length, 6, "three amounts remain separate by currency");
+      assert.equal(summary(), null, "family filter reveals no subcards");
+      const total = document.querySelector<HTMLButtonElement>('[data-overview-card="total"] button[aria-controls]')!;
+      await page.click(total);
+      assert.equal(summary()!.querySelectorAll("[data-summary-part]").length, 1);
+      assert.equal(summary()!.querySelectorAll(".cuadrao-amount").length, 0, "no server answer means unknown purchase total");
+      assert.doesNotMatch(summary()!.textContent!, /Pagado|Por pagar|Cobrado|Por cobrar/);
       const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nube"); input.dispatchEvent(new Event("input", { bubbles: true })); });
-      assert.equal(page.records().length, 1); assert.match(summary()!.textContent ?? "", /US\$\s*24.00/);
+      assert.equal(page.records().length, 1); assert.equal(summary()!.querySelectorAll(".cuadrao-amount").length, 0);
       await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
       assert.equal(page.records().length, 2);
-      assert.equal(summary(), null, "removing the type returns to Todos");
+      assert.ok(summary(), "family filter does not control the Total subcard");
+      await page.click(total);
+      assert.equal(summary(), null, "second Total click hides the subcard");
       await page.unmount();
     } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });

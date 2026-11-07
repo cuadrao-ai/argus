@@ -123,31 +123,29 @@ NCF, NCF afectado, servicios, bienes, ITBIS, ISC, and propina legal are pilot ex
 
 Home card renames are deferred. Keep Ingresos / Gastos. No Home Ingresos-to-Ventas rename is included.
 
-Registros has six summary cards. This records the decision approved by Lucas, reviewed with Iris, on 2026-11-06; it is product intent, not a claim that code has changed.
+Registros has six summary cards. Lucas approved the purchase-side meanings on 2026-11-07, following the 2026-11-06 review with Iris.
 
 | Card | Meaning |
 |---|---|
-| Total | Gross amount, using the existing source and fallback rules. |
-| ITBIS | Tax amount only. |
-| Cantidad | Record count, as a whole number. |
-| Bienes | Populated net (pre-tax) goods amounts, including values entered by hand. Its own coverage helper reports populated records, for example "12 de 40 registros". |
-| Servicios | Populated net (pre-tax) services amounts, including values entered by hand. Its own coverage helper reports populated records, for example "12 de 40 registros". |
-| Faltan datos fiscales | Count by the existing fiscal-completeness definition. |
+| Total | Purchases gross amount from the server, using the existing source and fallback rules. Its action shows the Compras document-total subcard below the filters and above the table. A second click hides it. It changes no filter and does not navigate. |
+| ITBIS | Purchases tax amount only. Static. |
+| Cantidad | The server's `matching_count` for the current table filters, as a whole number. Static. |
+| Bienes | Populated net (pre-tax) goods amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
+| Servicios | Populated net (pre-tax) services amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
+| Faltan datos fiscales | Count by the existing fiscal-completeness definition. Its action applies the table filter. A second click clears it. The active filter stays visible and clearable. |
 
-Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Total, ITBIS, Cantidad, Bienes and Servicios describe the same filtered records as the table. Total and ITBIS show separate server-supplied Compras and Ventas lines, never their sum; a single-family filter shows only that family. Faltan datos fiscales uses the server's date-only `overview.needs_fiscal_data` count for the selected period, independent of the table's other filters. Currency behavior is unchanged: never add incompatible currencies.
+Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Currency behavior is unchanged: never add incompatible currencies. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
 
-Bienes and Servicios coverage counts only applicable purchases because sales have no goods/services split. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
+Known limitations:
 
-Faltan datos fiscales stays as the action card; Listos para exportar and Ya exportados leave the summary. Export workflows are untouched.
+- Faltan datos fiscales uses the server's date-only `overview.needs_fiscal_data` count for the selected period, independent of the table's other filters.
+- Bienes and Servicios coverage counts applicable purchases only.
+
+Listos para exportar and Ya exportados stay out of the summary. Export workflows and data are untouched.
 
 The server supplies every number; the web computes none. [#1842](https://github.com/cuadrao-ai/argus/issues/1842) adds server totals for ITBIS, Bienes and Servicios, with coverage for Bienes and Servicios.
 
-The existing money subcards apply only when filtered by kind, using these labels:
-
-| Filter | ES | EN |
-|---|---|---|
-| gasto / compra | Compras / Pagado / Por pagar | Purchases / Paid / Payable |
-| venta | Ventas / Cobrado / Por cobrar | Sales / Collected / Receivable |
+Payment subcards are hidden for the pilot: Pagado, Por pagar, Cobrado, and Por cobrar never show. Their data and calculation paths stay. Forma de pago and other fiscal fields are untouched. The only document-total subcard is Compras, shown by the Total card. The Compras/Ventas filter only filters the table and reveals no subcards.
 
 Do **not** label a non-fiscal expense total as "Compras (606)".
 

@@ -70,6 +70,35 @@ test("connected pages, full count, accent search and period-only overview use re
 
 const overviewCards = () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="records-overview-preview"] [data-overview-filter]')];
 
+test("Total toggles only the purchase document subcard without requests, filters or navigation", async () => {
+  const page = await mount();
+  const calls = page.fixture.calls.length;
+  const filters = structuredClone(sentFilters(page).at(-1));
+  const address = window.location.href;
+  const historyLength = window.history.length;
+  const total = document.querySelector<HTMLButtonElement>('[data-overview-card="total"] button[aria-controls]');
+  assert.ok(total);
+  assert.equal(total.getAttribute("aria-expanded"), "false");
+  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
+  await page.click(total);
+  const summary = document.querySelector('[data-testid="records-results-summary"]')!;
+  assert.ok(summary);
+  assert.equal(total.getAttribute("aria-expanded"), "true");
+  assert.equal(total.getAttribute("aria-controls"), summary.id);
+  assert.equal(summary.getAttribute("data-summary-kind"), "gasto");
+  assert.equal(summary.querySelectorAll("[data-summary-part]").length, 1);
+  assert.doesNotMatch(summary.textContent!, /Pagado|Por pagar|Cobrado|Por cobrar/);
+  assert.equal(page.fixture.calls.length, calls);
+  assert.deepEqual(sentFilters(page).at(-1), filters);
+  assert.equal(window.location.href, address);
+  assert.equal(window.history.length, historyLength);
+  assert.deepEqual(page.opened, []);
+  await page.click(total);
+  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
+  assert.equal(total.getAttribute("aria-expanded"), "false");
+  assert.equal(page.fixture.calls.length, calls);
+});
+
 test("six cards show report scope and only fiscal applies its stage", async () => {
   const page = await mount();
   assert.deepEqual(overviewCards().map((card) => card.getAttribute("data-overview-filter")), ["fiscal"]);
@@ -82,6 +111,11 @@ test("six cards show report scope and only fiscal applies its stage", async () =
   assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["needs_fiscal_data"]);
   assert.equal(document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed"), "true");
   assert.ok(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
+  await page.click(fiscal);
+  await page.settle(() => document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "false");
+  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, []);
+  await page.click(fiscal);
+  await page.settle(() => document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "true");
   await page.click(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
   await page.settle(() => document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "false");
 });
@@ -293,75 +327,69 @@ test("older v1 servers keep query usable and leave unsupported overview unavaila
 const amounts = (card: Element) => [...card.querySelectorAll("[data-currency]")].map((row) => row.textContent);
 const cards = () => [...document.querySelectorAll('[data-testid="records-results-summary"] [data-summary-part]')];
 
-test("sales card one shows the server document totals per currency and later cards stay unavailable", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
-  const summary = document.querySelector('[data-testid="records-results-summary"]')!;
-  assert.equal(summary.getAttribute('data-summary-kind'), 'venta');
-  assert.equal(cards().length, 3);
-  assert.deepEqual(amounts(cards()[0]), ['RD$6,200.00', 'US$100.00']);
-  assert.match(cards()[0].textContent!, /Ventas/);
-  for (const later of cards().slice(1)) { assert.equal(later.querySelectorAll('.cuadrao-amount').length, 0); assert.match(later.textContent!, /-/); }
-  assert.equal(document.body.textContent?.includes('Cobros, pagos y saldos pendientes aún no están disponibles.'), true);
-  // Registros lists approved records only, so no total ever includes a document still to review or approve.
-  assert.equal(summary.querySelector('[data-summary-qualifier]'), null);
-  assert.ok(page.fixture.calls.every((call) => !call.path.includes('/totals')));
+test("family filters alone never reveal subcards", async () => {
+  for (const family of ["purchase", "sale"] as const) {
+    await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" }, record_families: [family] } }) });
+    assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
+    await cleanup();
+  }
 });
 
-test("expense card one keeps an unknown currency unknown and never invents a code or zero", async () => {
-  await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['purchase'] } }) });
+test("purchase document subcard keeps unknown currency unknown without inventing zero", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
+  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
   const [first, second] = [...cards()[0].querySelectorAll("[data-currency], .currencyRow, dd > div")];
   assert.match(cards()[0].textContent!, /Compras/);
-  assert.equal(first.textContent, 'RD$6,200.00');
+  assert.equal(document.querySelectorAll("tbody tr").length, 25);
+  assert.equal(first.textContent, "RD$6,200.00", "server total covers purchases beyond the visible page");
   assert.match(second.textContent!, /^Sin moneda-/);
-  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length, 1);
+  assert.equal(cards()[0].querySelectorAll(".cuadrao-amount").length, 1);
   assert.doesNotMatch(cards()[0].textContent!, /(?<![\d,])0\.00/);
 });
 
-test("card one follows the same answer as rows and count when the search changes", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
-  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /63/);
-  const before = page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).length;
-  await page.type(document.querySelector('input[type="search"]')!, 'pena');
-  await page.settle(() => document.querySelector('[data-testid="records-count"]')?.textContent?.includes('1 de 1') ?? false);
-  assert.deepEqual(amounts(cards()[0]), ['RD$100.00']);
-  const queries = page.fixture.calls.filter((call) => call.path.endsWith('/reports/query'));
-  assert.equal(queries.length - before, 1);
-  assert.equal((queries.at(-1)!.body as { filters: { q: string } }).filters.q, 'pena');
-});
-
-test("card one shows unknown, not the previous query's totals, while the next query loads", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
-  assert.deepEqual(amounts(cards()[0]), ['RD$6,200.00', 'US$100.00']);
+test("purchase subcard follows the server answer while search loads and never sums rows", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }), edit: (rows) => { rows[125].family = "purchase"; } });
+  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
   const live = globalThis.fetch;
   let release!: () => void;
   let started = false;
   const gate = new Promise<void>((resolve) => { release = resolve; });
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/reports/query') ? (started = true, gate.then(() => live(input, init))) : live(input, init)) as typeof fetch;
-  await page.type(document.querySelector('input[type="search"]')!, 'pena');
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith("/reports/query") ? (started = true, gate.then(() => live(input, init))) : live(input, init)) as typeof fetch;
+  await page.type(document.querySelector('input[type="search"]')!, "pena");
   await page.settle(() => started);
-  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length, 0);
-  assert.doesNotMatch(cards()[0].textContent!, /6,200|100\.00/);
+  assert.equal(cards()[0].querySelectorAll(".cuadrao-amount").length, 0);
   release();
-  await page.settle(() => cards()[0].querySelectorAll('.cuadrao-amount').length > 0);
-  assert.deepEqual(amounts(cards()[0]), ['RD$100.00']);
+  await page.settle(() => cards()[0].querySelectorAll(".cuadrao-amount").length > 0);
+  assert.deepEqual(amounts(cards()[0]), ["RD$100.00"]);
   globalThis.fetch = live;
 });
 
-test("an incomplete server total shows unknown beside its labelled known part, never as final money", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['sale'] } }) });
-  const row = page.fixture.records.find((record) => record.family === 'sale' && record.currency === 'DOP')!;
-  row.gross_amount = null;
+test("purchase subcard preserves exact server totals and hides payment metrics in the currency sheet", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }), edit: (rows) => {
+    rows[0].gross_amount = "9007199254740993.01";
+    rows[2].currency = "USD"; rows[2].gross_amount = "7.00";
+    rows[4].currency = "EUR"; rows[4].gross_amount = "9.00";
+  } });
+  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
+  assert.equal(cards().length, 1);
+  assert.match(cards()[0].textContent!, /9,007,199,254,746,993\.01/);
+  await page.click(document.querySelector('[data-testid="records-results-summary"] button[aria-expanded]'));
+  const sheet = document.querySelector('[data-testid="records-currency-breakdown"]')!;
+  assert.ok(sheet);
+  assert.equal(sheet.querySelectorAll("dt").length, 3);
+  assert.doesNotMatch(sheet.textContent!, /Pagado|Por pagar|Cobrado|Por cobrar/);
+  assert.equal(sheet.querySelector('[data-currency="USD"] dd')!.textContent, "US$ 7.00");
+});
+
+test("an incomplete purchase total preserves its labelled known part", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
+  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
+  page.fixture.records[0].gross_amount = null;
   await page.click(document.querySelector('[data-testid="records-refresh"]'));
   await page.settle(() => cards()[0]?.querySelector('[data-partial-known]') !== null);
-  const dop = cards()[0].querySelector('[data-currency="DOP"]') ?? cards()[0].querySelector('dd > div')!;
-  assert.equal([...dop.querySelectorAll('.cuadrao-amount')].filter((amount) => !amount.closest('[data-partial-known]')).length, 0);
-  assert.match(dop.textContent!, /-/);
-  assert.match(dop.textContent!, /Parcial: RD\$6,100\.00/);
-  const known = dop.querySelector('[data-partial-known] .cuadrao-amount')!;
-  assert.equal(known.textContent, 'RD$6,100.00');
-  assert.ok(known.classList.contains('tabular-nums'));
-  assert.equal(dop.querySelector('[data-partial-known]')!.textContent, 'Parcial: RD$6,100.00');
-  assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length, 2);
+  const dop = cards()[0].querySelector('[data-currency="DOP"]')!;
+  assert.equal([...dop.querySelectorAll(".cuadrao-amount")].filter((amount) => !amount.closest("[data-partial-known]")).length, 0);
+  assert.equal(dop.querySelector("[data-partial-known]")!.textContent, "Parcial: RD$6,100.00");
 });
 
 test("desktop shows a refresh control that reloads the query and holds a busy state until it answers", async () => {
@@ -454,7 +482,7 @@ test("a phone Filtros choice holds after its sheet closes, and back still undoes
   assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.record_families), [["sale"]]);
   assert.deepEqual(addressFilters().record_families, ["sale"]);
   assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Venta/);
-  assert.ok(document.querySelector('[data-testid="records-results-summary"]'));
+  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
   await act(async () => window.history.back());
   await page.settle(() => document.querySelector('[data-testid="records-preview-filter-chips"]') === null);
   assert.deepEqual(sentFilters(page).at(-1)!.record_families, []);

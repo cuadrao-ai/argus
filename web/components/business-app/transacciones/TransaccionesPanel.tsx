@@ -60,6 +60,7 @@ function LegacyTransaccionesPanel() {
   const { isBelowTablet: phone } = useResponsiveLayout();
   const densityState = useTableDensity();
   const density = densityState.density;
+  const [showPurchaseTotal, setShowPurchaseTotal] = useState(false);
   const [viewPreferences, setViewPreferences] = useState<RecordsViewPreferences | undefined>(() => source.mode === "fixture" ? sampleRecordsPreferences() : undefined);
   const controller = useTransacciones();
   const { list, movements, tray, segment, view: bank } = controller;
@@ -148,7 +149,7 @@ function LegacyTransaccionesPanel() {
           <BusinessPeriodControl period={period} setPeriod={setPeriod} />
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
-        {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview loading={list.kind === "loading"} answer={undefined} fiscalCount={null} families={filter.kind === "all" ? [] : [filter.kind === "venta" ? "sale" : "purchase"]} selected={previewFilters.review} onChoose={(review) => setPreviewFilters((current) => ({ ...current, review: current.review.includes(review) ? [] : [review] }))} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} /> : null}
+        {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview loading={list.kind === "loading"} answer={undefined} fiscalCount={null} totalExpanded={showPurchaseTotal} onToggleTotal={() => setShowPurchaseTotal((shown) => !shown)} selected={previewFilters.review} onChoose={(review) => setPreviewFilters((current) => ({ ...current, review: current.review.includes(review) ? [] : [review] }))} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} /> : null}
         {!igualar ? <RecordsToolbar appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={setPreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{phone ? null : <RecordsExportButton onExport={openExport} />}{localPaging && viewPreferences ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
@@ -159,7 +160,7 @@ function LegacyTransaccionesPanel() {
         {!igualar && !localPaging ? <p className="mb-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.period_summary", { period: subtitle })}</p> : null}
         {igualar
           ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
-          : localPaging ? (saved ? <RecordsResultsSummary kind={filter.kind} records={visibleRecords ?? saved} businessId={chosen?.space_id ?? null} /> : null) : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
+          : localPaging ? (showPurchaseTotal ? <RecordsResultsSummary /> : null) : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
         {list.kind === "failed" ? (
           <div className={cardClass}>
             <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />
