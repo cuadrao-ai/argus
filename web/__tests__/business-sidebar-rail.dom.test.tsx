@@ -207,6 +207,10 @@ test("the active fill is the row itself, in the approved green", async () => {
 
 test("only the toggle collapses the rail to 64px icons with tooltips", async () => {
   const view = await mountRail({ storedMode: "expanded" });
+  const openToggle = document.querySelector('[data-testid="sidebar-rail-toggle"]');
+  assert.match(openToggle?.querySelector(":scope > svg")?.getAttribute("class") ?? "", /(^|\s)lucide-panel-left-close(\s|$)/);
+  assert.equal(openToggle?.querySelector(":scope > svg")?.getAttribute("width"), "20");
+  assert.equal(openToggle?.querySelector(":scope > svg")?.getAttribute("height"), "20");
   await view.act(async () => view.rail.closeRailForDialog?.());
   assert.match(aside().className, /\bw-60\b/, "a dialog does not collapse the Business rail");
   await view.act(async () => {
@@ -227,6 +231,9 @@ test("only the toggle collapses the rail to 64px icons with tooltips", async () 
   assert.match(face.className, /group-hover:opacity-0/, "hovering fades the mark out");
   assert.match(face.className, /group-focus-visible:opacity-0/, "focusing fades the mark out");
   const icon = expand.querySelector(":scope > svg")!;
+  assert.match(icon.getAttribute("class") ?? "", /(^|\s)lucide-panel-left-open(\s|$)/);
+  assert.equal(icon.getAttribute("width"), "20");
+  assert.equal(icon.getAttribute("height"), "20");
   assert.match(icon.getAttribute("class") ?? "", /\bopacity-0\b/, "the expand icon waits hidden");
   assert.match(icon.getAttribute("class") ?? "", /group-hover:opacity-100/);
   assert.match(icon.getAttribute("class") ?? "", /group-focus-visible:opacity-100/);
@@ -254,7 +261,9 @@ test("only the toggle collapses the rail to 64px icons with tooltips", async () 
   assert.match(aside().className, /\bw-60\b/);
   assert.equal(window.localStorage.getItem("cuadrao:business_sidebar_mode"), "expanded");
   assert.ok(document.querySelector('[data-testid="business-switcher"]'), "open again, the business card is back");
-  assert.equal(document.querySelector('[data-testid="sidebar-rail-toggle"]')?.getAttribute("aria-label"), "Contraer");
+  const reopened = document.querySelector('[data-testid="sidebar-rail-toggle"]');
+  assert.equal(reopened?.getAttribute("aria-label"), "Contraer");
+  assert.match(reopened?.querySelector(":scope > svg")?.getAttribute("class") ?? "", /(^|\s)lucide-panel-left-close(\s|$)/);
 });
 
 test("Escape leaves the expanded Business rail docked", async () => {
