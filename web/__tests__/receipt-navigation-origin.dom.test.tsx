@@ -46,6 +46,7 @@ async function mount(prepared: boolean, width: number) {
   function Probe() { api = useBusiness(); return <BusinessPanel />; }
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   const wait = async (ready: () => boolean) => {
+    if (ready()) return;
     for (let attempt = 0; attempt < 80; attempt++) {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
       if (ready()) return;
@@ -104,18 +105,52 @@ for (const prepared of [false, true]) for (const width of [1440, 390]) {
     try {
       await page.openFirst();
       await page.wait(() => page.place()?.textContent === "1 de 28");
-      for (let index = 0; index < 28; index++) {
+      const origin = page.api().panel;
+      assert.equal(origin.kind, "receipt");
+      if (origin.kind !== "receipt") throw new Error("Expected an open receipt");
+      const expectedIds = Array.from({ length: 28 }, (_, index) => `origin-${index}`);
+      assert.deepEqual(origin.receiptIds, expectedIds);
+
+      // Check every transition against the list's actual navigation snapshot,
+      // without rendering the full dossier 28 times in each viewport.
+      const { receiptNavigationActions, receiptPlace } = await import("@/components/business-app/BusinessReviewShortcuts");
+      let receiptId = origin.receiptId;
+      for (let index = 0; index < expectedIds.length; index++) {
+        assert.equal(receiptId, expectedIds[index]);
+        assert.deepEqual(receiptPlace(receiptId, origin.receiptIds!), { index: index + 1, total: 28 });
+        const moves = receiptNavigationActions(receiptId, origin.receiptIds!, (id) => { receiptId = id; });
+        assert.equal(Boolean(moves.next), index < 27);
+        assert.equal(Boolean(moves.previous), index > 0);
+        moves.next?.();
+      }
+
+      const expectPosition = async (index: number) => {
+        await page.wait(() => page.place()?.textContent === `${index + 1} de 28`);
         assert.equal(page.place()?.textContent, `${index + 1} de 28`);
         const panel = page.api().panel;
-        assert.equal(panel.kind === "receipt" ? panel.receiptId : null, `origin-${index}`);
+        assert.equal(panel.kind === "receipt" ? panel.receiptId : null, expectedIds[index]);
         assert.equal(page.next()?.disabled, index === 27);
         assert.equal(page.previous()?.disabled, index === 0);
-        if (index < 27) { await page.click(page.next()); await page.wait(() => page.place()?.textContent === `${index + 2} de 28`); }
+      };
+      const jumpTo = async (index: number) => {
+        await page.act(async () => page.api().openPanel({ ...origin, receiptId: expectedIds[index] }));
+        await expectPosition(index);
+      };
+
+      // Render the same controls at the start, middle and end in every variant.
+      await expectPosition(0);
+      for (const index of [1, 2]) {
+        await page.click(page.next());
+        await expectPosition(index);
       }
+      await jumpTo(13);
+      await page.click(page.next());
+      await expectPosition(14);
+      await jumpTo(26);
+      await page.click(page.next());
+      await expectPosition(27);
       await page.click(page.previous());
-      await page.wait(() => page.place()?.textContent === "27 de 28");
-      const panel = page.api().panel;
-      assert.equal(panel.kind === "receipt" ? panel.receiptId : null, "origin-26");
+      await expectPosition(26);
     } finally { await page.cleanup(); }
   });
 }
