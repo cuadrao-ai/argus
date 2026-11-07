@@ -3,7 +3,7 @@
 import {SavedIdentityMark} from "@/components/identity/IdentityMark";
 import { Avatar } from "@/components/ui/Avatar";
 import { BANNER_HEIGHT_PX, ConnectionBanner, useOnline } from "@/components/ui/ConnectionBanner";
-import { useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useContext, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
 import { useProfileUpdates } from "@/components/chat/useProfileUpdates";
@@ -58,7 +58,10 @@ import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-dele
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
 import { commitShellLanguage } from "@/lib/language-features";
 import { businessPilotEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
-import { leaveSession } from "@/lib/logout-flow";
+import { isLeavingSession, leaveSession } from "@/lib/logout-flow";
+import { createSessionRecovery } from "@/lib/session-recovery";
+import { SessionRecoveryScreen } from "@/components/status/SessionRecoveryScreen";
+import { SessionRecoveryContext, useSessionRecoveryState } from "@/components/status/session-recovery-context";
 import {
   useTranscriptTurnAnchor,
   type PendingMessageAnchor,
@@ -251,6 +254,30 @@ export function ChatHeaderHeading({ children }: { children: ReactNode }) {
 }
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ChatInterface() {
+  const sharedRecovery = useContext(SessionRecoveryContext);
+  return sharedRecovery || process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <ChatInterfaceContent /> : <StandaloneChatInterface />;
+}
+
+function ChatStartup({ business = false }: { business?: boolean }) {
+  return <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
+    <InitialConversationRetrievalState business={business} />
+  </div>;
+}
+
+function StandaloneChatInterface() {
+  const [recovery] = useState(() => createSessionRecovery({ allowAnonymous: true }));
+  const state = useSessionRecoveryState(recovery, true);
+  if (state.kind === "pending") return <ChatStartup />;
+  if (state.kind !== "same-owner") {
+    if (isLeavingSession()) return null;
+    return <SessionRecoveryScreen state={state.kind} busy={state.busy} onRetry={recovery.retry} continueDisabled={state.kind === "different-owner" && !state.canContinue} onContinue={() => recovery.continueTo(() => window.location.assign(signedInHomePath()))} />;
+  }
+  return <SessionRecoveryContext.Provider value={recovery}>
+    <ChatInterfaceContent key={`${state.userId}/${state.scope}`} />
+  </SessionRecoveryContext.Provider>;
+}
+
+function ChatInterfaceContent() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const [account, setAccount] = useState<Awaited<
@@ -436,15 +463,6 @@ export default function ChatInterface() {
   }, [activityTranscriptReadiness, clearColdTranscriptRetrieval, transcriptSessionCache]);
 
   useLayoutEffect(() => {
-    requestSessions.synchronizeAccountScope(account?.user.id ?? null);
-    requestSessions.updateRouteContext({
-      activeConversationId: conversationId,
-      currentView,
-      routeState: readActiveConversationRouteState(),
-    });
-  }, [account?.user.id, conversationId, currentView, requestSessions]);
-
-  useLayoutEffect(() => {
     synchronizeConversationViewRefs(activeConversationIdRef, currentViewRef, conversationId, currentView);
   }, [conversationId, currentView]);
 
@@ -481,6 +499,22 @@ export default function ChatInterface() {
     clearHistory();
     resetToEmptyChatSurface();
   });
+
+  useEffect(() => {
+    if (accountBoundary.recovery.takeLogoutFailure()) {
+      showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error");
+    }
+  }, [accountBoundary.recovery, showToast, t]);
+
+  useLayoutEffect(() => {
+    if (accountBoundary.invalidated.current || accountBoundary.conversionPending.current) return;
+    requestSessions.synchronizeAccountScope(account?.user.id ?? null);
+    requestSessions.updateRouteContext({
+      activeConversationId: conversationId,
+      currentView,
+      routeState: readActiveConversationRouteState(),
+    });
+  }, [account?.user.id, accountBoundary.invalidated, accountBoundary.conversionPending, conversationId, currentView, requestSessions]);
 
   useLayoutEffect(() => {
     authenticatedUserIdRef.current = account?.user.id ?? null;
@@ -1893,6 +1927,7 @@ export default function ChatInterface() {
     isStreamingResponse,
     isChatViewActive: currentView === "chat",
     placeholder: t("chat.new_chat", "New chat"),
+    retired: accountBoundary.invalidated,
   });
 
   const handleStartHeaderRename = () => {
@@ -2032,18 +2067,8 @@ export default function ChatInterface() {
   });
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (accountBoundary.expired) {
-    return <main className="flex h-[100dvh] flex-col items-center justify-center gap-4 bg-[#f9f9f9] p-6 text-center text-black dark:bg-[#141517] dark:text-white">
-      <p role="alert" className="max-w-lg">{t("chat.account_changed")}</p>
-      <button className="min-h-11 rounded-full bg-black px-6 py-3 text-base font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25 dark:bg-white dark:text-black dark:focus-visible:ring-white/30" onClick={() => window.location.assign(signedInHomePath())}>{t("chat.account_changed_reload")}</button>
-    </main>;
-  }
   if (profileState === "probing" || profileState === "unavailable") {
-    return (
-      <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
-        <InitialConversationRetrievalState business={workspace?.id === "business"} />
-      </div>
-    );
+    return <ChatStartup business={workspace?.id === "business"} />;
   }
 
   return (

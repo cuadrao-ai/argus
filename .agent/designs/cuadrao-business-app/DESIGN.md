@@ -1067,7 +1067,7 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
 | Network | The connection dropped | The banner docked at the top ("Estás sin conexión. Lo que hagas ahora no se guarda hasta que vuelva."). It moves the bar and the page down, never covers them, and leaves when the connection is back. |
 | Server | The save failed on our side | Inline where the work is, with Reintentar and the reference code. A failed confirm says so inside its alert, whose button tries again. Never a toast. |
 | Refused | The server said this Business or this part of it is not available: 404 `business_unavailable`, 503 `email_capture_unavailable` | Inline where the work is, with no Reintentar, since asking again gets the same answer, and "Si crees que es un error, escríbenos a hola@cuadrao.ai." Never blames the connection. Only these status and code pairs (owner `refusedForGood` in `failure-screen.ts`); any other 503, `business_bank_unavailable` included, keeps Reintentar. |
-| Permission | Access was removed | A full-page notice with the way back. It is the only error that replaces the page. |
+| Permission | Access was removed | A full-page notice with the way back. Session and identity recovery also replace the page under the contract below. |
 
 - When the surface that failed has closed, send the owner to where the work
   lives. A copy of the forwarding address that fails from the Agregar menu or
@@ -1077,6 +1077,32 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
   hola@cuadrao.ai". A dead end is never shipped.
 - Never "Ocurrió un error". Say what broke and what happens next.
 - A modal is the last resort, for a choice the owner must make before anything else.
+
+### Session recovery, approved November 7, 2026
+
+The missing-session screen uses the approved full-page composition: the complete
+Cuadrao lockup at the top left, the sculpted green doorway above a centered
+heading, one explanation, and one wide pill action. The canvas is cream in light
+mode and uses the existing dark palette in dark mode. The shared
+`BrandedStatusScreen` owns this presentation. It contains no private workspace,
+account name, avatar, sidebar, close button, support address, or invented reference.
+The locale catalogs own the Spanish and English strings from #1846.
+
+- A successful check with no session shows the missing-session screen. Its
+  **Iniciar sesión** action opens login. It does not claim expiry, inactivity,
+  an account change, or lost text.
+- A failed session check shows **No pudimos comprobar tu sesión**. **Reintentar**
+  checks identity again. During that check the action is busy and disabled.
+  A wake or focus error uses this state, never the account-change notice.
+- Only a verified different user shows **Cambió la cuenta activa**. **Ir a Inicio**
+  uses a clean Business route after fresh identity and access checks. Old account
+  data and pending mutations never follow the new user.
+- Initial identity checks keep the existing delayed startup loader. Starting a
+  background check for the same account leaves the workspace and focus intact.
+  Intentional logout keeps its normal flow.
+- Each settled recovery state focuses its heading once and uses a public document
+  title. Retrying the same state does not refocus it. Progress is announced politely.
+  Both themes preserve contrast, keyboard focus, narrow reflow, and reduced motion.
 
 ### Success
 

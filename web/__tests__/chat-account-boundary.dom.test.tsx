@@ -61,7 +61,7 @@ async function mount() {
 }
 
 describe("the account boundary around a sign-out the page itself started", () => {
-  test("SIGNED_OUT after beginConversion is ignored; finishing with the next user re-scopes; a later stranger sign-out still invalidates", async () => {
+  test("failed sign-out verifies the session and retires the old scope", async () => {
     const page = await mount();
     assert.equal(page.state(), "live");
     await page.act(async () => { page.boundary().beginConversion(); });
@@ -69,16 +69,12 @@ describe("the account boundary around a sign-out the page itself started", () =>
     await page.fire(null);
     assert.equal(page.state(), "live", "the sign-out this page started is not an account change");
     assert.equal(page.cleared(), 0);
-    await page.act(async () => { page.boundary().finishConversion("user-2"); });
-    assert.deepEqual(page.scopes, [null, "user-2"]);
+    currentSession = { user: { id: "user-1" } };
+    await page.act(async () => { page.boundary().finishConversion(); });
+    assert.deepEqual(page.scopes, [null, null], "the retired instance is never rearmed");
     assert.equal(page.state(), "live");
-    // With no conversion pending, a session that is not the owner's ends the view once.
-    await page.fire({ user: { id: "user-3" } });
-    assert.equal(page.state(), "expired");
     assert.equal(page.cleared(), 1);
-    assert.deepEqual(page.scopes, [null, "user-2", null]);
-    await page.fire(null);
-    assert.equal(page.cleared(), 1, "invalidation happens once");
+    assert.equal(page.boundary().admission.current.signal.aborted, true);
     await page.act(async () => page.root.unmount());
   });
 
@@ -92,11 +88,11 @@ describe("the account boundary around a sign-out the page itself started", () =>
     await page.act(async () => page.root.unmount());
   });
 
-  test("a conversion that ends without a user invalidates, as a failed sign-in must", async () => {
-    currentSession = { user: { id: "user-1" } };
+  test("a missing session remains closed after the check", async () => {
     const page = await mount();
     await page.act(async () => { page.boundary().beginConversion(); });
-    await page.act(async () => { page.boundary().finishConversion(null); });
+    currentSession = null;
+    await page.act(async () => { page.boundary().finishConversion(); });
     assert.equal(page.state(), "expired");
     assert.equal(page.cleared(), 1);
     await page.act(async () => page.root.unmount());

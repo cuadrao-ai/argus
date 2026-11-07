@@ -13,6 +13,7 @@ const localGrant = (value: string) => /^local-business-[a-z0-9-]{1,64}$/i.test(v
 const KEY = "argus:business-grant:v1";
 let current: string | null | undefined;
 let owner: string | null = null;
+let selectionRevision = 0;
 const listeners = new Set<() => void>();
 
 function read(): string | null {
@@ -28,6 +29,7 @@ function read(): string | null {
 export function synchronizeBusinessAccount(userId: string | null): void {
   if (owner === userId) return;
   owner = userId;
+  selectionRevision += 1;
   current = read();
   if (!current) removeStored(KEY);
   for (const listener of listeners) listener();
@@ -45,11 +47,24 @@ export function soleClientGrantId(spaces: readonly { grant_id: string; role: str
 }
 
 export function setChosenGrant(grantId: string | null): void {
+  selectionRevision += 1;
   current = grantId;
   // The memory is a convenience; the server decides on every request.
   if (grantId) writeStored(KEY, JSON.stringify({ userId: owner, grantId }));
   else removeStored(KEY);
   for (const listener of listeners) listener();
+}
+
+export async function clearBusinessSelectionOnSignOut<T extends { error: unknown }>(
+  signOut: () => Promise<T>,
+): Promise<T> {
+  const revision = selectionRevision;
+  const result = await signOut();
+  if (!result.error && revision === selectionRevision) {
+    owner = null;
+    setChosenGrant(null);
+  }
+  return result;
 }
 
 export function subscribeChosenGrant(listener: () => void): () => void {

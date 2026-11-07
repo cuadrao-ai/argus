@@ -93,6 +93,24 @@ José is an accountant who runs client Businesses. For the one pilot client, Jos
 - **Offline:** the existing connection banner shows in the Business app.
 - **Failure:** every failure shows what was refused, a `Ref.`, and a way out.
 
+### Session and identity recovery
+
+Mounted workspace session checks distinguish pending, failed, missing, the same account, and a
+confirmed different account. A failed check, including on tab wake or focus,
+offers a real retry. A successful check with no session offers login without
+claiming expiry or an account change. Only a confirmed different user gets the
+account-change notice, followed by clean Home entry after identity and access
+verification. Recovery never replays a save, upload, or approval.
+
+Recovery removes private workspace content and uses a public title. It does not
+invent a server reference when none exists. The existing delayed startup loader,
+same-account background checks, and intentional logout keep their behavior.
+The [Business design guide](../../.agent/designs/cuadrao-business-app/DESIGN.md#session-recovery-approved-november-7-2026)
+owns the approved layout and interaction rules. The cause of session loss and
+session renewal remain outside #1853. The separate server check on a direct
+Business page visit still redirects returned errors to login; #1862 tracks that
+pre-existing entry behavior.
+
 ## Search
 
 Search is the default. The search flag goes away.

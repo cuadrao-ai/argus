@@ -450,7 +450,9 @@ export type BusinessCapture = {
 export type BusinessCapturePage = { items: BusinessCapture[]; has_more?: boolean };
 
 export async function captureBusinessNote(input: BusinessCaptureInput, key: string): Promise<BusinessDossier> {
+  const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders();
+  requireBrowserAuthGeneration(generation);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/captures`, {
     method: "POST",
     credentials: "include",
@@ -534,8 +536,8 @@ export type ClosedGrantedSpace = z.infer<typeof closedDirectorySpace>;
 export type BusinessDirectory = { spaces: GrantedSpace[]; closed_spaces: ClosedGrantedSpace[] };
 
 /** Live and held-closed grants, distinguished by the server. */
-export async function getBusinessDirectory(signal?: AbortSignal): Promise<BusinessDirectory> {
-  return businessDirectory.parse(await apiFetch<unknown>("/business/spaces", { signal }));
+export async function getBusinessDirectory(signal?: AbortSignal, expectedUserId?: string): Promise<BusinessDirectory> {
+  return businessDirectory.parse(await apiFetch<unknown>("/business/spaces", { signal, expectedUserId }));
 }
 
 /** Every Business the person may enter, their own first. */
@@ -545,7 +547,9 @@ export async function getBusinessSpaces(): Promise<GrantedSpace[]> {
 
 /** The person dismissed the one-time access line for one of their grants; remembered server side. */
 export async function markBusinessAccessSeen(grantId: string): Promise<void> {
+  const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders();
+  requireBrowserAuthGeneration(generation);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/spaces/${encodeURIComponent(grantId)}/seen`, {
     method: "POST",
     credentials: "include",
@@ -661,7 +665,9 @@ export async function uploadBusinessReceipt(
   documentType: "recibo" | "venta" | null = null,
   onProgress?: UploadProgressListener,
 ): Promise<ReceiptSummary> {
+  const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders();
+  requireBrowserAuthGeneration(generation);
   const headers = argusApiRequestHeaders(
     {
       "Content-Type": file.type,
@@ -710,7 +716,9 @@ export async function uploadBusinessReceipt(
 export const RECEIPT_SOURCE_TIMEOUT_MS = 30_000;
 
 export async function fetchBusinessReceiptSource(id: string, options: { timeoutMs?: number } = {}): Promise<Blob> {
+  const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders();
+  requireBrowserAuthGeneration(generation);
   const response = await fetch(
     `${CUADRAO_API_BASE_URL}/business/receipts/${encodeURIComponent(id)}/source`,
     { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders), signal: AbortSignal.timeout(options.timeoutMs ?? RECEIPT_SOURCE_TIMEOUT_MS) },
