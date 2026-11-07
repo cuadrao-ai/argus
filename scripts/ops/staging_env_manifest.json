@@ -393,6 +393,14 @@
           }
         },
         {
+          "name": "CUADRAO_REGISTROS_SUMMARY_V2_ENABLED",
+          "kind": "plain",
+          "value": "false",
+          "production": {
+            "value": "false"
+          }
+        },
+        {
           "name": "CUADRAO_VISION_MODEL",
           "kind": "plain",
           "keep_current": true,

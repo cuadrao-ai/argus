@@ -969,8 +969,8 @@ body[data-workspace-bounded] [data-workspace-canvas] {
 }
 
 /* Ocultar montos: amounts keep their place and blur, so nothing reflows when it turns on. */
-.cuadrao-amount,
-.cuadrao-amount * {
+[data-registros-summary-v2="true"] .cuadrao-amount,
+[data-registros-summary-v2="true"] .cuadrao-amount * {
   transition: none !important;
 }
 :root[data-amounts-hidden="true"] .cuadrao-amount {

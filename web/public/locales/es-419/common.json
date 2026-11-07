@@ -2628,9 +2628,11 @@
           "bandeja_waiting_other": "{{count}} recibos esperan en la Bandeja",
           "coverage_placeholder": "{{populated}} de {{applicable}} compras",
           "export": {
+            "description": "Puedes incluirlos en tu exportación",
             "title": "Listos para exportar"
           },
           "exported": {
+            "description": "Ya salieron en una exportación",
             "title": "Ya exportados"
           },
           "fiscal": {
@@ -2673,6 +2675,14 @@
           "currencies_one": "Importes en {{count}} moneda",
           "currencies_other": "Importes en {{count}} monedas",
           "exclusions": "Importes excluidos",
+          "legacy_metrics": {
+            "collected": "Cobrado",
+            "expenses": "Gastos",
+            "invoiced": "Facturado",
+            "paid": "Pagado",
+            "payable": "Por pagar",
+            "receivable": "Por cobrar"
+          },
           "metrics": {
             "collected": "Cobrado",
             "expenses": "Compras",

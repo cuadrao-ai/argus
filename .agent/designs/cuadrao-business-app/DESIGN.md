@@ -1445,6 +1445,8 @@ shared delayed shimmer and reduced-motion behavior, not generic list placeholder
 Command-K focuses the mounted Records search and must not steal focus from an open
 overlay; Home retains its existing global search.
 
+These behaviors are behind `CUADRAO_REGISTROS_SUMMARY_V2_ENABLED`, off until Lucas turns it on.
+
 ### Registros metric shelf, 2026-11-06
 
 Approved by Lucas, reviewed with Iris. This replaces the 26 October 2026 metric

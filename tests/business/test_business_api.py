@@ -345,6 +345,7 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
     assert workspace.headers["Cache-Control"] == "no-store"
     assert workspace.json() == {
         "records_default_currency": "DOP",
+        "registros_summary_v2_enabled": False,
         "country": "DO",
         "currency": "DOP",
         "accounts": [

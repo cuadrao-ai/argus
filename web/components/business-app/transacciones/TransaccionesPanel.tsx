@@ -30,9 +30,11 @@ import { sampleRecordsPreferences } from "./sample-records-preferences";
 import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
 import { activeFilterGroups, emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment } from "./records-filter-preview-model";
+import LegacyRecordsOverview from "./LegacyRecordsOverview";
+import LegacyRecordsResultsSummary from "./LegacyRecordsResultsSummary";
 import RecordsResultsSummary, { RecordsSummaryCards } from "./RecordsResultsSummary";
 import { useRecordPreviewSearch } from "./RecordsAnnotationsPreview";
-import { matchesPreviewExpenseType, matchesPreviewPeriod, matchesPreviewWorkflow } from "./records-results-preview";
+import { matchesPreviewExpenseType, matchesPreviewPeriod, matchesPreviewWorkflow, overviewPreviewCounts } from "./records-results-preview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { useFiscalStageToggle } from "./useFiscalStageToggle";
 import { sampleRecordsOverview } from "./records-overview-sample";
@@ -54,13 +56,14 @@ export default function TransaccionesPanel() {
   const { source, records } = useBusiness();
   const igualar = useIgualarEnabled();
   if (source.mode === "live" && !igualar) return <BusinessReportsPanel />;
-  if (!recordsCurrencySchema.safeParse(records.workspace?.records_default_currency).success) return records.error || records.workspace ? <RecordsWorkspaceUnavailable /> : <FullscreenLoading />;
-  return <LegacyTransaccionesPanel />;
+  if (records.workspace?.registros_summary_v2_enabled === true && !recordsCurrencySchema.safeParse(records.workspace?.records_default_currency).success) return records.error || records.workspace ? <RecordsWorkspaceUnavailable /> : <FullscreenLoading />;
+  return <LegacyTransaccionesPanel key={records.workspace?.registros_summary_v2_enabled === true ? records.workspace.records_default_currency : "legacy"} />;
 }
 
 function LegacyTransaccionesPanel() {
   const { t, locale } = useTransaccionesWords();
   const { period, setPeriod, panel, records, actions, chosen, openExport, openPanel, source } = useBusiness();
+  const summaryV2 = records.workspace?.registros_summary_v2_enabled === true;
   const igualarOn = useIgualarEnabled();
   const periodLabel = usePeriodLabel();
   const { isBelowTablet: phone } = useResponsiveLayout();
@@ -96,7 +99,7 @@ function LegacyTransaccionesPanel() {
   const header = bank ? bank.currency ?? headerCurrency(movements, bank.accountCurrency) : null;
   const saved = view?.mode === "records" ? view.records : null;
   const [filter, setFilter] = useState<RecordsFilter>(EMPTY_RECORDS_FILTER);
-  const [previewFilters, setPreviewFilters] = useState(() => emptyPreviewFilters(recordsCurrencySchema.parse(records.workspace?.records_default_currency)));
+  const [previewFilters, setPreviewFilters] = useState(() => emptyPreviewFilters(summaryV2 ? recordsCurrencySchema.parse(records.workspace?.records_default_currency) : ""));
   const fiscalToggle = useFiscalStageToggle(previewFilters.review, (review) => setPreviewFilters((current) => ({ ...current, review })));
   const [previewPeriod, setPreviewPeriod] = useState(period);
   const [previewRevision, setPreviewRevision] = useState(0);
@@ -105,7 +108,7 @@ function LegacyTransaccionesPanel() {
   const query = filter.query.trim().toLocaleLowerCase(locale);
   const matchesPreviewSearch = useRecordPreviewSearch();
   const periodRecords = localPaging ? saved?.filter((row) => matchesPreviewPeriod(row, previewPeriod)) ?? null : saved;
-  const visibleRecords = periodRecords?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (localPaging ? matchesPreviewSearch(row, query) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) && (!localPaging || matchesPreviewAttachment(row.hasProof, previewFilters.attachment) && matchesPreviewAmount(row.money, previewFilters.amount) && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review) && matchesPreviewExpenseType(row, chosen?.space_id ?? null, previewFilters.expense_type))) ?? null;
+  const visibleRecords = periodRecords?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (localPaging ? matchesPreviewSearch(row, query) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) && (!localPaging || matchesPreviewAttachment(row.hasProof, previewFilters.attachment) && matchesPreviewAmount(row.money, previewFilters.amount) && (!previewFilters.currencies?.length || previewFilters.currencies.includes(row.money.currency)) && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review) && matchesPreviewExpenseType(row, chosen?.space_id ?? null, previewFilters.expense_type))) ?? null;
   const sampleOverview = localPaging && visibleRecords ? sampleRecordsOverview({ sourceMode: source.mode, businessId: chosen?.space_id ?? null, rows: visibleRecords }) : undefined;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
@@ -122,7 +125,7 @@ function LegacyTransaccionesPanel() {
   const add = actions.create.find((action) => action.id === "upload_receipt");
 
   // Three states, one message each: the pill row's Limpiar filtros is the only clear action; a filtered empty table says only that; a truly empty Registros keeps its first-run line.
-  const filtersActive = filter.kind !== "all" || Boolean(query) || activeFilterGroups(previewFilters).some((group) => group !== "amount") || Boolean(previewFilters.amount.min || previewFilters.amount.max);
+  const filtersActive = filter.kind !== "all" || Boolean(query) || activeFilterGroups(previewFilters).some((group) => !summaryV2 || group !== "amount") || Boolean(previewFilters.amount.min || previewFilters.amount.max);
   const recordsEmptyContent = filtersActive
     ? <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} /></div>
     : <div className={cardClass} data-testid="transacciones-records-empty"><EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} /></div>;
@@ -137,7 +140,7 @@ function LegacyTransaccionesPanel() {
 
   return (
     <PullToRefresh onRefresh={controller.refresh}>
-      <section ref={screen} tabIndex={-1} data-testid="transacciones" className="pb-6 outline-none">
+      <section ref={screen} tabIndex={-1} data-testid="transacciones" data-registros-summary-v2={summaryV2} className="pb-6 outline-none">
         {phone || igualar || panel.kind !== "transactions" ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             {phone || panel.kind !== "transactions" ? <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2> : null}
@@ -157,8 +160,8 @@ function LegacyTransaccionesPanel() {
           <BusinessPeriodControl period={period} setPeriod={setPeriod} />
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
-        {!igualar && source.mode === "fixture" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview loading={list.kind === "loading"} answer={sampleOverview?.answer} fiscalCount={sampleOverview?.fiscalCount ?? null} totalExpanded={showPurchaseTotal} onToggleTotal={() => setShowPurchaseTotal((shown) => !shown)} selected={previewFilters.review} onChoose={fiscalToggle.toggle} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} /> : null}
-        {!igualar ? <RecordsToolbar onViewRestore={fiscalToggle.clear} appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={(next) => { if (JSON.stringify(next.review) !== JSON.stringify(previewFilters.review)) fiscalToggle.clear(); setPreviewFilters(next); }} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<><RecordsExportButton onExport={openExport} />{localPaging && viewPreferences ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
+        {!igualar && source.mode === "fixture" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? summaryV2 ? <RecordsOverviewPreview loading={list.kind === "loading"} answer={sampleOverview?.answer} fiscalCount={sampleOverview?.fiscalCount ?? null} totalExpanded={showPurchaseTotal} onToggleTotal={() => setShowPurchaseTotal((shown) => !shown)} selected={previewFilters.review} onChoose={fiscalToggle.toggle} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} /> : <LegacyRecordsOverview loading={list.kind === "loading"} counts={overviewPreviewCounts(periodRecords, chosen?.space_id ?? null)} selected={previewFilters.review} onChoose={(review) => setPreviewFilters((current) => ({ ...current, review: current.review.includes(review) ? [] : [review] }))} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} /> : null}
+        {!igualar ? <RecordsToolbar summaryV2={summaryV2} onViewRestore={fiscalToggle.clear} appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={(next) => { if (JSON.stringify(next.review) !== JSON.stringify(previewFilters.review)) fiscalToggle.clear(); setPreviewFilters(next); }} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<><RecordsExportButton onExport={openExport} />{localPaging && viewPreferences ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
@@ -168,7 +171,7 @@ function LegacyTransaccionesPanel() {
         {!igualar && !localPaging ? <p className="mb-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.period_summary", { period: subtitle })}</p> : null}
         {igualar
           ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
-          : localPaging ? (showPurchaseTotal ? sampleOverview ? <RecordsSummaryCards summary={sampleOverview.purchaseSummary} kind="gasto" /> : <RecordsResultsSummary /> : null) : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
+          : localPaging ? (!summaryV2 ? saved ? <LegacyRecordsResultsSummary kind={filter.kind} records={visibleRecords ?? saved} businessId={chosen?.space_id ?? null} /> : null : showPurchaseTotal ? sampleOverview ? <RecordsSummaryCards summary={sampleOverview.purchaseSummary} kind="gasto" /> : <RecordsResultsSummary /> : null) : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
         {list.kind === "failed" ? (
           <div className={cardClass}>
             <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />

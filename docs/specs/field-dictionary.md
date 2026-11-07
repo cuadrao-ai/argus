@@ -123,6 +123,8 @@ NCF, NCF afectado, servicios, bienes, ITBIS, ISC, and propina legal are pilot ex
 
 Home card renames are deferred. Keep Ingresos / Gastos. No Home Ingresos-to-Ventas rename is included.
 
+These behaviors are behind `CUADRAO_REGISTROS_SUMMARY_V2_ENABLED`, off until Lucas turns it on.
+
 Registros has six summary cards. Lucas approved the purchase-side meanings on 2026-11-07, following the 2026-11-06 review with Iris.
 
 | Card | Meaning |

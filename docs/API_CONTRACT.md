@@ -10637,16 +10637,22 @@ accept path recorded.
   invitation expiry time, preserving the 30-day history window. Notification failure logs a safe classification and
   never fails the source action. This backend slice enables no hosted setting.
 
-- GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
+- GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, registros_summary_v2_enabled, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
   receipt_limits: {max_bytes, media_types}, logo_url}`. `country` and `currency` are the Business's own,
   the same values `GET /business/space` returns. `records_default_currency` is the
-  server-owned initial Registros selection, currently DOP, independent of the
+  server-owned initial Registros selection when `registros_summary_v2_enabled` is
+  true, currently DOP, independent of the
   Business currency. Its supported values are DOP, USD and EUR. The web waits for
   the current grant's workspace before the first report request. A valid singleton
-  URL or view takes precedence. Registros always sends exactly one code in
+  URL or view takes precedence. With summary V2 enabled, Registros sends exactly one code in
   `filters.currencies`; table, cards and export share that request. Clear keeps
   the selected currency; switching clears amount bounds without conversion.
+  `registros_summary_v2_enabled` is the server-only
+  `CUADRAO_REGISTROS_SUMMARY_V2_ENABLED` setting, false by default. False restores
+  the three export-status cards, optional multi-currency filters and period-only
+  fiscal count. True enables the six-card summary and currency behavior above.
+  A missing workspace boolean is treated as false by the web.
   The generic report API retains its broader currency-array contract. `accounts` lists unarchived cash, checking, savings and credit
   card accounts. `currencies` lists their currencies. The limits come from the
   document settings. `chat_available` is true only while
@@ -11426,9 +11432,10 @@ accept path recorded.
 
   Every report answer adds `overview` with `needs_review`, `needs_fiscal_data`,
   `ready_for_export`, `exported` and `export_lines` counts from the authorized
-  projection. `needs_fiscal_data` counts rows in that stage matching every table
-  filter, including search and selected review stages, before pagination. The
-  Fiscal card renders this count. The other overview counts remain scoped to
+  projection. With `registros_summary_v2_enabled` true, `needs_fiscal_data`
+  counts rows in that stage matching every table filter, including search and
+  selected review stages, before pagination. With it false, that count follows
+  the period only. The Fiscal card renders this count. The other overview counts remain scoped to
   Business and period only. The Bandeja line reads `pending_review_count` from
   receipt activity, never this answer.
   Literal search ignores case and accents, and covers counterparty, current note,

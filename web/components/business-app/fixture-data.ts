@@ -491,6 +491,7 @@ export function createFixtureBusinessDataSource(
         country: "DO",
         currency: "DOP",
         records_default_currency: "DOP",
+        registros_summary_v2_enabled: false,
         accounts: [...accounts],
         currencies: [...new Set(accounts.map((item) => item.currency))].sort(),
         assistant_available: true,

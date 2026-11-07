@@ -18917,6 +18917,9 @@ components:
           - USD
           - EUR
           description: Server-owned initial Registros currency, currently DOP, independent of the Business currency.
+        registros_summary_v2_enabled:
+          type: boolean
+          description: Server-only Registros summary switch, false by default. False preserves the three export-status cards, multi-currency filters and period-only fiscal count.
         logo_url:
           anyOf:
           - type: string
@@ -18935,6 +18938,7 @@ components:
       - receiving_channels
       - receipt_limits
       - records_default_currency
+      - registros_summary_v2_enabled
     CallbackRequest:
       properties:
         code:
@@ -31820,9 +31824,9 @@ components:
           default: 0
       additionalProperties: false
       type: object
-      description: 'Fiscal count uses all table filters before pagination.
+      description: 'Counts cover the period. With summary V2 on, the fiscal count instead
 
-        Other counts cover the period''s recorded rows.'
+        uses all table filters before pagination.'
     ReportRecipe-Input:
       properties:
         schema_version:

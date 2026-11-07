@@ -1,9 +1,16 @@
 from datetime import date
 
 import pytest
-from argus.domain.business.reporting_query import ReportFilters
+from argus.domain.business.reporting_query import ReportFilters, ReportRequest, run_query
 
-from tests.business.test_business_reporting_query import record, run
+from tests.business.test_business_reporting_query import IDENTITY, NOW, record
+
+
+def run(rows, filters, **changes):
+    return run_query(
+        IDENTITY, rows, ReportRequest(filters=filters, **changes), NOW,
+        registros_summary_v2_enabled=True,
+    )
 
 
 @pytest.mark.parametrize(

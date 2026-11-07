@@ -63,7 +63,7 @@ async function mount(waiting: number | null, showReports = true) {
   const render = () => act(async () => root.render(
     <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>
       <BusinessSidebarNav shell={shell} /><HomeWork />
-      {showReports ? <ConnectedBusinessReports defaultCurrency={context.records.workspace!.records_default_currency} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: null }} /> : null}
+      {showReports ? <ConnectedBusinessReports mode={{ enabled: true, defaultCurrency: context.records.workspace!.records_default_currency }} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: null }} /> : null}
     </BusinessContext.Provider></I18nextProvider>,
   ));
   cleanup = async () => { await act(async () => root.unmount()); globalThis.fetch = originalFetch; };

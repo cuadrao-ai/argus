@@ -2628,9 +2628,11 @@
           "bandeja_waiting_other": "{{count}} receipts are waiting in the Inbox",
           "coverage_placeholder": "{{populated}} of {{applicable}} purchases",
           "export": {
+            "description": "You can include them in your export",
             "title": "Ready to export"
           },
           "exported": {
+            "description": "They already went out in an export",
             "title": "Already exported"
           },
           "fiscal": {
@@ -2673,6 +2675,14 @@
           "currencies_one": "Amounts in {{count}} currency",
           "currencies_other": "Amounts in {{count}} currencies",
           "exclusions": "Excluded amounts",
+          "legacy_metrics": {
+            "collected": "Collected",
+            "expenses": "Expenses",
+            "invoiced": "Invoiced",
+            "paid": "Paid",
+            "payable": "To pay",
+            "receivable": "To collect"
+          },
           "metrics": {
             "collected": "Collected",
             "expenses": "Purchases",
