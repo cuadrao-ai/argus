@@ -870,10 +870,18 @@ top right is who you are.
   search opens below the field with aligned right edges, and expands left from
   that fixed edge within the viewport. Without the field, it uses the same header
   region as its anchor. Personal search and phone search keep their own layouts.
-  **Agregar ▾**, with Exportar registros and Copiar dirección de reenvío, belongs
-  beside each content heading on desktop. On Inicio it sits beside Pendiente hoy;
-  in Transacciones it keeps Igualar sugerencias beside it. Phones keep Agregar ▾
-  at the top of each screen instead.
+  **Agregar** belongs beside each content heading on desktop. On Inicio it sits
+  beside Pendiente hoy; in Transacciones it keeps Igualar sugerencias beside it.
+  Phones keep Agregar at the top of each screen instead. Its dropdown segment
+  exists only when it has an available secondary action. Copiar dirección de
+  reenvío requires the owner's address and the server-owned
+  `receivingChannels.email.available`, read through `useForwardAddress`. With no
+  secondary action, Agregar is one rounded pill with no chevron or focus stop.
+  Its width shrinks naturally; height, padding, alignment, order and gaps stay.
+  Agregar offers no export item. Registros keeps Exportar registros in its
+  toolbar, including phones. Existing export contracts remain in
+  [API_CONTRACT.md](../../../docs/API_CONTRACT.md) and
+  [openapi.yaml](../../../docs/api/openapi.yaml).
   Home greets by the viewer's local time on desktop and phone: 05:00–11:59
   Buenos días / Good morning; 12:00–17:59 Buenas tardes / Good afternoon;
   18:00–22:59 Buenas noches / Good evening; 23:00–04:59 Noche de enfoque /
@@ -1326,8 +1334,8 @@ A month without receipts shows as empty, never as a closed month at RD$0.00.
 This guide sets the screen's presentation only, not the file formats. The
 screen shows amounts in RD$ and never converts currency.
 
-Exportar registros is one sheet, from the Agregar menu on every screen. The period is a
-segmented control with this month, last month and this year by name, and
+Registros keeps its Exportar registros toolbar button. The existing export
+sheet uses a period segmented control with this month, last month and this year by name, and
 "Otras fechas" for a typed range of up to 366 days. Under it, one line gives
 the exact dates. "Incluye" lists what the ZIP holds: records (Excel and CSV),
 originals, and the 606 and 607, whose line says whether they come with this

@@ -1172,3 +1172,12 @@ test("amount sort explains mixed currency and resumes after a single-currency fi
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
+
+test("phone legacy Registros keeps its export button and existing export sheet", async () => {
+  const page = await mount({ enabled: false, width: 390 });
+  await page.settle(() => page.records().length > 0, "saved records");
+  const button = document.querySelector('[data-testid="records-export"]');
+  assert.ok(button);
+  await page.click(button);
+  await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
+});

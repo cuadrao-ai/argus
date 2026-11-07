@@ -758,3 +758,10 @@ test("a fresh connected table waits for server columns and offers no layout befo
   } finally { await act(async () => release()); }
   await page.settle(() => document.querySelector('th[data-col="moneda"]') !== null);
 });
+
+test("phone Registros keeps its export button and existing report handler", async () => {
+  const page = await mount({ width: 390 });
+  await page.click(document.querySelector('[data-testid="records-export"]'));
+  await page.settle(() => page.downloads.length === 1);
+  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).length, 1);
+});
