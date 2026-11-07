@@ -24,6 +24,7 @@ export function createSessionRecovery({ initialOwner = null, allowAnonymous = fa
   let scope = 0;
   let active = false;
   let converting = false;
+  let logoutFailure = false;
   let revision = 0;
   let checking = false;
   let signedOutDuringCheck = false;
@@ -85,12 +86,13 @@ export function createSessionRecovery({ initialOwner = null, allowAnonymous = fa
   };
 
   const accept = (userId: string | null) => {
-    if (!userId) { close("missing"); return; }
+    if (!userId) { logoutFailure = false; close("missing"); return; }
     if (state.kind === "same-owner" && state.userId === userId) return;
     observeBrowserAuth(userId);
     if (owner !== null && owner !== userId) changedAccount = true;
     owner ??= userId;
     if (changedAccount) {
+      logoutFailure = false;
       if (state.kind === "different-owner" && state.userId === userId) {
         if (!state.canContinue) void checkAccess(userId);
         return;
@@ -185,11 +187,18 @@ export function createSessionRecovery({ initialOwner = null, allowAnonymous = fa
       void check();
     },
     beginConversion() { converting = true; supersedeCheck(); stopAccess(); },
-    finishConversion(userId: string | null) {
+    finishConversion() {
       if (!active || !converting) return;
       converting = false;
-      owner = userId;
-      accept(userId);
+      logoutFailure = true;
+      retire();
+      publish({ kind: "pending", busy: true });
+      void check();
+    },
+    takeLogoutFailure() {
+      if (state.kind !== "same-owner" || !logoutFailure) return false;
+      logoutFailure = false;
+      return true;
     },
   };
 }

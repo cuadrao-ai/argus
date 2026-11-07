@@ -42,14 +42,10 @@ export function useChatAccountBoundary(userId: string | null, requests: ChatRequ
     admission.current.abort();
     requests.synchronizeAccountScope(null);
   }, [recovery, requests]);
-  const finishConversion = useCallback((nextUserId: string | null) => {
+  const finishConversion = useCallback(() => {
     conversionPending.current = false;
-    recovery.finishConversion(nextUserId);
-    if (!nextUserId) { retire(); return; }
-    owner.current = nextUserId;
-    admission.current = new AbortController();
-    requests.synchronizeAccountScope(nextUserId);
-  }, [recovery, requests, retire]);
+    recovery.finishConversion();
+  }, [recovery]);
   const expired = state.kind !== "same-owner" && (state.kind !== "pending" || state.busy);
-  return { expired, invalidated, conversionPending, admission, invalidate, beginConversion, finishConversion };
+  return { expired, invalidated, conversionPending, admission, invalidate, beginConversion, finishConversion, recovery };
 }

@@ -737,8 +737,8 @@ export async function synchronizeCurrentBrowserLogout<T>(
 
 export async function logoutFromApi() {
   invalidateBrowserAuth();
-  synchronizeBusinessAccount(null);
-  return synchronizeCurrentBrowserLogout(
+  const generation = browserAuthGeneration();
+  const result = await synchronizeCurrentBrowserLogout(
     async () => {
       const supabase = getSupabaseClient();
       if (!supabase) return { error: null };
@@ -746,6 +746,8 @@ export async function logoutFromApi() {
     },
     clearArgusSessionCookies,
   );
+  if (result.revocation === "complete" && browserAuthGeneration() === generation) synchronizeBusinessAccount(null);
+  return result;
 }
 
 export async function createConversation(language?: string | null, options: AccountRequestOptions = {}, surface?: ConversationSurface) {

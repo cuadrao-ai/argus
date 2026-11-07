@@ -500,6 +500,12 @@ function ChatInterfaceContent() {
     resetToEmptyChatSurface();
   });
 
+  useEffect(() => {
+    if (accountBoundary.recovery.takeLogoutFailure()) {
+      showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error");
+    }
+  }, [accountBoundary.recovery, showToast, t]);
+
   useLayoutEffect(() => {
     if (accountBoundary.invalidated.current || accountBoundary.conversionPending.current) return;
     requestSessions.synchronizeAccountScope(account?.user.id ?? null);

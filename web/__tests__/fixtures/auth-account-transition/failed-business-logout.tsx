@@ -11,9 +11,9 @@ const owner = { user: { id: "owner" }, access_token: "fixture-token" };
 const ownGrant = "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b";
 const clientGrant = "5b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b";
 type AuthListener = (event: string, value: typeof owner | null) => void;
+type LogoutOutcome = "same" | "rejected" | "left" | "cookie-failed" | "changed" | "unavailable";
 let session: typeof owner | null;
-let revocationFails: boolean;
-let cookieSyncFails: boolean;
+let outcome: LogoutOutcome;
 let checkError: Error | null;
 const listeners = new Set<AuthListener>();
 const searchParams = new URLSearchParams("");
@@ -35,10 +35,18 @@ mock.module("@/lib/supabase-client", () => ({
       getSession: async () => ({ data: { session }, error: checkError }),
       getUser: async () => ({ data: { user: session?.user ?? null }, error: null }),
       async signOut() {
-        if (revocationFails) return { error: new Error("Revocation failed") };
-        session = null;
-        listeners.forEach((listener) => listener("SIGNED_OUT", session));
-        return { error: null };
+        if (outcome === "left" || outcome === "cookie-failed") {
+          session = null;
+          listeners.forEach((listener) => listener("SIGNED_OUT", session));
+          return { error: null };
+        }
+        if (outcome === "changed") {
+          session = { user: { id: "other-owner" }, access_token: "other-fixture-token" };
+          listeners.forEach((listener) => listener("SIGNED_IN", session));
+        }
+        if (outcome === "unavailable") checkError = new Error("Session unavailable");
+        if (outcome === "rejected") throw new Error("Sign-out request rejected");
+        return { error: new Error("Revocation failed") };
       },
     },
   }),
@@ -55,12 +63,13 @@ beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => {
+  globalThis.fetch = originalFetch;
   if (originalMockAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
   else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMockAuth;
   await GlobalRegistrator.unregister();
 });
 
-async function mount() {
+async function mount(logoutOutcome: LogoutOutcome = "same") {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { default: i18next } = await import("i18next");
@@ -75,13 +84,16 @@ async function mount() {
   const { logoutFromApi } = await import("@/lib/argus-api");
   const { leaveSession, resetLeavingSession } = await import("@/lib/logout-flow");
   const fixture = createFixtureBusinessDataSource();
-  const spaces = (await fixture.spaces()).map((space) => ({
+  const [listed, workspace, [receipt]] = await Promise.all([
+    fixture.spaces(),
+    fixture.workspace(),
+    fixture.receipts("inbox"),
+  ]);
+  const spaces = listed.map((space) => ({
     ...space,
     grant_id: space.role === "owner" ? ownGrant : clientGrant,
     access_seen: true,
   }));
-  const workspace = await fixture.workspace();
-  const [receipt] = await fixture.receipts("inbox");
   assert.ok(receipt);
   const requests = { synchronizeAccountScope: () => true } as unknown as ChatRequestSessionController;
   const writes: { text: string; grant: string | null }[] = [];
@@ -89,19 +101,19 @@ async function mount() {
   const navigations: string[] = [];
   const unexpectedRequests: string[] = [];
   let api: BusinessContextValue;
+  let boundary: ReturnType<typeof useChatAccountBoundary>;
   let logout!: () => Promise<"left" | "failed">;
-  let nextRead: Promise<BusinessWorkspaceInfo> | null = null;
+  let nextRead: { response: Promise<BusinessWorkspaceInfo>; started: () => void } | null = null;
   let logoutErrors = 0;
 
   session = owner;
-  revocationFails = true;
-  cookieSyncFails = false;
+  outcome = logoutOutcome;
   checkError = null;
   resetLeavingSession();
   synchronizeBusinessAccount(null);
   globalThis.fetch = (async (url) => {
     const path = new URL(String(url)).pathname;
-    if (path.endsWith("/auth/logout")) return Response.json({ success: !cookieSyncFails }, { status: cookieSyncFails ? 503 : 200 });
+    if (path.endsWith("/auth/logout")) return Response.json({}, { status: outcome === "cookie-failed" ? 503 : 200 });
     if (path.endsWith("/business/spaces")) return Response.json({ spaces });
     if (path.endsWith("/profile")) return new Response(null, { status: 404 });
     unexpectedRequests.push(path);
@@ -114,10 +126,14 @@ async function mount() {
     mode: "live",
     spaces: async () => spaces,
     spaceDirectory: async () => ({ spaces, closed_spaces: [] }),
+    receiptReading: undefined,
+    setReceiptReading: undefined,
     workspace: async () => {
       const deferred = nextRead;
       nextRead = null;
-      return deferred ?? workspace;
+      if (!deferred) return workspace;
+      deferred.started();
+      return deferred.response;
     },
     captureNote: async (input, key) => {
       writes.push({ text: input.text, grant: getChosenGrant() });
@@ -132,10 +148,10 @@ async function mount() {
 
   Probe = function BusinessProbe() {
     api = useBusiness();
-    const boundary = useChatAccountBoundary(api.userId ?? null, requests, () => {});
+    boundary = useChatAccountBoundary(api.userId ?? null, requests, () => {});
     logout = () => leaveSession({
       boundary,
-      currentUserId: api.userId ?? null,
+      currentUserId: logoutOutcome === "same" ? null : api.userId ?? null,
       signOut: logoutFromApi,
       clearLocalState() {},
       navigate: (href) => navigations.push(href),
@@ -161,13 +177,22 @@ async function mount() {
   await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessApp /></I18nextProvider>));
 
   return {
-    act, host, ready, waitFor, navigations, writes, uploads, api: () => api, logoutErrors: () => logoutErrors,
+    act, host, ready, waitFor, navigations, writes, uploads,
+    api: () => api,
+    boundary: () => boundary,
+    logoutErrors: () => logoutErrors,
+    recoveryHeading: () => host.querySelector('[data-testid="session-recovery-screen"] h1')?.textContent,
     async signOut() {
       let result: "left" | "failed" | undefined;
       await act(async () => { result = await logout(); });
       return result;
     },
-    deferRead: (read: Promise<BusinessWorkspaceInfo>) => { nextRead = read; },
+    deferRead() {
+      const started = Promise.withResolvers<void>();
+      const response = Promise.withResolvers<BusinessWorkspaceInfo>();
+      nextRead = { response: response.promise, started: started.resolve };
+      return { started: started.promise, resolve: () => response.resolve(workspace) };
+    },
     async close() {
       await act(async () => root.unmount());
       host.remove();
@@ -179,35 +204,41 @@ async function mount() {
   };
 }
 
-test("a failed sign-out leaves new Business reads, notes and uploads usable without reviving old callbacks", async () => {
-  const page = await mount();
+test.each(["same", "rejected"] as const)("failed sign-out (%s) restores new Business reads, notes and uploads while old callbacks stay blocked", async (outcome) => {
+  const page = await mount(outcome);
   try {
     await page.ready();
     await page.act(async () => page.api().chooseBusiness(clientGrant));
     await page.waitFor(() => page.api().records.workspaceGrant === clientGrant, "selected client's records");
     const oldSource = page.api().source;
-    const reply = Promise.withResolvers<BusinessWorkspaceInfo>();
-    page.deferRead(reply.promise);
+    const oldBoundary = page.boundary();
+    const reply = page.deferRead();
     const lateRead = assert.rejects(oldSource.workspace());
-    await Promise.resolve();
+    await reply.started;
 
     assert.equal(await page.signOut(), "failed");
     assert.equal(page.logoutErrors(), 1);
     assert.deepEqual(page.navigations, []);
-    reply.resolve(await createWorkspace());
+    reply.resolve();
     await lateRead;
     await assert.rejects(oldSource.captureNote({ text: "Old note" }, "old-note"));
 
     await page.ready();
     const current = page.api();
     assert.equal((await current.source.workspace()).currency, "DOP");
+    assert.equal(oldBoundary.admission.current.signal.aborted, true);
+    assert.equal(page.boundary().admission.current.signal.aborted, false);
+    assert.equal(page.boundary().recovery.takeLogoutFailure(), true);
+    assert.equal(page.boundary().recovery.takeLogoutFailure(), false);
     await current.source.captureNote({ text: "Pagué 300 por transporte" }, "new-note");
     assert.deepEqual(page.writes, [{ text: "Pagué 300 por transporte", grant: clientGrant }]);
 
     const add = current.actions.create.find((action) => action.id === "upload_receipt");
     assert.ok(add);
     await page.act(async () => add.run());
-    const input = page.host.querySelector<HTMLInputElement>('input[type="file"]:not([capture])');
+    const picker = () => document.querySelector<HTMLInputElement>('input[type="file"]:not([capture])');
+    await page.waitFor(() => Boolean(picker()), "the receipt file picker");
+    const input = picker();
     assert.ok(input);
     const transfer = new DataTransfer();
     transfer.items.add(new File(["synthetic receipt"], "new.jpg", { type: "image/jpeg" }));
@@ -221,17 +252,11 @@ test("a failed sign-out leaves new Business reads, notes and uploads usable with
   }
 });
 
-async function createWorkspace() {
-  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
-  return createFixtureBusinessDataSource().workspace();
-}
-
 test("a successful sign-out opens login and fences callbacks captured by the workspace", async () => {
-  const page = await mount();
+  const page = await mount("left");
   try {
     await page.ready();
     const source = page.api().source;
-    revocationFails = false;
     assert.equal(await page.signOut(), "left");
     assert.deepEqual(page.navigations, ["/?auth=login"]);
     await assert.rejects(source.workspace());
@@ -240,3 +265,28 @@ test("a successful sign-out opens login and fences callbacks captured by the wor
     await page.close();
   }
 });
+
+for (const [outcome, title] of [
+  ["cookie-failed", "Inicia sesión para continuar"],
+  ["changed", "Cambió la cuenta activa"],
+  ["unavailable", "No pudimos comprobar tu sesión"],
+] as const) {
+  test(`a failed logout with outcome ${outcome} keeps the old workspace closed`, async () => {
+    const page = await mount(outcome);
+    try {
+      await page.ready();
+      const source = page.api().source;
+      const oldBoundary = page.boundary();
+      assert.equal(await page.signOut(), "failed");
+      await page.waitFor(() => page.recoveryHeading() === title, title);
+      assert.equal(page.host.querySelector('[data-testid="workspace-probe"]'), null);
+      assert.equal(oldBoundary.admission.current.signal.aborted, true);
+      assert.equal(oldBoundary.recovery.takeLogoutFailure(), false);
+      assert.deepEqual(page.navigations, []);
+      await assert.rejects(source.captureNote({ text: "Old note" }, "old-note"));
+      assert.deepEqual(page.writes, []);
+    } finally {
+      await page.close();
+    }
+  });
+}

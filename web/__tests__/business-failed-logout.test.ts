@@ -5,4 +5,4 @@ test("Business operations recover only when a failed logout leaves the same sess
     cwd: `${import.meta.dir}/..`,
   });
   expect(result.exitCode, result.stderr.toString()).toBe(0);
-});
+}, 15_000);
