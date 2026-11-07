@@ -111,6 +111,16 @@ manifest resolver. It creates regular private files in this worktree. Existing
 user-owned files need `--replace`. Legacy symlinks must be removed by the user
 first. Never write into a linked `.env` or `web/.env.local`.
 
+Later setup and QA commands refuse a selected store that conflicts with the
+generated database target or credentials. This applies to every generated target,
+including ordinary store regeneration. `--replace` does not bypass it, and
+`--check` reports the same conflict. Provider and model settings can still change.
+Unset `CUADRAO_LOCAL_ENV_STORE` to keep using discovered files, or rerun
+`write-local-env.sh` to discover the local target and credentials again. For a
+deliberate store target change, first remove the worktree `.env` and
+`web/.env.local` files yourself, then rerun setup. Keep or remove the pair together;
+a generated web file without its generated root file refuses regeneration.
+
 The browser guard uses the installed web framework environment loader, including
 its file precedence, comments, quotes, and variable expansion. Install web
 dependencies before QA. Set `NODE_ENV=production` when checking a production

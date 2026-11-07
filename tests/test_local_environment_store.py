@@ -611,6 +611,7 @@ def discovered_stack(tmp_path, store):
         ".github/render-env-sync.sh",
         ".github/setup-worktree-env.sh",
         "scripts/qa/run-local-auth-qa.sh",
+        "scripts/qa/run-guest-experience-qa.sh",
         "scripts/qa/write-local-env.sh",
         "scripts/qa/assert-nonprod-target.sh",
         "scripts/ops/staging_env.py",
@@ -656,6 +657,7 @@ def discovered_stack(tmp_path, store):
     "caller",
     [
         "loader",
+        "guest",
         "qa",
         "auth",
         "dev",
@@ -681,7 +683,35 @@ def test_regeneration_refuses_to_switch_discovered_stack(
                 "postgresql://test:test@db.syntheticproject.supabase.co:5432/test",
             )
         )
+    if caller == "guest":
+        with (root / ".gitignore").open("a") as handle:
+            handle.write("bin/\nweb/node_modules\n")
+        (root / "supabase").mkdir()
+        (root / "supabase/config.toml").write_text('project_id = "argus-qa"\n')
+        docker = root / "bin/docker"
+        docker.write_text("#!/bin/sh\nprintf 'argus-qa|true\\n'\n")
+        docker.chmod(0o755)
+        subprocess.run(
+            ["git", "add", ".gitignore", ".github", "scripts", "supabase"],
+            cwd=root,
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Synthetic Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "commit",
+                "-qm",
+                "fixture",
+            ],
+            cwd=root,
+            check=True,
+        )
     commands = {
+        "guest": ["bash", "scripts/qa/run-guest-experience-qa.sh", "preflight"],
         "loader": ["bash", "-c", "source .github/argus-env.sh; argus_load_root_env"],
         "qa": ["bash", ".github/qa.sh"],
         "auth": ["bash", "scripts/qa/run-local-auth-qa.sh"],
@@ -705,3 +735,143 @@ def test_regeneration_refuses_to_switch_discovered_stack(
     assert not (root / "launched").exists()
     for value in ("stack-service", "stack-jwt", "server-service-secret"):
         assert value not in result.stdout + result.stderr
+
+
+@pytest.fixture
+def matching_stack_store(discovered_stack, store):
+    root, env = discovered_stack
+    current = dict(line.split("=", 1) for line in store.read_text().splitlines())
+    current.update(
+        {
+            "SUPABASE_PROJECT_URL": "http://localhost:54331",
+            "SUPABASE_POSTGRES_SESSION_POOLER_URL": "postgresql://test:test@localhost:54332/test",
+            "SUPABASE_ANON_PUBLIC_KEY": "stack-anon",
+            "SUPABASE_SERVICE_ROLE_KEY": "stack-service",
+            "SUPABASE_JWT_SECRET": "stack-jwt",
+        }
+    )
+    store.write_text("".join(f"{name}={value}\n" for name, value in current.items()))
+    return root, env
+
+
+@pytest.mark.parametrize(
+    ("name", "replacement"),
+    [
+        ("SUPABASE_PROJECT_URL", "http://localhost:54321"),
+        (
+            "SUPABASE_POSTGRES_SESSION_POOLER_URL",
+            "postgresql://test:test@localhost:54322/test",
+        ),
+        ("SUPABASE_ANON_PUBLIC_KEY", "other-stack-credential"),
+        ("SUPABASE_SERVICE_ROLE_KEY", "other-stack-credential"),
+        ("SUPABASE_JWT_SECRET", "other-stack-credential"),
+    ],
+)
+def test_regeneration_refuses_any_other_stack_field(
+    matching_stack_store, store, name, replacement
+):
+    root, env = matching_stack_store
+    values = dict(line.split("=", 1) for line in store.read_text().splitlines())
+    values[name] = replacement
+    store.write_text("".join(f"{key}={value}\n" for key, value in values.items()))
+    paths = [root / ".env", root / "web/.env.local"]
+    before = [path.read_bytes() for path in paths]
+    result = setup(root, store)
+    assert result.returncode != 0
+    assert name in result.stderr
+    assert "other-stack-credential" not in result.stdout + result.stderr
+    assert [path.read_bytes() for path in paths] == before
+
+
+def test_same_stack_allows_provider_refresh_and_idempotent_reload(
+    matching_stack_store, store
+):
+    root, env = matching_stack_store
+    browser = (root / "web/.env.local").read_bytes()
+    store.write_text(
+        store.read_text().replace(
+            "OPENROUTER_API_KEY=synthetic-value",
+            "OPENROUTER_API_KEY=refreshed-provider-key",
+        )
+    )
+    assert setup(root, store, "--check").returncode == 0
+    assert "refreshed-provider-key" not in (root / ".env").read_text()
+    assert setup(root, store).returncode == 0
+    backend = (root / ".env").read_bytes()
+    assert b"OPENROUTER_API_KEY=refreshed-provider-key" in backend
+    assert b"SUPABASE_PROJECT_URL=http://localhost:54331" in backend
+    result = subprocess.run(
+        ["bash", "-c", "source .github/argus-env.sh; argus_load_root_env"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (root / ".env").read_bytes() == backend
+    assert (root / "web/.env.local").read_bytes() == browser
+
+
+def test_explicit_rediscovery_replaces_whole_stack_group(discovered_stack):
+    root, env = discovered_stack
+    discovery = root / "bin/supabase"
+    discovery.write_text(
+        discovery.read_text()
+        .replace("54331", "54341")
+        .replace("54332", "54342")
+        .replace("stack-anon", "new-stack-anon")
+        .replace("stack-service", "new-stack-service")
+        .replace("stack-jwt", "new-stack-jwt")
+    )
+    result = subprocess.run(
+        ["bash", "scripts/qa/write-local-env.sh"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    backend = (root / ".env").read_text()
+    browser = (root / "web/.env.local").read_text()
+    assert "SUPABASE_PROJECT_URL=http://localhost:54341" in backend
+    assert (
+        "SUPABASE_POSTGRES_SESSION_POOLER_URL=postgresql://test:test@localhost:54342/test"
+        in backend
+    )
+    assert "SUPABASE_ANON_PUBLIC_KEY=new-stack-anon" in backend
+    assert "SUPABASE_SERVICE_ROLE_KEY=new-stack-service" in backend
+    assert "SUPABASE_JWT_SECRET=new-stack-jwt" in backend
+    assert "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54341" in browser
+    assert "NEXT_PUBLIC_SUPABASE_ANON_KEY=new-stack-anon" in browser
+
+
+def test_orphan_browser_cannot_be_retargeted_from_store(discovered_stack, store):
+    root, _ = discovered_stack
+    browser = (root / "web/.env.local").read_bytes()
+    (root / ".env").unlink()
+    result = setup(root, store)
+    assert result.returncode != 0
+    assert "target" in result.stderr and "conflict" in result.stderr
+    assert not (root / ".env").exists()
+    assert (root / "web/.env.local").read_bytes() == browser
+
+
+@pytest.mark.parametrize(
+    ("relative", "alias"),
+    [(".env", "SUPABASE_URL"), ("web/.env.local", "NEXT_PUBLIC_SUPABASE_URL")],
+)
+def test_regeneration_refuses_conflicting_target_alias(
+    matching_stack_store, store, relative, alias
+):
+    root, _ = matching_stack_store
+    path = root / relative
+    path.write_text(
+        path.read_text().replace(
+            f"{alias}=http://localhost:54331", f"{alias}=http://localhost:54341"
+        )
+    )
+    before = [(root / name).read_bytes() for name in (".env", "web/.env.local")]
+    result = setup(root, store)
+    assert result.returncode != 0
+    assert alias in result.stderr
+    assert [(root / name).read_bytes() for name in (".env", "web/.env.local")] == before

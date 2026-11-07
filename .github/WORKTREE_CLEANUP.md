@@ -36,8 +36,12 @@ and the web loader. Unknown names and duplicate names fail before any write.
 
 Setup writes private, gitignored `.env` and `web/.env.local` files in the target
 worktree. It validates both destinations before it replaces either file. Each
-worktree has its own files. A generated file can be regenerated. An existing
-user-owned file requires `--replace`, unless its content already matches.
+worktree has its own files. A generated file can be regenerated when its database
+target and credentials agree with the selected store. This also applies to
+ordinary store regeneration, not just discovered stacks. A target conflict
+refuses before either file changes, including with `--replace` or `--check`.
+Unrelated provider and model settings can still change. An existing user-owned
+file requires `--replace`, unless its content already matches.
 `--check` validates a selected store without writing files. Without a selected
 store, it requires both regular worktree files.
 
@@ -49,6 +53,13 @@ For a disposable local database stack, `scripts/qa/write-local-env.sh` feeds
 local discovery data to the same manifest resolver. It uses explicit disabled
 provider defaults from the manifest unless the selected store supplies those
 values. It refuses symlink destinations too.
+
+After discovery, unset `CUADRAO_LOCAL_ENV_STORE` to keep using the discovered
+files, or rerun `scripts/qa/write-local-env.sh` to discover the local target and
+credentials again. To change the store target deliberately, first remove the
+worktree `.env` and `web/.env.local` files yourself, then rerun setup. A generated
+web file without its generated root file refuses regeneration because the full
+target and credentials cannot be checked.
 
 Safe mode removes known generated bloat and keeps local untracked files such as
 `.env` and `web/.env.local` intact:
