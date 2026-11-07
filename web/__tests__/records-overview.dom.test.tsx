@@ -35,7 +35,7 @@ test("six cards use server totals, family lines, matching count and separate fis
   for (const key of ["total", "itbis", "quantity", "goods", "services"]) { assert.equal(card(key).tagName, "DIV"); assert.equal(card(key).hasAttribute("tabindex"), false); assert.equal(card(key).getAttribute("role"), null); }
   for (const key of ["total", "itbis", "quantity", "goods", "services"]) await act(async () => card(key).click()); assert.deepEqual(page.chosen, []);
   assert.equal(card("fiscal").tagName, "BUTTON"); await act(async () => card("fiscal").click()); assert.deepEqual(page.chosen, ["fiscal"]);
-  assert.equal(card("fiscal").getAttribute("type"), "button"); 
+  assert.equal(card("fiscal").getAttribute("type"), "button");
   assert.doesNotMatch(document.body.textContent!, /Listos para exportar|Ya exportados/);
   await page.render({ families: ["sale"] }); assert.doesNotMatch(card("total").textContent!, /Compras|111\.11/); assert.match(card("total").textContent!, /Ventas.*222\.22/); assert.doesNotMatch(card("goods").textContent!, /12 de 25|5\.00/);
 });
