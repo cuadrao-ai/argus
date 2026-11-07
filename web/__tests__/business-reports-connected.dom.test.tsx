@@ -8,7 +8,7 @@ import { BusinessContext, type BusinessContextValue } from "@/components/busines
 import { ConnectedBusinessReports, reportFiltersForUi, reportFiltersFromUi } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
-import { reportRequestSchema, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
+import { reportAnswerSchema, reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
 import { restoreReportLocation } from "@/lib/business-reporting-wire";
 import { setChosenGrant } from "@/lib/business-grant";
 import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-report-http-fixture";
@@ -24,7 +24,7 @@ const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
-async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
+async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
   const { createRoot } = await import("react-dom/client");
   const fixture = createBusinessReportHttpFixture(); if (options.presentation) fixture.controls.presentation = options.presentation; options.edit?.(fixture.records); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
@@ -33,7 +33,12 @@ async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: bo
     const style = computedStyle(element);
     return new Proxy(style, { get(target, key) { if (key === 'getPropertyValue') return (name: string) => name === '--records-narrow' ? '1' : target.getPropertyValue(name); const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value; } });
   }) as typeof getComputedStyle;
-  const originalFetch = globalThis.fetch; globalThis.fetch = (async (input, init) => { if (options.queryGate && String(input).endsWith("/reports/query")) await options.queryGate; return fixture.request(input, init); }) as typeof fetch;
+  const originalFetch = globalThis.fetch; globalThis.fetch = (async (input, init) => {
+    const query = String(input).endsWith("/reports/query");
+    if (options.queryGate && query) await options.queryGate;
+    const response = await fixture.request(input, init);
+    return query && options.queryAnswer && response.ok ? Response.json(await options.queryAnswer(reportRequestSchema.parse(JSON.parse(String(init?.body))), reportAnswerSchema.parse(await response.json()))) : response;
+  }) as typeof fetch;
   const originalCreate = URL.createObjectURL, originalRevoke = URL.revokeObjectURL;
   const downloads: Blob[] = []; URL.createObjectURL = (blob) => { downloads.push(blob as Blob); return "blob:synthetic"; }; URL.revokeObjectURL = () => undefined;
   setChosenGrant(null);
@@ -893,4 +898,70 @@ test("selecting a saved Fiscal view discards the prior status snapshot", async (
   await page.settle(() => !fiscalCard().disabled);
   await page.click(fiscalCard());
   await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
+});
+
+const currencyCardCases = [
+  { currency: "DOP", count: 31, fiscal: 7, total: "3456.78", totalMinor: 345678, last: "3426.78", values: [["itbis", "456.78", 45678], ["goods", "2000.00", 200000], ["services", "1000.00", 100000]], shown: ["DOP 3,456.78", "DOP 456.78", "DOP 2,000.00", "DOP 1,000.00"] },
+  { currency: "USD", count: 27, fiscal: 4, total: "876.54", totalMinor: 87654, last: "850.54", values: [["itbis", "76.54", 7654], ["goods", "500.00", 50000], ["services", "300.00", 30000]], shown: ["USD 876.54", "USD 76.54", "USD 500.00", "USD 300.00"] },
+] as const;
+const shelfMoney = () => ["total", "itbis", "goods", "services"].map((metric) => document.querySelector(`[data-overview-card="${metric}"] .cuadrao-amount`)?.getAttribute("aria-label") ?? null);
+function currencyCardAnswer(request: ReportRequest, answer: ReportAnswer): ReportAnswer {
+  const value = currencyCardCases.find(({ currency }) => request.filters.currencies.length === 1 && request.filters.currencies[0] === currency);
+  if (!value) return answer;
+  const count = request.filters.q === "absent" ? 0 : value.count;
+  const row = createBusinessReportHttpFixture().records[0];
+  return { ...answer, matching_count: count, page_count: count ? 2 : 0,
+    items: count ? Array.from({ length: request.page === 1 ? 25 : count - 25 }, (_, index) => {
+      const position = (request.page - 1) * 25 + index;
+      return { ...row, row_id: `draft:${fixtureId(200 + position)}`, draft_id: fixtureId(200 + position), linked_activity_ids: [], report_date: "2026-10-20", counterparty: `Proveedor ${position + 1}`, counterparty_key: "101001577", currency: value.currency, gross_amount: position === count - 1 ? value.last : "1.00", stage: position < value.fiscal ? "needs_fiscal_data" : "ready_for_export", funding_key: "cash", fiscal_classification: "B01", dgii_606: { expense_type: { code: "02", label: "Suministros" }, payment_form: null } };
+    }) : [],
+    totals: count ? [{ currency: value.currency, kind: "expense", basis: "document_family_amount", matching_count: count, complete: true, unknown_count: 0, unsupported_count: 0, amount: value.total, known_amount: value.total, amount_minor: value.totalMinor, known_amount_minor: value.totalMinor }] : [],
+    fiscal_totals: count ? value.values.map(([basis, amount, minor]) => ({ currency: value.currency, kind: "expense", basis, applicable_count: count, populated_count: count, complete: true, unknown_count: 0, unsupported_count: 0, amount, known_amount: amount, amount_minor: minor, known_amount_minor: minor })) : [],
+    overview: { needs_review: 0, needs_fiscal_data: count ? value.fiscal : 0, ready_for_export: count ? count - value.fiscal : 0 },
+  };
+}
+
+for (const sample of currencyCardCases) test(`${sample.currency} filter keeps all six cards on the server answer across pages and clears without losing other filters`, async () => {
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { q: "Proveedor", period: { kind: "all" }, record_families: ["purchase"], has_document: true, counterparties: ["101001577"], expense_types: ["02"], funding_sources: ["cash"], document_kinds: ["unknown"], fiscal_classifications: ["B01"] } });
+  const page = await mount({ initial, queryAnswer: currencyCardAnswer });
+  await page.click([...document.querySelectorAll("button")].find((button) => button.textContent?.startsWith("Filtros")));
+  await page.click(document.querySelector('[data-group="amount"]'));
+  await page.click(page.button(sample.currency));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => fiscalCount() === String(sample.fiscal));
+  assert.deepEqual(sentFilters(page).at(-1), { ...initial.filters, currencies: [sample.currency] });
+  assert.deepEqual(shelfMoney(), [...sample.shown]);
+  assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, String(sample.count));
+  assert.equal(document.querySelectorAll("tbody tr").length, 25);
+  assert.deepEqual([...document.querySelectorAll('tbody td[data-col="monto"]')].map((cell) => cell.textContent), Array(25).fill("1.00"));
+  await page.click(document.querySelector('button[aria-label="Última página"]'));
+  await page.settle(() => document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "2");
+  assert.equal(document.querySelectorAll("tbody tr").length, sample.count - 25);
+  assert.deepEqual(shelfMoney(), [...sample.shown]);
+  assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, String(sample.count));
+  assert.equal(fiscalCount(), String(sample.fiscal));
+  await page.click(document.querySelector('button[aria-label="Quitar filtro Moneda"]'));
+  await page.settle(() => sentFilters(page).at(-1)?.currencies.length === 0 && document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "1");
+  assert.deepEqual(sentFilters(page).at(-1), initial.filters);
+  assert.equal(document.querySelector('button[aria-label="Quitar filtro Moneda"]'), null);
+});
+
+test("a currency-filtered six-card answer clears old figures while loading and shows an empty result honestly", async () => {
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { currencies: ["DOP"], record_families: ["purchase"] } }), queryAnswer: async (request, answer) => { if (request.filters.q === "absent") await gate; return currencyCardAnswer(request, answer); } });
+  assert.deepEqual(shelfMoney(), ["DOP 3,456.78", "DOP 456.78", "DOP 2,000.00", "DOP 1,000.00"]);
+  try {
+    await page.type(document.querySelector('input[type="search"]')!, "absent");
+    assert.equal(document.querySelector('[data-testid="records-overview-preview"]')?.getAttribute("aria-busy"), "true");
+    assert.deepEqual(shelfMoney(), [null, null, null, null]);
+    assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "");
+    assert.equal(fiscalCount(), "");
+  } finally { await act(async () => release()); }
+  await page.settle(() => document.querySelector('[data-empty-kind="filtered"]') !== null);
+  assert.deepEqual(shelfMoney(), [null, null, null, null]);
+  for (const metric of ["total", "itbis", "goods", "services"]) assert.match(document.querySelector(`[data-overview-card="${metric}"]`)!.textContent!, /-sin dato/);
+  assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "0");
+  assert.equal(fiscalCount(), "0");
+  assert.equal(fiscalCard().disabled, true);
 });
