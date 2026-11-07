@@ -12,39 +12,50 @@ const ownGrant = "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b";
 const clientGrant = "5b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b";
 type AuthListener = (event: string, value: typeof owner | null) => void;
 type LogoutOutcome = "same" | "rejected" | "left" | "cookie-failed" | "changed" | "unavailable";
+type CheckFailure = { delivery: "return" | "throw"; emitsSignedOut: boolean };
 let session: typeof owner | null;
 let outcome: LogoutOutcome;
-let checkError: Error | null;
+let checkFailure: CheckFailure | null;
 const listeners = new Set<AuthListener>();
 const searchParams = new URLSearchParams("");
 const originalFetch = globalThis.fetch;
 const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+
+function emitSignedOut() {
+  session = null;
+  listeners.forEach((listener) => listener("SIGNED_OUT", null));
+}
 
 mock.module("next/navigation", () => ({
   useSearchParams: () => searchParams,
   useRouter: () => ({ push() {}, replace() {} }),
   usePathname: () => "/biz",
 }));
-mock.module("@/lib/supabase-client", () => ({
-  getSupabaseClient: () => ({
+mock.module("@supabase/ssr", () => ({
+  createBrowserClient: () => ({
     auth: {
       onAuthStateChange(next: AuthListener) {
         listeners.add(next);
         return { data: { subscription: { unsubscribe: () => { listeners.delete(next); } } } };
       },
-      getSession: async () => ({ data: { session }, error: checkError }),
+      async getSession() {
+        if (!checkFailure) return { data: { session }, error: null };
+        if (checkFailure.emitsSignedOut && session) emitSignedOut();
+        const error = new Error("Session unavailable");
+        if (checkFailure.delivery === "throw") throw error;
+        return { data: { session }, error };
+      },
       getUser: async () => ({ data: { user: session?.user ?? null }, error: null }),
       async signOut() {
         if (outcome === "left" || outcome === "cookie-failed") {
-          session = null;
-          listeners.forEach((listener) => listener("SIGNED_OUT", session));
+          emitSignedOut();
           return { error: null };
         }
         if (outcome === "changed") {
           session = { user: { id: "other-owner" }, access_token: "other-fixture-token" };
           listeners.forEach((listener) => listener("SIGNED_IN", session));
         }
-        if (outcome === "unavailable") checkError = new Error("Session unavailable");
+        if (outcome === "unavailable") checkFailure = { delivery: "return", emitsSignedOut: false };
         if (outcome === "rejected") throw new Error("Sign-out request rejected");
         return { error: new Error("Revocation failed") };
       },
@@ -59,6 +70,8 @@ mock.module("@/components/chat/ChatInterface", () => ({ default: () => <Probe />
 
 beforeAll(() => {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "synthetic";
   GlobalRegistrator.register({ url: "http://localhost/biz" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
@@ -108,13 +121,22 @@ async function mount(logoutOutcome: LogoutOutcome = "same") {
 
   session = owner;
   outcome = logoutOutcome;
-  checkError = null;
+  checkFailure = null;
   resetLeavingSession();
   synchronizeBusinessAccount(null);
-  globalThis.fetch = (async (url) => {
+  globalThis.fetch = (async (url, init) => {
     const path = new URL(String(url)).pathname;
     if (path.endsWith("/auth/logout")) return Response.json({}, { status: outcome === "cookie-failed" ? 503 : 200 });
     if (path.endsWith("/business/spaces")) return Response.json({ spaces });
+    if (path.endsWith("/business/captures") && init?.method === "POST") {
+      const headers = new Headers(init.headers);
+      const key = headers.get("Idempotency-Key");
+      assert.ok(key && typeof init.body === "string");
+      const { text } = JSON.parse(init.body);
+      assert.equal(typeof text, "string");
+      writes.push({ text, grant: headers.get("X-Business-Grant") });
+      return Response.json(await fixture.captureNote({ text }, key));
+    }
     if (path.endsWith("/profile")) return new Response(null, { status: 404 });
     unexpectedRequests.push(path);
     throw new Error(`Unexpected request ${path}`);
@@ -135,10 +157,7 @@ async function mount(logoutOutcome: LogoutOutcome = "same") {
       deferred.started();
       return deferred.response;
     },
-    captureNote: async (input, key) => {
-      writes.push({ text: input.text, grant: getChosenGrant() });
-      return fixture.captureNote(input, key);
-    },
+    captureNote: originalSource.captureNote,
     uploadReceipt: async (file) => {
       uploads.push({ filename: file.name, grant: getChosenGrant() });
       return { ...receipt, filename: file.name };
@@ -180,8 +199,28 @@ async function mount(logoutOutcome: LogoutOutcome = "same") {
     act, host, ready, waitFor, navigations, writes, uploads,
     api: () => api,
     boundary: () => boundary,
+    chosenGrant: getChosenGrant,
     logoutErrors: () => logoutErrors,
     recoveryHeading: () => host.querySelector('[data-testid="session-recovery-screen"] h1')?.textContent,
+    async selectClient() {
+      await ready();
+      await act(async () => api.chooseBusiness(clientGrant));
+      await waitFor(() => api.records.workspaceGrant === clientGrant, "selected client's records");
+    },
+    async failFocusCheck(failure: CheckFailure) {
+      checkFailure = failure;
+      await act(async () => { window.dispatchEvent(new Event("focus")); });
+    },
+    async retryAsOwner() {
+      const button = host.querySelector<HTMLButtonElement>('[data-testid="session-recovery-screen"] button');
+      assert.ok(button);
+      assert.equal(button.textContent, "Reintentar");
+      session = owner;
+      checkFailure = null;
+      await act(async () => button.click());
+      await ready();
+    },
+    signOutFromAnotherTab: () => act(async () => emitSignedOut()),
     async signOut() {
       let result: "left" | "failed" | undefined;
       await act(async () => { result = await logout(); });
@@ -207,9 +246,7 @@ async function mount(logoutOutcome: LogoutOutcome = "same") {
 test.each(["same", "rejected"] as const)("failed sign-out (%s) restores new Business reads, notes and uploads while old callbacks stay blocked", async (outcome) => {
   const page = await mount(outcome);
   try {
-    await page.ready();
-    await page.act(async () => page.api().chooseBusiness(clientGrant));
-    await page.waitFor(() => page.api().records.workspaceGrant === clientGrant, "selected client's records");
+    await page.selectClient();
     const oldSource = page.api().source;
     const oldBoundary = page.boundary();
     const reply = page.deferRead();
@@ -255,10 +292,11 @@ test.each(["same", "rejected"] as const)("failed sign-out (%s) restores new Busi
 test("a successful sign-out opens login and fences callbacks captured by the workspace", async () => {
   const page = await mount("left");
   try {
-    await page.ready();
+    await page.selectClient();
     const source = page.api().source;
     assert.equal(await page.signOut(), "left");
     assert.deepEqual(page.navigations, ["/?auth=login"]);
+    assert.equal(page.chosenGrant(), null);
     await assert.rejects(source.workspace());
     assert.equal(page.logoutErrors(), 0);
   } finally {
@@ -274,7 +312,7 @@ for (const [outcome, title] of [
   test(`a failed logout with outcome ${outcome} keeps the old workspace closed`, async () => {
     const page = await mount(outcome);
     try {
-      await page.ready();
+      await page.selectClient();
       const source = page.api().source;
       const oldBoundary = page.boundary();
       assert.equal(await page.signOut(), "failed");
@@ -285,8 +323,53 @@ for (const [outcome, title] of [
       assert.deepEqual(page.navigations, []);
       await assert.rejects(source.captureNote({ text: "Old note" }, "old-note"));
       assert.deepEqual(page.writes, []);
+      if (outcome === "unavailable") {
+        await page.retryAsOwner();
+        await page.api().source.captureNote({ text: "Nota tras reintentar" }, "logout-retry-note");
+        assert.deepEqual(page.writes, [{ text: "Nota tras reintentar", grant: clientGrant }]);
+        assert.equal(page.api().records.workspaceGrant, clientGrant);
+      } else {
+        assert.equal(page.chosenGrant(), null);
+      }
     } finally {
       await page.close();
     }
   });
 }
+
+test.each([
+  ["returned error", { delivery: "return", emitsSignedOut: false }],
+  ["thrown error", { delivery: "throw", emitsSignedOut: false }],
+  ["returned error after SIGNED_OUT", { delivery: "return", emitsSignedOut: true }],
+  ["thrown error after SIGNED_OUT", { delivery: "throw", emitsSignedOut: true }],
+] as const)("Retry after a focus check (%s) restores the selected client Business", async (_label, failure) => {
+  const page = await mount();
+  try {
+    await page.selectClient();
+    const oldSource = page.api().source;
+    await page.failFocusCheck(failure);
+    assert.equal(page.recoveryHeading(), "No pudimos comprobar tu sesión");
+    assert.equal(page.host.querySelector('[data-testid="workspace-probe"]'), null);
+    await assert.rejects(oldSource.captureNote({ text: "Old note" }, "old-note"));
+
+    await page.retryAsOwner();
+    await page.api().source.captureNote({ text: "Pagué 500 por materiales" }, "focus-retry-note");
+    assert.deepEqual(page.writes, [{ text: "Pagué 500 por materiales", grant: clientGrant }]);
+    assert.equal(page.api().records.workspaceGrant, clientGrant);
+  } finally {
+    await page.close();
+  }
+});
+
+test("signing out in another tab closes the workspace and clears the selected client", async () => {
+  const page = await mount();
+  try {
+    await page.selectClient();
+    await page.signOutFromAnotherTab();
+    assert.equal(page.recoveryHeading(), "Inicia sesión para continuar");
+    assert.equal(page.host.querySelector('[data-testid="workspace-probe"]'), null);
+    assert.equal(page.chosenGrant(), null);
+  } finally {
+    await page.close();
+  }
+});

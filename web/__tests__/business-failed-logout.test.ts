@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 
-test("Business operations recover only when a failed logout leaves the same session", () => {
+test("Business session recovery keeps the selected client for the same account", () => {
   const result = Bun.spawnSync([process.execPath, "test", `${import.meta.dir}/fixtures/auth-account-transition/failed-business-logout.tsx`], {
     cwd: `${import.meta.dir}/..`,
   });
   expect(result.exitCode, result.stderr.toString()).toBe(0);
-}, 15_000);
+}, 25_000);

@@ -6,10 +6,13 @@ import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 type Listener = (event: string, session: { user: { id: string } } | null) => void;
 let notify!: Listener;
 mock.module("@supabase/ssr", () => ({
-  createBrowserClient: () => ({ auth: { onAuthStateChange: (listener: Listener) => { notify = listener; } } }),
+  createBrowserClient: () => ({ auth: {
+    onAuthStateChange: (listener: Listener) => { notify = listener; },
+    getSession: async () => ({ data: { session: null }, error: null }),
+  } }),
 }));
 
-test("late initial events cannot clear a newer owner's grant or advance request generation", async () => {
+test("only confirmed identity changes clear the selected Business", async () => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test";
   const { getSupabaseClient } = await import("@/lib/supabase-client");
@@ -22,6 +25,13 @@ test("late initial events cannot clear a newer owner's grant or advance request 
   assert.equal(getChosenGrant(), "test-grant");
   assert.doesNotThrow(() => requireBrowserAuthGeneration(current));
   notify("SIGNED_OUT", null);
-  assert.equal(getChosenGrant(), null);
+  assert.equal(getChosenGrant(), "test-grant", "an event during a failed refresh must not erase the remembered Business");
   assert.throws(() => requireBrowserAuthGeneration(current), /Browser session changed/);
+  const { authenticatedRequestHeaders } = await import("@/lib/chat-auth-ownership");
+  await authenticatedRequestHeaders();
+  assert.equal(getChosenGrant(), null, "a settled missing session clears the remembered Business");
+  notify("SIGNED_IN", { user: { id: "current" } });
+  setChosenGrant("test-grant");
+  notify("SIGNED_IN", { user: { id: "different" } });
+  assert.equal(getChosenGrant(), null, "a confirmed different user clears the remembered Business");
 });
