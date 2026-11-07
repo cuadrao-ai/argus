@@ -134,7 +134,7 @@ Registros has six summary cards. This records the decision approved by Lucas, re
 | Servicios | Populated net (pre-tax) services amounts, including values entered by hand. Its own coverage helper reports populated records, for example "12 de 40 registros". |
 | Faltan datos fiscales | Count by the existing fiscal-completeness definition. |
 
-Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Cards and table always describe the same filtered records. Currency behavior is unchanged: never add incompatible currencies.
+Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Total, ITBIS, Cantidad, Bienes and Servicios describe the same filtered records as the table. Total and ITBIS show separate server-supplied Compras and Ventas lines, never their sum; a single-family filter shows only that family. Faltan datos fiscales uses the server's date-only `overview.needs_fiscal_data` count for the selected period, independent of the table's other filters. Currency behavior is unchanged: never add incompatible currencies.
 
 Bienes and Servicios coverage counts only applicable purchases because sales have no goods/services split. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
 

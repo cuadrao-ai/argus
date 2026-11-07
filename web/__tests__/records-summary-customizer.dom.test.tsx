@@ -50,7 +50,7 @@ async function mount(width = 1440, records = [row(false)], language = "es-419", 
 
 test("summary follows record kind automatically and settings only change table presentation", async () => {
   const page = await mount();
-  assert.match(page.summary()!.textContent ?? "", /Gastos.*24.00.*Pagado.*12.00.*Por pagar.*12.00/);
+  assert.match(page.summary()!.textContent ?? "", /Compras.*24.00.*Pagado.*12.00.*Por pagar.*12.00/);
   assert.equal(page.summary()!.querySelectorAll(".cuadrao-amount").length, 3);
   await page.open();
   assert.deepEqual([...document.querySelectorAll('[role="radiogroup"] > [role="radio"]')].map((tab) => tab.textContent), ["Columnas", "Altura de filas"]);
@@ -60,7 +60,7 @@ test("summary follows record kind automatically and settings only change table p
   await page.key(document.activeElement!, "Escape");
   await page.click(page.button("All")); assert.equal(page.summary(), null, "Todos never shows a mixed financial total");
   await page.click(page.button("Sales"));
-  assert.match(page.summary()!.textContent ?? "", /Facturado.*Cobrado.*Por cobrar/);
+  assert.match(page.summary()!.textContent ?? "", /Ventas.*Cobrado.*Por cobrar/);
   assert.equal(page.summary()!.querySelectorAll(".cuadrao-amount").length, 0, "unknown sales are not zero");
 });
 
@@ -102,7 +102,7 @@ for (const width of [1440, 390]) test(`overflow currencies open one shared break
   const panel = document.querySelector('[data-testid="records-currency-breakdown"]')!;
   assert.ok(panel);
   assert.equal(panel.querySelectorAll("[data-currency]").length, 3);
-  assert.match(panel.textContent ?? "", /USD.*Expenses.*24.00.*Paid.*12.00.*To pay.*12.00/);
+  assert.match(panel.textContent ?? "", /USD.*Purchases.*24.00.*Paid.*12.00.*Payable.*12.00/);
   assert.equal(panel.querySelector('[data-currency="EUR"]')!.querySelectorAll(".cuadrao-amount").length, 1, "missing settlement stays unknown");
   assert.ok(panel.closest(width >= 1024 ? '[role="region"]' : '[role="dialog"]'));
   assert.equal(panel.querySelector("select,input"), null, "breakdown does not add a currency filter");

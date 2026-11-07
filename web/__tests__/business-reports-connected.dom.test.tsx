@@ -70,32 +70,28 @@ test("connected pages, full count, accent search and period-only overview use re
 
 const overviewCards = () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="records-overview-preview"] [data-overview-filter]')];
 
-test("the three cards read the server's stage counts in order, each with its line, and each filters by its stage", async () => {
+test("six cards show report scope and only fiscal applies its stage", async () => {
   const page = await mount();
-  assert.deepEqual(overviewCards().map((card) => card.getAttribute("data-overview-filter")), ["fiscal", "export", "exported"]);
-  const [fiscal, ready, exported] = overviewCards();
-  assert.match(fiscal.textContent!, /Faltan datos fiscales/); assert.match(fiscal.textContent!, /60/);
-  assert.match(ready.textContent!, /Listos para exportar/); assert.match(ready.textContent!, /40/); assert.match(ready.textContent!, /Puedes incluirlos en tu exportación/);
-  assert.match(exported.textContent!, /Ya exportados/); assert.match(exported.textContent!, /20/);
-  assert.equal(document.querySelector('[data-overview-filter="review"]'), null, "needs_review is no card");
-  assert.doesNotMatch(document.querySelector('[data-testid="records-overview-preview"]')!.textContent!, /Por aprobar|Por revisar/);
-  for (const card of overviewCards()) assert.ok(card.querySelector("[data-overview-description]")?.textContent, `${card.getAttribute("data-overview-filter")} has its line`);
-  for (const [key, stage] of [["exported", "exported"], ["fiscal", "needs_fiscal_data"], ["export", "ready_for_export"]] as const) {
-    const before = sentFilters(page).length;
-    await page.click(document.querySelector(`[data-overview-filter="${key}"]`));
-    await page.settle(() => sentFilters(page).length > before);
-    assert.deepEqual(sentFilters(page).at(-1)!.review_stages, [stage]);
-    assert.equal(document.querySelector(`[data-overview-filter="${key}"]`)?.getAttribute("aria-pressed"), "true");
-  }
+  assert.deepEqual(overviewCards().map((card) => card.getAttribute("data-overview-filter")), ["fiscal"]);
+  assert.equal(document.querySelectorAll("[data-overview-card]").length, 6);
+  assert.match(document.querySelector('[data-overview-card="quantity"]')!.textContent!, /126/);
+  const fiscal = overviewCards()[0]; assert.match(fiscal.textContent!, /Faltan datos fiscales/); assert.match(fiscal.textContent!, /60/);
+  assert.doesNotMatch(document.querySelector('[data-testid="records-overview-preview"]')!.textContent!, /Listos para exportar|Ya exportados|Por aprobar|Por revisar/);
+  const before = sentFilters(page).length;
+  await page.click(fiscal); await page.settle(() => sentFilters(page).length > before);
+  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["needs_fiscal_data"]);
+  assert.equal(document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed"), "true");
+  assert.ok(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
+  await page.click(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
+  await page.settle(() => document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "false");
 });
 
-test("a server without the exported count leaves that card unknown and never shows a number", async () => {
+test("a server without the fiscal count leaves the action unknown", async () => {
   const page = await mount();
   page.fixture.controls.overview = { needs_review: 0, ready_for_export: 126 };
   await page.click(document.querySelector('[data-testid="records-refresh"]'));
-  await page.settle(() => document.querySelector('[data-overview-filter="export"]')?.textContent?.includes("126") ?? false);
-  assert.equal(document.querySelector<HTMLButtonElement>('[data-overview-filter="exported"]')!.disabled, true);
-  assert.equal(document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!.disabled, true);
+  await page.settle(() => document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')?.disabled === true);
+  assert.equal(document.querySelector('[data-overview-filter="exported"]'), null);
 });
 
 test("the Bandeja line shows the receipt activity count the sidebar shows, opens the Bandeja, and hides at zero or unknown", async () => {
@@ -303,7 +299,7 @@ test("sales card one shows the server document totals per currency and later car
   assert.equal(summary.getAttribute('data-summary-kind'), 'venta');
   assert.equal(cards().length, 3);
   assert.deepEqual(amounts(cards()[0]), ['RD$6,200.00', 'US$100.00']);
-  assert.match(cards()[0].textContent!, /Facturado/);
+  assert.match(cards()[0].textContent!, /Ventas/);
   for (const later of cards().slice(1)) { assert.equal(later.querySelectorAll('.cuadrao-amount').length, 0); assert.match(later.textContent!, /-/); }
   assert.equal(document.body.textContent?.includes('Cobros, pagos y saldos pendientes aún no están disponibles.'), true);
   // Registros lists approved records only, so no total ever includes a document still to review or approve.
@@ -314,7 +310,7 @@ test("sales card one shows the server document totals per currency and later car
 test("expense card one keeps an unknown currency unknown and never invents a code or zero", async () => {
   await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: 'all' }, record_families: ['purchase'] } }) });
   const [first, second] = [...cards()[0].querySelectorAll("[data-currency], .currencyRow, dd > div")];
-  assert.match(cards()[0].textContent!, /Gastos/);
+  assert.match(cards()[0].textContent!, /Compras/);
   assert.equal(first.textContent, 'RD$6,200.00');
   assert.match(second.textContent!, /^Sin moneda-/);
   assert.equal(cards()[0].querySelectorAll('.cuadrao-amount').length, 1);

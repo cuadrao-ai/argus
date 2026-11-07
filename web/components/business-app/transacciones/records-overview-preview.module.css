@@ -1,87 +1,60 @@
 .overview { margin:0 0 20px; }
-.cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-
-@media (min-width: 1024px) {
-  .overview { margin: 0 0 28px; }
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 22px;
-  }
-}
-
-.card {
-  display: flex;
-  min-width: 0;
-  min-height: 180px;
-  flex-direction: column;
-  padding: 22px;
-  border: 1px solid rgb(50 35 30 / 8%);
-  border-radius: 30px;
-  color: #422f29;
-}
-
-.review { background: #f8b69f; }
-.fiscal { background: #f8b69f; }
-.export { --workflow-ink:#2f5a49; background:#B8D0BE; }
-.exported { background: #e9e4dc; }
-
-.waiting { margin: 12px 0 0; font-size: 14px; line-height: 1.4; color: #56635e; }
-.waitingLink { font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; background: none; border: 0; padding: 0; }
-.waitingLink:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-
-.heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  line-height: 1.4;
-  text-align: right;
-  text-transform: uppercase;
-}
-
-.heading svg { flex-shrink: 0; }
-
-.count {
-  margin: auto 0 0;
-  padding-top: 24px;
-  font-size: 44px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  letter-spacing: -0.035em;
-}
-
-.description {
-  margin: 10px 0 0;
-  font-size: 14px;
-  line-height: 1.4;
-  color: rgb(66 47 41 / 80%);
-}
-
-:global(.dark) .card {
-  color: #f8eee7;
-  border-color: rgb(255 255 255 / 9%);
-}
-
-:global(.dark) .review { background: #50382f; }
-:global(.dark) .fiscal { background: #50382f; }
+.cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-auto-rows:1fr; gap:10px; }
+.card { display:flex; min-width:0; min-height:172px; flex-direction:column; padding:16px; border:1px solid rgb(50 35 30 / 8%); border-radius:30px; color:#422f29; text-align:left; font:inherit; }
+.total, .goods { background:#e9e4dc; }
+.itbis, .services { background:#dce8de; }
+.quantity { background:#f1e3d7; }
+.review, .fiscal { background:#f8b69f; }
+.export { --workflow-ink:#2f5a49; background:#b8d0be; }
+.exported { background:#e9e4dc; }
+.heading { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; font-size:12px; font-weight:600; line-height:1.4; text-align:right; }
+.heading svg { flex-shrink:0; }
+.values { margin-top:13px; }
+.currencyGroup + .currencyGroup { margin-top:10px; }
+.currency { display:block; font-size:10px; font-weight:600; letter-spacing:.04em; }
+.family { display:flex; flex-wrap:wrap; align-items:baseline; column-gap:6px; }
+.family + .family { margin-top:5px; }
+.familyLabel { font-size:11px; }
+.moneyValue { min-width:0; font-size:clamp(12px,1.5vw,20px); line-height:1.35; font-weight:500; font-variant-numeric:tabular-nums; letter-spacing:-.035em; overflow-wrap:anywhere; }
+.amount { white-space:normal; }
+.amount sup { position:relative; top:-.22em; vertical-align:baseline; font-size:.65em; }
+.partial { display:inline; margin-left:5px; font-size:11px; letter-spacing:normal; }
+.partial .amount { font-size:clamp(12px,1.4vw,18px); }
+.count { margin-top:16px; font-size:38px; font-weight:500; font-variant-numeric:tabular-nums; line-height:1; letter-spacing:-.035em; }
+.footer { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:8px; margin-top:auto; padding-top:10px; }
+.helper { display:block; flex-basis:100%; font-size:11px; line-height:1.4; color:rgb(66 47 41 / 80%); }
+.footer svg { flex-shrink:0; }
+.helpers { flex-basis:100%; }
+.helpers:empty { display:none; }
+.lineHelpers + .lineHelpers { margin-top:5px; }
+.action .footer { flex-wrap:nowrap; }
+.action .helper { flex:1; flex-basis:auto; }
+.breakdown { display:inline-flex; align-items:center; gap:3px; padding:0; border:0; background:none; color:inherit; font-size:11px; text-align:left; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.breakdown:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.breakdownList { padding:16px 24px 32px; }
+.breakdownList .currencyGroup { padding:14px 0; border-bottom:1px solid rgb(128 128 128 / 20%); }
+.breakdownList .moneyValue { font-size:22px; }
+.action { cursor:pointer; transition:box-shadow .15s, background-color .15s; }
+.action:hover:not(:disabled) { background:#f5a78c; box-shadow:inset 0 0 0 1px currentColor; }
+.action:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.action[aria-pressed="true"] { box-shadow:inset 0 0 0 2px currentColor; }
+.action:disabled { cursor:default; }
+.waiting { margin:12px 0 0; font-size:14px; line-height:1.4; color:#56635e; }
+.waitingLink { font:inherit; color:inherit; text-decoration:underline; text-underline-offset:4px; cursor:pointer; background:none; border:0; padding:0; }
+.waitingLink:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+:global(.dark) .card { color:#f8eee7; border-color:rgb(255 255 255 / 9%); }
+:global(.dark) .total, :global(.dark) .goods, :global(.dark) .quantity { background:#3a3632; }
+:global(.dark) .itbis, :global(.dark) .services { background:#293b32; }
+:global(.dark) .review, :global(.dark) .fiscal { background:#50382f; }
+:global(.dark) .action:hover:not(:disabled) { background:#644235; }
 :global(.dark) .export { --workflow-ink:#8fcbb0; background:#293b32; }
-:global(.dark) .exported { background: #3a3632; }
-:global(.dark) .waiting { color: rgb(255 255 255 / 65%); }
-:global(.dark) .description { color: rgb(248 238 231 / 75%); }
-
-.card { text-align:left; cursor:pointer; font:inherit; }
-.card:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
-.card[aria-pressed="true"] { box-shadow:inset 0 0 0 2px currentColor; }
-.card:disabled { cursor:default; }
+:global(.dark) .exported { background:#3a3632; }
+:global(.dark) .waiting { color:rgb(255 255 255 / 65%); }
+:global(.dark) .helper { color:rgb(248 238 231 / 75%); }
 @media(max-width:1023px) {
-  .card { min-height:112px; padding:12px; border-radius:16px; }
-  .heading { font-size:10px; gap:6px; text-align:left; flex-direction:column; align-items:flex-start; }
-  .heading svg { width:17px; height:17px; }
-  .count { padding-top:12px; font-size:28px; }
-  .description { display:none; }
+  .card { padding:10px; border-radius:16px; }
+  .heading { font-size:10px; gap:4px; }
+  .heading svg { width:16px; height:16px; }
+  .count { font-size:30px; }
+  .familyLabel, .helper, .breakdown { font-size:10px; }
 }
