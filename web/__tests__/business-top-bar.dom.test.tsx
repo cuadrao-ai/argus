@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, describe, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
@@ -142,6 +142,55 @@ describe("the Business top bar on a desktop", () => {
     await page.act(async () => add.click());
     await page.settle(() => (document.body.textContent ?? "").includes("Elegir archivos"), "the upload sheet");
   });
+
+  for (const status of [429, 503]) {
+    test(`session recovery stops a ${status} upload retry and the file behind it`, async () => {
+      const { observeBrowserAuth } = await import("@/lib/browser-auth-generation");
+      const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+      observeBrowserAuth("test-upload-owner");
+      const [receipt] = await createFixtureBusinessDataSource().receipts("inbox");
+      const reply = Promise.withResolvers<typeof receipt>();
+      const sent: string[] = [];
+      const noNetwork = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected network request"));
+      let page: Awaited<ReturnType<typeof mount>> | undefined;
+      try {
+        page = await mount({ overrides: {
+          mode: "live",
+          ensureSpace: async () => ({ id: "fixture-space", name: "Mi negocio" }),
+          uploadReceipt: async (file) => {
+            sent.push(file.name);
+            return sent.length === 1 ? reply.promise : receipt;
+          },
+        } });
+        await page.ready();
+        const add = page.bar().querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]');
+        assert.ok(add);
+        await page.act(async () => add.click());
+        const picker = () => document.querySelector<HTMLInputElement>('input[type="file"]:not([capture])');
+        await page.settle(() => picker() !== null, "the file picker");
+        const input = picker();
+        assert.ok(input);
+        const transfer = new DataTransfer();
+        for (const name of ["first.jpg", "waiting.jpg"]) transfer.items.add(new File([name], name, { type: "image/jpeg" }));
+        await page.act(async () => {
+          input.files = transfer.files;
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        assert.deepEqual(sent, ["first.jpg"]);
+        await page.act(async () => { reply.reject(Object.assign(new Error("try again"), { status, retryAfterMs: 250 })); });
+
+        observeBrowserAuth(null);
+        await page.unmount();
+        observeBrowserAuth("test-upload-owner");
+        await new Promise((resolve) => setTimeout(resolve, status === 429 ? 300 : 2_100));
+        assert.deepEqual(sent, ["first.jpg"]);
+      } finally {
+        await page?.unmount();
+        observeBrowserAuth(null);
+        noNetwork.mockRestore();
+      }
+    });
+  }
 
   test("a copy the browser refuses opens Negocio, Correo de recibos, where the address is, and shows no toast", async () => {
     const page = await mount();

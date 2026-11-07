@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import {
   listConversations,
@@ -33,6 +33,7 @@ export function useActiveConversationTitle({
   isStreamingResponse,
   isChatViewActive,
   placeholder,
+  retired,
 }: {
   conversationId: string | null;
   activeHistoryChat: HistoryItem | null;
@@ -40,6 +41,7 @@ export function useActiveConversationTitle({
   isStreamingResponse: boolean;
   isChatViewActive: boolean;
   placeholder: string;
+  retired?: RefObject<boolean>;
 }): {
   activeTitleRecord: ActiveTitleRecord | null;
   headerConversationTitle: string;
@@ -97,8 +99,8 @@ export function useActiveConversationTitle({
   const headerConversationTitleSource = activeTitleRecord?.title_source ?? null;
 
   useEffect(() => {
-    document.title = conversationTabTitle(activeTitleRecord, isChatViewActive);
-  }, [isChatViewActive, activeTitleRecord, surface]);
+    if (!retired?.current) document.title = conversationTabTitle(activeTitleRecord, isChatViewActive);
+  }, [isChatViewActive, activeTitleRecord, surface, retired]);
 
   return {
     activeTitleRecord,

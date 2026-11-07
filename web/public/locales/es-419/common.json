@@ -1563,6 +1563,14 @@
       "session_ended": "Tu sesión terminó. Entra de nuevo.",
       "try_again": "Intentar de nuevo"
     },
+    "session_recovery": {
+      "checking": "Comprobando tu sesión…",
+      "different_owner_detail": "Este espacio se cerró para no mezclar información entre cuentas.",
+      "different_owner_title": "Cambió la cuenta activa",
+      "error_title": "No pudimos comprobar tu sesión",
+      "missing_detail": "No hay una sesión activa en este navegador.",
+      "missing_title": "Inicia sesión para continuar"
+    },
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
       "captcha_unavailable": "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
