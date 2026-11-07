@@ -18910,6 +18910,13 @@ components:
           $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
           $ref: '#/components/schemas/ReceiptLimits'
+        records_default_currency:
+          type: string
+          enum:
+          - DOP
+          - USD
+          - EUR
+          description: Server-owned initial Registros currency, currently DOP, independent of the Business currency.
         logo_url:
           anyOf:
           - type: string
@@ -18927,6 +18934,7 @@ components:
       - notifications_available
       - receiving_channels
       - receipt_limits
+      - records_default_currency
     CallbackRequest:
       properties:
         code:

@@ -50,7 +50,7 @@ afterEach(async () => {
   search = "";
 });
 
-async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: string; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string } = {}) {
+async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, recordsDefaultCurrency = "DOP", expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: string; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string; recordsDefaultCurrency?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   search = view ? `view=${view}` : "";
   const { act } = await import("react");
@@ -78,6 +78,7 @@ async function mount({ enabled = true, width = 1440, language = "es-419", transa
     workspace: async () => {
       const workspace: Record<string, unknown> = { ...(await fixture.workspace()) };
       delete workspace.currency;
+      workspace.records_default_currency = recordsDefaultCurrency;
       return businessCurrency ? { ...workspace, currency: businessCurrency } : workspace;
     },
     captures: async () => ({ items: [] }),
@@ -142,7 +143,7 @@ async function mount({ enabled = true, width = 1440, language = "es-419", transa
   const click = (node: Element | null) => act(async () => { (node as HTMLElement).click(); });
   const key = (target: Element, value: string) => act(async () => { target.dispatchEvent(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true })); });
   const body = () => document.body.textContent ?? "";
-  return { act, host, screen, grid, row, rows, records, segment, ready, settle, click, key, body, unmount, api: () => api! };
+  return { act, host, screen, grid, row, rows, records, segment, ready, settle, click, key, body, unmount, api: () => api!, setRecordsDefaultCurrency: (currency: "DOP" | "USD" | "EUR") => { recordsDefaultCurrency = currency; } };
 }
 
 const EMPTY_OVERVIEW = { from: "2026-10-01", to: "2026-10-20", today: "2026-10-20", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null };
@@ -213,7 +214,7 @@ describe("the gate", () => {
     Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
     try {
       const items = Array.from({ length: 65 }, (_, index) => ({ id: `page-${index}`, merchant: `Sample ${index}`, amount: "24.00", currency: "USD", category_id: null, account_id: null, occurred_on: `2026-10-${String(index % 20 + 1).padStart(2, "0")}`, receipt_id: null }));
-      const page = await mount({ enabled: false, transacciones: await recordsOf(items) });
+      const page = await mount({ enabled: false, recordsDefaultCurrency: "USD", transacciones: await recordsOf(items) });
       await page.settle(() => page.records().length === 25, "first local page");
       const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
       assert.match(footer().textContent ?? "", /1–25 de 65/);
@@ -348,7 +349,7 @@ describe("the gate", () => {
       ];
       const page = await mount({ enabled: false, transacciones: await recordsOf(items, {}, items) });
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
-      await page.settle(() => page.records().length === 6, "fixture scope summary");
+      await page.settle(() => page.records().length === 4, "fixture scope summary");
       assert.equal(summary(), null, "Todos has no monetary summary");
       assert.equal(document.querySelectorAll('thead th').length, 8);
       assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
@@ -359,22 +360,22 @@ describe("the gate", () => {
       assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]')!.textContent, "RD$");
       assert.ok(amount.querySelector(".cuadrao-amount"), "document amount respects privacy masking");
       assert.equal(page.records()[0].querySelector('[data-col="detalle"]')!.textContent, "Compra");
-      await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Filtros")!);
+      await page.click([...document.querySelectorAll("button")].find((node) => node.textContent?.startsWith("Filtros"))!);
       await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Compra")!);
       await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
-      assert.equal(page.records().length, 3);
+      assert.equal(page.records().length, 2);
       assert.equal(summary(), null, "family filter reveals no subcards");
       const total = document.querySelector<HTMLButtonElement>('[data-overview-card="total"] button[aria-controls]')!;
       await page.click(total);
       assert.equal(summary()!.querySelectorAll("[data-summary-part]").length, 1);
-      assert.deepEqual([...summary()!.querySelectorAll(".cuadrao-amount")].map((node) => node.textContent), ["RD$2,100.00", "US$24.00"]);
+      assert.deepEqual([...summary()!.querySelectorAll(".cuadrao-amount")].map((node) => node.textContent), ["RD$2,100.00"]);
       assert.match(summary()!.textContent!, /1 personal/);
       assert.doesNotMatch(summary()!.textContent!, /3,350|1,250/);
       assert.doesNotMatch(summary()!.textContent!, /Pagado|Por pagar|Cobrado|Por cobrar/);
       const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
-      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nube"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Estación"); input.dispatchEvent(new Event("input", { bubbles: true })); });
       assert.equal(page.records().length, 1);
-      assert.deepEqual([...summary()!.querySelectorAll(".cuadrao-amount")].map((node) => node.textContent), ["US$24.00"]);
+      assert.deepEqual([...summary()!.querySelectorAll(".cuadrao-amount")].map((node) => node.textContent), ["RD$2,100.00"]);
       await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
       assert.equal(page.records().length, 2);
       assert.ok(summary(), "family filter does not control the Total subcard");
@@ -983,7 +984,7 @@ test("new local business has no sample sales or bank movements", async () => {
   }
 });
 
-for (const language of ["es-419", "en"]) test(`shared currency filter updates rows, cards, footer and removable chip in ${language}`, async () => {
+for (const language of ["es-419", "en"]) test(`shared currency filter updates rows, cards, footer and permanent chip in ${language}`, async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -993,30 +994,30 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
       { id: "exp-lunch", merchant: "Comedor Doña Ana", amount: "1250.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-23", receipt_id: null },
     ];
     const page = await mount({ enabled: false, language, transacciones: await recordsOf(items, {}, items) });
-    await page.settle(() => page.records().length === 6, "loaded six records");
+    await page.settle(() => page.records().length === 4, "loaded default-currency records");
     const es = language === "es-419";
     const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
+    const chooseUsd = () => page.click(document.querySelector('input[name="records-currency"][value="USD"]'));
     const open = async () => {
       await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
       await page.click(document.querySelector('[data-group="amount"]'));
     };
-    await open(); await clickText("USD"); await clickText(es ? "Aplicar" : "Apply");
+    await open(); await chooseUsd(); await clickText(es ? "Aplicar" : "Apply");
     assert.equal(page.records().length, 2);
     const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
     assert.match(footer().textContent ?? "", es ? /1–2 de 2/ : /1–2 of 2/);
     assert.equal(footer().dataset.page, "1");
     assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null, "currency alone does not create a mixed summary");
     const removeCurrency = es ? "Quitar filtro Moneda" : "Remove filter Currency";
-    assert.ok(document.querySelector(`button[aria-label="${removeCurrency}"]`));
-    await page.click(document.querySelector(`button[aria-label="${removeCurrency}"]`));
-    assert.equal(page.records().length, 6);
-    await open(); await clickText("USD");
+    assert.equal(document.querySelector(`button[aria-label="${removeCurrency}"]`), null);
+    assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')!.textContent!, /USD/);
+    await open(); await chooseUsd();
     const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
     await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, "25"); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
     await clickText(es ? "Aplicar" : "Apply");
     assert.equal(page.records().length, 0);
     assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
-    assert.ok(document.querySelector(`button[aria-label="${es ? "Quitar filtro Moneda y monto" : "Remove filter Currency and amount"}"]`));
+    assert.equal(document.querySelector(`button[aria-label="${es ? "Quitar filtro Moneda y monto" : "Remove filter Currency and amount"}"]`), null);
     const empty = document.querySelector('[data-empty-kind="filtered"]')!;
     assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
     assert.equal(empty.querySelector("p"), null, "a filtered empty state has no body line"); assert.equal(empty.querySelector("button"), null, "and no clear action of its own");
@@ -1024,8 +1025,8 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     assert.equal(clears.length, 1, "the pill row's Limpiar filtros is the only clear action");
     const clear = clears.at(-1)!;
     await page.click(clear);
-    assert.equal(page.records().length, 6, "empty-result clear also clears the shared currency/amount filter");
-    assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+    assert.equal(page.records().length, 2, "empty-result clear keeps currency and clears amount limits");
+    assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')!.textContent!, /USD/);
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
@@ -1041,13 +1042,13 @@ for (const width of [1440, 390]) test(`fixture overview shows sample purchases a
       { id: "exp-lunch", merchant: "Comedor Doña Ana", amount: "1250.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-23", receipt_id: null },
     ];
     const page = await mount({ enabled: false, width, transacciones: await recordsOf(items, {}, items) });
-    await page.settle(() => page.records().length === 6, "six fixture records");
+    await page.settle(() => page.records().length === 4, "four default-currency fixture records");
     const overview = document.querySelector('[data-testid="records-overview-preview"]')!;
     assert.equal(overview.querySelectorAll("[data-overview-card]").length, 6);
     const total = overview.querySelector('[data-overview-card="total"]')!;
-    assert.deepEqual([...total.querySelectorAll(".cuadrao-amount")].map((node) => node.getAttribute("aria-label")), ["DOP 2,100.00", "USD 24.00"]);
+    assert.deepEqual([...total.querySelectorAll(".cuadrao-amount")].map((node) => node.getAttribute("aria-label")), ["DOP 2,100.00"]);
     assert.doesNotMatch(total.textContent!, /3,350|1,250/, "personal purchases stay outside sample totals");
-    assert.equal(overview.querySelectorAll(".cuadrao-amount").length, 6, "sample money retains privacy masking");
+    assert.equal(overview.querySelectorAll(".cuadrao-amount").length, 3, "sample money retains privacy masking");
     const fiscal = overview.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!;
     assert.equal(fiscal.disabled, false);
     assert.equal(fiscal.querySelector(".font-display")?.textContent, "1");
@@ -1056,11 +1057,11 @@ for (const width of [1440, 390]) test(`fixture overview shows sample purchases a
     assert.equal(fiscal.getAttribute("aria-pressed"), "true");
     assert.ok(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
     await page.click(fiscal);
-    assert.equal(page.records().length, 6);
+    assert.equal(page.records().length, 4);
     assert.equal(fiscal.getAttribute("aria-pressed"), "false");
     assert.equal(document.querySelector('button[aria-label="Quitar filtro Revisión"]'), null);
-    assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, "1–6 de 6 registros");
-    assert.equal(overview.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "6");
+    assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, "1–4 de 4 registros");
+    assert.equal(overview.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "4");
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
@@ -1071,7 +1072,7 @@ test("local header and phone sorts share preference state, reset pages and resto
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
     const items = Array.from({ length: 30 }, (_, index) => ({ id: `sort-${index}`, merchant: `Sample ${String(index).padStart(2, "0")}`, amount: `${index + 1}.00`, currency: "USD", category_id: null, account_id: null, occurred_on: `2026-10-${String(index % 20 + 1).padStart(2, "0")}`, receipt_id: null }));
-    const page = await mount({ enabled: false, transacciones: await recordsOf(items) });
+    const page = await mount({ enabled: false, recordsDefaultCurrency: "USD", transacciones: await recordsOf(items) });
     await page.settle(() => page.records().length === 25, "sorting rows");
     const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
     const count = () => document.querySelector('[data-testid="records-count"]')!.textContent;
@@ -1105,7 +1106,7 @@ test("local header and phone sorts share preference state, reset pages and resto
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
-test("amount sort explains mixed currency and resumes after a single-currency filter", async () => {
+test("amount sort stays available when changing the single currency", async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -1115,36 +1116,21 @@ test("amount sort explains mixed currency and resumes after a single-currency fi
       { id: "dop", merchant: "Pesos", amount: "2000.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-24", receipt_id: null },
     ];
     const page = await mount({ enabled: false, transacciones: await recordsOf(items) });
-    await page.settle(() => page.records().length === 3, "mixed sorting rows");
-    const amountButton = () => document.querySelector('th[data-col="monto"] button')!;
-    assert.equal(amountButton().getAttribute("aria-disabled"), "true");
-    await page.click(amountButton());
-    assert.match(document.querySelector('[data-testid="records-page-preview"] [role="status"]')!.textContent!, /Elige una moneda/);
-    assert.equal(document.querySelector('th[data-col="fecha"]')?.getAttribute("aria-sort"), "descending");
-    const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
-    const chooseUsd = async () => {
-      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith("Filtros"))!);
-      await page.click(document.querySelector('[data-group="amount"]')); await clickText("USD"); await clickText("Aplicar");
-    };
-    await chooseUsd(); await page.click(amountButton());
-    assert.equal(page.records()[0].dataset.recordId, "usd-large");
-    await page.click(document.querySelector('button[aria-label="Quitar filtro Moneda"]'));
-    assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), null);
-    assert.equal(document.querySelector('th[data-col="fecha"]')?.getAttribute("aria-sort"), "descending");
-    assert.match(document.querySelector('[data-testid="records-page-preview"] [role="status"]')!.textContent!, /Ordenados por fecha/);
-    const surface = document.querySelector<HTMLElement>('[data-testid="records-page-preview"] > div')!;
-    await page.act(async () => { surface.style.setProperty("--records-narrow", "1"); window.dispatchEvent(new Event("resize")); });
-    await clickText("Más recientes primero");
-    const amountOption = [...document.querySelectorAll("button")].find((node) => node.textContent === "Monto: mayor primero")!;
-    assert.equal(amountOption.getAttribute("aria-disabled"), "true");
-    await page.click(amountOption);
-    await page.act(async () => { surface.style.setProperty("--records-narrow", "0"); window.dispatchEvent(new Event("resize")); });
-    await chooseUsd();
+    await page.settle(() => page.records().length === 1, "default currency sorting rows");
+    const amountButton = document.querySelector('th[data-col="monto"] button')!;
+    assert.notEqual(amountButton.getAttribute("aria-disabled"), "true");
+    await page.click(amountButton);
+    await page.click(document.querySelector('[data-testid="records-preview-filter-chips"] button'));
+    await page.click(document.querySelector('input[name="records-currency"][value="USD"]'));
+    await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
+    assert.equal(page.records().length, 2);
     assert.equal(page.records()[0].dataset.recordId, "usd-large");
     assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), "descending");
+    assert.equal(document.querySelector('button[aria-label="Quitar filtro Moneda"]'), null);
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
+
 
 test("phone legacy Registros keeps its export button and existing export sheet", async () => {
   const page = await mount({ enabled: false, width: 390 });
@@ -1153,4 +1139,16 @@ test("phone legacy Registros keeps its export button and existing export sheet",
   assert.ok(button);
   await page.click(button);
   await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
+});
+
+
+test("the legacy records entry recovers a settled invalid workspace default through Retry", async () => {
+  const page = await mount({ enabled: false, recordsDefaultCurrency: "CAD" });
+  await page.settle(() => document.querySelector('[data-empty-kind="error"]') !== null, "workspace currency error");
+  assert.equal(page.records().length, 0);
+  page.setRecordsDefaultCurrency("DOP");
+  await page.click([...document.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!);
+  await page.settle(() => page.records().length > 0, "records after rereading the workspace");
+  assert.equal(document.querySelector('[data-empty-kind="error"]'), null);
+  await page.unmount();
 });

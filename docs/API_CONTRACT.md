@@ -10637,10 +10637,17 @@ accept path recorded.
   invitation expiry time, preserving the 30-day history window. Notification failure logs a safe classification and
   never fails the source action. This backend slice enables no hosted setting.
 
-- GET `/api/v1/business/workspace` returns `{country, currency, accounts,
+- GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
   receipt_limits: {max_bytes, media_types}, logo_url}`. `country` and `currency` are the Business's own,
-  the same values `GET /business/space` returns. `accounts` lists unarchived cash, checking, savings and credit
+  the same values `GET /business/space` returns. `records_default_currency` is the
+  server-owned initial Registros selection, currently DOP, independent of the
+  Business currency. Its supported values are DOP, USD and EUR. The web waits for
+  the current grant's workspace before the first report request. A valid singleton
+  URL or view takes precedence. Registros always sends exactly one code in
+  `filters.currencies`; table, cards and export share that request. Clear keeps
+  the selected currency; switching clears amount bounds without conversion.
+  The generic report API retains its broader currency-array contract. `accounts` lists unarchived cash, checking, savings and credit
   card accounts. `currencies` lists their currencies. The limits come from the
   document settings. `chat_available` is true only while
   `ARGUS_BUSINESS_CHAT_ENABLED` is on; while it is false `/biz` shows no

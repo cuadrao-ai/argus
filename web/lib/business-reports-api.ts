@@ -14,6 +14,8 @@ const family = z.enum(["sale", "purchase"]);
 const stage = z.enum(["needs_review", "needs_fiscal_data", "ready_for_export", "exported"]);
 export type ReportStage = z.infer<typeof stage>;
 const documentKind = z.enum(["invoice", "receipt", "credit_note", "unknown"]);
+export const recordsCurrencySchema = z.enum(["DOP", "USD", "EUR"]);
+export type RecordsCurrency = z.infer<typeof recordsCurrencySchema>;
 /** The document kinds the server's projection names on a row, so Filtros offers only kinds a record can match. The contract still accepts the others. */
 export const REPORT_DOCUMENT_KINDS = ["credit_note", "unknown"] as const satisfies readonly z.infer<typeof documentKind>[];
 const effect = z.enum(["known", "unknown", "unsupported"]);

@@ -827,6 +827,7 @@ def get_workspace(
     space_id = context.scope.owner.space_id
     workspace = {
         **context.service.workspace(context.scope),
+        "records_default_currency": context.scope.records_default_currency,
         "invoicing_available": invoicing_available(request),
         "notifications_available": notifications_available(),
         "receiving_channels": {

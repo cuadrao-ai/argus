@@ -1,8 +1,10 @@
 "use client";
 
+import FullscreenLoading from "@/components/FullscreenLoading";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Check, SlidersHorizontal } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import { recordsCurrencySchema } from "@/lib/business-reports-api";
 import { currencySymbol } from "@/lib/money-entry";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -38,7 +40,7 @@ import { TransaccionesList } from "./TransaccionesList";
 import { TransaccionesTable } from "./TransaccionesTable";
 import { TransaccionesTray } from "./TransaccionesTray";
 import { useTransaccionesWords } from "./transacciones-words";
-import BusinessReportsPanel from "./BusinessReportsPanel";
+import BusinessReportsPanel, { RecordsWorkspaceUnavailable } from "./BusinessReportsPanel";
 import { useTransacciones } from "./useTransacciones";
 
 /**
@@ -49,9 +51,11 @@ import { useTransacciones } from "./useTransacciones";
  * ventas in the same columns, each opening its record.
  */
 export default function TransaccionesPanel() {
-  const { source } = useBusiness();
+  const { source, records } = useBusiness();
   const igualar = useIgualarEnabled();
-  return source.mode === "live" && !igualar ? <BusinessReportsPanel /> : <LegacyTransaccionesPanel />;
+  if (source.mode === "live" && !igualar) return <BusinessReportsPanel />;
+  if (!recordsCurrencySchema.safeParse(records.workspace?.records_default_currency).success) return records.error || records.workspace ? <RecordsWorkspaceUnavailable /> : <FullscreenLoading />;
+  return <LegacyTransaccionesPanel />;
 }
 
 function LegacyTransaccionesPanel() {
@@ -92,7 +96,7 @@ function LegacyTransaccionesPanel() {
   const header = bank ? bank.currency ?? headerCurrency(movements, bank.accountCurrency) : null;
   const saved = view?.mode === "records" ? view.records : null;
   const [filter, setFilter] = useState<RecordsFilter>(EMPTY_RECORDS_FILTER);
-  const [previewFilters, setPreviewFilters] = useState(emptyPreviewFilters);
+  const [previewFilters, setPreviewFilters] = useState(() => emptyPreviewFilters(recordsCurrencySchema.parse(records.workspace?.records_default_currency)));
   const fiscalToggle = useFiscalStageToggle(previewFilters.review, (review) => setPreviewFilters((current) => ({ ...current, review })));
   const [previewPeriod, setPreviewPeriod] = useState(period);
   const [previewRevision, setPreviewRevision] = useState(0);
@@ -118,7 +122,7 @@ function LegacyTransaccionesPanel() {
   const add = actions.create.find((action) => action.id === "upload_receipt");
 
   // Three states, one message each: the pill row's Limpiar filtros is the only clear action; a filtered empty table says only that; a truly empty Registros keeps its first-run line.
-  const filtersActive = filter.kind !== "all" || Boolean(query) || activeFilterGroups(previewFilters).length > 0;
+  const filtersActive = filter.kind !== "all" || Boolean(query) || activeFilterGroups(previewFilters).some((group) => group !== "amount") || Boolean(previewFilters.amount.min || previewFilters.amount.max);
   const recordsEmptyContent = filtersActive
     ? <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} /></div>
     : <div className={cardClass} data-testid="transacciones-records-empty"><EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} /></div>;

@@ -58,14 +58,7 @@ test("coverage is per metric, partial and unsupported stay explicit, absent valu
 test("loading clears every old card count", async () => {
   await mount({ loading: true }); assert.doesNotMatch(card("total").textContent!, /111\.11/); assert.doesNotMatch(card("quantity").textContent!, /1,828/); assert.doesNotMatch(card("fiscal").textContent!, /71/);
 });
-test("currency overflow opens the existing sheet and returns focus", async () => {
-  const rows = ["DOP", "USD", "EUR"].map((currency) => ({ ...answer.totals[0], currency, amount: "9007199254740993.01" }));
-  await mount({ answer: { ...answer, totals: rows } }, "en");
-  const trigger = card("total").querySelector<HTMLButtonElement>("button:not([aria-controls])")!; assert.ok(trigger); assert.equal(card("total").querySelector("button button"), null); trigger.focus(); await act(async () => trigger.click());
-  assert.ok(document.querySelector('[data-testid="records-overview-breakdown"]')); assert.match(document.querySelector('[data-testid="records-overview-breakdown"]')!.textContent!, /EUR/);
-  assert.match(card("total").querySelector(".cuadrao-amount[aria-label]")!.getAttribute("aria-label")!, /9,007,199,254,740,993\.01/);
-  await act(async () => document.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!.click()); assert.equal(document.activeElement, trigger);
-});
+
 
 test("known zero is an amount while missing and unusable populated values remain unknown", async () => {
   const rows = [fiscal({ applicable_count: 1, populated_count: 1, unknown_count: 0, complete: true, amount: "0.00", known_amount: "0.00" })];
@@ -79,34 +72,11 @@ test("known zero is an amount while missing and unusable populated values remain
   assert.doesNotMatch(card("goods").textContent!, /0\.00|Parcial/); assert.equal(card("goods").querySelector("[data-overview-coverage]"), null);
 });
 
-test("coverage remains separate for each server currency and each metric", async () => {
-  await mount({ answer: { ...answer, fiscal_totals: [fiscal({}), fiscal({ currency: "USD", populated_count: 3, applicable_count: 8, unknown_count: 5, known_amount: "7.00" }), fiscal({ basis: "services", populated_count: 4, applicable_count: 25, unknown_count: 21, known_amount: "8.00" })] } });
-  assert.match(card("goods").textContent!, /DOP.*12 de 25 compras.*USD.*3 de 8 compras/);
-  assert.doesNotMatch(card("goods").textContent!, /15 de 33|12\.00/);
-  assert.match(card("services").textContent!, /4 de 25 compras/);
-});
+
 
 for (const language of ["es-419", "en"]) {
   for (const metric of ["goods", "services"] as const) {
-    test(`${language} ${metric} currency breakdown keeps partial amounts above their footer`, async () => {
-      await mount({ answer: { ...answer, fiscal_totals: ["DOP", "USD", "EUR"].map((currency) => fiscal({ basis: metric, currency })) } }, language);
-      const trigger = card(metric).querySelector<HTMLButtonElement>("button")!;
-      await act(async () => trigger.click());
-      const breakdown = document.querySelector('[data-testid="records-overview-breakdown"]')!;
-      for (const currency of ["DOP", "USD", "EUR"]) {
-        const group = breakdown.querySelector(`[data-currency="${currency}"]`)!;
-        const amount = group.querySelector(".cuadrao-amount")!;
-        const partial = group.querySelector("[data-overview-partial]")!;
-        const coverage = group.querySelector("[data-overview-coverage]")!;
-        assert.equal(amount.getAttribute("aria-label"), `${currency} 5.00`);
-        assert.equal(amount.parentElement?.textContent, `5.00${currency} 5.00`);
-        assert.ok(amount.querySelector("sup"));
-        assert.equal(partial.textContent, language === "en" ? "Partial" : "Parcial");
-        assert.equal(coverage.textContent, language === "en" ? "12 of 25 purchases" : "12 de 25 compras");
-        assert.equal(partial.parentElement, coverage.parentElement);
-        assert.ok(amount.compareDocumentPosition(partial) & Node.DOCUMENT_POSITION_FOLLOWING);
-      }
-    });
+
     test(`${language} ${metric} coverage only explains usable partial amounts`, async () => {
       const page = await mount({}, language);
       const hidden = [
@@ -181,26 +151,7 @@ for (const language of ["es-419", "en"]) {
       assert.ok(card(metric).querySelector("[data-overview-unsupported]"));
       assert.equal(card(metric).querySelector("[data-overview-coverage]"), null);
     });
-    test(`${language} ${metric} keeps partial currency qualifiers in the card and breakdown`, async () => {
-      await mount({ answer: withRows([
-        { currency: "DOP" },
-        { currency: "USD", complete: true, unknown_count: 0, amount: "18.18" },
-        { currency: "EUR", known_amount: "0.00", unsupported_count: 1 },
-      ]) }, language);
-      const footer = card(metric).lastElementChild!;
-      assert.equal(footer.querySelectorAll("[data-overview-partial]").length, 1);
-      assert.match(footer.textContent!, new RegExp(`DOP${purchasesText} · ${partialText}USD${purchasesText}`));
-      const trigger = card(metric).querySelector<HTMLButtonElement>("button:not([aria-controls])")!;
-      await act(async () => trigger.click());
-      const breakdown = document.querySelector('[data-testid="records-overview-breakdown"]')!;
-      for (const [currency, amount, partial] of [["DOP", "5.00", true], ["USD", "18.18", false], ["EUR", "0.00", true]] as const) {
-        const group = breakdown.querySelector(`[data-currency="${currency}"]`)!;
-        assert.equal(group.querySelector(".cuadrao-amount .sr-only")?.textContent, `${currency} ${amount}`);
-        assert.equal(group.querySelector("[data-overview-partial]")?.textContent, partial ? partialText : undefined);
-        assert.equal(group.querySelector("[data-overview-coverage]"), null);
-      }
-      assert.ok(breakdown.querySelector('[data-currency="EUR"] [data-overview-unsupported]'));
-    });
+
   }
 }
 
@@ -214,4 +165,15 @@ test("Fiscal only marks an exclusive stage active and keeps an active zero clear
   assert.equal(card("fiscal").getAttribute("aria-pressed"), "true");
   await act(async () => card("fiscal").click());
   assert.deepEqual(page.chosen, ["fiscal"]);
+});
+
+
+for (const currency of ["DOP", "USD", "EUR"]) test(`${currency} keeps one exact partial purchase currency and has no overflow action`, async () => {
+  await mount({ answer: { ...answer, totals: [{ ...answer.totals[0], currency, complete: false, unknown_count: 1, amount: null, known_amount: "9007199254740993.01" }], fiscal_totals: [fiscal({ currency })] } }, "en");
+  assert.equal(card("total").querySelectorAll("[data-currency]").length, 1);
+  assert.equal(card("total").querySelector(".cuadrao-amount")?.getAttribute("aria-label"), `${currency} 9,007,199,254,740,993.01`);
+  assert.match(card("total").textContent!, /Purchases.*Partial/);
+  assert.equal(card("total").querySelector("button:not([aria-controls])"), null);
+  assert.equal(card("goods").querySelectorAll("[data-currency]").length, 1);
+  assert.match(card("goods").textContent!, /Partial.*12 of 25 purchases/);
 });

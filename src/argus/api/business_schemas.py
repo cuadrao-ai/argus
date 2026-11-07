@@ -147,6 +147,7 @@ class BusinessWorkspace(_Wire):
     notifications_available: bool
     receiving_channels: ReceivingChannels
     receipt_limits: ReceiptLimits
+    records_default_currency: Literal["DOP", "USD", "EUR"]
     logo_url: str | None = None
 
 

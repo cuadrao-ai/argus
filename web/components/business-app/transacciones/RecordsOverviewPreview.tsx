@@ -1,8 +1,7 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
-import { Banknote, ChevronDown, ChevronRight, ChevronUp, ClipboardList, FileSearch, Filter, Hash, Package, Wallet, type LucideIcon } from "lucide-react";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import type { ReactNode } from "react";
+import { Banknote, ChevronDown, ChevronUp, ClipboardList, FileSearch, Filter, Hash, Package, Wallet, type LucideIcon } from "lucide-react";
 import type { ReportAnswer, ReportFiscalTotal, ReportTotal } from "@/lib/business-reports-api";
 import { formatAmount } from "../business-format";
 import { PURCHASE_TOTAL_ID } from "./RecordsResultsSummary";
@@ -48,22 +47,17 @@ function AmountValue({ line }: { line: AmountLine | undefined }) {
 
 function MoneyCard({ metric, icon, answer, loading, totalAction }: { metric: MoneyMetric; icon: LucideIcon; answer: ShelfAnswer | undefined; loading: boolean; totalAction?: { expanded: boolean; toggle: () => void } }) {
   const { t } = useTransaccionesWords();
-  const [expanded, setExpanded] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
   const title = t(`${PREFIX}${metric}.title`);
   const lines = metric === "total" ? answer?.totals.filter((line) => line.basis === "document_family_amount") ?? [] : answer?.fiscal_totals?.filter((line) => line.basis === metric) ?? [];
-  const applicable = lines.filter((line) => line.kind === "expense");
-  const currencies = [...new Set(applicable.map((line) => line.currency))];
-  const visible = currencies.length ? currencies.slice(0, 2) : [null];
+  const line = lines.find((line) => line.kind === "expense");
   const showSkeleton = useDelayedPending(loading);
   const purchaseMetric = metric === "total" || metric === "itbis";
-  const helpers = (line: AmountLine | undefined, currency: string | null, labelCurrency: boolean) => {
+  const helpers = (line: AmountLine | undefined) => {
     if (!line) return null;
     const showPartial = !line.complete && usableKnownAmount(line) !== null;
     const showCoverage = !purchaseMetric && showPartial && "populated_count" in line && line.populated_count < line.applicable_count;
     if (!purchaseMetric && !showPartial && line.unsupported_count === 0) return null;
-    return <div key={`${currency}:${line.kind}`} className={styles.lineHelpers}>
-      {labelCurrency ? <span className={styles.currency}>{currency ?? t("business.transactions.layout.results.no_currency")}</span> : null}
+    return <div className={styles.lineHelpers}>
       {purchaseMetric ? <span className={styles.helper}>{t(`${PREFIX}purchases`)}{showPartial ? <> <span aria-hidden="true">·</span> <span data-overview-partial>{t(`${PREFIX}partial_placeholder`)}</span></> : null}</span> : showPartial ? <div className={styles.partialSummary}>
         <span className={styles.helper} data-overview-partial>{t(`${PREFIX}partial_placeholder`)}</span>
         {showCoverage && "populated_count" in line ? <span className={`${styles.helper} ${styles.coverage}`} data-overview-coverage>{t(`${PREFIX}coverage_placeholder`, { populated: line.populated_count, applicable: line.applicable_count })}</span> : null}
@@ -71,24 +65,17 @@ function MoneyCard({ metric, icon, answer, loading, totalAction }: { metric: Mon
       {line.unsupported_count > 0 ? <span className={styles.helper} data-overview-unsupported>{t(`${PREFIX}unsupported_placeholder`, { count: line.unsupported_count })}</span> : null}
     </div>;
   };
-  const values = (currency: string | null, showHelpers: boolean) => <div className={styles.currencyGroup} key={currency ?? "unknown"} data-currency={currency ?? undefined}>
-    {currencies.length ? <span className={styles.currency}>{currency ?? t("business.transactions.layout.results.no_currency")}</span> : null}
-    <div className={styles.family} data-family="purchase">
-      <div className={styles.moneyValue}>{loading ? <span aria-hidden="true" style={{ visibility: showSkeleton ? "visible" : "hidden" }}><RecordsLoadingBar overview /></span> : <AmountValue line={applicable.find((line) => line.currency === currency)} />}</div>
-      {showHelpers ? helpers(applicable.find((line) => line.currency === currency), currency, false) : null}
-    </div>
-  </div>;
-  const close = () => { setExpanded(false); trigger.current?.focus(); };
   return <div className={`${styles.card} ${styles[metric]}`} data-overview-card={metric}>
     <Heading icon={icon} title={title} />
     {totalAction ? <button type="button" className={styles.totalAction} aria-label={title} aria-expanded={totalAction.expanded} aria-controls={PURCHASE_TOTAL_ID} onClick={totalAction.toggle}>{totalAction.expanded ? <ChevronUp size={19} aria-hidden="true" /> : <ChevronDown size={19} aria-hidden="true" />}</button> : null}
-    <div className={styles.values}>{visible.map((currency) => values(currency, false))}</div>
+    <div className={styles.values}><div className={styles.currencyGroup} data-currency={line?.currency ?? undefined}>
+      {line ? <span className={styles.currency}>{line.currency ?? t("business.transactions.layout.results.no_currency")}</span> : null}
+      <div className={styles.family} data-family="purchase"><div className={styles.moneyValue}>{loading ? <span aria-hidden="true" style={{ visibility: showSkeleton ? "visible" : "hidden" }}><RecordsLoadingBar overview /></span> : <AmountValue line={line} />}</div></div>
+    </div></div>
     <div className={styles.footer}>
-      <div className={styles.helpers}>{applicable.filter((line) => visible.includes(line.currency)).map((line) => helpers(line, line.currency, visible.length > 1))}</div>
-      {purchaseMetric && applicable.length === 0 ? <span className={styles.helper}>{t(`${PREFIX}purchases`)}</span> : null}
-      {currencies.length > 2 ? <button ref={trigger} type="button" className={styles.breakdown} aria-expanded={expanded} onClick={() => setExpanded(true)}>{t("business.transactions.layout.results.view_currencies", { count: currencies.length })}<ChevronRight size={14} aria-hidden="true" /></button> : null}
+      <div className={styles.helpers}>{helpers(line)}</div>
+      {purchaseMetric && !line ? <span className={styles.helper}>{t(`${PREFIX}purchases`)}</span> : null}
     </div>
-    {expanded && currencies.length > 2 ? <AdaptivePanel modal={false} width="md" snaps={["half", "full"]} initialSnap="full" title={`${title} · ${t("business.transactions.layout.results.breakdown_title")}`} closeLabel={t("common.close")} onClose={close} returnFocusRef={trigger}><div className={styles.breakdownList} data-testid="records-overview-breakdown">{currencies.map((currency) => values(currency, true))}</div></AdaptivePanel> : null}
   </div>;
 }
 

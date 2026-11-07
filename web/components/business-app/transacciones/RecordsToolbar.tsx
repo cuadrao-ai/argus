@@ -18,7 +18,7 @@ import { useRecordsSearchShortcut } from "./useRecordsSearchShortcut";
 import { barSearchAvailable, useLendListSearch } from "../foundation/list-search";
 import RecordsFiltersPreview, { type ReportFilterCatalogues } from "./RecordsFiltersPreview";
 import type { ReportPeriod } from "@/lib/business-reports-api";
-import { emptyPreviewFilters, type PreviewFilters } from "./records-filter-preview-model";
+import type { PreviewFilters } from "./records-filter-preview-model";
 import { RecordsViewsPreview, type ConnectedReportViews, type SavedRecordsView, type RecordsViewSelection } from "./RecordsViewsPreview";
 
 export type RecordsFilter = { query: string; kind: RecordKind | "all" };
@@ -79,9 +79,9 @@ function PeriodChoices({ period, setPeriod, close }: { period: Period; setPeriod
   </>;
 }
 
-export type ConnectedRecordsToolbar = { reportPeriod: ReportPeriod; catalogues?: ReportFilterCatalogues; applyFilters: (filters: PreviewFilters, kind: RecordsFilter["kind"]) => void; views: ConnectedReportViews };
+export type ConnectedRecordsToolbar = { reportPeriod: ReportPeriod; catalogues?: ReportFilterCatalogues; applyFilters: (filters: PreviewFilters, kind: RecordsFilter["kind"], clearSearch?: boolean) => void; views: ConnectedReportViews };
 
-export function RecordsToolbar({ connected, filter, onChange, period, setPeriod, options, onPreviewChange, onViewRestore, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { connected?: ConnectedRecordsToolbar; appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters?: PreviewFilters; onFiltersChange?: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; onViewRestore?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
+export function RecordsToolbar({ connected, filter, onChange, period, setPeriod, options, onPreviewChange, onViewRestore, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { connected?: ConnectedRecordsToolbar; appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters: PreviewFilters; onFiltersChange: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; onViewRestore?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
   const { t } = useTransaccionesWords();
   const periodName = usePeriodLabel();
   const searchInput = useRef<HTMLInputElement>(null);
@@ -97,9 +97,8 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
   const [localPeriod, setLocalPeriod] = useState(period);
   const previewPeriod = appliedPeriod ?? localPeriod;
   const setPreviewPeriod = onPeriodChange ?? setLocalPeriod;
-  const [localFilters, setLocalFilters] = useState(emptyPreviewFilters);
-  const previewFilters = appliedFilters ?? localFilters;
-  const setPreviewFilters = onFiltersChange ?? setLocalFilters;
+  const previewFilters = appliedFilters;
+  const setPreviewFilters = onFiltersChange;
   const [views, setViews] = useState<SavedRecordsView[]>([]);
   const restoreView = (selection: RecordsViewSelection) => {
     onViewRestore?.();
@@ -124,7 +123,7 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
     {!datePreview ? <ToolbarPicker label={t("business.transactions.layout.type")} value={filter.kind === "all" ? t("business.transactions.layout.type") : kindName(filter.kind)}>
       {(close) => <div>{(["all", "gasto", "venta"] as const).map((kind) => <button key={kind} type="button" className={optionClass} onClick={() => { onChange({ ...filter, kind }); close(); }}>{kindName(kind)}{filter.kind === kind ? <Check className="h-4 w-4" aria-hidden="true" /> : null}</button>)}</div>}
     </ToolbarPicker> : null}
-    {datePreview ? <RecordsFiltersPreview catalogues={connected?.catalogues} options={options} value={previewFilters} kind={filter.kind} onChange={(next, kind) => { if (connected) connected.applyFilters(next, kind); else { setPreviewFilters(next); onChange({ ...filter, kind }); onPreviewChange?.(); } }} /> : <div className="ml-auto flex items-center gap-3">{options}</div>}
+    {datePreview ? <RecordsFiltersPreview hasSearch={Boolean(filter.query)} catalogues={connected?.catalogues} options={options} value={previewFilters} kind={filter.kind} onChange={(next, kind, clearSearch) => { if (connected) connected.applyFilters(next, kind, clearSearch); else { setPreviewFilters(next); onChange({ ...filter, kind, query: clearSearch ? "" : filter.query }); onPreviewChange?.(); } }} /> : <div className="ml-auto flex items-center gap-3">{options}</div>}
     {/* With the search in the bar, its own × clears it; this row stays for the type filter. */}
     {(!datePreview && filter.kind !== "all") || (filter.query && !searchInBar) ? <div className="flex w-full items-center gap-2 pt-1">
       <button type="button" onClick={() => onChange(datePreview ? { ...filter, query: "" } : EMPTY_RECORDS_FILTER)} className="flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[13px] text-[#56635e] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white/65 dark:hover:bg-white/5"><X className="h-3.5 w-3.5" aria-hidden="true" />{t(datePreview ? "business.transactions.layout.clear_search" : "business.transactions.layout.clear")}</button>

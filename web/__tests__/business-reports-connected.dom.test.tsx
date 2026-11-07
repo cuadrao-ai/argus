@@ -5,10 +5,10 @@ import { act, StrictMode } from "react";
 import { I18nextProvider } from "react-i18next";
 import i18next from "i18next";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
-import { ConnectedBusinessReports, reportFiltersForUi, reportFiltersFromUi } from "@/components/business-app/transacciones/BusinessReportsPanel";
+import BusinessReportsPanel, { ConnectedBusinessReports, reportFiltersForUi, reportFiltersFromUi } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
-import { reportAnswerSchema, reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
+import { reportAnswerSchema, reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest, type RecordsCurrency } from "@/lib/business-reports-api";
 import { restoreReportLocation } from "@/lib/business-reporting-wire";
 import { setChosenGrant } from "@/lib/business-grant";
 import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-report-http-fixture";
@@ -24,16 +24,18 @@ const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
-async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
+async function mount(options: { defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
   const { createRoot } = await import("react-dom/client");
-  const fixture = createBusinessReportHttpFixture(); if (options.presentation) fixture.controls.presentation = options.presentation; options.edit?.(fixture.records); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
+  const fixture = createBusinessReportHttpFixture(); for (const row of fixture.records) if (row.currency !== "DOP") { row.currency = "DOP"; row.recorded_currency = "DOP"; } if (options.presentation) fixture.controls.presentation = options.presentation; options.edit?.(fixture.records); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
+  if (options.viewRecipe) fixture.views.push({ id: fixtureId(3300), name: "Moneda guardada", recipe: { schema_version: options.viewRecipe.schema_version, filters: options.viewRecipe.filters, columns: options.viewRecipe.columns, sort: options.viewRecipe.sort, ...(options.viewRecipe.schema_version === 2 ? { page_size: options.viewRecipe.page_size } : {}) }, version: 1, created_at: "2026-11-07T00:00:00Z", updated_at: "2026-11-07T00:00:00Z" });
   const computedStyle = globalThis.getComputedStyle;
   if (options.width && options.width < 1024) globalThis.getComputedStyle = ((element: Element) => {
     const style = computedStyle(element);
     return new Proxy(style, { get(target, key) { if (key === 'getPropertyValue') return (name: string) => name === '--records-narrow' ? '1' : target.getPropertyValue(name); const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value; } });
   }) as typeof getComputedStyle;
   const originalFetch = globalThis.fetch; globalThis.fetch = (async (input, init) => {
+    if (String(input).endsWith("/me")) return Response.json({ user: { id: "synthetic-person", language: "es-419" } });
     const query = String(input).endsWith("/reports/query");
     if (options.queryGate && query) await options.queryGate;
     const response = await fixture.request(input, init);
@@ -41,21 +43,32 @@ async function mount(options: { readOnly?: boolean; large?: boolean; legacy?: bo
   }) as typeof fetch;
   const originalCreate = URL.createObjectURL, originalRevoke = URL.revokeObjectURL;
   const downloads: Blob[] = []; URL.createObjectURL = (blob) => { downloads.push(blob as Blob); return "blob:synthetic"; }; URL.revokeObjectURL = () => undefined;
-  setChosenGrant(null);
+  setChosenGrant(options.grantId ?? null);
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const opened: unknown[] = [];
   const receiptActivity = options.waiting === undefined ? null : options.waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: options.waiting, needs_attention_count: 0, ready_to_review_count: options.waiting };
-  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: await source.workspace(), inbox: [], receiptActivity } } as unknown as BusinessContextValue;
+  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: { ...await source.workspace(), currency: "CAD", records_default_currency: options.defaultCurrency ?? "DOP" }, workspaceGrant: options.workspaceGrant === undefined ? options.grantId ?? null : options.workspaceGrant, inbox: [], receiptActivity } } as unknown as BusinessContextValue;
   const i18n = i18next.createInstance(); await i18n.init({ lng: options.language ?? "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
-  await act(async () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ConnectedBusinessReports initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: null }} /></BusinessContext.Provider></I18nextProvider></StrictMode>));
+  let reloads = 0;
+  const render = () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={{ ...context }}>{options.topLevel ? <BusinessReportsPanel /> : <ConnectedBusinessReports defaultCurrency={context.records.workspace!.records_default_currency} initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: options.grantId ?? null }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>);
+  const rerender = () => act(async () => render());
+  context.reload = () => {
+    reloads += 1;
+    void source.workspace().then((workspace) => { context.records.workspace = workspace; context.records.workspaceGrant = options.grantId ?? null; context.records.error = false; context.records.refused = false; render(); });
+  };
+  if (options.workspaceFailure) {
+    if (options.workspaceFailure === "missing_default") Object.assign(context.records.workspace!, { records_default_currency: "CAD" });
+    else { context.records.workspace = null; context.records.error = true; context.records.refused = options.workspaceFailure === "refused"; context.records.failureReference = "SYNTHETIC-REF"; }
+  }
+  await rerender();
   cleanup = async () => { await act(async () => root.unmount()); globalThis.fetch = originalFetch; globalThis.getComputedStyle = computedStyle; URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; };
   const settle = async (predicate: () => boolean) => { for (let i = 0; i < 80; i++) { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); }); if (predicate()) return; } throw new Error(`Missing state ${document.body.textContent?.slice(-600)}`); };
   const click = async (element: Element | undefined | null) => { assert.ok(element); await act(async () => (element as HTMLElement).click()); };
-  const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || button.getAttribute("aria-label") === label);
+  const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || label === "Filtros" && button.textContent?.startsWith("Filtros") || button.getAttribute("aria-label") === label);
   const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => { await act(async () => { const prototype = element instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); }); };
   if (options.waitForAnswer !== false) await settle(() => document.querySelector(`[data-report-schema="${options.legacy ? 1 : 2}"] [data-testid="records-count"]`) !== null);
-  return { fixture, settle, click, button, type, downloads, opened, context };
+  return { fixture, settle, click, button, type, downloads, opened, context, rerender, reloads: () => reloads };
 }
 
 test("connected pages, full count, accent search and filtered overview use real transport", async () => {
@@ -201,15 +214,14 @@ test("supporting files freeze the uncertain file before advancing and download b
   assert.notEqual(page.fixture.records[0].attachment_sources![1].source_id, fixtureId(8001));
 });
 
-test("saved canonical filters preserve multiple currencies and both known families until explicit changes", () => {
-  const filters = reportRequestSchema.parse({ filters: { currencies: ["CAD", "USD"], record_families: ["sale", "purchase"] } }).filters;
+test("canonical filters keep one currency and both known families until explicit changes", () => {
+  const filters = reportRequestSchema.parse({ filters: { currencies: ["USD"], record_families: ["sale", "purchase"] } }).filters;
   const draft = reportFiltersForUi(filters);
   assert.deepEqual(reportFiltersFromUi(filters, { ...draft, expense_type: ["02"] }, "all").record_families, ["sale", "purchase"]);
-  assert.deepEqual(reportFiltersFromUi(filters, draft, "all").currencies, ["CAD", "USD"]);
+  assert.deepEqual(reportFiltersFromUi(filters, draft, "all").currencies, ["USD"]);
   assert.deepEqual(reportFiltersFromUi(filters, { ...draft, recordFamilies: undefined }, "gasto").record_families, ["purchase"]);
-  assert.equal(validPreviewAmount({ currency: "", min: "1", max: "" }, ["CAD", "USD"]), false);
-  assert.equal(validPreviewAmount({ currency: "", min: "", max: "" }, ["CAD", "USD"]), true);
-  assert.deepEqual(emptyPreviewFilters().amount, { currency: "", min: "", max: "" });
+  assert.equal(validPreviewAmount({ currency: "USD", min: "1", max: "" }), true);
+  assert.deepEqual(emptyPreviewFilters("USD").amount, { currency: "USD", min: "", max: "" });
 });
 
 test("saved views persist only recipes, rename with versions, restore page one and delete", async () => {
@@ -296,12 +308,12 @@ test("viewer metadata never grants append or source bytes, and unavailable origi
 });
 
 
-test("authoritative decimal text above the safe integer limit renders exactly beside mixed and unknown money", async () => {
+test("authoritative decimal text above the safe integer limit renders exactly beside unknown money in the selected currency", async () => {
   await mount({ large: true });
   const rows = [...document.querySelectorAll("tbody tr")];
   assert.equal(rows[0].querySelector('[data-col="monto"]')!.textContent, "9,007,199,254,740,993.01");
   assert.equal(rows[0].querySelector('[data-col="moneda"]')!.textContent, "RD$");
-  assert.equal(rows[1].querySelector('[data-col="moneda"]')!.textContent, "US$");
+  assert.equal(rows[1].querySelector('[data-col="moneda"]')!.textContent, "RD$");
   assert.match(rows[2].querySelector('[data-col="monto"]')!.textContent!, /-/);
   assert.equal(rows[3].querySelector('[data-col="monto"]')!.textContent, "20.00");
   assert.equal(rows[4].querySelector('[data-col="monto"]')!.textContent, "-20.00");
@@ -340,14 +352,14 @@ test("family filters alone never reveal subcards", async () => {
   }
 });
 
-test("purchase document subcard keeps unknown currency unknown without inventing zero", async () => {
+test("purchase document subcard keeps unknown amounts partial without inventing zero", async () => {
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
   await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  const [first, second] = [...cards()[0].querySelectorAll("[data-currency], .currencyRow, dd > div")];
+  const [first] = [...cards()[0].querySelectorAll("[data-currency], .currencyRow, dd > div")];
   assert.match(cards()[0].textContent!, /Compras/);
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
-  assert.equal(first.textContent, "RD$6,200.00", "server total covers purchases beyond the visible page");
-  assert.match(second.textContent!, /^Sin moneda-/);
+  assert.match(first.textContent!, /RD\$6,200.00/);
+  assert.match(first.textContent!, /Parcial/);
   assert.equal(cards()[0].querySelectorAll(".cuadrao-amount").length, 1);
   assert.doesNotMatch(cards()[0].textContent!, /(?<![\d,])0\.00/);
 });
@@ -369,7 +381,7 @@ test("purchase subcard follows the server answer while search loads and never su
   globalThis.fetch = live;
 });
 
-test("purchase subcard preserves exact server totals and hides payment metrics in the currency sheet", async () => {
+test("purchase subcard preserves exact selected-currency totals and hides payment metrics", async () => {
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }), edit: (rows) => {
     rows[0].gross_amount = "9007199254740993.01";
     rows[2].currency = "USD"; rows[2].gross_amount = "7.00";
@@ -378,12 +390,8 @@ test("purchase subcard preserves exact server totals and hides payment metrics i
   await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
   assert.equal(cards().length, 1);
   assert.match(cards()[0].textContent!, /9,007,199,254,746,993\.01/);
-  await page.click(document.querySelector('[data-testid="records-results-summary"] button[aria-expanded]'));
-  const sheet = document.querySelector('[data-testid="records-currency-breakdown"]')!;
-  assert.ok(sheet);
-  assert.equal(sheet.querySelectorAll("dt").length, 3);
-  assert.doesNotMatch(sheet.textContent!, /Pagado|Por pagar|Cobrado|Por cobrar/);
-  assert.equal(sheet.querySelector('[data-currency="USD"] dd')!.textContent, "US$ 7.00");
+  assert.equal(document.querySelector('[data-testid="records-results-summary"] button[aria-expanded]'), null);
+  assert.doesNotMatch(cards()[0].textContent!, /Pagado|Por pagar|Cobrado|Por cobrar|US\$/);
 });
 
 test("an incomplete purchase total preserves its labelled known part", async () => {
@@ -489,7 +497,7 @@ test("a phone Filtros choice holds after its sheet closes, and back still undoes
   assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Venta/);
   assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
   await act(async () => window.history.back());
-  await page.settle(() => document.querySelector('[data-testid="records-preview-filter-chips"]') === null);
+  await page.settle(() => !document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent?.includes("Venta"));
   assert.deepEqual(sentFilters(page).at(-1)!.record_families, []);
 });
 
@@ -627,12 +635,12 @@ test("a record that left the view says so in a toast, never in a line above the 
 
 test("an old categories filter from a saved view or URL is dropped, never sent, and never hides rows without a pill", async () => {
   const stale = reportRequestSchema.parse({});
-  assert.deepEqual(reportFiltersFromUi({ ...stale.filters, categories: ["transport"] }, reportFiltersForUi(stale.filters), "all").categories, []);
+  assert.deepEqual(reportFiltersFromUi({ ...stale.filters, categories: ["transport"] }, reportFiltersForUi({ ...stale.filters, currencies: ["DOP"] }), "all").categories, []);
   (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?report=${encodeURIComponent(JSON.stringify({ filters: { categories: ["transport"] } }))}&report_scope=synthetic-person:${fixtureId(3000)}`);
   const page = await mount();
   assert.ok(sentFilters(page).every((filters) => filters.categories.length === 0), "no request carries the stale filter");
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
-  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "Moneda · DOP");
   assert.equal(document.querySelector("[data-empty-kind]"), null);
 });
 
@@ -795,12 +803,12 @@ const fiscalRecords = (rows: ReportRecord[]) => rows.forEach((row, index) => { r
 test("Fiscal narrows all pages then restores mixed statuses while preserving search edits", async () => {
   const prior = ["needs_fiscal_data", "ready_for_export"];
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: prior, currencies: ["DOP"], record_families: ["purchase"] } }), edit: fiscalRecords });
-  assert.equal(fiscalCount(), "29");
+  assert.equal(fiscalCount(), "30");
   assert.equal(fiscalCard().getAttribute("aria-pressed"), "false");
   await page.click(fiscalCard());
   await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 1 && !fiscalCard().disabled);
   assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["needs_fiscal_data"]);
-  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /29/);
+  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /30/);
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
   await page.type(document.querySelector('input[type="search"]')!, "Proveedor 11");
   await page.settle(() => sentFilters(page).at(-1)?.q === "Proveedor 11" && !fiscalCard().disabled);
@@ -921,12 +929,12 @@ function currencyCardAnswer(request: ReportRequest, answer: ReportAnswer): Repor
   };
 }
 
-for (const sample of currencyCardCases) test(`${sample.currency} filter keeps all six cards on the server answer across pages and clears without losing other filters`, async () => {
+for (const sample of currencyCardCases) test(`${sample.currency} filter keeps all six cards on the server answer across pages and Clear keeps its currency`, async () => {
   const initial = reportRequestSchema.parse({ schema_version: 2, filters: { q: "Proveedor", period: { kind: "all" }, record_families: ["purchase"], has_document: true, counterparties: ["101001577"], expense_types: ["02"], funding_sources: ["cash"], document_kinds: ["unknown"], fiscal_classifications: ["B01"] } });
   const page = await mount({ initial, queryAnswer: currencyCardAnswer });
   await page.click([...document.querySelectorAll("button")].find((button) => button.textContent?.startsWith("Filtros")));
   await page.click(document.querySelector('[data-group="amount"]'));
-  await page.click(page.button(sample.currency));
+  await page.click(document.querySelector(`input[name="records-currency"][value="${sample.currency}"]`));
   await page.click(page.button("Aplicar"));
   await page.settle(() => fiscalCount() === String(sample.fiscal));
   assert.deepEqual(sentFilters(page).at(-1), { ...initial.filters, currencies: [sample.currency] });
@@ -940,10 +948,11 @@ for (const sample of currencyCardCases) test(`${sample.currency} filter keeps al
   assert.deepEqual(shelfMoney(), [...sample.shown]);
   assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, String(sample.count));
   assert.equal(fiscalCount(), String(sample.fiscal));
-  await page.click(document.querySelector('button[aria-label="Quitar filtro Moneda"]'));
-  await page.settle(() => sentFilters(page).at(-1)?.currencies.length === 0 && document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "1");
-  assert.deepEqual(sentFilters(page).at(-1), initial.filters);
   assert.equal(document.querySelector('button[aria-label="Quitar filtro Moneda"]'), null);
+  await page.click(page.button("Limpiar filtros"));
+  await page.settle(() => sentFilters(page).at(-1)?.q === "" && document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "1");
+  assert.deepEqual(sentFilters(page).at(-1)!.currencies, [sample.currency]);
+  assert.deepEqual(sentFilters(page).at(-1)!.record_families, []);
 });
 
 test("a currency-filtered six-card answer clears old figures while loading and shows an empty result honestly", async () => {
@@ -971,4 +980,88 @@ test("phone Registros keeps its export button and existing report handler", asyn
   await page.click(document.querySelector('[data-testid="records-export"]'));
   await page.settle(() => page.downloads.length === 1);
   assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).length, 1);
+});
+
+
+test("the first report request uses the server Registros default even when the Business currency differs", async () => {
+  const page = await mount({ defaultCurrency: "USD", edit: (rows) => rows.forEach((row) => { row.currency = "USD"; }) });
+  assert.equal(page.context.records.workspace!.currency, "CAD");
+  assert.ok(sentFilters(page).length > 0);
+  assert.ok(sentFilters(page).every((filters) => JSON.stringify(filters.currencies) === '["USD"]'));
+  assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')!.textContent!, /Moneda · USD/);
+  await page.click(document.querySelector('[data-testid="records-export"]'));
+  await page.settle(() => page.downloads.length === 1);
+  const exported = page.fixture.calls.find((call) => call.path.endsWith("/reports/export"))!.body as { report: ReportRequest };
+  assert.deepEqual(exported.report.filters.currencies, ["USD"]);
+});
+
+for (const currencies of [[], ["DOP", "USD"], ["CAD"]]) test(`entry replaces unsupported currency scope ${JSON.stringify(currencies)} with the server default and clears bounds`, async () => {
+  const page = await mount({ defaultCurrency: "USD", initial: reportRequestSchema.parse({ filters: { currencies, amount_min: "100", amount_max: "200" } }) });
+  assert.ok(sentFilters(page).every((filters) => filters.currencies.length === 1 && filters.currencies[0] === "USD" && filters.amount_min === null && filters.amount_max === null));
+});
+
+test("a valid URL currency wins over the server default and keeps its explicit amount bounds", async () => {
+  const report = reportRequestSchema.parse({ schema_version: 2, filters: { currencies: ["EUR"], amount_min: "10", amount_max: "200" } });
+  const params = new URLSearchParams({ report: JSON.stringify(report), report_scope: `synthetic-person:${fixtureId(3000)}` });
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?${params}`);
+  const page = await mount({ defaultCurrency: "USD" });
+  assert.ok(sentFilters(page).every((filters) => filters.currencies[0] === "EUR" && filters.currencies.length === 1 && filters.amount_min === "10" && filters.amount_max === "200"));
+});
+
+test("the connected entry waits for the current grant workspace before sending any report query", async () => {
+  const page = await mount({ topLevel: true, defaultCurrency: "USD", grantId: fixtureId(3100), workspaceGrant: fixtureId(3101), waitForAnswer: false });
+  await pause(30);
+  assert.equal(sentFilters(page).length, 0);
+  page.context.records.workspaceGrant = fixtureId(3100);
+  await page.rerender();
+  await page.settle(() => sentFilters(page).length > 0);
+  assert.ok(sentFilters(page).every((filters) => JSON.stringify(filters.currencies) === '["USD"]'));
+});
+
+
+for (const currencies of [["EUR"], []]) test(`applying a view keeps a supported singleton or uses the server default for ${JSON.stringify(currencies)}`, async () => {
+  const page = await mount({ defaultCurrency: "USD", viewRecipe: reportRequestSchema.parse({ schema_version: 2, filters: { currencies, amount_min: "10", amount_max: "200" } }) });
+  await page.click(page.button("Vistas"));
+  await page.click(page.button("Moneda guardada"));
+  await page.settle(() => sentFilters(page).at(-1)?.currencies[0] === (currencies[0] ?? "USD"));
+  const filters = sentFilters(page).at(-1)!;
+  assert.equal(filters.currencies.length, 1);
+  assert.equal(filters.amount_min, currencies.length ? "10" : null);
+  assert.equal(filters.amount_max, currencies.length ? "200" : null);
+  assert.deepEqual((page.fixture.views[0].recipe as { filters: { currencies: string[] } }).filters.currencies, currencies, "applying does not migrate the stored recipe");
+});
+
+test("history restoration sends one currency and keeps the URL currency's amount bounds", async () => {
+  const page = await mount({ defaultCurrency: "USD" });
+  const restored = reportRequestSchema.parse({ schema_version: 2, filters: { currencies: ["EUR"], amount_min: "10" } });
+  const params = new URLSearchParams({ report: JSON.stringify(restored), report_scope: `synthetic-person:${fixtureId(3000)}` });
+  await act(async () => { window.history.pushState(null, "", `?${params}`); window.dispatchEvent(new PopStateEvent("popstate")); });
+  await page.settle(() => sentFilters(page).at(-1)?.currencies[0] === "EUR");
+  assert.equal(sentFilters(page).at(-1)!.amount_min, "10");
+  const unrestricted = { ...restored, filters: { ...restored.filters, currencies: [] } };
+  params.set("report", JSON.stringify(unrestricted));
+  await act(async () => { window.history.pushState(null, "", `?${params}`); window.dispatchEvent(new PopStateEvent("popstate")); });
+  await page.settle(() => sentFilters(page).at(-1)?.currencies[0] === "USD");
+  assert.equal(sentFilters(page).at(-1)!.amount_min, null);
+  assert.ok(sentFilters(page).every((filters) => filters.currencies.length === 1));
+});
+
+
+for (const workspaceFailure of ["error", "missing_default"] as const) test(`a settled workspace ${workspaceFailure} shows retry and recovers before the first report query`, async () => {
+  const page = await mount({ topLevel: true, workspaceFailure, waitForAnswer: false });
+  await page.settle(() => page.button("Reintentar") !== undefined);
+  assert.equal(sentFilters(page).length, 0);
+  if (workspaceFailure === "error") assert.match(document.body.textContent!, /SYNTHETIC-REF/);
+  await page.click(page.button("Reintentar"));
+  await page.settle(() => sentFilters(page).length > 0);
+  assert.equal(page.reloads(), 1);
+  assert.ok(sentFilters(page).every((filters) => JSON.stringify(filters.currencies) === '["DOP"]'));
+});
+
+test("a refused workspace shows its reference and no retry or report query", async () => {
+  const page = await mount({ topLevel: true, workspaceFailure: "refused", waitForAnswer: false });
+  await page.settle(() => document.querySelector('[data-empty-kind="error"]') !== null);
+  assert.match(document.body.textContent!, /SYNTHETIC-REF/);
+  assert.equal(page.button("Reintentar"), undefined);
+  assert.equal(sentFilters(page).length, 0);
 });

@@ -1479,16 +1479,17 @@ subcard it controls. Do not add a "Ver..." label or make the arrow a separate
 target.
 
 ITBIS, Cantidad, Bienes, and Servicios are static: no card click, pointer cursor,
-or card-level tab stop. Currency controls keep their own interaction and focus
-behavior. Total and its currency breakdown use separate sibling buttons, so
-neither button contains the other.
+or card-level tab stop. The currency filter is a radio group with DOP, USD and EUR. Exactly one is
+selected. Its chip always shows and opens the currency editor; it has no remove
+action. Clear filters keeps the currency and clears the other filters and search.
+Switching currency clears both amount limits and their validation state.
 
 For money, make fractional digits smaller and raised. Preserve the decimal
 separator, precision, rounding and currency identity, and keep the full amount
-readable by screen readers. Retain the existing currency display and breakdown
-controls, including dossier/sheet behavior, return focus and privacy masking.
-The layout for unrestricted results with multiple currencies is deferred to a
-later pass. This pass adds no currency selector or alternate display rule.
+readable by screen readers. Retain the existing card layout, colors, copy, return focus and privacy masking.
+Registros opens with the workspace server default, currently DOP, unless a valid
+single-currency URL or view supplies DOP, USD or EUR. The first request already
+carries exactly one currency. The table, six cards and export use that request.
 
 Actual fit is still unverified. Before build sign-off, render at the real compact
 content width and actual size with filters, headers and first table rows visible.

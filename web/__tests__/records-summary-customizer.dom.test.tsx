@@ -79,42 +79,12 @@ test("phone keeps the Total toggle without an empty settings control", async () 
   await page.click(page.button("Expenses")); assert.equal(page.summary(), null);
 });
 
-test("two server currencies stay visible in one static purchase subcard", async () => {
-  const page = await mount(1440, [total("USD", "24.00", 2400), total("DOP", "2100.00", 210000)], "en");
+test("one server currency stays visible in the static purchase subcard without a breakdown control", async () => {
+  const page = await mount(1440, [total("USD", "24.00", 2400)], "en");
   await page.click(page.button("Total"));
   const summary = page.summary()!;
   assert.equal(summary.querySelectorAll("[data-summary-part]").length, 1);
-  assert.equal(summary.querySelectorAll(".cuadrao-amount").length, 2);
-  assert.deepEqual([...summary.querySelectorAll("[data-currency]")].map((cell) => cell.getAttribute("data-currency")), ["DOP", "USD"]);
-  assert.equal(summary.querySelector("select"), null);
-  assert.equal(summary.querySelector("button"), null);
-});
-
-for (const width of [1440, 390]) test(`overflow currencies open one shared breakdown and restore focus at ${width}px`, async () => {
-  const page = await mount(width, [], "en", {
-    currencies: [
-      { currency: "DOP", total: "2100.00", settled: "1200.00", balance: "900.00" },
-      { currency: "EUR", total: "180.00", settled: null, balance: null },
-      { currency: "USD", total: "24.00", settled: "12.00", balance: "12.00" },
-    ],
-    exclusions: { unconfirmed: 1, personal: 0, unavailable: 0 },
-  });
-  await page.click(page.button("Total"));
-  const summary = page.summary()!;
-  assert.equal(summary.querySelectorAll("[data-currency]").length, 2, "only two currencies in the purchase subcard");
-  assert.equal(summary.querySelector('[data-currency="USD"]'), null);
-  const trigger = page.button("View all 3 currencies");
-  trigger.focus(); await page.click(trigger);
-  const panel = document.querySelector('[data-testid="records-currency-breakdown"]')!;
-  assert.ok(panel);
-  assert.equal(panel.querySelectorAll("[data-currency]").length, 3);
-  assert.match(panel.textContent ?? "", /USD.*Purchases.*24.00/);
-  assert.doesNotMatch(panel.textContent ?? "", /Paid|Payable|Collected|Receivable/);
-  assert.equal(panel.querySelectorAll("dt").length, 3);
-  assert.equal(panel.querySelector('[data-currency="EUR"]')!.querySelectorAll(".cuadrao-amount").length, 1, "one amount is visible per currency");
-  assert.ok(panel.closest(width >= 1024 ? '[role="region"]' : '[role="dialog"]'));
-  assert.equal(panel.querySelector("select,input"), null, "breakdown does not add a currency filter");
-  await page.key(document.activeElement!, "Escape");
-  assert.equal(document.querySelector('[data-testid="records-currency-breakdown"]'), null);
-  assert.equal(document.activeElement, trigger);
+  assert.equal(summary.querySelectorAll(".cuadrao-amount").length, 1);
+  assert.deepEqual([...summary.querySelectorAll("[data-currency]")].map((cell) => cell.getAttribute("data-currency")), ["USD"]);
+  assert.equal(summary.querySelector("select,button"), null);
 });

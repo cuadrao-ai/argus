@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SlidersHorizontal } from "lucide-react";
@@ -9,7 +9,7 @@ import { getChosenGrant } from "@/lib/business-grant";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import { isProgrammaticPop } from "@/lib/overlay-history";
 import { businessReportRow, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
-import { reportRequestSchema, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
+import { recordsCurrencySchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
@@ -47,11 +47,10 @@ function periodForUi(period: ReportPeriod, answer?: ReportAnswer): Period {
   return { key: period.kind, from: answer?.resolved_period.from_date ?? fallback.from, to: answer?.resolved_period.to_date ?? fallback.to };
 }
 export function reportFiltersForUi(filters: ReportFilters): PreviewFilters {
-  const result = emptyPreviewFilters();
+  const currency = recordsCurrencySchema.parse(filters.currencies[0]);
+  const result = emptyPreviewFilters(currency);
   result.review = REVIEW_FILTERS.filter((key) => filters.review_stages.includes(STAGE_OF[key]));
   result.attachment = filters.has_document === null ? "any" : filters.has_document ? "with" : "without";
-  const currency = filters.currencies.length === 1 ? filters.currencies[0] : "";
-  result.currencies = filters.currencies;
   result.recordFamilies = filters.record_families;
   result.amount = { currency, min: filters.amount_min ?? "", max: filters.amount_max ?? "" };
   result.counterparty = filters.counterparties; result.expense_type = filters.expense_types; result.account = filters.funding_sources;
@@ -59,11 +58,17 @@ export function reportFiltersForUi(filters: ReportFilters): PreviewFilters {
   return result;
 }
 export function reportFiltersFromUi(current: ReportFilters, filters: PreviewFilters, kind: RecordsFilter["kind"]): ReportFilters {
-  return { ...current, record_families: filters.recordFamilies ?? (kind === "all" ? [] : [kind === "venta" ? "sale" : "purchase"]), review_stages: filters.review.map((key) => STAGE_OF[key]), has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: filters.currencies ?? (filters.amount.currency ? [filters.amount.currency] : []), amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, categories: [], expense_types: filters.expense_type, funding_sources: filters.account, document_kinds: filters.document as ReportFilters["document_kinds"], fiscal_classifications: filters.fiscal.map((value) => /^[be]\d\d$/i.test(value) ? value.toUpperCase() : value) };
+  return { ...current, record_families: filters.recordFamilies ?? (kind === "all" ? [] : [kind === "venta" ? "sale" : "purchase"]), review_stages: filters.review.map((key) => STAGE_OF[key]), has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: [filters.amount.currency], amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, categories: [], expense_types: filters.expense_type, funding_sources: filters.account, document_kinds: filters.document as ReportFilters["document_kinds"], fiscal_classifications: filters.fiscal.map((value) => /^[be]\d\d$/i.test(value) ? value.toUpperCase() : value) };
+}
+
+export function RecordsWorkspaceUnavailable() {
+  const { records, reload } = useBusiness();
+  const { t } = useTransaccionesWords();
+  return <div className={cardClass}><EmptyState kind="error" compact title={t(`${REPORTING}${records.refused ? "access_unavailable" : "unavailable"}`)} action={records.refused ? undefined : { label: t("common.retry"), run: reload }} />{records.failureReference ? <ReferenceCode reference={records.failureReference} /> : null}</div>;
 }
 
 export default function BusinessReportsPanel() {
-  const { chosen } = useBusiness();
+  const { chosen, records } = useBusiness();
   const [person, setPerson] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -75,21 +80,27 @@ export default function BusinessReportsPanel() {
     return () => { active = false; };
   }, [attempt]);
   if (failed) return <div className={cardClass}><EmptyState kind="error" compact title={t(`${REPORTING}access_unavailable`)} action={{ label: t("common.retry"), run: () => { setFailed(false); setAttempt((value) => value + 1); } }} /></div>;
-  if (!person || !chosen) return <FullscreenLoading />;
+  const defaultCurrency = recordsCurrencySchema.safeParse(records.workspace?.records_default_currency);
+  if ((!defaultCurrency.success || records.workspaceGrant !== getChosenGrant()) && (records.error || records.workspaceGrant === getChosenGrant() && records.workspace)) return <RecordsWorkspaceUnavailable />;
+  if (!person || !chosen || records.workspaceGrant !== getChosenGrant() || !defaultCurrency.success) return <FullscreenLoading />;
   const scope = { userId: person, businessId: chosen.space_id, grantId: getChosenGrant() };
-  return <ConnectedBusinessReports key={`${person}:${chosen.space_id}:${scope.grantId}`} scope={scope} />;
+  return <ConnectedBusinessReports key={`${person}:${chosen.space_id}:${scope.grantId}`} scope={scope} defaultCurrency={defaultCurrency.data} />;
 }
 
-export function ConnectedBusinessReports({ scope, transport, initial }: { scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest }) {
+export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest }) {
   const { t } = useTransaccionesWords();
   const { panel, openPanel, actions, revision, records } = useBusiness();
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
   const scopeKey = `${scope.userId}:${scope.businessId}`;
+  const singleCurrency = useCallback((request: ReportRequest): ReportRequest => {
+    if (request.filters.currencies.length === 1 && recordsCurrencySchema.safeParse(request.filters.currencies[0]).success) return request;
+    return { ...request, filters: { ...request.filters, currencies: [defaultCurrency], amount_min: null, amount_max: null } };
+  }, [defaultCurrency]);
   const [restored] = useState(() => {
     const params = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
     const other = params.has("report_scope") && params.get("report_scope") !== scopeKey;
     const saved = restoreReportLocation(other ? new URLSearchParams() : params);
-    return { ...saved, invalid: saved.invalid || other, request: initial ?? (params.has("report") && !other ? saved.request : reportRequestSchema.parse({ filters: { period: { kind: "latest_month" } } })) };
+    return { ...saved, invalid: saved.invalid || other, request: singleCurrency(initial ?? (params.has("report") && !other ? saved.request : reportRequestSchema.parse({ filters: { period: { kind: "latest_month" } } }))) };
   });
   const { controller, state } = useBusinessReport(scope, restored.request, transport);
   const answer = state.load.kind === "ready" || state.load.kind === "invalid-page" ? state.load.answer : undefined;
@@ -118,10 +129,10 @@ export function ConnectedBusinessReports({ scope, transport, initial }: { scope:
   const { toggle: toggleFiscal, clear: clearFiscal } = useFiscalStageToggle(filters.review, (review) => load(reportRequestSchema.parse({ ...state.request, filters: { ...state.request.filters, review_stages: review.map((key) => STAGE_OF[key]) }, page: 1 })));
   useEffect(() => { updateUrl(state.request); }, [state.request, state.anchor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const restore = (event: PopStateEvent) => { if (isProgrammaticPop(event)) return; const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); setUrlInvalid(next.invalid); clearFiscal(); controller.rememberAnchor(next.anchor); void controller.load(next.request); };
+    const restore = (event: PopStateEvent) => { if (isProgrammaticPop(event)) return; const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); setUrlInvalid(next.invalid); clearFiscal(); controller.rememberAnchor(next.anchor); void controller.load(singleCurrency(next.request)); };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
-  }, [controller, scopeKey, clearFiscal]);
+  }, [controller, scopeKey, clearFiscal, singleCurrency]);
   useEffect(() => { controller.rememberAnchor(restored.anchor); }, [controller, restored.anchor]);
   useEffect(() => {
     if (previousRevision.current !== revision) { previousRevision.current = revision; void controller.refresh(); }
@@ -144,7 +155,7 @@ export function ConnectedBusinessReports({ scope, transport, initial }: { scope:
   }, [panel.kind, state.load, state.anchor]);
   const recipe = (patch: Partial<ReportRequest>, push = true) => {
     if (patch.filters && JSON.stringify(patch.filters.review_stages) !== JSON.stringify(state.request.filters.review_stages)) clearFiscal();
-    load(reportRequestSchema.parse({ ...state.request, ...patch, page: 1 }), push);
+    load(singleCurrency(reportRequestSchema.parse({ ...state.request, ...patch, page: 1 })), push);
   };
   const open = (row: RecordRow) => { if (!row.opens) return; const id = recordRowKey(row); focused.current = null; controller.rememberAnchor(id); updateUrl(state.request, id); openPanel(row.opens); };
   const rowRef = (id: string, node: HTMLElement | null) => { if (node) rowNodes.current.set(id, node); else rowNodes.current.delete(id); };
@@ -165,7 +176,7 @@ export function ConnectedBusinessReports({ scope, transport, initial }: { scope:
   };
   const create = actions.create.find((action) => action.id === "upload_receipt");
   // Three states, one message each: the pill row's Limpiar filtros is the only clear action; a filtered empty table says only that; a truly empty Registros keeps its first-run line.
-  const filtersActive = Boolean(state.request.filters.q) || state.request.filters.record_families.length > 0 || activeFilterGroups(filters).length > 0;
+  const filtersActive = Boolean(state.request.filters.q) || state.request.filters.record_families.length > 0 || activeFilterGroups(filters).some((group) => group !== "amount") || Boolean(filters.amount.min || filters.amount.max);
   const emptyContent = <div className={cardClass}>{filtersActive
     ? <EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} />
     : <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={create ? { label: create.label, run: create.run } : undefined} />}</div>;
@@ -178,7 +189,7 @@ export function ConnectedBusinessReports({ scope, transport, initial }: { scope:
     <section ref={screen} tabIndex={-1} data-testid="transacciones" data-report-connected data-report-schema={state.request.schema_version} className="pb-6 outline-none">
       {phone || panel.kind !== "transactions" ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2>{add}</div> : null}
       <RecordsOverviewPreview answer={answer} fiscalCount={overview?.needs_fiscal_data ?? null} totalExpanded={showPurchaseTotal} onToggleTotal={() => setShowPurchaseTotal((shown) => !shown)} selected={filters.review} loading={state.load.kind === "loading"} onChoose={toggleFiscal} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} />
-      <RecordsToolbar filter={filter} onChange={(next) => recipe({ filters: { ...state.request.filters, q: next.query, record_families: next.kind === filter.kind ? state.request.filters.record_families : next.kind === "all" ? [] : [next.kind === "venta" ? "sale" : "purchase"] } }, false)} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={(next) => recipe({ filters: reportFiltersFromUi(state.request.filters, next, filter.kind) })} options={<>{!phone ? <RecordsRefreshButton busy={state.load.kind === "loading"} onRefresh={() => void controller.refresh()} /> : null}{toolbarAction}{v2 && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters: (next, kind) => recipe({ filters: reportFiltersFromUi(state.request.filters, next, kind) }), views: { items: views, select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } }, save: (name) => writeView(name), update: (id, name) => writeView(name, id), remove: (id) => { const view = views.find((view) => view.id === id); if (view) void controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } }); }, busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain, notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !v2 ? <p>{t(`${REPORTING}pending_contract`)}</p> : null } }} />
+      <RecordsToolbar filter={filter} onChange={(next) => recipe({ filters: { ...state.request.filters, q: next.query, record_families: next.kind === filter.kind ? state.request.filters.record_families : next.kind === "all" ? [] : [next.kind === "venta" ? "sale" : "purchase"] } }, false)} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={(next) => recipe({ filters: reportFiltersFromUi(state.request.filters, next, filter.kind) })} options={<>{!phone ? <RecordsRefreshButton busy={state.load.kind === "loading"} onRefresh={() => void controller.refresh()} /> : null}{toolbarAction}{v2 && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters: (next, kind, clearSearch) => recipe({ filters: { ...reportFiltersFromUi(state.request.filters, next, kind), q: clearSearch ? "" : state.request.filters.q } }), views: { items: views, select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } }, save: (name) => writeView(name), update: (id, name) => writeView(name, id), remove: (id) => { const view = views.find((view) => view.id === id); if (view) void controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } }); }, busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain, notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !v2 ? <p>{t(`${REPORTING}pending_contract`)}</p> : null } }} />
       {showPurchaseTotal ? <RecordsResultsSummary answer={answer} /> : null}
       {urlInvalid ? <p role="status">{t(`${REPORTING}invalid_page`)}<button type="button" className={quietButtonClass} onClick={() => { setUrlInvalid(false); void controller.setPage(1); }}>{t(`${REPORTING}refresh`)}</button></p> : null}
       {state.export.kind !== "idle" ? <p role="status" className="mb-3 text-[13px] text-[#56635e] dark:text-white/65">{t(`${REPORTING}records_only`)}</p> : null}
