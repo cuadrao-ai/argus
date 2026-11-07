@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { activeFilterGroups, emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
+import { activeFilterGroups, emptyPreviewFilters, validPreviewAmount, type PreviewFilters } from "@/components/business-app/transacciones/records-filter-preview-model";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 
 await keepOwnListSearch();
@@ -14,7 +14,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 let cleanup = async () => {};
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; });
 
-async function mount(kind: "filters" | "date" | "toolbar", width = 1440) {
+async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initialFilters = emptyPreviewFilters()) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 844 });
   const { act, useState } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -25,9 +25,9 @@ async function mount(kind: "filters" | "date" | "toolbar", width = 1440) {
   const { RecordsToolbar } = await import("@/components/business-app/transacciones/RecordsToolbar");
   const DatePreview = (await import("@/components/business-app/transacciones/RecordsDatePreview")).default;
   function FilterHarness() {
-    const [value, setValue] = useState(emptyPreviewFilters);
+    const [value, setValue] = useState<PreviewFilters>(initialFilters);
     const [recordKind, setRecordKind] = useState<"all" | "gasto" | "venta">("all");
-    return <><Filters options={null} value={value} kind={recordKind} onChange={(next, nextKind) => { setValue(next); setRecordKind(nextKind); }} /><output data-testid="applied-record-kind">{recordKind}</output></>;
+    return <><Filters options={null} value={value} kind={recordKind} onChange={(next, nextKind) => { setValue(next); setRecordKind(nextKind); }} /><output data-testid="applied-record-kind">{recordKind}</output><output data-testid="applied-filters">{JSON.stringify(value)}</output></>;
   }
   function ToolbarHarness() {
     const [record, setRecord] = useState<{ query: string; kind: "all" | "gasto" | "venta" }>({ query: "", kind: "all" });
@@ -74,6 +74,29 @@ test("amount controls wait for a currency and exact validation rejects an invert
   assert.equal(validPreviewAmount({ currency: "USD", min: "9007199254740993.01", max: "9007199254740993.00" }), false);
   assert.deepEqual(activeFilterGroups(emptyPreviewFilters()), []);
   assert.equal(validPreviewAmount({ currency: "USD", min: "1234567890123456", max: "" }), false);
+});
+
+for (const width of [1440, 390]) for (const clearFrom of ["editor", "chips"]) test(`clearing filters from ${clearFrom} preserves currency toggles and clears amount bounds at ${width}px`, async () => {
+  const page = await mount("filters", width, { ...emptyPreviewFilters(), currencies: [] });
+  await page.click(page.button("Filtros"));
+  await page.click(page.button("Moneda y monto"));
+  await page.click(page.button("USD"));
+  const fields = [...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')];
+  for (const [index, value] of ["100", "200"].entries()) await page.act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(fields[index], value);
+    fields[index].dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  if (clearFrom === "chips") await page.click(page.button("Aplicar"));
+  await page.click(page.button("Limpiar filtros"));
+  if (clearFrom === "chips") {
+    await page.click(page.button("Filtros"));
+    await page.click(page.button("Moneda y monto"));
+  }
+  assert.ok([...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')].every((input) => input.value === ""));
+  await page.click(page.button("DOP"));
+  await page.click(page.button("DOP"));
+  await page.click(page.button("Aplicar"));
+  assert.deepEqual(JSON.parse(document.querySelector('[data-testid="applied-filters"]')!.textContent!), { ...emptyPreviewFilters(), currencies: [] });
 });
 
 for (const width of [1440, 390]) test(`amount entry preserves valid values on invalid input at ${width}px`, async () => {
