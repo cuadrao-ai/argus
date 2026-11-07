@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 export default async function ErrorScreenPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ screen?: string }>;
+  searchParams: Promise<{ screen?: string; language?: string; theme?: string }>;
 }) {
   if (process.env.NODE_ENV === "production") notFound();
   const params = await searchParams;
-  return <ErrorScreenPreview screen={params.screen ?? "server"} />;
+  return <ErrorScreenPreview screen={params.screen ?? "server"} language={params.language} theme={params.theme} />;
 }

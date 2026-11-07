@@ -1563,6 +1563,14 @@
       "session_ended": "Your session ended. Sign in again.",
       "try_again": "Try again"
     },
+    "session_recovery": {
+      "checking": "Checking your session…",
+      "different_owner_detail": "This workspace closed to keep information from different accounts separate.",
+      "different_owner_title": "The active account changed",
+      "error_title": "We couldn’t check your session",
+      "missing_detail": "There’s no active session in this browser.",
+      "missing_title": "Sign in to continue"
+    },
     "errors": {
       "generic": "Something went wrong. Please try again.",
       "captcha_unavailable": "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",

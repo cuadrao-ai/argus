@@ -37,7 +37,8 @@ import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant
 import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
-import { withBusinessSpace, type BusinessDataSource } from "./business-data";
+import { browserAuthGeneration } from "@/lib/browser-auth-generation";
+import { withBusinessSession, withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { BusinessContext } from "./business-context";
@@ -297,9 +298,11 @@ function BusinessWorkspaceContent({
   // flips it, so a record's effects do not refetch on every address-bar write.
   // A desktop shows the record beside its list, so the list loads from the start.
   const [directRecord, setDirectRecord] = useState(() => (searchParams.has("draft") || searchParams.has("receipt")) && responsiveLayoutSnapshot().isBelowDesktop);
+  const [sessionGeneration] = useState(browserAuthGeneration);
+  const sessionSource = useMemo(() => apiSource.mode === "live" ? withBusinessSession(apiSource, sessionGeneration) : apiSource, [apiSource, sessionGeneration]);
   const workspaceSource = useMemo(
-    () => withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
-    [apiSource, i18n],
+    () => withBusinessSpace(sessionSource, () => normalizeEnabledLanguage(i18n.language)),
+    [sessionSource, i18n],
   );
   const [panel, setPanel] = useState<BusinessPanelState>(() =>
     panelFromSearch(new URLSearchParams(searchParams.toString())),
@@ -307,7 +310,7 @@ function BusinessWorkspaceContent({
   // Derived, not the latch: the moment the person leaves the record the
   // workspace-scoped source is in effect, so the first fetch is already scoped.
   const onRecord = directRecord && (panel.kind === "receipt" || panel.kind === "draft");
-  const scopedSource = onRecord ? apiSource : workspaceSource;
+  const scopedSource = onRecord ? sessionSource : workspaceSource;
   const previewSourceFor = useMemo(() => createLocalBusinessPreviewSource(scopedSource), [scopedSource]);
   const source = localPreview ? previewSourceFor(chosenGrant) : scopedSource;
   const [initialView] = useState<ChatShellView>(() =>

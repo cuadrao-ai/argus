@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, beforeAll, describe, mock, test } from "bun:test";
+import { afterAll, beforeAll, describe, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReceiptDetail } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
@@ -519,6 +519,44 @@ describe("the receipt dossier on an open draft", () => {
       await page.wait(() => Boolean(page.row("amount").querySelector('[data-testid="row-saved"]')));
       assert.ok(page.row("amount").textContent?.includes("RD$ 950.00"));
     } finally { await page.close(); }
+  });
+
+  test("session recovery stops a queued row save and the old row's version check", async () => {
+    const { observeBrowserAuth } = await import("@/lib/browser-auth-generation");
+    observeBrowserAuth("test-review-owner");
+    const reply = Promise.withResolvers<Dossier>();
+    const sent: string[] = [];
+    let reads = 0;
+    const noNetwork = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected network request"));
+    let page: Awaited<ReturnType<typeof setup>> | undefined;
+    try {
+      page = await setup("fiscal", undefined, (fixture) => ({
+        mode: "live",
+        dossier: async (id) => { reads += 1; return fixture.dossier(id); },
+        reviewDraft: async () => { sent.push("facts"); return reply.promise; },
+        reviewPurchase: async (...args) => { sent.push("purchase"); return fixture.reviewPurchase(...args); },
+      }));
+      await page.openRow("counterparty");
+      await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
+      await page.press('[data-testid="edit-counterparty"] input', "Enter");
+      await fill(page, '[data-fact="category"] select', "05", HTMLSelectElement);
+      assert.deepEqual(sent, ["facts"], "the expense type waits for the first row");
+      const readsBeforeRetirement = reads;
+
+      observeBrowserAuth(null);
+      await page.close();
+      observeBrowserAuth("test-review-owner");
+      await page.act(async () => {
+        reply.reject(Object.assign(new Error("stale"), { code: "stale_version", status: 409 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      });
+
+      assert.deepEqual({ sent, reads }, { sent: ["facts"], reads: readsBeforeRetirement });
+    } finally {
+      await page?.close();
+      observeBrowserAuth(null);
+      noNetwork.mockRestore();
+    }
   });
 
   test("a row saves only when asked: leaving the field writes nothing, and the check or Enter saves", async () => {

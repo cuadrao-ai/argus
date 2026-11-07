@@ -1,5 +1,6 @@
 import { clearArgusSessionCookies } from "./argus-api";
 import { readSessionStored, removeSessionStored, writeSessionStored } from "./browser-storage";
+import { clearBusinessSelectionOnSignOut } from "./business-grant";
 import { classifyFailure, emailRetrySeconds } from "./failure-screen";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
 import { PASSWORD_MIN_LENGTH } from "./password-strength";
@@ -266,7 +267,9 @@ export function getAuthSecurityActions() {
       return { data: { redirectType: data?.redirectType ?? null }, error: result.error };
     },
     updateUser: (attributes) => supabase.auth.updateUser(attributes),
-    signOut: (options) => supabase.auth.signOut(options),
+    signOut: (options) => options.scope === "others"
+      ? supabase.auth.signOut(options)
+      : clearBusinessSelectionOnSignOut(() => supabase.auth.signOut(options)),
     getValidatedSession: async () => {
       return readValidatedAuthSession(supabase.auth);
     },

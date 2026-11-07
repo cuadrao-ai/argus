@@ -155,6 +155,25 @@ export const liveBusinessDataSource: BusinessDataSource = {
   markAccessSeen: api.markBusinessAccessSeen,
 };
 
+/** A retired workspace's callbacks cannot send requests or receive results under a new session. */
+export function withBusinessSession(source: BusinessDataSource, generation: number): BusinessDataSource {
+  const bound = { ...source };
+  for (const [name, method] of Object.entries(source)) {
+    if (typeof method !== "function") continue;
+    Object.defineProperty(bound, name, {
+      value: async (...args: unknown[]) => {
+        requireBrowserAuthGeneration(generation);
+        try {
+          return await Reflect.apply(method, source, args);
+        } finally {
+          requireBrowserAuthGeneration(generation);
+        }
+      },
+    });
+  }
+  return bound;
+}
+
 export function withBusinessSpace(
   source: BusinessDataSource,
   language: () => ArgusLanguage,

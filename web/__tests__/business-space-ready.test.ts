@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { withBusinessSpace, type BusinessDataSource } from "@/components/business-app/business-data";
+import { withBusinessSession, withBusinessSpace, type BusinessDataSource } from "@/components/business-app/business-data";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
+import { LISTO_LIMIT, listoBatches, runListoBatches } from "@/components/business-app/recepcion/reception-approval";
+import { browserAuthGeneration, observeBrowserAuth } from "@/lib/browser-auth-generation";
 
 function recording(startFails: number) {
   const base = createFixtureBusinessDataSource();
@@ -82,4 +84,36 @@ test("an old bootstrap cannot dispatch after logout and the new session starts a
   expect(reads).toBe(0);
   await spaced.workspace();
   expect(reads).toBe(1);
+});
+
+test("retiring the workspace session stops the next approval batch", async () => {
+  const { source } = recording(0);
+  const reply = Promise.withResolvers<Awaited<ReturnType<BusinessDataSource["approveListos"]>>>();
+  const sent: number[] = [];
+  const live: BusinessDataSource = { ...source, mode: "live", approveListos: async (items) => {
+    sent.push(items.length);
+    return sent.length === 1 ? reply.promise : { results: [] };
+  } };
+  observeBrowserAuth("test-approval-owner");
+  try {
+    const previous = withBusinessSession(live, browserAuthGeneration());
+    const targets = Array.from({ length: LISTO_LIMIT + 1 }, (_, index) => ({
+      draft_id: `draft-${index}`, version: 1, rowId: `receipt-${index}`, title: "Synthetic receipt",
+    }));
+    let nextKey = 0;
+    const pending = runListoBatches(previous.approveListos, listoBatches(targets, () => `key-${++nextKey}`));
+    expect(sent).toEqual([LISTO_LIMIT]);
+
+    observeBrowserAuth(null);
+    observeBrowserAuth("test-approval-owner");
+    reply.resolve({ results: [] });
+    await pending;
+    expect(sent).toEqual([LISTO_LIMIT]);
+
+    const current = withBusinessSession(live, browserAuthGeneration());
+    await current.approveListos([{ draft_id: "new-draft", version: 1 }], "new-key");
+    expect(sent).toEqual([LISTO_LIMIT, 1]);
+  } finally {
+    observeBrowserAuth(null);
+  }
 });
