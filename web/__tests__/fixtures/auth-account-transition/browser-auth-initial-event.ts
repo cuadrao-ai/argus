@@ -13,6 +13,7 @@ mock.module("@supabase/ssr", () => ({
 }));
 
 test("only confirmed identity changes clear the selected Business", async () => {
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
   process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test";
   const { getSupabaseClient } = await import("@/lib/supabase-client");

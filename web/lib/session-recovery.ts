@@ -51,7 +51,7 @@ export function createSessionRecovery({ initialOwner = null, allowAnonymous = fa
     if (kind !== "pending") stopAccess();
     observeBrowserAuth(null);
     retire();
-    onIdentityChange?.(null);
+    if (kind === "missing") onIdentityChange?.(null);
     const busy = kind === "pending";
     if (state.kind !== kind || state.busy !== busy) publish({ kind, busy });
   };

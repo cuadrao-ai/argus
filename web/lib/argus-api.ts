@@ -1,5 +1,5 @@
 import { browserAuthGeneration, browserLogoutGeneration, invalidateBrowserAuth, requireBrowserAuthGeneration } from "./browser-auth-generation";
-import { synchronizeBusinessAccount } from "./business-grant";
+import { clearBusinessSelectionOnSignOut, synchronizeBusinessAccount } from "./business-grant";
 import { rememberReceiptFollowupClaim } from './receipt-followup-storage';
 import { parseToolProgress, type ToolProgress, type ToolResultCard, type ToolScalar } from "./tool-result-card";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
@@ -737,17 +737,14 @@ export async function synchronizeCurrentBrowserLogout<T>(
 
 export async function logoutFromApi() {
   invalidateBrowserAuth();
-  const generation = browserAuthGeneration();
-  const result = await synchronizeCurrentBrowserLogout(
-    async () => {
+  return synchronizeCurrentBrowserLogout(
+    () => clearBusinessSelectionOnSignOut(async () => {
       const supabase = getSupabaseClient();
       if (!supabase) return { error: null };
       return supabase.auth.signOut({ scope: "local" });
-    },
+    }),
     clearArgusSessionCookies,
   );
-  if (result.revocation === "complete" && browserAuthGeneration() === generation) synchronizeBusinessAccount(null);
-  return result;
 }
 
 export async function createConversation(language?: string | null, options: AccountRequestOptions = {}, surface?: ConversationSurface) {

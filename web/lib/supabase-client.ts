@@ -38,7 +38,7 @@ export function getSupabaseClient(): SupabaseClient | null {
     observedIdentity = true;
     const userId = session?.user.id ?? null;
     observeBrowserAuth(userId);
-    synchronizeBusinessAccount(userId);
+    if (userId) synchronizeBusinessAccount(userId);
   });
   return cachedClient;
 }
