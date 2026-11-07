@@ -965,3 +965,10 @@ test("a currency-filtered six-card answer clears old figures while loading and s
   assert.equal(fiscalCount(), "0");
   assert.equal(fiscalCard().disabled, true);
 });
+
+test("phone Registros keeps its export button and existing report handler", async () => {
+  const page = await mount({ width: 390 });
+  await page.click(document.querySelector('[data-testid="records-export"]'));
+  await page.settle(() => page.downloads.length === 1);
+  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).length, 1);
+});
