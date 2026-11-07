@@ -969,6 +969,10 @@ body[data-workspace-bounded] [data-workspace-canvas] {
 }
 
 /* Ocultar montos: amounts keep their place and blur, so nothing reflows when it turns on. */
+.cuadrao-amount,
+.cuadrao-amount * {
+  transition: none !important;
+}
 :root[data-amounts-hidden="true"] .cuadrao-amount {
   color: transparent !important;
   text-shadow: 0 0 10px rgba(23, 43, 38, 0.65);

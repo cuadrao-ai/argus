@@ -81,7 +81,7 @@ function PeriodChoices({ period, setPeriod, close }: { period: Period; setPeriod
 
 export type ConnectedRecordsToolbar = { reportPeriod: ReportPeriod; catalogues?: ReportFilterCatalogues; applyFilters: (filters: PreviewFilters, kind: RecordsFilter["kind"]) => void; views: ConnectedReportViews };
 
-export function RecordsToolbar({ connected, filter, onChange, period, setPeriod, options, onPreviewChange, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { connected?: ConnectedRecordsToolbar; appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters?: PreviewFilters; onFiltersChange?: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
+export function RecordsToolbar({ connected, filter, onChange, period, setPeriod, options, onPreviewChange, onViewRestore, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { connected?: ConnectedRecordsToolbar; appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters?: PreviewFilters; onFiltersChange?: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; onViewRestore?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
   const { t } = useTransaccionesWords();
   const periodName = usePeriodLabel();
   const searchInput = useRef<HTMLInputElement>(null);
@@ -102,6 +102,7 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
   const setPreviewFilters = onFiltersChange ?? setLocalFilters;
   const [views, setViews] = useState<SavedRecordsView[]>([]);
   const restoreView = (selection: RecordsViewSelection) => {
+    onViewRestore?.();
     onPreviewChange?.();
     onChange(selection.record);
     setPreviewPeriod(selection.period);

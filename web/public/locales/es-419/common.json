@@ -2626,21 +2626,43 @@
         "overview": {
           "bandeja_waiting_one": "{{count}} recibo espera en la Bandeja",
           "bandeja_waiting_other": "{{count}} recibos esperan en la Bandeja",
+          "coverage_placeholder": "{{populated}} de {{applicable}} compras",
           "export": {
-            "title": "Listos para exportar",
-            "description": "Puedes incluirlos en tu exportación"
+            "title": "Listos para exportar"
           },
           "exported": {
-            "title": "Ya exportados",
-            "description": "Ya salieron en una exportación"
+            "title": "Ya exportados"
           },
           "fiscal": {
             "title": "Faltan datos fiscales",
             "description": "Les falta un dato para el 606 o el 607"
           },
+          "goods": {
+            "title": "Bienes"
+          },
+          "itbis": {
+            "title": "ITBIS"
+          },
+          "itbis_helper_placeholder": "Solo impuesto",
+          "partial_placeholder": "Parcial",
+          "purchases": "Compras",
+          "quantity": {
+            "title": "Cantidad"
+          },
+          "quantity_helper_placeholder": "Registros con estos filtros",
           "review": {
             "title": "Por revisar"
-          }
+          },
+          "sales": "Ventas",
+          "services": {
+            "title": "Servicios"
+          },
+          "total": {
+            "title": "Total"
+          },
+          "total_helper_placeholder": "Importe bruto",
+          "unsupported_placeholder_one": "{{count}} importe no compatible",
+          "unsupported_placeholder_other": "{{count}} importes no compatibles"
         },
         "period_summary": "Resumen del período · {{period}}",
         "reset_period": "Restablecer período",
@@ -2653,8 +2675,8 @@
           "exclusions": "Importes excluidos",
           "metrics": {
             "collected": "Cobrado",
-            "expenses": "Gastos",
-            "invoiced": "Facturado",
+            "expenses": "Compras",
+            "invoiced": "Ventas",
             "paid": "Pagado",
             "payable": "Por pagar",
             "receivable": "Por cobrar"

@@ -35,7 +35,7 @@ def test_v1_remains_strict_and_v2_hides_purchase_fields_and_funding_by_default()
         ReportRequestV2(presentation={"hidden": ["currency"]})
 
 
-def test_search_is_literal_accent_insensitive_and_overview_ignores_table_filters():
+def test_search_is_literal_accent_insensitive_and_other_stage_counts_keep_period_scope():
     rows = [
         row("1", counterparty="Café", stage="needs_review"),
         row("2", attachment_filenames=("José.pdf",), stage="exported"),

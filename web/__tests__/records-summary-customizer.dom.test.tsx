@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
+import type { ReportTotal } from "@/lib/business-reports-api";
+import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 });
@@ -14,9 +15,9 @@ afterEach(async () => {
   (await import("@/components/layout/overlayStack")).resetOverlayStack();
   document.body.innerHTML = "";
 });
-const row = (hasProof: boolean | null): RecordRow => ({ id: "exp-hosting", kind: "gasto", occurredOn: "2026-10-25", counterparty: "Sample", money: { amount: "-24.00", currency: "USD" }, categoryId: null, account: null, hasProof, marks: { personal: false, markedBy: null, fiscal: null }, opens: null });
+const total = (currency: string, amount: string, minor: number): ReportTotal => ({ basis: "document_family_amount", currency, kind: "expense", matching_count: 1, known_amount_minor: minor, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: minor, amount, known_amount: amount });
 
-async function mount(width = 1440, records = [row(false)], language = "es-419", summaryOverride?: ReturnType<typeof import("@/components/business-app/transacciones/records-results-preview").summarizeSettlementPreview>) {
+async function mount(width = 1440, totals = [total("USD", "24.00", 2400)], language = "es-419", summaryOverride?: ReturnType<typeof import("@/components/business-app/transacciones/records-results-preview").summarizeSettlementPreview>) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 844 });
   const { act, useState } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -28,8 +29,9 @@ async function mount(width = 1440, records = [row(false)], language = "es-419", 
   const { sampleRecordsPreferences } = await import("@/components/business-app/transacciones/sample-records-preferences");
   function Harness() {
     const [preferences, setPreferences] = useState(sampleRecordsPreferences);
-    const [kind, setKind] = useState<RecordRow["kind"] | "all">("gasto");
-    return <><button onClick={() => setKind("all")}>All</button><button onClick={() => setKind("venta")}>Sales</button><button onClick={() => setKind("gasto")}>Expenses</button><Settings value={preferences} onChange={setPreferences} onRestore={() => setPreferences(sampleRecordsPreferences())} />{summaryOverride ? <RecordsSummaryCards summary={summaryOverride} kind="gasto" /> : <Summary kind={kind} records={records} businessId="fixture-space" />}</>;
+    const [kind, setKind] = useState("all");
+    const [showPurchaseTotal, setShowPurchaseTotal] = useState(false);
+    return <div data-current-family={kind}><button onClick={() => setKind("all")}>All</button><button onClick={() => setKind("venta")}>Sales</button><button onClick={() => setKind("gasto")}>Expenses</button><button aria-expanded={showPurchaseTotal} onClick={() => setShowPurchaseTotal((shown) => !shown)}>Total</button><Settings value={preferences} onChange={setPreferences} onRestore={() => setPreferences(sampleRecordsPreferences())} />{showPurchaseTotal ? summaryOverride ? <RecordsSummaryCards summary={summaryOverride} kind="gasto" /> : <Summary answer={{ ...recordedReportAnswer, totals }} /> : null}</div>;
   }
   const host = document.createElement("div"); document.body.appendChild(host);
   const root = createRoot(host);
@@ -48,41 +50,44 @@ async function mount(width = 1440, records = [row(false)], language = "es-419", 
   return { host, act, button, click, key, summary, open };
 }
 
-test("summary follows record kind automatically and settings only change table presentation", async () => {
+test("Total controls the purchase subcard independently of family and table settings", async () => {
   const page = await mount();
-  assert.match(page.summary()!.textContent ?? "", /Gastos.*24.00.*Pagado.*12.00.*Por pagar.*12.00/);
-  assert.equal(page.summary()!.querySelectorAll(".cuadrao-amount").length, 3);
+  assert.equal(page.summary(), null);
+  await page.click(page.button("Expenses")); assert.equal(page.summary(), null);
+  await page.click(page.button("Total"));
+  assert.match(page.summary()!.textContent ?? "", /Compras.*24.00/);
+  assert.doesNotMatch(page.summary()!.textContent ?? "", /Pagado|Por pagar|Cobrado|Por cobrar/);
+  assert.equal(page.summary()!.querySelectorAll(".cuadrao-amount").length, 1);
   await page.open();
   assert.deepEqual([...document.querySelectorAll('[role="radiogroup"] > [role="radio"]')].map((tab) => tab.textContent), ["Columnas", "Altura de filas"]);
   assert.equal(document.querySelector('[data-summary-setting]'), null);
   await page.click(page.button("Altura de filas"));
   assert.ok(page.summary());
   await page.key(document.activeElement!, "Escape");
-  await page.click(page.button("All")); assert.equal(page.summary(), null, "Todos never shows a mixed financial total");
-  await page.click(page.button("Sales"));
-  assert.match(page.summary()!.textContent ?? "", /Facturado.*Cobrado.*Por cobrar/);
-  assert.equal(page.summary()!.querySelectorAll(".cuadrao-amount").length, 0, "unknown sales are not zero");
+  await page.click(page.button("All")); assert.ok(page.summary());
+  await page.click(page.button("Total")); assert.equal(page.summary(), null);
+  await page.click(page.button("Sales")); assert.equal(page.summary(), null);
 });
 
-test("phone has automatic summaries without an empty settings control", async () => {
-  const page = await mount(390, [row(null)], "en");
+test("phone keeps the Total toggle without an empty settings control", async () => {
+  const page = await mount(390, undefined, "en");
   assert.equal(page.host.querySelector('button[aria-haspopup="dialog"]'), null);
-  assert.ok(page.summary());
-  await page.click(page.button("All"));
   assert.equal(page.summary(), null);
-  await page.click(page.button("Expenses")); assert.ok(page.summary());
+  await page.click(page.button("Total")); assert.ok(page.summary());
+  await page.click(page.button("All")); assert.ok(page.summary());
+  await page.click(page.button("Total")); assert.equal(page.summary(), null);
+  await page.click(page.button("Expenses")); assert.equal(page.summary(), null);
 });
 
-test("two currencies stay visible in three read-only metric cards", async () => {
-  const page = await mount(1440, [row(false), { ...row(false), id: "exp-gas", money: { amount: "2100.00", currency: "DOP" } }], "en");
+test("two server currencies stay visible in one static purchase subcard", async () => {
+  const page = await mount(1440, [total("USD", "24.00", 2400), total("DOP", "2100.00", 210000)], "en");
+  await page.click(page.button("Total"));
   const summary = page.summary()!;
-  assert.equal(summary.querySelectorAll("[data-summary-part]").length, 3);
-  assert.equal(summary.querySelectorAll(".cuadrao-amount").length, 6);
-  for (const card of summary.querySelectorAll("[data-summary-part]")) {
-    assert.deepEqual([...card.querySelectorAll("[data-currency]")].map((cell) => cell.getAttribute("data-currency")), ["DOP", "USD"]);
-  }
+  assert.equal(summary.querySelectorAll("[data-summary-part]").length, 1);
+  assert.equal(summary.querySelectorAll(".cuadrao-amount").length, 2);
+  assert.deepEqual([...summary.querySelectorAll("[data-currency]")].map((cell) => cell.getAttribute("data-currency")), ["DOP", "USD"]);
   assert.equal(summary.querySelector("select"), null);
-  assert.equal(summary.querySelector("button"), null, "amount drill-down is not yet connected");
+  assert.equal(summary.querySelector("button"), null);
 });
 
 for (const width of [1440, 390]) test(`overflow currencies open one shared breakdown and restore focus at ${width}px`, async () => {
@@ -94,16 +99,19 @@ for (const width of [1440, 390]) test(`overflow currencies open one shared break
     ],
     exclusions: { unconfirmed: 1, personal: 0, unavailable: 0 },
   });
+  await page.click(page.button("Total"));
   const summary = page.summary()!;
-  assert.equal(summary.querySelectorAll("[data-currency]").length, 6, "only two currency rows per card");
+  assert.equal(summary.querySelectorAll("[data-currency]").length, 2, "only two currencies in the purchase subcard");
   assert.equal(summary.querySelector('[data-currency="USD"]'), null);
   const trigger = page.button("View all 3 currencies");
   trigger.focus(); await page.click(trigger);
   const panel = document.querySelector('[data-testid="records-currency-breakdown"]')!;
   assert.ok(panel);
   assert.equal(panel.querySelectorAll("[data-currency]").length, 3);
-  assert.match(panel.textContent ?? "", /USD.*Expenses.*24.00.*Paid.*12.00.*To pay.*12.00/);
-  assert.equal(panel.querySelector('[data-currency="EUR"]')!.querySelectorAll(".cuadrao-amount").length, 1, "missing settlement stays unknown");
+  assert.match(panel.textContent ?? "", /USD.*Purchases.*24.00/);
+  assert.doesNotMatch(panel.textContent ?? "", /Paid|Payable|Collected|Receivable/);
+  assert.equal(panel.querySelectorAll("dt").length, 3);
+  assert.equal(panel.querySelector('[data-currency="EUR"]')!.querySelectorAll(".cuadrao-amount").length, 1, "one amount is visible per currency");
   assert.ok(panel.closest(width >= 1024 ? '[role="region"]' : '[role="dialog"]'));
   assert.equal(panel.querySelector("select,input"), null, "breakdown does not add a currency filter");
   await page.key(document.activeElement!, "Escape");

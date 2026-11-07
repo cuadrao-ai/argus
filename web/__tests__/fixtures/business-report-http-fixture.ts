@@ -45,7 +45,7 @@ export function createBusinessReportHttpFixture() {
   const views: { id: string; name: string; recipe: unknown; version: number; created_at: string; updated_at: string }[] = [];
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
-  const controls = { presentation: recordedReportAnswer.presentation, exportChanged: false, noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false };
+  const controls = { presentation: recordedReportAnswer.presentation, exportChanged: false, noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
   const dossier = (row: ReportRecord) => ({ draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
   const problem = (status: number, code: string) => Response.json({ code, detail: code }, { status });
   const request = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
@@ -56,6 +56,7 @@ export function createBusinessReportHttpFixture() {
     calls.push({ path, method, headers, body });
     if (path.endsWith("/reports/query")) {
       if (controls.reportForbidden) return problem(403, "permission_denied");
+      if (controls.reportUnavailable) return problem(503, "business_report_unavailable");
       const report = reportRequestSchema.parse(body);
       let matching = records.filter((row) => !report.filters.q || text(`${row.counterparty} ${row.note} ${row.attachment_sources?.map((source) => source.filename).join(" ")}`).includes(text(report.filters.q)));
       if (report.filters.record_families.length) matching = matching.filter((row) => row.family && report.filters.record_families.includes(row.family));
@@ -72,7 +73,7 @@ export function createBusinessReportHttpFixture() {
         totals: documentFamilyTotals(matching),
         fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: report.filters.period.kind === "latest_month" ? latestMonth(records) : { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
         counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: [{ code: "02", label: "Gastos por trabajos, suministros y servicios" }], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
-        ...controls.legacy ? {} : { overview: controls.overview, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
+        ...controls.legacy ? {} : { overview: { ...controls.overview, ...("needs_fiscal_data" in controls.overview ? { needs_fiscal_data: matching.filter((row) => row.stage === "needs_fiscal_data").length } : {}) }, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
     }
     if (path.endsWith("/reports/export")) return controls.exportChanged ? problem(409, "business_report_changed") : new Response(new Uint8Array([80, 75, 3, 4]), { headers: { "Content-Type": "application/zip" } });
     if (path.endsWith("/report-views") && method === "GET") return Response.json(views);

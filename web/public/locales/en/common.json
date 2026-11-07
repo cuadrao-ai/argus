@@ -2626,21 +2626,43 @@
         "overview": {
           "bandeja_waiting_one": "{{count}} receipt is waiting in the Inbox",
           "bandeja_waiting_other": "{{count}} receipts are waiting in the Inbox",
+          "coverage_placeholder": "{{populated}} of {{applicable}} purchases",
           "export": {
-            "title": "Ready to export",
-            "description": "You can include them in your export"
+            "title": "Ready to export"
           },
           "exported": {
-            "title": "Already exported",
-            "description": "They already went out in an export"
+            "title": "Already exported"
           },
           "fiscal": {
             "title": "Missing fiscal data",
             "description": "Missing a detail for the 606 or 607"
           },
+          "goods": {
+            "title": "Goods"
+          },
+          "itbis": {
+            "title": "ITBIS"
+          },
+          "itbis_helper_placeholder": "Tax amount only",
+          "partial_placeholder": "Partial",
+          "purchases": "Purchases",
+          "quantity": {
+            "title": "Count"
+          },
+          "quantity_helper_placeholder": "Records with these filters",
           "review": {
             "title": "To review"
-          }
+          },
+          "sales": "Sales",
+          "services": {
+            "title": "Services"
+          },
+          "total": {
+            "title": "Total"
+          },
+          "total_helper_placeholder": "Gross amount",
+          "unsupported_placeholder_one": "{{count}} unsupported amount",
+          "unsupported_placeholder_other": "{{count}} unsupported amounts"
         },
         "period_summary": "Period summary · {{period}}",
         "reset_period": "Reset period",
@@ -2653,11 +2675,11 @@
           "exclusions": "Excluded amounts",
           "metrics": {
             "collected": "Collected",
-            "expenses": "Expenses",
-            "invoiced": "Invoiced",
+            "expenses": "Purchases",
+            "invoiced": "Sales",
             "paid": "Paid",
-            "payable": "To pay",
-            "receivable": "To collect"
+            "payable": "Payable",
+            "receivable": "Receivable"
           },
           "no_currency": "No currency",
           "partial": "Partial: {{amount}}",
