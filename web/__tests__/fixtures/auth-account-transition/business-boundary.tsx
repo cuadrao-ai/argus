@@ -70,3 +70,34 @@ test("readiness denial keeps normal Business mounted; closed-only owner never st
   assert.ok(host.textContent?.includes("Closed controls"));
   await act(async () => root.unmount()); host.remove();
 });
+
+test("a wake check failure retires the workspace and offers a real retry", async () => {
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
+  lifecycleMode = "open";
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { default: BusinessApp } = await import("@/components/business-app/BusinessApp");
+  const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+  Object.assign(liveBusinessDataSource, { consent: async (version: string) => ({ version, accepted_at: "2026-10-18T12:00:00.000Z" }) });
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => root.render(<BusinessApp />));
+  try {
+    await act(async () => listener("SIGNED_IN", { user: { id: "old" } }));
+    assert.ok(host.querySelector("input"), "the signed-in workspace is mounted");
+    const initial = releaseInitial;
+    await act(async () => { window.dispatchEvent(new Event("focus")); });
+    assert.notEqual(releaseInitial, initial, "waking the Business workspace checks the session");
+    await act(async () => releaseInitial({ data: { session: null }, error: new Error("offline") }));
+    assert.equal(host.querySelector("input"), null, "an unverifiable session retires the private workspace");
+    const retry = host.querySelector("button");
+    assert.ok(retry, "the recovery screen offers retry");
+    const failed = releaseInitial;
+    await act(async () => { retry.click(); });
+    assert.notEqual(releaseInitial, failed, "retry actually checks the session");
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});
