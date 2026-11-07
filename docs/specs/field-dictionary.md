@@ -136,6 +136,8 @@ Registros has six summary cards. Lucas approved the purchase-side meanings on 20
 
 Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Currency behavior is unchanged: never add incompatible currencies. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
 
+The existing table currency filter also scopes all six cards. Selecting one currency shows the server amounts for that currency and the remaining filters together. Clearing the currency chip removes that restriction and keeps the other filters. Cards describe all matching records across all pages; changing pages does not change their totals. A new request hides the previous card values until its answer arrives. An empty answer shows zero matching records and no invented money amounts.
+
 Known limitations:
 
 - Bienes and Servicios coverage counts applicable purchases only.

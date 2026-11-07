@@ -1479,6 +1479,8 @@ For money, make fractional digits smaller and raised. Preserve the decimal
 separator, precision, rounding and currency identity, and keep the full amount
 readable by screen readers. Retain the existing currency display and breakdown
 controls, including dossier/sheet behavior, return focus and privacy masking.
+The layout for unrestricted results with multiple currencies is deferred to a
+later pass. This pass adds no currency selector or alternate display rule.
 
 Actual fit is still unverified. Before build sign-off, render at the real compact
 content width and actual size with filters, headers and first table rows visible.
