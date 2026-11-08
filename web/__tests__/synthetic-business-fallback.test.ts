@@ -64,6 +64,44 @@ describe("synthetic Business fallback", () => {
     expect(reportAnswerSchema.parse(first.responses[0])).toMatchObject({ page: 3, page_size: 50, page_count: 0, items: [] });
   });
 
+  test("returns the undismissed state for the known guide card", async () => {
+    const route = syntheticRoute("guide-cards/bandeja-intro", "GET");
+    await fulfillSyntheticBusinessFallback(route);
+
+    expect(route.responses).toEqual([{ dismissed: false }]);
+  });
+
+  test("returns the dismissed state for the known guide card", async () => {
+    const route = syntheticRoute("guide-cards/bandeja-intro/dismiss", "POST");
+    await fulfillSyntheticBusinessFallback(route);
+
+    expect(route.responses).toEqual([{ dismissed: true }]);
+  });
+
+  test.each([
+    ["guide-cards/bandeja-intro", "POST"],
+    ["guide-cards/bandeja-intro/dismiss", "GET"],
+    ["guide-cards/unknown", "GET"],
+    ["guide-cards/unknown/dismiss", "POST"],
+    ["guide-cards/bandeja-intro/", "GET"],
+    ["guide-cards/bandeja-intro/dismiss/", "POST"],
+    ["guide-cards/bandeja-intro-extra", "GET"],
+    ["guide-cards/bandeja-intro/dismiss-extra", "POST"],
+  ])("rejects unsupported guide request %s with %s", async (path, method) => {
+    const route = syntheticRoute(path, method);
+    await expect(fulfillSyntheticBusinessFallback(route)).rejects.toThrow();
+    expect(route.responses).toEqual([]);
+  });
+
+  test.each([
+    ["guide-cards/bandeja-intro?source=test", "GET"],
+    ["guide-cards/bandeja-intro/dismiss?source=test", "POST"],
+  ])("rejects query parameters on guide request %s", async (path, method) => {
+    const route = syntheticRoute(path, method);
+    await expect(fulfillSyntheticBusinessFallback(route)).rejects.toThrow();
+    expect(route.responses).toEqual([]);
+  });
+
   test.each(["reports/export", "report-views", "reports/query/", "unknown"])("keeps %s unmapped", async (path) => {
     const route = syntheticRoute(path);
     await expect(fulfillSyntheticBusinessFallback(route)).rejects.toThrow(`Unmapped synthetic endpoint ${path}`);

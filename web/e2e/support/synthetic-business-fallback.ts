@@ -11,6 +11,14 @@ export async function fulfillSyntheticBusinessFallback(route: SyntheticBusinessR
   const request = route.request();
   const url = new URL(request.url());
   const path = url.pathname.split("/business/")[1];
+  if (url.pathname === "/api/v1/business/guide-cards/bandeja-intro") {
+    if (request.method() !== "GET" || url.search) throw new Error("Synthetic guide-cards/bandeja-intro requires GET without query parameters");
+    return route.fulfill({ json: { dismissed: false } });
+  }
+  if (url.pathname === "/api/v1/business/guide-cards/bandeja-intro/dismiss") {
+    if (request.method() !== "POST" || url.search) throw new Error("Synthetic guide-cards/bandeja-intro/dismiss requires POST without query parameters");
+    return route.fulfill({ json: { dismissed: true } });
+  }
   if (url.pathname !== "/api/v1/business/reports/query") throw new Error(`Unmapped synthetic endpoint ${path}`);
   if (request.method() !== "POST" || url.search) throw new Error("Synthetic reports/query requires POST without query parameters");
   const report = reportRequestSchema.parse(request.postDataJSON());
