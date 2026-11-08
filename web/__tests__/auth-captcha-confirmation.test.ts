@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 import { loginWithEmail, signupWithEmail } from "../lib/argus-api";
 import * as guestCaptcha from "../lib/guest-captcha";
@@ -221,7 +220,6 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     const originalCuadraoLocalToken =
       process.env.NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN;
 
-    GlobalRegistrator.register({ url: "http://localhost/" });
     process.env.NODE_ENV = "production";
     process.env.NEXT_PUBLIC_ARGUS_API_URL = "https://api.example.test/api/v1";
     process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY = "test-site-key";
@@ -231,15 +229,22 @@ describe("password auth CAPTCHA and confirmation contract", () => {
 
     const loadTurnstileSpy = spyOn(guestCaptcha, "loadTurnstile").mockImplementation(
       async () => ({
-        render(_container, options) {
-          issuanceCalls += 1;
-          const token = issuanceTokens[issuanceCalls - 1] ?? issuanceTokens[1];
-          queueMicrotask(() => options.callback(token));
-          return `widget-${issuanceCalls}`;
+        render(_container, _options) {
+          return "widget-turnstile";
         },
         remove() {},
       }),
     );
+    // Avoid createTurnstileShell: it dynamic-imports lib/i18n and poisons the
+    // default i18next singleton for later suites in the same Bun process.
+    const acquireGuestCaptchaTokenSpy = spyOn(
+      guestCaptcha,
+      "acquireGuestCaptchaToken",
+    ).mockImplementation(async () => {
+      issuanceCalls += 1;
+      await guestCaptcha.loadTurnstile(guestCaptcha.CAPTCHA_ACQUISITION_TIMEOUT_MS);
+      return issuanceTokens[issuanceCalls - 1] ?? issuanceTokens[1];
+    });
 
     globalThis.fetch = (async (_input, init) => {
       bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
@@ -265,8 +270,8 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       expect(bodies[0]?.captcha_token).toBe(issuanceTokens[0]);
       expect(bodies[1]?.captcha_token).toBe(issuanceTokens[1]);
     } finally {
+      acquireGuestCaptchaTokenSpy.mockRestore();
       loadTurnstileSpy.mockRestore();
-      await GlobalRegistrator.unregister();
       process.env.NODE_ENV = originalNodeEnv;
       if (originalApiUrl === undefined) {
         delete process.env.NEXT_PUBLIC_ARGUS_API_URL;
