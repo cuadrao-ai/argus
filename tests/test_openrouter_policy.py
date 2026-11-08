@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from argus.agent_runtime.capabilities.contract import build_default_capability_contract
@@ -189,32 +190,69 @@ def test_provider_asset_preflight_uses_hosted_traffic_key(
 
 
 @pytest.mark.asyncio
-async def test_api_lifespan_validates_openrouter_before_persistence(
+async def test_api_lifespan_skips_hosted_openrouter_guest_distinct_check(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from argus.api import app_setup
     from argus.api import state as api_state
+    from argus.llm import openrouter_key_policy
 
-    events: list[str] = []
+    called: list[str] = []
+
+    def _track_validate() -> None:
+        called.append("validate")
+
     monkeypatch.setattr(
-        app_setup,
+        openrouter_key_policy,
         "validate_hosted_openrouter_configuration",
-        lambda: events.append("validate"),
-        raising=False,
+        _track_validate,
     )
+    for flag in (
+        "NEXT_PUBLIC_MOCK_AUTH",
+        "CUADRAO_MOCK_AUTH",
+        "ARGUS_DEV_ENDPOINTS_ENABLED",
+    ):
+        monkeypatch.delenv(flag, raising=False)
+    monkeypatch.setenv("APP_ENV", "staging")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "synthetic-registered")
+    monkeypatch.delenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", raising=False)
     monkeypatch.setattr(api_state, "CHECKPOINTER_MODE", "memory")
     monkeypatch.setattr(api_state, "PERSISTENCE_MODE", "memory")
+    events: list[str] = []
     monkeypatch.setattr(
         api_state,
         "build_agent_runtime_checkpointer",
         lambda: events.append("persistence") or object(),
+    )
+    for module, stem in (
+        ("personalization_memory", "personalization_memory"),
+        ("financial_accounts", "financial_accounts"),
+        ("ingestion", "ingestion"),
+        ("profile_images", "profile_images"),
+        ("bank_matching", "bank_matching"),
+        ("households", "households"),
+        ("apple_sign_in", "apple_sign_in"),
+    ):
+        for prefix in ("start", "stop"):
+            monkeypatch.setattr(f"argus.api.{module}.{prefix}_{stem}", Mock())
+    monkeypatch.setattr("argus.api.fiscal_operations.start_fiscal", Mock())
+    monkeypatch.setattr("argus.api.fiscal_operations.stop_fiscal", AsyncMock())
+    monkeypatch.setattr("argus.api.email_intake.start_email_intake", Mock())
+    monkeypatch.setattr("argus.api.email_intake.stop_email_intake", AsyncMock())
+    monkeypatch.setattr("argus.api.whatsapp_worker.start_worker", Mock())
+    monkeypatch.setattr("argus.api.whatsapp_worker.stop_worker", AsyncMock())
+    monkeypatch.setattr("argus.api.whatsapp.drain_whatsapp", AsyncMock())
+    monkeypatch.setattr(
+        "argus.api.chat.research_pricing_evidence.ResearchPricingRecorder.close",
+        AsyncMock(),
     )
     app = FastAPI()
 
     async with app_setup.lifespan(app):
         pass
 
-    assert events == ["validate", "persistence"]
+    assert called == []
+    assert events == ["persistence"]
 
 
 def _structured_model_candidates(*_: Any, **__: Any) -> list[str]:

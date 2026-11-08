@@ -533,11 +533,11 @@ def test_render_blueprint_keeps_true_secrets_manual() -> None:
         "DATABASE_URL",
         "SUPABASE_SERVICE_ROLE_KEY",
         "CUADRAO_PROD_OPENROUTER_API_KEY",
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
         "CUADRAO_OPS_TOKEN",
         "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
     ):
         assert api_env[key] == {"key": key, "sync": False}
+    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" not in api_env
     assert "OPENROUTER_API_KEY" not in api_env
     # Only account deletion reads it, and production keeps account deletion off.
     assert "SUPABASE_JWT_SECRET" not in api_env

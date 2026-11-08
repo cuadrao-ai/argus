@@ -13,7 +13,6 @@ import signal
 
 from argus.domain.ingestion.documents.config import load_document_job_settings
 from argus.domain.ingestion.documents.worker import DocumentWorker
-from argus.llm.openrouter_key_policy import validate_hosted_openrouter_configuration
 from argus.log_sink import configure_logging
 from psycopg_pool import ConnectionPool
 
@@ -39,7 +38,6 @@ async def serve() -> None:
 
 def main() -> None:
     configure_logging()
-    validate_hosted_openrouter_configuration()
     asyncio.run(serve())
 
 

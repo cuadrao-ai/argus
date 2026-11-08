@@ -9,7 +9,7 @@ import pytest
 import scripts.ops.staging_env as se
 
 AUDIT_API = """APP_ENV ARGUS_BUSINESS_PILOT_ENABLED CUADRAO_CHECKPOINTER_MODE ARGUS_DEV_MEMORY_FALLBACK
-CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD ARGUS_DOCUMENT_EXTRACTION_ENABLED ARGUS_FINANCIAL_ACCOUNTS_ENABLED CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY
+CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD ARGUS_DOCUMENT_EXTRACTION_ENABLED ARGUS_FINANCIAL_ACCOUNTS_ENABLED
 ARGUS_INGESTION_ENABLED CUADRAO_MOCK_AUTH CUADRAO_PERSISTENCE_MODE CUADRAO_PROD_OPENROUTER_API_KEY ARGUS_VISION_MODEL
 CUADRAO_APP_ORIGIN CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED CUADRAO_BUSINESS_EMAIL_DOMAIN
 CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED CUADRAO_BUSINESS_PILOT_ENABLED CUADRAO_DOCUMENT_EXTRACTION_ENABLED
@@ -63,7 +63,6 @@ def live_for(manifest, label, audit):
         live["NEXT_PUBLIC_CUADRAO_API_URL"] = "https://canonical.example.test/api/v1"
     if label == "api":
         live["CUADRAO_PROD_OPENROUTER_API_KEY"] = SECRET_VALUES[0]
-        live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = "guest-different-EEEE5555"
         live["SUPABASE_SERVICE_ROLE_KEY"] = SECRET_VALUES[2]
     return live
 
@@ -157,15 +156,6 @@ def test_web_preserves_canonical_api_url_without_managing_the_old_name(manifest)
     )
     assert plan.final["NEXT_PUBLIC_ARGUS_API_URL"] == live["NEXT_PUBLIC_ARGUS_API_URL"]
     assert "CUADRAO_RESEND_WEBHOOK_SECRET" not in plan.final
-
-
-def test_distinct_openrouter_keys(manifest):
-    live = live_for(manifest, "api", AUDIT_API)
-    live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = live[
-        "CUADRAO_PROD_OPENROUTER_API_KEY"
-    ]
-    plan = se.compute_plan(manifest["services"]["api"], live, {})
-    assert any("must differ" in p for p in plan.problems)
 
 
 def full_secrets():
@@ -560,24 +550,6 @@ def test_live_generated_value_beats_a_different_file_value(manifest):
     actions = dict(plan.actions)
     assert actions["CUADRAO_INGESTION_SECRET_KEY"] == "ok"
     assert "CUADRAO_INGESTION_SECRET_KEY" not in plan.generated
-
-
-@pytest.mark.parametrize("shared", [False, True])
-def test_staging_registered_key_must_differ_from_guest(manifest, shared):
-    live = live_for(manifest, "api", AUDIT_API)
-    guest = live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"]
-    live["CUADRAO_OPENROUTER_API_KEY_STG"] = guest if shared else "synthetic-staging-key"
-    plan = se.compute_plan(manifest["services"]["api"], live, {})
-    problem = (
-        "CUADRAO_OPENROUTER_API_KEY_STG and "
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY must differ"
-    )
-    assert (problem in plan.problems) is shared
-    assert (
-        plan.final["CUADRAO_OPENROUTER_API_KEY_STG"]
-        == live["CUADRAO_OPENROUTER_API_KEY_STG"]
-    )
-    assert guest not in "\n".join(plan.problems)
 
 
 def _offline(capsys, *argv):
