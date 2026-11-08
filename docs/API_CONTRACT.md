@@ -10499,7 +10499,10 @@ person starts their space, every route below except POST `/space` answers 404
     present and true, since a saved expense's fiscal standing is settled (the
     same split the overview's totals make). So an absent `fiscal_value` with
     `fiscal_known` true means no fiscal number; all read by one
-    server function so a list row and its record always agree; receipt
+    server function so a list row and its record always agree. The dossier
+    also carries `fiscal_question_applies` (boolean, default false), computed
+    only by the canonical facts rule: Personal with an NCF or e-CF, never
+    income. The web shows the entire 606 block only when this is true. Receipt
     summaries add
     `personal_editable` for anyone with prepare on a receipt that has a
     draft. They also carry `sin_comprobante`, true when a person stated the

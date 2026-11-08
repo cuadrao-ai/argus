@@ -33,8 +33,9 @@ export function historyWhen(iso: string, am: string, pm: string): string {
  * revision, one correction per changed field from a person's revision, and
  * Aprobado from the recorded approval. Nothing here can be edited.
  */
-export default function ReceiptHistory({ history, accounts, sources = [], approval = null }: {
+export default function ReceiptHistory({ history, accounts, sources = [], approval = null, documentType }: {
   history: BusinessDraftRevision[];
+  documentType?: BusinessDossier["document_type"];
   accounts: BusinessAccount[];
   sources?: BusinessDossier["sources"];
   approval?: BusinessDossier["approval_result"];
@@ -105,6 +106,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     }
     for (const key of BUSINESS_FISCAL_FIELDS) {
       if (key === "include_606") {
+        if (documentType === "venta") continue;
         const before = answer606(revision.before);
         const after = answer606(revision.after);
         // The 606 answer is a person's: an event only when someone gave or changed it, never for a read that left it open.

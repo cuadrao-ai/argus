@@ -508,7 +508,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       back={recorded ? "transactions" : "inbox"}
       title={title}
       business={formatBusinessName(dossier.space_name, t("business.overview.title", "My business"))}
-      history={<ReceiptHistory history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
+      history={<ReceiptHistory documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
       // The list's own words for the status, so Bandeja and its dossier say the same thing.
       badge={pillStatus ? <StatusPill status={pillStatus} label={(receipt ? stateWord(receipt) : pillStatus === "review_ready" ? t("business.inbox.row_ready", "Ready to review") : "") || undefined} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
       amount={amount !== null && currency !== null ? formatMoney(amount, currency, i18n.resolvedLanguage ?? resolveLanguage({})) : null}

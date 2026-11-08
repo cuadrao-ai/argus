@@ -184,3 +184,16 @@ test("sales use income amounts and absent sales goods and services stay unknown"
   assert.match(card("total").textContent!, /Ventas/);
   for (const metric of ["goods", "services"]) assert.equal(card(metric).querySelector('.cuadrao-amount'), null);
 });
+
+for (const language of ["es-419", "en"]) {
+  test(`${language} fiscal helper follows the selected tab`, async () => {
+    const page = await mount({}, language);
+    const helper = (form: string) => language === "es-419" ? `Complétalos antes del ${form}` : `Complete them before the ${form}`;
+    assert.ok(card("fiscal").textContent?.includes(helper("606")));
+    await page.render({ family: "sale" });
+    assert.ok(card("fiscal").textContent?.includes(helper("607")));
+    assert.equal(card("fiscal").textContent?.includes("606"), false);
+    await page.render({ family: "purchase" });
+    assert.ok(card("fiscal").textContent?.includes(helper("606")));
+  });
+}
