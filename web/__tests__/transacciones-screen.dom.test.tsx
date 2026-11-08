@@ -487,11 +487,15 @@ describe("the gate", () => {
     await page.settle(() => page.records().length > 0, "the saved records");
   });
 
-  test("an empty period offers a real next step, never a zero list", async () => {
+  test("an empty period names the current tab and offers Agregar only on Compras", async () => {
     const page = await mount({ enabled: false, transacciones: await recordsOf([]) });
-    await page.settle(() => document.querySelector('[data-testid="transacciones-records-empty"]') !== null, "the empty state");
-    assert.match(page.body(), /Aquí verás tus gastos y ventas/);
-    assert.ok(document.querySelector('[data-testid="transacciones-records-empty"] button'), "one action to add");
+    const empty = () => document.querySelector('[data-empty-kind="first_run"]');
+    await page.settle(() => empty() !== null, "the purchase empty state");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "Aquí verás tus compras");
+    assert.equal(empty()?.querySelector("button")?.textContent, "Agregar");
+    await chooseRecordKind(page, "venta");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "Aquí verás tus ventas");
+    assert.equal(empty()?.querySelector("button"), null);
     assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"] dd')?.textContent, "-sin dato", "no row names a currency, so the zero is not shown as pesos");
   });
 
@@ -1008,12 +1012,15 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     await page.settle(() => page.records().length === 2, "loaded purchase default-currency records");
     const es = language === "es-419";
     const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
-    const chooseUsd = async () => { await page.click(document.querySelector(`button[aria-label^="${es ? "Moneda" : "Currency"}:"]`)); await clickText("USD"); };
+    const chooseCurrency = async (currency: string) => {
+      await page.click(document.querySelector(`button[aria-label^="${es ? "Moneda" : "Currency"}:"]`));
+      await clickText(currency);
+    };
     const open = async () => {
       await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
       await page.click(document.querySelector('[data-group="amount"]'));
     };
-    await chooseUsd();
+    await chooseCurrency("USD");
     assert.equal(page.records().length, 1);
     const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
     assert.match(footer().textContent ?? "", es ? /1–1 de 1/ : /1–1 of 1/);
@@ -1022,22 +1029,57 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     const removeCurrency = es ? "Quitar filtro Moneda" : "Remove filter Currency";
     assert.equal(document.querySelector(`button[aria-label="${removeCurrency}"]`), null);
     assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
-    await open();
-    const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
-    await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, "25"); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
-    await clickText(es ? "Aplicar" : "Apply");
-    assert.equal(page.records().length, 0);
-    assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
-    assert.equal(document.querySelector(`button[aria-label="${es ? "Quitar filtro Moneda y monto" : "Remove filter Currency and amount"}"]`), null);
-    const empty = document.querySelector('[data-empty-kind="filtered"]')!;
-    assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
-    assert.equal(empty.querySelector("p"), null, "a filtered empty state has no body line"); assert.equal(empty.querySelector("button"), null, "and no clear action of its own");
-    const clears = [...document.querySelectorAll("button")].filter((node) => node.textContent === (es ? "Limpiar filtros" : "Clear filters"));
-    assert.equal(clears.length, 1, "the pill row's Limpiar filtros is the only clear action");
-    const clear = clears.at(-1)!;
-    await page.click(clear);
-    assert.equal(page.records().length, 1, "empty-result clear keeps currency and clears amount limits");
-    assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
+    const query = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input[type="search"]')!;
+    const typeSearch = (value: string) => page.act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(query, value);
+      query.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const clearSearch = es ? "Borrar búsqueda" : "Clear search";
+    const clearFilters = es ? "Limpiar filtros" : "Clear filters";
+    const period = document.querySelector('button[aria-label^="Período:"], button[aria-label^="Period:"]')?.getAttribute("aria-label");
+    for (const kind of ["gasto", "venta"] as const) {
+      await chooseRecordKind(page, kind);
+      await typeSearch("comercio inexistente");
+      const noResults = document.querySelector('[data-empty-kind="no_results"]');
+      assert.equal(noResults?.querySelector("h3")?.textContent, es ? "No hay resultados para esta búsqueda" : "No results for this search");
+      assert.deepEqual([...noResults!.querySelectorAll("button")].map((button) => button.textContent), [clearSearch]);
+      await page.click(noResults!.querySelector("button"));
+      assert.equal(query.value, "");
+      assert.equal(page.records().length, 1);
+
+      await typeSearch("Nube");
+      await open();
+      const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, "25"); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
+      await clickText(es ? "Aplicar" : "Apply");
+      assert.equal(page.records().length, 0);
+      assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
+      const empty = document.querySelector('[data-empty-kind="filtered"]')!;
+      assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
+      assert.equal(empty.querySelector("p"), null);
+      const actions = () => [...document.querySelectorAll('[data-empty-kind="filtered"] button')];
+      assert.deepEqual(actions().map((button) => button.textContent), [clearFilters, clearSearch]);
+      await page.click(actions()[1]);
+      assert.equal(query.value, "");
+      assert.equal(page.records().length, 0, "clearing search keeps the amount bound");
+      assert.deepEqual(actions().map((button) => button.textContent), [clearFilters]);
+      await typeSearch("Nube");
+      await page.click(actions()[0]);
+      assert.equal(query.value, "Nube", "clearing filters keeps search");
+      assert.equal(page.records().length, 1, "clearing filters keeps currency and clears amount limits");
+      assert.equal(page.records()[0].dataset.kind, kind);
+      assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
+      await typeSearch("");
+    }
+    assert.equal(document.querySelector('button[aria-label^="Período:"], button[aria-label^="Period:"]')?.getAttribute("aria-label"), period);
+    await chooseCurrency("EUR");
+    for (const [kind, title] of [
+      ["gasto", es ? "Aquí verás tus compras" : "Your purchases show here"],
+      ["venta", es ? "Aquí verás tus ventas" : "Your sales show here"],
+    ] as const) {
+      await chooseRecordKind(page, kind);
+      assert.equal(document.querySelector('[data-empty-kind="first_run"] h3')?.textContent, title);
+    }
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });

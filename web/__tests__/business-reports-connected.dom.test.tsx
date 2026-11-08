@@ -4,6 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act, StrictMode } from "react";
 import { I18nextProvider } from "react-i18next";
 import i18next from "i18next";
+import { Plus } from "lucide-react";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import BusinessReportsPanel, { ConnectedBusinessReports, reportFiltersForUi, reportFiltersFromUi } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
@@ -24,7 +25,7 @@ const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
-async function mount(options: { defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
+async function mount(options: { onAdd?: () => void; defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
   const { createRoot } = await import("react-dom/client");
   const fixture = createBusinessReportHttpFixture(); for (const row of fixture.records) if (row.currency !== "DOP") { row.currency = "DOP"; row.recorded_currency = "DOP"; } if (options.presentation) fixture.controls.presentation = options.presentation; options.edit?.(fixture.records); if (options.large) { fixture.records[1].family = "purchase"; fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].family = "purchase"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
@@ -47,7 +48,7 @@ async function mount(options: { defaultCurrency?: RecordsCurrency; workspaceFail
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const opened: unknown[] = [];
   const receiptActivity = options.waiting === undefined ? null : options.waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: options.waiting, needs_attention_count: 0, ready_to_review_count: options.waiting };
-  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: { ...await source.workspace(), currency: "CAD", records_default_currency: options.defaultCurrency ?? "DOP" }, workspaceGrant: options.workspaceGrant === undefined ? options.grantId ?? null : options.workspaceGrant, inbox: [], receiptActivity } } as unknown as BusinessContextValue;
+  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: options.onAdd ? [{ id: "upload_receipt", label: "Agregar", icon: Plus, run: options.onAdd }] : [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: { ...await source.workspace(), currency: "CAD", records_default_currency: options.defaultCurrency ?? "DOP" }, workspaceGrant: options.workspaceGrant === undefined ? options.grantId ?? null : options.workspaceGrant, inbox: [], receiptActivity } } as unknown as BusinessContextValue;
   const i18n = i18next.createInstance(); await i18n.init({ lng: options.language ?? "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
   let reloads = 0;
@@ -518,34 +519,88 @@ test("Filtros offers only the document kinds a row can carry, and each one finds
 
 const aboveTable = () => { const section = document.querySelector('[data-testid="transacciones"]')!; const nodes = [...section.children]; const end = nodes.findIndex((node) => node.querySelector('[data-testid="transacciones-records"], [data-empty-kind]')); return nodes.slice(0, end).map((node) => `${node.tagName}:${node.getAttribute("data-testid") ?? node.getAttribute("role") ?? ""}`); };
 
-test("a filter with no rows shows one title, keeps the pill row as the only clear action, and moves nothing above the table", async () => {
-  const page = await mount({ edit: (records) => { for (const row of records) row.dgii_606 = null; } });
-  const before = aboveTable();
-  await page.click(page.button("Filtros"));
-  await page.click(document.querySelector('[data-group="expense_type"]'));
-  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Falta"));
-  await page.click(page.button("Aplicar"));
+for (const family of ["purchase", "sale"] as const) test(`an empty ${family} search clears only the search`, async () => {
+  const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["DOP"], period } }) });
+  const search = document.querySelector<HTMLInputElement>('input[type="search"]')!;
+  await page.type(search, "comercio inexistente");
   await page.settle(() => document.querySelector('[data-empty-kind]') !== null);
-  const empty = document.querySelector('[data-empty-kind="filtered"]')!;
-  assert.equal(empty.querySelector("h3")?.textContent, "No hay registros con estos filtros");
-  assert.equal(empty.querySelector("p"), null, "no body line");
-  assert.equal(empty.querySelector("button"), null, "no second clear action");
-  assert.doesNotMatch(document.body.textContent ?? "", /Cada gasto y cada venta que apruebas/);
-  const clears = [...document.querySelectorAll("button")].filter((node) => node.textContent === "Limpiar filtros");
-  assert.equal(clears.length, 1); assert.ok(document.querySelector('[data-testid="records-preview-filter-chips"]')!.contains(clears[0]), "the pill row's Limpiar filtros is the one");
-  assert.deepEqual(aboveTable(), before, "nothing above the table moved");
-  await page.click(clears[0]);
+  const empty = document.querySelector('[data-empty-kind="no_results"]');
+  assert.equal(empty?.querySelector("h3")?.textContent, "No hay resultados para esta búsqueda");
+  assert.deepEqual([...empty!.querySelectorAll("button")].map((button) => button.textContent), ["Borrar búsqueda"]);
+  await page.click(empty!.querySelector("button"));
   await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
-  assert.deepEqual(aboveTable(), before);
+  const applied = sentFilters(page).at(-1)!;
+  assert.equal(search.value, "");
+  assert.equal(applied.q, "");
+  assert.deepEqual(applied.record_families, [family]);
+  assert.deepEqual(applied.currencies, ["DOP"]);
+  assert.deepEqual(applied.period, period);
 });
 
-test("a Registros with nothing in the period keeps its first-run message and the Bandeja line, with no clear action", async () => {
-  await mount({ edit: (records) => { records.splice(0); } });
-  const empty = document.querySelector('[data-empty-kind="first_run"]')!;
-  assert.equal(empty.querySelector("h3")?.textContent, "Aquí verás tus gastos y ventas");
-  assert.equal(empty.querySelector("p")?.textContent, "Cada gasto y cada venta que apruebas en la Bandeja aparece aquí en su fecha.");
-  assert.equal([...document.querySelectorAll("button")].filter((node) => node.textContent === "Limpiar filtros").length, 0);
+for (const family of ["purchase", "sale"] as const) test(`an empty ${family} filter offers a table clear that keeps the scope and search`, async () => {
+  const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
+  const page = await mount({
+    initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["USD"], period, q: "Proveedor" } }),
+    edit: (records) => { for (const row of records) { row.currency = "USD"; row.recorded_currency = "USD"; } },
+  });
+  const before = aboveTable();
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="document"]'));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Nota de crédito"));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => document.querySelector('[data-empty-kind="filtered"]') !== null);
+  const empty = document.querySelector('[data-empty-kind="filtered"]')!;
+  assert.equal(empty.querySelector("h3")?.textContent, "No hay registros con estos filtros");
+  assert.equal(empty.querySelector("p"), null);
+  const actions = () => [...document.querySelectorAll('[data-empty-kind="filtered"] button')];
+  assert.deepEqual(actions().map((button) => button.textContent), ["Limpiar filtros", "Borrar búsqueda"]);
+  assert.deepEqual(aboveTable(), before, "nothing above the table moved");
+  await page.click(actions()[1]);
+  await page.settle(() => actions().length === 1);
+  const afterSearch = sentFilters(page).at(-1)!;
+  assert.equal(afterSearch.q, "");
+  assert.deepEqual(afterSearch.document_kinds, ["credit_note"]);
+  assert.deepEqual(afterSearch.record_families, [family]);
+  assert.deepEqual(afterSearch.currencies, ["USD"]);
+  assert.deepEqual(afterSearch.period, period);
+  await page.type(document.querySelector('input[type="search"]')!, "Proveedor");
+  await page.settle(() => actions().length === 2);
+  await page.click(actions()[0]);
+  await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
+  assert.deepEqual(aboveTable(), before);
+  const applied = sentFilters(page).at(-1)!;
+  assert.deepEqual(applied.document_kinds, []);
+  assert.deepEqual(applied.record_families, [family]);
+  assert.deepEqual(applied.currencies, ["USD"]);
+  assert.deepEqual(applied.period, period);
+  assert.equal(applied.q, "Proveedor");
+});
+
+for (const family of ["purchase", "sale"] as const) test(`empty ${family} scope uses its own first-run message`, async () => {
+  let adds = 0;
+  const page = await mount({
+    initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["USD"] } }),
+    edit: (records) => {
+      for (const row of records) if (row.family !== family) { row.currency = "USD"; row.recorded_currency = "USD"; }
+    },
+    onAdd: () => { adds += 1; },
+  });
   assert.equal(document.querySelector('[data-empty-kind="filtered"]'), null);
+  const empty = document.querySelector('[data-empty-kind="first_run"]')!;
+  assert.equal(empty.querySelector("h3")?.textContent, family === "purchase" ? "Aquí verás tus compras" : "Aquí verás tus ventas");
+  assert.equal(empty.querySelector("p")?.textContent, family === "purchase" ? "Las compras que apruebes en la Bandeja aparecerán aquí." : "Las ventas que apruebes en la Bandeja aparecerán aquí.");
+  const add = empty.querySelector("button");
+  if (family === "purchase") {
+    assert.equal(add?.textContent, "Agregar");
+    await page.click(add);
+    assert.equal(adds, 1);
+  } else {
+    assert.equal(add, null);
+  }
+  await page.click(document.querySelector(family === "purchase" ? "#records-type-venta" : "#records-type-gasto"));
+  await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
+  assert.deepEqual(sentFilters(page).at(-1)?.currencies, ["USD"]);
 });
 
 test("a record that left the view says so in a toast, never in a line above the table", async () => {
@@ -901,7 +956,7 @@ test("a currency-filtered six-card answer clears old figures while loading and s
     assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "");
     assert.equal(fiscalCount(), "");
   } finally { await act(async () => release()); }
-  await page.settle(() => document.querySelector('[data-empty-kind="filtered"]') !== null);
+  await page.settle(() => document.querySelector('[data-empty-kind="no_results"]') !== null);
   assert.deepEqual(shelfMoney(), [null, null, null, null]);
   for (const metric of ["total", "itbis", "goods", "services"]) assert.match(document.querySelector(`[data-overview-card="${metric}"]`)!.textContent!, /-sin dato/);
   assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "0");
@@ -1000,13 +1055,6 @@ test("a refused workspace shows its reference and no retry or report query", asy
   assert.equal(sentFilters(page).length, 0);
 });
 
-
-test("an empty selected sale uses the filtered-empty message even when purchases exist", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"] } }), edit: (rows) => { for (const row of rows) { row.family = "purchase"; row.money_kind = "expense"; } } });
-  assert.ok(page.fixture.records.length > 0);
-  assert.equal(document.querySelector('[data-empty-kind="filtered"] h3')?.textContent, "No hay registros con estos filtros");
-  assert.equal(document.querySelector('[data-empty-kind="first_run"]'), null);
-});
 
 for (const width of [1440, 390]) test(`type tabs share filters and clearing on Ventas preserves USD and period at ${width}px`, async () => {
   const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
