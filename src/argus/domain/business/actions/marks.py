@@ -90,4 +90,7 @@ def draft_marks(tx, draft_id: Any, facts: BusinessFacts) -> dict:  # noqa: ANN00
         + " where e.id=%s and e.owner_space_id=%s",
         (str(draft_id), tx.context.actor.space_id),
     )
-    return record_marks(facts, rows[0] if rows else {}, tx.context.owner_id)
+    return {
+        **record_marks(facts, rows[0] if rows else {}, tx.context.owner_id),
+        "fiscal_question_applies": fiscal_question_applies(facts),
+    }

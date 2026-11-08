@@ -18276,6 +18276,9 @@ components:
             - ncf
             - ecf
           - type: 'null'
+        fiscal_question_applies:
+          type: boolean
+          default: false
         include_606:
           anyOf:
           - type: boolean

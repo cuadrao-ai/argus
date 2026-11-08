@@ -177,3 +177,14 @@ describe("the AI reading state", () => {
     await page.close();
   });
 });
+
+test("a purchase retyped as a sale hides its earlier 606 answer", async () => {
+  const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+  const before = { ...facts("1000.00"), fiscal: { rnc: unknown, ncf: known("B0100000001"), ecf: unknown, itbis: unknown, include_606: unknown } };
+  const answered = { ...before, fiscal: { ...before.fiscal, include_606: known(true) } };
+  const sale = { ...answered, kind: known("income") } as BusinessFacts;
+  const history = [revision(2, at(10, 9, 0), actor("Lía"), before, answered), revision(3, at(10, 10, 0), actor("Lía"), answered, sale)];
+  const page = await render(<ReceiptHistory history={history} accounts={[]} documentType="venta" />);
+  assert.equal(page.host.querySelector('[data-testid="history-606"]'), null);
+  await page.close();
+});

@@ -2641,8 +2641,9 @@
             "title": "Ya exportados"
           },
           "fiscal": {
-            "title": "Faltan datos fiscales",
-            "description": "Les falta un dato para el 606 o el 607"
+            "description_purchase": "Complétalos antes del 606",
+            "description_sale": "Complétalos antes del 607",
+            "title": "Faltan datos fiscales"
           },
           "goods": {
             "title": "Bienes"
@@ -3020,6 +3021,7 @@
         "loan_payment": "Pago de préstamo"
       },
       "field": {
+        "collection_method": "Forma de cobro",
         "kind": "Actividad",
         "counterparty": "Contraparte",
         "occurred_on": "Fecha del comprobante",
@@ -3075,6 +3077,7 @@
         "no_receipt": "Sin recibo"
       },
       "section": {
+        "collection": "Cobro",
         "fiscal": "Fiscal",
         "payment": "Pago"
       },

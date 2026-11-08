@@ -58,7 +58,7 @@ Tipo de gasto: 01–11 · Forma de pago: 01–07
 | Key | ES | EN | Pilot note |
 |---|---|---|---|
 | kind | Actividad | Activity | |
-| funding | Cómo se pagó | How it was paid | App funding story; not Forma de pago (DGII). |
+| funding | Compra: Cómo se pagó; Venta: Forma de cobro | Purchase: How it was paid; Sale: Collection method | App funding story; distinct from the 607 Forma de pago fiscal. |
 | business_share | Parte del negocio | Business share | |
 | partial amount | Monto del negocio | Business amount | |
 | receipt_state | Marcar sin recibo | Mark as no receipt | |

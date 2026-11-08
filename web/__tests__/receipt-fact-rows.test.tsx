@@ -245,3 +245,20 @@ describe("the record facts on the review page", () => {
     assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));
   });
 });
+
+for (const language of ["es-419", "en"] as const) {
+  for (const documentType of ["recibo", "venta"] as const) {
+    for (const reviewing of [false, true]) {
+      test(`${language} ${documentType} payment wording while reviewing=${reviewing}`, async () => {
+        const base = await fixture();
+        const dossier = { ...base, document_type: documentType, blockers: [{ code: "unknown_funding", field: "funding" }] } as BusinessDossier;
+        const { html } = await render(dossier, language, true, [], reviewing);
+        const sale = documentType === "venta";
+        const title = language === "es-419" ? (sale ? "Cobro" : "Pago") : (sale ? "Collection" : "Payment");
+        const funding = language === "es-419" ? (sale ? "Forma de cobro" : "Cómo se pagó") : (sale ? "Collection method" : "How it was paid");
+        assert.ok(html.includes(`>${title}</h3>`), title);
+        assert.ok(html.includes(`>${funding}</dt>`), funding);
+      });
+    }
+  }
+}
