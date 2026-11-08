@@ -155,3 +155,27 @@ def test_guide_row_security_and_retry_keep_the_first_dismissal(users):
         ):
             cursor.execute("set local role anon")
             cursor.execute(SELECT)
+
+
+def test_guide_client_cannot_insert_a_dismissal_for_another_person(users, faker):
+    owner, other = users["owner"], users["other"]
+    card_id = f"guide-{faker.uuid4()}"
+    # A plain insert isolates WITH CHECK from SELECT policy checks performed
+    # by ON CONFLICT or RETURNING. Each person starts without this card row.
+    insert = (
+        "insert into public.business_guide_dismissals (user_id, card_id)"
+        " values (%s, %s)"
+    )
+    with psycopg.connect(DSN) as db:
+        with db.transaction(), db.cursor() as cursor:
+            shared._set_authenticated_claims(cursor, user_id=owner, is_anonymous=False)
+            cursor.execute(insert, (owner, card_id))
+            assert cursor.rowcount == 1
+
+        with (
+            pytest.raises(psycopg.errors.InsufficientPrivilege, match="row-level security"),
+            db.transaction(),
+            db.cursor() as cursor,
+        ):
+            shared._set_authenticated_claims(cursor, user_id=owner, is_anonymous=False)
+            cursor.execute(insert, (other, card_id))
