@@ -4,6 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import type { TransaccionesSource } from "@/components/business-app/transacciones/transacciones-model";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
+import { translate, type TestLanguage } from "./support/i18n-instance";
 
 await keepOwnListSearch();
 
@@ -50,14 +51,12 @@ afterEach(async () => {
   search = "";
 });
 
-async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, recordsDefaultCurrency = "DOP", expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: string; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string; recordsDefaultCurrency?: string } = {}) {
+async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, recordsDefaultCurrency = "DOP", expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: TestLanguage; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string; recordsDefaultCurrency?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   search = view ? `view=${view}` : "";
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
-  const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
-  const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
@@ -68,8 +67,7 @@ async function mount({ enabled = true, width = 1440, language = "es-419", transa
   const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
-  const i18n = i18next.createInstance();
-  await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: (await import("@/public/locales/en/common.json")).default } }, interpolation: { escapeValue: false } });
+  const i18n = await translate(language);
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const source = {
     ...fixture,
@@ -487,11 +485,16 @@ describe("the gate", () => {
     await page.settle(() => page.records().length > 0, "the saved records");
   });
 
-  test("an empty period offers a real next step, never a zero list", async () => {
+  test("an empty period names the current tab without suggesting an action", async () => {
     const page = await mount({ enabled: false, transacciones: await recordsOf([]) });
-    await page.settle(() => document.querySelector('[data-testid="transacciones-records-empty"]') !== null, "the empty state");
-    assert.match(page.body(), /Aquí verás tus gastos y ventas/);
-    assert.ok(document.querySelector('[data-testid="transacciones-records-empty"] button'), "one action to add");
+    const empty = () => document.querySelector('[data-testid="transacciones-records-empty"]');
+    await page.settle(() => empty() !== null, "the purchase empty state");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "No hay compras en esta selección");
+    assert.equal(empty()?.querySelector("img")?.getAttribute("src"), "/brand/records-document.webp");
+    assert.equal(empty()?.querySelector("button"), null);
+    await chooseRecordKind(page, "venta");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "No hay ventas en esta selección");
+    assert.equal(empty()?.querySelector("button"), null);
     assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"] dd')?.textContent, "-sin dato", "no row names a currency, so the zero is not shown as pesos");
   });
 
@@ -995,7 +998,7 @@ test("new local business has no sample sales or bank movements", async () => {
   }
 });
 
-for (const language of ["es-419", "en"]) test(`shared currency filter updates rows, cards, footer and permanent chip in ${language}`, async () => {
+for (const language of ["es-419", "en"] as const) test(`shared currency filter updates rows, cards, footer and permanent chip in ${language}`, async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -1008,12 +1011,11 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     await page.settle(() => page.records().length === 2, "loaded purchase default-currency records");
     const es = language === "es-419";
     const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
-    const chooseUsd = async () => { await page.click(document.querySelector(`button[aria-label^="${es ? "Moneda" : "Currency"}:"]`)); await clickText("USD"); };
-    const open = async () => {
-      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
-      await page.click(document.querySelector('[data-group="amount"]'));
+    const chooseCurrency = async (currency: string) => {
+      await page.click(document.querySelector(`button[aria-label^="${es ? "Moneda" : "Currency"}:"]`));
+      await clickText(currency);
     };
-    await chooseUsd();
+    await chooseCurrency("USD");
     assert.equal(page.records().length, 1);
     const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
     assert.match(footer().textContent ?? "", es ? /1–1 de 1/ : /1–1 of 1/);
@@ -1022,22 +1024,72 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     const removeCurrency = es ? "Quitar filtro Moneda" : "Remove filter Currency";
     assert.equal(document.querySelector(`button[aria-label="${removeCurrency}"]`), null);
     assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
-    await open();
-    const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
-    await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, "25"); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
-    await clickText(es ? "Aplicar" : "Apply");
-    assert.equal(page.records().length, 0);
-    assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
-    assert.equal(document.querySelector(`button[aria-label="${es ? "Quitar filtro Moneda y monto" : "Remove filter Currency and amount"}"]`), null);
-    const empty = document.querySelector('[data-empty-kind="filtered"]')!;
-    assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
-    assert.equal(empty.querySelector("p"), null, "a filtered empty state has no body line"); assert.equal(empty.querySelector("button"), null, "and no clear action of its own");
-    const clears = [...document.querySelectorAll("button")].filter((node) => node.textContent === (es ? "Limpiar filtros" : "Clear filters"));
-    assert.equal(clears.length, 1, "the pill row's Limpiar filtros is the only clear action");
-    const clear = clears.at(-1)!;
-    await page.click(clear);
-    assert.equal(page.records().length, 1, "empty-result clear keeps currency and clears amount limits");
-    assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
+    const query = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input[type="search"]')!;
+    const typeSearch = (value: string) => page.act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(query, value);
+      query.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const clearSearch = es ? "Borrar búsqueda" : "Clear search";
+    const clearFilters = es ? "Limpiar filtros" : "Clear filters";
+    const minimumAmount = async (value: string) => {
+      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
+      await page.click(document.querySelector('[data-group="amount"]'));
+      const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, value); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
+      await clickText(es ? "Aplicar" : "Apply");
+    };
+    const periodButton = (label: string) => [...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((button) => button.textContent === label) ?? null;
+    const periodLabel = es ? "Todas las fechas" : "All dates";
+    await page.click(periodButton(es ? "Este mes" : "This month"));
+    await clickText(periodLabel);
+    await clickText(es ? "Confirmar período" : "Confirm period");
+    assert.ok(periodButton(periodLabel));
+    for (const kind of ["gasto", "venta"] as const) {
+      await chooseRecordKind(page, kind);
+      await typeSearch("comercio inexistente");
+      const noResults = document.querySelector('[data-empty-kind="no_results"]');
+      assert.equal(noResults?.querySelector("h3")?.textContent, es ? "No hay resultados para esta búsqueda" : "No results for this search");
+      assert.deepEqual([...noResults!.querySelectorAll("button")].map((button) => button.textContent), [clearSearch]);
+      await page.click(noResults!.querySelector("button"));
+      assert.equal(query.value, "");
+      assert.equal(page.records().length, 1);
+
+      await typeSearch("Nube");
+      await minimumAmount("25");
+      assert.equal(page.records().length, 0);
+      assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
+      const empty = document.querySelector('[data-empty-kind="filtered"]')!;
+      assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
+      assert.equal(empty.querySelector("img")?.getAttribute("src"), "/brand/records-search.webp");
+      assert.deepEqual([...empty.querySelectorAll("button")].map((button) => button.textContent), [clearFilters]);
+      await page.click(empty.querySelector("button"));
+      assert.equal(query.value, "Nube", "clearing filters keeps search");
+      assert.equal(page.records().length, 1, "clearing filters keeps currency and clears amount limits");
+      assert.equal(page.records()[0].dataset.kind, kind);
+      assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
+
+      await minimumAmount("20");
+      await typeSearch("comercio inexistente");
+      const searchEmpty = document.querySelector('[data-empty-kind="no_results"]');
+      assert.equal(searchEmpty?.querySelector("button")?.textContent, clearSearch);
+      await page.click(searchEmpty!.querySelector("button"));
+      assert.equal(query.value, "");
+      assert.equal(page.records().length, 1);
+      assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /20/);
+    }
+    assert.ok(periodButton(periodLabel));
+    await chooseCurrency("EUR");
+    await minimumAmount("25");
+    await typeSearch("comercio inexistente");
+    for (const [kind, title] of [
+      ["gasto", es ? "No hay compras en esta selección" : "No purchases in this selection"],
+      ["venta", es ? "No hay ventas en esta selección" : "No sales in this selection"],
+    ] as const) {
+      await chooseRecordKind(page, kind);
+      const empty = document.querySelector('[data-testid="transacciones-records-empty"]');
+      assert.equal(empty?.querySelector("h3")?.textContent, title);
+      assert.equal(empty?.querySelectorAll("button").length, 0);
+    }
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
