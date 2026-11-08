@@ -153,3 +153,11 @@ test("a fresh version-two request leaves presentation to the server", () => {
   const request = reportRequestSchema.parse({ schema_version: 2 });
   expect(Object.hasOwn(JSON.parse(JSON.stringify(request)), "presentation")).toBe(false);
 });
+
+for (const legacy of [undefined, [], ["sale", "purchase"], ["purchase", "sale"]]) test(`legacy record families ${JSON.stringify(legacy)} select purchases`, () => {
+  expect(reportRequestSchema.parse({ filters: { record_families: legacy } }).filters.record_families).toEqual(["purchase"]);
+});
+test("a sale remains selected while malformed and unknown family choices fail", () => {
+  expect(reportRequestSchema.parse({ filters: { record_families: ["sale"] } }).filters.record_families).toEqual(["sale"]);
+  for (const record_families of [["unknown"], ["sale", "unknown"], ["sale", "sale"], null, "sale"]) expect(reportRequestSchema.safeParse({ filters: { record_families } }).success).toBe(false);
+});

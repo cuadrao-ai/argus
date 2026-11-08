@@ -122,3 +122,16 @@ describe("Business report controller", () => {
     expect(restoreReportLocation(new URLSearchParams({ report: JSON.stringify({ ...request, sort: "amount_desc" }) })).invalid).toBe(true);
   });
 });
+
+for (const record_families of [[], ["sale", "purchase"], ["purchase", "sale"]]) test(`legacy URL and saved view ${JSON.stringify(record_families)} restore one purchase type`, async () => {
+  const legacy = { schema_version: 2, filters: { record_families, currencies: ["USD"] } };
+  const restored = restoreReportLocation(new URLSearchParams({ report: JSON.stringify(legacy) }));
+  expect(restored.invalid).toBe(false);
+  expect(restored.request.filters.record_families).toEqual(["purchase"]);
+  const { reportRecipeSchema } = await import("@/lib/business-reports-api");
+  const controller = createBusinessReportController(scope, defaultReportRequest(), transport());
+  await controller.openView({ id: "saved", name: "Legacy", recipe: reportRecipeSchema.parse(legacy), version: 1, created_at: "now", updated_at: "now" });
+  expect(controller.getSnapshot().request.filters.record_families).toEqual(["purchase"]);
+  expect(controller.getSnapshot().request.filters.currencies).toEqual(["USD"]);
+  controller.dispose();
+});

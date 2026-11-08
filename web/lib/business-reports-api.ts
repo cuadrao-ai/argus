@@ -36,7 +36,7 @@ export const reportPeriodSchema = z.discriminatedUnion("kind", [
 ]);
 export const reportFiltersSchema = z.strictObject({
   q: z.string().refine((value) => Array.from(value).length <= 200).default(""), period: reportPeriodSchema.default({ kind: "all" }),
-  record_families: z.array(family).default([]),
+  record_families: z.preprocess((value) => Array.isArray(value) && (value.length === 0 || value.length === 2 && value.includes("sale") && value.includes("purchase")) ? ["purchase"] : value, z.tuple([family]).default(["purchase"])),
   // A saved view or address bar may still name a stage the server dropped when drafts left Registros; it reads as no stage filter, never as a 422.
   review_stages: z.array(z.string()).default([]).transform((values): ReportStage[] => values.filter((value): value is ReportStage => stage.safeParse(value).success)),
   has_document: z.boolean().nullable().default(null), currencies: z.array(z.string().regex(/^[A-Z]{3}$/)).max(200).default([]),

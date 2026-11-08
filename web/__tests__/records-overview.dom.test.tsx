@@ -23,7 +23,7 @@ async function mount(props: Partial<Parameters<typeof RecordsOverviewPreview>[0]
   const { createRoot } = await import("react-dom/client");
   const i18n = i18next.createInstance(); await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host); const chosen: string[] = []; let totalToggles = 0;
-  const render = async (extra: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}) => act(async () => root.render(<I18nextProvider i18n={i18n}><RecordsOverviewPreview answer={answer} fiscalCount={71} totalExpanded={false} onToggleTotal={() => { totalToggles++; }} selected={[]} onChoose={(key) => chosen.push(key)} waiting={null} onOpenBandeja={() => {}} {...props} {...extra} /></I18nextProvider>));
+  const render = async (extra: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}) => act(async () => root.render(<I18nextProvider i18n={i18n}><RecordsOverviewPreview family="purchase" answer={answer} fiscalCount={71} totalExpanded={false} onToggleTotal={() => { totalToggles++; }} selected={[]} onChoose={(key) => chosen.push(key)} waiting={null} onOpenBandeja={() => {}} {...props} {...extra} /></I18nextProvider>));
   await render(); cleanup = async () => act(async () => root.unmount()); return { chosen, render, totalToggles: () => totalToggles };
 }
 const card = (key: string) => document.querySelector<HTMLElement>(`[data-overview-card="${key}"]`)!;
@@ -176,4 +176,12 @@ for (const currency of ["DOP", "USD", "EUR"]) test(`${currency} keeps one exact 
   assert.equal(card("total").querySelector("button:not([aria-controls])"), null);
   assert.equal(card("goods").querySelectorAll("[data-currency]").length, 1);
   assert.match(card("goods").textContent!, /Partial.*12 of 25 purchases/);
+});
+
+test("sales use income amounts and absent sales goods and services stay unknown", async () => {
+  await mount({ family: "sale" });
+  assert.equal(card("total").querySelector('.cuadrao-amount')?.getAttribute("aria-label"), "DOP 222.22");
+  assert.equal(card("itbis").querySelector('.cuadrao-amount')?.getAttribute("aria-label"), "DOP 36.36");
+  assert.match(card("total").textContent!, /Ventas/);
+  for (const metric of ["goods", "services"]) assert.equal(card(metric).querySelector('.cuadrao-amount'), null);
 });

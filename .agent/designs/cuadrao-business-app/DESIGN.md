@@ -765,7 +765,7 @@ sections, trays and dialogs have no sentence.
 - **One bar, one order:** heading · Buscar ⌘K · Agregar · invitation, privacy,
   notifications · avatar. The title takes the 44px line of the controls, so all sit on
   one center line. Agregar appears once per screen, in the bar, never on Negocio. A
-  screen's toolbar keeps only its own tools (Registros: views, period, filters,
+  screen's toolbar keeps only its own tools (Registros: views, period, currency, filters,
   Export, table settings).
 - **Search field:** "Buscar ⌘K", 200px, a field and never a hover expansion. When
   the bar has no room beside the heading and Agregar it becomes the 44px search
@@ -1482,7 +1482,7 @@ Keep the existing compact content width. Show six separate, equal summary cards
 in two rows of three: Total, ITBIS and Cantidad in the first row; Bienes,
 Servicios and Faltan datos fiscales in the second. Below them, keep the existing
 filters, active filter chips and column picker. Follow those controls with the
-Compras document-total subcard when Total is open, then the table. Payment
+selected type document-total subcard when Total is open, then the table. Payment
 subcards stay hidden for the pilot.
 
 Every card places its icon at the top left, metric label at the top right, large
@@ -1505,9 +1505,17 @@ subcard it controls. Do not add a "Ver..." label or make the arrow a separate
 target.
 
 ITBIS, Cantidad, Bienes, and Servicios are static: no card click, pointer cursor,
-or card-level tab stop. The currency filter is a radio group with DOP, USD and EUR. Exactly one is
-selected. Its chip always shows and opens the currency editor; it has no remove
-action. Clear filters keeps the currency and clears the other filters and search.
+or card-level tab stop. Compras and Ventas are tabs above the cards, reusing
+Bandeja's tab component and style. Exactly one is active, Compras by default.
+Optional filters are shared across tabs, as in Bandeja. A compact, always-visible
+Moneda selector beside the period offers DOP, USD and EUR without search.
+Registro and Moneda are absent from Filtros. Its count and group dots represent
+only optional filters; no active optional filters means no count or dots.
+Limpiar filtros clears only those optional filters, preserves the tab, currency,
+period and search, and is disabled in the editor when none are active. The table, all six cards and
+expanded Total follow the selected type. Ventas uses the existing server values;
+its cards have not had their design round yet. Missing sales Bienes or Servicios
+stay unknown.
 Switching currency clears both amount limits and their validation state.
 
 For money, make fractional digits smaller and raised. Preserve the decimal

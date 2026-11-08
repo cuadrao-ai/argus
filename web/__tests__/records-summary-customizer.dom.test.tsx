@@ -29,9 +29,9 @@ async function mount(width = 1440, totals = [total("USD", "24.00", 2400)], langu
   const { sampleRecordsPreferences } = await import("@/components/business-app/transacciones/sample-records-preferences");
   function Harness() {
     const [preferences, setPreferences] = useState(sampleRecordsPreferences);
-    const [kind, setKind] = useState("all");
+    const [kind, setKind] = useState<"gasto" | "venta">("gasto");
     const [showPurchaseTotal, setShowPurchaseTotal] = useState(false);
-    return <div data-current-family={kind}><button onClick={() => setKind("all")}>All</button><button onClick={() => setKind("venta")}>Sales</button><button onClick={() => setKind("gasto")}>Expenses</button><button aria-expanded={showPurchaseTotal} onClick={() => setShowPurchaseTotal((shown) => !shown)}>Total</button><Settings value={preferences} onChange={setPreferences} onRestore={() => setPreferences(sampleRecordsPreferences())} />{showPurchaseTotal ? summaryOverride ? <RecordsSummaryCards summary={summaryOverride} kind="gasto" /> : <Summary answer={{ ...recordedReportAnswer, totals }} /> : null}</div>;
+    return <div data-current-family={kind}><button onClick={() => setKind("venta")}>Sales</button><button onClick={() => setKind("gasto")}>Expenses</button><button aria-expanded={showPurchaseTotal} onClick={() => setShowPurchaseTotal((shown) => !shown)}>Total</button><Settings value={preferences} onChange={setPreferences} onRestore={() => setPreferences(sampleRecordsPreferences())} />{showPurchaseTotal ? summaryOverride ? <RecordsSummaryCards summary={summaryOverride} kind="gasto" /> : <Summary kind={kind} answer={{ ...recordedReportAnswer, totals }} /> : null}</div>;
   }
   const host = document.createElement("div"); document.body.appendChild(host);
   const root = createRoot(host);
@@ -64,7 +64,6 @@ test("Total controls the purchase subcard independently of family and table sett
   await page.click(page.button("Altura de filas"));
   assert.ok(page.summary());
   await page.key(document.activeElement!, "Escape");
-  await page.click(page.button("All")); assert.ok(page.summary());
   await page.click(page.button("Total")); assert.equal(page.summary(), null);
   await page.click(page.button("Sales")); assert.equal(page.summary(), null);
 });
@@ -74,7 +73,6 @@ test("phone keeps the Total toggle without an empty settings control", async () 
   assert.equal(page.host.querySelector('button[aria-haspopup="dialog"]'), null);
   assert.equal(page.summary(), null);
   await page.click(page.button("Total")); assert.ok(page.summary());
-  await page.click(page.button("All")); assert.ok(page.summary());
   await page.click(page.button("Total")); assert.equal(page.summary(), null);
   await page.click(page.button("Expenses")); assert.equal(page.summary(), null);
 });

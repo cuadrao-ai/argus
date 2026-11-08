@@ -266,11 +266,15 @@ def _expense_type_key(row: ReportRecord) -> str | None:
     return row.dgii_606.expense_type.code if row.dgii_606.expense_type else "missing"
 
 
+def _matches_period(row: ReportRecord, period: ResolvedPeriod) -> bool:
+    return period.from_date is None or (
+        row.report_date is not None
+        and period.from_date <= row.report_date <= period.to_date
+    )
+
+
 def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) -> bool:
-    if period.from_date is not None and (
-        row.report_date is None
-        or not period.from_date <= row.report_date <= period.to_date
-    ):
+    if not _matches_period(row, period):
         return False
     if filters.q and not any(
         _text(filters.q) in _text(value or "")
@@ -610,11 +614,7 @@ def run_query(
                 row.counterparty or row.counterparty_key
             )
     offset = (request.page - 1) * request.page_size
-    overview_rows = [
-        row
-        for row in records
-        if _matches(row, ReportFilters(period=request.filters.period), period)
-    ]
+    overview_rows = [row for row in records if _matches_period(row, period)]
     overview = ReportOverview(
         needs_fiscal_data=sum(row.stage == "needs_fiscal_data" for row in rows),
         **{
