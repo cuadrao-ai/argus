@@ -112,7 +112,9 @@ def business_interpretation_prompt(payload: dict[str, Any]) -> list[dict[str, st
                 + json.dumps(
                     [
                         {"name": declaration.name, "description": declaration.description}
-                        for declaration in get_business_tool_catalog().declarations
+                        for declaration in get_business_tool_catalog(
+                            surface="business"
+                        ).declarations
                     ],
                     ensure_ascii=False,
                 )

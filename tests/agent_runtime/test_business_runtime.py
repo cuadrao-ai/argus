@@ -265,7 +265,7 @@ def test_business_catalogue_excludes_personal_tools_and_approval():
     stages = (REPO_ROOT / "src/argus/agent_runtime/business/stages.py").read_text()
     assert "get_business_tool_catalog" in stages
     assert "capability_registry" not in stages
-    business = get_business_tool_catalog()
+    business = get_business_tool_catalog(surface="business")
     registry = get_tool_catalog(surface="business")
     assert business.capability_text() == registry.capability_text()
     personal = get_tool_catalog()
