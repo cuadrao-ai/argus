@@ -562,13 +562,24 @@ def test_an_invited_person_cannot_start_a_business_or_admit_anyone(world) -> Non
 
 
 @pytest.fixture
-def switch_off(monkeypatch: pytest.MonkeyPatch) -> None:
+def pending_contadora_invite(world: SimpleNamespace) -> Account:
+    accountant = _credentials(world, "contadora")
+    _invite(world, accountant.email)
+    return accountant
+
+
+@pytest.fixture
+def switch_off(
+    monkeypatch: pytest.MonkeyPatch,
+    pending_contadora_invite: Account,
+) -> Account:
     monkeypatch.delenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", raising=False)
+    return pending_contadora_invite
 
 
 def test_with_the_switch_off_only_the_allowlist_admits_the_invited_accountant(
-    world,
-    switch_off,  # noqa: ANN001
+    world: SimpleNamespace,
+    switch_off: Account,
 ) -> None:
     """The walk before this switch, which is the default: the invite admits
     nobody to sign-up, login or requests; a hand-listed accountant signs in,
@@ -576,8 +587,7 @@ def test_with_the_switch_off_only_the_allowlist_admits_the_invited_accountant(
     answers as it did for a hand-listed person before the check existed."""
 
     client, owner = world.client, world.owner
-    accountant = _credentials(world, "contadora")
-    _invite(world, accountant.email)
+    accountant = switch_off
 
     # Off the allowlist the invite admits nobody: signup, login and requests are refused.
     assert _code(_signup(world, accountant)) == (400, "auth_signup_failed")

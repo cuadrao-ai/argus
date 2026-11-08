@@ -29,7 +29,11 @@ ENV = {
     "NEXT_PUBLIC_MOCK_AUTH": "false",
     "CUADRAO_MOCK_AUTH": "false",
     "ARGUS_DEV_MEMORY_FALLBACK": "false",
+    "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED": "true",
     "ARGUS_FINANCIAL_ACCOUNTS_ENABLED": "true",
+    "CUADRAO_INGESTION_ENABLED": "true",
+    "CUADRAO_DOCUMENT_EXTRACTION_ENABLED": "false",
+    "CUADRAO_BUSINESS_PILOT_ENABLED": "true",
     "ARGUS_BUSINESS_PILOT_ENABLED": "true",
     "CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED": "true",
     "CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED": "true",
@@ -130,7 +134,8 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                 json={"name": "Negocio B"},
                 headers=owner_b["headers"],
             )
-            assert started_a.status_code == 201 and started_b.status_code == 201
+            assert started_a.status_code == 201, started_a.text
+            assert started_b.status_code == 201, started_b.text
             yield SimpleNamespace(
                 client=client,
                 gateway=gateway,
