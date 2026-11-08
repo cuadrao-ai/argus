@@ -5,7 +5,6 @@ from typing import Any
 from uuid import UUID
 
 from argus.agent_runtime.business.interpretation import BusinessInterpretation
-from argus.domain.business.actions.dossier import blockers
 from argus.domain.business.contracts.actions import (
     Ask,
     AttachSource,
@@ -23,6 +22,7 @@ from argus.domain.business.contracts.actions import (
 from argus.domain.business.contracts.dossier import AccountChoice, ReviewQuestion
 from argus.domain.business.contracts.facts import BusinessFacts
 from argus.domain.business.contracts.recovery import BusinessModelOutputInvalid
+from argus.domain.business.fact_blockers import blockers
 
 
 class BusinessBindingError(BusinessModelOutputInvalid, ValueError):
