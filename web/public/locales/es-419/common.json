@@ -4634,6 +4634,7 @@
     "batch_success": "{{count}} invitaciones enviadas",
     "batch_success_one": "1 invitación enviada",
     "batch_title": "Invita a colaboradores",
+    "batch_unavailable_placeholder": "[placeholder] Las invitaciones no están disponibles.",
     "document_not_received": "Sin recibir",
     "document_received": "Recibido",
 

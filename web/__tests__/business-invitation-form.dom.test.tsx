@@ -164,6 +164,52 @@ test("a failed send keeps the draft, shows its reference and retries the same co
  }finally{await page.unmount();}
 });
 
+for(const language of ["en","es-419"] as const){
+ for(const partial of [false,true]){
+ test(`${language} invitation availability refusal blocks ${partial?"partial-batch retry":"first-send retry"} without blaming an email`,async()=>{
+  const sent=serve({send:(recipients,attempt)=>partial&&attempt===1
+   ?Response.json({results:recipients.map((recipient,index)=>outcome(recipient,index===0?"pending":"refused"))})
+   :Response.json({code:"business_invitations_unavailable",detail:"Untranslated server detail"},{status:409})});
+  const page=await mountForm({language});
+  const translations=language==="en"?english:spanish;
+  try{
+   await page.typeEmail(0,"available@example.test");
+   if(partial){await page.addRow();await page.typeEmail(1,"pending@example.test");}
+   await page.submit();
+   if(partial){
+    expect(page.sendButton().disabled).toBe(false);
+    await page.submit();
+   }
+   await page.settle(()=>document.querySelector('form [role="alert"]')!==null);
+   expect(page.sendButton().disabled).toBe(true);
+   expect(page.sendButton().textContent).toBe(translations.workspace_setup_preview.batch_retry);
+   expect(page.emails().every(field=>field.disabled)).toBe(true);
+   expect(document.querySelector('[data-recipient-email][aria-invalid="true"]')).toBeNull();
+   expect(document.body.textContent).toContain(translations.workspace_setup_preview.batch_unavailable_placeholder);
+   expect(document.body.textContent).not.toContain(translations.workspace_setup_preview.batch_send_error);
+   expect(document.body.textContent).not.toContain("Untranslated server detail");
+   expect(document.querySelector('[data-testid="error-reference"]')).not.toBeNull();
+   expect(page.refusals).toHaveLength(0);
+   const attempts=sent.length;
+   await page.submit();
+   expect(sent).toHaveLength(attempts);
+  }finally{await page.unmount();}
+ });
+ }
+}
+
+test("another conflict remains retryable rather than claiming invitations are off",async()=>{
+ const sent=serve({send:(recipients,attempt)=>attempt===1?Response.json({code:"invitation_conflict"},{status:409}):sendAll(recipients)});
+ const page=await mountForm();
+ try{
+  await page.typeEmail(0,"conflict@example.test");await page.submit();
+  expect(page.sendButton().disabled).toBe(false);
+  expect(document.body.textContent).toContain(copy.batch_send_error);
+  await page.submit();
+  expect(sent).toHaveLength(2);
+ }finally{await page.unmount();}
+});
+
 test("a refused send says so, offers the contact line, and its draft never comes back",async()=>{
  serve({send:()=>Response.json({code:"permission_denied"},{status:403})});
  const page=await mountForm();

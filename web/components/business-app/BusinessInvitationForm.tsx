@@ -19,7 +19,7 @@ import { useBusiness } from "./BusinessWorkspace";
 type Row = BusinessInvitationCommand & { id: string; touched: boolean; result?: BusinessInvitationResult };
 type KnownPeople = { members: string[]; pending: string[] };
 type Feedback = { tone: "neutral" | "valid" } | { tone: "error"; key: string };
-type Failure = { refused: boolean; reference: string };
+type Failure = { kind: "access" | "availability" | "send"; reference: string };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ROWS = 50;
@@ -38,6 +38,9 @@ const isRefusal = (error: unknown) => {
   const status = error && typeof error === "object" && "status" in error ? error.status : null;
   return status === 403 || status === 404;
 };
+const isInvitationUnavailable = (error: unknown) => error !== null && typeof error === "object"
+  && "status" in error && error.status === 409
+  && "code" in error && error.code === "business_invitations_unavailable";
 
 /** The X keeps the draft for this Business until the page reloads; emails stay out of browser storage. */
 const drafts = new Map<string, Row[]>();
@@ -129,7 +132,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
   useEffect(() => { drafts.set(businessId, rows); }, [businessId, rows]);
   const refuse = useCallback((error: unknown) => {
     drafts.delete(businessId);
-    setFailure({ refused: true, reference: referenceCode(error) });
+    setFailure({ kind: "access", reference: referenceCode(error) });
     onRefused?.(error);
   }, [businessId, onRefused]);
   useEffect(() => {
@@ -143,7 +146,9 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     return () => { current = false; };
   }, [live, refuse, sends]);
 
-  const refused = failure?.refused === true;
+  const refused = failure?.kind === "access";
+  const unavailable = failure?.kind === "availability";
+  const blocked = refused || unavailable;
   const known = live ? serverKnown : sampleKnownPeople(businessId, bridge?.memberEmail);
   const doneCount = rows.filter(isDone).length;
   const createdCount = rows.filter(isCreated).length;
@@ -169,7 +174,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     if (sends > 0) window.dispatchEvent(new Event(businessAccessChangedEvent));
   };
   const submit = async () => {
-    if (busy || refused) return;
+    if (busy || blocked) return;
     const filled = rows.some(row => row.email.trim()) ? rows.filter(row => row.email.trim()) : rows.slice(0, 1);
     const marked = filled.map(row => isDone(row) ? row : { ...row, touched: true });
     setRows(marked);
@@ -191,7 +196,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
       requestAnimationFrame(() => summary.current?.focus());
     } catch (error) {
       if (isRefusal(error)) refuse(error);
-      else setFailure({ refused: false, reference: referenceCode(error) });
+      else setFailure({ kind: isInvitationUnavailable(error) ? "availability" : "send", reference: referenceCode(error) });
     } finally {
       setBusy(false);
     }
@@ -206,21 +211,21 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     </>;
   };
   const draftRow = (row: Row, index: number) => {
-    const feedback = rowFeedback(row, rows, known);
+    const feedback: Feedback = unavailable ? { tone: "neutral" } : rowFeedback(row, rows, known);
     const inputId = `${formId}-${row.id}`;
     const email = <div className="min-w-0">
       <label htmlFor={inputId} className={isBelowDesktop ? "mb-1 block text-[14px] font-medium" : "sr-only"}>{t(copy("invite_email_label"))}</label>
       <div className="relative">
-        <input ref={index === 0 ? firstField : undefined} id={inputId} data-recipient-email type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder={t(copy("invite_email_example"))} value={row.email} disabled={busy || refused} aria-invalid={feedback.tone === "error"} aria-describedby={`${inputId}-note`} className={`${fieldClass} mt-0! ${feedback.tone === "valid" ? "border-[#2f5a49]! pr-11! dark:border-[#8fcbb0]!" : ""}`}
+        <input ref={index === 0 ? firstField : undefined} id={inputId} data-recipient-email type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder={t(copy("invite_email_example"))} value={row.email} disabled={busy || blocked} aria-invalid={feedback.tone === "error"} aria-describedby={`${inputId}-note`} className={`${fieldClass} mt-0! ${feedback.tone === "valid" ? "border-[#2f5a49]! pr-11! dark:border-[#8fcbb0]!" : ""}`}
           onBlur={() => { if (row.email.trim()) changeRow(row.id, { touched: true }); }}
           onChange={event => changeRow(row.id, { email: event.target.value, touched: feedback.tone === "error", result: undefined, command_key: crypto.randomUUID() })} />
         {feedback.tone === "valid" ? <Check aria-hidden="true" className="pointer-events-none absolute right-3 top-3.5 h-5 w-5 text-[#2f5a49] dark:text-[#8fcbb0]" /> : null}
       </div>
     </div>;
     const access = <div className="min-w-0 flex-1">
-      <AccessRolePicker compact value={row.role} label={row.email ? `${t(copy("permission_label"))} · ${row.email}` : t(copy("permission_label"))} disabled={busy || refused} options={roleOptions} portalRoot={typeof document === "undefined" ? null : document.querySelector("[data-invitation-modal]")} onChange={role => changeRow(row.id, { role: role as Row["role"], command_key: crypto.randomUUID() })} />
+      <AccessRolePicker compact value={row.role} label={row.email ? `${t(copy("permission_label"))} · ${row.email}` : t(copy("permission_label"))} disabled={busy || blocked} options={roleOptions} portalRoot={typeof document === "undefined" ? null : document.querySelector("[data-invitation-modal]")} onChange={role => changeRow(row.id, { role: role as Row["role"], command_key: crypto.randomUUID() })} />
     </div>;
-    const remove = removable ? <button type="button" className={trashButtonClass} disabled={busy || refused} aria-label={row.email ? t(copy("batch_remove"), { email: row.email }) : t(copy("batch_remove_empty"))} onClick={() => { setRows(current => current.filter(item => item.id !== row.id)); focusLastEmail(); }}><Trash2 className="h-4 w-4" aria-hidden="true" /></button> : null;
+    const remove = removable ? <button type="button" className={trashButtonClass} disabled={busy || blocked} aria-label={row.email ? t(copy("batch_remove"), { email: row.email }) : t(copy("batch_remove_empty"))} onClick={() => { setRows(current => current.filter(item => item.id !== row.id)); focusLastEmail(); }}><Trash2 className="h-4 w-4" aria-hidden="true" /></button> : null;
     const note = <p id={`${inputId}-note`} role={feedback.tone === "error" ? "alert" : "status"} className={feedback.tone === "error" ? `mt-1.5 ${fieldErrorClass}` : "sr-only"}>{feedback.tone === "error" ? t(copy(feedback.key)) : feedback.tone === "valid" ? t(copy("batch_email_format_valid")) : ""}</p>;
     if (isBelowDesktop) return <>{email}{note}<div className="mt-2 flex items-end gap-2">{access}{remove}</div></>;
     return <><div className={`grid items-center gap-2 ${columns}`}>{email}{access}{remove}</div>{note}</>;
@@ -238,9 +243,9 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     <ul aria-label={t(copy("batch_recipients"))} className={isBelowDesktop ? undefined : "-mx-1 min-h-0 overflow-y-auto overscroll-contain px-1"}>
       {rows.map((row, index) => <li key={row.id} className={isBelowDesktop ? "py-2.5" : "py-1.5"}>{isDone(row) ? sentRow(row) : draftRow(row, index)}</li>)}
     </ul>
-    {!finished ? <div className={isBelowDesktop ? "flex justify-end" : `grid gap-2 ${columns}`}><button type="button" className={`${quietButtonClass} -mr-1 justify-self-end`} disabled={busy || refused || rows.length >= MAX_ROWS} onClick={() => { setRows(current => [...current, emptyRow()]); focusLastEmail(); }}><Plus className="h-4 w-4" aria-hidden="true" />{t(copy("batch_add_short"))}</button></div> : null}
+    {!finished ? <div className={isBelowDesktop ? "flex justify-end" : `grid gap-2 ${columns}`}><button type="button" className={`${quietButtonClass} -mr-1 justify-self-end`} disabled={busy || blocked || rows.length >= MAX_ROWS} onClick={() => { setRows(current => [...current, emptyRow()]); focusLastEmail(); }}><Plus className="h-4 w-4" aria-hidden="true" />{t(copy("batch_add_short"))}</button></div> : null}
     {failure ? <div role="alert" className={`mt-3 space-y-1 ${fieldErrorClass}`}>
-      <p>{t(refused ? "business.lifecycle.errors.business_unavailable" : copy("batch_send_error"))}</p>
+      <p>{t(unavailable ? copy("batch_unavailable_placeholder") : refused ? "business.lifecycle.errors.business_unavailable" : copy("batch_send_error"))}</p>
       {refused ? <p>{t("auth.business_unavailable.body")}</p> : null}
       <ReferenceCode reference={failure.reference} />
     </div> : null}
@@ -250,7 +255,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
             <button type="button" className={`${secondaryButtonClass} ${footerButtonShape} w-full sm:w-auto`} onClick={() => { setRows([emptyRow()]); requestAnimationFrame(() => firstField.current?.focus()); }}>{t(copy("batch_more"))}</button>
             <button type="button" className={`${primaryButtonClass} ${footerButtonShape} w-full sm:w-auto`} onClick={close}>{t(copy("batch_done"))}</button>
           </div>
-        : <button type="submit" className={`${primaryButtonClass} ${footerButtonShape} w-full`} disabled={busy || refused}>{sendLabel}</button>}
+        : <button type="submit" className={`${primaryButtonClass} ${footerButtonShape} w-full`} disabled={busy || blocked}>{sendLabel}</button>}
     </div>
   </form>;
 
