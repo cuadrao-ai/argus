@@ -267,9 +267,7 @@ def test_business_catalogue_excludes_personal_tools_and_approval():
     assert "capability_registry" not in stages
     business = get_business_tool_catalog()
     registry = get_tool_catalog(surface="business")
-    assert [(d.name, d.description) for d in business.declarations] == [
-        (d.name, d.description) for d in registry.declarations
-    ]
+    assert business.capability_text() == registry.capability_text()
     personal = get_tool_catalog()
     assert len(business.declarations) == 7
     assert all(
@@ -1124,7 +1122,10 @@ async def test_final_validator_captured_alias_cannot_change_intercepted_http_aft
     captured = []
     dispatched = []
     events = []
-    payload = {"model": "approved", "provider": {**openrouter.openrouter_provider_policy(), "order": ["disclosed"]}}
+    payload = {
+        "model": "approved",
+        "provider": {**openrouter.openrouter_provider_policy(), "order": ["disclosed"]},
+    }
 
     def access(task, actual):
         events.append("access")
@@ -1160,12 +1161,22 @@ async def test_final_validator_captured_alias_cannot_change_intercepted_http_aft
                 ),
             )
     assert events == ["validator", "access"]
-    assert dispatched == [{"model": "approved", "provider": {**openrouter.openrouter_provider_policy(), "order": ["disclosed"]}}]
+    assert dispatched == [
+        {
+            "model": "approved",
+            "provider": {
+                **openrouter.openrouter_provider_policy(),
+                "order": ["disclosed"],
+            },
+        }
+    ]
     assert dispatched[0] is not captured[0]
 
 
 @pytest.mark.asyncio
-async def test_an_invalid_model_answer_is_typed_not_a_generic_failure(monkeypatch) -> None:
+async def test_an_invalid_model_answer_is_typed_not_a_generic_failure(
+    monkeypatch,
+) -> None:
     from argus.agent_runtime.business import interpretation
     from argus.domain.business.contracts.recovery import BusinessModelOutputInvalid
 
