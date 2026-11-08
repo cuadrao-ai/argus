@@ -2612,7 +2612,7 @@
           },
           "groups": {
             "account": "Account",
-            "amount": "Currency and amount",
+            "amount": "Amount",
             "attachment": "Attachment",
             "category": "Category",
             "counterparty": "Counterparty",
@@ -4337,11 +4337,7 @@
       "reading_other": "{{count}} still reading"
     },
     "page_intro": {
-      "activity": "See who made each change in this business, and when.",
-      "business": "Set up this business's profile, access and reception.",
-      "inbox": "Everything that reaches this business, ready to review.",
-      "invoicing": "Create and organize this business's invoices.",
-      "transactions": "This business's expenses and sales, in one place."
+      "business": "Set up this business's profile, access and reception."
     },
     "composer": {
       "placeholder_ask": "Ask about your saved expenses",

@@ -2,31 +2,29 @@
 
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Briefcase, type Icon } from "@phosphor-icons/react";
-import { SCREEN_ICON, type NavGlyph } from "../nav-glyphs";
+import { Briefcase } from "@phosphor-icons/react";
+import type { NavGlyph } from "../nav-glyphs";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 
-/** The top-level screens that carry a one-sentence intro under their title. Inicio's greeting stands alone; nested sections and dialogs never have one. */
-export type PageIntroScreen = Exclude<NavGlyph["name"], "overview"> | "business";
+export type PageHeadingScreen = Exclude<NavGlyph["name"], "overview"> | "business";
 
-// Negocio is not in the rail; it carries the business mark's meaning, a briefcase.
-const ICON: Record<PageIntroScreen, Icon> = { inbox: SCREEN_ICON.inbox, transactions: SCREEN_ICON.transactions, invoicing: SCREEN_ICON.invoicing, activity: SCREEN_ICON.activity, business: Briefcase };
-
-const INTRO: Record<PageIntroScreen, { title: string; description: string }> = {
-  inbox: { title: "business.inbox.title", description: "business.page_intro.inbox" },
-  transactions: { title: "business.transactions.title", description: "business.page_intro.transactions" },
-  invoicing: { title: "business.invoicing_preview.title", description: "business.page_intro.invoicing" },
-  activity: { title: "business.nav.activity", description: "business.page_intro.activity" },
-  business: { title: "business.settings.title", description: "business.page_intro.business" },
+const TITLE: Record<PageHeadingScreen, string> = {
+  inbox: "business.inbox.title",
+  transactions: "business.transactions.title",
+  invoicing: "business.invoicing_preview.title",
+  activity: "business.nav.activity",
+  business: "business.settings.title",
 };
 
-export function usePageIntro(screen: string | null | undefined) {
+export function usePageHeading(screen: string | null | undefined) {
   const { t } = useTranslation();
-  const intro = screen && screen in INTRO ? INTRO[screen as PageIntroScreen] : null;
-  if (!intro) return null;
-  // The sentence carries the same icon the rail uses for the screen.
-  const Icon = ICON[screen as PageIntroScreen];
-  return { title: t(intro.title), description: t(intro.description), icon: <Icon size="1em" /> };
+  const title = screen && screen in TITLE ? TITLE[screen as PageHeadingScreen] : null;
+  if (!title) return null;
+  return {
+    title: t(title),
+    description: screen === "business" ? t("business.page_intro.business") : null,
+    icon: screen === "business" ? <Briefcase size="1em" /> : null,
+  };
 }
 
 /** The sentence under a screen's title: body size, regular, secondary color; it wraps and never truncates. */
@@ -42,16 +40,16 @@ export function PageDescription({ text, icon }: { text: string; icon?: ReactNode
 
 /**
  * A phone's heading group at the top of a screen. From the tablet stop up the top bar holds
- * the title and its sentence (BusinessHeader), so this renders nothing there.
+ * the title and optional settings intro (BusinessHeader), so this renders nothing there.
  */
-export function PageHeading({ screen }: { screen: PageIntroScreen }) {
-  const intro = usePageIntro(screen);
+export function PageHeading({ screen }: { screen: PageHeadingScreen }) {
+  const heading = usePageHeading(screen);
   const { isBelowTablet: phone } = useResponsiveLayout();
-  if (!phone || !intro) return null;
+  if (!phone || !heading) return null;
   return (
     <div data-testid="business-page-heading" className="mb-[34px]">
-      <h2 className="mb-2 font-display text-[26px] font-medium leading-tight tracking-tight text-black dark:text-white">{intro.title}</h2>
-      <PageDescription text={intro.description} icon={intro.icon} />
+      <h2 className={`${heading.description ? "mb-2 " : ""}font-display text-[26px] font-medium leading-tight tracking-tight text-black dark:text-white`}>{heading.title}</h2>
+      {heading.description ? <PageDescription text={heading.description} icon={heading.icon} /> : null}
     </div>
   );
 }

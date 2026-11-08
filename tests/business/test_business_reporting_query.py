@@ -410,3 +410,56 @@ def test_exact_amount_strings_survive_large_values_and_aggregate_over_bigint():
         assert first["known_amount"] == first["amount"] == "92233720368547758.07"
         assert combined["amount_minor"] > 2**63 - 1
         assert combined["known_amount"] == combined["amount"] == "92233720368547759.07"
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        {},
+        {"record_families": []},
+        {"record_families": ["sale", "purchase"]},
+        {"record_families": ["purchase", "sale"]},
+    ],
+)
+def test_omitted_empty_or_both_families_return_purchases_and_sales(filters):
+    rows = [
+        record("purchase"),
+        record("sale", family="sale", money_kind="income"),
+    ]
+    answer = run(rows, ReportFilters.model_validate(filters))
+    assert {row.row_id for row in answer.items} == {"purchase", "sale"}
+    assert answer.matching_count == 2
+    assert {total.kind for total in answer.totals} == {"expense", "income"}
+
+
+@pytest.mark.parametrize(
+    "invalid", [("unknown",), ("sale", "unknown"), None, "sale"]
+)
+def test_record_family_rejects_malformed_selection(invalid):
+    with pytest.raises(ValidationError):
+        ReportFilters(record_families=invalid)
+
+
+@pytest.mark.parametrize("family,kind", [("purchase", "expense"), ("sale", "income")])
+def test_single_family_scopes_rows_money_and_fiscal_count_but_not_period_counts(
+    family, kind
+):
+    rows = [
+        record("purchase", stage="needs_fiscal_data"),
+        record("sale", family="sale", money_kind="income", stage="needs_fiscal_data"),
+        record(
+            "exported-sale",
+            family="sale",
+            money_kind="income",
+            stage="exported",
+            export_line=True,
+        ),
+        record("ready-purchase", stage="ready_for_export"),
+    ]
+    answer = run(rows, ReportFilters(record_families=(family,)))
+    assert all(row.family == family for row in answer.items)
+    assert answer.matching_count == 2
+    assert {total.kind for total in answer.totals} == {kind}
+    assert answer.overview.needs_fiscal_data == 1
+    assert answer.overview.exported == answer.overview.ready_for_export == 1
+    assert answer.overview.export_lines == 1

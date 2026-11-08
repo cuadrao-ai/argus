@@ -2612,7 +2612,7 @@
           },
           "groups": {
             "account": "Cuenta",
-            "amount": "Moneda y monto",
+            "amount": "Monto",
             "attachment": "Adjunto",
             "category": "Categoría",
             "counterparty": "Contraparte",
@@ -4143,11 +4143,7 @@
       "title": "Mi negocio"
     },
     "page_intro": {
-      "activity": "Mira quién hizo cada cambio en este negocio y cuándo.",
-      "business": "Configura el perfil, el acceso y la recepción de este negocio.",
-      "inbox": "Todo lo que llega a este negocio, listo para revisar.",
-      "invoicing": "Crea y organiza las facturas de este negocio.",
-      "transactions": "Los gastos y las ventas de este negocio, en un solo lugar."
+      "business": "Configura el perfil, el acceso y la recepción de este negocio."
     },
     "period": {
       "all": "Todo",
