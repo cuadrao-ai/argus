@@ -656,7 +656,7 @@ for (const language of ["es-419", "en"] as const) test(`server defaults show eig
   assert.deepEqual(renderedColumnKeys(), ["contraparte", "fecha", "monto", "moneda", "detalle", "estado", "notas", "comprobante"]);
   assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).every((call) => !Object.hasOwn(call.body as object, "presentation")), "fresh V1 and V2 requests leave defaults to the server");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  for (const [key, label] of language === "en" ? [["tipo_gasto", "Expense type"], ["forma_pago", "Payment method"], ["cuenta", "Account"]] : [["tipo_gasto", "Tipo de gasto"], ["forma_pago", "Forma de pago"], ["cuenta", "Cuenta"]]) {
+  for (const [key, label] of language === "en" ? [["tipo_gasto", "Expense type"], ["forma_pago", "Payment method"], ["cuenta", "Account"], ["ncf", "NCF"], ["itbis", "ITBIS"]] : [["tipo_gasto", "Tipo de gasto"], ["forma_pago", "Forma de pago"], ["cuenta", "Cuenta"], ["ncf", "NCF"], ["itbis", "ITBIS"]]) {
     const row = document.querySelector(`[data-column-setting="${key}"]`);
     assert.ok(row?.textContent?.includes(label));
     assert.equal(row?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked, false);
@@ -666,7 +666,7 @@ for (const language of ["es-419", "en"] as const) test(`server defaults show eig
 test("server layout changes render, saved views retain the effective layout, and Restore asks for fresh defaults", async () => {
   const chosen: typeof recordedReportAnswer.presentation = { ...recordedReportAnswer.presentation, order: ["counterparty", ...recordedReportAnswer.presentation.order.slice(1).reverse()], hidden: [], density: 40 as const };
   const page = await mount({ presentation: chosen });
-  assert.deepEqual(renderedColumnKeys(), ["contraparte", "cuenta", "comprobante", "notas", "estado", "forma_pago", "tipo_gasto", "detalle", "moneda", "monto", "fecha"]);
+  assert.deepEqual(renderedColumnKeys(), ["contraparte", "itbis", "ncf", "cuenta", "comprobante", "notas", "estado", "forma_pago", "tipo_gasto", "detalle", "moneda", "monto", "fecha"]);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Mi diseño"); await page.click(page.button("Guardar"));
@@ -677,7 +677,7 @@ test("server layout changes render, saved views retain the effective layout, and
   await page.click(document.querySelector('[data-testid="records-refresh"]'));
   await page.settle(() => !renderedColumnKeys().includes("comprobante"));
   await page.click(page.button("Vistas")); await page.click(page.button("Mi diseño"));
-  await page.settle(() => renderedColumnKeys()[1] === "cuenta");
+  await page.settle(() => renderedColumnKeys()[1] === "itbis");
   assert.deepEqual((page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as { presentation: unknown }).presentation, chosen);
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   await page.click(page.button("Restaurar valores iniciales"));
@@ -1028,4 +1028,45 @@ for (const width of [1440, 390]) test(`type tabs share filters and clearing on V
   await page.click(document.querySelector('#records-type-gasto'));
   await page.settle(() => sentFilters(page).at(-1)?.record_families[0] === "purchase");
   assert.equal(sentFilters(page).at(-1)?.has_document, null);
+});
+
+
+for (const family of ["purchase", "sale"] as const) {
+  for (const currency of ["DOP", "USD", "EUR"] as const) {
+    test(`optional fiscal columns show exact row values for ${family} in ${currency}`, async () => {
+      const page = await mount({ defaultCurrency: currency, initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: [currency] } }), edit: (rows) => {
+        rows.forEach((row, index) => { row.family = family; row.currency = currency; row.fiscal_number = index < 2 ? "B0100000001" : index === 2 ? "E310000000001" : null; row.itbis_amount = index === 0 ? "18.25" : index === 1 ? "0.00" : index === 3 ? "9007199254740993.01" : null; });
+      } });
+      assert.equal(document.querySelector('th[data-col="ncf"]'), null);
+      assert.equal(document.querySelector('th[data-col="itbis"]'), null);
+      await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+      for (const label of ["NCF", "ITBIS"]) await page.click([...document.querySelectorAll('label')].find((item) => item.textContent?.trim() === label)?.querySelector('input'));
+      await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+      const rows = [...document.querySelectorAll("tbody tr")];
+      assert.equal(rows.length, 25);
+      const visibleDuplicate = rows.filter((row) => row.querySelector('[data-col="ncf"]')?.textContent === "B0100000001");
+      assert.equal(visibleDuplicate.length, 2);
+      assert.equal(new Set(visibleDuplicate.map((row) => row.getAttribute("data-record-key"))).size, 2);
+      for (const row of rows) {
+        const source = page.fixture.records.find((record) => record.row_id === row.getAttribute("data-record-key"))!;
+        assert.ok(source);
+        assert.equal(row.querySelector('[data-col="ncf"]')?.textContent, source.fiscal_number ?? "-sin dato");
+        const itbis = row.querySelector('[data-col="itbis"]')!;
+        if (source.itbis_amount === null) assert.equal(itbis.textContent, "-sin dato");
+        else {
+          const symbol = { DOP: "RD$", USD: "US$", EUR: "€" }[currency];
+          const value = source.itbis_amount === "0.00" ? "0.00" : source.itbis_amount === "18.25" ? "18.25" : "9,007,199,254,740,993.01";
+          assert.equal(itbis.textContent, `${symbol} ${value}`);
+        }
+      }
+    });
+  }
+}
+
+
+test("selected ITBIS stays unknown when row currency is missing", async () => {
+  await mount({ presentation: { ...recordedReportAnswer.presentation, hidden: recordedReportAnswer.presentation.hidden.filter((key) => key !== "itbis_amount") }, queryAnswer: (_request, answer) => ({ ...answer, items: answer.items.map((row) => ({ ...row, currency: null, itbis_amount: "18.25" })) }) });
+  const amounts = [...document.querySelectorAll('tbody [data-col="itbis"]')];
+  assert.equal(amounts.length, 25);
+  assert.ok(amounts.every((cell) => cell.textContent === "-sin dato"));
 });

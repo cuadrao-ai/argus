@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
@@ -279,7 +280,7 @@ describe("the gate", () => {
       await drag("estado", "Moneda");
       assert.equal(settingOrder().indexOf("monto"), amountIndex, "dragging currency leaves amount in place");
       assert.ok(settingOrder().indexOf("moneda") > settingOrder().indexOf("estado"));
-      assert.deepEqual([...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col")), settingOrder().filter((key) => key !== "tipo_gasto" && key !== "forma_pago" && key !== "cuenta"));
+      assert.deepEqual([...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col")), settingOrder().filter((key) => !sampleRecordsPreferences().hidden.some((hidden) => hidden === key)));
       await drag("detalle", "Moneda");
       await drag("fecha");
       assert.equal(document.querySelectorAll('thead th')[1].getAttribute("data-col"), "comprobante");

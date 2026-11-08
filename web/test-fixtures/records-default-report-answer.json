@@ -11,12 +11,16 @@
       "stage",
       "note",
       "attachment",
-      "funding"
+      "funding",
+      "fiscal_number",
+      "itbis_amount"
     ],
     "hidden": [
       "funding",
       "payment_form",
-      "expense_type"
+      "expense_type",
+      "fiscal_number",
+      "itbis_amount"
     ],
     "density": 48
   },

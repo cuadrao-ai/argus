@@ -3,7 +3,7 @@ import { type RecordsSort } from "./records-pagination";
 import type { Density } from "./table-density";
 
 /** The Registros columns: the ledger's, with Categoría's slot given to the 606 tipo de gasto, forma de pago beside it, and Estado, Moneda and Notas added. */
-export type RecordsColumnKey = Exclude<ColumnKey, "categoria"> | "tipo_gasto" | "forma_pago" | "estado" | "moneda" | "notas";
+export type RecordsColumnKey = Exclude<ColumnKey, "categoria"> | "tipo_gasto" | "forma_pago" | "estado" | "moneda" | "notas" | "ncf" | "itbis";
 type RecordsColumn = { key: RecordsColumnKey; width: number | null; align: "left" | "right"; pin?: "left" | "right" };
 export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = [
   { key: "contraparte", width: 200, align: "left", pin: "left" },
@@ -17,6 +17,8 @@ export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = [
   { key: "notas", width: 120, align: "left" },
   { key: "cuenta", width: 176, align: "left" },
   { key: "comprobante", width: 88, align: "right", pin: "right" },
+  { key: "ncf", width: 176, align: "left" },
+  { key: "itbis", width: 160, align: "right" },
 ];
 /** A column of either table: Registros' own, or the ledger's when bank matching mounts the records beside its movements. */
 export type TableColumnKey = RecordsColumnKey | ColumnKey;

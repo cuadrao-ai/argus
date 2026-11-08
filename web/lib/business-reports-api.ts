@@ -21,10 +21,10 @@ export const REPORT_DOCUMENT_KINDS = ["credit_note", "unknown"] as const satisfi
 const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
-export const REPORT_PRESENTATION_KEYS = ["counterparty", "date", "gross_amount", "currency", "family", "expense_type", "payment_form", "stage", "note", "attachment", "funding"] as const;
+export const REPORT_PRESENTATION_KEYS = ["counterparty", "date", "gross_amount", "currency", "family", "expense_type", "payment_form", "stage", "note", "attachment", "funding", "fiscal_number", "itbis_amount"] as const;
 const presentationKey = z.enum(REPORT_PRESENTATION_KEYS);
 export const reportPresentationSchema = z.strictObject({
-  order: z.array(presentationKey).length(REPORT_PRESENTATION_KEYS.length).refine((values) => values[0] === "counterparty" && new Set(values).size === REPORT_PRESENTATION_KEYS.length),
+  order: z.array(presentationKey).refine((values) => values[0] === "counterparty" && new Set(values).size === values.length && REPORT_PRESENTATION_KEYS.every((key) => key === "fiscal_number" || key === "itbis_amount" || values.includes(key))),
   hidden: z.array(presentationKey).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount", "currency"].includes(key))),
   density: z.union([z.literal(40), z.literal(48), z.literal(56)]),
 });
