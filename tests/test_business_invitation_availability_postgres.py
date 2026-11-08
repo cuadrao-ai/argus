@@ -188,6 +188,7 @@ def test_invitations_off_refuse_before_mutation(
     space_id = world.owner_a["space_id"]
     with psycopg.connect(shared.DSN) as db:
         before = _invite_counts(db, space_id)
+        before_rows = _invite_snapshot(db, space_id)
     refused = world.client.post(
         f"{API}/business/access",
         json={"email": f"guest-{uuid4().hex[:8]}@example.test"},
@@ -219,6 +220,7 @@ def test_invitations_off_refuse_before_mutation(
         after = _invite_counts(db, space_id)
         after_rows = _invite_snapshot(db, space_id)
     assert after == before
+    assert after_rows == before_rows
 
 
 def test_invitations_off_blocks_resend_of_existing_invite_without_mutation(
