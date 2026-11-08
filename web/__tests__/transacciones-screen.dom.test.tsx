@@ -4,6 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import type { TransaccionesSource } from "@/components/business-app/transacciones/transacciones-model";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
+import { translate, type TestLanguage } from "./support/i18n-instance";
 
 await keepOwnListSearch();
 
@@ -50,14 +51,12 @@ afterEach(async () => {
   search = "";
 });
 
-async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, recordsDefaultCurrency = "DOP", expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: string; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string; recordsDefaultCurrency?: string } = {}) {
+async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, recordsDefaultCurrency = "DOP", expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: TestLanguage; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string; recordsDefaultCurrency?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   search = view ? `view=${view}` : "";
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
-  const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
-  const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
@@ -68,8 +67,7 @@ async function mount({ enabled = true, width = 1440, language = "es-419", transa
   const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
-  const i18n = i18next.createInstance();
-  await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: (await import("@/public/locales/en/common.json")).default } }, interpolation: { escapeValue: false } });
+  const i18n = await translate(language);
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const source = {
     ...fixture,
@@ -1000,7 +998,7 @@ test("new local business has no sample sales or bank movements", async () => {
   }
 });
 
-for (const language of ["es-419", "en"]) test(`shared currency filter updates rows, cards, footer and permanent chip in ${language}`, async () => {
+for (const language of ["es-419", "en"] as const) test(`shared currency filter updates rows, cards, footer and permanent chip in ${language}`, async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -1016,10 +1014,6 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     const chooseCurrency = async (currency: string) => {
       await page.click(document.querySelector(`button[aria-label^="${es ? "Moneda" : "Currency"}:"]`));
       await clickText(currency);
-    };
-    const open = async () => {
-      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
-      await page.click(document.querySelector('[data-group="amount"]'));
     };
     await chooseCurrency("USD");
     assert.equal(page.records().length, 1);
@@ -1038,7 +1032,8 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     const clearSearch = es ? "Borrar búsqueda" : "Clear search";
     const clearFilters = es ? "Limpiar filtros" : "Clear filters";
     const minimumAmount = async (value: string) => {
-      await open();
+      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
+      await page.click(document.querySelector('[data-group="amount"]'));
       const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, value); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
       await clickText(es ? "Aplicar" : "Apply");
