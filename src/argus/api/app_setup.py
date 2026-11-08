@@ -21,7 +21,6 @@ from argus.api.dependencies import (
     validation_problem_body,
 )
 from argus.api.public_excerpts import EvidenceReceiptFlagGateMiddleware
-from argus.llm.openrouter_key_policy import validate_hosted_openrouter_configuration
 from argus.log_sink import configure_logging
 
 configure_logging()
@@ -52,7 +51,6 @@ def cors_allow_origins() -> list[str]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     validate_startup_configuration()
-    validate_hosted_openrouter_configuration()
     checkpointer_cm = None
     if api_state.CHECKPOINTER_MODE == "postgres":
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
