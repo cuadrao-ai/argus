@@ -625,10 +625,8 @@ def test_with_the_switch_off_only_the_allowlist_admits_the_invited_accountant(
         f"{API}/business/spaces", headers=accountant.headers
     ).json()["spaces"]
 
-    # The guarded routes, as before the check existed: the hand-listed owner
-    # starts and adds Businesses and invites; a hand-listed admin invites; a
-    # transfer to a hand-listed member is accepted; the new owner adds a
-    # Business of their own.
+    # Allowlisting keeps Business creation and ownership transfer available.
+    # It does not bypass invitation readiness for either an owner or an admin.
     assert (
         client.post(
             f"{API}/business/space",
@@ -653,7 +651,8 @@ def test_with_the_switch_off_only_the_allowlist_admits_the_invited_accountant(
         },
         headers=owner.headers,
     )
-    assert many.status_code == 200, many.text
+    assert _code(many) == (409, "business_invitations_unavailable")
+    assert _invite_state(outsider.email) == []
     assert _code(_signup(world, outsider)) == (400, "auth_signup_failed")
     promoted = client.patch(
         f"{API}/business/access/grants/{membership['grant_id']}",
@@ -677,7 +676,8 @@ def test_with_the_switch_off_only_the_allowlist_admits_the_invited_accountant(
     invite_one = client.post(
         f"{API}/business/access", json={"email": invited_by_admin.email}, headers=acting
     )
-    assert invite_one.status_code == 201, invite_one.text
+    assert _code(invite_one) == (409, "business_invitations_unavailable")
+    assert _invite_state(invited_by_admin.email) == []
     transfer = _post(
         world,
         f"/business/spaces/{world.space_id}/ownership-transfers",

@@ -16,6 +16,7 @@ from argus.api.routers import auth as auth_router
 from fastapi.testclient import TestClient
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_cleanup import delete_spaces
 from tests.local_supabase_support import local_supabase_gateway
 from tests.test_financial_accounts_api_postgres import ORIGIN
 
@@ -147,9 +148,14 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
         with psycopg.connect(shared.DSN) as db:
             for user_id in created:
                 db.execute(
+                    "update public.spaces set closed_at=coalesce(closed_at,clock_timestamp()) where created_by=%s and kind='business'",
+                    (user_id,),
+                )
+                db.execute(
                     "delete from public.business_client_grants where grantee_id=%s or issuer_id=%s",
                     (user_id, user_id),
                 )
+            delete_spaces(db, "created_by=any(%s::uuid[])", (created,))
             db.execute("delete from auth.users where id = any(%s::uuid[])", (created,))
 
 
