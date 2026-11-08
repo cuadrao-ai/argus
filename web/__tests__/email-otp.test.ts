@@ -104,7 +104,15 @@ test("real resend transport includes fresh browser check, reads Retry-After and 
     requests++;
     expect(String(input)).toBe("http://127.0.0.1:4390/auth/v1/resend");
     expect(init?.credentials).toBe("omit");
-    expect(JSON.parse(String(init?.body))).toEqual({ email, type: "signup", gotrue_meta_security: { captcha_token: "argus-local-browser-qa" } });
+    const body = JSON.parse(String(init?.body)) as {
+      email: string;
+      type: string;
+      gotrue_meta_security: { captcha_token: string };
+    };
+    expect(body).toMatchObject({ email, type: "signup" });
+    expect(body.gotrue_meta_security.captcha_token).toMatch(
+      /^argus-local-browser-qa#\d+$/,
+    );
     return Response.json({ code: "over_email_send_rate_limit", message: "private" }, { status: 429, headers: { "Retry-After": "321" } });
   }, { preconnect: originalFetch.preconnect });
   try {

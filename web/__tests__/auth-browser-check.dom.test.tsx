@@ -18,7 +18,10 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-async function renderLoginForm(locale: "en" | "es-419") {
+async function renderLoginForm(
+  locale: "en" | "es-419",
+  errorCode: "unauthorized" | "captcha_unavailable" = "unauthorized",
+) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const resources =
@@ -44,7 +47,7 @@ async function renderLoginForm(locale: "en" | "es-419") {
           mode: "login",
           onSubmit: async () => {
             submissions.push("submit");
-            throw Object.assign(new Error("raw"), { code: "unauthorized" });
+            throw Object.assign(new Error("raw"), { code: errorCode });
           },
         }),
       ),
@@ -111,6 +114,50 @@ describe("password sign-in uniform server failure", () => {
     const retry = host.querySelector("button[type=submit]") as HTMLButtonElement;
     assert.equal(retry.textContent, "Continuar");
     assert.equal(retry.disabled, false);
+    await act(async () => {
+      form.requestSubmit(retry);
+      await Promise.resolve();
+    });
+    assert.deepEqual(submissions, ["submit", "submit"]);
+    await act(async () => root.unmount());
+  });
+});
+
+describe("password sign-in local browser-check failure", () => {
+  test("client acquisition failure keeps the retry label in English", async () => {
+    const { act, host, root, submissions } = await renderLoginForm(
+      "en",
+      "captcha_unavailable",
+    );
+    const form = await submitCredentials(act, host);
+
+    assert.equal(
+      host.querySelector("[role=alert]")?.textContent,
+      "We couldn’t verify your browser. Try again.",
+    );
+    const retry = host.querySelector("button[type=submit]") as HTMLButtonElement;
+    assert.equal(retry.textContent, "Try again");
+    await act(async () => {
+      form.requestSubmit(retry);
+      await Promise.resolve();
+    });
+    assert.deepEqual(submissions, ["submit", "submit"]);
+    await act(async () => root.unmount());
+  });
+
+  test("client acquisition failure keeps the retry label in Spanish", async () => {
+    const { act, host, root, submissions } = await renderLoginForm(
+      "es-419",
+      "captcha_unavailable",
+    );
+    const form = await submitCredentials(act, host);
+
+    assert.equal(
+      host.querySelector("[role=alert]")?.textContent,
+      "No pudimos verificar tu navegador. Intenta de nuevo.",
+    );
+    const retry = host.querySelector("button[type=submit]") as HTMLButtonElement;
+    assert.equal(retry.textContent, "Intentar de nuevo");
     await act(async () => {
       form.requestSubmit(retry);
       await Promise.resolve();

@@ -37,6 +37,19 @@ export const CAPTCHA_ACQUISITION_TIMEOUT_MS = 15_000;
 export const CAPTCHA_INTERACTIVE_TIMEOUT_MS = 300_000;
 let turnstileScriptPromise: Promise<TurnstileApi> | null = null;
 let captchaShellSequence = 0;
+let passwordAuthBrowserProofIssuance = 0;
+
+function isStaticPasswordAuthBrowserProof(token: string): boolean {
+  if (token === LOCAL_QA_CAPTCHA_TOKEN) return true;
+  const localQa = publicLocalQaCaptchaToken()?.trim() ?? "";
+  return localQa.length > 0 && token === localQa;
+}
+
+function issueFreshPasswordAuthBrowserProof(token: string): string {
+  if (!isStaticPasswordAuthBrowserProof(token)) return token;
+  passwordAuthBrowserProofIssuance += 1;
+  return `${token}#${passwordAuthBrowserProofIssuance}`;
+}
 
 export const CAPTCHA_UNAVAILABLE_CODE = "captcha_unavailable" as const;
 
@@ -478,7 +491,9 @@ export async function acquireGuestCaptchaToken(
 
 export async function acquirePasswordAuthCaptchaToken(signal?: AbortSignal): Promise<string> {
   try {
-    const token = (await acquireGuestCaptchaToken(undefined, signal)).trim();
+    const token = issueFreshPasswordAuthBrowserProof(
+      (await acquireGuestCaptchaToken(undefined, signal)).trim(),
+    );
     if (!token || token.length > 4096) {
       throw new Error("captcha_token_out_of_bounds");
     }

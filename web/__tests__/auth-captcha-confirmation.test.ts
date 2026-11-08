@@ -73,8 +73,8 @@ describe("password auth CAPTCHA and confirmation contract", () => {
 
     expect(body).toMatchObject({
       email: "alpha@example.com",
-      captcha_token: "argus-local-browser-qa",
     });
+    expect(String(body?.captcha_token)).toMatch(/^argus-local-browser-qa#\d+$/);
     expect(result.response.session).toBeNull();
     expect(result.needsEmailConfirmation).toBe(true);
   });
@@ -178,8 +178,10 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       password: "password123",
       language: "es-419",
       display_name: "Alex",
-      captcha_token: "argus-local-browser-qa",
     });
+    expect(String(requests[1]?.body?.captcha_token)).toMatch(
+      /^argus-local-browser-qa#\d+$/,
+    );
     expect(result.needsEmailConfirmation).toBe(true);
   });
 
@@ -197,8 +199,8 @@ describe("password auth CAPTCHA and confirmation contract", () => {
 
     expect(body).toMatchObject({
       email: "alpha@example.com",
-      captcha_token: "argus-local-browser-qa",
     });
+    expect(String(body?.captcha_token)).toMatch(/^argus-local-browser-qa#\d+$/);
   });
 
   test("each login attempt acquires a fresh CAPTCHA token at the API boundary", async () => {
@@ -222,8 +224,11 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     }
 
     expect(bodies).toHaveLength(2);
-    expect(bodies[0]?.captcha_token).toBe("argus-local-browser-qa");
-    expect(bodies[1]?.captcha_token).toBe("argus-local-browser-qa");
+    const first = String(bodies[0]?.captcha_token);
+    const second = String(bodies[1]?.captcha_token);
+    expect(first).toMatch(/^argus-local-browser-qa#\d+$/);
+    expect(second).toMatch(/^argus-local-browser-qa#\d+$/);
+    expect(first).not.toBe(second);
   });
 
   test("password recovery acquires a CAPTCHA token at the shared browser boundary", async () => {
@@ -235,10 +240,10 @@ describe("password auth CAPTCHA and confirmation contract", () => {
 
     await requestPasswordRecovery("alpha@example.com");
 
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       email: "alpha@example.com",
-      captcha_token: "argus-local-browser-qa",
     });
+    expect(String(body?.captcha_token)).toMatch(/^argus-local-browser-qa#\d+$/);
   });
 
   test("CAPTCHA acquisition failure is safe and classified before fetch", async () => {
