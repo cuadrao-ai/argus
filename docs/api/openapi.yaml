@@ -18923,7 +18923,6 @@ components:
           - DOP
           - USD
           - EUR
-          description: Server-owned initial Registros currency, currently DOP, independent of the Business currency.
         logo_url:
           anyOf:
           - type: string
