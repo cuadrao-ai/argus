@@ -127,14 +127,6 @@
           }
         },
         {
-          "name": "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
-          "kind": "secret",
-          "keep_current": true,
-          "production": {
-            "enter": "a second production model-gateway key for guest traffic; it must differ from CUADRAO_PROD_OPENROUTER_API_KEY"
-          }
-        },
-        {
           "name": "CUADRAO_APP_ORIGIN",
           "kind": "plain",
           "keep_current": true,
@@ -917,16 +909,7 @@
           "reason": "Optional HTTPS origin for shared email images. Preserve current value; do not inject during this build."
         }
       ],
-      "distinct": [
-        [
-          "CUADRAO_OPENROUTER_API_KEY_STG",
-          "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
-        ],
-        [
-          "CUADRAO_PROD_OPENROUTER_API_KEY",
-          "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
-        ]
-      ],
+      "distinct": [],
       "production": {
         "service_name": "cuadrao-api"
       }
@@ -1303,7 +1286,7 @@
           "name": "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
           "kind": "secret",
           "production": {
-            "enter": "the same key as CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY on cuadrao-api"
+            "enter": "the capped guest model-gateway key for legacy workflow traffic; it must differ from CUADRAO_PROD_OPENROUTER_API_KEY"
           }
         },
         {

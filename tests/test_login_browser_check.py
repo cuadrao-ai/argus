@@ -1,4 +1,6 @@
 import time
+from threading import Event
+from typing import Any
 from unittest.mock import MagicMock
 
 import httpx
@@ -10,6 +12,24 @@ from argus.domain.supabase_gateway import SupabaseGateway
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
+
+_LOGIN_PAYLOAD = {
+    "email": "mama@example.com",
+    "password": "password123",
+    "captcha_token": "captcha-proof",
+}
+_EXPECTED_UNAUTHORIZED = {
+    "title": "Unauthorized",
+    "status": 401,
+    "detail": "Invalid email or password.",
+    "code": "unauthorized",
+}
+_PUBLIC_HEADER_KEYS = (
+    "content-type",
+    "cache-control",
+    "www-authenticate",
+    "set-cookie",
+)
 
 
 class _CaptchaRejected(Exception):
@@ -27,6 +47,39 @@ class _Session:
 
 def _gateway(auth: object) -> SupabaseGateway:
     return SupabaseGateway(client=MagicMock(), auth_client_factory=lambda: auth)
+
+
+def _configure_login_route(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    allowed: bool = True,
+    disabled: bool = False,
+    login_side_effect: object | None = None,
+) -> MagicMock:
+    auth_router.reset_auth_attempt_limiter_for_tests()
+    monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
+    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
+    monkeypatch.delenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
+    gateway = MagicMock()
+    gateway.private_alpha_email_allowed.return_value = allowed
+    gateway.private_alpha_email_disabled.return_value = disabled
+    if login_side_effect is not None:
+        gateway.login.side_effect = login_side_effect
+    monkeypatch.setattr("argus.api.state.supabase_gateway", gateway)
+    return gateway
+
+
+def _public_problem_body(payload: dict[str, Any]) -> dict[str, Any]:
+    return {key: payload[key] for key in payload if key != "request_id"}
+
+
+def _public_headers(response: httpx.Response) -> dict[str, str | None]:
+    lowered = {key.lower(): value for key, value in response.headers.items()}
+    return {key: lowered.get(key) for key in _PUBLIC_HEADER_KEYS}
+
+
+def _post_login() -> httpx.Response:
+    return client.post("/api/v1/auth/login", json=_LOGIN_PAYLOAD)
 
 
 def test_login_returns_the_provider_session() -> None:
@@ -109,29 +162,129 @@ def test_wrong_password_stays_a_login_failure() -> None:
     assert not isinstance(caught.value, CaptchaVerificationError)
 
 
-def test_login_route_returns_captcha_unavailable_instead_of_a_wrong_password(
+@pytest.mark.parametrize(
+    "login_side_effect",
+    [
+        CaptchaVerificationError("captcha_failed"),
+        RuntimeError("invalid provider password"),
+    ],
+)
+def test_login_route_maps_server_failures_to_one_public_contract(
     monkeypatch: pytest.MonkeyPatch,
+    login_side_effect: Exception,
 ) -> None:
-    auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
-    monkeypatch.delenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", raising=False)
-    gateway = MagicMock()
-    gateway.private_alpha_email_allowed.return_value = True
-    gateway.private_alpha_email_disabled.return_value = False
-    gateway.login.side_effect = CaptchaVerificationError("captcha_failed")
-    monkeypatch.setattr("argus.api.state.supabase_gateway", gateway)
-
-    response = client.post(
-        "/api/v1/auth/login",
-        json={
-            "email": "mama@example.com",
-            "password": "password123",
-            "captcha_token": "captcha-proof",
-        },
+    gateway = _configure_login_route(
+        monkeypatch,
+        login_side_effect=login_side_effect,
     )
 
-    assert response.status_code == 400
-    assert response.json()["code"] == "captcha_unavailable"
-    assert "password" not in response.json()["detail"].lower()
+    response = _post_login()
+
+    assert response.status_code == 401
+    assert _public_problem_body(response.json()) == {
+        **_EXPECTED_UNAUTHORIZED,
+        "type": "https://api.argus.app/problems/unauthorized",
+    }
+    assert response.headers.get("set-cookie") is None
     gateway.login.assert_called_once()
+
+
+def test_login_route_denied_admission_matches_provider_auth_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    denied = _configure_login_route(monkeypatch, allowed=False)
+    denied_response = _post_login()
+
+    gateway = _configure_login_route(
+        monkeypatch,
+        login_side_effect=RuntimeError("invalid provider password"),
+    )
+    provider_response = _post_login()
+
+    assert denied_response.status_code == provider_response.status_code == 401
+    assert _public_problem_body(denied_response.json()) == _public_problem_body(
+        provider_response.json()
+    )
+    assert _public_headers(denied_response) == _public_headers(provider_response)
+    denied.login.assert_not_called()
+    gateway.login.assert_called_once()
+
+
+def test_login_route_maps_captcha_deadline_like_captcha_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rejection = _configure_login_route(
+        monkeypatch,
+        login_side_effect=CaptchaVerificationError("captcha_failed"),
+    )
+    rejected = _post_login()
+
+    deadline = _configure_login_route(
+        monkeypatch,
+        login_side_effect=CaptchaVerificationError("deadline"),
+    )
+    timed_out = _post_login()
+
+    assert rejected.status_code == timed_out.status_code == 401
+    assert _public_problem_body(rejected.json()) == _public_problem_body(timed_out.json())
+    rejection.login.assert_called_once()
+    deadline.login.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "provider_error",
+    [_CaptchaRejected(), httpx.ReadTimeout("timed out"), None],
+    ids=["rejection", "transport-timeout", "deadline"],
+)
+def test_login_route_maps_real_gateway_browser_failures_to_admission_denial(
+    monkeypatch: pytest.MonkeyPatch,
+    provider_error: Exception | None,
+) -> None:
+    _configure_login_route(monkeypatch, allowed=False)
+    denied = _post_login()
+    release = Event()
+    finished = Event()
+    provider_payloads: list[dict[str, object]] = []
+
+    class Auth:
+        def sign_in_with_password(self, payload: dict[str, object]) -> _Session:
+            provider_payloads.append(payload)
+            try:
+                if provider_error is not None:
+                    raise provider_error
+                assert release.wait(5), "The test did not release the provider."
+                return _Session()
+            finally:
+                finished.set()
+
+    gateway = _gateway(Auth())
+    monkeypatch.setattr(gateway, "private_alpha_email_allowed", lambda _email: True)
+    monkeypatch.setattr("argus.api.state.supabase_gateway", gateway)
+    monkeypatch.setattr(
+        "argus.domain.supabase_gateway.LOGIN_PROVIDER_TIMEOUT_SECONDS", 0.05
+    )
+    try:
+        rejected = _post_login()
+
+        if provider_error is None:
+            assert not finished.is_set()
+        assert rejected.status_code == denied.status_code == 401
+        assert _public_problem_body(rejected.json()) == {
+            **_EXPECTED_UNAUTHORIZED,
+            "type": "https://api.argus.app/problems/unauthorized",
+        }
+        assert _public_problem_body(rejected.json()) == _public_problem_body(
+            denied.json()
+        )
+        assert _public_headers(rejected) == _public_headers(denied)
+        assert rejected.headers.get("set-cookie") is None
+        assert provider_payloads == [
+            {
+                "email": _LOGIN_PAYLOAD["email"],
+                "password": _LOGIN_PAYLOAD["password"],
+                "options": {"captcha_token": _LOGIN_PAYLOAD["captcha_token"]},
+            }
+        ]
+    finally:
+        release.set()
+        assert finished.wait(5), "The provider did not finish after cleanup."

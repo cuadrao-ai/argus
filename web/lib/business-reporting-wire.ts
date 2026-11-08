@@ -20,7 +20,7 @@ export function reportSortToRecords(sort: ReportSort): RecordsSort {
   const key = (Object.keys(SORT_KEYS) as RecordsSort["key"][]).find((key) => sort.startsWith(`${SORT_KEYS[key]}_`))!;
   return { key, direction: sort.endsWith("_asc") ? "asc" : "desc" };
 }
-const COLUMN_KEYS: Record<RecordsColumnKey, ReportPresentation["order"][number]> = { contraparte: "counterparty", fecha: "date", monto: "gross_amount", moneda: "currency", detalle: "family", tipo_gasto: "expense_type", forma_pago: "payment_form", estado: "stage", notas: "note", comprobante: "attachment", cuenta: "funding" };
+const COLUMN_KEYS: Record<RecordsColumnKey, ReportPresentation["order"][number]> = { contraparte: "counterparty", fecha: "date", monto: "gross_amount", moneda: "currency", detalle: "family", tipo_gasto: "expense_type", forma_pago: "payment_form", estado: "stage", notas: "note", comprobante: "attachment", cuenta: "funding", ncf: "fiscal_number", itbis: "itbis_amount" };
 const recordColumnKey = (key: ReportPresentation["order"][number]): RecordsColumnKey => (Object.keys(COLUMN_KEYS) as RecordsColumnKey[]).find((column) => COLUMN_KEYS[column] === key)!;
 export function reportPresentationToRecords(presentation: ReportPresentation, sort: ReportSort): RecordsViewPreferences {
   return { order: presentation.order.map(recordColumnKey), hidden: presentation.hidden.map(recordColumnKey), density: DENSITIES.find((density) => DENSITY_ROW_PX[density] === presentation.density)!, sort: reportSortToRecords(sort) };
@@ -119,7 +119,13 @@ export function createBusinessReportController(scope: ReportScope, initial = def
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
         if (answer.page !== report.page || answer.page_size !== report.page_size || answer.items.length > report.page_size) throw new Error("Invalid report page response");
         const invalid = report.page > Math.max(1, answer.page_count);
-        publish({ load: invalid ? { kind: "invalid-page", answer, recoveryPage: Math.max(1, answer.page_count) } : { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
+        let request = state.request;
+        if (request.schema_version === 2 && request.presentation) {
+          const presentation = request.presentation;
+          const missing = answer.presentation.order.filter((key) => !presentation.order.includes(key));
+          if (missing.length) request = { ...request, presentation: { ...presentation, order: presentation.order.concat(missing), hidden: Array.from(new Set(presentation.hidden.concat(missing))) } };
+        }
+        publish({ request, load: invalid ? { kind: "invalid-page", answer, recoveryPage: Math.max(1, answer.page_count) } : { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
       } catch (error) {
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
         const problem = reportFailure(error);

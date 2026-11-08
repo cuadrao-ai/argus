@@ -2971,13 +2971,20 @@ Supabase Auth without logging or persistence.
 }
 ```
 
-**Private-alpha blocked response:** login intentionally returns the same generic
-`401 unauthorized` shape used for invalid credentials, so a caller cannot tell a
-denied email from a listed email with a wrong password. Denial means an
+**Uniform login failure response:** private-alpha denial, invalid credentials,
+and a failed or unfinished server-side browser check all return the same generic
+`401 unauthorized` shape so a caller cannot tell a denied email from a listed
+email with a wrong password or from a rejected Turnstile token. Denial means an
 explicitly disabled row while the public gate is open, and, when it is closed,
 an email that is not listed and, while
 `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`, not named by a live Business
 invitation or grant either.
+
+Supabase Auth still runs the Turnstile siteverify for admitted emails. When it
+rejects the token, or the provider call does not finish within 30 seconds, login
+returns the same `401 unauthorized` problem and does not create a session. The
+check is not skipped. Response parity does not hide timing differences between
+failures.
 
 ```json
 {
@@ -2986,22 +2993,6 @@ invitation or grant either.
   "status": 401,
   "detail": "Invalid email or password.",
   "code": "unauthorized",
-  "request_id": "uuid"
-}
-```
-
-A failed or unfinished browser check is a different response. Supabase Auth
-runs the Turnstile siteverify. When it rejects the token, or the provider
-call does not finish within 30 seconds, login returns `400`
-`captcha_unavailable` and does not create a session. The check is not skipped.
-
-```json
-{
-  "type": "https://api.argus.app/problems/captcha-unavailable",
-  "title": "Browser Check Failed",
-  "status": 400,
-  "detail": "The browser check did not complete. Try again.",
-  "code": "captcha_unavailable",
   "request_id": "uuid"
 }
 ```
@@ -10407,7 +10398,10 @@ person starts their space, every route below except POST `/space` answers 404
     GET `/api/v1/business/spaces` lists every Business the caller may enter
     through a live grant, their own first: `{spaces: [{space_id, name,
     logo_url, grant_id, role: owner|accountant, capabilities, business_role,
-    permissions, access_seen}]}`; names come from the spaces. Listing, profile
+    permissions, access_seen}], closed_spaces, invitations_available}`; names
+    come from the spaces. `invitations_available` is the server's pure readiness
+    for owner invitation actions: Business invite email on, invitation admission
+    on, and a configured app origin. It is false while any prerequisite is off. Listing, profile
     reads and sign-in never accept invitations. `access_seen` is the server's memory of the one-time
     "you now have access" line, per grant: POST
     `/api/v1/business/spaces/{grant_id}/seen` (204, idempotent, one
@@ -10527,7 +10521,14 @@ person starts their space, every route below except POST `/space` answers 404
     lists. Grants add `business_role` and `permissions`; invitations add
     `requested_role`. Legacy `owner`, `capabilities`, profile photo and timestamp
     fields remain. Pending invitations expose the same shape for known and
-    unknown recipient accounts.
+    unknown recipient accounts. `invitations_available` matches
+    `GET /business/spaces`.
+  - POST `/api/v1/business/access`, POST `/api/v1/business/access/invitations`,
+    and POST `/api/v1/business/access/invites/{id}/resend` answer 409
+    `business_invitations_unavailable` with `Cache-Control: no-store` while
+    `invitations_available` is false, before any invitation, idempotency,
+    expiry, supersedes, or delivery mutation. Auth, standing, tenant, and
+    manager checks still run first.
   - POST `/api/v1/business/access` takes `{email, role?}`; omitted `role` is
     `editor` for old clients. Every new invitation remains pending for seven
     days, including confirmed accounts. It confers no access until explicit
@@ -11414,13 +11415,17 @@ accept path recorded.
   Before the answer, it shows pending UI without invented columns or options.
   Restore omits presentation and queries again. Saving a view records the effective
   layout, including when the original request omitted it. Explicit saved layouts
-  keep their order, hidden columns and density without migration.
+  keep their order, hidden columns and density. Missing `fiscal_number` and
+  `itbis_amount` columns append to saved orders hidden.
 
   `presentation.order` contains each supported table key once, with counterparty
   first. `hidden` cannot hide counterparty, amount or currency. A saved presentation
   from before the 606 columns is read as current: `category` becomes `expense_type`
   in place, and `payment_form` joins the order after it, hidden. `category` is no
-  longer a table column. Density is 40/48/56, default 48. Amount and currency move
+  longer a table column. Optional `fiscal_number` (NCF or e-CF) and
+  `itbis_amount` columns are hidden by default. ITBIS uses the row currency;
+  missing amounts or currency remain unknown, and zero remains numeric.
+  Density is 40/48/56, default 48. Amount and currency move
   independently. `columns` remains the separate export field selection. No summary
   or widget preference is accepted. Page, page size, columns and presentation do
   not alter the result fingerprint. The preview reads the recorded empty answer

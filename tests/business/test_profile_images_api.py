@@ -26,7 +26,9 @@ def _bearer(token: str) -> dict[str, str]:
 
 
 def _put(client: TestClient, url: str, content: bytes, media_type: str, **headers: str):
-    return client.put(url, content=content, headers={"Content-Type": media_type, **headers})
+    return client.put(
+        url, content=content, headers={"Content-Type": media_type, **headers}
+    )
 
 
 def _me(client: TestClient, token: str) -> dict:
@@ -41,6 +43,17 @@ def _no_apple_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("argus.api.routers.profile._apple_identity", lambda *_: None)
 
 
+@pytest.fixture(autouse=True)
+def invitations_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: "fake-receipt",
+    )
+
+
 @pytest.fixture
 def alice(biz: TestClient, identities) -> Owner:
     owner = Owner(biz, ALICE, identities[ALICE]["id"])
@@ -50,7 +63,6 @@ def alice(biz: TestClient, identities) -> Owner:
 
 @pytest.fixture
 def member(alice: Owner, bob: Owner, request: pytest.FixtureRequest) -> dict[str, str]:  # noqa: F811
-
     store = business_access()
     assert store is not None
     store.confirm(bob.person, "bob@example.test")
@@ -142,22 +154,37 @@ def test_another_person_sees_nothing_and_changes_only_their_own(
 
 
 def test_a_member_photo_reaches_the_owner_only_once_the_member_opened_the_grant(
-    biz: TestClient, alice: Owner, bob: Owner, member: dict[str, str]  # noqa: F811
+    biz: TestClient,
+    alice: Owner,
+    bob: Owner,  # noqa: F811
+    member: dict[str, str],  # noqa: F811
 ) -> None:
     """Acceptance grants access; the member photo still requires access_seen."""
 
     bob_url = _put(biz, PHOTO, png(), "image/png", **bob.auth).json()["photo_url"]
     grants = alice.get("/access").json()["grants"]
     assert [(g["owner"], g["photo_url"]) for g in grants] == [(True, None), (False, None)]
-    assert [s["access_seen"] for s in bob.get("/spaces").json()["spaces"] if s["role"] != "owner"] == [False]
+    assert [
+        s["access_seen"]
+        for s in bob.get("/spaces").json()["spaces"]
+        if s["role"] != "owner"
+    ] == [False]
 
-    opened = biz.post(f"{BASE}/spaces/{member['X-Business-Grant']}/seen", headers=bob.auth)
+    opened = biz.post(
+        f"{BASE}/spaces/{member['X-Business-Grant']}/seen", headers=bob.auth
+    )
     assert opened.status_code == 204
     grants = alice.get("/access").json()["grants"]
-    assert [(g["owner"], g["photo_url"]) for g in grants] == [(True, None), (False, bob_url)]
+    assert [(g["owner"], g["photo_url"]) for g in grants] == [
+        (True, None),
+        (False, bob_url),
+    ]
     # The owner's own photo reaches the list without a receipt.
     alice_url = _put(biz, PHOTO, webp(), "image/webp", **alice.auth).json()["photo_url"]
-    assert [g["photo_url"] for g in alice.get("/access").json()["grants"]] == [alice_url, bob_url]
+    assert [g["photo_url"] for g in alice.get("/access").json()["grants"]] == [
+        alice_url,
+        bob_url,
+    ]
     # No other member-listing response exists: the Business list carries no people.
     assert all("photo_url" not in s for s in bob.get("/spaces").json()["spaces"])
 
@@ -193,7 +220,10 @@ def test_the_owner_uploads_replaces_and_removes_the_logo(
 
 @pytest.mark.parametrize("member", ["admin"], indirect=True)
 def test_an_admin_sees_the_logo_and_can_replace_it(
-    biz: TestClient, alice: Owner, bob: Owner, member: dict[str, str]  # noqa: F811
+    biz: TestClient,
+    alice: Owner,
+    bob: Owner,  # noqa: F811
+    member: dict[str, str],  # noqa: F811
 ) -> None:
     url = _put(biz, LOGO, png(), "image/png", **alice.auth).json()["logo_url"]
     listed = {s["space_id"]: s["logo_url"] for s in bob.get("/spaces").json()["spaces"]}
@@ -212,7 +242,10 @@ def test_an_admin_sees_the_logo_and_can_replace_it(
 
 @pytest.mark.parametrize("member", ["editor", "viewer"], indirect=True)
 def test_editor_and_viewer_see_the_logo_but_cannot_change_it(
-    biz: TestClient, alice: Owner, bob: Owner, member: dict[str, str]  # noqa: F811
+    biz: TestClient,
+    alice: Owner,
+    bob: Owner,  # noqa: F811
+    member: dict[str, str],  # noqa: F811
 ) -> None:
     url = _put(biz, LOGO, png(), "image/png", **alice.auth).json()["logo_url"]
     seen = biz.get(BASE + "/workspace", headers={**bob.auth, **member})
@@ -225,7 +258,9 @@ def test_editor_and_viewer_see_the_logo_but_cannot_change_it(
 
 
 def test_a_non_member_cannot_see_or_change_the_logo(
-    biz: TestClient, alice: Owner, bob: Owner  # noqa: F811
+    biz: TestClient,
+    alice: Owner,
+    bob: Owner,  # noqa: F811
 ) -> None:
     url = _put(biz, LOGO, png(), "image/png", **alice.auth).json()["logo_url"]
     assert [s["logo_url"] for s in bob.get("/spaces").json()["spaces"]] == [None]
@@ -243,19 +278,29 @@ def test_a_non_member_cannot_see_or_change_the_logo(
 
 
 def test_a_revoked_member_loses_the_logo_at_once(
-    biz: TestClient, alice: Owner, bob: Owner, member: dict[str, str]  # noqa: F811
+    biz: TestClient,
+    alice: Owner,
+    bob: Owner,  # noqa: F811
+    member: dict[str, str],  # noqa: F811
 ) -> None:
     _put(biz, LOGO, png(), "image/png", **alice.auth)
     grant_id = member["X-Business-Grant"]
-    assert biz.delete(f"{BASE}/access/grants/{grant_id}", headers=alice.auth).status_code == 204
+    assert (
+        biz.delete(f"{BASE}/access/grants/{grant_id}", headers=alice.auth).status_code
+        == 204
+    )
     assert [s["logo_url"] for s in bob.get("/spaces").json()["spaces"]] == [None]
     refused = _put(biz, LOGO, png(), "image/png", **bob.auth, **member)
-    assert refused.status_code == 403 and refused.json()["code"] == "business_grant_not_live"
+    assert (
+        refused.status_code == 403 and refused.json()["code"] == "business_grant_not_live"
+    )
 
 
 def test_the_logo_needs_a_started_business(biz: TestClient) -> None:
     refused = _put(biz, LOGO, png(), "image/png", **_bearer(ALICE))
-    assert refused.status_code == 404 and refused.json()["code"] == "business_space_missing"
+    assert (
+        refused.status_code == 404 and refused.json()["code"] == "business_space_missing"
+    )
 
 
 def test_erasing_a_subject_removes_only_its_object(biz: TestClient, identities) -> None:

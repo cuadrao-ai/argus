@@ -1,3 +1,4 @@
+import { reportLocation, restoreReportLocation } from "@/lib/business-reporting-wire";
 import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createBusinessReportHttpFixture } from "./fixtures/business-report-http-fixture";
@@ -160,4 +161,23 @@ for (const legacy of [undefined, [], ["sale", "purchase"], ["purchase", "sale"]]
 test("a sale remains selected while malformed and unknown family choices fail", () => {
   expect(reportRequestSchema.parse({ filters: { record_families: ["sale"] } }).filters.record_families).toEqual(["sale"]);
   for (const record_families of [["unknown"], ["sale", "unknown"], ["sale", "sale"], null, "sale"]) expect(reportRequestSchema.safeParse({ filters: { record_families } }).success).toBe(false);
+});
+
+
+test("old saved presentations reach the server unchanged and retain current choices", () => {
+  const current = recordedReportAnswer.presentation;
+  const order = [current.order[0], ...current.order.slice(1).filter((key) => key !== "fiscal_number" && key !== "itbis_amount").reverse()];
+  const request = reportRequestSchema.parse({ schema_version: 2, presentation: { order, hidden: ["date"], density: 40 } });
+  expect(request.schema_version === 2 && request.presentation).toEqual({ order, hidden: ["date"], density: 40 });
+  const restored = restoreReportLocation(new URLSearchParams(reportLocation(request, "synthetic-row")));
+  expect(restored).toEqual({ request, anchor: "synthetic-row", invalid: false });
+  const selected = { ...current, hidden: [] };
+  const selectedRequest = reportRequestSchema.parse({ schema_version: 2, presentation: selected });
+  expect(selectedRequest.schema_version === 2 && selectedRequest.presentation).toEqual(selected);
+  for (const invalid of [
+    { ...current, order: [...current.order, "fiscal_number"] },
+    { ...current, order: [...current.order.slice(1), "counterparty"] },
+    { ...current, hidden: ["fiscal_number", "fiscal_number"] },
+    { ...current, hidden: ["unrecognized"] },
+  ]) expect(() => reportRequestSchema.parse({ schema_version: 2, presentation: invalid })).toThrow();
 });

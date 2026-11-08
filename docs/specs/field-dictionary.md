@@ -101,7 +101,7 @@ Tipo de gasto: 01–11 · Forma de pago: 01–07
 
 ## Registros columns
 
-The backend `Presentation` in `src/argus/domain/business/reporting_preferences.py` owns the default layout. The report answer returns the effective `presentation`; the connected table uses it. The preview uses `web/test-fixtures/records-default-report-answer.json`, recorded from the backend. `test_recorded_preview_answer_matches_backend` checks that fixture and `records-default-authority.test.ts` prevents web defaults. Saved layouts keep their explicit order, hidden columns and density. The existing column picker stays. More of the pilot Excel columns become choosable Registros columns over time.
+The backend `Presentation` in `src/argus/domain/business/reporting_preferences.py` owns the default layout. The report answer returns the effective `presentation`; the connected table uses it. The preview uses `web/test-fixtures/records-default-report-answer.json`, recorded from the backend. `test_recorded_preview_answer_matches_backend` checks that fixture and `records-default-authority.test.ts` prevents web defaults. Saved layouts keep their explicit order, hidden columns and density. The existing column picker stays. Further table additions wait for the pilot client’s workflow.
 
 | Column key | Pilot default | ES / EN | Why |
 |---|---|---|---|
@@ -116,23 +116,25 @@ The backend `Presentation` in `src/argus/domain/business/reporting_preferences.p
 | comprobante | On | Adjunto / Attachment | |
 | notas | On | Notas / Notes | Notas stays available, not stripped or forced hidden. |
 | cuenta | Available (hidden by default) | Cuenta / Account | Forma de pago ≠ Cuenta |
+| ncf | Available (hidden by default) | NCF / NCF | Existing `fiscal_number`, NCF or e-CF; missing stays unknown |
+| itbis | Available (hidden by default) | ITBIS / ITBIS | Existing `itbis_amount` in the row currency; missing amount or currency stays unknown, zero stays numeric |
 
-NCF, NCF afectado, servicios, bienes, ITBIS, ISC, and propina legal are pilot export fields, not Registros columns today. They belong in the choosable set over time. These are semantic targets, not a ship list. They already exist in Más datos or export. The evolved export column and file-type picker is out of scope.
+NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client’s workflow. These are semantic targets, not a ship list. They already exist in Más datos or export. The evolved export column and file-type picker is out of scope.
 
 ## Score cards
 
 Home card renames are deferred. Keep Ingresos / Gastos. No Home Ingresos-to-Ventas rename is included.
 
-Registros has six summary cards. Lucas approved the purchase-side meanings on 2026-11-07, following the 2026-11-06 review with Iris. Exactly one record type is selected, Compras by default or Ventas. The table, all six cards and expanded Total follow that selection. Ventas uses the existing server values; its cards have not had their design round yet. Missing sales Bienes or Servicios stay unknown.
+Registros has six summary cards. Lucas approved the purchase-side meanings on 2026-11-07, following the 2026-11-06 review with Iris. Exactly one record type is selected, Compras by default or Ventas. The table and all six cards follow that selection. Ventas uses the existing server values; its cards have not had their design round yet. Missing sales Bienes or Servicios stay unknown.
 
 | Card | Meaning |
 |---|---|
-| Total | Selected record type gross amount from the server, using the existing source and fallback rules. Its action shows the selected type document-total subcard below the filters and above the table. A second click hides it. It changes no filter and does not navigate. |
+| Total | Selected record type gross amount from the server, using the existing source and fallback rules. Static, like ITBIS, with no click, directional cue, hover action or subcard. |
 | ITBIS | Selected record type tax amount only. Static. |
 | Cantidad | The server's `matching_count` for the current table filters, as a whole number. Static. |
 | Bienes | Populated net (pre-tax) goods amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
 | Servicios | Populated net (pre-tax) services amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
-| Faltan datos fiscales | Server count by the existing fiscal-completeness definition within all current table filters, across all pages. Its action narrows the status selection to missing fiscal data. A second click restores the previous status selection and preserves the other current filters. The active filter stays visible and clearable. |
+| Faltan datos fiscales | Server count by the existing fiscal-completeness definition within all current table filters, across all pages. It is the only action card. Its action narrows the status selection to missing fiscal data. A second click restores the previous status selection and preserves the other current filters. The active filter stays visible and clearable. |
 
 Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Registros always selects exactly one currency, DOP, USD or EUR. Without a valid single-currency URL or view, the server workspace `records_default_currency` supplies the selection, currently DOP. Never add incompatible currencies. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
 
@@ -146,7 +148,7 @@ Listos para exportar and Ya exportados stay out of the summary. Export workflows
 
 The server supplies every number; the web computes none. [#1842](https://github.com/cuadrao-ai/argus/issues/1842) adds server totals for ITBIS, Bienes and Servicios, with coverage for Bienes and Servicios.
 
-Payment subcards are hidden for the pilot: Pagado, Por pagar, Cobrado, and Por cobrar never show. Their data and calculation paths stay. Forma de pago and other fiscal fields are untouched. The Total card shows the selected type document-total subcard. Changing Compras/Ventas keeps Total open or closed as it was.
+Registros has no Total or payment subcards. Pagado, Por pagar, Cobrado, and Por cobrar never show. Their data and calculation paths stay. Forma de pago and other fiscal fields are untouched.
 
 Do **not** label a non-fiscal expense total as "Compras (606)".
 

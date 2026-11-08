@@ -1,76 +1,23 @@
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, setSystemTime, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act, StrictMode } from "react";
-import { I18nextProvider } from "react-i18next";
-import i18next from "i18next";
-import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
-import BusinessReportsPanel, { ConnectedBusinessReports, reportFiltersForUi, reportFiltersFromUi } from "@/components/business-app/transacciones/BusinessReportsPanel";
-import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
+import { act } from "react";
+import { reportFiltersForUi, reportFiltersFromUi } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
-import { reportAnswerSchema, reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest, type RecordsCurrency } from "@/lib/business-reports-api";
+import { reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
 import { restoreReportLocation } from "@/lib/business-reporting-wire";
-import { setChosenGrant } from "@/lib/business-grant";
 import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-report-http-fixture";
-import english from "@/public/locales/en/common.json";
 import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import spanish from "@/public/locales/es-419/common.json";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
+import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
 
 await keepOwnListSearch();
 
-let cleanup = async () => {};
 const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
-async function mount(options: { defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
-  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
-  const { createRoot } = await import("react-dom/client");
-  const fixture = createBusinessReportHttpFixture(); for (const row of fixture.records) if (row.currency !== "DOP") { row.currency = "DOP"; row.recorded_currency = "DOP"; } if (options.presentation) fixture.controls.presentation = options.presentation; options.edit?.(fixture.records); if (options.large) { fixture.records[1].family = "purchase"; fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].family = "purchase"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
-  if (options.viewRecipe) fixture.views.push({ id: fixtureId(3300), name: "Moneda guardada", recipe: { schema_version: options.viewRecipe.schema_version, filters: options.viewRecipe.filters, columns: options.viewRecipe.columns, sort: options.viewRecipe.sort, ...(options.viewRecipe.schema_version === 2 ? { page_size: options.viewRecipe.page_size } : {}) }, version: 1, created_at: "2026-11-07T00:00:00Z", updated_at: "2026-11-07T00:00:00Z" });
-  const computedStyle = globalThis.getComputedStyle;
-  if (options.width && options.width < 1024) globalThis.getComputedStyle = ((element: Element) => {
-    const style = computedStyle(element);
-    return new Proxy(style, { get(target, key) { if (key === 'getPropertyValue') return (name: string) => name === '--records-narrow' ? '1' : target.getPropertyValue(name); const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value; } });
-  }) as typeof getComputedStyle;
-  const originalFetch = globalThis.fetch; globalThis.fetch = (async (input, init) => {
-    if (String(input).endsWith("/me")) return Response.json({ user: { id: "synthetic-person", language: "es-419" } });
-    const query = String(input).endsWith("/reports/query");
-    if (options.queryGate && query) await options.queryGate;
-    const response = await fixture.request(input, init);
-    return query && options.queryAnswer && response.ok ? Response.json(await options.queryAnswer(reportRequestSchema.parse(JSON.parse(String(init?.body))), reportAnswerSchema.parse(await response.json()))) : response;
-  }) as typeof fetch;
-  const originalCreate = URL.createObjectURL, originalRevoke = URL.revokeObjectURL;
-  const downloads: Blob[] = []; URL.createObjectURL = (blob) => { downloads.push(blob as Blob); return "blob:synthetic"; }; URL.revokeObjectURL = () => undefined;
-  setChosenGrant(options.grantId ?? null);
-  const source = createFixtureBusinessDataSource({ chatAvailable: false });
-  const opened: unknown[] = [];
-  const receiptActivity = options.waiting === undefined ? null : options.waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: options.waiting, needs_attention_count: 0, ready_to_review_count: options.waiting };
-  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: { ...await source.workspace(), currency: "CAD", records_default_currency: options.defaultCurrency ?? "DOP" }, workspaceGrant: options.workspaceGrant === undefined ? options.grantId ?? null : options.workspaceGrant, inbox: [], receiptActivity } } as unknown as BusinessContextValue;
-  const i18n = i18next.createInstance(); await i18n.init({ lng: options.language ?? "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
-  const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
-  let reloads = 0;
-  const render = () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={{ ...context }}>{options.topLevel ? <BusinessReportsPanel /> : <ConnectedBusinessReports defaultCurrency={context.records.workspace!.records_default_currency} initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: options.grantId ?? null }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>);
-  const rerender = () => act(async () => render());
-  context.reload = () => {
-    reloads += 1;
-    void source.workspace().then((workspace) => { context.records.workspace = workspace; context.records.workspaceGrant = options.grantId ?? null; context.records.error = false; context.records.refused = false; render(); });
-  };
-  if (options.workspaceFailure) {
-    if (options.workspaceFailure === "missing_default") Object.assign(context.records.workspace!, { records_default_currency: "CAD" });
-    else { context.records.workspace = null; context.records.error = true; context.records.refused = options.workspaceFailure === "refused"; context.records.failureReference = "SYNTHETIC-REF"; }
-  }
-  await rerender();
-  cleanup = async () => { await act(async () => root.unmount()); globalThis.fetch = originalFetch; globalThis.getComputedStyle = computedStyle; URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; };
-  const settle = async (predicate: () => boolean) => { for (let i = 0; i < 80; i++) { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); }); if (predicate()) return; } throw new Error(`Missing state ${document.body.textContent?.slice(-600)}`); };
-  const click = async (element: Element | undefined | null) => { assert.ok(element); await act(async () => (element as HTMLElement).click()); };
-  const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || label === "Filtros" && button.textContent?.startsWith("Filtros") || button.getAttribute("aria-label") === label);
-  const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => { await act(async () => { const prototype = element instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); }); };
-  if (options.waitForAnswer !== false) await settle(() => document.querySelector(`[data-report-schema="${options.legacy ? 1 : 2}"] [data-testid="records-count"]`) !== null);
-  return { fixture, settle, click, button, type, downloads, opened, context, rerender, reloads: () => reloads };
-}
-
 test("connected pages, full count, accent search and filtered overview use real transport", async () => {
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"] } }) });
   assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /63/);
@@ -88,33 +35,25 @@ test("connected pages, full count, accent search and filtered overview use real 
 
 const overviewCards = () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="records-overview-preview"] [data-overview-filter]')];
 
-test("Total toggles only the purchase document subcard without requests, filters or navigation", async () => {
+test("Total stays static without requests, filters or navigation", async () => {
   const page = await mount();
   const calls = page.fixture.calls.length;
   const filters = structuredClone(sentFilters(page).at(-1));
   const address = window.location.href;
   const historyLength = window.history.length;
-  const total = document.querySelector<HTMLButtonElement>('[data-overview-card="total"] button[aria-controls]');
-  assert.ok(total);
-  assert.equal(total.getAttribute("aria-expanded"), "false");
-  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
+  const total = document.querySelector('[data-overview-card="total"]')!;
+  assert.equal(total.tagName, "DIV");
+  assert.equal(total.hasAttribute("tabindex"), false);
+  assert.equal(total.getAttribute("role"), null);
+  assert.equal(total.querySelector("button, [role=button], [tabindex], [aria-expanded], [aria-controls]"), null);
+  assert.equal(total.querySelectorAll("svg").length, 1);
   await page.click(total);
-  const summary = document.querySelector('[data-testid="records-results-summary"]')!;
-  assert.ok(summary);
-  assert.equal(total.getAttribute("aria-expanded"), "true");
-  assert.equal(total.getAttribute("aria-controls"), summary.id);
-  assert.equal(summary.getAttribute("data-summary-kind"), "gasto");
-  assert.equal(summary.querySelectorAll("[data-summary-part]").length, 1);
-  assert.doesNotMatch(summary.textContent!, /Pagado|Por pagar|Cobrado|Por cobrar/);
+  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
   assert.equal(page.fixture.calls.length, calls);
   assert.deepEqual(sentFilters(page).at(-1), filters);
   assert.equal(window.location.href, address);
   assert.equal(window.history.length, historyLength);
   assert.deepEqual(page.opened, []);
-  await page.click(total);
-  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-  assert.equal(total.getAttribute("aria-expanded"), "false");
-  assert.equal(page.fixture.calls.length, calls);
 });
 
 test("six cards show report scope and only fiscal applies its stage", async () => {
@@ -177,7 +116,8 @@ test("a saved view or address bar naming a stage the server no longer has reads 
   (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?report=${encodeURIComponent(JSON.stringify({ filters: { review_stages: ["awaiting_approval", "exported"] } }))}&report_scope=synthetic-person:${fixtureId(3000)}`);
   const page = await mount();
   assert.ok(sentFilters(page).every((filters) => !filters.review_stages.includes("awaiting_approval" as never)), "no request carries the stale stage");
-  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["exported"]);
+  assert.deepEqual(sentFilters(page)[0].review_stages, ["exported"]);
+  assert.deepEqual(addressFilters().review_stages, ["exported"]);
 });
 
 test("saved notes stay on the row and the note editor is not offered", async () => {
@@ -339,70 +279,6 @@ test("older v1 servers keep query usable and leave unsupported overview unavaila
   for (const card of document.querySelectorAll<HTMLButtonElement>('[data-overview-filter]')) assert.equal(card.disabled, true);
   assert.equal(page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).every((call) => (call.body as ReportRequest).schema_version === 1), true);
   assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-});
-
-const amounts = (card: Element) => [...card.querySelectorAll("[data-currency]")].map((row) => row.textContent);
-const cards = () => [...document.querySelectorAll('[data-testid="records-results-summary"] [data-summary-part]')];
-
-test("family filters alone never reveal subcards", async () => {
-  for (const family of ["purchase", "sale"] as const) {
-    await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" }, record_families: [family] } }) });
-    assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-    await cleanup();
-  }
-});
-
-test("purchase document subcard keeps unknown amounts partial without inventing zero", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  const [first] = [...cards()[0].querySelectorAll("[data-currency], .currencyRow, dd > div")];
-  assert.match(cards()[0].textContent!, /Compras/);
-  assert.equal(document.querySelectorAll("tbody tr").length, 25);
-  assert.match(first.textContent!, /RD\$6,200.00/);
-  assert.match(first.textContent!, /Parcial/);
-  assert.equal(cards()[0].querySelectorAll(".cuadrao-amount").length, 1);
-  assert.doesNotMatch(cards()[0].textContent!, /(?<![\d,])0\.00/);
-});
-
-test("purchase subcard follows the server answer while search loads and never sums rows", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }), edit: (rows) => { rows[125].family = "purchase"; } });
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  const live = globalThis.fetch;
-  let release!: () => void;
-  let started = false;
-  const gate = new Promise<void>((resolve) => { release = resolve; });
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith("/reports/query") ? (started = true, gate.then(() => live(input, init))) : live(input, init)) as typeof fetch;
-  await page.type(document.querySelector('input[type="search"]')!, "pena");
-  await page.settle(() => started);
-  assert.equal(cards()[0].querySelectorAll(".cuadrao-amount").length, 0);
-  release();
-  await page.settle(() => cards()[0].querySelectorAll(".cuadrao-amount").length > 0);
-  assert.deepEqual(amounts(cards()[0]), ["RD$100.00"]);
-  globalThis.fetch = live;
-});
-
-test("purchase subcard preserves exact selected-currency totals and hides payment metrics", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }), edit: (rows) => {
-    rows[0].gross_amount = "9007199254740993.01";
-    rows[2].currency = "USD"; rows[2].gross_amount = "7.00";
-    rows[4].currency = "EUR"; rows[4].gross_amount = "9.00";
-  } });
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  assert.equal(cards().length, 1);
-  assert.match(cards()[0].textContent!, /9,007,199,254,746,993\.01/);
-  assert.equal(document.querySelector('[data-testid="records-results-summary"] button[aria-expanded]'), null);
-  assert.doesNotMatch(cards()[0].textContent!, /Pagado|Por pagar|Cobrado|Por cobrar|US\$/);
-});
-
-test("an incomplete purchase total preserves its labelled known part", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  page.fixture.records[0].gross_amount = null;
-  await page.click(document.querySelector('[data-testid="records-refresh"]'));
-  await page.settle(() => cards()[0]?.querySelector('[data-partial-known]') !== null);
-  const dop = cards()[0].querySelector('[data-currency="DOP"]')!;
-  assert.equal([...dop.querySelectorAll(".cuadrao-amount")].filter((amount) => !amount.closest("[data-partial-known]")).length, 0);
-  assert.equal(dop.querySelector("[data-partial-known]")!.textContent, "Parcial: RD$6,100.00");
 });
 
 test("desktop shows a refresh control that reloads the query and holds a busy state until it answers", async () => {
@@ -590,34 +466,173 @@ test("Filtros offers only the document kinds a row can carry, and each one finds
 
 const aboveTable = () => { const section = document.querySelector('[data-testid="transacciones"]')!; const nodes = [...section.children]; const end = nodes.findIndex((node) => node.querySelector('[data-testid="transacciones-records"], [data-empty-kind]')); return nodes.slice(0, end).map((node) => `${node.tagName}:${node.getAttribute("data-testid") ?? node.getAttribute("role") ?? ""}`); };
 
-test("a filter with no rows shows one title, keeps the pill row as the only clear action, and moves nothing above the table", async () => {
-  const page = await mount({ edit: (records) => { for (const row of records) row.dgii_606 = null; } });
-  const before = aboveTable();
-  await page.click(page.button("Filtros"));
-  await page.click(document.querySelector('[data-group="expense_type"]'));
-  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Falta"));
-  await page.click(page.button("Aplicar"));
+for (const family of ["purchase", "sale"] as const) test(`an empty ${family} search clears only the search`, async () => {
+  const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["DOP"], period } }) });
+  const search = document.querySelector<HTMLInputElement>('input[type="search"]')!;
+  await page.type(search, "comercio inexistente");
   await page.settle(() => document.querySelector('[data-empty-kind]') !== null);
-  const empty = document.querySelector('[data-empty-kind="filtered"]')!;
-  assert.equal(empty.querySelector("h3")?.textContent, "No hay registros con estos filtros");
-  assert.equal(empty.querySelector("p"), null, "no body line");
-  assert.equal(empty.querySelector("button"), null, "no second clear action");
-  assert.doesNotMatch(document.body.textContent ?? "", /Cada gasto y cada venta que apruebas/);
-  const clears = [...document.querySelectorAll("button")].filter((node) => node.textContent === "Limpiar filtros");
-  assert.equal(clears.length, 1); assert.ok(document.querySelector('[data-testid="records-preview-filter-chips"]')!.contains(clears[0]), "the pill row's Limpiar filtros is the one");
-  assert.deepEqual(aboveTable(), before, "nothing above the table moved");
-  await page.click(clears[0]);
+  const empty = document.querySelector('[data-empty-kind="no_results"]');
+  assert.equal(empty?.querySelector("h3")?.textContent, "No hay resultados para esta búsqueda");
+  assert.deepEqual([...empty!.querySelectorAll("button")].map((button) => button.textContent), ["Borrar búsqueda"]);
+  await page.click(empty!.querySelector("button"));
   await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
-  assert.deepEqual(aboveTable(), before);
+  const applied = sentFilters(page).at(-1)!;
+  assert.equal(search.value, "");
+  assert.equal(applied.q, "");
+  assert.deepEqual(applied.record_families, [family]);
+  assert.deepEqual(applied.currencies, ["DOP"]);
+  assert.deepEqual(applied.period, period);
 });
 
-test("a Registros with nothing in the period keeps its first-run message and the Bandeja line, with no clear action", async () => {
-  await mount({ edit: (records) => { records.splice(0); } });
-  const empty = document.querySelector('[data-empty-kind="first_run"]')!;
-  assert.equal(empty.querySelector("h3")?.textContent, "Aquí verás tus gastos y ventas");
-  assert.equal(empty.querySelector("p")?.textContent, "Cada gasto y cada venta que apruebas en la Bandeja aparece aquí en su fecha.");
-  assert.equal([...document.querySelectorAll("button")].filter((node) => node.textContent === "Limpiar filtros").length, 0);
-  assert.equal(document.querySelector('[data-empty-kind="filtered"]'), null);
+for (const family of ["purchase", "sale"] as const) test(`an empty ${family} filter offers a table clear that keeps the scope and search`, async () => {
+  const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
+  const page = await mount({
+    initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["USD"], period, q: "Proveedor" } }),
+    edit: (records) => { for (const row of records) { row.currency = "USD"; row.recorded_currency = "USD"; } },
+  });
+  const before = aboveTable();
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="document"]'));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Nota de crédito"));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => document.querySelector('[data-empty-kind="filtered"]') !== null);
+  const empty = document.querySelector('[data-empty-kind="filtered"]')!;
+  assert.equal(empty.querySelector("h3")?.textContent, "No hay registros con estos filtros");
+  assert.equal(empty.querySelector("p")?.textContent, "Prueba con otros filtros o limpia los actuales.");
+  assert.equal(empty.querySelector("img")?.getAttribute("src"), "/brand/records-search.webp");
+  assert.deepEqual([...empty.querySelectorAll("button")].map((button) => button.textContent), ["Limpiar filtros"]);
+  assert.deepEqual(aboveTable(), before, "nothing above the table moved");
+  assert.deepEqual(sentFilters(page).slice(-2).map((filters) => [filters.q, filters.document_kinds]), [["", ["credit_note"]], ["", []]]);
+  await page.click(empty.querySelector("button"));
+  await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
+  assert.deepEqual(aboveTable(), before);
+  const applied = sentFilters(page).at(-1)!;
+  assert.deepEqual(applied.document_kinds, []);
+  assert.deepEqual(applied.record_families, [family]);
+  assert.deepEqual(applied.currencies, ["USD"]);
+  assert.deepEqual(applied.period, period);
+  assert.equal(applied.q, "Proveedor");
+});
+
+for (const family of ["purchase", "sale"] as const) test(`empty ${family} selection has priority even with search and optional filters`, async () => {
+  const initial = reportRequestSchema.parse({
+    schema_version: 2,
+    filters: { record_families: [family], currencies: ["USD"], q: "Proveedor", document_kinds: ["credit_note"], period: { kind: "latest_month" } },
+  });
+  const page = await mount({
+    initial,
+    edit: (records) => {
+      for (const row of records) if (row.family !== family) { row.currency = "USD"; row.recorded_currency = "USD"; }
+    },
+    onAdd: () => assert.fail("an empty selection has no add action"),
+    waitForAnswer: false,
+  });
+  const empty = () => document.querySelector('[data-testid="transacciones-records-empty"]');
+  await page.settle(() => document.querySelector('[data-empty-kind]') !== null);
+  assert.equal(empty()?.querySelector("h3")?.textContent, family === "purchase" ? "No hay compras en esta selección" : "No hay ventas en esta selección");
+  assert.equal(empty()?.querySelector("img")?.getAttribute("src"), "/brand/records-document.webp");
+  assert.equal(empty()?.querySelectorAll("button").length, 0);
+  const probeFilters = sentFilters(page).slice(-2);
+  assert.deepEqual(probeFilters.map((filters) => [filters.q, filters.document_kinds]), [["", ["credit_note"]], ["", []]]);
+  for (const filters of probeFilters) {
+    assert.deepEqual(filters.record_families, [family]);
+    assert.deepEqual(filters.currencies, ["USD"]);
+    assert.deepEqual(filters.period, { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-31" });
+  }
+  assert.deepEqual(addressFilters(), initial.filters, "the probe does not change the URL");
+});
+
+for (const family of ["purchase", "sale"] as const) test(`empty ${family} results offer search clear when optional filters still match rows`, async () => {
+  const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["DOP"], period, q: "comercio inexistente", document_kinds: ["credit_note"] } });
+  const page = await mount({
+    initial,
+    edit: (records) => { records.find((row) => row.family === family && row.report_date === "2026-10-20")!.document_kind = "credit_note"; },
+    waitForAnswer: false,
+  });
+  await page.settle(() => document.querySelector('[data-empty-kind]') !== null);
+  const empty = document.querySelector('[data-empty-kind="no_results"]');
+  assert.equal(empty?.querySelector("h3")?.textContent, "No hay resultados para esta búsqueda");
+  assert.equal(empty?.querySelector("img")?.getAttribute("src"), "/brand/records-search.webp");
+  assert.deepEqual([...empty!.querySelectorAll("button")].map((button) => button.textContent), ["Borrar búsqueda"]);
+  const cleared = { ...initial.filters, q: "" };
+  assert.deepEqual(sentFilters(page), [initial.filters, cleared], "one optional-only read proves this is a search empty");
+  await page.click(empty!.querySelector("button"));
+  await page.settle(() => document.querySelectorAll("tbody tr").length === 1);
+  assert.deepEqual(sentFilters(page).at(-1), cleared);
+  assert.deepEqual(addressFilters(), cleared);
+});
+
+test("a pending or failed empty-selection read leaves the table loading or retryable", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let fail = true;
+  const page = await mount({
+    initial: reportRequestSchema.parse({ schema_version: 2, filters: { q: "comercio inexistente" } }),
+    queryAnswer: async (request, answer) => {
+      if (!request.filters.q && fail) {
+        await gate;
+        throw new Error("Unavailable");
+      }
+      return answer;
+    },
+    waitForAnswer: false,
+  });
+  try {
+    await page.settle(() => sentFilters(page).some((filters) => !filters.q));
+    assert.ok(document.querySelector('[data-testid="transacciones-loading"]'));
+    assert.equal(document.querySelector('[data-empty-kind]'), null);
+  } finally {
+    release();
+  }
+  await page.settle(() => document.querySelector('[role="alert"]') !== null);
+  assert.equal(document.querySelector('[data-empty-kind="no_results"]'), null);
+  fail = false;
+  await page.click(document.querySelector('[role="alert"] button'));
+  await page.settle(() => document.querySelector('[data-empty-kind="no_results"] button')?.textContent === "Borrar búsqueda");
+});
+
+test("a refused empty-selection read clears report context and keeps the server reference", async () => {
+  const page = await mount({
+    initial: reportRequestSchema.parse({ schema_version: 2, filters: { q: "comercio inexistente", period: { kind: "latest_month" } } }),
+    queryAnswer: (request, answer) => {
+      if (!request.filters.q) throw Object.assign(new Error("Refused"), { status: 403, code: "permission_denied", requestId: "PROBE-REF" });
+      return answer;
+    },
+    waitForAnswer: false,
+  });
+  await page.settle(() => document.querySelector('[role="alert"]') !== null);
+  const alert = document.querySelector('[role="alert"]');
+  assert.match(alert?.textContent ?? "", /PROBE-REF/);
+  assert.equal(alert?.querySelector('[data-testid="error-reference"]')?.getAttribute("title"), "PROBE-REF");
+  assert.equal(page.button("Actualizar"), undefined);
+  assert.equal(page.button("Octubre de 2026"), undefined);
+  assert.equal(document.querySelector('[data-empty-kind]'), null);
+});
+
+test("a late empty-selection read cannot replace the current tab's empty state", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({
+    initial: reportRequestSchema.parse({ schema_version: 2, filters: { q: "comercio inexistente" } }),
+    edit: (records) => { for (const row of records) if (row.family === "purchase") { row.currency = "USD"; row.recorded_currency = "USD"; } },
+    queryAnswer: async (request, answer) => {
+      if (!request.filters.q && request.filters.record_families[0] === "purchase") await gate;
+      return answer;
+    },
+    waitForAnswer: false,
+  });
+  try {
+    await page.settle(() => sentFilters(page).some((filters) => !filters.q && filters.record_families[0] === "purchase"));
+    await page.click(document.querySelector("#records-type-venta"));
+    await page.settle(() => document.querySelector('[data-empty-kind="no_results"] button')?.textContent === "Borrar búsqueda");
+  } finally {
+    await act(async () => release());
+  }
+  assert.equal(document.querySelector("#records-type-venta")?.getAttribute("aria-selected"), "true");
+  assert.equal(document.querySelector('[data-empty-kind="no_results"] button')?.textContent, "Borrar búsqueda");
+  assert.equal(document.querySelector('[data-testid="transacciones-records-empty"]'), null);
 });
 
 test("a record that left the view says so in a toast, never in a line above the table", async () => {
@@ -722,83 +737,6 @@ test("closing the phone Filtros sheet without a choice sends no query", async ()
   assert.equal(sentFilters(page).length, before);
 });
 
-const renderedColumnKeys = () => [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
-for (const language of ["es-419", "en"] as const) test(`server defaults show eight columns and all optional columns remain available in ${language}`, async () => {
-  const page = await mount({ language });
-  assert.deepEqual(renderedColumnKeys(), ["contraparte", "fecha", "monto", "moneda", "detalle", "estado", "notas", "comprobante"]);
-  assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).every((call) => !Object.hasOwn(call.body as object, "presentation")), "fresh V1 and V2 requests leave defaults to the server");
-  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  for (const [key, label] of language === "en" ? [["tipo_gasto", "Expense type"], ["forma_pago", "Payment method"], ["cuenta", "Account"]] : [["tipo_gasto", "Tipo de gasto"], ["forma_pago", "Forma de pago"], ["cuenta", "Cuenta"]]) {
-    const row = document.querySelector(`[data-column-setting="${key}"]`);
-    assert.ok(row?.textContent?.includes(label));
-    assert.equal(row?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked, false);
-  }
-});
-
-test("server layout changes render, saved views retain the effective layout, and Restore asks for fresh defaults", async () => {
-  const chosen: typeof recordedReportAnswer.presentation = { ...recordedReportAnswer.presentation, order: ["counterparty", ...recordedReportAnswer.presentation.order.slice(1).reverse()], hidden: [], density: 40 as const };
-  const page = await mount({ presentation: chosen });
-  assert.deepEqual(renderedColumnKeys(), ["contraparte", "cuenta", "comprobante", "notas", "estado", "forma_pago", "tipo_gasto", "detalle", "moneda", "monto", "fecha"]);
-  assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
-  await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
-  await page.type(document.querySelector('input[maxlength="120"]')!, "Mi diseño"); await page.click(page.button("Guardar"));
-  await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
-  assert.deepEqual((page.fixture.views[0].recipe as { presentation: unknown }).presentation, chosen);
-  const fresh = { ...recordedReportAnswer.presentation, hidden: ["attachment" as const, "funding" as const], density: 56 as const };
-  page.fixture.controls.presentation = fresh;
-  await page.click(document.querySelector('[data-testid="records-refresh"]'));
-  await page.settle(() => !renderedColumnKeys().includes("comprobante"));
-  await page.click(page.button("Vistas")); await page.click(page.button("Mi diseño"));
-  await page.settle(() => renderedColumnKeys()[1] === "cuenta");
-  assert.deepEqual((page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as { presentation: unknown }).presentation, chosen);
-  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  await page.click(page.button("Restaurar valores iniciales"));
-  await page.settle(() => !renderedColumnKeys().includes("comprobante") && document.querySelector("table")?.getAttribute("data-density") === "amplio");
-  const restored = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as object;
-  assert.equal(Object.hasOwn(restored, "presentation"), false);
-  assert.ok(renderedColumnKeys().includes("tipo_gasto") && renderedColumnKeys().includes("forma_pago"), "Restore uses the new server layout, not the preview fixture");
-});
-
-for (const outcome of ["ready", "failed"] as const) test(`Restore cannot save a stale custom layout while pending or ${outcome}`, async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, hidden: [], density: 40 } }) });
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => { release = resolve; });
-  globalThis.fetch = (async (input, init) => {
-    if (String(input).endsWith("/reports/query")) {
-      await gate;
-      if (outcome === "failed") return new Response("{}", { status: 503 });
-    }
-    return page.fixture.request(input, init);
-  }) as typeof fetch;
-  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  await page.click(page.button("Restaurar valores iniciales"));
-  await page.click(page.button("Vistas"));
-  try {
-    assert.equal(page.button("Guardar vista")?.disabled, true, "saving must await the server's restored layout");
-  } finally { await act(async () => release()); }
-  if (outcome === "failed") {
-    await page.settle(() => document.querySelector('[role="alert"]') !== null);
-    assert.equal(page.button("Guardar vista")?.disabled, true, "failed Restore has no new layout to save");
-  } else {
-    await page.settle(() => page.button("Guardar vista")?.disabled === false);
-  }
-  assert.equal(page.fixture.views.length, 0);
-});
-
-
-test("a fresh connected table waits for server columns and offers no layout before the answer", async () => {
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => { release = resolve; });
-  const page = await mount({ queryGate: gate, waitForAnswer: false });
-  try {
-    assert.equal(document.querySelector("th[data-col]"), null);
-    assert.equal(document.querySelector('[data-testid="transacciones-view-options"]'), null);
-    assert.equal(document.querySelector("[data-column-setting]"), null);
-    await page.settle(() => document.querySelector('[data-testid="fullscreen-loading"]') !== null);
-  } finally { await act(async () => release()); }
-  await page.settle(() => document.querySelector('th[data-col="moneda"]') !== null);
-});
-
 const fiscalCard = () => document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!;
 const fiscalCount = () => fiscalCard().querySelector(".font-display")?.textContent;
 const fiscalRecords = (rows: ReportRecord[]) => rows.forEach((row, index) => { row.stage = index < 60 ? "needs_fiscal_data" : "ready_for_export"; });
@@ -862,9 +800,12 @@ test("an active empty Fiscal result can be cleared without losing a new search",
   await page.type(document.querySelector('input[type="search"]')!, "no matches");
   await page.settle(() => fiscalCount() === "0");
   assert.equal(fiscalCard().disabled, false);
+  const before = sentFilters(page).length;
   await page.click(fiscalCard());
-  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
-  assert.equal(sentFilters(page).at(-1)!.q, "no matches");
+  await page.settle(() => sentFilters(page).length > before);
+  assert.deepEqual(sentFilters(page)[before].review_stages, []);
+  assert.equal(sentFilters(page)[before].q, "no matches");
+  assert.equal(addressFilters().q, "no matches");
 });
 
 test("history restoring the same Fiscal stage discards the old toggle snapshot", async () => {
@@ -934,7 +875,7 @@ function currencyCardAnswer(request: ReportRequest, answer: ReportAnswer): Repor
   };
 }
 
-for (const family of ["purchase", "sale"] as const) for (const sample of currencyCardCases) test(`${family} ${sample.currency} keeps cards, table and expanded Total together across pages and Clear`, async () => {
+for (const family of ["purchase", "sale"] as const) for (const sample of currencyCardCases) test(`${family} ${sample.currency} keeps static cards and table together across pages and Clear`, async () => {
   const initial = reportRequestSchema.parse({ schema_version: 2, filters: { q: "Proveedor", period: { kind: "all" }, record_families: [family], has_document: true, counterparties: ["101001577"], expense_types: ["02"], funding_sources: ["cash"], document_kinds: ["unknown"], fiscal_classifications: ["B01"] } });
   const page = await mount({ initial, queryAnswer: currencyCardAnswer });
   await page.click(document.querySelector('button[aria-label^="Moneda:"]'));
@@ -945,11 +886,8 @@ for (const family of ["purchase", "sale"] as const) for (const sample of currenc
   assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, String(sample.count));
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
   assert.ok([...document.querySelectorAll('tbody td[data-col="detalle"]')].every((cell) => cell.textContent === (family === "sale" ? "Venta" : "Compra")));
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  const summary = document.querySelector('[data-testid="records-results-summary"]')!;
-  assert.equal(summary.getAttribute("data-summary-kind"), family === "sale" ? "venta" : "gasto");
-  assert.match(summary.textContent!, new RegExp(sample.shown[0].slice(4).replaceAll(".", "\\.")));
-  assert.match(summary.textContent!, family === "sale" ? /Ventas/ : /Compras/);
+  assert.equal(document.querySelector('[data-overview-card="total"] button'), null);
+  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
   assert.deepEqual([...document.querySelectorAll('tbody td[data-col="monto"]')].map((cell) => cell.textContent), Array(25).fill("1.00"));
   await page.click(document.querySelector('button[aria-label="Última página"]'));
   await page.settle(() => document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "2");
@@ -976,7 +914,7 @@ test("a currency-filtered six-card answer clears old figures while loading and s
     assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "");
     assert.equal(fiscalCount(), "");
   } finally { await act(async () => release()); }
-  await page.settle(() => document.querySelector('[data-empty-kind="filtered"]') !== null);
+  await page.settle(() => document.querySelector('[data-empty-kind="no_results"]') !== null);
   assert.deepEqual(shelfMoney(), [null, null, null, null]);
   for (const metric of ["total", "itbis", "goods", "services"]) assert.match(document.querySelector(`[data-overview-card="${metric}"]`)!.textContent!, /-sin dato/);
   assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "0");
@@ -1014,7 +952,9 @@ test("a valid URL currency wins over the server default and keeps its explicit a
   const params = new URLSearchParams({ report: JSON.stringify(report), report_scope: `synthetic-person:${fixtureId(3000)}` });
   (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?${params}`);
   const page = await mount({ defaultCurrency: "USD" });
-  assert.ok(sentFilters(page).every((filters) => filters.currencies[0] === "EUR" && filters.currencies.length === 1 && filters.amount_min === "10" && filters.amount_max === "200"));
+  assert.ok(sentFilters(page).every((filters) => JSON.stringify(filters.currencies) === '["EUR"]'));
+  assert.deepEqual(sentFilters(page)[0], report.filters);
+  assert.deepEqual(addressFilters(), report.filters);
 });
 
 test("the connected entry waits for the current grant workspace before sending any report query", async () => {
@@ -1030,11 +970,12 @@ test("the connected entry waits for the current grant workspace before sending a
 
 for (const currencies of [["EUR"], []]) test(`applying a view keeps a supported singleton or uses the server default for ${JSON.stringify(currencies)}`, async () => {
   const page = await mount({ defaultCurrency: "USD", viewRecipe: reportRequestSchema.parse({ schema_version: 2, filters: { currencies, amount_min: "10", amount_max: "200" } }) });
+  const before = sentFilters(page).length;
   await page.click(page.button("Vistas"));
   await page.click(page.button("Moneda guardada"));
-  await page.settle(() => sentFilters(page).at(-1)?.currencies[0] === (currencies[0] ?? "USD"));
-  const filters = sentFilters(page).at(-1)!;
-  assert.equal(filters.currencies.length, 1);
+  await page.settle(() => sentFilters(page).length > before);
+  const filters = sentFilters(page)[before];
+  assert.deepEqual(filters.currencies, [currencies[0] ?? "USD"]);
   assert.equal(filters.amount_min, currencies.length ? "10" : null);
   assert.equal(filters.amount_max, currencies.length ? "200" : null);
   assert.deepEqual((page.fixture.views[0].recipe as { filters: { currencies: string[] } }).filters.currencies, currencies, "applying does not migrate the stored recipe");
@@ -1044,9 +985,10 @@ test("history restoration sends one currency and keeps the URL currency's amount
   const page = await mount({ defaultCurrency: "USD" });
   const restored = reportRequestSchema.parse({ schema_version: 2, filters: { currencies: ["EUR"], amount_min: "10" } });
   const params = new URLSearchParams({ report: JSON.stringify(restored), report_scope: `synthetic-person:${fixtureId(3000)}` });
+  const before = sentFilters(page).length;
   await act(async () => { window.history.pushState(null, "", `?${params}`); window.dispatchEvent(new PopStateEvent("popstate")); });
-  await page.settle(() => sentFilters(page).at(-1)?.currencies[0] === "EUR");
-  assert.equal(sentFilters(page).at(-1)!.amount_min, "10");
+  await page.settle(() => sentFilters(page).length > before);
+  assert.deepEqual(sentFilters(page)[before], restored.filters);
   const unrestricted = { ...restored, filters: { ...restored.filters, currencies: [] } };
   params.set("report", JSON.stringify(unrestricted));
   await act(async () => { window.history.pushState(null, "", `?${params}`); window.dispatchEvent(new PopStateEvent("popstate")); });
@@ -1076,24 +1018,22 @@ test("a refused workspace shows its reference and no retry or report query", asy
 });
 
 
-test("an empty selected sale uses the filtered-empty message even when purchases exist", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"] } }), edit: (rows) => { for (const row of rows) { row.family = "purchase"; row.money_kind = "expense"; } } });
-  assert.ok(page.fixture.records.length > 0);
-  assert.equal(document.querySelector('[data-empty-kind="filtered"] h3')?.textContent, "No hay registros con estos filtros");
-  assert.equal(document.querySelector('[data-empty-kind="first_run"]'), null);
-});
-
 for (const width of [1440, 390]) test(`type tabs share filters and clearing on Ventas preserves USD and period at ${width}px`, async () => {
   const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
   const page = await mount({ width, defaultCurrency: "USD", initial: reportRequestSchema.parse({ schema_version: 2, filters: { currencies: ["USD"], period, has_document: false, amount_min: "10" } }) });
   assert.equal(document.querySelector('#records-type-gasto')?.getAttribute("aria-selected"), "true");
+  const beforeSale = sentFilters(page).length;
   await page.click(document.querySelector('#records-type-venta'));
-  await page.settle(() => sentFilters(page).at(-1)?.record_families[0] === "sale");
-  assert.equal(sentFilters(page).at(-1)?.has_document, false);
-  assert.equal(sentFilters(page).at(-1)?.amount_min, "10");
+  await page.settle(() => sentFilters(page).length > beforeSale);
+  const sale = sentFilters(page)[beforeSale];
+  assert.deepEqual(sale.record_families, ["sale"]);
+  assert.equal(sale.has_document, false);
+  assert.equal(sale.amount_min, "10");
+  const beforeClear = sentFilters(page).length;
   await page.click(page.button("Limpiar filtros"));
-  await page.settle(() => sentFilters(page).at(-1)?.has_document === null);
-  const filters = sentFilters(page).at(-1)!;
+  await page.settle(() => sentFilters(page).length > beforeClear);
+  const filters = sentFilters(page)[beforeClear];
+  assert.equal(filters.has_document, null);
   assert.deepEqual(filters.record_families, ["sale"]);
   assert.deepEqual(filters.currencies, ["USD"]);
   assert.deepEqual(filters.period, period);

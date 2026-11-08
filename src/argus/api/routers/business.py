@@ -380,6 +380,8 @@ def list_spaces(
     seen = access.seen_grants(person.person_id)
     granted = access.spaces_for(person.person_id)
     logos = picture_urls("business", [found.space_id for found in granted])
+    from argus.api.business_invite_delivery import invitations_available
+
     return {
         "spaces": [
             {
@@ -407,6 +409,7 @@ def list_spaces(
             }
             for closed in access.closed_spaces_for(person.person_id)
         ],
+        "invitations_available": invitations_available(),
     }
 
 
@@ -508,6 +511,8 @@ def _access_store(request: Request) -> AccessStore:
 
 
 def _access(found: AccessList) -> dict[str, Any]:
+    from argus.api.business_invite_delivery import invitations_available
+
     # A photo reaches the Business only once its person has acted on the grant.
     photos = picture_urls("person", [g.grantee_id for g in found.grants if g.seen])
     return {
@@ -536,6 +541,7 @@ def _access(found: AccessList) -> dict[str, Any]:
             }
             for invite in found.invites
         ],
+        "invitations_available": invitations_available(),
     }
 
 
@@ -565,10 +571,14 @@ def invite_recipients(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict:
-    from argus.api.business_invite_delivery import deliver_invite
+    from argus.api.business_invite_delivery import (
+        deliver_invite,
+        require_invitations_available,
+    )
     from argus.domain.business.memberships import MembershipError
 
     manager_only(request, context)
+    require_invitations_available(request)
     space_id, actor_id = context.scope.owner.space_id, context.scope.acting_person_id
     store = _access_store(request)
     results = []
@@ -681,6 +691,9 @@ def give_access(
     if spaces is None:
         raise space_missing_problem(request)
     require_business_name(request, spaces, space_id)
+    from argus.api.business_invite_delivery import require_invitations_available
+
+    require_invitations_available(request)
     try:
         created, found = store.give(
             space_id,
@@ -724,7 +737,10 @@ def resend_access_invite(
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
+    from argus.api.business_invite_delivery import require_invitations_available
+
     manager_only(request, context)
+    require_invitations_available(request)
     space_id, owner_id = context.scope.owner.space_id, context.scope.acting_person_id
     found = _access_store(request).resend(space_id, owner_id, str(invite_id))
     if found is None:

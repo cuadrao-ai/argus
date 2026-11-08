@@ -22,7 +22,12 @@ async function render(language: "es-419" | "en", access: BusinessAccess = ACCESS
   await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: english } } });
   return renderToStaticMarkup(
     <I18nextProvider i18n={i18n}>
-      <AccessList access={access} busyId={null} onRemove={() => undefined} onResend={() => undefined} />
+      <AccessList
+        access={access}
+        busyId={null}
+        onRemove={() => undefined}
+        onResend={access.invitations_available === false ? undefined : () => undefined}
+      />
     </I18nextProvider>,
   );
 }
@@ -56,4 +61,11 @@ test("expired invitation retains the exact owner message and explicit resend", a
   assert.ok(html.includes("La invitación a nuevo@example.test venció."));
   assert.ok(html.includes("Reenviar"));
   assert.ok(html.includes("Cancelar invitación"));
+});
+
+test("without server capability the pending invite hides resend", async () => {
+  const html = await render("en", { ...ACCESS, invitations_available: false });
+  assert.ok(html.includes("nuevo@example.test"));
+  assert.ok(!html.includes("Reenviar"));
+  assert.ok(html.includes("Cancel invite"));
 });

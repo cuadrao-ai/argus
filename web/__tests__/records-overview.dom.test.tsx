@@ -22,12 +22,12 @@ const answer = { matching_count: 1828, totals: [
 async function mount(props: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}, language = "es-419") {
   const { createRoot } = await import("react-dom/client");
   const i18n = i18next.createInstance(); await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
-  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host); const chosen: string[] = []; let totalToggles = 0;
-  const render = async (extra: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}) => act(async () => root.render(<I18nextProvider i18n={i18n}><RecordsOverviewPreview family="purchase" answer={answer} fiscalCount={71} totalExpanded={false} onToggleTotal={() => { totalToggles++; }} selected={[]} onChoose={(key) => chosen.push(key)} waiting={null} onOpenBandeja={() => {}} {...props} {...extra} /></I18nextProvider>));
-  await render(); cleanup = async () => act(async () => root.unmount()); return { chosen, render, totalToggles: () => totalToggles };
+  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host); const chosen: string[] = [];
+  const render = async (extra: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}) => act(async () => root.render(<I18nextProvider i18n={i18n}><RecordsOverviewPreview family="purchase" answer={answer} fiscalCount={71} selected={[]} onChoose={(key) => chosen.push(key)} waiting={null} onOpenBandeja={() => {}} {...props} {...extra} /></I18nextProvider>));
+  await render(); cleanup = async () => act(async () => root.unmount()); return { chosen, render };
 }
 const card = (key: string) => document.querySelector<HTMLElement>(`[data-overview-card="${key}"]`)!;
-test("six cards use purchase server totals and four cards have no card action", async () => {
+test("six cards use purchase server totals and only Fiscal has a card action", async () => {
   const page = await mount();
   assert.deepEqual([...document.querySelectorAll("[data-overview-card]")].map((el) => el.getAttribute("data-overview-card")), ["total", "itbis", "quantity", "goods", "services", "fiscal"]);
   assert.match(card("total").textContent!, /111\.11.*Compras/);
@@ -35,16 +35,15 @@ test("six cards use purchase server totals and four cards have no card action", 
   assert.equal(card("itbis").querySelector('[data-family="purchase"] .sr-only')?.textContent, "DOP 18.18");
   assert.equal(card("itbis").querySelector('[data-family="sale"]'), null);
   assert.match(card("quantity").textContent!, /1,828/); assert.match(card("fiscal").textContent!, /71/);
-  for (const key of ["itbis", "quantity", "goods", "services"]) {
+  for (const key of ["total", "itbis", "quantity", "goods", "services"]) {
     assert.equal(card(key).tagName, "DIV"); assert.equal(card(key).hasAttribute("tabindex"), false); assert.equal(card(key).getAttribute("role"), null);
     await act(async () => card(key).click());
   }
-  assert.deepEqual(page.chosen, []); assert.equal(page.totalToggles(), 0);
-  const total = card("total").querySelector<HTMLButtonElement>('button[aria-controls]')!;
-  assert.equal(total.type, "button"); assert.equal(total.getAttribute("aria-label"), "Total");
-  assert.equal(total.getAttribute("aria-expanded"), "false");
-  await act(async () => total.click()); assert.equal(page.totalToggles(), 1); assert.deepEqual(page.chosen, []);
-  await page.render({ totalExpanded: true }); assert.equal(total.getAttribute("aria-expanded"), "true");
+  assert.deepEqual(page.chosen, []);
+  assert.equal(card("total").querySelector("button, [role=button], [tabindex], [aria-expanded], [aria-controls]"), null);
+  assert.equal(card("total").hasAttribute("aria-expanded"), false);
+  assert.equal(card("total").querySelectorAll("svg").length, 1);
+  assert.deepEqual([...document.querySelectorAll("[data-overview-card] button, button[data-overview-card]")].map((button) => button.getAttribute("data-overview-card")), ["fiscal"]);
   assert.equal(card("fiscal").tagName, "BUTTON"); await act(async () => card("fiscal").click()); assert.deepEqual(page.chosen, ["fiscal"]);
   assert.equal(card("fiscal").getAttribute("type"), "button");
   assert.doesNotMatch(document.body.textContent!, /Listos para exportar|Ya exportados/);
@@ -173,7 +172,7 @@ for (const currency of ["DOP", "USD", "EUR"]) test(`${currency} keeps one exact 
   assert.equal(card("total").querySelectorAll("[data-currency]").length, 1);
   assert.equal(card("total").querySelector(".cuadrao-amount")?.getAttribute("aria-label"), `${currency} 9,007,199,254,740,993.01`);
   assert.match(card("total").textContent!, /Purchases.*Partial/);
-  assert.equal(card("total").querySelector("button:not([aria-controls])"), null);
+  assert.equal(card("total").querySelector("button"), null);
   assert.equal(card("goods").querySelectorAll("[data-currency]").length, 1);
   assert.match(card("goods").textContent!, /Partial.*12 of 25 purchases/);
 });

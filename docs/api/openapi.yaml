@@ -404,6 +404,13 @@ paths:
           content:
             application/json:
               schema: {}
+        '401':
+          description: 'Uniform login failure: private-alpha denial, invalid credentials,
+            or a failed server-side browser check. No session is created.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -17850,6 +17857,9 @@ components:
             - failed
             - uncertain
           - type: 'null'
+        invitations_available:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -18817,6 +18827,9 @@ components:
           items:
             $ref: '#/components/schemas/GrantedSpaceInfo'
           type: array
+        invitations_available:
+          type: boolean
+          default: false
         closed_spaces:
           items:
             $ref: '#/components/schemas/ClosedSpaceInfo'
@@ -18916,7 +18929,6 @@ components:
           - DOP
           - USD
           - EUR
-          description: Server-owned initial Registros currency, currently DOP, independent of the Business currency.
         logo_url:
           anyOf:
           - type: string
@@ -28605,6 +28617,8 @@ components:
             - note
             - attachment
             - funding
+            - fiscal_number
+            - itbis_amount
           type: array
         hidden:
           items:
@@ -28621,6 +28635,8 @@ components:
             - note
             - attachment
             - funding
+            - fiscal_number
+            - itbis_amount
           type: array
         density:
           type: integer

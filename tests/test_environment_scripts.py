@@ -47,7 +47,9 @@ def _production_rules(label: str) -> dict[str, dict]:
 def _production_required(label: str) -> set[str]:
     """Names production must hold: a fixed value, or one supplied and not optional."""
     return {
-        name for name, rule in _production_rules(label).items() if not rule.get("optional")
+        name
+        for name, rule in _production_rules(label).items()
+        if not rule.get("optional")
     }
 
 
@@ -500,7 +502,9 @@ def test_render_blueprint_syncs_public_supabase_coordinates() -> None:
     assert "your_" not in str(api_env["SUPABASE_URL"]["value"])
     assert api_env["SUPABASE_ANON_KEY"]["sync"] is False
     assert "value" not in api_env["SUPABASE_ANON_KEY"]
-    assert web_env["NEXT_PUBLIC_SUPABASE_URL"]["value"] == api_env["SUPABASE_URL"]["value"]
+    assert (
+        web_env["NEXT_PUBLIC_SUPABASE_URL"]["value"] == api_env["SUPABASE_URL"]["value"]
+    )
     assert web_env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]["sync"] is False
     assert "value" not in web_env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
 
@@ -533,11 +537,11 @@ def test_render_blueprint_keeps_true_secrets_manual() -> None:
         "DATABASE_URL",
         "SUPABASE_SERVICE_ROLE_KEY",
         "CUADRAO_PROD_OPENROUTER_API_KEY",
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
         "CUADRAO_OPS_TOKEN",
         "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
     ):
         assert api_env[key] == {"key": key, "sync": False}
+    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" not in api_env
     assert "OPENROUTER_API_KEY" not in api_env
     # Only account deletion reads it, and production keeps account deletion off.
     assert "SUPABASE_JWT_SECRET" not in api_env

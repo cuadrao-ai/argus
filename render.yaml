@@ -74,8 +74,6 @@ services:
         sync: false
       - key: CUADRAO_PROD_OPENROUTER_API_KEY
         sync: false
-      - key: CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY
-        sync: false
       - key: CUADRAO_UTILITY_MODEL
         value: google/gemini-2.5-flash-lite
       - key: CUADRAO_UTILITY_FALLBACK_MODEL
@@ -182,8 +180,6 @@ services:
       - key: CUADRAO_OPENROUTER_API_KEY_PROD
         sync: false
       - key: CUADRAO_PROD_OPENROUTER_API_KEY
-        sync: false
-      - key: CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY
         sync: false
       - key: CUADRAO_APP_ORIGIN
         sync: false

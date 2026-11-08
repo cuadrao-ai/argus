@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
 from argus.api.business_spaces import business_access
 from fastapi.testclient import TestClient
 
@@ -28,6 +29,17 @@ from tests.test_conversation_surfaces import client as chat_client  # noqa: F401
 GRANT = "X-Business-Grant"
 OTHER_RECEIPT = RECEIPT[:-8] + bytes(8)
 THIRD_RECEIPT = RECEIPT[:-8] + b"\x01" * 8
+
+
+@pytest.fixture(autouse=True)
+def invitations_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: "fake-receipt",
+    )
 
 
 def get_as(owner: Owner, path: str, grant: str | None, **params: str):  # noqa: ANN201
@@ -123,7 +135,9 @@ def test_with_the_chosen_grant_the_accountant_reads_and_prepares_the_clients_bus
     detail = get_as(bob, f"/receipts/{receipt_id}", grant)
     assert detail.status_code == 200, detail.text
     assert set(detail.json()["record_context"]["capabilities"]) == {"read", "prepare"}
-    alice.resolve_receipt(receipt_id, detail.json()["version"], merchant="Ferretería Luna")
+    alice.resolve_receipt(
+        receipt_id, detail.json()["version"], merchant="Ferretería Luna"
+    )
     # An upload needs prepare permission; approval stays with the owner.
     reviewed = _grantee_upload(bob, grant, OTHER_RECEIPT)
     assert reviewed.status_code == 200, reviewed.text
@@ -344,7 +358,8 @@ def test_whatsapp_stays_the_owners_channel_under_a_chosen_grant(
         client.get("/api/v1/whatsapp/link", headers={**accountant.auth, **headers}),
         client.get("/api/v1/whatsapp/ai-consent", headers={**accountant.auth, **headers}),
         client.post(
-            "/api/v1/whatsapp/ai-consent", headers={**accountant.auth, **headers},
+            "/api/v1/whatsapp/ai-consent",
+            headers={**accountant.auth, **headers},
             json={"action": "enable", "disclosure_token": "a" * 64},
         ),
     ):
