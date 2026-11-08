@@ -398,7 +398,7 @@ test("a period the person chose stays chosen when Registros opens again", async 
 });
 
 test("the Estado chip names the one missing fact on the live panel", async () => {
-  await mount({ edit: (records) => { Object.assign(records[0], { stage: "needs_fiscal_data", export_missing: "payment_method_missing", export_missing_several: false }); Object.assign(records[1], { family: "purchase", stage: "needs_fiscal_data", export_missing: "ncf_missing", export_missing_several: true }); } });
+  await mount({ edit: (records) => { Object.assign(records[0], { stage: "needs_fiscal_data", fiscal_data: "missing", export_missing: "payment_method_missing", export_missing_several: false }); Object.assign(records[1], { family: "purchase", stage: "needs_fiscal_data", fiscal_data: "missing", export_missing: "ncf_missing", export_missing_several: true }); } });
   const chip = (id: number) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="estado"] [data-record-workflow="fiscal"]`)?.textContent;
   assert.equal(chip(1), "Falta la forma de pago");
   assert.equal(chip(2), "Faltan datos fiscales");

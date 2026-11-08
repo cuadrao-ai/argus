@@ -15,6 +15,13 @@ from faker import Faker
 from pydantic import ValidationError
 
 IDENTITY = ReportIdentity("business", "actor", "owner", "grant", "")
+#: The current 606/607 verdict that `with_export_verdicts` pairs with each stage.
+#: An exported line usually stayed complete; edits after download pass "missing".
+FISCAL_DATA_BY_STAGE = {
+    "needs_fiscal_data": "missing",
+    "ready_for_export": "complete",
+    "exported": "complete",
+}
 NOW = datetime(2026, 10, 31, 23, tzinfo=timezone.utc)
 
 
@@ -29,8 +36,8 @@ def record(identifier="draft:one", **changes):
         family="purchase",
         money_kind="expense",
     )
-    if changes.get("stage") == "needs_fiscal_data":
-        values["fiscal_data"] = "missing"
+    if changes.get("stage") in FISCAL_DATA_BY_STAGE:
+        values["fiscal_data"] = FISCAL_DATA_BY_STAGE[changes["stage"]]
     return ReportRecord(**(values | changes))
 
 
@@ -481,7 +488,7 @@ def test_fiscal_data_filter_uses_export_projection_and_card_predicate(choice, ex
         record("exported", stage="exported", export_line=True, fiscal_data="complete"),
         record("missing", stage="needs_fiscal_data"),
         record("unresolved", stage="needs_review"),
-        record("excluded", stage="exported", export_line=False),
+        record("excluded", stage="exported", export_line=False, fiscal_data=None),
         record("technical", technical_state="unsupported"),
     ]
     answer = run(rows, ReportFilters(fiscal_data=choice))
@@ -532,7 +539,13 @@ def test_current_fiscal_data_does_not_depend_on_download_history(
 ):
     from argus.domain.business.reporting_projection import with_export_verdicts
 
-    row = record("row", stage="ready_for_export", linked_activity_ids=("activity",))
+    # A projected row has no verdict until `with_export_verdicts` judges it.
+    row = record(
+        "row",
+        stage="ready_for_export",
+        linked_activity_ids=("activity",),
+        fiscal_data=None,
+    )
     verdicts = {} if verdict == "absent" else {"activity": verdict}
     [judged] = with_export_verdicts(
         (row,), verdicts, frozenset({"activity"}) if exported else frozenset()

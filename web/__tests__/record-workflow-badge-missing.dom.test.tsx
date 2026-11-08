@@ -21,7 +21,7 @@ async function badge(lng: "en" | "es-419", report: Partial<ReportRecord>) {
   await i18n.init({ lng, resources: { [lng]: { translation: (await import(`@/public/locales/${lng}/common.json`)).default } }, interpolation: { escapeValue: false } });
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const RecordWorkflowBadge = (await import("@/components/business-app/transacciones/RecordWorkflowBadge")).default;
-  const row = { id: "r", report: { stage: "needs_fiscal_data", ...report } } as unknown as RecordRow;
+  const row = { id: "r", report: { stage: "needs_fiscal_data", fiscal_data: "missing", ...report } } as unknown as RecordRow;
   const value = { chosen: { space_id: "s", capabilities: ["read"] } } as unknown as BusinessContextValue;
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><RecordWorkflowBadge row={row} /></BusinessContext.Provider></I18nextProvider>));

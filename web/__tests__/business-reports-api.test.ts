@@ -34,7 +34,7 @@ describe("Business report transport", () => {
     expect(calls[0].options.body).not.toContain("synthetic-business");
   });
   test("a needs_fiscal_data row with its export fields parses instead of breaking Registros", () => {
-    const row = { ...createBusinessReportHttpFixture().records[0], stage: "needs_fiscal_data", export_missing: "ncf_missing", export_line: false };
+    const row = { ...createBusinessReportHttpFixture().records[0], stage: "needs_fiscal_data", fiscal_data: "missing", export_missing: "ncf_missing", export_line: false };
     const parsed = reportRecordSchema.parse(row);
     expect(parsed.stage).toBe("needs_fiscal_data");
     expect(parsed.export_missing).toBe("ncf_missing");
