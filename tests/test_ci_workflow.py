@@ -307,6 +307,152 @@ def test_database_inventory_artifact_retains_postgres_inventory_and_guest_junit(
     assert "temp/guest-*-junit.xml" in path
 
 
+def _database_checks_steps() -> dict[str, dict]:
+    return {
+        step["name"]: step
+        for step in _workflow()["jobs"]["database-checks"]["steps"]
+        if step.get("name")
+    }
+
+
+def _database_inventory_download_path() -> str:
+    return _database_checks_steps()["Download database inventories"]["with"]["path"]
+
+
+def _database_union_targets() -> tuple[str, str]:
+    postgres_run = _database_checks_steps()["Prove database test union"]["run"]
+    auth_run = _database_checks_steps()["Prove anonymous Auth test union"]["run"]
+    postgres_match = re.search(
+        r"test_shards\.py\s+(\S+postgres-\*\.json)",
+        postgres_run,
+    )
+    auth_match = re.search(r"test_shards\.py\s+(\S+auth\.json)", auth_run)
+    assert postgres_match and auth_match
+    return postgres_match.group(1), auth_match.group(1)
+
+
+def _shard_execution_reports(nodeids: list[str]) -> list[dict]:
+    return [
+        {
+            "nodeid": nodeid,
+            "phase": phase,
+            "outcome": "passed",
+            "duration_seconds": 0.01,
+        }
+        for nodeid in nodeids
+        for phase in ("setup", "call", "teardown")
+    ]
+
+
+def _minimal_postgres_shard_inventory(shard_index: int, shard_count: int = 3) -> dict:
+    full_nodeids = [f"tests/shard{i}_postgres.py::test_ok" for i in range(shard_count)]
+    nodeid = full_nodeids[shard_index]
+    return {
+        "schema_version": 2,
+        "shard_index": shard_index,
+        "shard_count": shard_count,
+        "full_nodeids": full_nodeids,
+        "nodeids": [nodeid],
+        "exitstatus": 0,
+        "collection_errors": 0,
+        "deselected": [],
+        "reports": _shard_execution_reports([nodeid]),
+    }
+
+
+def _minimal_auth_inventory() -> dict:
+    nodeid = "tests/test_guest_auth_local_supabase.py::test_ok"
+    return {
+        "schema_version": 2,
+        "shard_index": 0,
+        "shard_count": 1,
+        "full_nodeids": [nodeid],
+        "nodeids": [nodeid],
+        "exitstatus": 0,
+        "collection_errors": 0,
+        "deselected": [],
+        "reports": _shard_execution_reports([nodeid]),
+    }
+
+
+def _materialize_multi_path_database_artifact(repo: Path, *, download_dir: str) -> None:
+    members: dict[str, object] = {
+        "ci-inventory/postgres-0.json": _minimal_postgres_shard_inventory(0),
+        "ci-inventory/postgres-1.json": _minimal_postgres_shard_inventory(1),
+        "ci-inventory/postgres-2.json": _minimal_postgres_shard_inventory(2),
+        "ci-inventory/auth.json": _minimal_auth_inventory(),
+        "guest-postgres-junit.xml": "<testsuite></testsuite>",
+        "guest-auth-junit.xml": "<testsuite></testsuite>",
+    }
+    for rel, payload in members.items():
+        target = repo / download_dir / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(payload, dict):
+            target.write_text(json.dumps(payload), encoding="utf-8")
+        else:
+            target.write_text(str(payload), encoding="utf-8")
+
+
+def test_database_inventory_download_layout_restores_union_glob_inputs(
+    tmp_path: Path,
+) -> None:
+    download_path = _database_inventory_download_path()
+    postgres_glob, auth_inventory = _database_union_targets()
+    assert download_path == "temp"
+
+    broken_repo = tmp_path / "broken"
+    _materialize_multi_path_database_artifact(
+        broken_repo, download_dir="temp/ci-inventory"
+    )
+    broken_glob_root = broken_repo / Path(postgres_glob).parent
+    assert not list(broken_glob_root.glob("postgres-*.json"))
+    assert not (broken_repo / auth_inventory).is_file()
+
+    fixed_repo = tmp_path / "fixed"
+    _materialize_multi_path_database_artifact(fixed_repo, download_dir=download_path)
+    postgres_files = sorted(
+        (fixed_repo / Path(postgres_glob).parent).glob("postgres-*.json")
+    )
+    assert len(postgres_files) == 3
+    assert (fixed_repo / auth_inventory).is_file()
+    assert (fixed_repo / "temp/guest-postgres-junit.xml").is_file()
+    assert (fixed_repo / "temp/guest-auth-junit.xml").is_file()
+
+    shards_py = ROOT / "scripts" / "ci" / "test_shards.py"
+    postgres_proof = fixed_repo / "temp/ci-proof/postgres.json"
+    postgres_proof.parent.mkdir(parents=True, exist_ok=True)
+    postgres_result = subprocess.run(
+        [
+            "python",
+            str(shards_py),
+            *[str(path.relative_to(fixed_repo)) for path in postgres_files],
+            "--require-passed",
+            "--output",
+            str(postgres_proof.relative_to(fixed_repo)),
+        ],
+        cwd=fixed_repo,
+        capture_output=True,
+        text=True,
+    )
+    assert postgres_result.returncode == 0, postgres_result.stderr
+
+    auth_proof = fixed_repo / "temp/ci-proof/auth.json"
+    auth_result = subprocess.run(
+        [
+            "python",
+            str(shards_py),
+            auth_inventory,
+            "--require-passed",
+            "--output",
+            str(auth_proof.relative_to(fixed_repo)),
+        ],
+        cwd=fixed_repo,
+        capture_output=True,
+        text=True,
+    )
+    assert auth_result.returncode == 0, auth_result.stderr
+
+
 def test_a_pilot_postgres_glob_that_matches_no_file_fails_the_step(
     tmp_path: Path,
 ) -> None:
