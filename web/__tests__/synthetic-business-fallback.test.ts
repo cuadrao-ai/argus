@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
+import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { defaultReportRequest } from "../lib/business-reporting-wire";
 import { reportAnswerSchema } from "../lib/business-reports-api";
 import recordedAnswer from "../test-fixtures/records-default-report-answer.json";
@@ -76,6 +77,61 @@ describe("synthetic Business fallback", () => {
     await fulfillSyntheticBusinessFallback(route);
 
     expect(route.responses).toEqual([{ dismissed: true }]);
+  });
+
+  test("returns the owner-only spaces fixture and accepts the app query string", async () => {
+    const source = createFixtureBusinessDataSource({ chatAvailable: false });
+    const owner = (await source.spaces())[0];
+    const route = syntheticRoute("spaces?include_closed=false", "GET");
+    await fulfillSyntheticBusinessFallback(route, { source, owner });
+
+    expect(route.responses).toEqual([{ spaces: [owner], closed_spaces: [] }]);
+  });
+
+  test("returns the fixture month-close response for the app query string", async () => {
+    const route = syntheticRoute("month-close?month=2026-10", "GET");
+    await fulfillSyntheticBusinessFallback(route);
+
+    expect(route.responses).toHaveLength(1);
+    expect(route.responses[0]).toMatchObject({ month: "2026-10", from: "2026-10-01" });
+  });
+
+  test("accepts name-prompt only as POST", async () => {
+    const valid = syntheticRoute("space/name-prompt", "POST");
+    await fulfillSyntheticBusinessFallback(valid);
+    expect(valid.responses).toEqual([{ id: expect.any(String), name: expect.any(String), name_required: false, name_prompt_seen: true, show_prompt: false }]);
+
+    const invalid = syntheticRoute("space/name-prompt", "GET");
+    await expect(fulfillSyntheticBusinessFallback(invalid)).rejects.toThrow("requires POST");
+    expect(invalid.responses).toEqual([]);
+  });
+
+  test("uses the provided accepted-consent fixture and requires it", async () => {
+    const route = syntheticRoute("consent?version=consent-v1", "GET");
+    let consentCalls = 0;
+    await fulfillSyntheticBusinessFallback(route, {
+      fulfillConsent: async () => {
+        consentCalls += 1;
+        await route.fulfill({ json: { version: "consent-v1", accepted_at: "fixture-owned" } });
+      },
+    });
+    expect(consentCalls).toBe(1);
+    expect(route.responses).toEqual([{ version: "consent-v1", accepted_at: "fixture-owned" }]);
+
+    const missingFixture = syntheticRoute("consent", "GET");
+    await expect(fulfillSyntheticBusinessFallback(missingFixture)).rejects.toThrow("requires an accepted-consent fixture");
+    expect(missingFixture.responses).toEqual([]);
+  });
+
+  test.each([
+    ["spaces?include_closed=false", "POST"],
+    ["receipts?view=inbox", "POST"],
+    ["unknown-business-path", "GET"],
+    ["unknown-business-path", "POST"],
+  ])("rejects unsupported shared endpoint %s with %s", async (path, method) => {
+    const route = syntheticRoute(path, method);
+    await expect(fulfillSyntheticBusinessFallback(route)).rejects.toThrow();
+    expect(route.responses).toEqual([]);
   });
 
   test.each([
