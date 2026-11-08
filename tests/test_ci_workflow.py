@@ -294,7 +294,7 @@ def test_pull_requests_run_the_pilot_postgres_set_and_other_events_run_every_pro
         assert sorted(_test_files(files)) == everything, event
 
 
-def test_database_inventory_artifact_retains_postgres_inventory_and_guest_junit() -> None:
+def test_database_inventory_artifact_retains_only_json_inventories() -> None:
     steps = _workflow()["jobs"]["database-shards"]["steps"]
     retain = next(
         step
@@ -302,9 +302,7 @@ def test_database_inventory_artifact_retains_postgres_inventory_and_guest_junit(
         if step.get("name") == "Retain database test inventory and timings"
     )
     assert retain["uses"].startswith("actions/upload-artifact@")
-    path = retain["with"]["path"]
-    assert "temp/ci-inventory/*.json" in path
-    assert "temp/guest-*-junit.xml" in path
+    assert retain["with"]["path"] == "temp/ci-inventory/*.json"
 
 
 def _minimal_shard_inventory(full_nodeids: list[str], shard_index: int = 0) -> dict:
@@ -330,26 +328,18 @@ def _minimal_shard_inventory(full_nodeids: list[str], shard_index: int = 0) -> d
     }
 
 
-def _materialize_multi_path_database_artifact(repo: Path, *, download_dir: str) -> None:
+def _materialize_database_inventory_artifact(repo: Path, *, download_dir: str) -> None:
     nodeids = [f"tests/shard{i}_postgres.py::test_ok" for i in range(3)]
-    members: dict[str, object] = {
-        **{
-            f"ci-inventory/postgres-{i}.json": _minimal_shard_inventory(nodeids, i)
-            for i in range(3)
-        },
-        "ci-inventory/auth.json": _minimal_shard_inventory(
+    members = {
+        **{f"postgres-{i}.json": _minimal_shard_inventory(nodeids, i) for i in range(3)},
+        "auth.json": _minimal_shard_inventory(
             ["tests/test_guest_auth_local_supabase.py::test_ok"]
         ),
-        "guest-postgres-junit.xml": "<testsuite></testsuite>",
-        "guest-auth-junit.xml": "<testsuite></testsuite>",
     }
     for rel, payload in members.items():
         target = repo / download_dir / rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        if isinstance(payload, dict):
-            target.write_text(json.dumps(payload), encoding="utf-8")
-        else:
-            target.write_text(str(payload), encoding="utf-8")
+        target.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def test_database_inventory_download_layout_restores_union_glob_inputs(
@@ -361,10 +351,10 @@ def test_database_inventory_download_layout_restores_union_glob_inputs(
         if step.get("name")
     }
     download_path = steps["Download database inventories"]["with"]["path"]
-    assert download_path == "temp"
-    for layout, succeeds in (("temp/ci-inventory", False), (download_path, True)):
+    assert download_path == "temp/ci-inventory"
+    for layout, succeeds in (("temp", False), (download_path, True)):
         repo = tmp_path / str(succeeds)
-        _materialize_multi_path_database_artifact(repo, download_dir=layout)
+        _materialize_database_inventory_artifact(repo, download_dir=layout)
         (repo / "scripts").symlink_to(ROOT / "scripts", target_is_directory=True)
         for name in ("Prove database test union", "Prove anonymous Auth test union"):
             result = subprocess.run(
@@ -379,7 +369,6 @@ def test_database_inventory_download_layout_restores_union_glob_inputs(
         if succeeds:
             for kind in ("postgres", "auth"):
                 assert (repo / f"temp/ci-proof/{kind}.json").is_file()
-                assert (repo / f"temp/guest-{kind}-junit.xml").is_file()
 
 
 def test_a_pilot_postgres_glob_that_matches_no_file_fails_the_step(
