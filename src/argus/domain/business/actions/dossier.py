@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -11,7 +10,7 @@ from pydantic import TypeAdapter
 from argus.domain.business.actions.facts import facts_of
 from argus.domain.business.actions.fiscal import remembered_expense_type
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
-from argus.domain.business.actions.refunds import refund_candidates, refund_shaped
+from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.authority import ActionError
@@ -30,14 +29,10 @@ from argus.domain.business.contracts.dossier import (
     SourceEvidence,
     UnsettledApproval,
 )
-from argus.domain.business.contracts.facts import (
-    BusinessAccountFunding,
-    BusinessFacts,
-    BusinessResolution,
-    Known,
-)
+from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution
 from argus.domain.business.document_type import kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
+from argus.domain.business.fact_blockers import blockers
 from argus.domain.business.purchase_review import (
     takes_payment_split,
     takes_purchase_declaration,
@@ -51,7 +46,6 @@ from argus.domain.business.rnc_registry import (
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
-from argus.domain.recording.money_schemas import ELIGIBILITY
 
 SOURCE = TypeAdapter(SourceEvidence)
 
@@ -96,68 +90,6 @@ def review_questions(
         question = ReviewQuestion.model_validate(row)
         found.setdefault(str(question.draft_id), []).append(question)
     return {draft_id: tuple(questions) for draft_id, questions in found.items()}
-
-
-def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[Blocker]:
-    result = [
-        Blocker(code="fact_required", field=name)
-        for name in ("kind", "amount", "currency", "occurred_on")
-        if not isinstance(getattr(facts, name), Known)
-    ]
-    if refund_shaped(facts) and not isinstance(facts.funding, Known):
-        # A purchase or a sale records with no payment answer. A credit note
-        # stays with the account it returns money to.
-        result.append(Blocker(code="fact_required", field="funding"))
-    if isinstance(facts.kind, Known) and facts.kind.value not in {
-        "expense",
-        "income",
-        "refund",
-    }:
-        result.append(Blocker(code="activity_kind_unsupported", field="kind"))
-    if (
-        isinstance(facts.kind, Known)
-        and facts.kind.value in {"income", "refund"}
-        and isinstance(facts.funding, Known)
-        and not isinstance(facts.funding.value, BusinessAccountFunding)
-    ):
-        result.append(Blocker(code="business_funding_unsupported", field="funding"))
-    if (
-        isinstance(facts.kind, Known)
-        and facts.kind.value in {"income", "refund"}
-        and isinstance(facts.funding, Known)
-        and isinstance(facts.funding.value, BusinessAccountFunding)
-    ):
-        account = next(
-            (item for item in accounts if item.id == facts.funding.value.account_id),
-            None,
-        )
-        if account is None:
-            result.append(Blocker(code="business_record_not_found", field="funding"))
-        elif (
-            isinstance(facts.currency, Known) and account.currency != facts.currency.value
-        ):
-            result.append(Blocker(code="import_currency_mismatch", field="funding"))
-        elif account.type not in ELIGIBILITY[facts.kind.value]:
-            result.append(Blocker(code="account_ineligible", field="funding"))
-    if (
-        isinstance(facts.kind, Known)
-        and facts.kind.value == "income"
-        and isinstance(facts.category_id, Known)
-        and facts.category_id.value is not None
-    ):
-        result.append(Blocker(code="business_category_unsupported", field="category_id"))
-    if isinstance(facts.amount, Known) and Decimal(facts.amount.value) <= 0:
-        result.append(Blocker(code="amount_positive_required", field="amount"))
-    if (
-        isinstance(facts.business_share, Known)
-        and facts.business_share.value.kind == "partial"
-    ):
-        # A personal receipt (none) is approved and left out of the totals;
-        # a partial share has no recording rule yet.
-        result.append(
-            Blocker(code="business_allocation_unsupported", field="business_share")
-        )
-    return result
 
 
 def _fiscal_records(tx: ActionTransaction, activities: list[dict[str, Any]]):  # noqa: ANN202
