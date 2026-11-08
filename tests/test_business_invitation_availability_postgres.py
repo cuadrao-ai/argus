@@ -58,6 +58,26 @@ def _login(client: TestClient, gateway, label: str, created: list[str]) -> dict:
     }
 
 
+def _invite_snapshot(db: psycopg.Connection, space_id: str) -> tuple:
+    invites = db.execute(
+        "select id::text, email, delivery_state, expires_at, supersedes_id::text"
+        " from public.business_access_invites where space_id=%s order by created_at",
+        (space_id,),
+    ).fetchall()
+    commands = db.execute(
+        "select command_key from argus_private.business_invitation_commands"
+        " where space_id=%s order by command_key",
+        (space_id,),
+    ).fetchall()
+    ledger = db.execute(
+        "select command->>'action', idempotency_key"
+        " from public.business_action_receipts"
+        " where space_id=%s and turn_key is null order by created_at, idempotency_key",
+        (space_id,),
+    ).fetchall()
+    return invites, commands, ledger
+
+
 def _invite_counts(db: psycopg.Connection, space_id: str) -> tuple[int, int, int]:
     invites = db.execute(
         "select count(*) from public.business_access_invites where space_id=%s",
@@ -161,7 +181,9 @@ def test_capability_projection_matches_configuration(
     assert access.json()["invitations_available"] is expect_available
 
 
-def test_invitations_off_refuse_before_mutation(world, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_invitations_off_refuse_before_mutation(
+    world, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "false")
     space_id = world.owner_a["space_id"]
     with psycopg.connect(shared.DSN) as db:
@@ -195,7 +217,80 @@ def test_invitations_off_refuse_before_mutation(world, monkeypatch: pytest.Monke
     assert resent.json()["code"] == "business_invitations_unavailable"
     with psycopg.connect(shared.DSN) as db:
         after = _invite_counts(db, space_id)
+        after_rows = _invite_snapshot(db, space_id)
     assert after == before
+
+
+def test_invitations_off_blocks_resend_of_existing_invite_without_mutation(
+    world, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    email = f"stale-{uuid4().hex[:8]}@example.test"
+    space_id = world.owner_a["space_id"]
+    created = world.client.post(
+        f"{API}/business/access",
+        json={"email": email},
+        headers=world.owner_a["headers"],
+    )
+    assert created.status_code == 201, created.text
+    invite_id = created.json()["invites"][0]["id"]
+    with psycopg.connect(shared.DSN) as db:
+        before = _invite_snapshot(db, space_id)
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "false")
+    resent = world.client.post(
+        f"{API}/business/access/invites/{invite_id}/resend",
+        headers=world.owner_a["headers"],
+    )
+    assert resent.status_code == 409
+    with psycopg.connect(shared.DSN) as db:
+        after = _invite_snapshot(db, space_id)
+    assert after == before
+
+
+def test_create_idempotency_replays_without_extra_mutation(world) -> None:
+    key = str(uuid4())
+    email = f"replay-{uuid4().hex[:8]}@example.test"
+    space_id = world.owner_a["space_id"]
+    body = {"email": email}
+    first = world.client.post(
+        f"{API}/business/access",
+        json=body,
+        headers={**world.owner_a["headers"], "Idempotency-Key": key},
+    )
+    assert first.status_code == 201, first.text
+    with psycopg.connect(shared.DSN) as db:
+        before = _invite_snapshot(db, space_id)
+    second = world.client.post(
+        f"{API}/business/access",
+        json=body,
+        headers={**world.owner_a["headers"], "Idempotency-Key": key},
+    )
+    assert second.status_code == 200, second.text
+    with psycopg.connect(shared.DSN) as db:
+        after = _invite_snapshot(db, space_id)
+    assert after == before
+
+
+def test_foreign_owner_cannot_resend_another_business_invite(
+    world, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sends: list[str] = []
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: sends.append(message["recipient"]) or "fake-receipt",
+    )
+    created = world.client.post(
+        f"{API}/business/access",
+        json={"email": f"tenant-{uuid4().hex[:8]}@example.test"},
+        headers=world.owner_a["headers"],
+    )
+    assert created.status_code == 201
+    invite_id = created.json()["invites"][0]["id"]
+    resent = world.client.post(
+        f"{API}/business/access/invites/{invite_id}/resend",
+        headers=world.owner_b["headers"],
+    )
+    assert resent.status_code == 404
+    assert len(sends) == 1
 
 
 def test_configured_on_create_and_resend_persist(world) -> None:

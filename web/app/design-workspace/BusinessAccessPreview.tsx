@@ -14,7 +14,7 @@ import AccessRolePicker from "./AccessRolePicker";
 import { accessActionGuard, accessRoleOptions, businessAccessChangedEvent, changeAccessPreview, invitationStorageKeys, readAccessPreview, seedAccessPreview, type AccessAction, type AccessRole, type PreviewActor, type PreviewPerson } from "./businessAccessPreviewState";
 import { changeBusinessRole, getBusinessAccess, resendBusinessAccessInvite, revokeBusinessAccessGrant, revokeBusinessAccessInvite, type BusinessAccess } from "@/lib/business-api";
 import { referenceCode } from "@/lib/failure-screen";
-import BusinessInvitationForm from "@/components/business-app/BusinessInvitationForm";
+import BusinessInvitationForm, { clearInvitationDraft } from "@/components/business-app/BusinessInvitationForm";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 
 const emptyStorage = { getItem: () => null, setItem: () => {} };
@@ -42,19 +42,40 @@ function BusinessAccessLive(){
   const [confirmation,setConfirmation]=useState<{id:string;email:string;pending:boolean}|null>(null);
   const [notice,setNotice]=useState<string|null>(null);
   const [attempt,setAttempt]=useState(0);
+  const [invitationsReady,setInvitationsReady]=useState(false);
   const mounted=useRef(true);
+  const loadGeneration=useRef(0);
   const failure=useCallback((error:unknown)=>{
     setFailed(true);setReference(referenceCode(error));
     const status=error&&typeof error==="object"&&"status" in error?error.status:null;
-    if(status===403||status===404){setRefused(true);setAccess(null);setInviting(false);setConfirmation(null);setNotice(null);}
-  },[]);
-  const canInvite=Boolean(access?.invitations_available&&chosen?.permissions?.includes("manage"));
+    if(status===403||status===404){setRefused(true);setAccess(null);setInvitationsReady(false);setInviting(false);setConfirmation(null);setNotice(null);}
+    else{
+      setInvitationsReady(false);
+      setInviting(false);
+      if(chosen?.space_id)clearInvitationDraft(chosen.space_id);
+    }
+  },[chosen]);
+  const canInvite=invitationsReady&&chosen?.permissions?.includes("manage")===true;
   useEffect(()=>{
     mounted.current=true;
-    getBusinessAccess().then(value=>{if(mounted.current){setAccess(value);setFailed(false);}},error=>{if(mounted.current){setActionFailed(false);failure(error);}});
-    return()=>{mounted.current=false;};
+    const generation=++loadGeneration.current;
+    setInvitationsReady(false);
+    setInviting(false);
+    getBusinessAccess().then(value=>{
+      if(!mounted.current||generation!==loadGeneration.current)return;
+      setAccess(value);
+      setFailed(false);
+      setInvitationsReady(value.invitations_available===true);
+    },error=>{if(mounted.current&&generation===loadGeneration.current){setActionFailed(false);failure(error);}});
+    return()=>{};
   },[attempt,failure]);
-  useEffect(()=>{if(!canInvite)setInviting(false);},[canInvite]);
+  useEffect(()=>()=>{mounted.current=false;},[]);
+  useEffect(()=>{
+    if(!canInvite){
+      setInviting(false);
+      if(chosen?.space_id)clearInvitationDraft(chosen.space_id);
+    }
+  },[canInvite,chosen?.space_id]);
   useEffect(()=>{
     const reread=()=>setAttempt(value=>value+1);
     window.addEventListener(businessAccessChangedEvent,reread);
@@ -67,8 +88,15 @@ function BusinessAccessLive(){
       await work();
     }catch(error){if(mounted.current){setActionFailed(true);failure(error);setBusy(false);}return;}
     if(!mounted.current)return;
-    setAccess(null);setActionFailed(false);
-    try{const saved=await getBusinessAccess();if(mounted.current){setAccess(saved);reload();}}
+    setAccess(null);setInvitationsReady(false);setActionFailed(false);
+    try{
+      const saved=await getBusinessAccess();
+      if(mounted.current){
+        setAccess(saved);
+        setInvitationsReady(saved.invitations_available===true);
+        reload();
+      }
+    }
     catch(error){if(mounted.current)failure(error);}
     finally{if(mounted.current)setBusy(false);}
   };
@@ -79,7 +107,7 @@ function BusinessAccessLive(){
     const email=person.email??"-";
     return <li key={person.id} className="flex min-h-16 flex-col gap-1 rounded-lg px-2 py-2 hover:bg-black/[0.025] focus-within:bg-black/[0.025] sm:flex-row sm:items-center sm:gap-4 dark:hover:bg-white/[0.035] dark:focus-within:bg-white/[0.035]">
       <div className="flex min-w-0 flex-1 items-center gap-3"><Avatar size={32} status={person.pending?"pending":null}/><div className="min-w-0 flex-1"><p className="break-all text-[16px]">{email}{self?<span className="ml-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_you")}</span>:null}</p>{person.pending?<div className="flex flex-wrap items-center gap-x-3 text-[14px] text-[#56635e] dark:text-white/70"><span>{t(person.expired?"business_access.invitation_expired":"workspace_setup_preview.invite_pending")}</span></div>:null}</div></div>
-      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">{person.pending&&!person.expired&&access.invitations_available?<RowAction className="mr-2" disabled={busy||restricted} onClick={()=>void act(()=>resendBusinessAccessInvite(person.id))}>{t("workspace_setup_preview.access_resend")}</RowAction>:null}<div className={roleColumn}><AccessRolePicker variant="quiet" compact value={person.role??""} disabled={busy||restricted||person.pending||!person.role} label={t("workspace_setup_preview.access_role_for",{email})} options={accessRoleOptions(t,Boolean(chosen?.permissions?.includes("assign_owner")))} onChange={role=>void act(async()=>{const result=await changeBusinessRole(person.id,role as AccessRole);if(mounted.current&&result.invites.some(invite=>invite.email===person.email&&invite.requested_role===role))setNotice("workspace_setup_preview.invite_pending_detail");})}/></div><button type="button" className={trashButtonClass} disabled={busy||restricted} aria-label={t(person.pending?"workspace_setup_preview.access_cancel_for":"workspace_setup_preview.access_remove_for",{email})} onClick={()=>setConfirmation({id:person.id,email,pending:person.pending})}><Trash2 className="h-4 w-4"/></button></div>
+      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">{person.pending&&!person.expired&&canInvite?<RowAction className="mr-2" disabled={busy||restricted} onClick={()=>void act(()=>resendBusinessAccessInvite(person.id))}>{t("workspace_setup_preview.access_resend")}</RowAction>:null}<div className={roleColumn}><AccessRolePicker variant="quiet" compact value={person.role??""} disabled={busy||restricted||person.pending||!person.role} label={t("workspace_setup_preview.access_role_for",{email})} options={accessRoleOptions(t,Boolean(chosen?.permissions?.includes("assign_owner")))} onChange={role=>void act(async()=>{const result=await changeBusinessRole(person.id,role as AccessRole);if(mounted.current&&result.invites.some(invite=>invite.email===person.email&&invite.requested_role===role))setNotice("workspace_setup_preview.invite_pending_detail");})}/></div><button type="button" className={trashButtonClass} disabled={busy||restricted} aria-label={t(person.pending?"workspace_setup_preview.access_cancel_for":"workspace_setup_preview.access_remove_for",{email})} onClick={()=>setConfirmation({id:person.id,email,pending:person.pending})}><Trash2 className="h-4 w-4"/></button></div>
     </li>;
   };
   return <section data-testid="business-access-preview" className={`${SURFACE_CARD} space-y-4`}>

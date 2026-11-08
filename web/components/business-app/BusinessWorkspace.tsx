@@ -424,14 +424,17 @@ function BusinessWorkspaceContent({
     && chosen?.permissions?.includes("manage") === true;
   useEffect(() => {
     if (!canInvite) {
-      if (chosen?.space_id) clearInvitationDraft(chosen.space_id);
+      if (invitationBusiness) clearInvitationDraft(invitationBusiness);
+      else if (chosen?.space_id) clearInvitationDraft(chosen.space_id);
       setInvitationBusiness(null);
     }
-  }, [canInvite, chosen?.space_id]);
+  }, [canInvite, chosen?.space_id, invitationBusiness]);
   const openInvitation = useCallback(() => {
     if (canInvite && chosen) setInvitationBusiness(chosen.space_id);
   }, [canInvite, chosen]);
   const chooseBusiness = useCallback((grantId: string | null) => {
+    if (invitationBusiness) clearInvitationDraft(invitationBusiness);
+    else if (chosen?.space_id) clearInvitationDraft(chosen.space_id);
     setInvitationBusiness(null);
     setCreatingBusiness(false);
     if (!canEnterBusiness(consent.accepted, grantId)) {
@@ -455,11 +458,15 @@ function BusinessWorkspaceContent({
     };
     if (panelGuard.current) panelGuard.current({ kind: "overview" }, choose);
     else choose();
-  }, [consent]);
+  }, [consent, chosen, invitationBusiness]);
   const drafts = useRef(new Map<string, string>());
   const [draftRevision, setDraftRevision] = useState(0);
 
-  const reload = useCallback(() => setRevision((value) => value + 1), []);
+  const reload = useCallback(() => {
+    setDirectoryStatus("loading");
+    setInvitationsAvailable(false);
+    setRevision((value) => value + 1);
+  }, []);
   const [reloadWaits] = useState(createReloadWaits);
   useEffect(() => reloadWaits.committed(revision), [reloadWaits, revision]);
   const refresh = useCallback(() => {

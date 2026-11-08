@@ -46,6 +46,10 @@ export function clearInvitationDraft(businessId: string) {
   if (businessId) drafts.delete(businessId);
 }
 
+export function peekInvitationDraftEmails(businessId: string): string[] {
+  return (drafts.get(businessId) ?? []).map(row => row.email.trim()).filter(Boolean);
+}
+
 function emailProblem(row: Row, rows: Row[], known: KnownPeople): string | null {
   const email = clean(row.email);
   if (!email) return "invite_email_required";
