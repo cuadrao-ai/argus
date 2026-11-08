@@ -226,7 +226,7 @@ describe("the gate", () => {
       assert.match(footer().textContent ?? "", /1–25 de 65/);
       const resultSummary = () => document.querySelector('[data-testid="records-results-summary"]')?.textContent ?? null;
       const allResults = resultSummary();
-      assert.equal(allResults, null, "Total starts closed");
+      assert.equal(allResults, null, "Total has no subcard");
       assert.doesNotMatch(allResults ?? "", /0 por revisar/);
       assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
       assert.equal(document.querySelector('th[data-col="detalle"]')?.textContent, "Tipo");
@@ -344,7 +344,7 @@ describe("the gate", () => {
     } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
 
-  test("fixture filters keep Total collapsed until opened and sample purchases exclude personal rows", async () => {
+  test("fixture filters keep Total static and sample purchases exclude personal rows", async () => {
     const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
     Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
     try {
@@ -356,7 +356,7 @@ describe("the gate", () => {
       const page = await mount({ enabled: false, transacciones: await recordsOf(items, {}, items) });
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
       await page.settle(() => page.records().length === 2, "purchase scope summary");
-      assert.equal(summary(), null, "Total starts closed");
+      assert.equal(summary(), null, "Total has no subcard");
       assert.equal(document.querySelectorAll('thead th').length, 8);
       assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
       assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["contraparte", "fecha", "monto", "moneda", "detalle", "estado", "notas", "comprobante"]);
@@ -369,24 +369,22 @@ describe("the gate", () => {
       await chooseRecordKind(page, "gasto");
       assert.equal(page.records().length, 2);
       assert.equal(summary(), null, "family filter reveals no subcards");
-      const total = document.querySelector<HTMLButtonElement>('[data-overview-card="total"] button[aria-controls]')!;
+      const total = document.querySelector('[data-overview-card="total"]')!;
+      assert.equal(total.tagName, "DIV");
+      assert.equal(total.querySelector("button, [aria-expanded], [aria-controls]"), null);
+      assert.deepEqual([...total.querySelectorAll(".cuadrao-amount")].map((node) => node.getAttribute("aria-label")), ["DOP 2,100.00"]);
+      assert.doesNotMatch(total.textContent!, /3,350|1,250|Pagado|Por pagar|Cobrado|Por cobrar/);
       await page.click(total);
-      assert.equal(summary()!.querySelectorAll("[data-summary-part]").length, 1);
-      assert.deepEqual([...summary()!.querySelectorAll(".cuadrao-amount")].map((node) => node.textContent), ["RD$2,100.00"]);
-      assert.match(summary()!.textContent!, /1 personal/);
-      assert.doesNotMatch(summary()!.textContent!, /3,350|1,250/);
-      assert.doesNotMatch(summary()!.textContent!, /Pagado|Por pagar|Cobrado|Por cobrar/);
+      assert.equal(summary(), null);
       const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Estación"); input.dispatchEvent(new Event("input", { bubbles: true })); });
       assert.equal(page.records().length, 1);
-      assert.deepEqual([...summary()!.querySelectorAll(".cuadrao-amount")].map((node) => node.textContent), ["RD$2,100.00"]);
+      assert.deepEqual([...total.querySelectorAll(".cuadrao-amount")].map((node) => node.getAttribute("aria-label")), ["DOP 2,100.00"]);
       await chooseRecordKind(page, "venta");
       assert.equal(page.records().length, 1);
       assert.ok(page.records().every((row) => row.dataset.kind === "venta"));
-      assert.equal(summary()?.getAttribute("data-summary-kind"), "venta");
-      assert.ok(summary(), "changing type keeps the Total subcard open");
-      await page.click(total);
-      assert.equal(summary(), null, "second Total click hides the subcard");
+      assert.equal(summary(), null, "changing type keeps Total static");
+      assert.equal(total.querySelector("button"), null);
       await page.unmount();
     } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
@@ -1058,6 +1056,7 @@ for (const width of [1440, 390]) test(`fixture overview shows sample purchases a
     await page.settle(() => page.records().length === 2, "two default-currency fixture purchases");
     const overview = document.querySelector('[data-testid="records-overview-preview"]')!;
     assert.equal(overview.querySelectorAll("[data-overview-card]").length, 6);
+    assert.deepEqual([...overview.querySelectorAll("button[data-overview-card], [data-overview-card] button")].map((button) => button.getAttribute("data-overview-card")), ["fiscal"]);
     const total = overview.querySelector('[data-overview-card="total"]')!;
     assert.deepEqual([...total.querySelectorAll(".cuadrao-amount")].map((node) => node.getAttribute("aria-label")), ["DOP 2,100.00"]);
     assert.doesNotMatch(total.textContent!, /3,350|1,250/, "personal purchases stay outside sample totals");
