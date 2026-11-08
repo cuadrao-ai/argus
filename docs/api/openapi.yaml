@@ -20182,8 +20182,7 @@ components:
               period:
                 kind: all
               q: ''
-              record_families:
-              - purchase
+              record_families: []
               review_stages: []
             columns:
             - date
@@ -22275,8 +22274,7 @@ components:
               period:
                 kind: all
               q: ''
-              record_families:
-              - purchase
+              record_families: []
               review_stages: []
             columns:
             - date
@@ -31610,16 +31608,13 @@ components:
           default:
             kind: all
         record_families:
-          prefixItems:
-          - type: string
+          items:
+            type: string
             enum:
             - sale
             - purchase
           type: array
-          maxItems: 1
-          minItems: 1
-          default:
-          - purchase
+          default: []
         review_stages:
           items:
             type: string
@@ -31715,16 +31710,13 @@ components:
           default:
             kind: all
         record_families:
-          prefixItems:
-          - type: string
+          items:
+            type: string
             enum:
             - sale
             - purchase
           type: array
-          maxItems: 1
-          minItems: 1
-          default:
-          - purchase
+          default: []
         review_stages:
           items:
             type: string
@@ -31843,8 +31835,7 @@ components:
             q: ''
             period:
               kind: all
-            record_families:
-            - purchase
+            record_families: []
             review_stages: []
             currencies: []
             counterparties: []
@@ -31896,8 +31887,7 @@ components:
             q: ''
             period:
               kind: all
-            record_families:
-            - purchase
+            record_families: []
             review_stages: []
             currencies: []
             counterparties: []
@@ -31949,8 +31939,7 @@ components:
             q: ''
             period:
               kind: all
-            record_families:
-            - purchase
+            record_families: []
             review_stages: []
             currencies: []
             counterparties: []
@@ -32017,8 +32006,7 @@ components:
             q: ''
             period:
               kind: all
-            record_families:
-            - purchase
+            record_families: []
             review_stages: []
             currencies: []
             counterparties: []
@@ -32291,8 +32279,7 @@ components:
             q: ''
             period:
               kind: all
-            record_families:
-            - purchase
+            record_families: []
             review_stages: []
             currencies: []
             counterparties: []
@@ -32355,8 +32342,7 @@ components:
             q: ''
             period:
               kind: all
-            record_families:
-            - purchase
+            record_families: []
             review_stages: []
             currencies: []
             counterparties: []
@@ -33041,8 +33027,7 @@ components:
               period:
                 kind: all
               q: ''
-              record_families:
-              - purchase
+              record_families: []
               review_stages: []
             columns:
             - date
@@ -34785,8 +34770,7 @@ components:
               period:
                 kind: all
               q: ''
-              record_families:
-              - purchase
+              record_families: []
               review_stages: []
             columns:
             - date

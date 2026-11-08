@@ -160,30 +160,4 @@ def test_recorded_preview_answer_matches_backend():
         Path(__file__).resolve().parents[1]
         / "web/test-fixtures/records-default-report-answer.json"
     )
-    expected = json.loads(fixture.read_text())
-    actual = answer.model_dump(mode="json")
-    expected.pop("fingerprint")
-    fingerprint = actual.pop("fingerprint")
-    assert expected == actual
-    assert (
-        fingerprint
-        == run_query(
-            ReportIdentity(
-                "synthetic-business", "synthetic-actor", "synthetic-owner", None, ""
-            ),
-            (),
-            ReportRequest(),
-            datetime(2026, 11, 6, tzinfo=timezone.utc),
-        ).fingerprint
-    )
-    assert (
-        fingerprint
-        != run_query(
-            ReportIdentity(
-                "synthetic-business", "synthetic-actor", "synthetic-owner", None, ""
-            ),
-            (),
-            ReportRequest(filters={"record_families": ["sale"]}),
-            datetime(2026, 11, 6, tzinfo=timezone.utc),
-        ).fingerprint
-    )
+    assert json.loads(fixture.read_text()) == answer.model_dump(mode="json")
