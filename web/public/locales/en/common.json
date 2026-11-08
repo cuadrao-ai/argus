@@ -2769,7 +2769,7 @@
       "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
       "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
       "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
-      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
+      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
       "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of_one": "of {{count}}", "of_other": "of {{count}}" },
       "sign": { "in": "Money in", "out": "Money out" },
       "detail": {

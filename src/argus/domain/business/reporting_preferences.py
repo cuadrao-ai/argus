@@ -162,6 +162,8 @@ TableColumn = Literal[
     "note",
     "attachment",
     "funding",
+    "fiscal_number",
+    "itbis_amount",
 ]
 TABLE_COLUMNS: tuple[TableColumn, ...] = (
     "counterparty",
@@ -175,17 +177,22 @@ TABLE_COLUMNS: tuple[TableColumn, ...] = (
     "note",
     "attachment",
     "funding",
+    "fiscal_number",
+    "itbis_amount",
 )
-HIDDEN_COLUMNS: tuple[TableColumn, ...] = ("funding", "payment_form", "expense_type")
+HIDDEN_COLUMNS: tuple[TableColumn, ...] = (
+    "funding",
+    "payment_form",
+    "expense_type",
+    "fiscal_number",
+    "itbis_amount",
+)
 Sort = Literal[
     "date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"
 ]
 
 
 def _current_columns(value: Any) -> Any:
-    """A saved presentation from before the 606 columns: Categoría's slot is
-    now Tipo de gasto, and Forma de pago joins the order as a hidden column."""
-
     if not isinstance(value, dict) or not isinstance(value.get("order"), list):
         return value
     order = ["expense_type" if key == "category" else key for key in value["order"]]
@@ -197,6 +204,11 @@ def _current_columns(value: Any) -> Any:
         order.insert(order.index("expense_type") + 1, "payment_form")
         if "payment_form" not in hidden:
             hidden.append("payment_form")
+    for key in ("fiscal_number", "itbis_amount"):
+        if key not in order:
+            order.append(key)
+            if key not in hidden:
+                hidden.append(key)
     return {**value, "order": order, "hidden": hidden}
 
 

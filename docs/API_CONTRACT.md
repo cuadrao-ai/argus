@@ -11405,13 +11405,17 @@ accept path recorded.
   Before the answer, it shows pending UI without invented columns or options.
   Restore omits presentation and queries again. Saving a view records the effective
   layout, including when the original request omitted it. Explicit saved layouts
-  keep their order, hidden columns and density without migration.
+  keep their order, hidden columns and density. Missing `fiscal_number` and
+  `itbis_amount` columns append to saved orders hidden.
 
   `presentation.order` contains each supported table key once, with counterparty
   first. `hidden` cannot hide counterparty, amount or currency. A saved presentation
   from before the 606 columns is read as current: `category` becomes `expense_type`
   in place, and `payment_form` joins the order after it, hidden. `category` is no
-  longer a table column. Density is 40/48/56, default 48. Amount and currency move
+  longer a table column. Optional `fiscal_number` (NCF or e-CF) and
+  `itbis_amount` columns are hidden by default. ITBIS uses the row currency;
+  missing amounts or currency remain unknown, and zero remains numeric.
+  Density is 40/48/56, default 48. Amount and currency move
   independently. `columns` remains the separate export field selection. No summary
   or widget preference is accepted. Page, page size, columns and presentation do
   not alter the result fingerprint. The preview reads the recorded empty answer

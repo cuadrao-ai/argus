@@ -101,7 +101,7 @@ Tipo de gasto: 01–11 · Forma de pago: 01–07
 
 ## Registros columns
 
-The backend `Presentation` in `src/argus/domain/business/reporting_preferences.py` owns the default layout. The report answer returns the effective `presentation`; the connected table uses it. The preview uses `web/test-fixtures/records-default-report-answer.json`, recorded from the backend. `test_recorded_preview_answer_matches_backend` checks that fixture and `records-default-authority.test.ts` prevents web defaults. Saved layouts keep their explicit order, hidden columns and density. The existing column picker stays. More of the pilot Excel columns become choosable Registros columns over time.
+The backend `Presentation` in `src/argus/domain/business/reporting_preferences.py` owns the default layout. The report answer returns the effective `presentation`; the connected table uses it. The preview uses `web/test-fixtures/records-default-report-answer.json`, recorded from the backend. `test_recorded_preview_answer_matches_backend` checks that fixture and `records-default-authority.test.ts` prevents web defaults. Saved layouts keep their explicit order, hidden columns and density. The existing column picker stays. Further table additions wait for the pilot client’s workflow.
 
 | Column key | Pilot default | ES / EN | Why |
 |---|---|---|---|
@@ -116,8 +116,10 @@ The backend `Presentation` in `src/argus/domain/business/reporting_preferences.p
 | comprobante | On | Adjunto / Attachment | |
 | notas | On | Notas / Notes | Notas stays available, not stripped or forced hidden. |
 | cuenta | Available (hidden by default) | Cuenta / Account | Forma de pago ≠ Cuenta |
+| ncf | Available (hidden by default) | NCF / NCF | Existing `fiscal_number`, NCF or e-CF; missing stays unknown |
+| itbis | Available (hidden by default) | ITBIS / ITBIS | Existing `itbis_amount` in the row currency; missing amount or currency stays unknown, zero stays numeric |
 
-NCF, NCF afectado, servicios, bienes, ITBIS, ISC, and propina legal are pilot export fields, not Registros columns today. They belong in the choosable set over time. These are semantic targets, not a ship list. They already exist in Más datos or export. The evolved export column and file-type picker is out of scope.
+NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client’s workflow. These are semantic targets, not a ship list. They already exist in Más datos or export. The evolved export column and file-type picker is out of scope.
 
 ## Score cards
 

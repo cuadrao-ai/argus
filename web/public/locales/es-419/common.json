@@ -2769,7 +2769,7 @@
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
       "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
-      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
+      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "ncf": "NCF", "itbis": "ITBIS", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
       "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of_one": "de {{count}}", "of_other": "de {{count}}" },
       "sign": { "in": "Entrada de", "out": "Salida de" },
       "detail": {

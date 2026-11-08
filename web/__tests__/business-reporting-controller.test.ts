@@ -66,6 +66,27 @@ describe("Business report controller", () => {
     const updated = controller.getSnapshot().request;
     expect(updated.schema_version === 2 && updated.presentation?.density).toBe(56);
   });
+  test.each([{ known: [] }, { known: ["fiscal_number"] }] as const)("saved layouts append missing server columns hidden and retain later edits: %j", async ({ known }) => {
+    const original = recordedReportAnswer.presentation;
+    const oldOrder = original.order.filter((key) => key !== "fiscal_number" && key !== "itbis_amount");
+    const presentation = { order: [oldOrder[0], ...oldOrder.slice(1).reverse(), ...known], hidden: ["date" as const, "attachment" as const], density: 40 as const };
+    const request = reportRequestSchema.parse({ schema_version: 2, presentation });
+    const serverOrder = [...oldOrder, "itbis_amount" as const, "fiscal_number" as const];
+    const pending = deferred<ReportAnswer>();
+    let reads = 0;
+    const controller = createBusinessReportController(scope, undefined, transport({ query: async (_scope, query) => ++reads === 1 ? { ...answer(query), presentation: { ...original, order: serverOrder } } : pending.promise }));
+    await controller.openView({ id: "old", name: "Old layout", recipe: recipeFromRequest(request), version: 1, created_at: "now", updated_at: "now" });
+    const missing = serverOrder.filter((key) => !presentation.order.includes(key));
+    const reconciled = { ...presentation, order: [...presentation.order, ...missing], hidden: [...presentation.hidden, ...missing] };
+    expect(recipeFromRequest(controller.getSnapshot().request)).toMatchObject({ presentation: reconciled });
+    const refresh = controller.refresh();
+    const edited = { order: [reconciled.order[0], ...reconciled.order.slice(1).reverse()], hidden: ["attachment" as const], density: 56 as const };
+    controller.setPresentation(edited);
+    pending.resolve({ ...answer(request), presentation: reconciled });
+    await refresh;
+    expect(recipeFromRequest(controller.getSnapshot().request)).toMatchObject({ presentation: edited });
+    controller.dispose();
+  });
   test("late query and disposed Business responses cannot replace current scope", async () => {
     const first = deferred<ReportAnswer>();
     let calls = 0;
