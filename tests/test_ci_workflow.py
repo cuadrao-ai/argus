@@ -35,8 +35,7 @@ _LATEST_CLI_PROBE = (
 # A manual run with full_run checked runs every job, as an integration push does.
 _FULL_RUN = "(github.event_name == 'workflow_dispatch' && inputs.full_run)"
 _DRAFT_OR_NON_PR = (
-    "github.event.pull_request.draft == false || "
-    "github.event_name != 'pull_request'"
+    "github.event.pull_request.draft == false || " "github.event_name != 'pull_request'"
 )
 
 
@@ -151,13 +150,11 @@ def test_backend_checks_gates_the_suite_by_directory() -> None:
     setup_bun_step = next(
         step
         for step in jobs["frontend-checks"]["steps"]
-        if step.get("uses") == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6"
+        if step.get("uses")
+        == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6"
     )
     assert workflow["env"]["ARGUS_CI_BUN_VERSION"] == "1.3.14"
-    assert (
-        setup_bun_step["with"]["bun-version"]
-        == "${{ env.ARGUS_CI_BUN_VERSION }}"
-    )
+    assert setup_bun_step["with"]["bun-version"] == "${{ env.ARGUS_CI_BUN_VERSION }}"
     assert "bun test" in frontend_steps
     assert "bun run build" in frontend_steps
 
@@ -172,12 +169,14 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
 
     assert "supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb" in uses_steps
     assert _workflow()["env"]["ARGUS_CI_SUPABASE_CLI_VERSION"] == "2.109.0"
-    assert uses_steps["supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb"]["with"]["version"] == (
+    assert uses_steps["supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb"][
+        "with"
+    ]["version"] == (
         "${{ matrix.supabase-cli == 'latest' && 'latest' || "
         "env.ARGUS_CI_SUPABASE_CLI_VERSION }}"
     )
     assert "supabase --version" in joined_steps
-    assert '--format \'{{.Names}} {{.Image}}\'' in joined_steps
+    assert "--format '{{.Names}} {{.Image}}'" in joined_steps
     # `supabase start` applies every migration and the seed; a reset after it
     # replays them for no new coverage.
     assert (
@@ -240,7 +239,7 @@ def _run_postgres_matrix_step(
     log = scratch / "poetry-args.log"
     poetry = scratch / "poetry"
     poetry.write_text(
-        f"#!/bin/bash\nprintf '%s\\n' \"$@\" >> \"{log}\"\n", encoding="utf-8"
+        f'#!/bin/bash\nprintf \'%s\\n\' "$@" >> "{log}"\n', encoding="utf-8"
     )
     poetry.chmod(0o755)
     result = subprocess.run(
@@ -251,7 +250,9 @@ def _run_postgres_matrix_step(
             "PATH": f"{scratch}{os.pathsep}{os.environ['PATH']}",
             "GITHUB_EVENT_NAME": event,
             "CI_SHARD_INDEX": "0",
-            "CI_SHARD_COUNT": _workflow()["jobs"]["database-shards"]["env"]["CI_SHARD_COUNT"],
+            "CI_SHARD_COUNT": _workflow()["jobs"]["database-shards"]["env"][
+                "CI_SHARD_COUNT"
+            ],
         },
         capture_output=True,
         text=True,
@@ -347,14 +348,22 @@ def test_marketing_checks_prove_the_runtime_and_tooling_render_will_use() -> Non
     node_pin = re.search(r"\| `NODE_VERSION` \| `([0-9.]+)` \|", runbook)
     assert node_pin, "the runbook must state the Render NODE_VERSION"
     setup_node = next(
-        step for step in steps if step.get("uses") == "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+        step
+        for step in steps
+        if step.get("uses")
+        == "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
     )
     assert setup_node["with"]["node-version"] == node_pin.group(1)
 
     bun_pin = re.search(r"npm install -g bun@([0-9.]+)", runbook)
     assert bun_pin, "the runbook build command must pin Bun"
     assert bun_pin.group(1) == workflow["env"]["ARGUS_CI_BUN_VERSION"]
-    setup_bun = next(step for step in steps if step.get("uses") == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6")
+    setup_bun = next(
+        step
+        for step in steps
+        if step.get("uses")
+        == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6"
+    )
     assert setup_bun["with"]["bun-version"] == "${{ env.ARGUS_CI_BUN_VERSION }}"
 
     # Each gate runs inside the independent package, in the order a deploy needs.
@@ -390,9 +399,7 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     ]
     assert jobs["ci"]["if"] == f"always() && ({_DRAFT_OR_PUSH} || {_FULL_RUN})"
     aggregator_env = jobs["ci"]["steps"][0]["env"]
-    assert aggregator_env["DOCS_CHANGE_GATE"] == (
-        "${{ needs.docs-change-gate.result }}"
-    )
+    assert aggregator_env["DOCS_CHANGE_GATE"] == ("${{ needs.docs-change-gate.result }}")
     assert aggregator_env["OWNERSHIP_GATE"] == "${{ needs.ownership-gate.result }}"
     assert aggregator_env["DOCS_ONLY"] == (
         "${{ needs.docs-change-gate.outputs.docs_only }}"
@@ -406,12 +413,8 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     assert aggregator_env["DOCS_CHECKS"] == "${{ needs.docs-checks.result }}"
     assert aggregator_env["BACKEND_CHECKS"] == "${{ needs.backend-checks.result }}"
     assert aggregator_env["FRONTEND_CHECKS"] == "${{ needs.frontend-checks.result }}"
-    assert aggregator_env["MARKETING_CHECKS"] == (
-        "${{ needs.marketing-checks.result }}"
-    )
-    assert aggregator_env["DATABASE_CHECKS"] == (
-        "${{ needs.database-checks.result }}"
-    )
+    assert aggregator_env["MARKETING_CHECKS"] == ("${{ needs.marketing-checks.result }}")
+    assert aggregator_env["DATABASE_CHECKS"] == ("${{ needs.database-checks.result }}")
     aggregator_run = jobs["ci"]["steps"][0]["run"]
     assert "CI checks passed." in aggregator_run
     assert "require_success docs-change-gate" in aggregator_run
@@ -441,8 +444,7 @@ def test_private_alpha_smoke_workflow_runs_local_predeploy_gate() -> None:
     assert job["timeout-minutes"] == 10
     assert _job_needs(job) == ["docs-change-gate"]
     assert job["if"] == (
-        f"({_DRAFT_OR_NON_PR}) && "
-        "needs.docs-change-gate.outputs.run_heavy == 'true'"
+        f"({_DRAFT_OR_NON_PR}) && " "needs.docs-change-gate.outputs.run_heavy == 'true'"
     )
     joined_steps = "\n".join(str(step.get("run", "")) for step in job["steps"])
     assert "poetry install --with dev,workflows --no-interaction" in joined_steps
@@ -477,11 +479,16 @@ def test_agent_runtime_regression_workflow_runs_full_runtime_sweep() -> None:
         "github.event_name != 'pull_request'"
     )
     setup_python_step = next(
-        step for step in job["steps"] if step.get("uses") == "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
+        step
+        for step in job["steps"]
+        if step.get("uses")
+        == "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
     )
     assert setup_python_step["with"]["python-version"] == "3.10"
     checkout_steps = [
-        step for step in job["steps"] if step.get("uses") == "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
+        step
+        for step in job["steps"]
+        if step.get("uses") == "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
     ]
     assert checkout_steps == [
         {
@@ -710,9 +717,7 @@ def test_docs_only_changes_script_runs_heavy_jobs_off_pull_request() -> None:
 def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
     jobs = _workflow()["jobs"]
     gate = jobs["docs-change-gate"]
-    classify = next(
-        step for step in gate["steps"] if step.get("id") == "classify"
-    )
+    classify = next(step for step in gate["steps"] if step.get("id") == "classify")
 
     assert gate["if"] == f"{_DRAFT_OR_PUSH} || {_LATEST_CLI_PROBE}"
     assert gate["outputs"]["run_heavy"] == "${{ steps.classify.outputs.run_heavy }}"
@@ -720,22 +725,24 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
         "${{ steps.classify.outputs.run_marketing }}"
     )
     assert classify["run"] == ".github/docs-only-changes.sh"
-    assert classify["env"]["PR_BASE_SHA"] == (
-        "${{ github.event.pull_request.base.sha }}"
-    )
+    assert classify["env"]["PR_BASE_SHA"] == ("${{ github.event.pull_request.base.sha }}")
     assert _job_needs(jobs["ownership-gate"]) == []
     assert jobs["ownership-gate"]["if"] == f"{_DRAFT_OR_PUSH} || {_FULL_RUN}"
     ownership_steps = jobs["ownership-gate"]["steps"]
     checkout = next(step for step in ownership_steps if step.get("name") == "Checkout")
     assert checkout["with"]["fetch-depth"] == 0
     fetch_base = next(
-        step for step in ownership_steps if step.get("name") == "Fetch the pull request base"
+        step
+        for step in ownership_steps
+        if step.get("name") == "Fetch the pull request base"
     )
     assert fetch_base["if"] == "github.event_name == 'pull_request'"
     assert 'git fetch --no-tags origin "${{ github.base_ref }}"' in fetch_base["run"]
     assert 'git cat-file -e "${PR_BASE_SHA}^{commit}"' in fetch_base["run"]
     evidence_step = next(
-        step for step in ownership_steps if step.get("name") == "Reject new evidence media"
+        step
+        for step in ownership_steps
+        if step.get("name") == "Reject new evidence media"
     )
     assert evidence_step["run"] == "python scripts/ci/check_no_evidence_media.py"
     assert evidence_step["env"]["PR_BASE_SHA"] == (
@@ -793,8 +800,7 @@ def test_docs_checks_job_runs_only_when_the_gate_reports_docs_only() -> None:
 
     assert _job_needs(job) == ["docs-change-gate"]
     assert job["if"] == (
-        f"({_DRAFT_OR_PUSH}) && "
-        "needs.docs-change-gate.outputs.docs_only == 'true'"
+        f"({_DRAFT_OR_PUSH}) && " "needs.docs-change-gate.outputs.docs_only == 'true'"
     )
     assert "git diff --check" in joined_steps
     assert "poetry install --with dev --no-interaction" in joined_steps
@@ -803,7 +809,12 @@ def test_docs_checks_job_runs_only_when_the_gate_reports_docs_only() -> None:
     assert "bun install --frozen-lockfile" in joined_steps
     assert "bun test" not in joined_steps
     assert "bun run build" not in joined_steps
-    setup_bun = next(step for step in job["steps"] if step.get("uses") == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6")
+    setup_bun = next(
+        step
+        for step in job["steps"]
+        if step.get("uses")
+        == "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6"
+    )
     assert setup_bun["with"]["bun-version"] == "${{ env.ARGUS_CI_BUN_VERSION }}"
     assert "supabase" not in joined_steps.lower()
     assert "local-smoke" not in joined_steps
@@ -862,7 +873,7 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
         "${{ fromJSON(github.event_name == 'pull_request' && '[\"pinned\"]' || "
         "((github.event_name == 'schedule' || "
         "(github.event_name == 'workflow_dispatch' && !inputs.full_run)) && "
-        "'[\"latest\"]' || '[\"pinned\", \"latest\"]')) }}"
+        '\'["latest"]\' || \'["pinned", "latest"]\')) }}'
     )
     by_name = {step.get("name"): step for step in guest_job["steps"]}
     always = (
