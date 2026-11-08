@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 import { loginWithEmail, signupWithEmail } from "../lib/argus-api";
-import * as guestCaptcha from "../lib/guest-captcha";
 import { registerGuestAccount } from "../lib/guest-api";
 import { requestPasswordRecovery } from "../lib/auth-security";
 
@@ -202,13 +203,39 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     });
   });
 
-  test("each login attempt calls the Turnstile issuance interface twice and submits each returned token", async () => {
+  const TURNSTILE_RETRY_CHILD = "AUTH_CAPTCHA_TURNSTILE_HERMETIC_CHILD";
+  const TURNSTILE_CHILD_COMPLETION_SENTINEL =
+    "AUTH_CAPTCHA_TURNSTILE_HERMETIC_CHILD_COMPLETE:v1:renders=2:callbacks=2:posts=2";
+  const TURNSTILE_CHILD_EXPECTED_RAN_TEST_COUNT = 1;
+
+  async function assertProductionAuthModuleProvenance() {
+    const libDir = join(import.meta.dir, "..", "lib");
+    const guestCaptchaPath = fileURLToPath(
+      new URL(await import.meta.resolve("../lib/guest-captcha.ts"), import.meta.url),
+    );
+    const argusApiPath = fileURLToPath(
+      new URL(await import.meta.resolve("../lib/argus-api.ts"), import.meta.url),
+    );
+    const passwordAuthPath = fileURLToPath(
+      new URL(
+        await import.meta.resolve("../lib/password-auth-request.ts"),
+        import.meta.url,
+      ),
+    );
+    expect(guestCaptchaPath).toBe(join(libDir, "guest-captcha.ts"));
+    expect(argusApiPath).toBe(join(libDir, "argus-api.ts"));
+    expect(passwordAuthPath).toBe(join(libDir, "password-auth-request.ts"));
+  }
+
+  async function exerciseTurnstileRetryProofInProcess() {
     const issuanceTokens = [
       "mocked-turnstile-proof-one",
       "mocked-turnstile-proof-two",
     ] as const;
-    let issuanceCalls = 0;
+    let renderCalls = 0;
+    const callbackTokens: string[] = [];
     const bodies: Array<Record<string, unknown>> = [];
+    const loginPosts: Array<{ method: string; pathname: string }> = [];
     const originalNodeEnv = process.env.NODE_ENV;
     const originalApiUrl = process.env.NEXT_PUBLIC_ARGUS_API_URL;
     const originalCuadraoSiteKey =
@@ -219,6 +246,14 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
     const originalCuadraoLocalToken =
       process.env.NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN;
+    const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+
+    await assertProductionAuthModuleProvenance();
+
+    GlobalRegistrator.register({ url: "https://app.example.test/login" });
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
+      true;
+    const previousTurnstile = window.turnstile;
 
     process.env.NODE_ENV = "production";
     process.env.NEXT_PUBLIC_ARGUS_API_URL = "https://api.example.test/api/v1";
@@ -226,27 +261,30 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
     delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
     delete process.env.NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN;
+    delete process.env.NEXT_PUBLIC_MOCK_AUTH;
 
-    const loadTurnstileSpy = spyOn(guestCaptcha, "loadTurnstile").mockImplementation(
-      async () => ({
-        render(_container, _options) {
-          return "widget-turnstile";
-        },
-        remove() {},
-      }),
-    );
-    // Avoid createTurnstileShell: it dynamic-imports lib/i18n and poisons the
-    // default i18next singleton for later suites in the same Bun process.
-    const acquireGuestCaptchaTokenSpy = spyOn(
-      guestCaptcha,
-      "acquireGuestCaptchaToken",
-    ).mockImplementation(async () => {
-      issuanceCalls += 1;
-      await guestCaptcha.loadTurnstile(guestCaptcha.CAPTCHA_ACQUISITION_TIMEOUT_MS);
-      return issuanceTokens[issuanceCalls - 1] ?? issuanceTokens[1];
-    });
+    window.turnstile = {
+      render(_container, options) {
+        renderCalls += 1;
+        const token =
+          issuanceTokens[renderCalls - 1] ?? issuanceTokens[issuanceTokens.length - 1];
+        queueMicrotask(() => {
+          callbackTokens.push(token);
+          options.callback(token);
+        });
+        return `widget-${renderCalls}`;
+      },
+      remove() {},
+    };
 
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = (async (input, init) => {
+      const url = new URL(String(input), process.env.NEXT_PUBLIC_ARGUS_API_URL);
+      if (url.pathname.endsWith("/auth/login")) {
+        loginPosts.push({
+          method: (init?.method ?? "GET").toUpperCase(),
+          pathname: url.pathname,
+        });
+      }
       bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
       return new Response(
         JSON.stringify({
@@ -265,13 +303,25 @@ describe("password auth CAPTCHA and confirmation contract", () => {
         }).catch(() => undefined);
       }
 
-      expect(issuanceCalls).toBe(2);
+      expect(renderCalls).toBe(2);
+      expect(callbackTokens).toEqual([...issuanceTokens]);
+      expect(loginPosts).toEqual([
+        { method: "POST", pathname: "/api/v1/auth/login" },
+        { method: "POST", pathname: "/api/v1/auth/login" },
+      ]);
       expect(bodies).toHaveLength(2);
       expect(bodies[0]?.captcha_token).toBe(issuanceTokens[0]);
       expect(bodies[1]?.captcha_token).toBe(issuanceTokens[1]);
+      process.stdout.write(`${TURNSTILE_CHILD_COMPLETION_SENTINEL}\n`);
     } finally {
-      acquireGuestCaptchaTokenSpy.mockRestore();
-      loadTurnstileSpy.mockRestore();
+      globalThis.fetch = originalFetch;
+      if (previousTurnstile === undefined) {
+        delete window.turnstile;
+      } else {
+        window.turnstile = previousTurnstile;
+      }
+      document.body.innerHTML = "";
+      await GlobalRegistrator.unregister();
       process.env.NODE_ENV = originalNodeEnv;
       if (originalApiUrl === undefined) {
         delete process.env.NEXT_PUBLIC_ARGUS_API_URL;
@@ -299,8 +349,49 @@ describe("password auth CAPTCHA and confirmation contract", () => {
         process.env.NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN =
           originalCuadraoLocalToken;
       }
-      globalThis.fetch = originalFetch;
+      if (originalMockAuth === undefined) {
+        delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+      } else {
+        process.env.NEXT_PUBLIC_MOCK_AUTH = originalMockAuth;
+      }
     }
+  }
+
+  test("each login attempt calls the Turnstile issuance interface twice and submits each returned token", async () => {
+    const hermeticChild = process.env[TURNSTILE_RETRY_CHILD] === "1";
+    if (!hermeticChild) {
+      const webRoot = join(import.meta.dir, "..");
+      const result = Bun.spawnSync({
+        cmd: [
+          process.execPath,
+          "test",
+          import.meta.path,
+          "--test-name-pattern",
+          "each login attempt calls the Turnstile issuance interface twice",
+        ],
+        cwd: webRoot,
+        env: { ...process.env, [TURNSTILE_RETRY_CHILD]: "1" },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const output = `${result.stdout.toString()}${result.stderr.toString()}`;
+      expect(result.exitCode).toBe(0);
+      expect(output).toContain(TURNSTILE_CHILD_COMPLETION_SENTINEL);
+      expect(output).toMatch(
+        new RegExp(
+          `Ran ${TURNSTILE_CHILD_EXPECTED_RAN_TEST_COUNT} test(?:s)? across 1 file`,
+        ),
+      );
+      expect(output).toMatch(
+        new RegExp(` ${TURNSTILE_CHILD_EXPECTED_RAN_TEST_COUNT} pass`),
+      );
+      expect(output).toMatch(/ 0 fail/);
+      expect(output).toMatch(
+        /\(pass\) password auth CAPTCHA and confirmation contract > each login attempt calls the Turnstile issuance interface twice/,
+      );
+      return;
+    }
+    await exerciseTurnstileRetryProofInProcess();
   });
 
   test("password recovery acquires a CAPTCHA token at the shared browser boundary", async () => {
