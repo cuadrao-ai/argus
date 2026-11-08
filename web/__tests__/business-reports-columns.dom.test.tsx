@@ -120,7 +120,7 @@ for (const family of ["purchase", "sale"] as const) {
   for (const currency of ["DOP", "USD", "EUR"] as const) {
     test(`optional fiscal columns show exact row values for ${family} in ${currency}`, async () => {
       const page = await mount({ defaultCurrency: currency, initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: [currency] } }), edit: (rows) => {
-        rows.forEach((row, index) => { row.family = family; row.currency = currency; row.fiscal_number = index < 2 ? "B0100000001" : index === 2 ? "E310000000001" : null; row.itbis_amount = index === 0 ? "18.25" : index === 1 ? "0.00" : index === 3 ? "9007199254740993.01" : null; });
+        rows.forEach((row, index) => { row.family = family; if (family === "sale") row.dgii_606 = null; row.currency = currency; row.fiscal_number = index < 2 ? "B0100000001" : index === 2 ? "E310000000001" : null; row.itbis_amount = index === 0 ? "18.25" : index === 1 ? "0.00" : index === 3 ? "9007199254740993.01" : null; });
       } });
       assert.equal(document.querySelector('th[data-col="ncf"]'), null);
       assert.equal(document.querySelector('th[data-col="itbis"]'), null);
