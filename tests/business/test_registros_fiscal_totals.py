@@ -124,26 +124,28 @@ def test_every_total_uses_all_filtered_table_records_before_paging(filters):
 
 
 def test_currencies_and_families_stay_separate_and_sales_have_no_purchase_coverage():
-    answer = run(
-        [
-            purchase("dop"),
-            purchase("usd", currency="USD", goods_amount="999999999.99"),
-            record("sale", family="sale", itbis_amount="5.67"),
-            purchase(
-                "sin-comprobante", dgii_606=None, goods_amount=None, services_amount=None
-            ),
-        ]
-    )
-    result = totals(answer)
+    rows = [
+        purchase("dop"),
+        purchase("usd", currency="USD", goods_amount="999999999.99"),
+        record("sale", family="sale", itbis_amount="5.67"),
+        purchase(
+            "sin-comprobante", dgii_606=None, goods_amount=None, services_amount=None
+        ),
+    ]
+    result = totals(run(rows))
     assert result["DOP", "expense", "goods"].amount_minor == 7000
     assert result["USD", "expense", "goods"].amount_minor == 99999999999
     assert result["DOP", "expense", "goods"].applicable_count == 1
-    assert result["DOP", "income", "itbis"].amount_minor == 567
-    assert ("DOP", "income", "goods") not in result
-    assert ("DOP", "income", "services") not in result
+    sales = totals(run(rows, ReportFilters(record_families=("sale",))))
+    assert sales["DOP", "income", "itbis"].amount_minor == 567
+    assert ("DOP", "income", "goods") not in sales
+    assert ("DOP", "income", "services") not in sales
     assert {
         item.basis
-        for item in run([record("sale", family="sale", itbis_amount="0")]).fiscal_totals
+        for item in run(
+            [record("sale", family="sale", itbis_amount="0")],
+            ReportFilters(record_families=("sale",)),
+        ).fiscal_totals
     } == {"itbis"}
 
 
@@ -287,7 +289,10 @@ def test_projection_sales_take_export_tax_without_inventing_goods_or_services():
     exported = dict(zip((name for name, _ in SALES_COLUMNS), _row(sale), strict=True))
     assert Decimal(row.itbis_amount) == Decimal(exported["itbis"])
     assert row.dgii_606 is row.goods_amount is row.services_amount is None
-    assert {item.basis for item in run([row]).fiscal_totals} == {"itbis"}
+    assert {
+        item.basis
+        for item in run([row], ReportFilters(record_families=("sale",))).fiscal_totals
+    } == {"itbis"}
 
 
 @pytest.mark.parametrize("field", ["itbis", "goods", "services"])
@@ -395,8 +400,10 @@ def test_itbis_precision_rules_apply_to_both_sales_and_purchases(family, kind):
             counterparty="unsupported",
         ),
     ]
-    all_rows = totals(run(rows))["DOP", kind, "itbis"]
+    all_rows = totals(run(rows, ReportFilters(record_families=(family,))))[
+        "DOP", kind, "itbis"
+    ]
     assert (all_rows.known_amount_minor, all_rows.unsupported_count) == (123, 1)
-    exact = run(rows, ReportFilters(q="exact"))
+    exact = run(rows, ReportFilters(record_families=(family,), q="exact"))
     assert exact.matching_count == 1
     assert totals(exact)["DOP", kind, "itbis"].amount_minor == 123

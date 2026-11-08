@@ -16,7 +16,7 @@ import { REPORT_DOCUMENT_KINDS, recordsCurrencySchema, type DgiiChoice } from "@
 import styles from "./records-filter-preview.module.css";
 
 export type ReportFilterCatalogues = { counterparties: { key: string; labels: string[] }[]; expense_types: DgiiChoice[]; funding_sources: { key: string; label: string | null; kind: string | null }[] };
-type Kind = RecordKind | "all";
+type Kind = RecordKind;
 type EditorGroup = FilterGroup | "record";
 const EDITOR_GROUPS: readonly EditorGroup[] = ["record", ...FILTER_GROUPS];
 const ICONS: Record<EditorGroup, LucideIcon> = { record: FileText, review: CheckCheck, attachment: Paperclip, amount: Banknote, counterparty: Users, expense_type: Tag, account: Building2, document: FileText, fiscal: ReceiptText };
@@ -25,16 +25,16 @@ const ACCOUNTS = ["checking", "card", "owner"];
 /** The tipo de gasto choices: every type the records carry, then `missing` for a purchase that still needs one. */
 const expenseTypeValues = (types: readonly DgiiChoice[]) => [...types.map((choice) => choice.code), "missing"];
 
-function FilterEditor({ initial, initialKind, apply, close, phone = false, catalogues, initialGroup = "record" }: { initialGroup?: EditorGroup; catalogues?: ReportFilterCatalogues; phone?: boolean; initial: PreviewFilters; initialKind: Kind; apply: (next: PreviewFilters, kind: Kind, clearSearch?: boolean) => void; close: () => void }) {
+function FilterEditor({ initial, initialKind, apply, close, phone = false, catalogues, initialGroup = "record" }: { initialGroup?: EditorGroup | "filters"; catalogues?: ReportFilterCatalogues; phone?: boolean; initial: PreviewFilters; initialKind: Kind; apply: (next: PreviewFilters, kind: Kind, clearSearch?: boolean) => void; close: () => void }) {
   const { t } = useTransaccionesWords();
   const [draft, setDraft] = useState(initial);
   const [draftKind, setDraftKind] = useState(initialKind);
   const [clearSearch, setClearSearch] = useState(false);
   const [amountInvalid, setAmountInvalid] = useState({ min: false, max: false });
   const [amountReset, setAmountReset] = useState(0);
-  const [group, setGroup] = useState<EditorGroup>(initialGroup);
+  const [group, setGroup] = useState<EditorGroup>(initialGroup === "filters" ? "record" : initialGroup);
   const [query, setQuery] = useState("");
-  const [choosingGroup, setChoosingGroup] = useState(phone && initialGroup !== "amount");
+  const [choosingGroup, setChoosingGroup] = useState(phone && initialGroup === "filters");
   const rail = useRef<HTMLDivElement>(null);
   const back = useRef<HTMLButtonElement>(null);
   const navigated = useRef(false);
@@ -59,13 +59,13 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false, catal
         setGroup(EDITOR_GROUPS[next]); setQuery("");
         event.currentTarget.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
       }}>
-        {EDITOR_GROUPS.map((key) => { const Icon = ICONS[key]; return <button key={key} type="button" data-group={key} role={phone ? undefined : "tab"} tabIndex={phone || group === key ? 0 : -1} aria-selected={phone ? undefined : group === key} className={styles.group} onClick={() => { navigated.current = true; setGroup(key); setQuery(""); setChoosingGroup(false); }}><Icon size={17} aria-hidden="true" /><span>{groupLabel(key)}</span>{(key === "record" ? draftKind !== "all" : activeFilterGroups(draft).includes(key)) ? <span aria-hidden="true" className={styles.count}>•</span> : null}{phone ? <ChevronRight size={16} aria-hidden="true" /> : null}</button>; })}
+        {EDITOR_GROUPS.map((key) => { const Icon = ICONS[key]; return <button key={key} type="button" data-group={key} role={phone ? undefined : "tab"} tabIndex={phone || group === key ? 0 : -1} aria-selected={phone ? undefined : group === key} className={styles.group} onClick={() => { navigated.current = true; setGroup(key); setQuery(""); setChoosingGroup(false); }}><Icon size={17} aria-hidden="true" /><span>{groupLabel(key)}</span>{(key === "record" || activeFilterGroups(draft).includes(key)) ? <span aria-hidden="true" className={styles.count}>•</span> : null}{phone ? <ChevronRight size={16} aria-hidden="true" /> : null}</button>; })}
       </div> : null}
       {!phone || !choosingGroup ? <section className={styles.editor} role={phone ? undefined : "tabpanel"} aria-label={groupLabel(group)}>
         {phone ? <button ref={back} type="button" className={styles.clear} onClick={() => setChoosingGroup(true)}><ArrowLeft size={18} aria-hidden="true" />{word("back")}</button> : null}
         <h3 className={styles.heading}>{groupLabel(group)}</h3>
         {searchable ? <input type="search" className={`${styles.input} ${styles.search}`} aria-label={word("search")} placeholder={word("search")} value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
-        {group === "record" ? <>{(["all", "gasto", "venta"] as const).map((kind) => <label key={kind} className={styles.choice}><input type="radio" name="preview-record-kind" checked={!(draft.recordFamilies && draft.recordFamilies.length > 1) && draftKind === kind} onChange={() => { setDraftKind(kind); setDraft({ ...draft, recordFamilies: undefined }); }} /><span>{kind === "all" ? t("business.transactions.layout.all_types") : t(`business.transactions.records.detail.${kind}`)}</span></label>)}</> : null}
+        {group === "record" ? <div className={styles.currencies} role="radiogroup" aria-label={word("record")}>{(["gasto", "venta"] as const).map((kind) => <label key={kind} className={`${styles.currency} flex cursor-pointer items-center focus-within:outline focus-within:outline-2 focus-within:outline-[var(--cuadrao-green)]`} aria-pressed={draftKind === kind}><input className="sr-only" type="radio" name="preview-record-kind" value={kind} checked={draftKind === kind} onChange={() => setDraftKind(kind)} /><span>{t(`business.transactions.layout.overview.${kind === "venta" ? "sales" : "purchases"}`)}</span></label>)}</div> : null}
         {group === "review" ? selection("review", [...REVIEW_FILTERS]) : null}
         {group === "attachment" ? <>{(["any", "with", "without"] as const).map((value) => <label key={value} className={styles.choice}><input type="radio" name="preview-attachment" checked={draft.attachment === value} onChange={() => setDraft({ ...draft, attachment: value })} /><span>{word(`attachment.${value}`)}</span></label>)}<p className={styles.hint}>{word("attachment.hint")}</p></> : null}
         {group === "amount" ? <>
@@ -81,14 +81,14 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false, catal
         {group === "fiscal" ? selection("fiscal", ["b01", "b02", "e31", "e32"]) : null}
       </section> : null}
     </div>;
-  const footer = <div className={phone ? `${styles.footer} ${styles.phoneFooter}` : styles.footer}><button type="button" className={styles.clear} onClick={() => { setDraft(emptyPreviewFilters(draft.amount.currency)); setDraftKind("all"); setClearSearch(true); setAmountInvalid({ min: false, max: false }); setAmountReset((value) => value + 1); }}>{t("business.transactions.layout.clear")}</button><button type="button" className={styles.apply} disabled={amountInvalid.min || amountInvalid.max || !validPreviewAmount(draft.amount)} onClick={() => { apply(draft, draftKind, clearSearch); close(); }}>{word("apply")}</button></div>;
+  const footer = <div className={phone ? `${styles.footer} ${styles.phoneFooter}` : styles.footer}><button type="button" className={styles.clear} onClick={() => { setDraft(emptyPreviewFilters(draft.amount.currency)); setClearSearch(true); setAmountInvalid({ min: false, max: false }); setAmountReset((value) => value + 1); }}>{t("business.transactions.layout.clear")}</button><button type="button" className={styles.apply} disabled={amountInvalid.min || amountInvalid.max || !validPreviewAmount(draft.amount)} onClick={() => { apply(draft, draftKind, clearSearch); close(); }}>{word("apply")}</button></div>;
   return phone ? <BottomSheet isOpen onClose={close} title={word("title")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen footer={footer}>{body}</BottomSheet> : <>{body}{footer}</>;
 }
 
 export default function RecordsFiltersPreview({ options, value: filters, kind, onChange, catalogues, hasSearch = false }: { hasSearch?: boolean; catalogues?: ReportFilterCatalogues; options: ReactNode; value: PreviewFilters; kind: Kind; onChange: (next: PreviewFilters, kind: Kind, clearSearch?: boolean) => void }) {
   const { t } = useTransaccionesWords();
   const { isBelowDesktop: phone } = useResponsiveLayout();
-  const [editor, setEditor] = useState<"record" | "amount" | null>(null);
+  const [editor, setEditor] = useState<"record" | "amount" | "filters" | null>(null);
   const open = editor !== null;
   const panel = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
@@ -101,7 +101,7 @@ export default function RecordsFiltersPreview({ options, value: filters, kind, o
     const top = Math.min(rect.bottom + 8, Math.max(16, window.innerHeight - 336));
     setPosition({ left: Math.max(16, Math.min(rect.left, window.innerWidth - width - 16)), top, width, maxHeight: window.innerHeight - top - 16 });
   }, []);
-  const openEditor = (button: HTMLButtonElement, group: "record" | "amount") => {
+  const openEditor = (button: HTMLButtonElement, group: "record" | "amount" | "filters") => {
     if (editor === group && opener.current === button) { close(); return; }
     opener.current = button; place(); setEditor(group);
   };
@@ -120,8 +120,7 @@ export default function RecordsFiltersPreview({ options, value: filters, kind, o
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
   const active = activeFilterGroups(filters);
   const canClear = hasSearch || Boolean(filters.amount.min || filters.amount.max) || active.some((group) => group !== "amount");
-  const recordActive = kind !== "all" || Boolean(filters.recordFamilies?.length);
-  const recordLabel = filters.recordFamilies?.length === 2 ? filters.recordFamilies.map((family) => t(`business.transactions.records.detail.${family === "sale" ? "venta" : "gasto"}`)).join(" · ") : t(`business.transactions.records.detail.${kind}`);
+  const recordLabel = t(`business.transactions.layout.overview.${kind === "venta" ? "sales" : "purchases"}`);
   const chipLabel = (group: FilterGroup) => group === "amount" && !filters.amount.min && !filters.amount.max ? word("currency") : group === "expense_type" ? t("business.dossier.placeholder.expense_type") : word(`groups.${group}`);
   const expenseTypes = catalogues?.expense_types ?? SAMPLE_EXPENSE_TYPES;
   const valueLabel = (group: FilterGroup) => {
@@ -130,9 +129,9 @@ export default function RecordsFiltersPreview({ options, value: filters, kind, o
     return filters[group].map((value) => value === "unknown" ? t("business.transactions.unknown") : value === "no_comprobante" ? t("business.marks.sin_comprobante_chip") : value === "owner_funds" ? t("business.dossier.owner_funds") : group === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels.join(" / ") ?? value : group === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : group === "expense_type" ? value === "missing" ? t("business.dossier.standing.missing") : expenseTypes.find((choice) => choice.code === value)?.label ?? value : group === "review" ? t(`business.transactions.layout.overview.${value}.title`) : t(`business.transactions.layout.filters.${group}.${value}`, { defaultValue: value.toUpperCase() })).join(", ");
   };
   return <>
-    <button type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={(event) => openEditor(event.currentTarget, "record")}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span><span className={styles.count}>{active.length + (recordActive ? 1 : 0)}</span><ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
+    <button type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={(event) => openEditor(event.currentTarget, "filters")}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span><span className={styles.count}>{active.length + 1}</span><ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
     {editor !== null ? phone ? <FilterEditor key={editor} catalogues={catalogues} phone initialGroup={editor} initial={filters} initialKind={kind} apply={setFilters} close={close} /> : createPortal(<div ref={panel} role="dialog" aria-label={word("title")} className={styles.popover} style={position}><FilterEditor key={editor} catalogues={catalogues} initialGroup={editor} initial={filters} initialKind={kind} apply={setFilters} close={close} /></div>, document.body) : null}
     <div className={styles.toolbarOptions}>{options}</div>
-    {active.length || recordActive ? <div className={styles.chips} data-testid="records-preview-filter-chips">{recordActive ? <button type="button" className={styles.chip} aria-label={word("remove") + " " + word("record")} onClick={() => setFilters({ ...filters, recordFamilies: [] }, "all")}><span>{word("record")} · {recordLabel}</span><X size={14} aria-hidden="true" /></button> : null}{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={group === "amount" ? undefined : word("remove") + " " + chipLabel(group)} aria-haspopup={group === "amount" ? "dialog" : undefined} onClick={(event) => group === "amount" ? openEditor(event.currentTarget, "amount") : setFilters({ ...filters, [group]: emptyPreviewFilters(filters.amount.currency)[group] })}><span>{chipLabel(group)} · {valueLabel(group)}</span>{group !== "amount" ? <X size={14} aria-hidden="true" /> : null}</button>)}{canClear || recordActive ? <button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(filters.amount.currency), "all", true)}>{t("business.transactions.layout.clear")}</button> : null}</div> : null}
+    <div className={styles.chips} data-testid="records-preview-filter-chips"><button type="button" className={styles.chip} aria-haspopup="dialog" onClick={(event) => openEditor(event.currentTarget, "record")}><span>{word("record")} · {recordLabel}</span></button>{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={group === "amount" ? undefined : word("remove") + " " + chipLabel(group)} aria-haspopup={group === "amount" ? "dialog" : undefined} onClick={(event) => group === "amount" ? openEditor(event.currentTarget, "amount") : setFilters({ ...filters, [group]: emptyPreviewFilters(filters.amount.currency)[group] })}><span>{chipLabel(group)} · {valueLabel(group)}</span>{group !== "amount" ? <X size={14} aria-hidden="true" /> : null}</button>)}{canClear ? <button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(filters.amount.currency), kind, true)}>{t("business.transactions.layout.clear")}</button> : null}</div>
   </>;
 }

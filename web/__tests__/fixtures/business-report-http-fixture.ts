@@ -59,7 +59,7 @@ export function createBusinessReportHttpFixture() {
       if (controls.reportUnavailable) return problem(503, "business_report_unavailable");
       const report = reportRequestSchema.parse(body);
       let matching = records.filter((row) => !report.filters.q || text(`${row.counterparty} ${row.note} ${row.attachment_sources?.map((source) => source.filename).join(" ")}`).includes(text(report.filters.q)));
-      if (report.filters.record_families.length) matching = matching.filter((row) => row.family && report.filters.record_families.includes(row.family));
+      matching = matching.filter((row) => row.family === report.filters.record_families[0]);
       if (report.filters.review_stages.length) matching = matching.filter((row) => row.stage && report.filters.review_stages.includes(row.stage));
       if (report.filters.currencies.length) matching = matching.filter((row) => row.currency && report.filters.currencies.includes(row.currency));
       if (report.filters.expense_types.length) matching = matching.filter((row) => row.dgii_606 && report.filters.expense_types.includes(row.dgii_606.expense_type?.code ?? "missing"));

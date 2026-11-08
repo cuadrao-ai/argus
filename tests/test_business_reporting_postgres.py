@@ -427,7 +427,9 @@ def test_sale_issuer_identity_is_never_a_customer_key(actions):
             "update public.spaces set business_rnc=%s where id=%s",
             (issuer, context.actor.space_id),
         )
-    answer = read_report(service.authority, context, ReportRequest())
+    answer = read_report(
+        service.authority, context, ReportRequest(filters={"record_families": ["sale"]})
+    )
     [row] = answer.items
     assert row.family == "sale"
     assert row.counterparty_key is None
@@ -436,7 +438,9 @@ def test_sale_issuer_identity_is_never_a_customer_key(actions):
         read_report(
             service.authority,
             context,
-            ReportRequest(filters={"counterparties": [issuer]}),
+            ReportRequest(
+                filters={"record_families": ["sale"], "counterparties": [issuer]}
+            ),
         ).matching_count
         == 0
     )
@@ -684,7 +688,12 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
         expense_type=None, payment_form=None
     )
     assert rows[str(personal)].dgii_606 is None
-    assert rows[str(sale.draft_id)].dgii_606 is None
+    sales = read_report(
+        service.authority, context, ReportRequest(filters={"record_families": ["sale"]})
+    )
+    [sale_row] = sales.items
+    assert sale_row.draft_id == str(sale.draft_id)
+    assert sale_row.dgii_606 is None
 
     # A tipo de gasto chosen on the recorded record shows in the next read.
     later = service.review(

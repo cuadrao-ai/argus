@@ -11,10 +11,10 @@ import type { SettlementCurrency, SettlementSummary } from "./records-results-pr
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-results-preview.module.css";
 
-export const PURCHASE_TOTAL_ID = "records-purchase-total";
+export const RECORDS_TOTAL_ID = "records-total";
 
-export default function RecordsResultsSummary({ answer }: { answer?: ReportAnswer }) {
-  return <RecordsSummaryCards summary={reportSummary(answer, "gasto")} kind="gasto" />;
+export default function RecordsResultsSummary({ answer, kind }: { answer?: ReportAnswer; kind: RecordRow["kind"] }) {
+  return <RecordsSummaryCards summary={reportSummary(answer, kind)} kind={kind} />;
 }
 
 const METRICS = [
@@ -36,7 +36,7 @@ export function RecordsSummaryCards({ summary, kind }: { summary: SettlementSumm
   const code = (currency: SettlementCurrency) => currency.currency || word("no_currency");
   const currency = summary.currencies[0];
   const exclusions = (["unconfirmed", "personal", "unavailable"] as const).filter((reason) => summary.exclusions[reason] > 0).map((reason) => t(`business.transactions.layout.results.${reason}`, { count: summary.exclusions[reason] }));
-  return <section id={PURCHASE_TOTAL_ID} className={styles.summary} aria-label={word("title")} data-testid="records-results-summary" data-summary-kind={kind}>
+  return <section id={RECORDS_TOTAL_ID} className={styles.summary} aria-label={word("title")} data-testid="records-results-summary" data-summary-kind={kind}>
     <dl className={styles.cards}>{PILOT_METRICS.map((metric, index) => <div key={metric.key} className={styles.metric} data-summary-part={index} data-tone={metric.key}>
       <dt className={styles.heading}><metric.icon size={19} strokeWidth={1.6} aria-hidden="true" /><span>{label(metric)}</span>
         {index === 0 && exclusions.length ? <details className={styles.exclusions} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>

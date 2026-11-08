@@ -76,7 +76,7 @@ class Period(Contract):
 class ReportFilters(Contract):
     q: str = Field(default="", max_length=200)
     period: Period = Period()
-    record_families: tuple[Family, ...] = ()
+    record_families: tuple[Family] = ("purchase",)
     review_stages: tuple[Stage, ...] = ()
     has_document: bool | None = None
     currencies: tuple[str, ...] = Field(default=(), max_length=200)
@@ -89,6 +89,18 @@ class ReportFilters(Contract):
     funding_sources: tuple[str, ...] = Field(default=(), max_length=200)
     document_kinds: tuple[DocumentKind, ...] = ()
     fiscal_classifications: tuple[str, ...] = Field(default=(), max_length=100)
+
+    @field_validator("record_families", mode="before")
+    @classmethod
+    def single_record_family(cls, value: Any) -> Any:
+        if isinstance(value, (list, tuple)) and (
+            not value
+            or len(value) == 2
+            and value[0] != value[1]
+            and all(item in ("sale", "purchase") for item in value)
+        ):
+            return ("purchase",)
+        return value
 
     @field_validator("review_stages", mode="before")
     @classmethod

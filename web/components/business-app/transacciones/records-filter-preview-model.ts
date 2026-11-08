@@ -19,7 +19,6 @@ export type PreviewFilters = {
   review: ReviewFilter[];
   attachment: "any" | "with" | "without";
   amount: { currency: RecordsCurrency; min: string; max: string };
-  recordFamilies?: ("sale" | "purchase")[];
   counterparty: string[];
   /** 606 tipo de gasto codes, or `missing` for a purchase that still needs one. */
   expense_type: string[];

@@ -18,6 +18,7 @@ def row(identifier, **fields):
         date_basis="document_issue",
         currency="DOP",
         gross_amount="10.00",
+        family="purchase",
         **fields,
     )
 

@@ -1482,7 +1482,7 @@ Keep the existing compact content width. Show six separate, equal summary cards
 in two rows of three: Total, ITBIS and Cantidad in the first row; Bienes,
 Servicios and Faltan datos fiscales in the second. Below them, keep the existing
 filters, active filter chips and column picker. Follow those controls with the
-Compras document-total subcard when Total is open, then the table. Payment
+selected type document-total subcard when Total is open, then the table. Payment
 subcards stay hidden for the pilot.
 
 Every card places its icon at the top left, metric label at the top right, large
@@ -1507,7 +1507,13 @@ target.
 ITBIS, Cantidad, Bienes, and Servicios are static: no card click, pointer cursor,
 or card-level tab stop. The currency filter is a radio group with DOP, USD and EUR. Exactly one is
 selected. Its chip always shows and opens the currency editor; it has no remove
-action. Clear filters keeps the currency and clears the other filters and search.
+action. The record type filter uses the same radio control with Compras and Ventas,
+with Compras selected by default and no Todos option. Its chip always shows,
+opens the type editor and has no remove action. Clear filters keeps the type and
+currency and clears the other filters and search. The table, all six cards and
+expanded Total follow the selected type. Ventas uses the existing server values;
+its cards have not had their design round yet. Missing sales Bienes or Servicios
+stay unknown.
 Switching currency clears both amount limits and their validation state.
 
 For money, make fractional digits smaller and raised. Preserve the decimal

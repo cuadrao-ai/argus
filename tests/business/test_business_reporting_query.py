@@ -268,7 +268,10 @@ def test_a_personal_row_counts_only_as_a_purchase_the_accountant_put_in_the_606(
     assert buckets["expense", "recorded_activity_amount"].known_amount_minor == 4500
     assert buckets["expense", "recorded_activity_amount"].matching_count == 2
     assert ("income", "recorded_activity_amount") not in buckets
-    assert result.excluded_personal == ExcludedPersonal(income=1, expense=2)
+    assert result.excluded_personal == ExcludedPersonal(income=0, expense=2)
+    sale = run(rows, ReportFilters(record_families=("sale",)))
+    assert sale.totals == ()
+    assert sale.excluded_personal == ExcludedPersonal(income=1, expense=0)
 
 
 def test_a_personal_open_draft_stays_out_of_the_proposed_total():
@@ -314,7 +317,7 @@ def test_sale_and_validated_credit_have_signed_document_adjustment_not_cash_net(
             adjustment_effect="known",
         ),
     ]
-    result = run(rows)
+    result = run(rows, ReportFilters(record_families=("sale",)))
     buckets = {item.basis: item for item in result.totals}
     assert buckets["document_gross_amount"].amount_minor == 10000
     assert buckets["document_credit_adjustment"].amount_minor == -2000
@@ -323,7 +326,12 @@ def test_sale_and_validated_credit_have_signed_document_adjustment_not_cash_net(
     assert buckets["document_family_amount"].amount_minor == 8000
     assert buckets["recorded_activity_amount"].amount_minor == 12000
     assert (
-        run(rows, ReportFilters(currencies=("DOP",), amount_max="20.00")).matching_count
+        run(
+            rows,
+            ReportFilters(
+                record_families=("sale",), currencies=("DOP",), amount_max="20.00"
+            ),
+        ).matching_count
         == 1
     )
 
@@ -380,10 +388,11 @@ def test_unlinked_credit_makes_its_own_document_family_final_incomplete():
         None,
     )
     assert families["expense"].unknown_count == 1
-    assert (families["income"].amount, families["income"].unknown_count) == (
-        "100.00",
-        0,
+    sale = run(rows, ReportFilters(record_families=("sale",)))
+    income = next(
+        total for total in sale.totals if total.basis == "document_family_amount"
     )
+    assert (income.amount, income.unknown_count) == ("100.00", 0)
 
 
 def test_exact_amount_strings_survive_large_values_and_aggregate_over_bigint():
@@ -410,3 +419,41 @@ def test_exact_amount_strings_survive_large_values_and_aggregate_over_bigint():
         assert first["known_amount"] == first["amount"] == "92233720368547758.07"
         assert combined["amount_minor"] > 2**63 - 1
         assert combined["known_amount"] == combined["amount"] == "92233720368547759.07"
+
+
+@pytest.mark.parametrize("legacy", [(), ("sale", "purchase"), ("purchase", "sale")])
+def test_legacy_all_families_normalize_to_purchase(legacy):
+    assert ReportFilters(record_families=legacy).record_families == ("purchase",)
+
+
+@pytest.mark.parametrize(
+    "invalid", [("unknown",), ("sale", "unknown"), ("sale", "sale"), None, "sale"]
+)
+def test_record_family_rejects_malformed_selection(invalid):
+    with pytest.raises(ValidationError):
+        ReportFilters(record_families=invalid)
+
+
+@pytest.mark.parametrize("family,kind", [("purchase", "expense"), ("sale", "income")])
+def test_single_family_scopes_rows_money_and_fiscal_count_but_not_period_counts(
+    family, kind
+):
+    rows = [
+        record("purchase", stage="needs_fiscal_data"),
+        record("sale", family="sale", money_kind="income", stage="needs_fiscal_data"),
+        record(
+            "exported-sale",
+            family="sale",
+            money_kind="income",
+            stage="exported",
+            export_line=True,
+        ),
+        record("ready-purchase", stage="ready_for_export"),
+    ]
+    answer = run(rows, ReportFilters(record_families=(family,)))
+    assert all(row.family == family for row in answer.items)
+    assert answer.matching_count == 2
+    assert {total.kind for total in answer.totals} == {kind}
+    assert answer.overview.needs_fiscal_data == 1
+    assert answer.overview.exported == answer.overview.ready_for_export == 1
+    assert answer.overview.export_lines == 1

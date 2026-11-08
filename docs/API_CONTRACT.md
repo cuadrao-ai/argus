@@ -11222,8 +11222,11 @@ accept path recorded.
   characters) across the appropriate approved/current counterparty label,
   canonical note, explicit counterparty tax identity and NCF/e-CF only. Original
   text, private messages and OCR are not searched. Structured groups combine with
-  AND; each multiselect combines with OR: `record_families` (`sale`, `purchase`),
-  `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
+  AND. `record_families` always contains exactly one of `purchase` or `sale`,
+  defaulting to `["purchase"]`. Old empty selections or the two known families
+  normalize to `["purchase"]`; malformed or unknown values are rejected.
+  This selection scopes the table, all six cards, expanded Total and export.
+  The remaining multiselects combine with OR: `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
   `exported`),
   `currencies`, `counterparties`, `categories`, `expense_types`, `funding_sources`,
   `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`; the projection
