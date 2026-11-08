@@ -1,5 +1,7 @@
 "use client";
 
+import BusinessListTabs from "../foundation/BusinessListTabs";
+
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
@@ -77,7 +79,6 @@ function ReceptionWorkspace() {
   const chooseTab = (next: ReceptionView) => { setView(next); setSelectedIds([]); setPage(1); };
   const applyFilters = (next: ReceptionFiltersValue) => { setFilters(next); setSelectedIds([]); setPage(1); };
   const [query, setQuery] = useState(returnPosition?.query ?? "");
-  const tabs = useRef<HTMLDivElement>(null);
   const [preferences, setPreferences] = useState(() => returnPosition?.preferences ?? defaultReceptionPreferences());
   // The poll hands over a new array every tick; re-read the full list only when what it carries changed.
   const inboxContent = useMemo(() => JSON.stringify(records.inbox), [records.inbox]);
@@ -180,18 +181,7 @@ function ReceptionWorkspace() {
     <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-source={preferences.source || preferences.sender} data-arrival={preferences.arrival} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width, RECORDS_PREVIEW_COLUMNS.find(column => column.key === "moneda")!.width!), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {inPanel ? <div className={styles.phoneHeading}><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       <div className={styles.topline}>
-        <div ref={tabs} className={styles.tabs} role="tablist" aria-label={word("views")} onKeyDown={event => {
-          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-          event.preventDefault();
-          const index = VIEWS.indexOf(view);
-          const next = event.key === "Home" ? 0 : event.key === "End" ? VIEWS.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + VIEWS.length) % VIEWS.length;
-          chooseTab(VIEWS[next]);
-          tabs.current?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
-        }}>
-          {VIEWS.map(value => <button key={value} id={`reception-tab-${value}`} type="button" role="tab" aria-selected={view === value} aria-controls="reception-list" tabIndex={view === value ? 0 : -1} onClick={() => chooseTab(value)}>
-            {word(VIEW_WORD[value])}{value === "attention" || value === "listos" ? <span className={styles.count} data-testid={`reception-count-${value}`}>{pending || failed ? "-" : counts[value] ?? "-"}</span> : null}
-          </button>)}
-        </div>
+        <BusinessListTabs label={word("views")} idPrefix="reception-tab" controls="reception-list" value={view} onChange={chooseTab} items={VIEWS.map(value => ({ value, label: <>{word(VIEW_WORD[value])}{value === "attention" || value === "listos" ? <span className={styles.count} data-testid={`reception-count-${value}`}>{pending || failed ? "-" : counts[value] ?? "-"}</span> : null}</> }))} />
       </div>
       <div className={styles.toolbar} data-selecting={selected.length > 0}>
         {searchInBar ? null : <ReceptionSearch value={query} onChange={searchQuery} />}

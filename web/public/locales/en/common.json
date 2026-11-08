@@ -2612,7 +2612,7 @@
           },
           "groups": {
             "account": "Account",
-            "amount": "Currency and amount",
+            "amount": "Amount",
             "attachment": "Attachment",
             "category": "Category",
             "counterparty": "Counterparty",

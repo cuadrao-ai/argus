@@ -17,7 +17,7 @@ import RecordsDatePreview from "./RecordsDatePreview";
 import { useRecordsSearchShortcut } from "./useRecordsSearchShortcut";
 import { barSearchAvailable, useLendListSearch } from "../foundation/list-search";
 import RecordsFiltersPreview, { type ReportFilterCatalogues } from "./RecordsFiltersPreview";
-import type { ReportPeriod } from "@/lib/business-reports-api";
+import { recordsCurrencySchema, type ReportPeriod } from "@/lib/business-reports-api";
 import type { PreviewFilters } from "./records-filter-preview-model";
 import { RecordsViewsPreview, type ConnectedReportViews, type SavedRecordsView, type RecordsViewSelection } from "./RecordsViewsPreview";
 
@@ -79,7 +79,7 @@ function PeriodChoices({ period, setPeriod, close }: { period: Period; setPeriod
   </>;
 }
 
-export type ConnectedRecordsToolbar = { reportPeriod: ReportPeriod; catalogues?: ReportFilterCatalogues; applyFilters: (filters: PreviewFilters, kind: RecordsFilter["kind"], clearSearch?: boolean) => void; views: ConnectedReportViews };
+export type ConnectedRecordsToolbar = { reportPeriod: ReportPeriod; catalogues?: ReportFilterCatalogues; applyFilters: (filters: PreviewFilters) => void; views: ConnectedReportViews };
 
 export function RecordsToolbar({ connected, filter, onChange, period, setPeriod, options, onPreviewChange, onViewRestore, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { connected?: ConnectedRecordsToolbar; appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters: PreviewFilters; onFiltersChange: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; onViewRestore?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
   const { t } = useTransaccionesWords();
@@ -108,7 +108,7 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
     setPreviewFilters(selection.filters);
     if (selection.preferences) onPreferencesChange?.(selection.preferences);
   };
-  const kindName = (kind: RecordsFilter["kind"]) => t(`business.transactions.layout.overview.${kind === "venta" ? "sales" : "purchases"}`);
+  const applyFilters = (next: PreviewFilters) => { if (connected) connected.applyFilters(next); else { setPreviewFilters(next); onPreviewChange?.(); } };
   return <div className={styles.toolbarContainer}><div data-testid="records-toolbar" className={`${styles.toolbar} mb-4 flex flex-wrap items-center gap-2`}>
     {preview ? <RecordsViewsPreview connected={connected?.views} views={views} select={restoreView} save={(name) => setViews((current) => [...current, { name, selection: structuredClone({ record: filter, period: previewPeriod, filters: previewFilters, preferences }) }])} /> : null}
     {searchInBar ? null : (
@@ -120,10 +120,10 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
     {datePreview ? <RecordsDatePreview reportPeriod={connected?.reportPeriod} period={period} value={previewPeriod} onChange={(next) => { setPreviewPeriod(next); onPreviewChange?.(); }} /> : <ToolbarPicker label={t("business.period.label")} value={periodName(period)} icon={<CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />} wide>
       {(close) => <PeriodChoices period={period} setPeriod={setPeriod} close={close} />}
     </ToolbarPicker>}
-    {!datePreview ? <ToolbarPicker label={t("business.transactions.layout.type")} value={kindName(filter.kind)}>
-      {(close) => <div>{(["gasto", "venta"] as const).map((kind) => <button key={kind} type="button" className={optionClass} onClick={() => { onChange({ ...filter, kind }); close(); }}>{kindName(kind)}{filter.kind === kind ? <Check className="h-4 w-4" aria-hidden="true" /> : null}</button>)}</div>}
-    </ToolbarPicker> : null}
-    {datePreview ? <RecordsFiltersPreview hasSearch={Boolean(filter.query)} catalogues={connected?.catalogues} options={options} value={previewFilters} kind={filter.kind} onChange={(next, kind, clearSearch) => { if (connected) connected.applyFilters(next, kind, clearSearch); else { setPreviewFilters(next); onChange({ ...filter, kind, query: clearSearch ? "" : filter.query }); onPreviewChange?.(); } }} /> : <div className="ml-auto flex items-center gap-3">{options}</div>}
+    <ToolbarPicker label={t("business.transactions.layout.filters.currency")} value={previewFilters.amount.currency}>
+      {(close) => <div>{recordsCurrencySchema.options.map((currency) => <button key={currency} type="button" className={optionClass} onClick={() => { if (currency !== previewFilters.amount.currency) applyFilters({ ...previewFilters, amount: { currency, min: "", max: "" } }); close(); }}>{currency}{previewFilters.amount.currency === currency ? <Check className="h-4 w-4" aria-hidden="true" /> : null}</button>)}</div>}
+    </ToolbarPicker>
+    {datePreview ? <RecordsFiltersPreview catalogues={connected?.catalogues} options={options} value={previewFilters} onChange={applyFilters} /> : <div className="ml-auto flex items-center gap-3">{options}</div>}
     {filter.query && !searchInBar ? <div className="flex w-full items-center gap-2 pt-1">
       <button type="button" onClick={() => onChange({ ...filter, query: "" })} className="flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[13px] text-[#56635e] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white/65 dark:hover:bg-white/5"><X className="h-3.5 w-3.5" aria-hidden="true" />{t(datePreview ? "business.transactions.layout.clear_search" : "business.transactions.layout.clear")}</button>
     </div> : null}

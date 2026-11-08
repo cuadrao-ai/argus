@@ -147,15 +147,7 @@ async function mount({ enabled = true, width = 1440, language = "es-419", transa
 }
 
 async function chooseRecordKind(page: Awaited<ReturnType<typeof mount>>, kind: "gasto" | "venta") {
-  const picker = document.querySelector<HTMLButtonElement>('button[aria-label^="Tipo:"]');
-  if (picker) {
-    await page.click(picker);
-    await page.click([...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent === (kind === "venta" ? "Ventas" : "Compras"))!);
-  } else {
-    await page.click([...document.querySelectorAll('[data-testid="records-preview-filter-chips"] button')].find((button) => button.textContent?.startsWith("Registro"))!);
-    await page.click(document.querySelector(`input[name="preview-record-kind"][value="${kind}"]`));
-    await page.click([...document.querySelectorAll("button")].find((button) => button.textContent === "Aplicar")!);
-  }
+  await page.click(document.querySelector(`#records-type-${kind}`));
 }
 
 const EMPTY_OVERVIEW = { from: "2026-10-01", to: "2026-10-20", today: "2026-10-20", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null };
@@ -374,9 +366,7 @@ describe("the gate", () => {
       assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]')!.textContent, "RD$");
       assert.ok(amount.querySelector(".cuadrao-amount"), "document amount respects privacy masking");
       assert.equal(page.records()[0].querySelector('[data-col="detalle"]')!.textContent, "Compra");
-      await page.click([...document.querySelectorAll("button")].find((node) => node.textContent?.startsWith("Filtros"))!);
-      await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Compras")!);
-      await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
+      await chooseRecordKind(page, "gasto");
       assert.equal(page.records().length, 2);
       assert.equal(summary(), null, "family filter reveals no subcards");
       const total = document.querySelector<HTMLButtonElement>('[data-overview-card="total"] button[aria-controls]')!;
@@ -429,8 +419,7 @@ describe("the gate", () => {
     const total = page.records().length;
     const summary = document.querySelector('[data-testid="transacciones-summary"]')!.textContent;
     const toolbar = document.querySelector('[data-testid="records-toolbar"]')!;
-    await page.click([...toolbar.querySelectorAll("button")].find((button) => button.getAttribute("aria-label")?.startsWith("Tipo:"))!);
-    await page.click([...toolbar.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent === "Ventas")!);
+    await chooseRecordKind(page, "venta");
     assert.ok(page.records().length > 0);
     assert.ok(page.records().every((row) => row.dataset.kind === "venta"));
     assert.equal(document.querySelector('[data-testid="transacciones-summary"]')!.textContent, summary);
@@ -1021,12 +1010,12 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     await page.settle(() => page.records().length === 2, "loaded purchase default-currency records");
     const es = language === "es-419";
     const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
-    const chooseUsd = () => page.click(document.querySelector('input[name="records-currency"][value="USD"]'));
+    const chooseUsd = async () => { await page.click(document.querySelector(`button[aria-label^="${es ? "Moneda" : "Currency"}:"]`)); await clickText("USD"); };
     const open = async () => {
       await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
       await page.click(document.querySelector('[data-group="amount"]'));
     };
-    await open(); await chooseUsd(); await clickText(es ? "Aplicar" : "Apply");
+    await chooseUsd();
     assert.equal(page.records().length, 1);
     const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
     assert.match(footer().textContent ?? "", es ? /1–1 de 1/ : /1–1 of 1/);
@@ -1034,8 +1023,8 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null, "currency alone does not create a mixed summary");
     const removeCurrency = es ? "Quitar filtro Moneda" : "Remove filter Currency";
     assert.equal(document.querySelector(`button[aria-label="${removeCurrency}"]`), null);
-    assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')!.textContent!, /USD/);
-    await open(); await chooseUsd();
+    assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
+    await open();
     const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
     await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, "25"); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
     await clickText(es ? "Aplicar" : "Apply");
@@ -1050,7 +1039,7 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     const clear = clears.at(-1)!;
     await page.click(clear);
     assert.equal(page.records().length, 1, "empty-result clear keeps currency and clears amount limits");
-    assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')!.textContent!, /USD/);
+    assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
@@ -1144,9 +1133,8 @@ test("amount sort stays available when changing the single currency", async () =
     const amountButton = document.querySelector('th[data-col="monto"] button')!;
     assert.notEqual(amountButton.getAttribute("aria-disabled"), "true");
     await page.click(amountButton);
-    await page.click([...document.querySelectorAll('[data-testid="records-preview-filter-chips"] button')].find((button) => button.textContent?.startsWith("Moneda"))!);
-    await page.click(document.querySelector('input[name="records-currency"][value="USD"]'));
-    await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
+    await page.click(document.querySelector('button[aria-label^="Moneda:"]'));
+    await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "USD")!);
     assert.equal(page.records().length, 2);
     assert.equal(page.records()[0].dataset.recordId, "usd-large");
     assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), "descending");

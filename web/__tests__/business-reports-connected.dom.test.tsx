@@ -483,21 +483,21 @@ const sentFilters = (page: Awaited<ReturnType<typeof mount>>) => page.fixture.ca
 const addressFilters = () => restoreReportLocation(new URL(window.location.href).searchParams).request.filters;
 const pause = (ms: number) => act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)); });
 
-test("a phone Filtros choice holds after its sheet closes, and back still undoes it", async () => {
+test("a phone optional filter holds after its sheet closes, and back still undoes it", async () => {
   const page = await mount({ width: 390 });
   const before = sentFilters(page).length;
   await page.click(page.button("Filtros"));
-  await page.click(document.querySelector('[role="dialog"] [data-group="record"]'));
-  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="radio"]')].find((radio) => radio.parentElement?.textContent === "Ventas"));
+  await page.click(document.querySelector('[role="dialog"] [data-group="attachment"]'));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="radio"]')].find((radio) => radio.parentElement?.textContent === "Sin documento"));
   await page.click(page.button("Aplicar"));
   await page.settle(() => document.querySelector('[role="dialog"]') === null && document.querySelector('[data-testid="records-count"]') !== null);
   await pause(200);
-  assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.record_families), [["sale"]]);
-  assert.deepEqual(addressFilters().record_families, ["sale"]);
-  assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Ventas/);
+  assert.deepEqual(sentFilters(page).slice(before).map((filters) => filters.has_document), [false]);
+  assert.equal(addressFilters().has_document, false);
+  assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Sin documento/);
   assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
   await act(async () => window.history.back());
-  await page.settle(() => !document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent?.includes("Ventas"));
+  await page.settle(() => sentFilters(page).at(-1)?.has_document === null);
   assert.deepEqual(sentFilters(page).at(-1)!.record_families, ["purchase"]);
 });
 
@@ -547,9 +547,7 @@ test("chosen purchase columns use the server's name, missing word and a dash for
   assert.equal(cell(3, "forma_pago")?.textContent, "Efectivo");
   const request = restoreReportLocation(new URL(window.location.href).searchParams).request;
   assert.deepEqual(request.schema_version === 2 ? request.presentation?.hidden : null, ["funding"], "the chosen columns travel with the saved presentation");
-  await page.click([...document.querySelectorAll('[data-testid="records-preview-filter-chips"] button')].find((button) => button.textContent?.startsWith("Registro")));
-  await page.click(document.querySelector('input[name="preview-record-kind"][value="venta"]'));
-  await page.click(page.button("Aplicar"));
+  await page.click(document.querySelector('#records-type-venta'));
   await page.settle(() => cell(2, "tipo_gasto") !== null);
   assert.equal(cell(2, "tipo_gasto")?.querySelector(".sr-only")?.textContent, "No aplica");
   assert.equal(cell(2, "forma_pago")?.querySelector(".sr-only")?.textContent, "No aplica");
@@ -645,7 +643,7 @@ test("an old categories filter from a saved view or URL is dropped, never sent, 
   const page = await mount();
   assert.ok(sentFilters(page).every((filters) => filters.categories.length === 0), "no request carries the stale filter");
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
-  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "Registro · ComprasMoneda · DOP");
+  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
   assert.equal(document.querySelector("[data-empty-kind]"), null);
 });
 
@@ -939,10 +937,8 @@ function currencyCardAnswer(request: ReportRequest, answer: ReportAnswer): Repor
 for (const family of ["purchase", "sale"] as const) for (const sample of currencyCardCases) test(`${family} ${sample.currency} keeps cards, table and expanded Total together across pages and Clear`, async () => {
   const initial = reportRequestSchema.parse({ schema_version: 2, filters: { q: "Proveedor", period: { kind: "all" }, record_families: [family], has_document: true, counterparties: ["101001577"], expense_types: ["02"], funding_sources: ["cash"], document_kinds: ["unknown"], fiscal_classifications: ["B01"] } });
   const page = await mount({ initial, queryAnswer: currencyCardAnswer });
-  await page.click([...document.querySelectorAll("button")].find((button) => button.textContent?.startsWith("Filtros")));
-  await page.click(document.querySelector('[data-group="amount"]'));
-  await page.click(document.querySelector(`input[name="records-currency"][value="${sample.currency}"]`));
-  await page.click(page.button("Aplicar"));
+  await page.click(document.querySelector('button[aria-label^="Moneda:"]'));
+  await page.click(page.button(sample.currency));
   await page.settle(() => fiscalCount() === String(sample.fiscal));
   assert.deepEqual(sentFilters(page).at(-1), { ...initial.filters, currencies: [sample.currency] });
   assert.deepEqual(shelfMoney(), family === "purchase" ? [...sample.shown] : [sample.shown[0], sample.shown[1], null, null]);
@@ -963,7 +959,7 @@ for (const family of ["purchase", "sale"] as const) for (const sample of currenc
   assert.equal(fiscalCount(), String(sample.fiscal));
   assert.equal(document.querySelector('button[aria-label="Quitar filtro Moneda"]'), null);
   await page.click(page.button("Limpiar filtros"));
-  await page.settle(() => sentFilters(page).at(-1)?.q === "" && document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "1");
+  await page.settle(() => sentFilters(page).at(-1)?.q === "Proveedor" && sentFilters(page).at(-1)?.has_document === null && document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "1");
   assert.deepEqual(sentFilters(page).at(-1)!.currencies, [sample.currency]);
   assert.deepEqual(sentFilters(page).at(-1)!.record_families, [family]);
 });
@@ -1001,7 +997,7 @@ test("the first report request uses the server Registros default even when the B
   assert.equal(page.context.records.workspace!.currency, "CAD");
   assert.ok(sentFilters(page).length > 0);
   assert.ok(sentFilters(page).every((filters) => JSON.stringify(filters.currencies) === '["USD"]'));
-  assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')!.textContent!, /Moneda · USD/);
+  assert.ok(document.querySelector('button[aria-label="Moneda: USD"]'));
   await page.click(document.querySelector('[data-testid="records-export"]'));
   await page.settle(() => page.downloads.length === 1);
   const exported = page.fixture.calls.find((call) => call.path.endsWith("/reports/export"))!.body as { report: ReportRequest };
@@ -1085,4 +1081,26 @@ test("an empty selected sale uses the filtered-empty message even when purchases
   assert.ok(page.fixture.records.length > 0);
   assert.equal(document.querySelector('[data-empty-kind="filtered"] h3')?.textContent, "No hay registros con estos filtros");
   assert.equal(document.querySelector('[data-empty-kind="first_run"]'), null);
+});
+
+for (const width of [1440, 390]) test(`type tabs share filters and clearing on Ventas preserves USD and period at ${width}px`, async () => {
+  const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
+  const page = await mount({ width, defaultCurrency: "USD", initial: reportRequestSchema.parse({ schema_version: 2, filters: { currencies: ["USD"], period, has_document: false, amount_min: "10" } }) });
+  assert.equal(document.querySelector('#records-type-gasto')?.getAttribute("aria-selected"), "true");
+  await page.click(document.querySelector('#records-type-venta'));
+  await page.settle(() => sentFilters(page).at(-1)?.record_families[0] === "sale");
+  assert.equal(sentFilters(page).at(-1)?.has_document, false);
+  assert.equal(sentFilters(page).at(-1)?.amount_min, "10");
+  await page.click(page.button("Limpiar filtros"));
+  await page.settle(() => sentFilters(page).at(-1)?.has_document === null);
+  const filters = sentFilters(page).at(-1)!;
+  assert.deepEqual(filters.record_families, ["sale"]);
+  assert.deepEqual(filters.currencies, ["USD"]);
+  assert.deepEqual(filters.period, period);
+  assert.equal(filters.amount_min, null);
+  assert.equal(document.querySelector('#records-type-venta')?.getAttribute("aria-selected"), "true");
+  assert.equal([...document.querySelectorAll('button')].find(node => node.textContent?.startsWith("Filtros"))?.textContent, "Filtros");
+  await page.click(document.querySelector('#records-type-gasto'));
+  await page.settle(() => sentFilters(page).at(-1)?.record_families[0] === "purchase");
+  assert.equal(sentFilters(page).at(-1)?.has_document, null);
 });

@@ -27,7 +27,7 @@ export type PreviewFilters = {
   fiscal: string[];
 };
 export const emptyPreviewFilters = (currency: RecordsCurrency): PreviewFilters => ({ review: [], attachment: "any", amount: { currency, min: "", max: "" }, counterparty: [], expense_type: [], account: [], document: [], fiscal: [] });
-export const activeFilterGroups = (filters: PreviewFilters): FilterGroup[] => FILTER_GROUPS.filter((group) => group === "attachment" ? filters.attachment !== "any" : group === "amount" ? true : filters[group].length > 0);
+export const activeFilterGroups = (filters: PreviewFilters): FilterGroup[] => FILTER_GROUPS.filter((group) => group === "attachment" ? filters.attachment !== "any" : group === "amount" ? Boolean(filters.amount.min || filters.amount.max) : filters[group].length > 0);
 export const validPreviewAmount = ({ min, max, currency }: PreviewFilters["amount"]): boolean => {
   const digits = currencyDigits(currency);
   const valid = (value: string) => !value || /^\d+(?:\.\d+)?$/.test(value) && (value.split(".")[1]?.length ?? 0) <= digits && value.split(".")[0].replace(/^0+/, "").length <= MONEY_MAX_INTEGER_DIGITS;
