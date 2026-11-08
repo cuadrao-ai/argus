@@ -27,9 +27,7 @@ def invitations_available() -> bool:
     enabled = (setting_value("BUSINESS_INVITE_EMAIL_ENABLED") or "false").strip().lower()
     origin = (setting_value("APP_ORIGIN") or "").strip()
     return (
-        enabled in _TRUE_VALUES
-        and business_invite_admission_enabled()
-        and bool(origin)
+        enabled in _TRUE_VALUES and business_invite_admission_enabled() and bool(origin)
     )
 
 

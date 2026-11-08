@@ -46,7 +46,11 @@ def _login(client: TestClient, gateway, label: str, created: list[str]) -> dict:
     created.append(str(user.user.id))
     response = client.post(
         f"{API}/auth/login",
-        json={"email": email, "password": password, "captcha_token": "local-captcha-proof"},
+        json={
+            "email": email,
+            "password": password,
+            "captcha_token": "local-captcha-proof",
+        },
         headers=ORIGIN,
     )
     assert response.status_code == 200, response.text
@@ -140,9 +144,7 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                     "delete from public.business_client_grants where grantee_id=%s or issuer_id=%s",
                     (user_id, user_id),
                 )
-            db.execute(
-                "delete from auth.users where id = any(%s::uuid[])", (created,)
-            )
+            db.execute("delete from auth.users where id = any(%s::uuid[])", (created,))
 
 
 @pytest.mark.parametrize(
