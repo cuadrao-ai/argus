@@ -18910,6 +18910,13 @@ components:
           $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
           $ref: '#/components/schemas/ReceiptLimits'
+        records_default_currency:
+          type: string
+          enum:
+          - DOP
+          - USD
+          - EUR
+          description: Server-owned initial Registros currency, currently DOP, independent of the Business currency.
         logo_url:
           anyOf:
           - type: string
@@ -18927,6 +18934,7 @@ components:
       - notifications_available
       - receiving_channels
       - receipt_limits
+      - records_default_currency
     CallbackRequest:
       properties:
         code:
@@ -31812,9 +31820,9 @@ components:
           default: 0
       additionalProperties: false
       type: object
-      description: 'The period''s recorded rows by stage. The three Registros cards read
+      description: 'Fiscal count uses all table filters before pagination.
 
-        `needs_fiscal_data`, `ready_for_export` and `exported`.'
+        Other counts cover the period''s recorded rows.'
     ReportRecipe-Input:
       properties:
         schema_version:

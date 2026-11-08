@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { RecordsCurrency } from "./business-reports-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
@@ -342,6 +343,7 @@ export type BusinessWorkspaceInfo = {
   /** The Business's own country and currency. Absent in older payloads. */
   country?: BusinessCountry;
   currency?: CurrencyCode;
+  records_default_currency: RecordsCurrency;
   accounts: BusinessAccount[];
   currencies: CurrencyCode[];
   /** Whether Business conversations can answer questions about saved expenses. */

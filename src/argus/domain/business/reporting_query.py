@@ -174,8 +174,8 @@ class FundingOption(Contract):
 
 
 class ReportOverview(Contract):
-    """The period's recorded rows by stage. The three Registros cards read
-    `needs_fiscal_data`, `ready_for_export` and `exported`."""
+    """Fiscal count uses all table filters before pagination.
+    Other counts cover the period's recorded rows."""
 
     needs_review: int = 0
     ready_for_export: int = 0
@@ -616,11 +616,11 @@ def run_query(
         if _matches(row, ReportFilters(period=request.filters.period), period)
     ]
     overview = ReportOverview(
+        needs_fiscal_data=sum(row.stage == "needs_fiscal_data" for row in rows),
         **{
             stage: sum(row.stage == stage for row in overview_rows)
             for stage in (
                 "needs_review",
-                "needs_fiscal_data",
                 "ready_for_export",
                 "exported",
             )

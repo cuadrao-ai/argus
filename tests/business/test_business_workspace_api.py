@@ -263,3 +263,12 @@ def test_profile_image_source_requires_download_permission(
     assert source_available == can_download
     source_signed = any(path.endswith("-source.webp") for path in signed_paths)
     assert source_signed == can_download
+
+
+def test_workspace_supplies_records_default_separate_from_business_currency(biz):
+    created = biz.post(BASE + "/space", headers=AUTH, json={"name": "Colmado", "country": "CA"})
+    assert created.status_code == 201, created.text
+    response = biz.get(BASE + "/workspace", headers=AUTH)
+    assert response.status_code == 200, response.text
+    assert response.json()["currency"] == "CAD"
+    assert response.json()["records_default_currency"] == "DOP"

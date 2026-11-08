@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ChevronDown, ChevronRight, Banknote, Building2, CheckCheck, FileText, ListFilter, Paperclip, ReceiptText, Tag, Users, X, type LucideIcon } from "lucide-react";
+import { createPortal } from "react-dom";
+import { useOverlayLayer } from "@/components/layout/overlayStack";
 import BottomSheet from "@/components/ui/BottomSheet";
 import MoneyInput from "@/components/money/MoneyInput";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import RecordsFilterSelection from "./RecordsFilterSelection";
-import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, REVIEW_FILTERS, validPreviewAmount, type FilterGroup, type PreviewFilters } from "./records-filter-preview-model";
 import { SAMPLE_EXPENSE_TYPES } from "./records-results-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import type { RecordKind } from "./transacciones-model";
-import { REPORT_DOCUMENT_KINDS, type DgiiChoice } from "@/lib/business-reports-api";
+import { REPORT_DOCUMENT_KINDS, recordsCurrencySchema, type DgiiChoice } from "@/lib/business-reports-api";
 import styles from "./records-filter-preview.module.css";
 
 export type ReportFilterCatalogues = { counterparties: { key: string; labels: string[] }[]; expense_types: DgiiChoice[]; funding_sources: { key: string; label: string | null; kind: string | null }[] };
@@ -23,17 +24,17 @@ const COUNTERPARTIES = ["Estación Ruta 3", "Nube Hosting", "Comedor Doña Ana"]
 const ACCOUNTS = ["checking", "card", "owner"];
 /** The tipo de gasto choices: every type the records carry, then `missing` for a purchase that still needs one. */
 const expenseTypeValues = (types: readonly DgiiChoice[]) => [...types.map((choice) => choice.code), "missing"];
-const toggle = (values: string[], value: string): string[] => values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 
-function FilterEditor({ initial, initialKind, apply, close, phone = false, catalogues }: { catalogues?: ReportFilterCatalogues; phone?: boolean; initial: PreviewFilters; initialKind: Kind; apply: (next: PreviewFilters, kind: Kind) => void; close: () => void }) {
+function FilterEditor({ initial, initialKind, apply, close, phone = false, catalogues, initialGroup = "record" }: { initialGroup?: EditorGroup; catalogues?: ReportFilterCatalogues; phone?: boolean; initial: PreviewFilters; initialKind: Kind; apply: (next: PreviewFilters, kind: Kind, clearSearch?: boolean) => void; close: () => void }) {
   const { t } = useTransaccionesWords();
   const [draft, setDraft] = useState(initial);
   const [draftKind, setDraftKind] = useState(initialKind);
+  const [clearSearch, setClearSearch] = useState(false);
   const [amountInvalid, setAmountInvalid] = useState({ min: false, max: false });
   const [amountReset, setAmountReset] = useState(0);
-  const [group, setGroup] = useState<EditorGroup>("record");
+  const [group, setGroup] = useState<EditorGroup>(initialGroup);
   const [query, setQuery] = useState("");
-  const [choosingGroup, setChoosingGroup] = useState(phone);
+  const [choosingGroup, setChoosingGroup] = useState(phone && initialGroup !== "amount");
   const rail = useRef<HTMLDivElement>(null);
   const back = useRef<HTMLButtonElement>(null);
   const navigated = useRef(false);
@@ -69,10 +70,9 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false, catal
         {group === "attachment" ? <>{(["any", "with", "without"] as const).map((value) => <label key={value} className={styles.choice}><input type="radio" name="preview-attachment" checked={draft.attachment === value} onChange={() => setDraft({ ...draft, attachment: value })} /><span>{word(`attachment.${value}`)}</span></label>)}<p className={styles.hint}>{word("attachment.hint")}</p></> : null}
         {group === "amount" ? <>
           <p className={styles.hint}>{word("amount.currency")}</p>
-          <div className={styles.currencies}>{(["DOP", "USD", "EUR"] as const).map((currency) => <button key={currency} type="button" className={styles.currency} aria-pressed={draft.currencies ? draft.currencies.includes(currency) : draft.amount.currency === currency} onClick={() => { if (draft.currencies) { const currencies = toggle(draft.currencies, currency); setDraft({ ...draft, currencies, amount: { ...draft.amount, currency: currencies.length === 1 ? currencies[0] : "" } }); } else setDraft({ ...draft, amount: { ...draft.amount, currency } }); }}>{currency}</button>)}</div>
-          <div className={styles.fields}>{(["min", "max"] as const).map((key) => <label key={`${key}:${amountReset}`} className={styles.field}><span>{word(`amount.${key}`)}</span><MoneyInput label={word(`amount.${key}`)} currency={draft.amount.currency} allowZero disabled={!draft.amount.currency} value={draft.amount[key] || null} onValueChange={({ value, invalid }) => { setDraft((current) => ({ ...current, amount: { ...current.amount, [key]: value ?? "" } })); setAmountInvalid((current) => ({ ...current, [key]: invalid })); }} /></label>)}</div>
-          {!draft.amount.currency ? <p className={styles.hint}>{word("amount.choose_currency")}</p> : null}
-          {!validPreviewAmount(draft.amount, draft.currencies) ? <p role="alert" className={styles.error}>{word("amount.invalid")}</p> : null}
+          <div className={styles.currencies} role="radiogroup" aria-label={word("amount.currency")}>{recordsCurrencySchema.options.map((currency) => <label key={currency} className={`${styles.currency} flex cursor-pointer items-center focus-within:outline focus-within:outline-2 focus-within:outline-[var(--cuadrao-green)]`} aria-pressed={draft.amount.currency === currency}><input className="sr-only" type="radio" name="records-currency" value={currency} checked={draft.amount.currency === currency} onChange={() => { setDraft({ ...draft, amount: { currency, min: "", max: "" } }); setAmountInvalid({ min: false, max: false }); setAmountReset((value) => value + 1); }} /><span>{currency}</span></label>)}</div>
+          <div className={styles.fields}>{(["min", "max"] as const).map((key) => <label key={`${key}:${amountReset}`} className={styles.field}><span>{word(`amount.${key}`)}</span><MoneyInput label={word(`amount.${key}`)} currency={draft.amount.currency} allowZero value={draft.amount[key] || null} onValueChange={({ value, invalid }) => { setDraft((current) => ({ ...current, amount: { ...current.amount, [key]: value ?? "" } })); setAmountInvalid((current) => ({ ...current, [key]: invalid })); }} /></label>)}</div>
+          {!validPreviewAmount(draft.amount) ? <p role="alert" className={styles.error}>{word("amount.invalid")}</p> : null}
         </> : null}
         {group === "counterparty" ? selection("counterparty", catalogues ? catalogues.counterparties.map((option) => option.key) : COUNTERPARTIES) : null}
         {group === "expense_type" ? selection("expense_type", expenseTypeValues(expenseTypes)) : null}
@@ -81,34 +81,58 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false, catal
         {group === "fiscal" ? selection("fiscal", ["b01", "b02", "e31", "e32"]) : null}
       </section> : null}
     </div>;
-  const footer = <div className={phone ? `${styles.footer} ${styles.phoneFooter}` : styles.footer}><button type="button" className={styles.clear} onClick={() => { setDraft(emptyPreviewFilters()); setDraftKind("all"); setAmountInvalid({ min: false, max: false }); setAmountReset((value) => value + 1); }}>{t("business.transactions.layout.clear")}</button><button type="button" className={styles.apply} disabled={amountInvalid.min || amountInvalid.max || !validPreviewAmount(draft.amount, draft.currencies)} onClick={() => { apply(draft, draftKind); close(); }}>{word("apply")}</button></div>;
+  const footer = <div className={phone ? `${styles.footer} ${styles.phoneFooter}` : styles.footer}><button type="button" className={styles.clear} onClick={() => { setDraft(emptyPreviewFilters(draft.amount.currency)); setDraftKind("all"); setClearSearch(true); setAmountInvalid({ min: false, max: false }); setAmountReset((value) => value + 1); }}>{t("business.transactions.layout.clear")}</button><button type="button" className={styles.apply} disabled={amountInvalid.min || amountInvalid.max || !validPreviewAmount(draft.amount)} onClick={() => { apply(draft, draftKind, clearSearch); close(); }}>{word("apply")}</button></div>;
   return phone ? <BottomSheet isOpen onClose={close} title={word("title")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen footer={footer}>{body}</BottomSheet> : <>{body}{footer}</>;
 }
 
-export default function RecordsFiltersPreview({ options, value: filters, kind, onChange, catalogues }: { catalogues?: ReportFilterCatalogues; options: ReactNode; value: PreviewFilters; kind: Kind; onChange: (next: PreviewFilters, kind: Kind) => void }) {
+export default function RecordsFiltersPreview({ options, value: filters, kind, onChange, catalogues, hasSearch = false }: { hasSearch?: boolean; catalogues?: ReportFilterCatalogues; options: ReactNode; value: PreviewFilters; kind: Kind; onChange: (next: PreviewFilters, kind: Kind, clearSearch?: boolean) => void }) {
   const { t } = useTransaccionesWords();
   const { isBelowDesktop: phone } = useResponsiveLayout();
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const [editor, setEditor] = useState<"record" | "amount" | null>(null);
+  const open = editor !== null;
+  const panel = useRef<HTMLDivElement>(null);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const [position, setPosition] = useState({ left: 16, top: 100, width: 660, maxHeight: 500 });
+  const close = () => setEditor(null);
+  const place = useCallback(() => {
+    const rect = opener.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(660, window.innerWidth - 32);
+    const top = Math.min(rect.bottom + 8, Math.max(16, window.innerHeight - 336));
+    setPosition({ left: Math.max(16, Math.min(rect.left, window.innerWidth - width - 16)), top, width, maxHeight: window.innerHeight - top - 16 });
+  }, []);
+  const openEditor = (button: HTMLButtonElement, group: "record" | "amount") => {
+    if (editor === group && opener.current === button) { close(); return; }
+    opener.current = button; place(); setEditor(group);
+  };
+  const id = useId();
+  useEffect(() => {
+    if (!open || phone) return;
+    panel.current?.querySelector<HTMLElement>("button, input")?.focus();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
+  }, [open, phone, place]);
+  useOverlayLayer({ isOpen: open && !phone, overlayId: id, containerRef: panel, onEscape: close, onOutsidePointerDown: (event) => { if (!opener.current?.contains(event.target as Node)) close(); } });
   const wasOpen = useRef(false);
-  useEffect(() => { if (wasOpen.current && !open) trigger.current?.focus(); wasOpen.current = open; }, [open]);
-  const setFilters = (next: PreviewFilters, nextKind: Kind = kind) => onChange(next, nextKind);
+  useEffect(() => { if (wasOpen.current && !open) opener.current?.focus(); wasOpen.current = open; }, [open]);
+  const setFilters = (next: PreviewFilters, nextKind: Kind = kind, clearSearch = false) => onChange(next, nextKind, clearSearch);
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
   const active = activeFilterGroups(filters);
+  const canClear = hasSearch || Boolean(filters.amount.min || filters.amount.max) || active.some((group) => group !== "amount");
   const recordActive = kind !== "all" || Boolean(filters.recordFamilies?.length);
   const recordLabel = filters.recordFamilies?.length === 2 ? filters.recordFamilies.map((family) => t(`business.transactions.records.detail.${family === "sale" ? "venta" : "gasto"}`)).join(" · ") : t(`business.transactions.records.detail.${kind}`);
   const chipLabel = (group: FilterGroup) => group === "amount" && !filters.amount.min && !filters.amount.max ? word("currency") : group === "expense_type" ? t("business.dossier.placeholder.expense_type") : word(`groups.${group}`);
   const expenseTypes = catalogues?.expense_types ?? SAMPLE_EXPENSE_TYPES;
   const valueLabel = (group: FilterGroup) => {
     if (group === "attachment") return word(`attachment.${filters.attachment}`);
-    if (group === "amount") return [(filters.currencies ?? [filters.amount.currency]).join(", "), filters.amount.min ? `${word("amount.min")} ${filters.amount.min}` : "", filters.amount.max ? `${word("amount.max")} ${filters.amount.max}` : ""].filter(Boolean).join(" · ");
+    if (group === "amount") return [filters.amount.currency, filters.amount.min ? `${word("amount.min")} ${filters.amount.min}` : "", filters.amount.max ? `${word("amount.max")} ${filters.amount.max}` : ""].filter(Boolean).join(" · ");
     return filters[group].map((value) => value === "unknown" ? t("business.transactions.unknown") : value === "no_comprobante" ? t("business.marks.sin_comprobante_chip") : value === "owner_funds" ? t("business.dossier.owner_funds") : group === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels.join(" / ") ?? value : group === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : group === "expense_type" ? value === "missing" ? t("business.dossier.standing.missing") : expenseTypes.find((choice) => choice.code === value)?.label ?? value : group === "review" ? t(`business.transactions.layout.overview.${value}.title`) : t(`business.transactions.layout.filters.${group}.${value}`, { defaultValue: value.toUpperCase() })).join(", ");
   };
   return <>
-    {phone ? <><button ref={trigger} type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span>{active.length || recordActive ? <span className={styles.count}>{active.length + (recordActive ? 1 : 0)}</span> : null}<ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>{open ? <FilterEditor catalogues={catalogues} phone initial={filters} initialKind={kind} apply={setFilters} close={() => setOpen(false)} /> : null}</> : <RecordsPreviewPopover label={word("title")} icon={<ListFilter size={17} aria-hidden="true" />} count={active.length + (recordActive ? 1 : 0)}>
-      {(close) => <FilterEditor catalogues={catalogues} initial={filters} initialKind={kind} apply={setFilters} close={close} />}
-    </RecordsPreviewPopover>}
+    <button type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={(event) => openEditor(event.currentTarget, "record")}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span><span className={styles.count}>{active.length + (recordActive ? 1 : 0)}</span><ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
+    {editor !== null ? phone ? <FilterEditor key={editor} catalogues={catalogues} phone initialGroup={editor} initial={filters} initialKind={kind} apply={setFilters} close={close} /> : createPortal(<div ref={panel} role="dialog" aria-label={word("title")} className={styles.popover} style={position}><FilterEditor key={editor} catalogues={catalogues} initialGroup={editor} initial={filters} initialKind={kind} apply={setFilters} close={close} /></div>, document.body) : null}
     <div className={styles.toolbarOptions}>{options}</div>
-    {active.length || recordActive ? <div className={styles.chips} data-testid="records-preview-filter-chips">{recordActive ? <button type="button" className={styles.chip} aria-label={word("remove") + " " + word("record")} onClick={() => setFilters({ ...filters, recordFamilies: [] }, "all")}><span>{word("record")} · {recordLabel}</span><X size={14} aria-hidden="true" /></button> : null}{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={word("remove") + " " + chipLabel(group)} onClick={() => setFilters({ ...filters, [group]: emptyPreviewFilters()[group], ...(group === "amount" && filters.currencies ? { currencies: [] } : {}) })}><span>{chipLabel(group)} · {valueLabel(group)}</span><X size={14} aria-hidden="true" /></button>)}<button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(), "all")}>{t("business.transactions.layout.clear")}</button></div> : null}
+    {active.length || recordActive ? <div className={styles.chips} data-testid="records-preview-filter-chips">{recordActive ? <button type="button" className={styles.chip} aria-label={word("remove") + " " + word("record")} onClick={() => setFilters({ ...filters, recordFamilies: [] }, "all")}><span>{word("record")} · {recordLabel}</span><X size={14} aria-hidden="true" /></button> : null}{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={group === "amount" ? undefined : word("remove") + " " + chipLabel(group)} aria-haspopup={group === "amount" ? "dialog" : undefined} onClick={(event) => group === "amount" ? openEditor(event.currentTarget, "amount") : setFilters({ ...filters, [group]: emptyPreviewFilters(filters.amount.currency)[group] })}><span>{chipLabel(group)} · {valueLabel(group)}</span>{group !== "amount" ? <X size={14} aria-hidden="true" /> : null}</button>)}{canClear || recordActive ? <button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(filters.amount.currency), "all", true)}>{t("business.transactions.layout.clear")}</button> : null}</div> : null}
   </>;
 }

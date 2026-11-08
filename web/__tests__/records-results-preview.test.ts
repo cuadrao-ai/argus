@@ -91,17 +91,15 @@ test("partial settlements stay linked to their record and use exact currency tot
   assert.deepEqual(summarizeSettlementPreview(changed, "fixture-space", "gasto").currencies, [{ currency: "DOP", total: "3000.00", settled: null, balance: null }]);
 });
 
-test("overview workflow filters match the same metadata and unknown counts stay unavailable", async () => {
-  const { overviewPreviewCounts, matchesPreviewWorkflow } = await import("@/components/business-app/transacciones/records-results-preview");
-  assert.deepEqual(overviewPreviewCounts(rows, "fixture-space"), { review: 0, fiscal: 1, export: 4, exported: 1 });
-  assert.deepEqual(overviewPreviewCounts(rows, "fixture-client"), { review: null, fiscal: null, export: null, exported: null });
+test("workflow filters preserve fiscal and export stages", async () => {
+  const { matchesPreviewWorkflow } = await import("@/components/business-app/transacciones/records-results-preview");
   assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["export"])).length, 4);
   assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["fiscal", "exported"])).length, 2);
   assert.equal(matchesPreviewWorkflow(rows[0], "fixture-client", ["fiscal"]), false);
 });
 
 
-test("the overview period uses inclusive activity dates and never substitutes missing dates", async () => {
+test("the record period uses inclusive activity dates and never substitutes missing dates", async () => {
   const { matchesPreviewPeriod } = await import("@/components/business-app/transacciones/records-results-preview");
   const period = { key: "custom", from: "2026-10-24", to: "2026-10-25" } as const;
   assert.equal(matchesPreviewPeriod(rows[0], period), true);
