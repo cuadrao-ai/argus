@@ -651,6 +651,30 @@ test("closing the phone Filtros sheet without a choice sends no query", async ()
 });
 
 const renderedColumnKeys = () => [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
+test("an old 11-column URL offers NCF and ITBIS hidden without losing the saved layout or later edits", async () => {
+  const order = recordedReportAnswer.presentation.order.filter((key) => key !== "fiscal_number" && key !== "itbis_amount");
+  const presentation = { order: [order[0], ...order.slice(1).reverse()], hidden: ["date" as const], density: 40 as const };
+  const request = reportRequestSchema.parse({ schema_version: 2, presentation });
+  window.history.replaceState(null, "", `/biz?report=${encodeURIComponent(JSON.stringify(request))}`);
+  const page = await mount({ queryAnswer: (_request, answer) => ({ ...answer, presentation: recordedReportAnswer.presentation }) });
+  const expectedColumns = ["contraparte", "cuenta", "comprobante", "notas", "estado", "forma_pago", "tipo_gasto", "detalle", "moneda", "monto"];
+  assert.deepEqual(renderedColumnKeys(), expectedColumns);
+  assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  for (const key of ["ncf", "itbis"]) {
+    const checkbox = document.querySelector<HTMLInputElement>(`[data-column-setting="${key}"] input[type="checkbox"]`);
+    assert.equal(checkbox?.checked, false, `${key} must be available and hidden`);
+  }
+  await page.click(document.querySelector('[data-column-setting="ncf"] input'));
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  assert.deepEqual(renderedColumnKeys(), [...expectedColumns, "ncf"]);
+  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
+  assert.deepEqual(renderedColumnKeys(), [...expectedColumns, "ncf"]);
+  const restored = restoreReportLocation(new URLSearchParams(window.location.search)).request;
+  assert.deepEqual(restored.schema_version === 2 && restored.presentation, { ...presentation, order: [...presentation.order, "fiscal_number", "itbis_amount"], hidden: ["date", "itbis_amount"] });
+});
+
 for (const language of ["es-419", "en"] as const) test(`server defaults show eight columns and all optional columns remain available in ${language}`, async () => {
   const page = await mount({ language });
   assert.deepEqual(renderedColumnKeys(), ["contraparte", "fecha", "monto", "moneda", "detalle", "estado", "notas", "comprobante"]);

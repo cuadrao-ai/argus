@@ -119,7 +119,13 @@ export function createBusinessReportController(scope: ReportScope, initial = def
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
         if (answer.page !== report.page || answer.page_size !== report.page_size || answer.items.length > report.page_size) throw new Error("Invalid report page response");
         const invalid = report.page > Math.max(1, answer.page_count);
-        publish({ load: invalid ? { kind: "invalid-page", answer, recoveryPage: Math.max(1, answer.page_count) } : { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
+        let request = state.request;
+        if (request.schema_version === 2 && request.presentation) {
+          const presentation = request.presentation;
+          const missing = answer.presentation.order.filter((key) => !presentation.order.includes(key));
+          if (missing.length) request = { ...request, presentation: { ...presentation, order: presentation.order.concat(missing), hidden: Array.from(new Set(presentation.hidden.concat(missing))) } };
+        }
+        publish({ request, load: invalid ? { kind: "invalid-page", answer, recoveryPage: Math.max(1, answer.page_count) } : { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
       } catch (error) {
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
         const problem = reportFailure(error);
