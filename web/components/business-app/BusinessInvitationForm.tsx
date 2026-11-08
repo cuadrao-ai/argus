@@ -42,6 +42,10 @@ const isRefusal = (error: unknown) => {
 /** The X keeps the draft for this Business until the page reloads; emails stay out of browser storage. */
 const drafts = new Map<string, Row[]>();
 
+export function clearInvitationDraft(businessId: string) {
+  if (businessId) drafts.delete(businessId);
+}
+
 function emailProblem(row: Row, rows: Row[], known: KnownPeople): string | null {
   const email = clean(row.email);
   if (!email) return "invite_email_required";
@@ -107,6 +111,9 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
   const businessId = chosen?.space_id ?? "";
   const live = source.mode === "live";
   const [rows, setRows] = useState<Row[]>(() => drafts.get(businessId) ?? [emptyRow()]);
+  useEffect(() => {
+    setRows(drafts.get(businessId) ?? [emptyRow()]);
+  }, [businessId]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [serverKnown, setServerKnown] = useState(NOBODY);

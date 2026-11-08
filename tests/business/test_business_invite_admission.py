@@ -43,6 +43,17 @@ def switch_off(closed_signup, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa:
     monkeypatch.delenv(SWITCH, raising=False)
 
 
+@pytest.fixture
+def invitations_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: "fake-receipt",
+    )
+
+
 def _allowlist(*, listed: set[str] = frozenset(), disabled: set[str] = frozenset()):
     return SimpleNamespace(
         private_alpha_email_disabled=lambda email: email.strip().lower() in disabled,
@@ -132,6 +143,7 @@ def test_an_invited_person_signs_in_accepts_and_loses_access_on_revoke(
     identities,
     gateway,
     switch_on,  # noqa: ANN001
+    invitations_configured: None,
 ) -> None:
     alice = Owner(biz, ALICE, identities[ALICE]["id"])
     bob = Owner(biz, BOB, identities[BOB]["id"])
@@ -199,6 +211,7 @@ def test_an_invited_person_cannot_start_a_business_or_admit_anyone(
     identities,
     gateway,
     switch_on,  # noqa: ANN001
+    invitations_configured: None,
 ) -> None:
     alice = Owner(biz, ALICE, identities[ALICE]["id"])
     bob = Owner(biz, BOB, identities[BOB]["id"])
@@ -330,8 +343,17 @@ def test_with_the_switch_off_an_invitation_admits_no_one_and_the_owner_keeps_eve
     }
 
     assert alice.start({"name": "Colmado La Esquina"}).status_code == 201
+    store = business_access()
+    assert store is not None
+    before_invites = len(store._invites)
+    before_commands = len(store._commands)
+    before_ledger = len(store.ledger)
     invited = alice.post("/access", {"email": identities[BOB]["email"]})
-    assert invited.status_code == 201, invited.text
+    assert invited.status_code == 409, invited.text
+    assert invited.json()["code"] == "business_invitations_unavailable"
+    assert len(store._invites) == before_invites
+    assert len(store._commands) == before_commands
+    assert len(store.ledger) == before_ledger
     assert not permanent_account_access_allowed(
         gateway, identities[BOB]["email"], business_access()
     )
@@ -353,14 +375,11 @@ def test_with_the_switch_off_an_invitation_admits_no_one_and_the_owner_keeps_eve
             ]
         },
     )
-    assert many.status_code == 200, many.text
-    [pending] = [
-        i for i in invited.json()["invites"] if i["email"] == identities[BOB]["email"]
-    ]
-    expired = next(i for i in business_access()._invites if i["id"] == pending["id"])
-    expired["expires_at"] = business_access()._now() - timedelta(seconds=1)
-    resent = alice.post(f"/access/invites/{pending['id']}/resend")
-    assert resent.status_code == 200, resent.text
+    assert many.status_code == 409, many.text
+    assert many.json()["code"] == "business_invitations_unavailable"
+    resent = alice.post(f"/access/invites/{uuid4()}/resend")
+    assert resent.status_code == 409, resent.text
+    assert len(store._invites) == before_invites
 
 
 def test_with_the_switch_off_the_standing_check_never_refuses_a_person_the_gate_admitted(

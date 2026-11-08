@@ -187,6 +187,12 @@ def test_invitations_off_refuse_before_mutation(world, monkeypatch: pytest.Monke
         headers=world.owner_a["headers"],
     )
     assert batch.status_code == 409
+    resent = world.client.post(
+        f"{API}/business/access/invites/{uuid4()}/resend",
+        headers=world.owner_a["headers"],
+    )
+    assert resent.status_code == 409
+    assert resent.json()["code"] == "business_invitations_unavailable"
     with psycopg.connect(shared.DSN) as db:
         after = _invite_counts(db, space_id)
     assert after == before

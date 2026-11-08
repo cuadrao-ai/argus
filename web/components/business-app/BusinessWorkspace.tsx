@@ -44,7 +44,7 @@ import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { BusinessContext } from "./business-context";
 import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
-import BusinessInvitationForm from "./BusinessInvitationForm";
+import BusinessInvitationForm, { clearInvitationDraft } from "./BusinessInvitationForm";
 import BusinessSwitcher, { BusinessMark } from "./BusinessSwitcher";
 import { BusinessClosedAccess, BusinessClosedOwnerBanner } from "./BusinessLifecycleControls";
 import type { ClosedGrantedSpace } from "@/lib/business-api";
@@ -372,6 +372,7 @@ function BusinessWorkspaceContent({
   useEffect(() => {
     let cancelled = false;
     setDirectoryStatus("loading");
+    setInvitationsAvailable(false);
     const directory = source.mode === "live" && source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false }));
     directory.then(
       ({ spaces: listed, closed_spaces: closed, invitations_available: capability }) => {
@@ -418,10 +419,14 @@ function BusinessWorkspaceContent({
     return () => { if (panelGuard.current === guard) panelGuard.current = null; };
   }, []);
   const canInvite =
-    invitationsAvailable
+    directoryStatus === "ready"
+    && invitationsAvailable
     && chosen?.permissions?.includes("manage") === true;
   useEffect(() => {
-    if (!canInvite) setInvitationBusiness(null);
+    if (!canInvite) {
+      if (chosen?.space_id) clearInvitationDraft(chosen.space_id);
+      setInvitationBusiness(null);
+    }
   }, [canInvite, chosen?.space_id]);
   const openInvitation = useCallback(() => {
     if (canInvite && chosen) setInvitationBusiness(chosen.space_id);
