@@ -416,17 +416,13 @@ def read_report_snapshot(
     *,
     capability: Literal["read", "export"] = "read",
 ) -> tuple[ReportAnswer, tuple[ReportRecord, ...]]:
-    from argus.domain.business.config import registros_summary_v2_enabled
     from argus.domain.business.reporting_query import matching_records, run_query
 
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         authorize(connection, context.actor, context.grant_id).require(capability)
         snapshot, records = _projected(authority, context, connection)
-        result = run_query(
-            snapshot.identity(""), records, request, snapshot.observed_at,
-            registros_summary_v2_enabled=registros_summary_v2_enabled(),
-        )
+        result = run_query(snapshot.identity(""), records, request, snapshot.observed_at)
         authorize(connection, context.actor, context.grant_id).require(capability)
         return result, matching_records(records, request, snapshot.observed_at)
 

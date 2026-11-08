@@ -162,7 +162,6 @@ export function withLocalBusinessPreview(
     }),
     workspace: async () => ({
       records_default_currency: "DOP",
-      registros_summary_v2_enabled: false,
       country: current()!.country,
       accounts: [],
       currencies: [],

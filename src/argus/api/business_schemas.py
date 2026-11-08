@@ -148,7 +148,6 @@ class BusinessWorkspace(_Wire):
     receiving_channels: ReceivingChannels
     receipt_limits: ReceiptLimits
     records_default_currency: Literal["DOP", "USD", "EUR"]
-    registros_summary_v2_enabled: bool
     logo_url: str | None = None
 
 

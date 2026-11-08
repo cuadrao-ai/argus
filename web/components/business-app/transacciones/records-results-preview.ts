@@ -88,18 +88,6 @@ export function matchesPreviewWorkflow(row: RecordRow, businessId: string | null
   return metadata !== null && selected.includes(WORKFLOW_FILTER[metadata.workflow]);
 }
 
-const UNKNOWN_COUNTS: Record<ReviewFilter, number | null> = { review: null, fiscal: null, export: null, exported: null };
-export function overviewPreviewCounts(rows: readonly RecordRow[] | null, businessId: string | null): Record<ReviewFilter, number | null> {
-  const counts: Record<ReviewFilter, number | null> = { review: 0, fiscal: 0, export: 0, exported: 0 };
-  if (!rows) return UNKNOWN_COUNTS;
-  for (const row of rows) {
-    const metadata = previewRecordMetadata(row, businessId);
-    if (!metadata) return UNKNOWN_COUNTS;
-    counts[WORKFLOW_FILTER[metadata.workflow]]! += 1;
-  }
-  return counts;
-}
-
 type PreviewAllocation = { currency: string; total: string; payments: readonly string[] };
 const FIXTURE_ALLOCATIONS: Readonly<Record<string, PreviewAllocation>> = {
   "gasto:exp-gas": { currency: "DOP", total: "2100.00", payments: ["1000.00", "200.00"] },

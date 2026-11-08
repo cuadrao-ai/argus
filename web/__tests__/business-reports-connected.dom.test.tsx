@@ -24,7 +24,7 @@ const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
-async function mount(options: { summaryV2?: boolean; defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
+async function mount(options: { defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: "es-419" | "en"; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
   const { createRoot } = await import("react-dom/client");
   const fixture = createBusinessReportHttpFixture(); for (const row of fixture.records) if (row.currency !== "DOP") { row.currency = "DOP"; row.recorded_currency = "DOP"; } if (options.presentation) fixture.controls.presentation = options.presentation; options.edit?.(fixture.records); if (options.large) { fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
@@ -47,15 +47,15 @@ async function mount(options: { summaryV2?: boolean; defaultCurrency?: RecordsCu
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const opened: unknown[] = [];
   const receiptActivity = options.waiting === undefined ? null : options.waiting === null ? null : { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: options.waiting, needs_attention_count: 0, ready_to_review_count: options.waiting };
-  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: { ...await source.workspace(), currency: "CAD", registros_summary_v2_enabled: options.summaryV2 ?? true, records_default_currency: options.defaultCurrency ?? "DOP" }, workspaceGrant: options.workspaceGrant === undefined ? options.grantId ?? null : options.workspaceGrant, inbox: [], receiptActivity } } as unknown as BusinessContextValue;
+  const context = { chosen: { space_id: fixtureId(3000), grant_id: fixtureId(3001), role: options.role ?? "owner", name: "Colmado sintético", capabilities: options.readOnly ? ["read"] : ["read", "prepare", "approve"], permissions: options.readOnly ? ["read"] : ["read", "prepare", "approve", "download", "export"] }, source, revision: 0, actions: { create: [] }, panel: { kind: "transactions" }, openPanel: (panel: unknown) => { opened.push(panel); }, records: { workspace: { ...await source.workspace(), currency: "CAD", records_default_currency: options.defaultCurrency ?? "DOP" }, workspaceGrant: options.workspaceGrant === undefined ? options.grantId ?? null : options.workspaceGrant, inbox: [], receiptActivity } } as unknown as BusinessContextValue;
   const i18n = i18next.createInstance(); await i18n.init({ lng: options.language ?? "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
   let reloads = 0;
-  const render = () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={{ ...context }}>{options.topLevel ? <BusinessReportsPanel /> : <ConnectedBusinessReports mode={context.records.workspace!.registros_summary_v2_enabled ? { enabled: true, defaultCurrency: context.records.workspace!.records_default_currency } : { enabled: false }} initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: options.grantId ?? null }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>);
+  const render = () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={{ ...context }}>{options.topLevel ? <BusinessReportsPanel /> : <ConnectedBusinessReports defaultCurrency={context.records.workspace!.records_default_currency} initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: options.grantId ?? null }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>);
   const rerender = () => act(async () => render());
   context.reload = () => {
     reloads += 1;
-    void source.workspace().then((workspace) => { context.records.workspace = { ...workspace, registros_summary_v2_enabled: options.summaryV2 ?? true }; context.records.workspaceGrant = options.grantId ?? null; context.records.error = false; context.records.refused = false; render(); });
+    void source.workspace().then((workspace) => { context.records.workspace = workspace; context.records.workspaceGrant = options.grantId ?? null; context.records.error = false; context.records.refused = false; render(); });
   };
   if (options.workspaceFailure) {
     if (options.workspaceFailure === "missing_default") Object.assign(context.records.workspace!, { records_default_currency: "CAD" });
@@ -64,7 +64,7 @@ async function mount(options: { summaryV2?: boolean; defaultCurrency?: RecordsCu
   await rerender();
   cleanup = async () => { await act(async () => root.unmount()); globalThis.fetch = originalFetch; globalThis.getComputedStyle = computedStyle; URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; };
   const settle = async (predicate: () => boolean) => { for (let i = 0; i < 80; i++) { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); }); if (predicate()) return; } throw new Error(`Missing state ${document.body.textContent?.slice(-600)}`); };
-  const click = async (element: Element | undefined | null) => { assert.ok(element, `Missing click target. Visible controls: ${[...document.querySelectorAll("button, label")].map((node) => node.getAttribute("aria-label") ?? node.textContent?.trim()).join(" | ")}`); await act(async () => (element as HTMLElement).click()); };
+  const click = async (element: Element | undefined | null) => { assert.ok(element); await act(async () => (element as HTMLElement).click()); };
   const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || label === "Filtros" && button.textContent?.startsWith("Filtros") || button.getAttribute("aria-label") === label);
   const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => { await act(async () => { const prototype = element instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); }); };
   if (options.waitForAnswer !== false) await settle(() => document.querySelector(`[data-report-schema="${options.legacy ? 1 : 2}"] [data-testid="records-count"]`) !== null);
@@ -1064,68 +1064,4 @@ test("a refused workspace shows its reference and no retry or report query", asy
   assert.match(document.body.textContent!, /SYNTHETIC-REF/);
   assert.equal(page.button("Reintentar"), undefined);
   assert.equal(sentFilters(page).length, 0);
-});
-
-for (const currencies of [[], ["DOP", "USD"], ["CAD"]]) test(`off preserves integration currency scope ${JSON.stringify(currencies)} across entry, views and history`, async () => {
-  const request = reportRequestSchema.parse({ schema_version: 2, filters: { currencies } });
-  const page = await mount({ summaryV2: false, initial: request, viewRecipe: request });
-  assert.deepEqual(sentFilters(page).at(-1)!.currencies, currencies);
-  assert.equal(document.querySelectorAll('[data-overview-filter]').length, 3);
-  assert.equal(document.querySelector('[data-overview-card="total"]'), null);
-  await page.click(page.button("Vistas")); await page.click(page.button("Moneda guardada"));
-  assert.deepEqual(sentFilters(page).at(-1)!.currencies, currencies);
-  const restored = { ...request, filters: { ...request.filters, currencies: ["EUR", "USD"] } };
-  const params = new URLSearchParams({ report: JSON.stringify(restored), report_scope: `synthetic-person:${fixtureId(3000)}` });
-  await act(async () => { window.history.pushState(null, "", `?${params}`); window.dispatchEvent(new PopStateEvent("popstate")); });
-  await page.settle(() => sentFilters(page).at(-1)?.currencies.length === 2);
-  assert.deepEqual(sentFilters(page).at(-1)!.currencies, ["EUR", "USD"]);
-  await page.click(page.button("Quitar filtro Moneda"));
-  await page.settle(() => sentFilters(page).at(-1)?.currencies.length === 0);
-  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
-});
-
-test("off uses optional multi-currency filters, legacy cards and type-dependent financial summary", async () => {
-  const page = await mount({ summaryV2: false });
-  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-  await page.click(page.button("Filtros")); await page.click(page.button("Moneda y monto"));
-  await page.click(page.button("DOP")); await page.click(page.button("USD")); await page.click(page.button("Aplicar"));
-  await page.settle(() => sentFilters(page).at(-1)?.currencies.length === 2);
-  assert.deepEqual(sentFilters(page).at(-1)!.currencies, ["DOP", "USD"]);
-  await page.click(page.button("Limpiar filtros"));
-  await page.settle(() => sentFilters(page).at(-1)?.currencies.length === 0);
-  await page.click(document.querySelector('[data-overview-filter="export"]'));
-  await page.settle(() => sentFilters(page).at(-1)?.review_stages[0] === "ready_for_export");
-  await page.click(document.querySelector('[data-overview-filter="export"]'));
-  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
-  await page.click(page.button("Filtros")); await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === spanish.business.transactions.records.detail.gasto)?.querySelector("input")); await page.click(page.button("Aplicar"));
-  await page.settle(() => document.querySelector('[data-testid="records-results-summary"]') !== null);
-  assert.equal(document.querySelectorAll('[data-summary-part]').length, 3);
-  assert.match(document.body.textContent!, /Gastos/);
-  assert.ok(document.body.textContent!.includes(spanish.business.transactions.reporting.financial_cards_pending));
-});
-
-test("workspace false and missing boolean need no default currency, and refreshed true remounts with the server default", async () => {
-  const page = await mount({ topLevel: true, summaryV2: false, workspaceFailure: "missing_default" });
-  assert.deepEqual(sentFilters(page).at(-1)!.currencies, []);
-  delete page.context.records.workspace!.registros_summary_v2_enabled; await page.rerender();
-  assert.equal(document.querySelectorAll('[data-overview-filter]').length, 3);
-  page.context.records.workspace!.records_default_currency = "USD";
-  page.context.records.workspace!.registros_summary_v2_enabled = true; await page.rerender();
-  await page.settle(() => sentFilters(page).at(-1)?.currencies[0] === "USD");
-  assert.equal(document.querySelectorAll('[data-overview-card]').length, 6);
-  page.context.records.workspace!.registros_summary_v2_enabled = false; await page.rerender();
-  await page.settle(() => document.querySelectorAll('[data-overview-filter]').length === 3);
-  assert.deepEqual(sentFilters(page).at(-1)!.currencies, ["USD"], "off preserves the current URL currency");
-});
-
-test("off keeps the server period-only fiscal count after search and stage filters", async () => {
-  const page = await mount({ summaryV2: false, queryAnswer: (_request, answer) => ({ ...answer, overview: { ...answer.overview!, needs_fiscal_data: 60 } }) });
-  const fiscalCount = () => document.querySelector('[data-overview-filter="fiscal"] .font-display')?.textContent;
-  assert.equal(fiscalCount(), "60");
-  await page.type(document.querySelector('input[type="search"]')!, "pena");
-  await page.settle(() => document.querySelector('[data-testid="records-count"]')?.textContent?.includes("1 de 1") ?? false);
-  assert.equal(fiscalCount(), "60");
-  await page.click(document.querySelector('[data-overview-filter="export"]'));
-  await page.settle(() => sentFilters(page).at(-1)?.review_stages[0] === "ready_for_export");
-  assert.equal(fiscalCount(), "60");
 });

@@ -50,7 +50,7 @@ afterEach(async () => {
   search = "";
 });
 
-async function mount({ summaryV2 = true, enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, recordsDefaultCurrency = "DOP", expenseRead }: { summaryV2?: boolean; expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: string; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string; recordsDefaultCurrency?: string } = {}) {
+async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, recordsDefaultCurrency = "DOP", expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: string; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string; recordsDefaultCurrency?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   search = view ? `view=${view}` : "";
   const { act } = await import("react");
@@ -79,7 +79,6 @@ async function mount({ summaryV2 = true, enabled = true, width = 1440, language 
       const workspace: Record<string, unknown> = { ...(await fixture.workspace()) };
       delete workspace.currency;
       workspace.records_default_currency = recordsDefaultCurrency;
-      workspace.registros_summary_v2_enabled = summaryV2;
       return businessCurrency ? { ...workspace, currency: businessCurrency } : workspace;
     },
     captures: async () => ({ items: [] }),

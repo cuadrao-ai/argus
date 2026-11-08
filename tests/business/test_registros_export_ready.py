@@ -145,7 +145,9 @@ class TestRegistrosReadyMatchesTheExport:
             matched = run(judged, ReportFilters(period=SEPTEMBER, review_stages=[stage]))
             assert matched.matching_count == count, stage
             assert all(row.stage == stage for row in matched.items)
-            assert matched.overview.needs_fiscal_data == answer.overview.needs_fiscal_data
+            assert matched.overview.needs_fiscal_data == (
+                count if stage == "needs_fiscal_data" else 0
+            )
             assert matched.overview.ready_for_export == answer.overview.ready_for_export
             assert matched.overview.exported == answer.overview.exported
             assert matched.overview.export_lines == answer.overview.export_lines

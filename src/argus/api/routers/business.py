@@ -131,7 +131,6 @@ from argus.api.whatsapp import whatsapp_receiving_available
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
-from argus.domain.business.config import registros_summary_v2_enabled
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
@@ -829,7 +828,6 @@ def get_workspace(
     workspace = {
         **context.service.workspace(context.scope),
         "records_default_currency": context.scope.records_default_currency,
-        "registros_summary_v2_enabled": registros_summary_v2_enabled(),
         "invoicing_available": invoicing_available(request),
         "notifications_available": notifications_available(),
         "receiving_channels": {

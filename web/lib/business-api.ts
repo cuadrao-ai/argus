@@ -344,7 +344,6 @@ export type BusinessWorkspaceInfo = {
   country?: BusinessCountry;
   currency?: CurrencyCode;
   records_default_currency: RecordsCurrency;
-  registros_summary_v2_enabled?: boolean;
   accounts: BusinessAccount[];
   currencies: CurrencyCode[];
   /** Whether Business conversations can answer questions about saved expenses. */

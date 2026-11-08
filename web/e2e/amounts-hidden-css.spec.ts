@@ -17,7 +17,7 @@ test.beforeAll(async () => {
   if (!names) throw new Error("Overview CSS module did not export its classes");
   css = `${globals.css}\n${overview.code.toString()}`;
   const amount = `<div class="${names.family.name}"><div class="${names.moneyValue.name}"><span class="cuadrao-amount ${names.amount.name}"><span aria-hidden="true">1,234<sup>.56</sup></span><span class="sr-only">DOP 1,234.56</span></span></div></div>`;
-  markup = `<main class="business-foundation" data-registros-summary-v2="true"><div class="${names.cards.name}">${["total", "itbis", "quantity", "goods", "services", "fiscal"].map((metric) => `<div class="${names.card.name} ${names[metric].name}" data-overview-card="${metric}">${metric === "quantity" || metric === "fiscal" ? `<span class="${names.count.name}">12</span>` : amount}</div>`).join("")}</div></main>`;
+  markup = `<main class="business-foundation"><div class="${names.cards.name}">${["total", "itbis", "quantity", "goods", "services", "fiscal"].map((metric) => `<div class="${names.card.name} ${names[metric].name}" data-overview-card="${metric}">${metric === "quantity" || metric === "fiscal" ? `<span class="${names.count.name}">12</span>` : amount}</div>`).join("")}</div></main>`;
 });
 
 for (const theme of ["light", "dark"]) {

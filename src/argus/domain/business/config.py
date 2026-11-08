@@ -84,17 +84,3 @@ def business_invite_admission_enabled() -> bool:
         return BusinessInviteAdmissionSettings().enabled
     except ValidationError:
         return False
-
-
-class RegistrosSummarySettings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
-    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
-        default=False, validation_alias="CUADRAO_REGISTROS_SUMMARY_V2_ENABLED"
-    )
-
-
-def registros_summary_v2_enabled() -> bool:
-    try:
-        return RegistrosSummarySettings().enabled
-    except ValidationError:
-        return False

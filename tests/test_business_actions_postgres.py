@@ -953,6 +953,7 @@ def test_owner_workspace_uses_existing_live_membership(actions, monkeypatch):
         assert set(response.json()) == {
             "country",
             "currency",
+            "records_default_currency",
             "accounts",
             "currencies",
             "assistant_available",

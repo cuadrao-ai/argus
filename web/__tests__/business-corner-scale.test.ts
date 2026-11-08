@@ -39,8 +39,6 @@ const PERSONAL_BRANCHES: Record<string, number> = {
   "components/sidebar/ProfileMenu.tsx": 0,
 };
 
-const RECORDS_CARD_GEOMETRY = [".card | border-radius | 30px", ".card | border-radius | 16px"];
-
 /** Geometry approved at the cleared design checkpoint. New values or selectors need review. */
 const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
   "components/business-app/recepcion/reception.module.css": [
@@ -129,8 +127,10 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
     ".sort | border-radius | 999px",
     ".pageSize | border-radius | 999px"
   ],
-  "components/business-app/transacciones/legacy-records-overview.module.css": RECORDS_CARD_GEOMETRY,
-  "components/business-app/transacciones/records-overview-preview.module.css": RECORDS_CARD_GEOMETRY,
+  "components/business-app/transacciones/records-overview-preview.module.css": [
+    ".card | border-radius | 30px",
+    ".card | border-radius | 16px"
+  ],
   "components/business-app/transacciones/records-results-preview.module.css": [
     ".metric | border-radius | 26px",
     ".breakdown | border-radius | 8px",

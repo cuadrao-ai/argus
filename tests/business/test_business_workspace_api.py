@@ -272,12 +272,3 @@ def test_workspace_supplies_records_default_separate_from_business_currency(biz)
     assert response.status_code == 200, response.text
     assert response.json()["currency"] == "CAD"
     assert response.json()["records_default_currency"] == "DOP"
-
-
-@pytest.mark.parametrize("enabled", [False, True])
-def test_workspace_returns_server_registros_summary_switch(biz, monkeypatch, enabled):
-    monkeypatch.setenv("CUADRAO_REGISTROS_SUMMARY_V2_ENABLED", str(enabled).lower())
-    biz.post(BASE + "/space", headers=AUTH, json={"name": "Colmado sintético"})
-    response = biz.get(BASE + "/workspace", headers=AUTH)
-    assert response.status_code == 200, response.text
-    assert response.json()["registros_summary_v2_enabled"] is enabled

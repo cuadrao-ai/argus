@@ -174,8 +174,8 @@ class FundingOption(Contract):
 
 
 class ReportOverview(Contract):
-    """Counts cover the period. With summary V2 on, the fiscal count instead
-    uses all table filters before pagination."""
+    """Fiscal count uses all table filters before pagination.
+    Other counts cover the period's recorded rows."""
 
     needs_review: int = 0
     ready_for_export: int = 0
@@ -536,8 +536,6 @@ def run_query(
     records: tuple[ReportRecord, ...] | list[ReportRecord],
     request: ReportRequest | ReportRequestV2,
     observed_at: datetime,
-    *,
-    registros_summary_v2_enabled: bool = False,
 ) -> ReportAnswer:
     ids = [row.row_id for row in records]
     effects = [effect for row in records for effect in row.linked_activity_ids]
@@ -618,10 +616,7 @@ def run_query(
         if _matches(row, ReportFilters(period=request.filters.period), period)
     ]
     overview = ReportOverview(
-        needs_fiscal_data=sum(
-            row.stage == "needs_fiscal_data"
-            for row in (rows if registros_summary_v2_enabled else overview_rows)
-        ),
+        needs_fiscal_data=sum(row.stage == "needs_fiscal_data" for row in rows),
         **{
             stage: sum(row.stage == stage for row in overview_rows)
             for stage in (
