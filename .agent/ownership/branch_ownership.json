@@ -1663,7 +1663,6 @@
         "web/e2e/business-search-preview.spec.ts",
         "web/e2e/cuadrao-branding.spec.ts",
         "web/e2e/guest-auth-captcha-ux.playwright.config.ts",
-        "web/e2e/issue-340-guest-dossier-conversion-gate.playwright.config.ts",
         "web/lib/app-brand.ts",
         "web/lib/auth-return-path.ts",
         "web/lib/business-api.ts",
