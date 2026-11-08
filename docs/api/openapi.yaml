@@ -404,6 +404,13 @@ paths:
           content:
             application/json:
               schema: {}
+        '401':
+          description: 'Uniform login failure: private-alpha denial, invalid credentials,
+            or a failed server-side browser check. No session is created.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -18916,7 +18923,6 @@ components:
           - DOP
           - USD
           - EUR
-          description: Server-owned initial Registros currency, currently DOP, independent of the Business currency.
         logo_url:
           anyOf:
           - type: string

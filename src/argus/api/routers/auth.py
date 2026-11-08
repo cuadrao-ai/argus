@@ -85,14 +85,19 @@ def _login_auth_problem(request: Request) -> HTTPException:
     )
 
 
-def _browser_check_problem(request: Request) -> HTTPException:
-    return problem(
-        request,
-        status_code=400,
-        code="captcha_unavailable",
-        title="Browser Check Failed",
-        detail="The browser check did not complete. Try again.",
-    )
+def _openapi_error_response(description: str) -> dict[str, object]:
+    return {
+        "description": description,
+        "content": {
+            "application/json": {"schema": {"$ref": "#/components/schemas/Error"}}
+        },
+    }
+
+
+_LOGIN_UNIFORM_FAILURE_OPENAPI = _openapi_error_response(
+    "Uniform login failure: private-alpha denial, invalid credentials, "
+    "or a failed server-side browser check. No session is created."
+)
 
 
 def _signup_auth_problem(
@@ -894,7 +899,10 @@ def request_access(
     return AccessRequestAccepted(accepted=True)
 
 
-@router.post("/auth/login")
+@router.post(
+    "/auth/login",
+    responses={401: _LOGIN_UNIFORM_FAILURE_OPENAPI},
+)
 def login(request: Request, body: LoginRequest) -> JSONResponse:
     _enforce_browser_auth_origin(request)
     if api_state.supabase_gateway is None:
@@ -917,7 +925,7 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             captcha_token=body.captcha_token,
         )
     except CaptchaVerificationError:
-        raise _browser_check_problem(request) from None
+        raise _login_auth_problem(request) from None
     except Exception:
         raise _login_auth_problem(request) from None
     handoff_id = request.cookies.get(_GUEST_HANDOFF_ID_COOKIE, "").strip()
