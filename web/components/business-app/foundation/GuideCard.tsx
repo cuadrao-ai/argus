@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
@@ -13,7 +13,6 @@ type Props = {
   cardId: BusinessGuideCardId;
   userId: string;
   title: string;
-  icon: ReactNode;
   points: [GuidePoint, GuidePoint, GuidePoint];
 };
 
@@ -25,7 +24,7 @@ export default function GuideCard(props: Props) {
   return <GuideCardForPerson key={JSON.stringify([props.userId, props.cardId])} {...props} />;
 }
 
-function GuideCardForPerson({ cardId, userId, title, icon, points }: Props) {
+function GuideCardForPerson({ cardId, userId, title, points }: Props) {
   const { t } = useTranslation();
   const titleId = useId();
   const request = useRef<AbortController | null>(null);
@@ -77,7 +76,6 @@ function GuideCardForPerson({ cardId, userId, title, icon, points }: Props) {
   return (
     <section className={`${styles.card} rounded-surface`} aria-labelledby={titleId} aria-busy={saving}>
       <header className={styles.header}>
-        <span className={`${styles.icon} rounded-full`} aria-hidden="true">{icon}</span>
         <h3 className="font-display" id={titleId}>{title}</h3>
         <button type="button" className={`${styles.close} rounded-full`} aria-label={t("business.guide_cards.placeholder.dismiss")} onClick={dismiss} disabled={saving}>
           <X size={18} aria-hidden="true" />

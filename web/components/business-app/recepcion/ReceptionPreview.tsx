@@ -5,7 +5,7 @@ import GuideCard from "../foundation/GuideCard";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Files } from "lucide-react";
+import { Check } from "lucide-react";
 import { resolveLanguage } from "@/lib/language-features";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -183,7 +183,7 @@ function ReceptionWorkspace() {
     <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-source={preferences.source || preferences.sender} data-arrival={preferences.arrival} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width, RECORDS_PREVIEW_COLUMNS.find(column => column.key === "moneda")!.width!), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {inPanel ? <div className={styles.phoneHeading}><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       {source.mode === "live" && userId && chosen ? (
-        <GuideCard cardId="bandeja-intro" userId={userId} title={guide("title")} icon={<Files size={17} />}
+        <GuideCard cardId="bandeja-intro" userId={userId} title={guide("title")}
           points={[
             { label: guide("upload.label"), body: guide("upload.body") },
             { label: guide("review.label"), body: guide("review.body") },

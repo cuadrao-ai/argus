@@ -22,20 +22,11 @@
   flex: 1;
 }
 
-.icon, .close {
+.close {
   display: grid;
   place-items: center;
   flex: none;
   color: var(--cuadrao-green);
-}
-
-.icon {
-  width: 32px;
-  height: 32px;
-  background: color-mix(in srgb, var(--cuadrao-green) 10%, transparent);
-}
-
-.close {
   width: 44px;
   height: 44px;
 }

@@ -33,7 +33,7 @@ async function mount() {
   const render = async (userId = "ana") => {
     await act(async () => root.render(
       <I18nextProvider i18n={i18n}>
-        <GuideCard cardId="bandeja-intro" userId={userId} title="Del documento al registro" icon={<svg aria-hidden="true" />}
+        <GuideCard cardId="bandeja-intro" userId={userId} title="Del documento al registro"
           points={[
             { label: "Sube tus documentos", body: "Agrega fotos o PDF." },
             { label: "Revisa y aprueba", body: "El documento pasa a Registros." },
