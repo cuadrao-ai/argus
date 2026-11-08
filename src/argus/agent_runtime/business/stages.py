@@ -13,8 +13,8 @@ from argus.agent_runtime.stages.tool_execution import execute_tool_calls_async
 from argus.agent_runtime.state.models import RunState
 from argus.domain.business.context import AuthorizedBusinessContext
 from argus.domain.business.contracts.dossier import MessageSource
+from argus.domain.business.tool_catalog import get_business_tool_catalog
 from argus.domain.business.tools.declarations import BusinessToolBinding
-from argus.domain.capability_registry import get_tool_catalog
 from argus.domain.tool_contracts import ToolCall
 
 
@@ -95,7 +95,7 @@ class BusinessStages:
         result = await execute_tool_calls_async(
             state=state["run_state"],
             tool=None,
-            catalog=get_tool_catalog(surface="business"),
+            catalog=get_business_tool_catalog(),
             language=self.context.language,
             user=state["user"],
             business_bindings=tuple(

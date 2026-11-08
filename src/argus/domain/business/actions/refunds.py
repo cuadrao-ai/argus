@@ -9,29 +9,19 @@ from typing import Callable, Iterable
 
 from argus.domain.business.contracts.dossier import RefundCandidate
 from argus.domain.business.contracts.facts import BusinessFacts, Known
-from argus.domain.business.dgii_validation import FiscalRecord, credit_note
+from argus.domain.business.dgii_validation import FiscalRecord
+from argus.domain.business.fact_blockers import (
+    fiscal_number as fiscal_number,
+)
+from argus.domain.business.fact_blockers import (
+    refund_shaped as refund_shaped,
+)
 from argus.domain.business.fiscal_identity import normalized_taxpayer_id
 
 #: A credit note refunds a purchase of the 30 days before it (the 606 rule).
 WINDOW_DAYS = 30
 #: The most recent candidates the dossier carries; the picker stays short.
 LIMIT = 20
-
-
-def fiscal_number(facts: BusinessFacts) -> str | None:
-    if facts.fiscal is None:
-        return None
-    for fact in (facts.fiscal.ecf, facts.fiscal.ncf):
-        if isinstance(fact, Known):
-            return fact.value
-    return None
-
-
-def refund_shaped(facts: BusinessFacts) -> bool:
-    """A refund, or a document whose fiscal number is a credit note."""
-
-    kind = facts.kind.value if isinstance(facts.kind, Known) else None
-    return kind == "refund" or credit_note(fiscal_number(facts))
 
 
 def could_refund(facts: BusinessFacts) -> bool:
