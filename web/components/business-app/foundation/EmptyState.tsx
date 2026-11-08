@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleCheck } from "lucide-react";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "../business-ui";
 
@@ -19,10 +20,11 @@ export type EmptyAction = { label: string; run: () => void; icon?: ReactNode };
 
 const KIND_MARK: Record<EmptyKind, EmptyMark | null> = { first_run: null, no_results: "search", filtered: "filter", done: "check", error: "cloud" };
 
-export function EmptyState({ kind, mark, title, body, action, secondary, testId, compact = false, settled = false }: {
+export function EmptyState({ kind, mark, illustration, title, body, action, secondary, testId, compact = false, settled = false }: {
   kind: EmptyKind;
   /** The drawing; no results, filtered and error bring their own unless one is named. */
   mark?: EmptyMark;
+  illustration?: string;
   title: string;
   body?: string;
   /** The next step the owner would take: add, change the filter, try again. */
@@ -51,7 +53,7 @@ export function EmptyState({ kind, mark, title, body, action, secondary, testId,
       role={kind === "error" ? "alert" : undefined}
       className={`flex flex-col items-center text-center ${compact ? "py-6" : "py-12"}`}
     >
-      <EmptyDrawing mark={drawn} tone={kind === "error" ? "error" : "brand"} />
+      {illustration ? <Image src={illustration} alt="" width={128} height={128} unoptimized className="h-32 w-32 object-contain" /> : <EmptyDrawing mark={drawn} tone={kind === "error" ? "error" : "brand"} />}
       <h3 className="mt-4 font-display text-[17px] font-medium text-[#172b26] dark:text-white">{title}</h3>
       {body ? <p className="mt-1 max-w-sm text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{body}</p> : null}
       {action || secondary ? (

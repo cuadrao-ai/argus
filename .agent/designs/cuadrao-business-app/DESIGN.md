@@ -725,35 +725,26 @@ Regression coverage lives in `business-canvas.dom.test.tsx`,
 `web/__tests__/`. Browser checks must also cover the open tray, both rail modes,
 both themes and narrow viewports; DOM tests alone do not prove pixel geometry.
 
-### Page heading, approved October 27, 2026
+### Page heading, updated November 8, 2026
 
-Each top-level screen (Bandeja, Registros, Facturación, Actividad, and Negocio
-from Configurar negocio) has one
-heading group: its title and one sentence that says what the screen is for. Nested
-sections, trays and dialogs have no sentence.
+Bandeja, Registros, Facturación and Actividad keep their page titles without a
+supporting sentence or intro icon. This replaces the October 27 intro rule for
+those four screens. Negocio (Configurar negocio) keeps its title, sentence and
+briefcase icon. Nested sections, trays and dialogs have no intro sentence.
 
-- **The sentence** is supporting text, not a second heading: 16px body, regular
-  weight, 24px line height, secondary ink `#56635e` (white at 70% in dark). Weight,
-  colour and spacing keep it below the title, never low contrast. Aim for one line
-  on desktop and at most two on a narrow phone. It wraps and never truncates or
-  shrinks.
-- **The icon** before the sentence is the screen's own rail icon, at 1em (16px), in
-  the same stroke style. It sits on the first line's middle when the sentence wraps
-  and never shrinks.
-- **Desktop and tablet:** the top bar holds the group. The title is followed by the
-  sentence 4px below it. The bar grows to fit the group plus 21px above and below,
-  at any width or wrap. Its fade and the content offset grow with it, so the
-  sentence is never washed out. Screens without a sentence keep the 80px bar.
-  The heading carries no Agregar; Negocio has none, since adding documents is not
-  a settings task. Negocio's icon is the briefcase of the business mark.
-  Search and the bar's actions align to the group's first row. Inicio has no
-  sentence (Lucas, October 27): its date, Business and greeting stand alone in the
-  bar, which grows to fit them as it does a sentence.
-- **Phone:** the title and sentence open the content, 8px apart, with 34px before
-  the filters or the first card.
-- Copy lives in `business.page_intro.<screen>`. Owner: `PageHeading.tsx` and
-  `BusinessHeader.tsx` under `web/components/business-app/foundation/`; the screen
-  icons come from `SCREEN_ICON` in `nav-glyphs.tsx`, the same owner as the rail.
+- **Desktop and tablet:** the top bar holds the title. Screens without a sentence
+  keep the 80px bar. Search and the existing actions stay beside the title.
+  Negocio's sentence stays 4px below its title; its bar, fade and content offset
+  grow to fit that group plus 21px above and below. Negocio has no Agregar.
+  Inicio's date, Business and greeting remain unchanged, with no intro sentence.
+- **Phone:** existing page titles remain. Activity's heading keeps 34px before
+  its content. Negocio keeps 8px between its title and sentence and 34px before
+  the settings content.
+- **Settings intro:** 16px regular body text, 24px line height, secondary ink
+  `#56635e` (white at 70% in dark). It wraps without truncating or shrinking. Its
+  briefcase icon stays at 1em (16px), centered on the first line and never shrinks.
+- `PageHeading.tsx` owns titles and the sole intro key,
+  `business.page_intro.business`; `BusinessHeader.tsx` renders them in the top bar.
 
 ### Top bar, canvas and search, approved October 28, 2026
 
@@ -1481,39 +1472,36 @@ and interaction.
 Keep the existing compact content width. Show six separate, equal summary cards
 in two rows of three: Total, ITBIS and Cantidad in the first row; Bienes,
 Servicios and Faltan datos fiscales in the second. Below them, keep the existing
-filters, active filter chips and column picker. Follow those controls with the
-selected type document-total subcard when Total is open, then the table. Payment
-subcards stay hidden for the pilot.
+filters, active filter chips and column picker, then the table. Total and payment
+subcards do not show.
 
 Every card places its icon at the top left, metric label at the top right, large
 value below left and footer or helper at the bottom left. Make the cards shallower
 while keeping the same readability. Use Cuadrao's own typography, soft fills,
 rounded corners and colors, with the corresponding dark-theme treatment.
 
-Total and Faltan datos fiscales are the two action cards. Clicking Total or
-pressing Enter or Space shows its subcard. A second activation hides it. Clicking
-Faltan datos fiscales or pressing Enter or Space applies its table filter. A
-second activation restores the prior status selection. The active filter remains
+Faltan datos fiscales is the only action card. Clicking it or pressing Enter or
+Space applies its table filter. A second activation restores the prior status
+selection. The active filter remains
 visible and clearable. A mixed status selection is not an active Fiscal card.
 An inactive Fiscal card with zero matches is disabled; an active card remains
 clearable at zero. Editing statuses directly, clearing their chip, choosing a
 saved view or navigating history discards the previous status selection saved by
 the card. Changing other filters keeps it.
-Both cards show a directional cue at the bottom right, hover feedback, a visible
-focus state, and an active state. Total exposes its expanded state and names the
-subcard it controls. Do not add a "Ver..." label or make the arrow a separate
-target.
+The Fiscal card shows a directional cue at the bottom right, hover feedback, a
+visible focus state, and an active state. Do not add a "Ver..." label or make the
+arrow a separate target.
 
-ITBIS, Cantidad, Bienes, and Servicios are static: no card click, pointer cursor,
-or card-level tab stop. Compras and Ventas are tabs above the cards, reusing
-Bandeja's tab component and style. Exactly one is active, Compras by default.
+Total, ITBIS, Cantidad, Bienes, and Servicios are static: no card click, directional
+cue, hover action, pointer cursor, or card-level tab stop. Compras and Ventas are
+tabs above the cards, reusing Bandeja's tab component and style. Exactly one is active, Compras by default.
 Optional filters are shared across tabs, as in Bandeja. A compact, always-visible
 Moneda selector beside the period offers DOP, USD and EUR without search.
 Registro and Moneda are absent from Filtros. Its count and group dots represent
 only optional filters; no active optional filters means no count or dots.
 Limpiar filtros clears only those optional filters, preserves the tab, currency,
-period and search, and is disabled in the editor when none are active. The table, all six cards and
-expanded Total follow the selected type. Ventas uses the existing server values;
+period and search, and is disabled in the editor when none are active. The table
+and all six cards follow the selected type. Ventas uses the existing server values;
 its cards have not had their design round yet. Missing sales Bienes or Servicios
 stay unknown.
 Switching currency clears both amount limits and their validation state.
@@ -1528,8 +1516,8 @@ carries exactly one currency. The table, six cards and export use that request.
 Actual fit is still unverified. Before build sign-off, render at the real compact
 content width and actual size with filters, headers and first table rows visible.
 Check long amounts, ES/EN labels, zero, empty and partial values, and the action
-cards' default, hover, keyboard-focus, expanded and active-filter states. This
-decision does not establish that those checks have passed.
+card's default, hover, keyboard-focus and active-filter states. This decision
+does not establish that those checks have passed.
 
 ### Invoicing: customers, schedules and empty states
 

@@ -2630,7 +2630,6 @@
           "visible_selection_hint": "Solo cambia los resultados visibles. Las demás selecciones se conservan."
         },
         "no_period_records": "No hay registros en este período.",
-        "no_results": "No hay registros con estos filtros",
         "overview": {
           "bandeja_waiting_one": "{{count}} recibo espera en la Bandeja",
           "bandeja_waiting_other": "{{count}} recibos esperan en la Bandeja",
@@ -2810,7 +2809,7 @@
         "record_date": "Fecha: {{date}}",
         "sort": "Ordenar"
       },
-      "records": { "detail": { "gasto": "Compra", "venta": "Venta" }, "proof": "Recibo adjunto", "empty_title": "Aquí verás tus gastos y ventas", "empty_body": "Cada gasto y cada venta que apruebas en la Bandeja aparece aquí en su fecha.", "filtered_title": "No hay gastos ni ventas en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos y ventas" },
+      "records": { "detail": { "gasto": "Compra", "venta": "Venta" }, "empty_placeholder": { "filters": { "body": "Prueba con otros filtros o limpia los actuales.", "title": "No hay registros con estos filtros" }, "gasto": { "title": "No hay compras en esta selección" }, "search": { "body": "Prueba con otras palabras o borra la búsqueda.", "clear": "Borrar búsqueda", "title": "No hay resultados para esta búsqueda" }, "selection": { "body": "Puedes cambiar el período o la moneda." }, "venta": { "title": "No hay ventas en esta selección" } }, "proof": "Recibo adjunto", "filtered_title": "No hay gastos ni ventas en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos y ventas" },
       "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many_one": "El comprobante es de {{count}} día antes", "date_many_other": "El comprobante es de {{count}} días antes", "date_after_one": "El comprobante es de un día después", "date_after_many_one": "El comprobante es de {{count}} día después", "date_after_many_other": "El comprobante es de {{count}} días después", "name": "El nombre se parece al del banco" },
       "actions": { "igualar": "Igualar", "rechazar": "No es este", "sin_comprobante": "Sin comprobante", "desigualar": "Desigualar", "agregar": "Agregar comprobante", "more": "Más acciones para {{name}}", "add_for": "Agregar comprobante para {{name}}", "open_for": "Abrir {{name}}" },
       "tray": { "title": "Movimiento", "step_one": "Sugerencia {{index}} de {{count}}", "step_other": "Sugerencia {{index}} de {{count}}", "movement": "Movimiento del banco", "suggested": "Comprobante que sugerimos", "matched": "Comprobante", "date": "Fecha", "account": "Cuenta", "bank_text": "Dice el banco", "recibo": "Compra", "venta": "Venta", "rnc": "RNC", "ncf": "NCF", "itbis": "ITBIS", "total": "Total", "move": "moverte", "close": "cerrar", "back": "Volver" },
@@ -4143,11 +4142,7 @@
       "title": "Mi negocio"
     },
     "page_intro": {
-      "activity": "Mira quién hizo cada cambio en este negocio y cuándo.",
-      "business": "Configura el perfil, el acceso y la recepción de este negocio.",
-      "inbox": "Todo lo que llega a este negocio, listo para revisar.",
-      "invoicing": "Crea y organiza las facturas de este negocio.",
-      "transactions": "Los gastos y las ventas de este negocio, en un solo lugar."
+      "business": "Configura el perfil, el acceso y la recepción de este negocio."
     },
     "period": {
       "all": "Todo",
