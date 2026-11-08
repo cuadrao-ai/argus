@@ -5,26 +5,27 @@ from unittest.mock import Mock
 import pytest
 
 
-def test_document_worker_main_skips_hosted_openrouter_validator(
+def test_hosted_document_worker_main_reaches_serve_without_guest_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from argus.llm import openrouter_key_policy
-
     from workflows import document_worker
 
-    validate = Mock()
-    run = Mock()
-    monkeypatch.setattr(
-        openrouter_key_policy,
-        "validate_hosted_openrouter_configuration",
-        validate,
-    )
-    monkeypatch.setattr(document_worker.asyncio, "run", run)
+    monkeypatch.setenv("APP_ENV", "staging")
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "synthetic-registered")
+    monkeypatch.delenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(document_worker, "configure_logging", Mock())
+
+    reached: list[str] = []
+
+    async def stub_serve() -> None:
+        reached.append("serve")
+
+    monkeypatch.setattr(document_worker, "serve", stub_serve)
 
     document_worker.main()
 
-    validate.assert_not_called()
-    run.assert_called_once()
+    assert reached == ["serve"]
 
 
 def test_hosted_resolve_registered_still_required_for_extraction_policy(

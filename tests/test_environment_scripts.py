@@ -47,7 +47,9 @@ def _production_rules(label: str) -> dict[str, dict]:
 def _production_required(label: str) -> set[str]:
     """Names production must hold: a fixed value, or one supplied and not optional."""
     return {
-        name for name, rule in _production_rules(label).items() if not rule.get("optional")
+        name
+        for name, rule in _production_rules(label).items()
+        if not rule.get("optional")
     }
 
 
@@ -500,7 +502,9 @@ def test_render_blueprint_syncs_public_supabase_coordinates() -> None:
     assert "your_" not in str(api_env["SUPABASE_URL"]["value"])
     assert api_env["SUPABASE_ANON_KEY"]["sync"] is False
     assert "value" not in api_env["SUPABASE_ANON_KEY"]
-    assert web_env["NEXT_PUBLIC_SUPABASE_URL"]["value"] == api_env["SUPABASE_URL"]["value"]
+    assert (
+        web_env["NEXT_PUBLIC_SUPABASE_URL"]["value"] == api_env["SUPABASE_URL"]["value"]
+    )
     assert web_env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]["sync"] is False
     assert "value" not in web_env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
 

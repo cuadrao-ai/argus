@@ -158,6 +158,39 @@ def test_web_preserves_canonical_api_url_without_managing_the_old_name(manifest)
     assert "CUADRAO_RESEND_WEBHOOK_SECRET" not in plan.final
 
 
+def test_api_plan_allows_missing_live_guest_openrouter_key(manifest):
+    live = live_for(manifest, "api", AUDIT_API)
+    plan = se.compute_plan(manifest["services"]["api"], live, {})
+    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" not in plan.final
+    assert not any(
+        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in problem for problem in plan.problems
+    )
+
+
+def test_api_plan_allows_guest_key_matching_registered_on_legacy_live_state(
+    manifest,
+):
+    live = live_for(manifest, "api", AUDIT_API)
+    shared_value = live["CUADRAO_PROD_OPENROUTER_API_KEY"]
+    live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = shared_value
+    plan = se.compute_plan(manifest["services"]["api"], live, {})
+    assert not any("must differ" in problem for problem in plan.problems)
+    assert live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] == shared_value
+
+
+def test_workflow_manifest_still_manages_guest_openrouter_secret(manifest):
+    workflow = manifest["services"]["workflow"]
+    managed = {entry["name"] for entry in workflow["entries"]}
+    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in managed
+    guest = next(
+        entry
+        for entry in workflow["entries"]
+        if entry["name"] == "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
+    )
+    assert guest["kind"] == "secret"
+    assert "enter" in guest["production"]
+
+
 def full_secrets():
     return {
         "CUADRAO_WHATSAPP_APP_SECRET": SECRET_VALUES[1],
@@ -557,6 +590,11 @@ def _offline(capsys, *argv):
     return capsys.readouterr().out
 
 
+def test_workflow_required_names_include_guest_openrouter_key(capsys):
+    out = _offline(capsys, "names", "production", "workflow", "required")
+    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in out.splitlines()
+
+
 def test_every_entry_has_a_production_rule(manifest):
     for label, service in manifest["services"].items():
         for entry in service["entries"]:
@@ -594,7 +632,9 @@ def test_paste_ready_files_carry_plain_names_only(manifest, environment, capsys)
             continue
         kinds = {e["name"]: e["kind"] for e in service["entries"]}
         lines = _offline(capsys, "print", environment, label).splitlines()
-        assert lines and all(re.fullmatch(r"[A-Z][A-Z0-9_]*=\S.*", line) for line in lines)
+        assert lines and all(
+            re.fullmatch(r"[A-Z][A-Z0-9_]*=\S.*", line) for line in lines
+        )
         names = [line.split("=", 1)[0] for line in lines]
         assert {kinds[name] for name in names} == {"plain"}
         assert not any(se.SECRETISH_NAME.search(name) for name in names)
@@ -656,7 +696,9 @@ def test_live_names_lists_deletions_and_waits_on_copied_legacy_names(tmp_path, c
 
 def test_staging_commands_skip_production_only_entries(manifest, capsys):
     production_only = {
-        e["name"] for e in manifest["services"]["api"]["entries"] if e.get("production_only")
+        e["name"]
+        for e in manifest["services"]["api"]["entries"]
+        if e.get("production_only")
     }
     assert "CUADRAO_CHAT_MODEL" in production_only
     staging = _offline(capsys, "print", "staging", "api") + _offline(

@@ -689,7 +689,7 @@ def test_structured_interpreter_uses_bounded_interpretation_profile(
         "timeout": 20,
         "max_retries": 1,
         "openrouter_api_key": "test-key",
-            "openrouter_provider": openrouter.openrouter_provider_policy(),
+        "openrouter_provider": openrouter.openrouter_provider_policy(),
     }
 
 
