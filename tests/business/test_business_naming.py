@@ -38,7 +38,20 @@ def test_custom_name_does_not_trigger_prompt_and_rename_preserves_seen():
     assert not renamed.name_required
 
 
-def test_owner_prompt_persists_and_invite_requires_custom_name(biz, identities):
+@pytest.fixture
+def invitations_configured(monkeypatch):
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: "fake-receipt",
+    )
+
+
+def test_owner_prompt_persists_and_invite_requires_custom_name(
+    biz, identities, invitations_configured
+):
     from tests.business.conftest import ALICE
 
     headers = {"Authorization": f"Bearer {ALICE}"}

@@ -46,6 +46,9 @@ ENV = {
     "ARGUS_DOCUMENT_EXTRACTION_ENABLED": "true",
     "ARGUS_BUSINESS_PILOT_ENABLED": "true",
     "ARGUS_BUSINESS_CHAT_ENABLED": "true",
+    "CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED": "true",
+    "CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED": "true",
+    "CUADRAO_APP_ORIGIN": "https://app.example.test",
 }
 
 
@@ -103,12 +106,21 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
 
             # Exercise membership authority with the channel available; its
             # default-off refusal is covered by the channel availability suite.
-            monkeypatch.setattr(email_api, "_runtime", SimpleNamespace(
-                provider=object(), documents=documents_service(),
-                store=PostgresEmailStore(app.state.financial_accounts_pool),
-            ))
+            monkeypatch.setattr(
+                email_api,
+                "_runtime",
+                SimpleNamespace(
+                    provider=object(),
+                    documents=documents_service(),
+                    store=PostgresEmailStore(app.state.financial_accounts_pool),
+                ),
+            )
             monkeypatch.setattr(email_api, "webhook_enabled", lambda: True)
             monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
+            monkeypatch.setattr(
+                "argus.domain.business.invite_email.send_resend_email",
+                lambda **message: "fake-receipt",
+            )
             people = {
                 label: _person(client, gateway, label, created)
                 for label in ("alice", "bob", "carol", "dave")
@@ -526,7 +538,9 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         assert answer.status_code == 200, (path, answer.text)
 
 
-def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not(web) -> None:  # noqa: ANN001
+def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not(
+    web,
+) -> None:  # noqa: ANN001
     client, alice, bob, carol = web.client, web.alice, web.bob, web.carol
     receipt_a = _upload(web, alice, RECEIPT).json()["id"]
     draft_a = _note(web, alice, "nota de A").json()["draft_id"]
@@ -606,13 +620,31 @@ def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not
             "update public.business_client_grants set revoked_at=now() where space_id=%s and grantee_id=%s",
             (carol.space_id, carol.id),
         )
-    assert client.get(f"{API}/business/receipts/{receipt_c}", headers=_as(bob, web.grant_c)).status_code == 200
-    assert client.get(f"{API}/business/workspace", headers=carol.headers).status_code != 200
+    assert (
+        client.get(
+            f"{API}/business/receipts/{receipt_c}", headers=_as(bob, web.grant_c)
+        ).status_code
+        == 200
+    )
+    assert (
+        client.get(f"{API}/business/workspace", headers=carol.headers).status_code != 200
+    )
     with Connection.connect(shared.DSN) as db:
-        assert db.execute("select count(*) from public.business_client_grants where space_id=%s and grantee_id=%s and revoked_at is null", (carol.space_id, carol.id)).fetchone() == (0,)
-        db.execute("update public.business_client_grants set revoked_at=now() where id=%s", (web.grant_c,))
+        assert db.execute(
+            "select count(*) from public.business_client_grants where space_id=%s and grantee_id=%s and revoked_at is null",
+            (carol.space_id, carol.id),
+        ).fetchone() == (0,)
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where id=%s",
+            (web.grant_c,),
+        )
     everything_refused(web.grant_c, receipt_c, draft_c)
-    assert {s["space_id"] for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()["spaces"]} == {bob.space_id}
+    assert {
+        s["space_id"]
+        for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()[
+            "spaces"
+        ]
+    } == {bob.space_id}
 
 
 @pytest.mark.parametrize("state", ["owner", "viewer", "revoked"])

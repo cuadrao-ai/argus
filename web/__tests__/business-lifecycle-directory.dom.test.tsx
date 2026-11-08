@@ -21,7 +21,7 @@ beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz" }); O
 afterAll(async () => { globalThis.fetch = original.fetch; if (original.auth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = original.auth; Object.assign(liveBusinessDataSource, { consent: original.consent }); await GlobalRegistrator.unregister(); });
 
 test("directory retains closed grants while the legacy list exposes only live grants", async () => {
-  const answer = { spaces: [], closed_spaces: [closed] };
+  const answer = { spaces: [], closed_spaces: [closed], invitations_available: false };
   globalThis.fetch = async () => Response.json(answer);
   assert.deepEqual(await getBusinessDirectory(), answer);
   assert.deepEqual(await getBusinessSpaces(), []);

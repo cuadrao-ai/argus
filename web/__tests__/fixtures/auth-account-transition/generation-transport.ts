@@ -71,7 +71,11 @@ test("Business admission reads only the expected account's grants", async () => 
   const { getBusinessDirectory } = await import("@/lib/business-api");
   await expect(getBusinessDirectory(undefined, "owner-a")).rejects.toThrow("Chat account changed");
   expect(send).not.toHaveBeenCalled();
-  await expect(getBusinessDirectory(undefined, "owner-b")).resolves.toEqual({ spaces: [], closed_spaces: [] });
+  await expect(getBusinessDirectory(undefined, "owner-b")).resolves.toEqual({
+    spaces: [],
+    closed_spaces: [],
+    invitations_available: false,
+  });
   expect(send).toHaveBeenCalledTimes(1);
 });
 
