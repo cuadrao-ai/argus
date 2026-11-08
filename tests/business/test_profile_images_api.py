@@ -156,7 +156,7 @@ def test_another_person_sees_nothing_and_changes_only_their_own(
 def test_a_member_photo_reaches_the_owner_only_once_the_member_opened_the_grant(
     biz: TestClient,
     alice: Owner,
-    bob: Owner,
+    bob: Owner,  # noqa: F811
     member: dict[str, str],  # noqa: F811
 ) -> None:
     """Acceptance grants access; the member photo still requires access_seen."""
@@ -222,7 +222,7 @@ def test_the_owner_uploads_replaces_and_removes_the_logo(
 def test_an_admin_sees_the_logo_and_can_replace_it(
     biz: TestClient,
     alice: Owner,
-    bob: Owner,
+    bob: Owner,  # noqa: F811
     member: dict[str, str],  # noqa: F811
 ) -> None:
     url = _put(biz, LOGO, png(), "image/png", **alice.auth).json()["logo_url"]
@@ -244,7 +244,7 @@ def test_an_admin_sees_the_logo_and_can_replace_it(
 def test_editor_and_viewer_see_the_logo_but_cannot_change_it(
     biz: TestClient,
     alice: Owner,
-    bob: Owner,
+    bob: Owner,  # noqa: F811
     member: dict[str, str],  # noqa: F811
 ) -> None:
     url = _put(biz, LOGO, png(), "image/png", **alice.auth).json()["logo_url"]
@@ -280,7 +280,7 @@ def test_a_non_member_cannot_see_or_change_the_logo(
 def test_a_revoked_member_loses_the_logo_at_once(
     biz: TestClient,
     alice: Owner,
-    bob: Owner,
+    bob: Owner,  # noqa: F811
     member: dict[str, str],  # noqa: F811
 ) -> None:
     _put(biz, LOGO, png(), "image/png", **alice.auth)
