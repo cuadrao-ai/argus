@@ -487,14 +487,15 @@ describe("the gate", () => {
     await page.settle(() => page.records().length > 0, "the saved records");
   });
 
-  test("an empty period names the current tab and offers Agregar only on Compras", async () => {
+  test("an empty period names the current tab without suggesting an action", async () => {
     const page = await mount({ enabled: false, transacciones: await recordsOf([]) });
-    const empty = () => document.querySelector('[data-empty-kind="first_run"]');
+    const empty = () => document.querySelector('[data-testid="transacciones-records-empty"]');
     await page.settle(() => empty() !== null, "the purchase empty state");
-    assert.equal(empty()?.querySelector("h3")?.textContent, "Aquí verás tus compras");
-    assert.equal(empty()?.querySelector("button")?.textContent, "Agregar");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "No hay compras en esta selección");
+    assert.equal(empty()?.querySelector("svg")?.getAttribute("data-mark"), "receipt");
+    assert.equal(empty()?.querySelector("button"), null);
     await chooseRecordKind(page, "venta");
-    assert.equal(empty()?.querySelector("h3")?.textContent, "Aquí verás tus ventas");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "No hay ventas en esta selección");
     assert.equal(empty()?.querySelector("button"), null);
     assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"] dd')?.textContent, "-sin dato", "no row names a currency, so the zero is not shown as pesos");
   });
@@ -1036,7 +1037,18 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
     });
     const clearSearch = es ? "Borrar búsqueda" : "Clear search";
     const clearFilters = es ? "Limpiar filtros" : "Clear filters";
-    const period = document.querySelector('button[aria-label^="Período:"], button[aria-label^="Period:"]')?.getAttribute("aria-label");
+    const minimumAmount = async (value: string) => {
+      await open();
+      const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, value); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
+      await clickText(es ? "Aplicar" : "Apply");
+    };
+    const periodButton = (label: string) => [...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((button) => button.textContent === label) ?? null;
+    const periodLabel = es ? "Todas las fechas" : "All dates";
+    await page.click(periodButton(es ? "Este mes" : "This month"));
+    await clickText(periodLabel);
+    await clickText(es ? "Confirmar período" : "Confirm period");
+    assert.ok(periodButton(periodLabel));
     for (const kind of ["gasto", "venta"] as const) {
       await chooseRecordKind(page, kind);
       await typeSearch("comercio inexistente");
@@ -1048,37 +1060,40 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
       assert.equal(page.records().length, 1);
 
       await typeSearch("Nube");
-      await open();
-      const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
-      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, "25"); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
-      await clickText(es ? "Aplicar" : "Apply");
+      await minimumAmount("25");
       assert.equal(page.records().length, 0);
       assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
       const empty = document.querySelector('[data-empty-kind="filtered"]')!;
       assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
-      assert.equal(empty.querySelector("p"), null);
-      const actions = () => [...document.querySelectorAll('[data-empty-kind="filtered"] button')];
-      assert.deepEqual(actions().map((button) => button.textContent), [clearFilters, clearSearch]);
-      await page.click(actions()[1]);
-      assert.equal(query.value, "");
-      assert.equal(page.records().length, 0, "clearing search keeps the amount bound");
-      assert.deepEqual(actions().map((button) => button.textContent), [clearFilters]);
-      await typeSearch("Nube");
-      await page.click(actions()[0]);
+      assert.equal(empty.querySelector("svg")?.getAttribute("data-mark"), "search");
+      assert.deepEqual([...empty.querySelectorAll("button")].map((button) => button.textContent), [clearFilters]);
+      await page.click(empty.querySelector("button"));
       assert.equal(query.value, "Nube", "clearing filters keeps search");
       assert.equal(page.records().length, 1, "clearing filters keeps currency and clears amount limits");
       assert.equal(page.records()[0].dataset.kind, kind);
       assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
-      await typeSearch("");
+
+      await minimumAmount("20");
+      await typeSearch("comercio inexistente");
+      const searchEmpty = document.querySelector('[data-empty-kind="no_results"]');
+      assert.equal(searchEmpty?.querySelector("button")?.textContent, clearSearch);
+      await page.click(searchEmpty!.querySelector("button"));
+      assert.equal(query.value, "");
+      assert.equal(page.records().length, 1);
+      assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /20/);
     }
-    assert.equal(document.querySelector('button[aria-label^="Período:"], button[aria-label^="Period:"]')?.getAttribute("aria-label"), period);
+    assert.ok(periodButton(periodLabel));
     await chooseCurrency("EUR");
+    await minimumAmount("25");
+    await typeSearch("comercio inexistente");
     for (const [kind, title] of [
-      ["gasto", es ? "Aquí verás tus compras" : "Your purchases show here"],
-      ["venta", es ? "Aquí verás tus ventas" : "Your sales show here"],
+      ["gasto", es ? "No hay compras en esta selección" : "No purchases in this selection"],
+      ["venta", es ? "No hay ventas en esta selección" : "No sales in this selection"],
     ] as const) {
       await chooseRecordKind(page, kind);
-      assert.equal(document.querySelector('[data-empty-kind="first_run"] h3')?.textContent, title);
+      const empty = document.querySelector('[data-testid="transacciones-records-empty"]');
+      assert.equal(empty?.querySelector("h3")?.textContent, title);
+      assert.equal(empty?.querySelectorAll("button").length, 0);
     }
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }

@@ -553,20 +553,11 @@ for (const family of ["purchase", "sale"] as const) test(`an empty ${family} fil
   const empty = document.querySelector('[data-empty-kind="filtered"]')!;
   assert.equal(empty.querySelector("h3")?.textContent, "No hay registros con estos filtros");
   assert.equal(empty.querySelector("p"), null);
-  const actions = () => [...document.querySelectorAll('[data-empty-kind="filtered"] button')];
-  assert.deepEqual(actions().map((button) => button.textContent), ["Limpiar filtros", "Borrar búsqueda"]);
+  assert.equal(empty.querySelector("svg")?.getAttribute("data-mark"), "search");
+  assert.deepEqual([...empty.querySelectorAll("button")].map((button) => button.textContent), ["Limpiar filtros"]);
   assert.deepEqual(aboveTable(), before, "nothing above the table moved");
-  await page.click(actions()[1]);
-  await page.settle(() => actions().length === 1);
-  const afterSearch = sentFilters(page).at(-1)!;
-  assert.equal(afterSearch.q, "");
-  assert.deepEqual(afterSearch.document_kinds, ["credit_note"]);
-  assert.deepEqual(afterSearch.record_families, [family]);
-  assert.deepEqual(afterSearch.currencies, ["USD"]);
-  assert.deepEqual(afterSearch.period, period);
-  await page.type(document.querySelector('input[type="search"]')!, "Proveedor");
-  await page.settle(() => actions().length === 2);
-  await page.click(actions()[0]);
+  assert.deepEqual(sentFilters(page).slice(-2).map((filters) => [filters.q, filters.document_kinds]), [["", ["credit_note"]], ["", []]]);
+  await page.click(empty.querySelector("button"));
   await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
   assert.deepEqual(aboveTable(), before);
   const applied = sentFilters(page).at(-1)!;
@@ -577,30 +568,106 @@ for (const family of ["purchase", "sale"] as const) test(`an empty ${family} fil
   assert.equal(applied.q, "Proveedor");
 });
 
-for (const family of ["purchase", "sale"] as const) test(`empty ${family} scope uses its own first-run message`, async () => {
-  let adds = 0;
+for (const family of ["purchase", "sale"] as const) test(`empty ${family} selection has priority even with search and optional filters`, async () => {
+  const initial = reportRequestSchema.parse({
+    schema_version: 2,
+    filters: { record_families: [family], currencies: ["USD"], q: "Proveedor", document_kinds: ["credit_note"], period: { kind: "latest_month" } },
+  });
   const page = await mount({
-    initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["USD"] } }),
+    initial,
     edit: (records) => {
       for (const row of records) if (row.family !== family) { row.currency = "USD"; row.recorded_currency = "USD"; }
     },
-    onAdd: () => { adds += 1; },
+    onAdd: () => assert.fail("an empty selection has no add action"),
+    waitForAnswer: false,
   });
-  assert.equal(document.querySelector('[data-empty-kind="filtered"]'), null);
-  const empty = document.querySelector('[data-empty-kind="first_run"]')!;
-  assert.equal(empty.querySelector("h3")?.textContent, family === "purchase" ? "Aquí verás tus compras" : "Aquí verás tus ventas");
-  assert.equal(empty.querySelector("p")?.textContent, family === "purchase" ? "Las compras que apruebes en la Bandeja aparecerán aquí." : "Las ventas que apruebes en la Bandeja aparecerán aquí.");
-  const add = empty.querySelector("button");
-  if (family === "purchase") {
-    assert.equal(add?.textContent, "Agregar");
-    await page.click(add);
-    assert.equal(adds, 1);
-  } else {
-    assert.equal(add, null);
+  const empty = () => document.querySelector('[data-testid="transacciones-records-empty"]');
+  await page.settle(() => document.querySelector('[data-empty-kind]') !== null);
+  assert.equal(empty()?.querySelector("h3")?.textContent, family === "purchase" ? "No hay compras en esta selección" : "No hay ventas en esta selección");
+  assert.equal(empty()?.querySelector("svg")?.getAttribute("data-mark"), "receipt");
+  assert.equal(empty()?.querySelectorAll("button").length, 0);
+  const probeFilters = sentFilters(page).slice(-2);
+  assert.deepEqual(probeFilters.map((filters) => [filters.q, filters.document_kinds]), [["", ["credit_note"]], ["", []]]);
+  for (const filters of probeFilters) {
+    assert.deepEqual(filters.record_families, [family]);
+    assert.deepEqual(filters.currencies, ["USD"]);
+    assert.deepEqual(filters.period, { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-31" });
   }
-  await page.click(document.querySelector(family === "purchase" ? "#records-type-venta" : "#records-type-gasto"));
-  await page.settle(() => document.querySelectorAll("tbody tr").length === 25);
-  assert.deepEqual(sentFilters(page).at(-1)?.currencies, ["USD"]);
+  assert.deepEqual(addressFilters(), initial.filters, "the probe does not change the URL");
+});
+
+for (const family of ["purchase", "sale"] as const) test(`empty ${family} results offer search clear when optional filters still match rows`, async () => {
+  const period = { kind: "custom", from_date: "2026-10-01", to_date: "2026-10-25" } as const;
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: [family], currencies: ["DOP"], period, q: "comercio inexistente", document_kinds: ["credit_note"] } });
+  const page = await mount({
+    initial,
+    edit: (records) => { records.find((row) => row.family === family)!.document_kind = "credit_note"; },
+    waitForAnswer: false,
+  });
+  await page.settle(() => document.querySelector('[data-empty-kind]') !== null);
+  const empty = document.querySelector('[data-empty-kind="no_results"]');
+  assert.equal(empty?.querySelector("h3")?.textContent, "No hay resultados para esta búsqueda");
+  assert.equal(empty?.querySelector("svg")?.getAttribute("data-mark"), "search");
+  assert.deepEqual([...empty!.querySelectorAll("button")].map((button) => button.textContent), ["Borrar búsqueda"]);
+  const cleared = { ...initial.filters, q: "" };
+  assert.deepEqual(sentFilters(page), [initial.filters, cleared], "one optional-only read proves this is a search empty");
+  await page.click(empty!.querySelector("button"));
+  await page.settle(() => document.querySelectorAll("tbody tr").length === 1);
+  assert.deepEqual(sentFilters(page).at(-1), cleared);
+  assert.deepEqual(addressFilters(), cleared);
+});
+
+test("a pending or failed empty-selection read leaves the table loading or retryable", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let fail = true;
+  const page = await mount({
+    initial: reportRequestSchema.parse({ schema_version: 2, filters: { q: "comercio inexistente" } }),
+    queryAnswer: async (request, answer) => {
+      if (!request.filters.q && fail) {
+        await gate;
+        throw new Error("Unavailable");
+      }
+      return answer;
+    },
+    waitForAnswer: false,
+  });
+  try {
+    await page.settle(() => sentFilters(page).some((filters) => !filters.q));
+    assert.ok(document.querySelector('[data-testid="transacciones-loading"]'));
+    assert.equal(document.querySelector('[data-empty-kind]'), null);
+  } finally {
+    release();
+  }
+  await page.settle(() => document.querySelector('[role="alert"]') !== null);
+  assert.equal(document.querySelector('[data-empty-kind="no_results"]'), null);
+  fail = false;
+  await page.click(document.querySelector('[role="alert"] button'));
+  await page.settle(() => document.querySelector('[data-empty-kind="no_results"] button')?.textContent === "Borrar búsqueda");
+});
+
+test("a late empty-selection read cannot replace the current tab's empty state", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({
+    initial: reportRequestSchema.parse({ schema_version: 2, filters: { q: "comercio inexistente" } }),
+    edit: (records) => { for (const row of records) if (row.family === "purchase") { row.currency = "USD"; row.recorded_currency = "USD"; } },
+    queryAnswer: async (request, answer) => {
+      if (!request.filters.q && request.filters.record_families[0] === "purchase") await gate;
+      return answer;
+    },
+    waitForAnswer: false,
+  });
+  try {
+    await page.settle(() => sentFilters(page).some((filters) => !filters.q && filters.record_families[0] === "purchase"));
+    await page.click(document.querySelector("#records-type-venta"));
+    await page.settle(() => document.querySelector('[data-empty-kind="no_results"] button')?.textContent === "Borrar búsqueda");
+  } finally {
+    await act(async () => release());
+  }
+  assert.equal(document.querySelector("#records-type-venta")?.getAttribute("aria-selected"), "true");
+  assert.equal(document.querySelector('[data-empty-kind="no_results"] button')?.textContent, "Borrar búsqueda");
+  assert.equal(document.querySelector('[data-testid="transacciones-records-empty"]'), null);
 });
 
 test("a record that left the view says so in a toast, never in a line above the table", async () => {
