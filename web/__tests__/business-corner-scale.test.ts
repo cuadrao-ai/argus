@@ -41,11 +41,13 @@ const PERSONAL_BRANCHES: Record<string, number> = {
 
 /** Geometry approved at the cleared design checkpoint. New values or selectors need review. */
 const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
-  "components/business-app/recepcion/reception.module.css": [
+  "components/business-app/foundation/BusinessListTabs.module.css": [
     ".tabs button[aria-selected=true]::after | border-radius | 2px",
+    ".tabs button:focus-visible | border-radius | 4px",
+  ],
+  "components/business-app/recepcion/reception.module.css": [
     ".count | border-radius | 5px",
     ".search button | border-radius | 999px",
-    ".tabs button:focus-visible | border-radius | 4px",
     ".identity | border-radius | 4px",
     ".rowAction > span | border-radius | 999px",
     ".list ul | border-radius | 16px",
@@ -113,7 +115,6 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
     ".choice input[type=radio]:checked::after | border-radius | 50%",
     ".input | border-radius | 8px",
     ".search | border-radius | 999px",
-    ".currency | border-radius | 999px",
     ".clear | border-radius | 999px",
     ".apply | border-radius | 999px",
     ".chip | border-radius | 999px",

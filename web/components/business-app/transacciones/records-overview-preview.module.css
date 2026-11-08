@@ -14,7 +14,7 @@
 .review, .fiscal { background:#f8b69f; }
 .export { --workflow-ink:#2f5a49; background:#b8d0be; }
 .exported { background:#e9e4dc; }
-.heading { display:flex; align-items:center; justify-content:space-between; gap:16px; font-size:13px; font-weight:600; letter-spacing:.07em; line-height:1.4; text-align:right; text-transform:uppercase; }
+.heading { display:flex; flex-direction:row-reverse; align-items:center; justify-content:space-between; gap:16px; font-size:13px; font-weight:600; letter-spacing:.07em; line-height:1.4; text-align:left; text-transform:uppercase; }
 .heading svg { width:21px; height:21px; flex-shrink:0; }
 .values { margin-top:auto; padding-top:24px; }
 .currencyGroup + .currencyGroup { margin-top:10px; }
@@ -62,7 +62,7 @@
   .overview { margin-bottom:20px; }
   .cards { gap:8px; }
   .card { min-height:112px; padding:12px; border-radius:16px; }
-  .heading { gap:6px; text-align:left; flex-direction:column; align-items:flex-start; overflow-wrap:anywhere; }
+  .heading { gap:6px; align-items:flex-start; overflow-wrap:anywhere; }
   .heading svg { width:17px; height:17px; }
   .values, .count { padding-top:12px; }
   .count { font-size:28px; }

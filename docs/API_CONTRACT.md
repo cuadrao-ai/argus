@@ -11213,8 +11213,13 @@ accept path recorded.
   characters) across the appropriate approved/current counterparty label,
   canonical note, explicit counterparty tax identity and NCF/e-CF only. Original
   text, private messages and OCR are not searched. Structured groups combine with
-  AND; each multiselect combines with OR: `record_families` (`sale`, `purchase`),
-  `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
+  AND; each multiselect combines with OR. `record_families` accepts `sale` and
+  `purchase`. Omitted or empty selections leave the type unrestricted, so server
+  callers receive both types. The Registros screen selects one type explicitly,
+  defaulting to `["purchase"]`, and normalizes old empty or both-type selections
+  to that screen default. Its selected type scopes the table, all six cards,
+  expanded Total and export. Malformed or unknown values are rejected.
+  The remaining multiselects are `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
   `exported`),
   `currencies`, `counterparties`, `categories`, `expense_types`, `funding_sources`,
   `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`; the projection
