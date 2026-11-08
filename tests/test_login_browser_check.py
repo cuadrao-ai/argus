@@ -225,8 +225,6 @@ def test_login_route_maps_captcha_deadline_like_captcha_rejection(
     timed_out = _post_login()
 
     assert rejected.status_code == timed_out.status_code == 401
-    assert _public_problem_body(rejected.json()) == _public_problem_body(
-        timed_out.json()
-    )
+    assert _public_problem_body(rejected.json()) == _public_problem_body(timed_out.json())
     rejection.login.assert_called_once()
     deadline.login.assert_called_once()
