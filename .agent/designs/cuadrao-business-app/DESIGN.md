@@ -1481,39 +1481,36 @@ and interaction.
 Keep the existing compact content width. Show six separate, equal summary cards
 in two rows of three: Total, ITBIS and Cantidad in the first row; Bienes,
 Servicios and Faltan datos fiscales in the second. Below them, keep the existing
-filters, active filter chips and column picker. Follow those controls with the
-selected type document-total subcard when Total is open, then the table. Payment
-subcards stay hidden for the pilot.
+filters, active filter chips and column picker, then the table. Total and payment
+subcards do not show.
 
 Every card places its icon at the top left, metric label at the top right, large
 value below left and footer or helper at the bottom left. Make the cards shallower
 while keeping the same readability. Use Cuadrao's own typography, soft fills,
 rounded corners and colors, with the corresponding dark-theme treatment.
 
-Total and Faltan datos fiscales are the two action cards. Clicking Total or
-pressing Enter or Space shows its subcard. A second activation hides it. Clicking
-Faltan datos fiscales or pressing Enter or Space applies its table filter. A
-second activation restores the prior status selection. The active filter remains
+Faltan datos fiscales is the only action card. Clicking it or pressing Enter or
+Space applies its table filter. A second activation restores the prior status
+selection. The active filter remains
 visible and clearable. A mixed status selection is not an active Fiscal card.
 An inactive Fiscal card with zero matches is disabled; an active card remains
 clearable at zero. Editing statuses directly, clearing their chip, choosing a
 saved view or navigating history discards the previous status selection saved by
 the card. Changing other filters keeps it.
-Both cards show a directional cue at the bottom right, hover feedback, a visible
-focus state, and an active state. Total exposes its expanded state and names the
-subcard it controls. Do not add a "Ver..." label or make the arrow a separate
-target.
+The Fiscal card shows a directional cue at the bottom right, hover feedback, a
+visible focus state, and an active state. Do not add a "Ver..." label or make the
+arrow a separate target.
 
-ITBIS, Cantidad, Bienes, and Servicios are static: no card click, pointer cursor,
-or card-level tab stop. Compras and Ventas are tabs above the cards, reusing
-Bandeja's tab component and style. Exactly one is active, Compras by default.
+Total, ITBIS, Cantidad, Bienes, and Servicios are static: no card click, directional
+cue, hover action, pointer cursor, or card-level tab stop. Compras and Ventas are
+tabs above the cards, reusing Bandeja's tab component and style. Exactly one is active, Compras by default.
 Optional filters are shared across tabs, as in Bandeja. A compact, always-visible
 Moneda selector beside the period offers DOP, USD and EUR without search.
 Registro and Moneda are absent from Filtros. Its count and group dots represent
 only optional filters; no active optional filters means no count or dots.
 Limpiar filtros clears only those optional filters, preserves the tab, currency,
-period and search, and is disabled in the editor when none are active. The table, all six cards and
-expanded Total follow the selected type. Ventas uses the existing server values;
+period and search, and is disabled in the editor when none are active. The table
+and all six cards follow the selected type. Ventas uses the existing server values;
 its cards have not had their design round yet. Missing sales Bienes or Servicios
 stay unknown.
 Switching currency clears both amount limits and their validation state.
@@ -1528,8 +1525,8 @@ carries exactly one currency. The table, six cards and export use that request.
 Actual fit is still unverified. Before build sign-off, render at the real compact
 content width and actual size with filters, headers and first table rows visible.
 Check long amounts, ES/EN labels, zero, empty and partial values, and the action
-cards' default, hover, keyboard-focus, expanded and active-filter states. This
-decision does not establish that those checks have passed.
+card's default, hover, keyboard-focus and active-filter states. This decision
+does not establish that those checks have passed.
 
 ### Invoicing: customers, schedules and empty states
 

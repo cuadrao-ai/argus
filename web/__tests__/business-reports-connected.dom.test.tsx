@@ -88,33 +88,25 @@ test("connected pages, full count, accent search and filtered overview use real 
 
 const overviewCards = () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="records-overview-preview"] [data-overview-filter]')];
 
-test("Total toggles only the purchase document subcard without requests, filters or navigation", async () => {
+test("Total stays static without requests, filters or navigation", async () => {
   const page = await mount();
   const calls = page.fixture.calls.length;
   const filters = structuredClone(sentFilters(page).at(-1));
   const address = window.location.href;
   const historyLength = window.history.length;
-  const total = document.querySelector<HTMLButtonElement>('[data-overview-card="total"] button[aria-controls]');
-  assert.ok(total);
-  assert.equal(total.getAttribute("aria-expanded"), "false");
-  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
+  const total = document.querySelector('[data-overview-card="total"]')!;
+  assert.equal(total.tagName, "DIV");
+  assert.equal(total.hasAttribute("tabindex"), false);
+  assert.equal(total.getAttribute("role"), null);
+  assert.equal(total.querySelector("button, [role=button], [tabindex], [aria-expanded], [aria-controls]"), null);
+  assert.equal(total.querySelectorAll("svg").length, 1);
   await page.click(total);
-  const summary = document.querySelector('[data-testid="records-results-summary"]')!;
-  assert.ok(summary);
-  assert.equal(total.getAttribute("aria-expanded"), "true");
-  assert.equal(total.getAttribute("aria-controls"), summary.id);
-  assert.equal(summary.getAttribute("data-summary-kind"), "gasto");
-  assert.equal(summary.querySelectorAll("[data-summary-part]").length, 1);
-  assert.doesNotMatch(summary.textContent!, /Pagado|Por pagar|Cobrado|Por cobrar/);
+  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
   assert.equal(page.fixture.calls.length, calls);
   assert.deepEqual(sentFilters(page).at(-1), filters);
   assert.equal(window.location.href, address);
   assert.equal(window.history.length, historyLength);
   assert.deepEqual(page.opened, []);
-  await page.click(total);
-  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-  assert.equal(total.getAttribute("aria-expanded"), "false");
-  assert.equal(page.fixture.calls.length, calls);
 });
 
 test("six cards show report scope and only fiscal applies its stage", async () => {
@@ -339,70 +331,6 @@ test("older v1 servers keep query usable and leave unsupported overview unavaila
   for (const card of document.querySelectorAll<HTMLButtonElement>('[data-overview-filter]')) assert.equal(card.disabled, true);
   assert.equal(page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).every((call) => (call.body as ReportRequest).schema_version === 1), true);
   assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-});
-
-const amounts = (card: Element) => [...card.querySelectorAll("[data-currency]")].map((row) => row.textContent);
-const cards = () => [...document.querySelectorAll('[data-testid="records-results-summary"] [data-summary-part]')];
-
-test("family filters alone never reveal subcards", async () => {
-  for (const family of ["purchase", "sale"] as const) {
-    await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" }, record_families: [family] } }) });
-    assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-    await cleanup();
-  }
-});
-
-test("purchase document subcard keeps unknown amounts partial without inventing zero", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  const [first] = [...cards()[0].querySelectorAll("[data-currency], .currencyRow, dd > div")];
-  assert.match(cards()[0].textContent!, /Compras/);
-  assert.equal(document.querySelectorAll("tbody tr").length, 25);
-  assert.match(first.textContent!, /RD\$6,200.00/);
-  assert.match(first.textContent!, /Parcial/);
-  assert.equal(cards()[0].querySelectorAll(".cuadrao-amount").length, 1);
-  assert.doesNotMatch(cards()[0].textContent!, /(?<![\d,])0\.00/);
-});
-
-test("purchase subcard follows the server answer while search loads and never sums rows", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }), edit: (rows) => { rows[125].family = "purchase"; } });
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  const live = globalThis.fetch;
-  let release!: () => void;
-  let started = false;
-  const gate = new Promise<void>((resolve) => { release = resolve; });
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith("/reports/query") ? (started = true, gate.then(() => live(input, init))) : live(input, init)) as typeof fetch;
-  await page.type(document.querySelector('input[type="search"]')!, "pena");
-  await page.settle(() => started);
-  assert.equal(cards()[0].querySelectorAll(".cuadrao-amount").length, 0);
-  release();
-  await page.settle(() => cards()[0].querySelectorAll(".cuadrao-amount").length > 0);
-  assert.deepEqual(amounts(cards()[0]), ["RD$100.00"]);
-  globalThis.fetch = live;
-});
-
-test("purchase subcard preserves exact selected-currency totals and hides payment metrics", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }), edit: (rows) => {
-    rows[0].gross_amount = "9007199254740993.01";
-    rows[2].currency = "USD"; rows[2].gross_amount = "7.00";
-    rows[4].currency = "EUR"; rows[4].gross_amount = "9.00";
-  } });
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  assert.equal(cards().length, 1);
-  assert.match(cards()[0].textContent!, /9,007,199,254,746,993\.01/);
-  assert.equal(document.querySelector('[data-testid="records-results-summary"] button[aria-expanded]'), null);
-  assert.doesNotMatch(cards()[0].textContent!, /Pagado|Por pagar|Cobrado|Por cobrar|US\$/);
-});
-
-test("an incomplete purchase total preserves its labelled known part", async () => {
-  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "all" } } }) });
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  page.fixture.records[0].gross_amount = null;
-  await page.click(document.querySelector('[data-testid="records-refresh"]'));
-  await page.settle(() => cards()[0]?.querySelector('[data-partial-known]') !== null);
-  const dop = cards()[0].querySelector('[data-currency="DOP"]')!;
-  assert.equal([...dop.querySelectorAll(".cuadrao-amount")].filter((amount) => !amount.closest("[data-partial-known]")).length, 0);
-  assert.equal(dop.querySelector("[data-partial-known]")!.textContent, "Parcial: RD$6,100.00");
 });
 
 test("desktop shows a refresh control that reloads the query and holds a busy state until it answers", async () => {
@@ -934,7 +862,7 @@ function currencyCardAnswer(request: ReportRequest, answer: ReportAnswer): Repor
   };
 }
 
-for (const family of ["purchase", "sale"] as const) for (const sample of currencyCardCases) test(`${family} ${sample.currency} keeps cards, table and expanded Total together across pages and Clear`, async () => {
+for (const family of ["purchase", "sale"] as const) for (const sample of currencyCardCases) test(`${family} ${sample.currency} keeps static cards and table together across pages and Clear`, async () => {
   const initial = reportRequestSchema.parse({ schema_version: 2, filters: { q: "Proveedor", period: { kind: "all" }, record_families: [family], has_document: true, counterparties: ["101001577"], expense_types: ["02"], funding_sources: ["cash"], document_kinds: ["unknown"], fiscal_classifications: ["B01"] } });
   const page = await mount({ initial, queryAnswer: currencyCardAnswer });
   await page.click(document.querySelector('button[aria-label^="Moneda:"]'));
@@ -945,11 +873,8 @@ for (const family of ["purchase", "sale"] as const) for (const sample of currenc
   assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, String(sample.count));
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
   assert.ok([...document.querySelectorAll('tbody td[data-col="detalle"]')].every((cell) => cell.textContent === (family === "sale" ? "Venta" : "Compra")));
-  await page.click(document.querySelector('[data-overview-card="total"] button[aria-controls]'));
-  const summary = document.querySelector('[data-testid="records-results-summary"]')!;
-  assert.equal(summary.getAttribute("data-summary-kind"), family === "sale" ? "venta" : "gasto");
-  assert.match(summary.textContent!, new RegExp(sample.shown[0].slice(4).replaceAll(".", "\\.")));
-  assert.match(summary.textContent!, family === "sale" ? /Ventas/ : /Compras/);
+  assert.equal(document.querySelector('[data-overview-card="total"] button'), null);
+  assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
   assert.deepEqual([...document.querySelectorAll('tbody td[data-col="monto"]')].map((cell) => cell.textContent), Array(25).fill("1.00"));
   await page.click(document.querySelector('button[aria-label="Última página"]'));
   await page.settle(() => document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "2");
