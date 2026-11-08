@@ -1,8 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 import { loginWithEmail, signupWithEmail } from "../lib/argus-api";
+import * as guestCaptcha from "../lib/guest-captcha";
 import { registerGuestAccount } from "../lib/guest-api";
 import { requestPasswordRecovery } from "../lib/auth-security";
 
@@ -73,8 +75,8 @@ describe("password auth CAPTCHA and confirmation contract", () => {
 
     expect(body).toMatchObject({
       email: "alpha@example.com",
+      captcha_token: "argus-local-browser-qa",
     });
-    expect(String(body?.captcha_token)).toMatch(/^argus-local-browser-qa#\d+$/);
     expect(result.response.session).toBeNull();
     expect(result.needsEmailConfirmation).toBe(true);
   });
@@ -178,10 +180,8 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       password: "password123",
       language: "es-419",
       display_name: "Alex",
+      captcha_token: "argus-local-browser-qa",
     });
-    expect(String(requests[1]?.body?.captcha_token)).toMatch(
-      /^argus-local-browser-qa#\d+$/,
-    );
     expect(result.needsEmailConfirmation).toBe(true);
   });
 
@@ -199,12 +199,48 @@ describe("password auth CAPTCHA and confirmation contract", () => {
 
     expect(body).toMatchObject({
       email: "alpha@example.com",
+      captcha_token: "argus-local-browser-qa",
     });
-    expect(String(body?.captcha_token)).toMatch(/^argus-local-browser-qa#\d+$/);
   });
 
-  test("each login attempt acquires a fresh CAPTCHA token at the API boundary", async () => {
+  test("each login attempt calls the Turnstile issuance interface twice and submits each returned token", async () => {
+    const issuanceTokens = [
+      "mocked-turnstile-proof-one",
+      "mocked-turnstile-proof-two",
+    ] as const;
+    let issuanceCalls = 0;
     const bodies: Array<Record<string, unknown>> = [];
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalApiUrl = process.env.NEXT_PUBLIC_ARGUS_API_URL;
+    const originalCuadraoSiteKey =
+      process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
+    const originalTurnstileSiteKey =
+      process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
+    const originalLocalToken =
+      process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
+    const originalCuadraoLocalToken =
+      process.env.NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN;
+
+    GlobalRegistrator.register({ url: "http://localhost/" });
+    process.env.NODE_ENV = "production";
+    process.env.NEXT_PUBLIC_ARGUS_API_URL = "https://api.example.test/api/v1";
+    process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY = "test-site-key";
+    delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
+    delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
+    delete process.env.NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN;
+
+    const loadTurnstileSpy = spyOn(guestCaptcha, "loadTurnstile").mockImplementation(
+      async () => ({
+        render(_container, options) {
+          issuanceCalls += 1;
+          const token = issuanceTokens[issuanceCalls - 1] ?? issuanceTokens[1];
+          queueMicrotask(() => options.callback(token));
+          return `widget-${issuanceCalls}`;
+        },
+        remove() {},
+      }),
+    );
+
     globalThis.fetch = (async (_input, init) => {
       bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
       return new Response(
@@ -216,19 +252,50 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       );
     }) as typeof globalThis.fetch;
 
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      await loginWithEmail({
-        email: "alpha@example.com",
-        password: "password123",
-      }).catch(() => undefined);
-    }
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        await loginWithEmail({
+          email: "alpha@example.com",
+          password: "password123",
+        }).catch(() => undefined);
+      }
 
-    expect(bodies).toHaveLength(2);
-    const first = String(bodies[0]?.captcha_token);
-    const second = String(bodies[1]?.captcha_token);
-    expect(first).toMatch(/^argus-local-browser-qa#\d+$/);
-    expect(second).toMatch(/^argus-local-browser-qa#\d+$/);
-    expect(first).not.toBe(second);
+      expect(issuanceCalls).toBe(2);
+      expect(bodies).toHaveLength(2);
+      expect(bodies[0]?.captcha_token).toBe(issuanceTokens[0]);
+      expect(bodies[1]?.captcha_token).toBe(issuanceTokens[1]);
+    } finally {
+      loadTurnstileSpy.mockRestore();
+      await GlobalRegistrator.unregister();
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalApiUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_ARGUS_API_URL;
+      } else {
+        process.env.NEXT_PUBLIC_ARGUS_API_URL = originalApiUrl;
+      }
+      if (originalCuadraoSiteKey === undefined) {
+        delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
+      } else {
+        process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY = originalCuadraoSiteKey;
+      }
+      if (originalTurnstileSiteKey === undefined) {
+        delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
+      } else {
+        process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY = originalTurnstileSiteKey;
+      }
+      if (originalLocalToken === undefined) {
+        delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
+      } else {
+        process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN = originalLocalToken;
+      }
+      if (originalCuadraoLocalToken === undefined) {
+        delete process.env.NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN;
+      } else {
+        process.env.NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN =
+          originalCuadraoLocalToken;
+      }
+      globalThis.fetch = originalFetch;
+    }
   });
 
   test("password recovery acquires a CAPTCHA token at the shared browser boundary", async () => {
@@ -240,10 +307,10 @@ describe("password auth CAPTCHA and confirmation contract", () => {
 
     await requestPasswordRecovery("alpha@example.com");
 
-    expect(body).toMatchObject({
+    expect(body).toEqual({
       email: "alpha@example.com",
+      captcha_token: "argus-local-browser-qa",
     });
-    expect(String(body?.captcha_token)).toMatch(/^argus-local-browser-qa#\d+$/);
   });
 
   test("CAPTCHA acquisition failure is safe and classified before fetch", async () => {
