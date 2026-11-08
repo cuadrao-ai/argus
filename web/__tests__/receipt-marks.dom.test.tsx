@@ -107,6 +107,7 @@ describe("the receipt page's marks card", () => {
       personal,
       personal_marked_by: personal && markedBy === "accountant" ? "Lía" : null,
       fiscal_value: ncf ? "ncf" : null,
+      fiscal_question_applies: personal && ncf,
       include_606: personal && ncf ? answer : null,
       include_606_by: personal && ncf && answer !== null ? "Lía" : null,
       fiscal_known: true,
@@ -148,6 +149,15 @@ describe("the receipt page's marks card", () => {
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><Page /><ToastViewport /></BusinessContext.Provider></env.I18nextProvider>); });
     const toggle = () => env.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
     return { ...env, calls, changed, toggle };
+  }
+
+  for (const answer of [null, true, false]) {
+    test(`a personal sale with an NCF has no 606 block with answer ${answer}`, async () => {
+      const page = await mountCard(dossier({ document_type: "venta", fiscal_question_applies: false, fiscal_inclusion_available: true }, true, true, answer), "accountant");
+      assert.equal(page.host.querySelector('[data-testid="receipt-606"]'), null);
+      assert.equal(page.toggle().getAttribute("aria-checked"), "true");
+      await page.act(async () => page.root.unmount());
+    });
   }
 
   test("the owner marks and unmarks; the 606 is read-only for the owner: pending, included or not", async () => {
@@ -336,7 +346,7 @@ describe("the server states what the browser used to guess", () => {
     const { default: ReceiptMarksCard } = await import("@/components/business-app/ReceiptMarksCard");
     const accountant = { chosen: { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true }, reload: () => undefined, source: {} } as unknown as BusinessContextValue;
     const ownerEdit = { draft_id: "d-1", version: 5, actor: { actor_id: "o", actor_kind: "member", display_name: "Dueño", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño" }, before: {}, after: {}, source_ids: [], turn_key: null, created_at: "2026-10-13T11:00:00Z" };
-    const record = { draft_id: "d-1", version: 5, capabilities: ["read", "prepare"], history: [ownerEdit], facts: {}, personal: true, fiscal_known: true, fiscal_value: "ncf", include_606: false, include_606_by: "Lía" } as unknown as BusinessDossier;
+    const record = { draft_id: "d-1", version: 5, capabilities: ["read", "prepare"], history: [ownerEdit], facts: {}, personal: true, fiscal_known: true, fiscal_value: "ncf", fiscal_question_applies: true, include_606: false, include_606_by: "Lía" } as unknown as BusinessDossier;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={accountant}><ReceiptMarksCard dossier={record} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
     assert.equal(env.host.querySelector('[data-testid="receipt-606-state"]')?.textContent, "Fuera del 606 por Lía");
     await env.act(async () => env.root.unmount());

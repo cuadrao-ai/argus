@@ -67,6 +67,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const fiscal = dossier.facts.fiscal;
+  const sale = dossier.document_type === "venta";
+  const paymentTitle = sale ? t("business.dossier.section.collection") : t("business.dossier.section.payment", "Payment");
   const flags = dossier.review_flags ?? [];
   const labels = {
     unknown: "",
@@ -125,7 +127,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const mismatchLine = mismatch ? <span data-testid="total-mismatch" className="cuadrao-amount mt-1 block text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t("business.dossier.placeholder.total_mismatch", { sum: inCurrency(mismatch.sum), total: inCurrency(mismatch.total), defaultValue: "Subtotal + ITBIS = {{sum}}, not {{total}}" })}</span> : null;
 
   const recordField = (key: BusinessFactField) => {
-    const label = t(`business.dossier.field.${key}`, key);
+    const label = key === "funding" && sale ? t("business.dossier.field.collection_method") : t(`business.dossier.field.${key}`, key);
     const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
     const currency = review && key === "amount" ? rows.get("currency") : undefined;
     const own = rows.get(key);
@@ -196,7 +198,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         </>)}
         {section("fiscal", t("business.dossier.section.fiscal", "Fiscal"), reviewFiscalFields(review))}
         {choicesSection}
-        {payment.length ? section("payment", t("business.dossier.section.payment", "Payment"), payment.map(recordField)) : null}
+        {payment.length ? section("payment", paymentTitle, payment.map(recordField)) : null}
       </div>
     );
   }
@@ -227,7 +229,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         {fiscalFields}
       </>)}
       {choicesSection}
-      {section("payment", t("business.dossier.section.payment", "Payment"), PAYMENT_FIELDS.map(recordField))}
+      {section("payment", paymentTitle, PAYMENT_FIELDS.map(recordField))}
     </div>
   );
 }

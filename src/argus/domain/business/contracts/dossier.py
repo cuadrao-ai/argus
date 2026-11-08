@@ -215,6 +215,7 @@ class BusinessDossier(RecordContext):
     personal_marked_by: str | None = None
     fiscal_known: bool = False
     fiscal_value: Literal["ncf", "ecf"] | None = None
+    fiscal_question_applies: bool = False
     include_606: bool | None = None
     include_606_by: str | None = None
     sin_comprobante: bool = False

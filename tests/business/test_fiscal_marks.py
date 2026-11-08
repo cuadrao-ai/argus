@@ -417,3 +417,22 @@ def test_every_wire_that_carries_marks_declares_every_mark_and_answers_200():
         True,
         "Lía",
     )
+
+
+@pytest.mark.parametrize(("kind", "applies"), [("expense", True), ("income", False)])
+def test_dossier_marks_expose_canonical_606_applicability(kind: str, applies: bool) -> None:
+    from argus.domain.business.actions.marks import draft_marks
+    from argus.domain.business.contracts.dossier import BusinessDossier
+
+    personal = facts(
+        kind=known(kind),
+        business_share=known(WholeBusinessShare(kind="none")),
+        fiscal=FiscalFacts(ncf=known("B0100000001")),
+    )
+    tx = SimpleNamespace(
+        context=SimpleNamespace(owner_id=uuid4(), actor=SimpleNamespace(space_id=uuid4())),
+        rows=lambda *_: [],
+    )
+    marks = draft_marks(tx, uuid4(), personal)
+    assert marks["fiscal_question_applies"] is applies
+    assert "fiscal_question_applies" in BusinessDossier.model_fields

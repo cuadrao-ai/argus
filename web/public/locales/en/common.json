@@ -2641,8 +2641,9 @@
             "title": "Already exported"
           },
           "fiscal": {
-            "title": "Missing fiscal data",
-            "description": "Missing a detail for the 606 or 607"
+            "description_purchase": "Complete them before the 606",
+            "description_sale": "Complete them before the 607",
+            "title": "Missing fiscal data"
           },
           "goods": {
             "title": "Goods"
@@ -3020,6 +3021,7 @@
         "loan_payment": "Loan payment"
       },
       "field": {
+        "collection_method": "Collection method",
         "kind": "Activity",
         "counterparty": "Counterparty",
         "occurred_on": "Receipt date",
@@ -3075,6 +3077,7 @@
         "no_receipt": "No receipt"
       },
       "section": {
+        "collection": "Collection",
         "fiscal": "Fiscal",
         "payment": "Payment"
       },

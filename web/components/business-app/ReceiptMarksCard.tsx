@@ -27,7 +27,6 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bar
   const owner = !chosen || chosen.role === "owner";
   // The server reads the marks; the card shows them as given.
   const personal = dossier.personal === true;
-  const fiscalValue = dossier.fiscal_value ?? null;
   const inclusion = dossier.include_606 ?? null;
   const answeredBy = dossier.include_606_by ?? "";
   const markedBy = dossier.personal_marked_by ?? null;
@@ -82,7 +81,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged, bar
           <Switch testId="receipt-mark-personal" label={t("business.marks.mark_personal", "Personal")} checked={personal} disabled={disabled} onChange={markPersonal} />
         </div>
       ) : null}
-      {personal && fiscalValue ? (
+      {dossier.fiscal_question_applies === true ? (
         <div className="mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10" data-testid="receipt-606">
           {inclusion === null && dossier.fiscal_inclusion_available ? (
             <>
