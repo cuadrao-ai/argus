@@ -628,6 +628,10 @@ def test_each_card_counts_its_stage_and_its_filter_matches_it(actions):
     assert matching("ready_for_export") == [str(complete)]
     assert matching("exported") == []
 
+    before_download = read_report(
+        service.authority, context, ReportRequest(filters={"fiscal_data": "complete"})
+    )
+    assert [row.draft_id for row in before_download.items] == [str(complete)]
     export_package(service.authority, context, PERIOD, InMemorySourceObjects())
     assert cards() == (1, 0, 1)
     assert matching("ready_for_export") == []
@@ -641,6 +645,31 @@ def test_each_card_counts_its_stage_and_its_filter_matches_it(actions):
         "exported",
         True,
     )
+
+    def fiscal_matches(choice):
+        answer = read_report(
+            service.authority, context, ReportRequest(filters={"fiscal_data": choice})
+        )
+        return answer, {row.draft_id for row in answer.items}
+
+    complete_answer, complete_ids = fiscal_matches("complete")
+    assert complete_ids == {str(complete)}
+    assert complete_answer.items[0].fiscal_data == "complete"
+    missing_answer, missing_ids = fiscal_matches("missing")
+    assert missing_ids == {str(missing_ncf)}
+    assert missing_answer.overview.needs_fiscal_data == missing_answer.matching_count == 1
+    current = service.dossier(context, complete)
+    changed = declared(service, context, complete, current.version, category=None)
+    assert changed.outcome == "applied"
+    assert fiscal_matches("complete")[1] == set()
+    missing_answer, missing_ids = fiscal_matches("missing")
+    assert missing_ids == {str(complete), str(missing_ncf)}
+    assert missing_answer.overview.needs_fiscal_data == 2
+    edited_exported = next(
+        row for row in missing_answer.items if row.draft_id == str(complete)
+    )
+    assert edited_exported.stage == "exported"
+    assert edited_exported.fiscal_data == "missing"
 
 
 def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, users):
@@ -684,6 +713,7 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
         expense_type=None, payment_form=None
     )
     assert rows[str(personal)].dgii_606 is None
+    assert rows[str(personal)].fiscal_data is None
     assert rows[str(sale.draft_id)].dgii_606 is None
 
     # A tipo de gasto chosen on the recorded record shows in the next read.

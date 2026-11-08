@@ -181,3 +181,16 @@ test("old saved presentations reach the server unchanged and retain current choi
     { ...current, hidden: ["unrecognized"] },
   ]) expect(() => reportRequestSchema.parse({ schema_version: 2, presentation: invalid })).toThrow();
 });
+
+test("old presentations remove family and currency while saved review stages remain readable", () => {
+  const request = reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, order: [...recordedReportAnswer.presentation.order, "family", "currency"], hidden: ["family", "currency"] }, filters: { review_stages: ["exported"], fiscal_data: null } });
+  expect(request.schema_version === 2 && request.presentation?.order.includes("family" as never)).toBe(false);
+  expect(request.schema_version === 2 && request.presentation?.hidden).toEqual([]);
+  expect(request.filters.review_stages).toEqual(["exported"]);
+});
+
+test("sales recipes clear purchase-only expense filters", () => {
+  const request = reportRequestSchema.parse({ filters: { record_families: ["sale"], expense_types: ["02", "missing"], fiscal_data: "complete" } });
+  expect(request.filters.expense_types).toEqual([]);
+  expect(request.filters.fiscal_data).toBe("complete");
+});

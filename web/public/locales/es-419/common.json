@@ -2593,6 +2593,8 @@
             "other": "Otros",
             "transport": "Transporte"
           },
+          "counterparty_short_one": "Contraparte · {{count}}",
+          "counterparty_short_other": "Contraparte · {{count}}",
           "currency": "Moneda",
           "date": {
             "from": "Desde",
@@ -2610,6 +2612,11 @@
             "e31": "E31 · Crédito fiscal electrónico",
             "e32": "E32 · Consumo electrónico"
           },
+          "fiscal_data": {
+            "all": "Todos",
+            "complete": "Completos",
+            "missing": "Faltan datos"
+          },
           "groups": {
             "account": "Cuenta",
             "amount": "Monto",
@@ -2618,6 +2625,7 @@
             "counterparty": "Contraparte",
             "document": "Tipo de documento",
             "fiscal": "Tipo fiscal",
+            "fiscal_data": "Datos fiscales",
             "review": "Revisión"
           },
           "no_matches": "No hay opciones con esa búsqueda.",
@@ -2713,6 +2721,8 @@
           "height": "Altura de filas",
           "instructions": "Arrastra para ordenar. Con teclado, enfoca el asa de seis puntos y pulsa Espacio, luego ↑ o ↓. Espacio confirma; Esc cancela.",
           "move": "Mover {{name}}",
+          "move_down": "Bajar {{name}}",
+          "move_up": "Subir {{name}}",
           "position_one": "{{name}}, posición {{position}} de {{count}}",
           "position_other": "{{name}}, posición {{position}} de {{count}}",
           "required": "Siempre visible",

@@ -23,7 +23,7 @@ LEGACY_ORDER = [
 ]
 
 
-def test_default_presentation_has_eight_visible_columns():
+def test_default_presentation_has_six_visible_columns():
     presentation = Presentation()
     assert presentation.order == TABLE_COLUMNS
     assert "category" not in TABLE_COLUMNS
@@ -42,8 +42,6 @@ def test_legacy_category_order_upgrades_in_place():
         "counterparty",
         "date",
         "gross_amount",
-        "currency",
-        "family",
         "expense_type",
         "payment_form",
         "stage",
@@ -113,8 +111,6 @@ def test_query_returns_backend_default_presentation(version):
         "counterparty",
         "date",
         "gross_amount",
-        "currency",
-        "family",
         "stage",
         "note",
         "attachment",
@@ -189,7 +185,11 @@ def test_saved_order_appends_fiscal_columns_hidden_without_moving_existing_colum
     presentation = Presentation.model_validate(
         {"order": order, "hidden": ["date"], "density": 56}
     )
-    assert presentation.order == (*order, "fiscal_number", "itbis_amount")
+    assert presentation.order == (
+        *(key for key in order if key not in {"currency", "family"}),
+        "fiscal_number",
+        "itbis_amount",
+    )
     assert presentation.hidden == ("date", "fiscal_number", "itbis_amount")
     assert presentation.density == 56
 
@@ -221,8 +221,52 @@ def test_partial_fiscal_upgrade_preserves_selected_column(selected, missing):
         {"order": [*TABLE_COLUMNS, "unknown"]},
         {"hidden": ["fiscal_number", "fiscal_number"]},
         {"hidden": ["unknown"]},
+        {"order": ["counterparty", {}]},
+        {"order": list(TABLE_COLUMNS), "hidden": [{}]},
     ],
 )
 def test_fiscal_migration_keeps_presentation_validation(invalid):
     with pytest.raises(ValidationError):
         Presentation.model_validate(invalid)
+
+
+def test_default_columns_keep_fiscal_numbers_and_itbis_next_to_their_related_columns():
+    assert TABLE_COLUMNS == (
+        "counterparty",
+        "fiscal_number",
+        "date",
+        "gross_amount",
+        "itbis_amount",
+        "stage",
+        "note",
+        "attachment",
+        "expense_type",
+        "payment_form",
+        "funding",
+    )
+    assert [key for key in TABLE_COLUMNS if key not in HIDDEN_COLUMNS] == [
+        "counterparty",
+        "date",
+        "gross_amount",
+        "stage",
+        "note",
+        "attachment",
+    ]
+
+
+def test_removed_stored_columns_are_dropped_from_order_and_hidden():
+    old = [
+        "counterparty",
+        "currency",
+        "family",
+        *[
+            key
+            for key in TABLE_COLUMNS
+            if key not in {"counterparty", "currency", "family"}
+        ],
+    ]
+    presentation = Presentation.model_validate(
+        {"order": old, "hidden": ["family", "currency", "note"]}
+    )
+    assert "currency" not in presentation.order and "family" not in presentation.order
+    assert presentation.hidden == ("note",)

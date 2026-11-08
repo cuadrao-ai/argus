@@ -25,11 +25,11 @@ The tables preserve the confirmed engineering map's keys. Registros column keys 
 | occurred_on | Fecha del comprobante / Receipt date | — | Fecha / Date | FECHA DEL COMPROBANTE | Fecha Comprobante | One meaning; column shortens the same phrase. "Fecha de actividad" is not the label. |
 | amount | Monto / Amount | — | Monto {{currency}} / Amount {{currency}} | TOTAL | — | **Gross** (what the receipt shows). The pilot TOTAL export rule: use `amount` when present; else servicios+bienes+itbis. Not DGII net. |
 | (derived) total_monto_facturado | — | — | — | — | Total Monto Facturado | **Net** = servicios + bienes. Never label this "Monto" or "TOTAL". |
-| currency | Moneda / Currency | — | Moneda / Currency | — | — | |
+| currency | Moneda / Currency | — | — | — | — | |
 | ncf / ecf | NCF / e-CF / NCF / e-CF | — | — | NCF | NCF | |
 | modified_ncf | — | NCF ó Documento Modificado / Modified NCF or document | — | NCF AFECTADO | NCF ó Documento Modificado | |
 | itbis | ITBIS / ITBIS | — | — | ITBIS FACTURADO | ITBIS Facturado | |
-| document_type | Tipo (Compra / Venta) / Type (Purchase / Sale) | — | Tipo / Type | — | — | Registros `detalle` today. Keep Compra/Venta. |
+| document_type | Tipo (Compra / Venta) / Type (Purchase / Sale) | — | — | — | — | Registros uses the Compras/Ventas tab; no type column. |
 | category | Tipo de gasto / Expense type | — | Tipo de gasto / Expense type | TIPO DE BIENES Y/O SERVICIOS COMPRADOS | Tipo Bienes y Servicios | Field title in app stays "Tipo de gasto"; export header is the pilot's exact phrase. Option **codes** 01–11 fixed; option **text** follows UI locale. |
 | payment_method | Forma de pago / Payment method | — | Forma de pago / Payment method | FORMA DE PAGO | Forma de Pago | Option codes 01–07 fixed; option text follows UI locale. Distinct from Cuenta. |
 | services_amount | — | Monto Facturado en Servicios / Amount billed for services | — | MONTO FACTURADO EN SERVICIOS | Monto Facturado en Servicios | Reader split waits; field stays for export and edit. |
@@ -101,17 +101,15 @@ Tipo de gasto: 01–11 · Forma de pago: 01–07
 
 ## Registros columns
 
-The backend `Presentation` in `src/argus/domain/business/reporting_preferences.py` owns the default layout. The report answer returns the effective `presentation`; the connected table uses it. The preview uses `web/test-fixtures/records-default-report-answer.json`, recorded from the backend. `test_recorded_preview_answer_matches_backend` checks that fixture and `records-default-authority.test.ts` prevents web defaults. Saved layouts keep their explicit order, hidden columns and density. The existing column picker stays. Further table additions wait for the pilot client’s workflow.
+The backend `Presentation` in `src/argus/domain/business/reporting_preferences.py` owns the default layout. The report answer returns the effective `presentation`; the connected table uses it. The preview uses `web/test-fixtures/records-default-report-answer.json`, recorded from the backend. `test_recorded_preview_answer_matches_backend` checks that fixture and `records-default-authority.test.ts` prevents web defaults. Saved layouts keep their explicit order, hidden columns and density. The default visible order is Contraparte, Fecha, Monto, Estado, Notas, Adjunto. NCF follows Contraparte and ITBIS follows Monto, both hidden by default. Monto uses heavier text and ITBIS regular text. The column picker supports drag and up/down buttons. Saved layouts drop removed Tipo and Moneda keys. Account remains available because receipt review can set a Business account and approval records it. Further table additions wait for the pilot client’s workflow.
 
 | Column key | Pilot default | ES / EN | Why |
 |---|---|---|---|
 | contraparte | On | Contraparte / Counterparty | |
 | fecha | On | Fecha / Date | Short for Fecha del comprobante |
 | monto | On | Monto / Amount | Gross |
-| moneda | On | Moneda / Currency | |
-| detalle | On | Tipo / Type | Compra/Venta |
-| tipo_gasto | Available (hidden by default) | Tipo de gasto / Expense type | Applies to purchases only, so hidden by default |
-| forma_pago | Available (hidden by default) | Forma de pago / Payment method | Applies to purchases only, so hidden by default |
+| tipo_gasto | Available (hidden by default) | Tipo de gasto / Expense type | Available on Compras only; never offered or rendered on Ventas |
+| forma_pago | Available (hidden by default) | Forma de pago / Payment method | Available on Compras only; never offered or rendered on Ventas |
 | estado | On | Estado / Status | |
 | comprobante | On | Adjunto / Attachment | |
 | notas | On | Notas / Notes | Notas stays available, not stripped or forced hidden. |
@@ -134,11 +132,15 @@ Registros has six summary cards. Lucas approved the purchase-side meanings on 20
 | Cantidad | The server's `matching_count` for the current table filters, as a whole number. Static. |
 | Bienes | Populated net (pre-tax) goods amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
 | Servicios | Populated net (pre-tax) services amounts, including values entered by hand. Its own coverage helper reports populated purchases, for example "12 de 25 compras". Static. |
-| Faltan datos fiscales | Server count by the existing fiscal-completeness definition within all current table filters, across all pages. It is the only action card. Its action narrows the status selection to missing fiscal data. A second click restores the previous status selection and preserves the other current filters. The active filter stays visible and clearable. |
+| Faltan datos fiscales | Server count by the existing fiscal-completeness definition within all current table filters, across all pages. It is the only action card. Its action selects Datos fiscales, Faltan datos. A second click restores the previous fiscal selection and any legacy review-stage selection and preserves the other current filters. The active filter stays visible and clearable. |
 
 Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Registros always selects exactly one currency, DOP, USD or EUR. Without a valid single-currency URL or view, the server workspace `records_default_currency` supplies the selection, currently DOP. Never add incompatible currencies. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
 
-The same single-type, single-currency request scopes the table, all six cards and the Registros export. Compras / Ventas are always-visible tabs above the cards, Compras by default, using Bandeja’s tab component. Optional filters are shared across tabs. Moneda is an always-visible DOP / USD / EUR selector beside the period, without search. Neither belongs in Filtros or its chips. The filter count and dots include only optional filters. Clear filters clears only optional filters, keeps the tab, currency, period and search, and is disabled in the editor when none are active. Switching currency clears both amount limits without conversion. Cards describe all matching records across all pages; changing pages does not change their totals. A new request hides the previous card values until its answer arrives. An empty answer shows zero matching records and no invented money amounts.
+The same single-type, single-currency request scopes the table, all six cards and the Registros export. Compras / Ventas are always-visible tabs above the cards, Compras by default, using Bandeja’s tab component. Optional filters are shared across tabs except Tipo de gasto, which is Compras-only and clears on a switch to Ventas or a loaded sales recipe. Moneda is an always-visible DOP / USD / EUR selector beside the period, without search. Neither belongs in Filtros or its chips. The filter count and dots include only optional filters. Clear filters clears only optional filters, keeps the tab, currency, period and search, and is disabled in the editor when none are active. Switching currency clears both amount limits without conversion. Cards describe all matching records across all pages; changing pages does not change their totals. A new request hides the previous card values until its answer arrives. An empty answer shows zero matching records and no invented money amounts.
+
+Datos fiscales is one nullable choice. Completos means the current 606/607 carries the record with every required fiscal field, downloaded or not. Faltan datos uses the same current missing verdict as the card. Records outside the report, waiting records and technical failures appear only under Todos. Download history does not set this choice. Existing fiscal admission and required fields are unchanged. Old review-stage views still load and keep a clearable chip.
+
+Contraparte options follow the selected tab across all dates. Each tax identity has one name from the latest report date with a nonempty name, stable row ID ascending on ties, undated last. The tax identity is the fallback when no name exists. Its chip shows only the count, for example Contraparte · 3. Selecting all options clears the filter.
 
 Known limitations:
 

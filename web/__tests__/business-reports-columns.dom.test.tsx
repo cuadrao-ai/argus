@@ -22,7 +22,7 @@ test("an old 11-column URL offers NCF and ITBIS hidden without losing the saved 
   const request = reportRequestSchema.parse({ schema_version: 2, presentation });
   window.history.replaceState(null, "", `/biz?report=${encodeURIComponent(JSON.stringify(request))}`);
   const page = await mount({ queryAnswer: (_request, answer) => ({ ...answer, presentation: recordedReportAnswer.presentation }) });
-  const expectedColumns = ["contraparte", "cuenta", "comprobante", "notas", "estado", "forma_pago", "tipo_gasto", "detalle", "moneda", "monto"];
+  const expectedColumns = ["contraparte", "cuenta", "forma_pago", "tipo_gasto", "comprobante", "notas", "estado", "monto"];
   assert.deepEqual(renderedColumnKeys(), expectedColumns);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
@@ -40,9 +40,9 @@ test("an old 11-column URL offers NCF and ITBIS hidden without losing the saved 
   assert.deepEqual(restored.schema_version === 2 && restored.presentation, { ...presentation, order: [...presentation.order, "fiscal_number", "itbis_amount"], hidden: ["date", "itbis_amount"] });
 });
 
-for (const language of ["es-419", "en"] as const) test(`server defaults show eight columns and all optional columns remain available in ${language}`, async () => {
+for (const language of ["es-419", "en"] as const) test(`server defaults show six columns and all optional columns remain available in ${language}`, async () => {
   const page = await mount({ language });
-  assert.deepEqual(renderedColumnKeys(), ["contraparte", "fecha", "monto", "moneda", "detalle", "estado", "notas", "comprobante"]);
+  assert.deepEqual(renderedColumnKeys(), ["contraparte", "fecha", "monto", "estado", "notas", "comprobante"]);
   assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).every((call) => !Object.hasOwn(call.body as object, "presentation")), "fresh V1 and V2 requests leave defaults to the server");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   for (const [key, label] of language === "en" ? [["tipo_gasto", "Expense type"], ["forma_pago", "Payment method"], ["cuenta", "Account"], ["ncf", "NCF"], ["itbis", "ITBIS"]] : [["tipo_gasto", "Tipo de gasto"], ["forma_pago", "Forma de pago"], ["cuenta", "Cuenta"], ["ncf", "NCF"], ["itbis", "ITBIS"]]) {
@@ -55,7 +55,7 @@ for (const language of ["es-419", "en"] as const) test(`server defaults show eig
 test("server layout changes render, saved views retain the effective layout, and Restore asks for fresh defaults", async () => {
   const chosen: typeof recordedReportAnswer.presentation = { ...recordedReportAnswer.presentation, order: ["counterparty", ...recordedReportAnswer.presentation.order.slice(1).reverse()], hidden: [], density: 40 as const };
   const page = await mount({ presentation: chosen });
-  assert.deepEqual(renderedColumnKeys(), ["contraparte", "itbis", "ncf", "cuenta", "comprobante", "notas", "estado", "forma_pago", "tipo_gasto", "detalle", "moneda", "monto", "fecha"]);
+  assert.deepEqual(renderedColumnKeys(), ["contraparte", "cuenta", "forma_pago", "tipo_gasto", "comprobante", "notas", "estado", "itbis", "monto", "fecha", "ncf"]);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Mi diseño"); await page.click(page.button("Guardar"));
@@ -66,7 +66,7 @@ test("server layout changes render, saved views retain the effective layout, and
   await page.click(document.querySelector('[data-testid="records-refresh"]'));
   await page.settle(() => !renderedColumnKeys().includes("comprobante"));
   await page.click(page.button("Vistas")); await page.click(page.button("Mi diseño"));
-  await page.settle(() => renderedColumnKeys()[1] === "itbis");
+  await page.settle(() => renderedColumnKeys()[1] === "cuenta");
   assert.deepEqual((page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as { presentation: unknown }).presentation, chosen);
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   await page.click(page.button("Restaurar valores iniciales"));
@@ -113,7 +113,7 @@ test("a fresh connected table waits for server columns and offers no layout befo
     assert.equal(document.querySelector("[data-column-setting]"), null);
     await page.settle(() => document.querySelector('[data-testid="fullscreen-loading"]') !== null);
   } finally { await act(async () => release()); }
-  await page.settle(() => document.querySelector('th[data-col="moneda"]') !== null);
+  await page.settle(() => document.querySelector('th[data-col="monto"]') !== null);
 });
 
 for (const family of ["purchase", "sale"] as const) {
@@ -142,7 +142,8 @@ for (const family of ["purchase", "sale"] as const) {
           const value = source.itbis_amount === "0.00" ? "0.00" : source.itbis_amount === "18.25" ? "18.25" : "9,007,199,254,740,993.01";
           assert.equal(itbis.textContent, value);
         }
-        assert.equal(itbis.className, row.querySelector('[data-col="monto"]')?.className);
+        assert.ok(itbis.classList.contains("font-normal"));
+        assert.ok(row.querySelector('[data-col="monto"]')?.classList.contains("font-medium"));
       }
     });
   }
@@ -154,4 +155,18 @@ test("selected ITBIS stays unknown when row currency is missing", async () => {
   const amounts = [...document.querySelectorAll('tbody [data-col="itbis"]')];
   assert.equal(amounts.length, 25);
   assert.ok(amounts.every((cell) => cell.textContent === "-sin dato"));
+});
+
+test("column up and down buttons move the saved order and keep counterparty fixed", async () => {
+  const page = await mount();
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  const row = () => document.querySelector('[data-column-setting="fecha"]')!;
+  await page.click(row().querySelector('[aria-label="Subir Fecha"]'));
+  const restored = restoreReportLocation(new URLSearchParams(window.location.search)).request;
+  assert.equal(restored.schema_version === 2 && restored.presentation?.order[1], "date");
+  assert.equal(row().querySelector<HTMLButtonElement>('[aria-label="Subir Fecha"]')?.disabled, true);
+  await page.click(row().querySelector('[aria-label="Bajar Fecha"]'));
+  await page.click(row().querySelector('[aria-label="Bajar Fecha"]'));
+  assert.equal(document.querySelector('[data-column-setting="contraparte"] button'), null);
+  assert.deepEqual(renderedColumnKeys().slice(0, 3), ["contraparte", "monto", "fecha"]);
 });
