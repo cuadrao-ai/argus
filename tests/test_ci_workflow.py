@@ -219,6 +219,7 @@ _PILOT_POSTGRES_GLOBS = (
     "tests/test_dgii_rnc_postgres.py",
     "tests/test_supplier_fast_path_postgres.py",
     "tests/test_flags_off_removal_postgres.py",
+    "tests/test_login_failure_parity_postgres.py",
 )
 
 
@@ -275,6 +276,7 @@ def test_pull_requests_run_the_pilot_postgres_set_and_other_events_run_every_pro
     assert "tests/test_business_postgres.py" in pilot
     assert "tests/test_client_grants_postgres.py" in pilot
     assert "tests/test_account_deletion_fk_census_postgres.py" in pilot
+    assert "tests/test_login_failure_parity_postgres.py" in pilot
     assert set(pilot) < set(everything)
 
     result, files = _run_postgres_matrix_step(tmp_path, ROOT, "pull_request")
@@ -289,6 +291,19 @@ def test_pull_requests_run_the_pilot_postgres_set_and_other_events_run_every_pro
         result, files = _run_postgres_matrix_step(tmp_path, ROOT, event)
         assert result.returncode == 0, result.stderr
         assert sorted(_test_files(files)) == everything, event
+
+
+def test_database_inventory_artifact_retains_postgres_inventory_and_guest_junit() -> None:
+    steps = _workflow()["jobs"]["database-shards"]["steps"]
+    retain = next(
+        step
+        for step in steps
+        if step.get("name") == "Retain database test inventory and timings"
+    )
+    assert retain["uses"].startswith("actions/upload-artifact@")
+    path = retain["with"]["path"]
+    assert "temp/ci-inventory/*.json" in path
+    assert "temp/guest-*-junit.xml" in path
 
 
 def test_a_pilot_postgres_glob_that_matches_no_file_fails_the_step(
