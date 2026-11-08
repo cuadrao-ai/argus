@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -25,7 +28,10 @@ from argus.domain.business.contracts.actions import (
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.facts import BusinessFactPatch, KnownInput
 from argus.domain.business.contracts.recovery import DurableTurn, SenderLease
+from argus.domain.business.tool_catalog import get_business_tool_catalog
 from argus.domain.capability_registry import get_tool_catalog
+
+from tests.agent_runtime.test_shared_loop_import_boundary import REPO_ROOT
 
 
 class Actions:
@@ -224,8 +230,46 @@ async def test_approval_language_reaches_interpreter_but_has_no_approval_tool(
     assert not actions.drafts
 
 
+_BUSINESS_IMPORT_PROBE = "\n".join(
+    (
+        "import importlib,importlib.abc,sys",
+        "F=('argus.domain.capability_registry','argus.domain.backtesting',"
+        "'argus.domain.engine_launch','argus.agent_runtime.strategy_contract',"
+        "'argus.domain.strategy_capabilities','argus.agent_runtime.tools.registered_backtest')",
+        "class G(importlib.abc.MetaPathFinder):",
+        "    def find_spec(self,n,p=None,t=None):",
+        "        if any(n==r or n.startswith(r+'.') for r in F): raise ImportError('registry:'+n)",
+        "        return None",
+        "sys.meta_path.insert(0,G()); importlib.import_module(sys.argv[1])",
+        "from argus.domain.business.tool_catalog import get_business_tool_catalog",
+        "assert sys.argv[1]!='argus.domain.business.tool_catalog' or len(get_business_tool_catalog().declarations)==7",
+        "assert not any(any(n==r or n.startswith(r+'.') for r in F) for n in sys.modules)",
+    )
+)
+
+
 def test_business_catalogue_excludes_personal_tools_and_approval():
-    business = get_tool_catalog(surface="business")
+    for module in (
+        "argus.domain.business.tool_catalog",
+        "argus.agent_runtime.business.interpretation",
+    ):
+        completed = subprocess.run(
+            [sys.executable, "-c", _BUSINESS_IMPORT_PROBE, module],
+            cwd=REPO_ROOT,
+            env={**os.environ, "PYTHONPATH": str(REPO_ROOT / "src")},
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert completed.returncode == 0, completed.stdout + completed.stderr
+    stages = (REPO_ROOT / "src/argus/agent_runtime/business/stages.py").read_text()
+    assert "get_business_tool_catalog" in stages
+    assert "capability_registry" not in stages
+    business = get_business_tool_catalog()
+    registry = get_tool_catalog(surface="business")
+    assert [(d.name, d.description) for d in business.declarations] == [
+        (d.name, d.description) for d in registry.declarations
+    ]
     personal = get_tool_catalog()
     assert len(business.declarations) == 7
     assert all(
@@ -305,7 +349,7 @@ async def test_existing_openrouter_interpreter_business_methods_run_through_real
 
 
 def test_business_tool_arguments_cannot_supply_authority_or_approval():
-    catalog = get_tool_catalog(surface="business")
+    catalog = get_business_tool_catalog()
     declaration = catalog.get("business_read_context")
     for field in ("actor_id", "space_id", "grant_id", "approve"):
         with pytest.raises(ValueError):

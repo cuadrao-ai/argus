@@ -15,7 +15,7 @@ from argus.domain.business.contracts.facts import (
     Funding,
 )
 from argus.domain.business.contracts.recovery import BusinessModelOutputInvalid
-from argus.domain.capability_registry import get_tool_catalog
+from argus.domain.business.tool_catalog import get_business_tool_catalog
 from argus.llm.openrouter import invoke_openrouter_json_schema
 
 BUSINESS_MODEL_CANDIDATES = (
@@ -112,9 +112,7 @@ def business_interpretation_prompt(payload: dict[str, Any]) -> list[dict[str, st
                 + json.dumps(
                     [
                         {"name": declaration.name, "description": declaration.description}
-                        for declaration in get_tool_catalog(
-                            surface="business"
-                        ).declarations
+                        for declaration in get_business_tool_catalog().declarations
                     ],
                     ensure_ascii=False,
                 )
