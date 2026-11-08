@@ -9,12 +9,12 @@ import { SEARCHABLE_LISTS, useLendingList, useListSearchLoan } from "./list-sear
 import styles from "./business-header.module.css";
 import { HomeHeading } from "./HomeHeading";
 import { BUSINESS_CANVAS_MAX } from "./business-canvas";
-import { PageDescription, usePageIntro } from "./PageHeading";
+import { PageDescription, usePageHeading } from "./PageHeading";
 
 export default function BusinessHeader({ home, name, business, title, screen, onSearch }: { home: boolean; name: string | null; business?: string; title?: string; screen?: string; onSearch?: (query?: string) => void }) {
-  const intro = usePageIntro(screen);
+  const heading = usePageHeading(screen);
   const group = useRef<HTMLDivElement>(null);
-  const sentence = intro?.description;
+  const sentence = heading?.description;
   // Inicio keeps its greeting in the bar, so like a sentence it sizes the bar.
   const fitted = Boolean(sentence) || home;
   // A heading group (a sentence, or Inicio's date and greeting) sizes the bar: its height plus 21px above and
@@ -54,13 +54,10 @@ export default function BusinessHeader({ home, name, business, title, screen, on
       {home ? <>
         <HomeHeading name={name} business={business} className={styles.welcome} />
         {tools}
-        {/* Inicio's sentence takes its own row under the greeting and search, so the search never narrows it. */}
-        {intro ? <div className={`${styles.intro} ${styles.introRow}`}><PageDescription text={intro.description} icon={intro.icon} /></div> : null}
-      </> : intro ? <><div className={styles.welcome}>
-        <h1 className={`${styles.greeting} ${styles.titleLine} font-display`}>{intro.title}</h1>
+      </> : heading ? <><div className={styles.welcome}>
+        <h1 className={`${styles.greeting} ${styles.titleLine} font-display`}>{heading.title}</h1>
       </div>{tools}
-        {/* The sentence takes its own row here too, so the search field beside the title never wraps it or moves the page. */}
-        <div className={`${styles.intro} ${styles.introRow}`}><PageDescription text={intro.description} icon={intro.icon} /></div>
+        {heading.description ? <div className={`${styles.intro} ${styles.introRow}`}><PageDescription text={heading.description} icon={heading.icon} /></div> : null}
       </> : title ? <><div className={styles.welcome}>
         <span aria-hidden="true" className={styles.date} style={{ height: "1.5em" }} />
         <h1 className={`${styles.greeting} ${styles.titleLine} font-display`}>{title}</h1>
