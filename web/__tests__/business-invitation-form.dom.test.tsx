@@ -371,7 +371,7 @@ test("a send refreshes the open Acceso list, whichever door opened the form",asy
 
 const shell={currentView:"workspace",conversationId:null,isBelowTablet:false,sidebarCollapsed:false,memberEmail:"owner@example.test",showWorkspace:()=>undefined,newChat:()=>undefined,prepareQuestion:()=>undefined} as unknown as ChatShellBridge;
 
-async function mountWorkspace(permissions:string[]){
+async function mountWorkspace(permissions:string[],invitationsAvailable=false){
  const {BusinessWorkspaceProvider,useBusiness}=await import("@/components/business-app/BusinessWorkspace");
  const {BusinessConsentTestProvider}=await import("@/components/business-app/business-consent-context");
  const {createFixtureBusinessDataSource}=await import("@/components/business-app/fixture-data");
@@ -379,7 +379,7 @@ async function mountWorkspace(permissions:string[]){
  const {setChosenGrant}=await import("@/lib/business-grant");
  setChosenGrant(null);
  const chosen=space(permissions);
- const source={...createFixtureBusinessDataSource({chatAvailable:false}),mode:"live",spaces:async()=>[chosen],spaceDirectory:async()=>({spaces:[chosen],closed_spaces:[]})};
+ const source={...createFixtureBusinessDataSource({chatAvailable:false}),mode:"live",spaces:async()=>[chosen],spaceDirectory:async()=>({spaces:[chosen],closed_spaces:[],invitations_available:invitationsAvailable})};
  const state:{panel:string;ready:boolean}={panel:"",ready:false};
  function Probe(){
   const workspace=useChatWorkspace();const business=useBusiness();
@@ -396,7 +396,7 @@ async function mountWorkspace(permissions:string[]){
 
 test("the live Business menu opens the dialog and stays on the current screen",async()=>{
  const sent=serve();
- const page=await mountWorkspace(OWNER);
+ const page=await mountWorkspace(OWNER,true);
  try{
   await page.click(page.button(copy.batch_title));
   await page.settle(()=>document.querySelector("[data-invitation-modal]")!==null);
@@ -409,6 +409,24 @@ test("the live Business menu opens the dialog and stays on the current screen",a
 
 test("the menu offers no invitation without the manage permission",async()=>{
  serve();
- const page=await mountWorkspace(["read"]);
+ const page=await mountWorkspace(["read"],true);
  try{expect(page.button(copy.batch_title)).toBeUndefined();}finally{await page.unmount();}
+});
+
+test("the menu offers no invitation when capability is false",async()=>{
+ serve();
+ const page=await mountWorkspace(OWNER,false);
+ try{expect(page.button(copy.batch_title)).toBeUndefined();}finally{await page.unmount();}
+});
+
+test("the menu offers no invitation while capability is loading",async()=>{
+ serve();
+ const page=await mountWorkspace(OWNER,false);
+ try{expect(page.button(copy.batch_title)).toBeUndefined();}finally{await page.unmount();}
+});
+
+test("manage and capability true enables the invitation menu entry",async()=>{
+ serve();
+ const page=await mountWorkspace(OWNER,true);
+ try{expect(page.button(copy.batch_title)).toBeDefined();}finally{await page.unmount();}
 });

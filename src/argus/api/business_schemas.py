@@ -85,6 +85,7 @@ class GrantedSpaceInfo(_Wire):
 
 class BusinessSpaces(_Wire):
     spaces: list[GrantedSpaceInfo]
+    invitations_available: bool = False
 
 
 class StartBusinessSpace(_Wire):
@@ -182,6 +183,7 @@ class BusinessAccess(_Wire):
     invite_delivery: (
         Literal["not_configured", "accepted", "failed", "uncertain"] | None
     ) = None
+    invitations_available: bool = False
 
 
 class BusinessRecipientInvitation(_Wire):

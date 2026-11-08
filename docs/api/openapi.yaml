@@ -17850,6 +17850,9 @@ components:
             - failed
             - uncertain
           - type: 'null'
+        invitations_available:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -18817,6 +18820,9 @@ components:
           items:
             $ref: '#/components/schemas/GrantedSpaceInfo'
           type: array
+        invitations_available:
+          type: boolean
+          default: false
         closed_spaces:
           items:
             $ref: '#/components/schemas/ClosedSpaceInfo'
@@ -18916,7 +18922,6 @@ components:
           - DOP
           - USD
           - EUR
-          description: Server-owned initial Registros currency, currently DOP, independent of the Business currency.
         logo_url:
           anyOf:
           - type: string

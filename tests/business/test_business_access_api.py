@@ -14,6 +14,17 @@ from tests.business.test_business_api import Owner, bob  # noqa: F401
 
 
 @pytest.fixture
+def invitations_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: "fake-receipt",
+    )
+
+
+@pytest.fixture
 def alice(biz: TestClient, identities) -> Owner:  # noqa: ANN001
     owner = Owner(biz, ALICE, identities[ALICE]["id"])
     assert owner.start({"name": "Colmado La Esquina"}).status_code == 201
@@ -42,8 +53,34 @@ def test_starting_a_space_gives_the_owner_a_live_grant_once(
     ) == 1
 
 
+def test_invitations_unavailable_refuses_before_mutation(alice: Owner) -> None:  # noqa: F811
+    store = business_access()
+    assert store is not None
+    before_invites = len(store._invites)
+    before_commands = len(store._commands)
+    before_ledger = len(store.ledger)
+    refused = alice.post("/access", {"email": "nueva@example.test"})
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["code"] == "business_invitations_unavailable"
+    assert len(store._invites) == before_invites
+    assert len(store._commands) == before_commands
+    assert len(store.ledger) == before_ledger
+
+
+def test_spaces_and_access_report_the_same_invitations_capability(
+    alice: Owner, invitations_configured: None
+) -> None:  # noqa: F811
+    spaces = alice.get("/spaces")
+    assert spaces.status_code == 200, spaces.text
+    access = alice.get("/access")
+    assert access.status_code == 200, access.text
+    assert spaces.json()["invitations_available"] is True
+    assert access.json()["invitations_available"] is True
+
+
 def test_an_unknown_email_becomes_one_pending_invite_the_owner_can_revoke(
     alice: Owner,  # noqa: F811
+    invitations_configured: None,
 ) -> None:  # noqa: F811
     first = alice.post("/access", {"email": "  Contadora@Example.TEST "})
     assert first.status_code == 201, first.text
@@ -52,8 +89,8 @@ def test_an_unknown_email_becomes_one_pending_invite_the_owner_can_revoke(
     replay = alice.post("/access", {"email": "contadora@example.test"})
     assert replay.status_code == 200
     assert replay.json()["invites"] == first.json()["invites"]
-    assert replay.json()["invite_delivery"] == "not_configured"
-    assert first.json()["invite_delivery"] == "not_configured"
+    assert replay.json()["invite_delivery"] == "accepted"
+    assert first.json()["invite_delivery"] == "accepted"
     assert alice.post("/access", {"email": "not-an-address"}).status_code == 422
     gone = alice.client.delete(
         f"/api/v1/business/access/invites/{invites[0]['id']}", headers=alice.auth
@@ -71,6 +108,7 @@ def test_an_unknown_email_becomes_one_pending_invite_the_owner_can_revoke(
 def test_a_confirmed_account_gets_read_and_prepare_and_loses_it_at_once(
     alice: Owner,  # noqa: F811
     bob: Owner,  # noqa: F811
+    invitations_configured: None,
 ) -> None:  # noqa: F811
     store = business_access()
     assert store is not None
@@ -120,6 +158,7 @@ def test_the_owner_cannot_revoke_their_own_grant(alice: Owner) -> None:  # noqa:
 def test_a_pending_invite_requires_acceptance_after_sign_in(
     alice: Owner,  # noqa: F811
     bob: Owner,  # noqa: F811
+    invitations_configured: None,
 ) -> None:
     store = business_access()
     assert store is not None
@@ -152,6 +191,7 @@ def test_the_first_spaces_read_does_not_accept_an_invitation(
     biz: TestClient,
     identities,  # noqa: ANN001
     alice: Owner,  # noqa: F811
+    invitations_configured: None,
 ) -> None:
     """The web client reads the switcher beside the profile, so the listing
     itself turns the invite into a grant; a replay accepts nothing twice."""
@@ -201,6 +241,7 @@ def test_the_profile_read_never_fails_because_of_the_invite_hook(
 def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(
     alice: Owner,  # noqa: F811
     bob: Owner,  # noqa: F811
+    invitations_configured: None,
 ) -> None:  # noqa: F811
     """The in-memory store follows the Postgres rule: live stays, expired is
     re-issued with a new window and a receipt, revoked and accepted no longer
