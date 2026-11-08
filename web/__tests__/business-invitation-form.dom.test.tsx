@@ -386,6 +386,24 @@ test("the desktop dialog is centered and a long list scrolls inside it",async()=
  }finally{await page.unmount();}
 });
 
+test.each([1440,390])("the add action stays left-aligned directly below the last invite row at %s px",async width=>{
+ const viewport=(width:number)=>(window as unknown as {happyDOM:{setViewport:(size:{width:number;height:number})=>void}}).happyDOM.setViewport({width,height:900});
+ viewport(width);serve();
+ const page=await mountForm();
+ try{
+  for(const count of [1,2]){
+   const add=page.button(copy.batch_add_short)!;
+   const list=document.querySelector("form ul")!;
+   expect(list.children).toHaveLength(count);
+   expect(list.nextElementSibling).toBe(add.parentElement);
+   expect(add.parentElement?.className).toBe("flex justify-start");
+   expect(add.classList.contains("-ml-1")).toBe(true);
+   expect(add.classList.contains("justify-self-end")).toBe(false);
+   if(count===1)await page.addRow();
+  }
+ }finally{await page.unmount();viewport(1280);}
+});
+
 test("the X keeps the draft for the next time the dialog opens",async()=>{
  serve();
  const page=await mountForm();
