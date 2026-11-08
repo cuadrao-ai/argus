@@ -8,8 +8,8 @@ import { getMe } from "@/lib/argus-api";
 import { getChosenGrant } from "@/lib/business-grant";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import { isProgrammaticPop } from "@/lib/overlay-history";
-import { businessReportRow, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
-import { recordsCurrencySchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
+import { businessReportRow, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportFailure, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
+import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, reportPeriodSchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
@@ -38,6 +38,11 @@ import { useBusinessReport } from "./useBusinessReport";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const REPORTING = "business.transactions.reporting.";
+const EMPTY_COPY = "business.transactions.records.empty_placeholder";
+type EmptyCause = "selection" | "filters" | "search";
+type EmptyProbe =
+  | { answer: ReportAnswer; result: EmptyCause | ReportFailure }
+  | { request: ReportRequest; accessFailure: ReportFailure };
 export const reportPeriodFromUi = (period: Period): ReportPeriod => period.key === "all" ? { kind: "all" } : period.key === "this_month" || period.key === "last_month" || period.key === "this_year" ? { kind: period.key } : { kind: "custom", from_date: period.from, to_date: period.to ?? todayIso() };
 function periodForUi(period: ReportPeriod, answer?: ReportAnswer): Period {
   if (period.kind === "all") return { key: "all", from: "", to: null };
@@ -88,9 +93,10 @@ export default function BusinessReportsPanel() {
 
 export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest }) {
   const { t } = useTransaccionesWords();
-  const { panel, openPanel, actions, revision, records } = useBusiness();
+  const { panel, openPanel, revision, records } = useBusiness();
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
-  const scopeKey = `${scope.userId}:${scope.businessId}`;
+  const { userId, businessId, grantId } = scope;
+  const scopeKey = `${userId}:${businessId}`;
   const singleCurrency = useCallback((request: ReportRequest): ReportRequest => {
     if (request.filters.currencies.length === 1 && recordsCurrencySchema.safeParse(request.filters.currencies[0]).success) return request;
     return { ...request, filters: { ...request.filters, currencies: [defaultCurrency], amount_min: null, amount_max: null } };
@@ -172,12 +178,70 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     setScopeData(null); controller.revoke();
     void controller.refresh().then(() => { if (controller.getSnapshot().load.kind === "ready") void controller.listViews(); });
   };
-  const create = actions.create.find((action) => action.id === "upload_receipt");
-  // Three states, one message each: the pill row's Limpiar filtros is the only clear action; a filtered empty table says only that; a truly empty Registros keeps its first-run line.
-  const filtersActive = filter.kind === "venta" || Boolean(state.request.filters.q) || activeFilterGroups(filters).some((group) => group !== "amount") || Boolean(filters.amount.min || filters.amount.max);
-  const emptyContent = <div className={cardClass}>{filtersActive
-    ? <EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} />
-    : <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={create ? { label: create.label, run: create.run } : undefined} />}</div>;
+  const changeFilter = (next: RecordsFilter) => recipe({ filters: { ...state.request.filters, q: next.query, record_families: [next.kind === "venta" ? "sale" : "purchase"] } }, false);
+  const applyFilters = (next: PreviewFilters) => recipe({ filters: reportFiltersFromUi(state.request.filters, next, filter.kind) });
+  const filtersActive = activeFilterGroups(filters).length > 0;
+  const searchActive = Boolean(filter.query.trim());
+  const probeAnswer = state.load.kind === "ready" && state.load.answer.matching_count === 0 && (filtersActive || searchActive)
+    ? state.load.answer : undefined;
+  const [emptyProbe, setEmptyProbe] = useState<EmptyProbe | null>(null);
+  const probeQuery = transport?.query ?? queryBusinessReport;
+  useEffect(() => {
+    if (!probeAnswer) return;
+    const abort = new AbortController();
+    const stillCurrent = () => {
+      const { load } = controller.getSnapshot();
+      return !abort.signal.aborted && load.kind === "ready" && load.answer === probeAnswer;
+    };
+    const check = async () => {
+      if (!stillCurrent()) return;
+      const { request } = controller.getSnapshot();
+      try {
+        const { from_date, to_date } = probeAnswer.resolved_period;
+        const requestedPeriod = request.filters.period;
+        const period = requestedPeriod.kind === "all" || requestedPeriod.kind === "custom"
+          ? requestedPeriod : reportPeriodSchema.parse({ kind: "custom", from_date, to_date });
+        const read = (filters: ReportFilters) => probeQuery({ userId, businessId, grantId }, { ...request, filters, page: 1, page_size: 25 }, abort.signal);
+        if (filtersActive && searchActive) {
+          const withoutSearch = await read({ ...request.filters, q: "", period });
+          if (!stillCurrent()) return;
+          if (withoutSearch.matching_count > 0) {
+            setEmptyProbe({ answer: probeAnswer, result: "search" });
+            return;
+          }
+        }
+        const { record_families, currencies } = request.filters;
+        const selection = await read(reportFiltersSchema.parse({ period, record_families, currencies }));
+        if (!stillCurrent()) return;
+        const result = selection.matching_count === 0 ? "selection" : filtersActive ? "filters" : "search";
+        setEmptyProbe({ answer: probeAnswer, result });
+      } catch (error) {
+        if (!stillCurrent()) return;
+        const failure = reportFailure(error);
+        if (failure.kind === "access") {
+          setScopeData(null);
+          setEmptyProbe({ request: controller.getSnapshot().request, accessFailure: failure });
+          controller.revoke();
+        } else setEmptyProbe({ answer: probeAnswer, result: failure });
+      }
+    };
+    void check();
+    return () => abort.abort();
+  }, [probeAnswer, probeQuery, controller, userId, businessId, grantId, filtersActive, searchActive]);
+  const probeResult = emptyProbe && "answer" in emptyProbe && emptyProbe.answer === probeAnswer ? emptyProbe.result : undefined;
+  const probeAccessFailure = emptyProbe && "request" in emptyProbe && emptyProbe.request === state.request ? emptyProbe.accessFailure : undefined;
+  const probePending = Boolean(probeAnswer && !probeResult);
+  const probeFailure = typeof probeResult === "object" ? probeResult : undefined;
+  const emptyContent = <div className={cardClass}>{probeResult === "filters" ? (
+    <EmptyState kind="filtered" mark="search" illustration="/brand/records-search.webp" compact title={t(`${EMPTY_COPY}.filters.title`)} body={t(`${EMPTY_COPY}.filters.body`)}
+      action={{ label: t("business.transactions.layout.clear"), run: () => applyFilters(emptyPreviewFilters(filters.amount.currency)) }} />
+  ) : probeResult === "search" ? (
+    <EmptyState kind="no_results" illustration="/brand/records-search.webp" compact title={t(`${EMPTY_COPY}.search.title`)} body={t(`${EMPTY_COPY}.search.body`)}
+      action={{ label: t(`${EMPTY_COPY}.search.clear`), run: () => changeFilter({ ...filter, query: "" }) }} />
+  ) : (
+    <EmptyState kind="no_results" mark="receipt" illustration="/brand/records-document.webp" compact testId="transacciones-records-empty"
+      title={t(`${EMPTY_COPY}.${filter.kind}.title`)} body={t(`${EMPTY_COPY}.selection.body`)} />
+  )}</div>;
   const exportEnabled = state.load.kind === "ready" && state.export.kind !== "busy" && !(state.export.kind === "failed" && state.export.problem.kind === "changed");
   const add = <BusinessAddMenu placement="header" />;
   // Agregar lives in the top bar; the toolbar keeps Export as its own button, same gate. A phone keeps Agregar here.
@@ -188,11 +252,11 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
       {phone || panel.kind !== "transactions" ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2>{add}</div> : null}
       <RecordsTypeTabs value={filter.kind} onChange={(kind) => recipe({ filters: { ...state.request.filters, record_families: [kind === "venta" ? "sale" : "purchase"] } }, false)} />
       <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} fiscalCount={overview?.needs_fiscal_data ?? null} selected={filters.review} loading={state.load.kind === "loading"} onChoose={toggleFiscal} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} />
-      <RecordsToolbar filter={filter} onChange={(next) => recipe({ filters: { ...state.request.filters, q: next.query, record_families: [next.kind === "venta" ? "sale" : "purchase"] } }, false)} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={(next) => recipe({ filters: reportFiltersFromUi(state.request.filters, next, filter.kind) })} options={<>{!phone ? <RecordsRefreshButton busy={state.load.kind === "loading"} onRefresh={() => void controller.refresh()} /> : null}{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters: (next) => recipe({ filters: reportFiltersFromUi(state.request.filters, next, filter.kind) }), views: { items: views, select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } }, save: (name) => writeView(name), update: (id, name) => writeView(name, id), remove: (id) => { const view = views.find((view) => view.id === id); if (view) void controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } }); }, busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain, notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !currentFormat ? <p>{t(`${REPORTING}pending_contract`)}</p> : null } }} />
+      <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{!phone ? <RecordsRefreshButton busy={state.load.kind === "loading"} onRefresh={() => void controller.refresh()} /> : null}{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: { items: views, select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } }, save: (name) => writeView(name), update: (id, name) => writeView(name, id), remove: (id) => { const view = views.find((view) => view.id === id); if (view) void controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } }); }, busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain, notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !currentFormat ? <p>{t(`${REPORTING}pending_contract`)}</p> : null } }} />
       {urlInvalid ? <p role="status">{t(`${REPORTING}invalid_page`)}<button type="button" className={quietButtonClass} onClick={() => { setUrlInvalid(false); void controller.setPage(1); }}>{t(`${REPORTING}refresh`)}</button></p> : null}
       {state.export.kind !== "idle" ? <p role="status" className="mb-3 text-[13px] text-[#56635e] dark:text-white/65">{t(`${REPORTING}records_only`)}</p> : null}
       {state.export.kind === "failed" ? problem(state.export.problem, () => { void controller.refresh(); }) : null}
-      {state.load.kind === "failed" ? <div className={cardClass}>{problem(state.load.problem, () => { void controller.refresh(); })}</div> : state.load.kind === "invalid-page" ? <div className={cardClass}><EmptyState kind="filtered" compact title={t(`${REPORTING}invalid_page`)} action={{ label: t(`${REPORTING}refresh`), run: () => { void controller.recoverPage(); } }} /></div> : state.load.kind !== "ready" || !preferences ? (preferences ? <RecordsLoadingPreview preferences={preferences} density={preferences.density} /> : <FullscreenLoading />) : <RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
+      {state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : state.load.kind === "invalid-page" ? <div className={cardClass}><EmptyState kind="filtered" compact title={t(`${REPORTING}invalid_page`)} action={{ label: t(`${REPORTING}refresh`), run: () => { void controller.recoverPage(); } }} /></div> : state.load.kind !== "ready" || !preferences || probePending ? (preferences ? <RecordsLoadingPreview preferences={preferences} density={preferences.density} /> : <FullscreenLoading />) : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
         <RecordsPagePreview records={rows} preferences={preferences} onSortChange={() => undefined} density={preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: state.load.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
       </RecordEvidenceContext.Provider></RecordGlanceContext.Provider>}
     </section>
