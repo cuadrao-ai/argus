@@ -1054,10 +1054,10 @@ for (const family of ["purchase", "sale"] as const) {
         const itbis = row.querySelector('[data-col="itbis"]')!;
         if (source.itbis_amount === null) assert.equal(itbis.textContent, "-sin dato");
         else {
-          const symbol = { DOP: "RD$", USD: "US$", EUR: "€" }[currency];
           const value = source.itbis_amount === "0.00" ? "0.00" : source.itbis_amount === "18.25" ? "18.25" : "9,007,199,254,740,993.01";
-          assert.equal(itbis.textContent, `${symbol} ${value}`);
+          assert.equal(itbis.textContent, value);
         }
+        assert.equal(itbis.className, row.querySelector('[data-col="monto"]')?.className);
       }
     });
   }
