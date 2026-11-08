@@ -52,6 +52,10 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
     auth_router.reset_auth_attempt_limiter_for_tests()
     for name, value in ENV.items():
         monkeypatch.setenv(name, value)
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: "fake-receipt",
+    )
     gateway = local_supabase_gateway()
     created: list[str] = []
     try:
