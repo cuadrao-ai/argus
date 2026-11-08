@@ -295,3 +295,57 @@ test("live Acceso viewer keeps member admin minus invite surfaces",{timeout:1000
   expect(page.host.textContent?.includes("pending@example.test")).toBe(true);
  }finally{await page.unmount();}
 });
+
+test.each(["failed delivery","partial refusal"])("live Acceso retains %s results until dismissal",async outcome=>{
+ const originalFetch=globalThis.fetch;
+ const sent:{email:string;command_key:string}[][]=[];
+ const delivered=new Set<string>();
+ let reads=0;
+ process.env.NEXT_PUBLIC_MOCK_AUTH="true";
+ globalThis.fetch=(async(url:string,init?:RequestInit)=>{
+  if(typeof url!=="string"||!url.includes("/business/access"))return Response.json({});
+  if(init?.method==="POST"){
+   const {recipients}=JSON.parse(String(init.body)) as {recipients:{email:string;command_key:string}[]};
+   sent.push(recipients);
+   return Response.json({results:recipients.map((row,index)=>{
+    const refused=outcome==="partial refusal"&&sent.length===1&&index===1;
+    if(!refused)delivered.add(row.email);
+    return {...row,invite_id:refused?null:`invite-${index}`,state:refused?"refused":"pending",delivery:outcome==="failed delivery"?"failed":"accepted",code:refused?"invalid_recipient":null};
+   })});
+  }
+  reads+=1;
+  return Response.json({grants:[],invites:[...delivered].map((email,index)=>({id:`invite-${index}`,email,state:"pending",created_at:"2026-11-08",expires_at:"2026-11-15",requested_role:"viewer"})),invitations_available:true});
+ }) as typeof fetch;
+ const page=await mountLiveAcceso(()=>({invitations_available:true}),OWNER,{skipFetchSetup:true});
+ const typeEmail=async(index:number,email:string)=>{
+  const field=document.querySelectorAll<HTMLInputElement>("[data-recipient-email]")[index];
+  expect(field).toBeDefined();
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(field,email);field!.dispatchEvent(new Event("input",{bubbles:true}));});
+ };
+ const submit=()=>act(async()=>document.querySelector("[data-invitation-modal] form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ try{
+  await page.click(page.button(copy.batch_title));
+  await page.settle(()=>document.querySelector("[data-invitation-modal]")!==null);
+  await typeEmail(0,"first@example.test");
+  if(outcome==="partial refusal"){
+   await page.click(page.button(copy.batch_add_short));
+   await typeEmail(1,"retry@example.test");
+  }
+  await submit();
+  await page.settle(()=>sent.length===1);
+  expect(document.querySelector("[data-invitation-modal]")).not.toBeNull();
+  if(outcome==="failed delivery")expect(document.body.textContent).toContain(english.business_access.delivery_failed);
+  else{
+   expect(page.button(copy.batch_retry)).toBeDefined();
+   expect(document.querySelector<HTMLInputElement>("[data-recipient-email]")?.value).toBe("retry@example.test");
+   await submit();
+   await page.settle(()=>sent.length===2);
+   expect(sent[1]!.map(row=>row.email)).toEqual(["retry@example.test"]);
+   expect(sent[1]![0]!.command_key).toBe(sent[0]![1]!.command_key);
+  }
+  const beforeClose=reads;
+  await page.click(page.button(copy.batch_done));
+  await page.settle(()=>document.querySelector("[data-invitation-modal]")===null&&reads>beforeClose);
+  expect(page.host.textContent).toContain("first@example.test");
+ }finally{await page.unmount();globalThis.fetch=originalFetch;}
+});

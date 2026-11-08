@@ -165,6 +165,8 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     if (busy) return;
     onClose();
     if (finished) drafts.delete(businessId);
+    // Refreshing the parent can unmount this form, so keep outcomes until dismissal.
+    if (sends > 0) window.dispatchEvent(new Event(businessAccessChangedEvent));
   };
   const submit = async () => {
     if (busy || refused) return;
@@ -186,7 +188,6 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
         return result ? { ...row, result } : row;
       }));
       setSends(count => count + 1);
-      window.dispatchEvent(new Event(businessAccessChangedEvent));
       requestAnimationFrame(() => summary.current?.focus());
     } catch (error) {
       if (isRefusal(error)) refuse(error);

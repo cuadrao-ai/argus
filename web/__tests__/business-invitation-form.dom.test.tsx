@@ -351,7 +351,7 @@ test("the X keeps the draft for the next time the dialog opens",async()=>{
  try{expect(again.emails()[0]!.value).toBe("borrador@example.test");}finally{await again.unmount();}
 });
 
-test("a send refreshes the open Acceso list, whichever door opened the form",async()=>{
+test("dismissing send results refreshes the open Acceso list, whichever door opened the form",async()=>{
  let invites:Record<string,unknown>[]=[];
  serve({access:()=>({grants:[grant("miembro@example.test")],invites}),send:recipients=>{invites=[invite(recipients[0]!.email,"pending")];return sendAll(recipients);}});
  const {BusinessContext}=await import("@/components/business-app/BusinessWorkspace");
@@ -364,6 +364,9 @@ test("a send refreshes the open Acceso list, whichever door opened the form",asy
   await page.settle(()=>page.host.textContent?.includes("miembro@example.test")===true);
   expect(page.host.querySelector("details")).toBeNull();
   await page.typeEmail(0,"nueva@example.test");await page.submit();
+  expect(document.body.textContent).toContain(copy.batch_sent_pending);
+  expect(page.host.querySelector("details")).toBeNull();
+  await page.click(page.button(copy.batch_done));
   await page.settle(()=>page.host.querySelector("details")!==null);
   expect(page.host.querySelector("details")?.textContent).toContain("nueva@example.test");
  }finally{await page.unmount();}
