@@ -725,35 +725,26 @@ Regression coverage lives in `business-canvas.dom.test.tsx`,
 `web/__tests__/`. Browser checks must also cover the open tray, both rail modes,
 both themes and narrow viewports; DOM tests alone do not prove pixel geometry.
 
-### Page heading, approved October 27, 2026
+### Page heading, updated November 8, 2026
 
-Each top-level screen (Bandeja, Registros, Facturación, Actividad, and Negocio
-from Configurar negocio) has one
-heading group: its title and one sentence that says what the screen is for. Nested
-sections, trays and dialogs have no sentence.
+Bandeja, Registros, Facturación and Actividad keep their page titles without a
+supporting sentence or intro icon. This replaces the October 27 intro rule for
+those four screens. Negocio (Configurar negocio) keeps its title, sentence and
+briefcase icon. Nested sections, trays and dialogs have no intro sentence.
 
-- **The sentence** is supporting text, not a second heading: 16px body, regular
-  weight, 24px line height, secondary ink `#56635e` (white at 70% in dark). Weight,
-  colour and spacing keep it below the title, never low contrast. Aim for one line
-  on desktop and at most two on a narrow phone. It wraps and never truncates or
-  shrinks.
-- **The icon** before the sentence is the screen's own rail icon, at 1em (16px), in
-  the same stroke style. It sits on the first line's middle when the sentence wraps
-  and never shrinks.
-- **Desktop and tablet:** the top bar holds the group. The title is followed by the
-  sentence 4px below it. The bar grows to fit the group plus 21px above and below,
-  at any width or wrap. Its fade and the content offset grow with it, so the
-  sentence is never washed out. Screens without a sentence keep the 80px bar.
-  The heading carries no Agregar; Negocio has none, since adding documents is not
-  a settings task. Negocio's icon is the briefcase of the business mark.
-  Search and the bar's actions align to the group's first row. Inicio has no
-  sentence (Lucas, October 27): its date, Business and greeting stand alone in the
-  bar, which grows to fit them as it does a sentence.
-- **Phone:** the title and sentence open the content, 8px apart, with 34px before
-  the filters or the first card.
-- Copy lives in `business.page_intro.<screen>`. Owner: `PageHeading.tsx` and
-  `BusinessHeader.tsx` under `web/components/business-app/foundation/`; the screen
-  icons come from `SCREEN_ICON` in `nav-glyphs.tsx`, the same owner as the rail.
+- **Desktop and tablet:** the top bar holds the title. Screens without a sentence
+  keep the 80px bar. Search and the existing actions stay beside the title.
+  Negocio's sentence stays 4px below its title; its bar, fade and content offset
+  grow to fit that group plus 21px above and below. Negocio has no Agregar.
+  Inicio's date, Business and greeting remain unchanged, with no intro sentence.
+- **Phone:** existing page titles remain. Activity's heading keeps 34px before
+  its content. Negocio keeps 8px between its title and sentence and 34px before
+  the settings content.
+- **Settings intro:** 16px regular body text, 24px line height, secondary ink
+  `#56635e` (white at 70% in dark). It wraps without truncating or shrinking. Its
+  briefcase icon stays at 1em (16px), centered on the first line and never shrinks.
+- `PageHeading.tsx` owns titles and the sole intro key,
+  `business.page_intro.business`; `BusinessHeader.tsx` renders them in the top bar.
 
 ### Top bar, canvas and search, approved October 28, 2026
 
