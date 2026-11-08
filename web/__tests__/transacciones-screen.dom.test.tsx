@@ -492,7 +492,7 @@ describe("the gate", () => {
     const empty = () => document.querySelector('[data-testid="transacciones-records-empty"]');
     await page.settle(() => empty() !== null, "the purchase empty state");
     assert.equal(empty()?.querySelector("h3")?.textContent, "No hay compras en esta selección");
-    assert.equal(empty()?.querySelector("svg")?.getAttribute("data-mark"), "receipt");
+    assert.equal(empty()?.querySelector("img")?.getAttribute("src"), "/brand/records-document.webp");
     assert.equal(empty()?.querySelector("button"), null);
     await chooseRecordKind(page, "venta");
     assert.equal(empty()?.querySelector("h3")?.textContent, "No hay ventas en esta selección");
@@ -1065,7 +1065,7 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
       assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
       const empty = document.querySelector('[data-empty-kind="filtered"]')!;
       assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
-      assert.equal(empty.querySelector("svg")?.getAttribute("data-mark"), "search");
+      assert.equal(empty.querySelector("img")?.getAttribute("src"), "/brand/records-search.webp");
       assert.deepEqual([...empty.querySelectorAll("button")].map((button) => button.textContent), [clearFilters]);
       await page.click(empty.querySelector("button"));
       assert.equal(query.value, "Nube", "clearing filters keeps search");
