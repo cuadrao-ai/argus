@@ -2971,13 +2971,20 @@ Supabase Auth without logging or persistence.
 }
 ```
 
-**Private-alpha blocked response:** login intentionally returns the same generic
-`401 unauthorized` shape used for invalid credentials, so a caller cannot tell a
-denied email from a listed email with a wrong password. Denial means an
+**Uniform login failure response:** private-alpha denial, invalid credentials,
+and a failed or unfinished server-side browser check all return the same generic
+`401 unauthorized` shape so a caller cannot tell a denied email from a listed
+email with a wrong password or from a rejected Turnstile token. Denial means an
 explicitly disabled row while the public gate is open, and, when it is closed,
 an email that is not listed and, while
 `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`, not named by a live Business
 invitation or grant either.
+
+Supabase Auth still runs the Turnstile siteverify for admitted emails. When it
+rejects the token, or the provider call does not finish within 30 seconds, login
+returns the same `401 unauthorized` problem and does not create a session. The
+check is not skipped. Response parity does not hide timing differences between
+failures.
 
 ```json
 {
@@ -2986,22 +2993,6 @@ invitation or grant either.
   "status": 401,
   "detail": "Invalid email or password.",
   "code": "unauthorized",
-  "request_id": "uuid"
-}
-```
-
-A failed or unfinished browser check is a different response. Supabase Auth
-runs the Turnstile siteverify. When it rejects the token, or the provider
-call does not finish within 30 seconds, login returns `400`
-`captcha_unavailable` and does not create a session. The check is not skipped.
-
-```json
-{
-  "type": "https://api.argus.app/problems/captcha-unavailable",
-  "title": "Browser Check Failed",
-  "status": 400,
-  "detail": "The browser check did not complete. Try again.",
-  "code": "captcha_unavailable",
   "request_id": "uuid"
 }
 ```

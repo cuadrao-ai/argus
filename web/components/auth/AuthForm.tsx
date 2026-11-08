@@ -707,7 +707,7 @@ export default function AuthForm({
                 </>
               ) : isIdentityStep ? (
                 t("auth.login.submit")
-              ) : authErrorKind === "captcha_unavailable" ? (
+              ) : authErrorKind === "captcha_unavailable" && isSignup ? (
                 t("auth.errors.browser_check_retry", "Try again")
               ) : isSignup ? (
                 t("auth.signup.submit", "Sign up")

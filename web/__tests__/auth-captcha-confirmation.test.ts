@@ -94,14 +94,14 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     expect(result).not.toMatchObject({ code: "unauthorized" });
   });
 
-  test("a captcha rejection from login stays a browser-check failure", async () => {
+  test("a rejected login from the server is classified as unauthorized", async () => {
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify({
-          code: "captcha_unavailable",
-          detail: "The browser check did not complete. Try again.",
+          code: "unauthorized",
+          detail: "Invalid email or password.",
         }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        { status: 401, headers: { "Content-Type": "application/json" } },
       )) as typeof fetch;
 
     const error = await loginWithEmail({
@@ -109,8 +109,8 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       password: "password123",
     }).catch((caught: unknown) => caught);
 
-    expect(error).toMatchObject({ code: "captcha_unavailable" });
-    expect(error).not.toMatchObject({ code: "unauthorized" });
+    expect(error).toMatchObject({ code: "unauthorized" });
+    expect(error).not.toMatchObject({ code: "captcha_unavailable" });
   });
 
   test("signup with a returned session preserves the authenticated outcome", async () => {
@@ -199,6 +199,31 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       email: "alpha@example.com",
       captcha_token: "argus-local-browser-qa",
     });
+  });
+
+  test("each login attempt acquires a fresh CAPTCHA token at the API boundary", async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    globalThis.fetch = (async (_input, init) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(
+        JSON.stringify({
+          code: "unauthorized",
+          detail: "Invalid email or password.",
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof globalThis.fetch;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await loginWithEmail({
+        email: "alpha@example.com",
+        password: "password123",
+      }).catch(() => undefined);
+    }
+
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]?.captcha_token).toBe("argus-local-browser-qa");
+    expect(bodies[1]?.captcha_token).toBe("argus-local-browser-qa");
   });
 
   test("password recovery acquires a CAPTCHA token at the shared browser boundary", async () => {
