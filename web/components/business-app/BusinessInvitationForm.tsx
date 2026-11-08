@@ -243,7 +243,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     <ul aria-label={t(copy("batch_recipients"))} className={isBelowDesktop ? undefined : "-mx-1 min-h-0 overflow-y-auto overscroll-contain px-1"}>
       {rows.map((row, index) => <li key={row.id} className={isBelowDesktop ? "py-2.5" : "py-1.5"}>{isDone(row) ? sentRow(row) : draftRow(row, index)}</li>)}
     </ul>
-    {!finished ? <div className={isBelowDesktop ? "flex justify-end" : `grid gap-2 ${columns}`}><button type="button" className={`${quietButtonClass} -mr-1 justify-self-end`} disabled={busy || blocked || rows.length >= MAX_ROWS} onClick={() => { setRows(current => [...current, emptyRow()]); focusLastEmail(); }}><Plus className="h-4 w-4" aria-hidden="true" />{t(copy("batch_add_short"))}</button></div> : null}
+    {!finished ? <div className="flex justify-start"><button type="button" className={`${quietButtonClass} -ml-1`} disabled={busy || blocked || rows.length >= MAX_ROWS} onClick={() => { setRows(current => [...current, emptyRow()]); focusLastEmail(); }}><Plus className="h-4 w-4" aria-hidden="true" />{t(copy("batch_add_short"))}</button></div> : null}
     {failure ? <div role="alert" className={`mt-3 space-y-1 ${fieldErrorClass}`}>
       <p>{t(unavailable ? copy("batch_unavailable_placeholder") : refused ? "business.lifecycle.errors.business_unavailable" : copy("batch_send_error"))}</p>
       {refused ? <p>{t("auth.business_unavailable.body")}</p> : null}
