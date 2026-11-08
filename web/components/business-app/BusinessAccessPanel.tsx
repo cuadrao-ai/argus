@@ -34,7 +34,7 @@ export function AccessList({
   access: BusinessAccess;
   busyId: string | null;
   onRemove: (target: Pending) => void;
-  onResend: (invite: BusinessAccessInvite) => void;
+  onResend?: (invite: BusinessAccessInvite) => void;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -76,9 +76,9 @@ export function AccessList({
                     : t("business_access.pending_until", "Expires {{date}}", { date: formatDay(invite.expires_at, locale) })}</span>
                 </span>
                 <div className="col-start-2 flex flex-wrap gap-2">
-                  <button type="button" className={secondaryButtonClass} disabled={busyId === invite.id} onClick={() => onResend(invite)}>
+                  {onResend ? <button type="button" className={secondaryButtonClass} disabled={busyId === invite.id} onClick={() => onResend(invite)}>
                     {t("business_access.resend", "Reenviar") || "Reenviar"}
-                  </button>
+                  </button> : null}
                   <button type="button" className={dangerButtonClass} disabled={busyId === invite.id} onClick={() => onRemove({ kind: "invite", item: invite })}>
                     {t("business_access.remove_invite", "Cancel invite")}
                   </button>
@@ -192,7 +192,12 @@ export default function BusinessAccessPanel({ embedded = false }: { embedded?: b
         <Settle pending layout="access" />
       ) : (
         <>
-          <AccessList access={access} busyId={busyId} onRemove={setPending} onResend={resend} />
+          <AccessList
+            access={access}
+            busyId={busyId}
+            onRemove={setPending}
+            onResend={access.invitations_available ? resend : undefined}
+          />
           {removeError ? <p role="alert" className="mt-3 text-[14px] text-black/70 dark:text-white/70">{t("business_access.remove_error", "We couldn't remove access. Try again.")}</p> : null}
           <ConfirmDialog
             isOpen={pending !== null}
@@ -207,7 +212,7 @@ export default function BusinessAccessPanel({ embedded = false }: { embedded?: b
             onCancel={() => setPending(null)}
             onConfirm={() => void remove()}
           />
-          <form onSubmit={give} className={`${cardClass} mt-6`} data-testid="business-access-give">
+          {access.invitations_available ? <form onSubmit={give} className={`${cardClass} mt-6`} data-testid="business-access-give">
             <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business_access.give_title", "Give access to your accountant")}</h3>
             <p className="mb-3 mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business_access.give_body", "Enter their email. They can see and prepare receipts. They can never approve.")}</p>
             <label className="block">
@@ -226,7 +231,7 @@ export default function BusinessAccessPanel({ embedded = false }: { embedded?: b
             <button type="submit" className={`${primaryButtonClass} mt-3`} disabled={giving}>
               {giving ? t("business_access.giving", "Giving access...") : t("business_access.give", "Give access")}
             </button>
-          </form>
+          </form> : null}
         </>
       )}
     </section>

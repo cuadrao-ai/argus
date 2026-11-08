@@ -6,10 +6,23 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
+
 from tests.business.test_business_api import Owner, alice, bob  # noqa: F401
 from tests.business.test_business_switcher_api import GRANT, _grant
 
 BODY = {"nickname": "Caja chica", "type": "cash", "currency": "DOP"}
+
+
+@pytest.fixture(autouse=True)
+def invitations_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: "fake-receipt",
+    )
 
 
 def test_the_owner_creates_one_account_and_a_replay_answers_the_same_one(

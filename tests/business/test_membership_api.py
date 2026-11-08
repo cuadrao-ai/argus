@@ -12,6 +12,17 @@ from tests.business.test_business_api import Owner
 bob = api_fixtures.bob
 
 
+@pytest.fixture(autouse=True)
+def invitations_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: "fake-receipt",
+    )
+
+
 @pytest.fixture
 def alice(biz: TestClient, identities) -> Owner:
     owner = Owner(biz, ALICE, identities[ALICE]["id"])
@@ -89,12 +100,8 @@ def test_batch_partial_send_retries_only_unsent(alice, monkeypatch):
         return "synthetic-id"
 
     monkeypatch.setattr("argus.api.business_invite_delivery.send_invite_email", send)
-    monkeypatch.setattr(
-        "argus.api.business_invite_delivery.setting_value",
-        lambda key: "true"
-        if key == "BUSINESS_INVITE_EMAIL_ENABLED"
-        else "https://example.test",
-    )
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
     body = {
         "recipients": [
             {"email": f"{name}@example.test", "role": "viewer", "command_key": name}

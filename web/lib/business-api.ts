@@ -533,9 +533,17 @@ const directorySpace = z.object({
 const closedDirectorySpace = directorySpace.pick({ space_id: true, name: true, grant_id: true, role: true }).extend({
   closed_at: z.iso.datetime({ offset: true }), reopen_until: z.iso.datetime({ offset: true }),
 });
-const businessDirectory = z.object({ spaces: z.array(directorySpace), closed_spaces: z.array(closedDirectorySpace).default([]) });
+const businessDirectory = z.object({
+  spaces: z.array(directorySpace),
+  closed_spaces: z.array(closedDirectorySpace).default([]),
+  invitations_available: z.boolean().optional().default(false),
+});
 export type ClosedGrantedSpace = z.infer<typeof closedDirectorySpace>;
-export type BusinessDirectory = { spaces: GrantedSpace[]; closed_spaces: ClosedGrantedSpace[] };
+export type BusinessDirectory = {
+  spaces: GrantedSpace[];
+  closed_spaces: ClosedGrantedSpace[];
+  invitations_available?: boolean;
+};
 
 /** Live and held-closed grants, distinguished by the server. */
 export async function getBusinessDirectory(signal?: AbortSignal, expectedUserId?: string): Promise<BusinessDirectory> {
@@ -784,13 +792,19 @@ export type BusinessAccessGrant = {
   permissions?: BusinessPermission[];
 };
 export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string; state: "pending" | "expired"; requested_role?: BusinessRole };
-export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[]; invite_delivery?: "not_configured" | "accepted" | "failed" | "uncertain" | null };
+export type BusinessAccess = {
+  grants: BusinessAccessGrant[];
+  invites: BusinessAccessInvite[];
+  invite_delivery?: "not_configured" | "accepted" | "failed" | "uncertain" | null;
+  invitations_available?: boolean;
+};
 const businessRole = z.enum(["owner","admin","editor","viewer"]);
 const permission = z.enum(["read","prepare","approve","manage","download","export","assign_owner"]);
 const accessProjection = z.object({
   grants:z.array(z.object({id:z.string(),email:z.string().nullable(),display_name:z.string(),capabilities:z.array(z.enum(["read","prepare","approve"])),created_at:z.string(),owner:z.boolean(),business_role:businessRole.optional(),permissions:z.array(permission).optional()}).passthrough()),
   invites:z.array(z.object({id:z.string(),email:z.string(),created_at:z.string(),expires_at:z.string(),state:z.enum(["pending","expired"]),requested_role:businessRole.optional()})),
   invite_delivery:z.enum(["not_configured","accepted","failed","uncertain"]).nullable().optional(),
+  invitations_available: z.boolean().optional().default(false),
 });
 
 export async function getBusinessAccess(): Promise<BusinessAccess> {

@@ -10,7 +10,7 @@ const id="55555555-5555-4555-8555-555555555555";
 const profile={space_id:id,name:"Private Business",country:"DO",currency:"DOP",revision:1,details:{address:"Private address",email:"contact@example.test"},appearance:{kind:"default"},image:null};
 const fiscal={name:profile.name,tax_id:{type:"rnc",value:"131245678"},can_edit:true};
 const member={id:"member",email:"member@example.test",display_name:"Member",business_role:"editor",permissions:["read","prepare"],capabilities:["read","prepare"],created_at:"2026-10-26",owner:false};
-const access={grants:[member],invites:[{id:"pending",email:"pending@example.test",requested_role:"viewer",state:"pending",created_at:"2026-10-26",expires_at:"2026-11-02"}]};
+const access={grants:[member],invites:[{id:"pending",email:"pending@example.test",requested_role:"viewer",state:"pending",created_at:"2026-10-26",expires_at:"2026-11-02"}],invitations_available:true};
 const denied=(status=403)=>Response.json({code:"permission_denied"},{status});
 const unavailable=()=>Response.json({code:"unavailable"},{status:503});
 const originalFetch=globalThis.fetch,originalAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;

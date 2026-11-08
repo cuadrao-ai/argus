@@ -10398,7 +10398,10 @@ person starts their space, every route below except POST `/space` answers 404
     GET `/api/v1/business/spaces` lists every Business the caller may enter
     through a live grant, their own first: `{spaces: [{space_id, name,
     logo_url, grant_id, role: owner|accountant, capabilities, business_role,
-    permissions, access_seen}]}`; names come from the spaces. Listing, profile
+    permissions, access_seen}], closed_spaces, invitations_available}`; names
+    come from the spaces. `invitations_available` is the server's pure readiness
+    for owner invitation actions: Business invite email on, invitation admission
+    on, and a configured app origin. It is false while any prerequisite is off. Listing, profile
     reads and sign-in never accept invitations. `access_seen` is the server's memory of the one-time
     "you now have access" line, per grant: POST
     `/api/v1/business/spaces/{grant_id}/seen` (204, idempotent, one
@@ -10518,7 +10521,14 @@ person starts their space, every route below except POST `/space` answers 404
     lists. Grants add `business_role` and `permissions`; invitations add
     `requested_role`. Legacy `owner`, `capabilities`, profile photo and timestamp
     fields remain. Pending invitations expose the same shape for known and
-    unknown recipient accounts.
+    unknown recipient accounts. `invitations_available` matches
+    `GET /business/spaces`.
+  - POST `/api/v1/business/access`, POST `/api/v1/business/access/invitations`,
+    and POST `/api/v1/business/access/invites/{id}/resend` answer 409
+    `business_invitations_unavailable` with `Cache-Control: no-store` while
+    `invitations_available` is false, before any invitation, idempotency,
+    expiry, supersedes, or delivery mutation. Auth, standing, tenant, and
+    manager checks still run first.
   - POST `/api/v1/business/access` takes `{email, role?}`; omitted `role` is
     `editor` for old clients. Every new invitation remains pending for seven
     days, including confirmed accounts. It confers no access until explicit

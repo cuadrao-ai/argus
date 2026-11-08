@@ -1,8 +1,17 @@
 # ruff: noqa: F811
 from datetime import datetime, timedelta
 
+import pytest
+
 from tests.business.test_business_access_api import alice  # noqa: F401
 from tests.business.test_business_api import Owner, bob  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def invitations_admission_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
 
 
 def test_configured_create_and_resend_call_actual_adapter_with_canonical_labels(

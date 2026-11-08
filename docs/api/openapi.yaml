@@ -17857,6 +17857,9 @@ components:
             - failed
             - uncertain
           - type: 'null'
+        invitations_available:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -18824,6 +18827,9 @@ components:
           items:
             $ref: '#/components/schemas/GrantedSpaceInfo'
           type: array
+        invitations_available:
+          type: boolean
+          default: false
         closed_spaces:
           items:
             $ref: '#/components/schemas/ClosedSpaceInfo'
