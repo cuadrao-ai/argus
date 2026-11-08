@@ -1,10 +1,11 @@
 "use client";
 
 import BusinessListTabs from "../foundation/BusinessListTabs";
+import GuideCard from "../foundation/GuideCard";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { Check } from "lucide-react";
+import { Check, Files } from "lucide-react";
 import { resolveLanguage } from "@/lib/language-features";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -61,7 +62,7 @@ function ReceptionWorkspace() {
   const emailAvailable = useReceivingChannels().email.available;
   const locale = resolveLanguage({ device: i18n.resolvedLanguage ?? i18n.language });
   const word = (key: string) => t(`business.reception_preview.${key}`);
-  const { source, records, chosen, panel, openPanel, revision, refresh, reload, retrySources } = useBusiness();
+  const { source, userId, records, chosen, panel, openPanel, revision, refresh, reload, retrySources } = useBusiness();
   const { isBelowTablet: phone } = useResponsiveLayout();
   const scope = `${chosen?.space_id ?? "own"}:${chosen?.grant_id ?? chosen?.role ?? "unknown"}`;
   const [returnPosition] = useState(() => { const saved = dossierReturns.get(source); return saved?.scope === scope ? saved : undefined; });
@@ -176,10 +177,20 @@ function ReceptionWorkspace() {
   // Bandeja, through the query this list lends. A phone keeps both.
   const barTools = !phone;
   const searchInBar = barTools && barSearchAvailable;
+  const guide = (key: string) => t(`business.guide_cards.bandeja_intro.${key}`);
   useLendListSearch("inbox", searchInBar ? { query, setQuery: searchQuery } : null);
   return <PullToRefresh onRefresh={refresh}>
     <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-source={preferences.source || preferences.sender} data-arrival={preferences.arrival} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width, RECORDS_PREVIEW_COLUMNS.find(column => column.key === "moneda")!.width!), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {inPanel ? <div className={styles.phoneHeading}><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
+      {source.mode === "live" && userId && chosen ? (
+        <GuideCard cardId="bandeja-intro" userId={userId} title={guide("title")} icon={<Files size={17} />}
+          points={[
+            { label: guide("upload.label"), body: guide("upload.body") },
+            { label: guide("review.label"), body: guide("review.body") },
+            { label: guide("pending.label"), body: guide("pending.body") },
+          ]}
+        />
+      ) : null}
       <div className={styles.topline}>
         <BusinessListTabs label={word("views")} idPrefix="reception-tab" controls="reception-list" value={view} onChange={chooseTab} items={VIEWS.map(value => ({ value, label: <>{word(VIEW_WORD[value])}{value === "attention" || value === "listos" ? <span className={styles.count} data-testid={`reception-count-${value}`}>{pending || failed ? "-" : counts[value] ?? "-"}</span> : null}</> }))} />
       </div>

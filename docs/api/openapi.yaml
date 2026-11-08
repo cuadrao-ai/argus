@@ -4200,6 +4200,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/guide-cards/{card_id}:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      description: Read the signed-in person's guide state. The Business grant is ignored.
+      parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          const: bandeja-intro
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessGuideState'
+        '403':
+          description: A registered account is required.
+        '503':
+          description: '`business_guide_unavailable`: guide state could not be read or saved.
+            `auth_session_verification_unavailable`: the session could not be verified.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/guide-cards/{card_id}/dismiss:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: Dismiss this guide for the signed-in person. The Business grant is ignored.
+      parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          const: bandeja-intro
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessGuideState'
+        '403':
+          description: A registered account is required.
+        '503':
+          description: '`business_guide_unavailable`: guide state could not be read or saved.
+            `auth_session_verification_unavailable`: the session could not be verified.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/invitations:
     get:
       tags:
@@ -18431,6 +18513,13 @@ components:
           - type: 'null'
       additionalProperties: false
       type: object
+    BusinessGuideState:
+      properties:
+        dismissed:
+          type: boolean
+      type: object
+      required:
+      - dismissed
     BusinessInvitationAcceptance:
       properties:
         space_id:

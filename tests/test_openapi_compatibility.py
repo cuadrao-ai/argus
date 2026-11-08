@@ -74,6 +74,23 @@ def test_search_declares_bounded_visible_conversation_recall(
     }
 
 
+def test_business_guide_openapi_describes_person_scope_and_both_outages(
+    generated: dict,
+) -> None:
+    base = "/api/v1/business/guide-cards/{card_id}"
+    for method, path in (("get", base), ("post", f"{base}/dismiss")):
+        operation = generated["paths"][path][method]
+        assert {parameter["name"] for parameter in operation["parameters"]} == {
+            "card_id"
+        }
+        unavailable = operation["responses"]["503"]
+        assert "business_guide_unavailable" in unavailable["description"]
+        assert "auth_session_verification_unavailable" in unavailable["description"]
+        assert unavailable["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/Error"
+        }
+
+
 def test_decision_note_write_schema_caps_new_notes_without_narrowing_reads(
     generated: dict,
 ) -> None:

@@ -3169,6 +3169,29 @@
       "retry": "Reintentar",
       "account_unknown": "Desconocida"
     },
+    "guide_cards": {
+      "bandeja_intro": {
+        "copy_review": "approved",
+        "pending": {
+          "body": "Vuelve a los documentos que todavía necesitan revisión.",
+          "label": "Retoma lo pendiente"
+        },
+        "review": {
+          "body": "Revisa los datos y corrige lo necesario. Al aprobar, el documento pasa a Registros.",
+          "label": "Revisa y aprueba"
+        },
+        "title": "Del documento al registro",
+        "upload": {
+          "body": "Agrega fotos o PDF de facturas y recibos. Si la lectura está activada, Cuadrao extrae sus datos.",
+          "label": "Sube tus documentos"
+        }
+      },
+      "placeholder": {
+        "dismiss": "Ocultar guía",
+        "read_failed": "No pudimos cargar la guía.",
+        "save_failed": "No pudimos ocultar la guía."
+      }
+    },
     "history": {
       "am": "a.m.",
       "approved": "Aprobado",
