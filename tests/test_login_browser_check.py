@@ -1,4 +1,5 @@
 import time
+from threading import Event
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -228,3 +229,62 @@ def test_login_route_maps_captcha_deadline_like_captcha_rejection(
     assert _public_problem_body(rejected.json()) == _public_problem_body(timed_out.json())
     rejection.login.assert_called_once()
     deadline.login.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "provider_error",
+    [_CaptchaRejected(), httpx.ReadTimeout("timed out"), None],
+    ids=["rejection", "transport-timeout", "deadline"],
+)
+def test_login_route_maps_real_gateway_browser_failures_to_admission_denial(
+    monkeypatch: pytest.MonkeyPatch,
+    provider_error: Exception | None,
+) -> None:
+    _configure_login_route(monkeypatch, allowed=False)
+    denied = _post_login()
+    release = Event()
+    finished = Event()
+    provider_payloads: list[dict[str, object]] = []
+
+    class Auth:
+        def sign_in_with_password(self, payload: dict[str, object]) -> _Session:
+            provider_payloads.append(payload)
+            try:
+                if provider_error is not None:
+                    raise provider_error
+                assert release.wait(5), "The test did not release the provider."
+                return _Session()
+            finally:
+                finished.set()
+
+    gateway = _gateway(Auth())
+    monkeypatch.setattr(gateway, "private_alpha_email_allowed", lambda _email: True)
+    monkeypatch.setattr("argus.api.state.supabase_gateway", gateway)
+    monkeypatch.setattr(
+        "argus.domain.supabase_gateway.LOGIN_PROVIDER_TIMEOUT_SECONDS", 0.05
+    )
+    try:
+        rejected = _post_login()
+
+        if provider_error is None:
+            assert not finished.is_set()
+        assert rejected.status_code == denied.status_code == 401
+        assert _public_problem_body(rejected.json()) == {
+            **_EXPECTED_UNAUTHORIZED,
+            "type": "https://api.argus.app/problems/unauthorized",
+        }
+        assert _public_problem_body(rejected.json()) == _public_problem_body(
+            denied.json()
+        )
+        assert _public_headers(rejected) == _public_headers(denied)
+        assert rejected.headers.get("set-cookie") is None
+        assert provider_payloads == [
+            {
+                "email": _LOGIN_PAYLOAD["email"],
+                "password": _LOGIN_PAYLOAD["password"],
+                "options": {"captcha_token": _LOGIN_PAYLOAD["captcha_token"]},
+            }
+        ]
+    finally:
+        release.set()
+        assert finished.wait(5), "The provider did not finish after cleanup."
