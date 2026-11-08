@@ -29,7 +29,6 @@ def startup(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[FastAPI, Mock, li
     monkeypatch.setattr(api_state, "CHECKPOINTER_MODE", "memory")
     checkpointer = Mock()
     monkeypatch.setattr(api_state, "build_agent_runtime_checkpointer", checkpointer)
-    monkeypatch.setattr(app_setup, "validate_hosted_openrouter_configuration", Mock())
     for module, stem in (
         ("personalization_memory", "personalization_memory"),
         ("financial_accounts", "financial_accounts"),
@@ -121,6 +120,20 @@ def test_hosted_markers_override_a_local_label(
 def test_hosted_startup_without_bypasses_succeeds(startup, monkeypatch) -> None:
     app, checkpointer, _ = startup
     monkeypatch.setenv("APP_ENV", "staging")
+    for flag in FLAGS:
+        monkeypatch.setenv(flag, "false")
+    with TestClient(app):
+        pass
+    checkpointer.assert_called_once()
+
+
+def test_hosted_startup_succeeds_without_guest_openrouter_key(
+    startup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app, checkpointer, _ = startup
+    monkeypatch.setenv("APP_ENV", "staging")
+    monkeypatch.setenv("CUADRAO_PROD_OPENROUTER_API_KEY", "synthetic-registered")
+    monkeypatch.delenv("CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY", raising=False)
     for flag in FLAGS:
         monkeypatch.setenv(flag, "false")
     with TestClient(app):
