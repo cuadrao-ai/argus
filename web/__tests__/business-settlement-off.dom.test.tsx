@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { businessSettlementAvailable } from "../lib/business-api";
 import { createMockMonthCloseClient, readMonthCloseWire, type MonthCloseClient } from "../lib/business-month-close";
-import { homeSectionOrder } from "../components/business-app/inicio/HomeOverviewDraft";
+import { homeSectionOrder, savedSectionOrder } from "../components/business-app/inicio/HomeOverviewDraft";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -190,5 +190,34 @@ describe("Por cobrar and Por pagar while settlement is off", () => {
     assert.deepEqual(homeSectionOrder(["month", "work"], ["work", "month", "money"]), ["month", "work", "money"]);
     assert.deepEqual(homeSectionOrder(["money", "month", "work"], ["work", "month", "money"]), ["money", "month", "work"]);
     assert.deepEqual(homeSectionOrder("broken", ["work", "month", "money"]), ["work", "month", "money"]);
+  });
+
+  test("a saved place for Cobros y pagos survives Inicio loading before the workspace says settlement is on", async () => {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const { useHomeOrder } = await import("../components/business-app/inicio/HomeOverviewDraft");
+    localStorage.setItem("cuadrao:home_section_order:v1", JSON.stringify({ "ana:biz": ["money", "work", "month"] }));
+    const seen: string[][] = [];
+    function Probe({ shown }: { shown: ("work" | "month" | "money")[] }) {
+      seen.push(useHomeOrder("ana", "biz", shown).order);
+      return null;
+    }
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    try {
+      await act(async () => root.render(<Probe shown={["work", "month"]} />));
+      await act(async () => root.render(<Probe shown={["work", "month", "money"]} />));
+      assert.deepEqual(seen.at(0), ["work", "month"]);
+      assert.deepEqual(seen.at(-1), ["money", "work", "month"]);
+    } finally {
+      await act(async () => root.unmount());
+      localStorage.removeItem("cuadrao:home_section_order:v1");
+    }
+  });
+
+  test("reordering while Cobros y pagos is hidden keeps its saved place for when it shows again", () => {
+    assert.deepEqual(savedSectionOrder(["money", "work", "month"], ["month", "work"]), ["money", "month", "work"]);
+    assert.deepEqual(savedSectionOrder(["work", "money", "month"], ["month", "work"]), ["month", "money", "work"]);
+    assert.deepEqual(savedSectionOrder(["work", "month", "money"], ["money", "month", "work"]), ["money", "month", "work"]);
   });
 });

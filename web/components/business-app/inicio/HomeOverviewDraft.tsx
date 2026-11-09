@@ -409,6 +409,15 @@ export function homeSectionOrder(saved: unknown, shown: readonly HomeSectionKey[
 }
 
 /**
+ * The whole saved order after the person reorders what is shown: each shown section takes the next place in `next`,
+ * and a hidden one (Cobros y pagos while settlement is off) keeps its own place for when it shows again.
+ */
+export function savedSectionOrder(saved: readonly HomeSectionKey[], next: readonly HomeSectionKey[]): HomeSectionKey[] {
+  const shown = [...next];
+  return homeSectionOrder(saved, HOME_DEFAULT_ORDER).map((key) => (next.includes(key) ? shown.shift()! : key));
+}
+
+/**
  * The person's own section order for this Business. MISSING on the server: a per-person, per-Business
  * `home_section_order` preference (like `table_density` on /me). Until then the preview keeps it in this browser.
  */
@@ -418,12 +427,15 @@ export function useHomeOrder(userId: string | null | undefined, businessId: stri
   const all = (): Record<string, HomeSectionKey[]> => {
     try { return JSON.parse(readStored("cuadrao:home_section_order:v1") ?? "{}") ?? {}; } catch { return {}; }
   };
-  const read = (): HomeSectionKey[] => homeSectionOrder(all()[key], shown);
+  // The state keeps every section's saved place; only the order shown leaves out what is hidden.
+  const read = (): HomeSectionKey[] => homeSectionOrder(all()[key], HOME_DEFAULT_ORDER);
   const [state, setState] = useState<{ key: string; order: HomeSectionKey[] }>(() => ({ key, order: typeof window === "undefined" ? [...HOME_DEFAULT_ORDER] : read() }));
-  const order = state.key === key ? homeSectionOrder(state.order, shown) : read();
+  const saved = state.key === key ? state.order : read();
+  const order = homeSectionOrder(saved, shown);
   const save = (next: HomeSectionKey[]) => {
-    setState({ key, order: next });
-    writeStored("cuadrao:home_section_order:v1", JSON.stringify({ ...all(), [key]: next }));
+    const whole = savedSectionOrder(saved, next);
+    setState({ key, order: whole });
+    writeStored("cuadrao:home_section_order:v1", JSON.stringify({ ...all(), [key]: whole }));
   };
   return { order, save, defaults, isDefault: order.join() === defaults.join() };
 }
