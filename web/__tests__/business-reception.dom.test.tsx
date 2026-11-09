@@ -36,8 +36,8 @@ test("the reading card shows its title and the one sentence the owner agrees to"
   const english = (await import("@/public/locales/en/common.json")).default;
   const { InlineReading } = await import("@/components/business-app/ReceiptReadingControl");
   for (const [language, words, title, sentence] of [
-    ["es-419", spanish, "Leer mis recibos automáticamente", "Leemos con inteligencia artificial los recibos que llegan por correo, por WhatsApp o que subes en Cuadrao, y preparamos un borrador de cada uno. Tú lo revisas y lo apruebas. Si lo apagas, se guardan sin leer."],
-    ["en", english, "Read my receipts automatically", "We use artificial intelligence to read the receipts that come in by email or WhatsApp, or that you upload to Cuadrao, and prepare a draft of each one. You review it and approve it. If you turn it off, they are saved unread."],
+    ["es-419", spanish, "Leer mis documentos automáticamente", "Leemos con inteligencia artificial los documentos que llegan por correo, por WhatsApp o que subes en Cuadrao (facturas, recibos y PDF), y preparamos un borrador de cada uno. Tú lo revisas y lo apruebas. Si lo apagas, se guardan sin leer; si lo vuelves a activar, también se leen los que quedaron sin leer. Detalles en el aviso de privacidad."],
+    ["en", english, "Read my documents automatically", "We use artificial intelligence to read the documents that come in by email or WhatsApp, or that you upload to Cuadrao (invoices, receipts and PDFs), and prepare a draft of each one. You review it and approve it. If you turn it off, they are saved unread; if you turn it back on, the ones left unread are read too. Details in the privacy notice."],
   ] as const) {
     const reading = { enabled: false, can_change: true, available: true, disclosure: sentence };
     const i18n = i18next.createInstance();

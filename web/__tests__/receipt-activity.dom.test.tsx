@@ -255,7 +255,7 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => ({ ...reading, disclosure: "Business B disclosure" }) };
   const page = await host();
   const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={context(source, () => { reloads++; })}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
-  const turnOn = () => [...page.element.querySelectorAll("button")].find((button) => button.textContent === "Turn receipt reading on");
+  const turnOn = () => [...page.element.querySelectorAll("button")].find((button) => button.textContent === "Turn on document reading");
   await act(async () => page.root.render(render(sourceA)));
   await act(async () => turnOn()?.click());
   assert.ok(document.body.textContent?.includes("Business A disclosure"), "the words agreed to sit beside the switch");

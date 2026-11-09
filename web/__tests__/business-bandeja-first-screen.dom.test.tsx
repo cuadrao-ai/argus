@@ -91,17 +91,17 @@ test("a turned-on reading stays off the first screen, and a turned-off reading s
   try {
     await on.settle(() => on.host.querySelector('[data-testid="reception-row"]') !== null);
     assert.equal(on.host.querySelector('[data-testid="receipt-reading-control"]'), null);
-    assert.equal(on.host.textContent?.includes("La lectura de recibos está activada."), false);
+    assert.equal(on.host.textContent?.includes("La lectura de documentos está activada."), false);
   } finally { await on.close(); }
 
   const off = await mountInbox({ receiptReading: async () => reading(false) });
   try {
     await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null);
-    assert.equal(off.host.querySelector('[data-testid="receipt-reading-control"]')?.textContent?.includes("Activar lectura de recibos"), true);
+    assert.equal(off.host.querySelector('[data-testid="receipt-reading-control"]')?.textContent?.includes("Activar lectura de documentos"), true);
   } finally { await off.close(); }
 });
 
-test("reading off is one line under the title with an outlined action; the words agreed to and the switch live in Lectura de recibos", async () => {
+test("reading off is one line under the title with an outlined action; the words agreed to and the switch live in Lectura de documentos", async () => {
   const turnedOn: boolean[] = [];
   const off = await mountInbox({
     receiptReading: async () => reading(false),
@@ -112,10 +112,10 @@ test("reading off is one line under the title with an outlined action; the words
     const notice = off.host.querySelector('[data-testid="receipt-reading-control"]')!;
     const tabs = off.host.querySelector('[role="tablist"]')!;
     assert.ok(tabs.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING, "the notice sits under the views");
-    assert.deepEqual([...notice.querySelectorAll("p")].map((line) => line.textContent), ["Tus recibos están guardados sin leer. Activa la lectura para prepararlos para revisión."]);
+    assert.deepEqual([...notice.querySelectorAll("p")].map((line) => line.textContent), ["Tus documentos están guardados sin leer. Activa la lectura para prepararlos para revisión."]);
     assert.equal(off.host.textContent?.includes("Permiso de prueba"), false, "the consent words are not repeated on the page");
     const action = notice.querySelector("button")!;
-    assert.equal(action.textContent, "Activar lectura de recibos");
+    assert.equal(action.textContent, "Activar lectura de documentos");
     assert.ok(action.className.includes("border") && !action.className.includes("bg-[var(--cuadrao-green)]"), "secondary, not the page's primary");
     await off.act(async () => action.click());
     const sheet = document.querySelector('[data-testid="receipt-reading-sheet"]')!;

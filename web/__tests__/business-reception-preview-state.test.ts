@@ -35,7 +35,7 @@ test("business-name suggestions are deterministic, distinct and valid even at na
   expect(suggestedReceptionAliases("Café Ñúñez","nombre-del-negocio")[0]).toBe("cafe-nunez");
 });
 
-test("mock receipt reading persists per business without changing guide facts",()=>{
+test("mock document reading persists per business without changing guide facts",()=>{
   const storage=memory();
   saveReceptionAlias(storage,"palma","la-palma","default@recibos.example");
   expect(readReceptionPreview(storage,"palma").reading).toBe(false);

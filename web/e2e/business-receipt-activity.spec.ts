@@ -57,7 +57,7 @@ for (const options of [{ language: "en" as const, collapsed: false }, { language
     await expect(page.getByTestId("receipt-unread-dot")).toHaveCount(2);
     await expect(page.getByText(/Prepare with AI|Preparar con IA/)).toHaveCount(0);
     await capture(page, `saved-${options.language}`);
-    await page.getByRole("button", { name: options.language === "en" ? "Turn receipt reading on" : "Activar lectura de recibos", exact: true }).click();
+    await page.getByRole("button", { name: options.language === "en" ? "Turn on document reading" : "Activar lectura de documentos", exact: true }).click();
     // A receipt still being read leaves Por revisar and waits in Todo.
     await expect(page.getByTestId("receipt-reading-ring")).toHaveCount(0);
     await expect(page.getByTestId("receipt-unread-dot")).toHaveCount(1);
