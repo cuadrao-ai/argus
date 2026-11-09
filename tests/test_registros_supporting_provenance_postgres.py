@@ -3,9 +3,8 @@
 import csv
 import json
 from datetime import datetime, timezone
-from io import BytesIO, StringIO
+from io import StringIO
 from uuid import UUID, uuid4
-from zipfile import ZipFile
 
 import pytest
 from argus.domain.business.contracts.actions import ApproveExpense
@@ -164,20 +163,18 @@ def test_supporting_file_preserves_manual_financial_basis(client, actions, timin
         json={
             "report": {
                 "schema_version": 2,
-                "filters": filters,
-                "columns": ["date", "gross_amount", "currency"],
+                "filters": {**filters, "record_families": ["purchase"]},
             },
-            "expected_fingerprint": matching["fingerprint"],
+            "mode": "table",
+            "columns": ["date", "gross_amount"],
+            "currencies": "current",
+            "format": "csv",
         },
     )
     assert exported.status_code == 200, exported.text
-    with ZipFile(BytesIO(exported.content)) as archive:
-        [exported_row] = list(
-            csv.DictReader(StringIO(archive.read("records.csv").decode("utf-8-sig")))
-        )
-    assert exported_row["report_date"] == "2026-10-15"
-    assert exported_row["gross_amount"] == "25.00"
-    assert exported_row["currency"] == "DOP"
+    [exported_row] = list(csv.DictReader(StringIO(exported.content.decode("utf-8-sig"))))
+    assert exported_row["Fecha"] == "15/10/2026"
+    assert exported_row["Monto"] == "25.00"
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,190 @@
+"use client";
+
+import { Fragment, useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
+import { joinCurrencyList } from "@/lib/business-month-close";
+import { recordColumnKey, reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
+import type { ExportColumnKey, ExportPreview, RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
+import { saveBlobDownload } from "../ExportRecordsPanel";
+import { primaryButtonClass, quietButtonClass } from "../business-ui";
+import { showToast } from "../foundation/toasts";
+import { recordsColumnLabelKey } from "./records-view-preferences";
+import { useTransaccionesWords } from "./transacciones-words";
+import styles from "./records-filter-preview.module.css";
+
+const WORDS = "business.transactions.reporting.export.";
+type Mode = RecordsExportChoice["mode"];
+type Format = RecordsExportChoice["format"];
+type Currencies = "all" | "current";
+type Load = { kind: "loading" } | { kind: "ready"; preview: ExportPreview } | { kind: "failed"; problem: ReportFailure };
+type Run = { kind: "idle" | "preparing" } | { kind: "failed"; problem: ReportFailure };
+const LIMIT_CODES = new Set(["business_report_too_large"]);
+
+export type RecordsExportProps = {
+  scope: ReportScope;
+  /** The table's own request: tab, period, currency, filters and layout. */
+  request: ReportRequest;
+  /** The screen's period, as its date control names it. */
+  periodLabel: string;
+  /** Optional filters and search the screen has on. */
+  filterCount: number;
+  transport: Pick<ReportingTransport, "exportPreview" | "exportFile">;
+  /** Applies the Faltan datos fiscales filter, as the card does. */
+  onReviewFiscal: () => void;
+  onClose: () => void;
+};
+
+/**
+ * Exportar in Registros: the table as the person sees it, or the month's 606/607
+ * lines, as one Excel or CSV file. Every count and notice is the server's.
+ */
+export default function RecordsExportPanel({ scope, request, periodLabel, filterCount, transport, onReviewFiscal, onClose }: RecordsExportProps) {
+  const { t } = useTransaccionesWords();
+  const word = (key: string, options?: Record<string, unknown>) => t(`${WORDS}${key}`, options);
+  const sale = request.filters.record_families[0] === "sale";
+  const current = request.filters.currencies[0] ?? "";
+  const [load, setLoad] = useState<Load>({ kind: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const [mode, setMode] = useState<Mode>("table");
+  const [chosen, setChosen] = useState<ExportColumnKey[] | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [currencies, setCurrencies] = useState<Currencies>("all");
+  const [format, setFormat] = useState<Format>("xlsx");
+  const [run, setRun] = useState<Run>({ kind: "idle" });
+  const running = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const abort = new AbortController();
+    setLoad({ kind: "loading" });
+    transport.exportPreview(scope, request, abort.signal).then(
+      (preview) => { if (!abort.signal.aborted) setLoad({ kind: "ready", preview }); },
+      (error) => { if (!abort.signal.aborted) setLoad({ kind: "failed", problem: reportFailure(error) }); },
+    );
+    return () => abort.abort();
+  }, [scope, request, transport, attempt]);
+  // Closing the panel cancels the file in flight: nothing downloads after it is gone.
+  useEffect(() => () => running.current?.abort(), []);
+
+  const preview = load.kind === "ready" ? load.preview : null;
+  const tableColumns = preview?.table.columns ?? [];
+  const ownColumns = tableColumns.filter((column) => column.shown).map((column) => column.key);
+  const columns = chosen ?? ownColumns;
+  const everyCurrency = currencies === "all" && preview?.table.all !== null;
+  const selection = preview ? (everyCurrency ? preview.table.all : preview.table.current) : null;
+  const count = preview ? (mode === "dgii" ? preview.dgii.record_count : selection?.record_count ?? 0) : null;
+  const label = (key: ExportColumnKey) => t(recordsColumnLabelKey(recordColumnKey(key)), { currency: "" }).trim();
+
+  const summary = !preview ? [periodLabel] : mode === "dgii"
+    ? [periodLabel, word(sale ? "summary_dgii_sales" : "summary_dgii_purchases"), word("summary_records", { count })]
+    : [periodLabel, filterCount ? word("summary_filters", { count: filterCount }) : null, word("summary_records", { count }), (selection?.currencies.length ?? 0) > 1 ? word("summary_currencies", { count: selection?.currencies.length }) : null];
+
+  const download = async () => {
+    if (!preview || !count || running.current) return;
+    const choice: RecordsExportChoice = mode === "dgii" ? { mode, format } : { mode, format, columns, currencies: everyCurrency ? "all" : "current" };
+    const abort = new AbortController();
+    running.current = abort;
+    setRun({ kind: "preparing" });
+    let file: RecordsExportFile;
+    try {
+      file = await transport.exportFile(scope, request, choice, abort.signal);
+    } catch (error) {
+      if (abort.signal.aborted) return;
+      running.current = null;
+      setRun({ kind: "failed", problem: reportFailure(error) });
+      return;
+    }
+    if (abort.signal.aborted) return;
+    running.current = null;
+    saveBlobDownload(file.blob, file.filename);
+    onClose();
+    // The same bytes again, never a second request.
+    showToast({ kind: "success", text: word("done"), action: { label: word("download_again"), run: () => saveBlobDownload(file.blob, file.filename) } });
+  };
+
+  const toggle = (key: ExportColumnKey) => setChosen(columns.includes(key) ? columns.filter((item) => item !== key) : tableColumns.map((column) => column.key).filter((item) => item === key || columns.includes(item)));
+  const custom = chosen !== null && (chosen.length !== ownColumns.length || chosen.some((key) => !ownColumns.includes(key)));
+  const problem = run.kind === "failed" ? run.problem : load.kind === "failed" ? load.problem : null;
+  const preparing = run.kind === "preparing";
+
+  const footer = editing ? (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <button type="button" className={quietButtonClass} onClick={() => setChosen(null)}>{word("columns_reset")}</button>
+      <button type="button" className={primaryButtonClass} onClick={() => setEditing(false)}>{word("columns_done")}</button>
+    </div>
+  ) : (
+    <div className="space-y-2">
+      {problem ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
+        {problem.kind === "access" ? t("business.transactions.reporting.access_unavailable") : LIMIT_CODES.has(problem.code) ? t("business.export.limit_error") : word("error")}
+        {problem.kind !== "access" ? <> <button type="button" className={quietButtonClass} onClick={() => { if (run.kind === "failed") void download(); else setAttempt((value) => value + 1); }}>{t("common.retry")}</button></> : null}
+        {problem.requestId ? <ReferenceCode reference={problem.requestId} /> : null}
+      </p> : null}
+      {count === 0 ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{word("empty")}</p> : null}
+      <button type="button" data-testid="records-export-download" disabled={!count || preparing} aria-busy={preparing || undefined} onClick={() => void download()} className={`${primaryButtonClass} w-full`}>
+        {preparing ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
+        {preparing ? word("preparing") : word("action", { count: count ?? 0 })}
+      </button>
+    </div>
+  );
+
+  return (
+    <AdaptivePanel
+      title={editing ? word("columns_title") : word(sale ? "title_sales" : "title_purchases")}
+      summary={editing ? undefined : summary.filter(Boolean).join(" · ")}
+      onBack={editing ? () => setEditing(false) : undefined}
+      backLabel={editing ? word(sale ? "title_sales" : "title_purchases") : undefined}
+      closeLabel={t("common.close")}
+      onClose={onClose}
+      width="md"
+      footer={footer}
+    >
+      <div className="pb-6 pt-2 desktop:px-5" data-testid="records-export-panel" aria-busy={load.kind === "loading" || undefined}>
+        {editing && preview ? (
+          <ul data-testid="records-export-columns">
+            {tableColumns.map(({ key }) => <Fragment key={key}>
+              <li><label className={styles.choice}>
+                <input type="checkbox" checked={key === "counterparty" || columns.includes(key)} disabled={key === "counterparty"} onChange={() => toggle(key)} />
+                <span>{label(key)}</span>
+              </label></li>
+              {/* All currencies put Moneda after Monto in the file, locked on. */}
+              {key === "gross_amount" && everyCurrency ? <li><label className={styles.choice}><input type="checkbox" checked disabled /><span>{t("business.transactions.columns.moneda")}</span></label></li> : null}
+            </Fragment>)}
+          </ul>
+        ) : (
+          <>
+            <h3 className="mb-2 text-[13px] font-medium text-[#56635e] dark:text-white/70">{word("what")}</h3>
+            <div role="radiogroup" aria-label={word("what")} className="space-y-2">
+              {(["table", "dgii"] as const).map((key) => <label key={key} data-testid={`records-export-mode-${key}`} className="flex min-h-14 cursor-pointer items-center gap-3 rounded-item border border-black/15 px-3 py-2 dark:border-white/20">
+                <input type="radio" name="records-export-mode" checked={mode === key} onChange={() => setMode(key)} />
+                <span className="min-w-0 text-[14px]">
+                  <span className="block font-medium">{key === "table" ? word("table_title") : word("dgii_title", { form: sale ? "607" : "606" })}</span>
+                  <span className="block text-black/60 dark:text-white/60">{word(key === "table" ? "table_body" : "dgii_body")}</span>
+                </span>
+              </label>)}
+            </div>
+            {load.kind === "loading" ? <p role="status" className="mt-4 flex min-h-11 items-center text-[13px] text-[#56635e] dark:text-white/70">{t("business.export.fiscal_checking")}</p> : null}
+            {preview && mode === "table" ? <>
+              <div className="mt-5 flex min-h-11 items-center justify-between gap-3">
+                <span className="text-[14px]">{word(custom ? "columns_custom" : "columns_table", { count: columns.length })}</span>
+                <button type="button" data-testid="records-export-edit-columns" className={quietButtonClass} onClick={() => setEditing(true)}>{word("columns_edit")}</button>
+              </div>
+              <h3 className="mb-2 mt-5 text-[13px] font-medium text-[#56635e] dark:text-white/70">{word("currencies")}</h3>
+              <SegmentedControl fill testId="records-export-currencies" label={word("currencies")} disabled={preview.table.all === null} value={everyCurrency ? "all" : "current"} onChange={setCurrencies} segments={[{ key: "all" as const, label: word("currencies_all") }, { key: "current" as const, label: word("currencies_current", { currency: current }) }]} />
+            </> : null}
+            {preview && mode === "dgii" ? <div className="mt-5 space-y-3 text-[14px]" data-testid="records-export-dgii">
+              <p>{word("dgii_note")}</p>
+              {preview.dgii.pending_fiscal_count ? <p>{word(sale ? "pending_fiscal_sales" : "pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count })} <button type="button" className={quietButtonClass} onClick={() => { onClose(); onReviewFiscal(); }}>{word("review")}</button></p> : null}
+              {preview.dgii.pending_rate_count ? <p>{word(sale ? "pending_rate_sales" : "pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) })}</p> : null}
+            </div> : null}
+            {preview ? <>
+              <h3 className="mb-2 mt-5 text-[13px] font-medium text-[#56635e] dark:text-white/70">{word("format")}</h3>
+              <SegmentedControl fill testId="records-export-format" label={word("format")} value={format} onChange={setFormat} segments={[{ key: "xlsx" as const, label: word("format_xlsx") }, { key: "csv" as const, label: word("format_csv") }]} />
+            </> : null}
+          </>
+        )}
+      </div>
+    </AdaptivePanel>
+  );
+}

@@ -1,5 +1,5 @@
 import { recordedReportAnswer } from "./recorded-report-answer";
-import { reportAnswerSchema, reportRequestSchema, type ReportRecord, type ReportTotal } from "@/lib/business-reports-api";
+import { reportAnswerSchema, reportRequestSchema, type ReportRecord, type ReportRequest, type ReportTotal } from "@/lib/business-reports-api";
 
 export const fixtureId = (value: number) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
 export const FROZEN_REPORT_BACKEND = "eda4bb38ab2a195761523b084dbbfb6862e67c7e";
@@ -45,9 +45,20 @@ export function createBusinessReportHttpFixture() {
   const views: { id: string; name: string; recipe: unknown; version: number; created_at: string; updated_at: string }[] = [];
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
-  const controls = { presentation: recordedReportAnswer.presentation, exportChanged: false, noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
+  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
   const dossier = (row: ReportRecord) => ({ draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
   const problem = (status: number, code: string) => Response.json({ code, detail: code }, { status });
+  const matchingRecords = (report: ReportRequest) => {
+    let matching = records.filter((row) => !report.filters.q || text(`${row.counterparty} ${row.note} ${row.attachment_sources?.map((source) => source.filename).join(" ")}`).includes(text(report.filters.q)));
+    matching = matching.filter((row) => row.family === report.filters.record_families[0]);
+    if (report.filters.fiscal_data !== null) matching = matching.filter((row) => row.fiscal_data === report.filters.fiscal_data);
+    if (report.filters.counterparties.length) matching = matching.filter((row) => row.counterparty_key && report.filters.counterparties.includes(row.counterparty_key));
+    if (report.filters.review_stages.length) matching = matching.filter((row) => row.stage && report.filters.review_stages.includes(row.stage));
+    if (report.filters.currencies.length) matching = matching.filter((row) => row.currency && report.filters.currencies.includes(row.currency));
+    if (report.filters.expense_types.length) matching = matching.filter((row) => row.dgii_606 && report.filters.expense_types.includes(row.dgii_606.expense_type?.code ?? "missing"));
+    if (report.filters.document_kinds.length) matching = matching.filter((row) => report.filters.document_kinds.includes(row.document_kind));
+    return matching;
+  };
   const request = async (input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> => {
     const path = new URL(String(input), "http://127.0.0.1").pathname;
     const method = init.method ?? "GET";
@@ -58,14 +69,7 @@ export function createBusinessReportHttpFixture() {
       if (controls.reportForbidden) return problem(403, "permission_denied");
       if (controls.reportUnavailable) return problem(503, "business_report_unavailable");
       const report = reportRequestSchema.parse(body);
-      let matching = records.filter((row) => !report.filters.q || text(`${row.counterparty} ${row.note} ${row.attachment_sources?.map((source) => source.filename).join(" ")}`).includes(text(report.filters.q)));
-      matching = matching.filter((row) => row.family === report.filters.record_families[0]);
-      if (report.filters.fiscal_data !== null) matching = matching.filter((row) => row.fiscal_data === report.filters.fiscal_data);
-      if (report.filters.counterparties.length) matching = matching.filter((row) => row.counterparty_key && report.filters.counterparties.includes(row.counterparty_key));
-      if (report.filters.review_stages.length) matching = matching.filter((row) => row.stage && report.filters.review_stages.includes(row.stage));
-      if (report.filters.currencies.length) matching = matching.filter((row) => row.currency && report.filters.currencies.includes(row.currency));
-      if (report.filters.expense_types.length) matching = matching.filter((row) => row.dgii_606 && report.filters.expense_types.includes(row.dgii_606.expense_type?.code ?? "missing"));
-      if (report.filters.document_kinds.length) matching = matching.filter((row) => report.filters.document_kinds.includes(row.document_kind));
+      const matching = matchingRecords(report);
       const currencies = new Set(matching.map((row) => row.currency));
       const blocked = report.sort.startsWith("amount_") && (currencies.size !== 1 || currencies.has(null));
       const effective_sort = blocked ? "date_desc" : report.sort;
@@ -77,7 +81,25 @@ export function createBusinessReportHttpFixture() {
         counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: [{ code: "02", label: "Gastos por trabajos, suministros y servicios" }], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
         ...controls.legacy ? {} : { overview: { ...controls.overview, ...("needs_fiscal_data" in controls.overview ? { needs_fiscal_data: matching.filter((row) => row.fiscal_data === "missing").length } : {}) }, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
     }
-    if (path.endsWith("/reports/export")) return controls.exportChanged ? problem(409, "business_report_changed") : new Response(new Uint8Array([80, 75, 3, 4]), { headers: { "Content-Type": "application/zip" } });
+    if (path.endsWith("/reports/export/preview")) {
+      const report = reportRequestSchema.parse((body as { report: unknown }).report);
+      const presentation = report.schema_version === 2 && report.presentation ? report.presentation : controls.presentation;
+      const sale = report.filters.record_families[0] === "sale";
+      const selection = (rows: ReportRecord[]) => ({ record_count: rows.length, currencies: [...new Set(rows.flatMap((row) => row.currency ? [row.currency] : []))].sort() });
+      const bounded = report.filters.amount_min !== null || report.filters.amount_max !== null;
+      const family = records.filter((row) => row.family === report.filters.record_families[0]);
+      const foreign = family.filter((row) => row.fiscal_data && row.currency && row.currency !== "DOP");
+      return Response.json({
+        table: { columns: presentation.order.filter((key) => !sale || (key !== "expense_type" && key !== "payment_form")).map((key) => ({ key, shown: !presentation.hidden.includes(key) })), current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } })) },
+        dgii: { form: sale ? "607" : "606", record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_fiscal_count: family.filter((row) => row.fiscal_data === "missing" && row.currency === "DOP").length, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort() },
+      });
+    }
+    if (path.endsWith("/reports/export")) {
+      controls.exports.push(body as { mode: string });
+      if (controls.exportFails) return problem(503, "business_reports_unavailable");
+      const csv = (body as { format: string }).format === "csv";
+      return new Response(`Contraparte ${controls.exports.length}`, { headers: { "Content-Type": csv ? "text/csv; charset=utf-8" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="Compras_noviembre-2026.${csv ? "csv" : "xlsx"}"` } });
+    }
     if (path.endsWith("/report-views") && method === "GET") return Response.json(views);
     if (path.includes("/report-views")) {
       const command = body as { name?: string; recipe?: unknown; expected_version?: number };

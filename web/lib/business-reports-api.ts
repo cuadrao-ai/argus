@@ -169,11 +169,35 @@ async function json<T>(scope: ReportScope, path: string, schema: z.ZodType<T>, o
 export async function queryBusinessReport(scope: ReportScope, report: ReportRequest, signal?: AbortSignal): Promise<ReportAnswer> {
   return json(scope, "/business/reports/query", reportAnswerSchema, { method: "POST", body: JSON.stringify(reportRequestSchema.parse(report)), signal });
 }
-export async function exportBusinessReport(scope: ReportScope, report: ReportRequest, fingerprint: string, signal?: AbortSignal): Promise<Blob> {
-  const body = z.strictObject({ report: reportRequestSchema, expected_fingerprint: z.string().regex(/^[0-9a-f]{64}$/) }).parse({ report, expected_fingerprint: fingerprint });
-  return request(scope, "/business/reports/export", { method: "POST", body: JSON.stringify(body), signal }, async (response) => {
-    if (response.headers.get("Content-Type")?.split(";")[0].trim() !== "application/zip") throw new Error("Invalid Business report archive");
-    return response.blob();
+const currencySelectionSchema = z.object({ record_count: count, currencies: z.array(z.string()) });
+/** What the Registros export would hold, counted by the server before any file is built. */
+export const exportPreviewSchema = z.object({
+  table: z.object({
+    columns: z.array(z.object({ key: z.enum(REPORT_PRESENTATION_KEYS), shown: z.boolean() })).min(1),
+    current: currencySelectionSchema,
+    /** Null while an amount range ties the export to the screen's currency. */
+    all: currencySelectionSchema.nullable(),
+  }),
+  dgii: z.object({ form: z.enum(["606", "607"]), record_count: count, pending_fiscal_count: count, pending_rate_count: count, pending_rate_currencies: z.array(z.string()) }),
+});
+export type ExportPreview = z.infer<typeof exportPreviewSchema>;
+export type ExportColumnKey = typeof REPORT_PRESENTATION_KEYS[number];
+export type RecordsExportChoice =
+  | { mode: "table"; columns: ExportColumnKey[]; currencies: "all" | "current"; format: "xlsx" | "csv" }
+  | { mode: "dgii"; format: "xlsx" | "csv" };
+export type RecordsExportFile = { blob: Blob; filename: string };
+const FILE_TYPES = new Set(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/csv"]);
+
+export function previewRecordsExport(scope: ReportScope, report: ReportRequest, signal?: AbortSignal): Promise<ExportPreview> {
+  return json(scope, "/business/reports/export/preview", exportPreviewSchema, { method: "POST", body: JSON.stringify({ report: reportRequestSchema.parse(report) }), signal });
+}
+export async function downloadRecordsExport(scope: ReportScope, report: ReportRequest, choice: RecordsExportChoice, signal?: AbortSignal): Promise<RecordsExportFile> {
+  return request(scope, "/business/reports/export", { method: "POST", body: JSON.stringify({ report: reportRequestSchema.parse(report), ...choice }), signal }, async (response) => {
+    const type = response.headers.get("Content-Type")?.split(";")[0].trim() ?? "";
+    // The server names the file; the web saves it under that name.
+    const filename = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")?.[1];
+    if (!FILE_TYPES.has(type) || !filename) throw new Error("Invalid Registros export file");
+    return { blob: await response.blob(), filename };
   });
 }
 export function listBusinessReportViews(scope: ReportScope, signal?: AbortSignal): Promise<SavedReportView[]> {

@@ -8,14 +8,15 @@ import { getMe } from "@/lib/argus-api";
 import { getChosenGrant } from "@/lib/business-grant";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import { isProgrammaticPop } from "@/lib/overlay-history";
-import { businessReportRow, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportFailure, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
+import { businessReportRow, liveReportingTransport, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportFailure, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
 import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, reportPeriodSchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
 import { inboxCount } from "../inbox-count";
 import { RecordsExportButton } from "./RecordsExportButton";
-import { saveBlobDownload } from "../ExportRecordsPanel";
+import RecordsExportPanel from "./RecordsExportPanel";
+import { useRecordsPeriodLabel } from "./RecordsDatePreview";
 import { periodRange, todayIso, type Period } from "../business-format";
 import { cardClass, quietButtonClass } from "../business-ui";
 import { EmptyState } from "../foundation/EmptyState";
@@ -166,7 +167,10 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   };
   const open = (row: RecordRow) => { if (!row.opens) return; const id = recordRowKey(row); focused.current = null; controller.rememberAnchor(id); updateUrl(state.request, id); openPanel(row.opens); };
   const rowRef = (id: string, node: HTMLElement | null) => { if (node) rowNodes.current.set(id, node); else rowNodes.current.delete(id); };
-  const exportReport = async () => { const blob = await controller.export(); if (blob) saveBlobDownload(blob, "business-records.zip"); };
+  const periodLabel = useRecordsPeriodLabel();
+  // The export works on the table's request as it stood when Exportar was pressed.
+  const [exporting, setExporting] = useState<{ request: ReportRequest; scope: ReportScope; periodLabel: string; filterCount: number } | null>(null);
+  const openExport = () => { if (presentation) setExporting({ scope: { userId, businessId, grantId }, request: reportRequestSchema.parse({ ...state.request, schema_version: 2, presentation }), periodLabel: periodLabel(selectedPeriod, state.request.filters.period), filterCount: activeFilterGroups(filters).length + (filter.query.trim() ? 1 : 0) }); };
   const views = state.views.kind === "ready" ? state.views.items : [];
   const viewProblem = state.viewOperation.kind === "failed" ? state.viewOperation.problem : state.views.kind === "failed" ? state.views.problem : null;
   const uncertain = state.viewOperation.kind === "failed" && state.viewOperation.problem.kind === "uncertain";
@@ -176,7 +180,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     await controller.mutateView(id && view ? { kind: "update", id, key: crypto.randomUUID(), body: { name, recipe: view.recipe, expected_version: view.version } } : { kind: "create", key: crypto.randomUUID(), body: { name, recipe: recipeFromRequest(state.request, recordsPresentationToReport(preferences)) } });
     return controller.getSnapshot().viewOperation.kind === "done";
   };
-  const problem = (failure: ReportFailure, retry: () => void): ReactNode => <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(`${REPORTING}${failure.kind === "access" ? "access_unavailable" : failure.kind === "changed" ? "report_changed" : failure.kind === "version" ? "view_changed" : failure.kind === "uncertain" ? "uncertain_view" : "unavailable"}`)}{failure.kind !== "access" && failure.kind !== "conflict" ? <button type="button" className={quietButtonClass} onClick={retry}>{t(`${REPORTING}${failure.kind === "uncertain" ? "retry" : "refresh"}`)}</button> : null}{failure.requestId ? <ReferenceCode reference={failure.requestId} /> : null}</p>;
+  const problem = (failure: ReportFailure, retry: () => void): ReactNode => <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(`${REPORTING}${failure.kind === "access" ? "access_unavailable" : failure.kind === "version" ? "view_changed" : failure.kind === "uncertain" ? "uncertain_view" : "unavailable"}`)}{failure.kind !== "access" && failure.kind !== "conflict" ? <button type="button" className={quietButtonClass} onClick={retry}>{t(`${REPORTING}${failure.kind === "uncertain" ? "retry" : "refresh"}`)}</button> : null}{failure.requestId ? <ReferenceCode reference={failure.requestId} /> : null}</p>;
   const recheckAnnotationAccess = () => {
     setScopeData(null); controller.revoke();
     void controller.refresh().then(() => { if (controller.getSnapshot().load.kind === "ready") void controller.listViews(); });
@@ -245,10 +249,9 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     <EmptyState kind="no_results" mark="receipt" illustration="/brand/records-document.webp" compact testId="transacciones-records-empty"
       title={t(`${EMPTY_COPY}.${filter.kind}.title`)} body={t(`${EMPTY_COPY}.selection.body`)} />
   )}</div>;
-  const exportEnabled = state.load.kind === "ready" && state.export.kind !== "busy" && !(state.export.kind === "failed" && state.export.problem.kind === "changed");
   const add = <BusinessAddMenu placement="header" />;
   // Agregar lives in the top bar; the toolbar keeps Export as its own button, same gate. A phone keeps Agregar here.
-  const toolbarAction = <RecordsExportButton onExport={() => void exportReport()} enabled={exportEnabled} />;
+  const toolbarAction = <RecordsExportButton onExport={openExport} enabled={state.load.kind === "ready"} />;
   if (!preferences && state.load.kind !== "failed") return <FullscreenLoading />;
   return <RecordsAnnotationsPreview connected={{ scope, rows, refresh: controller.refresh, revoke: recheckAnnotationAccess }}><PullToRefresh onRefresh={async () => { await controller.refresh(); return controller.getSnapshot().load.kind === "ready" ? "updated" : "failed"; }}>
     <section ref={screen} tabIndex={-1} data-testid="transacciones" data-report-connected data-report-schema={state.request.schema_version} className="pb-6 outline-none">
@@ -262,11 +265,10 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
       <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} fiscalCount={overview?.needs_fiscal_data ?? null} selected={filters.fiscal_data === "missing" ? ["fiscal"] : []} loading={state.load.kind === "loading"} onChoose={toggleFiscal} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} />
       <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{!phone ? <RecordsRefreshButton busy={state.load.kind === "loading"} onRefresh={() => void controller.refresh()} /> : null}{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview purchase={filter.kind === "gasto"} value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: { items: views, select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } }, save: (name) => writeView(name), update: (id, name) => writeView(name, id), remove: (id) => { const view = views.find((view) => view.id === id); if (view) void controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } }); }, busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain, notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !currentFormat ? <p>{t(`${REPORTING}pending_contract`)}</p> : null } }} />
       {urlInvalid ? <p role="status">{t(`${REPORTING}invalid_page`)}<button type="button" className={quietButtonClass} onClick={() => { setUrlInvalid(false); void controller.setPage(1); }}>{t(`${REPORTING}refresh`)}</button></p> : null}
-      {state.export.kind !== "idle" ? <p role="status" className="mb-3 text-[13px] text-[#56635e] dark:text-white/65">{t(`${REPORTING}records_only`)}</p> : null}
-      {state.export.kind === "failed" ? problem(state.export.problem, () => { void controller.refresh(); }) : null}
       {state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : state.load.kind === "invalid-page" ? <div className={cardClass}><EmptyState kind="filtered" compact title={t(`${REPORTING}invalid_page`)} action={{ label: t(`${REPORTING}refresh`), run: () => { void controller.recoverPage(); } }} /></div> : state.load.kind !== "ready" || !preferences || probePending ? (preferences ? <RecordsLoadingPreview purchase={filter.kind === "gasto"} preferences={preferences} density={preferences.density} /> : <FullscreenLoading />) : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
         <RecordsPagePreview purchase={filter.kind === "gasto"} records={rows} preferences={preferences} onSortChange={() => undefined} density={preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: state.load.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
       </RecordEvidenceContext.Provider></RecordGlanceContext.Provider>}
     </section>
+    {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={() => { if (filters.fiscal_data !== "missing" || filters.review.length) toggleFiscal(); }} onClose={() => setExporting(null)} /> : null}
   </PullToRefresh></RecordsAnnotationsPreview>;
 }
