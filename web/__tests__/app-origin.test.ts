@@ -24,6 +24,7 @@ const original = {
   CUADRAO_APP_ORIGIN: process.env.CUADRAO_APP_ORIGIN,
   ARGUS_APP_ORIGIN: process.env.ARGUS_APP_ORIGIN,
   ARGUS_TRUSTED_CLIENT_IP_HEADER: process.env.ARGUS_TRUSTED_CLIENT_IP_HEADER,
+  NODE_ENV: process.env.NODE_ENV,
 };
 afterEach(() => {
   for (const [key, value] of Object.entries(original)) {
@@ -58,6 +59,7 @@ describe("server app origin at each read site", () => {
   }
 
   test("an explicitly empty preferred name does not revive the legacy origin", async () => {
+    Object.assign(process.env, { NODE_ENV: "production" });
     process.env.CUADRAO_APP_ORIGIN = "";
     process.env.ARGUS_APP_ORIGIN = "https://legacy.example.test";
     const metadata = await generateMetadata({ params: Promise.resolve({ receiptId: "receipt-test" }) });
@@ -68,7 +70,7 @@ describe("server app origin at each read site", () => {
       headers: { "content-type": "application/json", origin: "https://legacy.example.test" },
       body: JSON.stringify({ email: "owner@example.test", captcha_token: "synthetic-token" }),
     }));
-    expect(response.status).not.toBe(200);
+    expect(response.status).toBe(503);
     expect(sent).toEqual([]);
   });
 });
