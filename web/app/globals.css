@@ -973,11 +973,13 @@ body[data-workspace-bounded] [data-workspace-canvas] {
 .cuadrao-amount * {
   transition: none !important;
 }
+/* The blur grows with the text so large card totals stay unreadable; 10px is the floor for small amounts. */
 :root[data-amounts-hidden="true"] .cuadrao-amount {
+  --cuadrao-amount-blur-ink: rgba(23, 43, 38, 0.65);
   color: transparent !important;
-  text-shadow: 0 0 10px rgba(23, 43, 38, 0.65);
+  text-shadow: 0 0 max(10px, 0.4em) var(--cuadrao-amount-blur-ink);
   user-select: none;
 }
 :root.dark[data-amounts-hidden="true"] .cuadrao-amount {
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+  --cuadrao-amount-blur-ink: rgba(255, 255, 255, 0.6);
 }
