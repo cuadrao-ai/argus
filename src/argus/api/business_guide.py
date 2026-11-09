@@ -43,7 +43,7 @@ router = APIRouter(
     responses={403: {"description": "A registered account is required."}},
 )
 
-CardId = Literal["bandeja-intro"]
+CardId = Literal["bandeja-intro", "registros-intro"]
 Person = Annotated[BusinessPerson, Depends(require_business_person)]
 
 

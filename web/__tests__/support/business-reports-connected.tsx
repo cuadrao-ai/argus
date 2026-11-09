@@ -14,7 +14,7 @@ import { translate, type TestLanguage } from "./i18n-instance";
 let cleanup = async () => {};
 export const unmountConnectedReport = () => cleanup();
 
-export async function mountConnectedReport(options: { onAdd?: () => void; defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: TestLanguage; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null } = {}) {
+export async function mountConnectedReport(options: { onAdd?: () => void; defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: TestLanguage; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null; dismissedGuides?: string[]; guideDismissGate?: Promise<void> } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
   const { createRoot } = await import("react-dom/client");
   const fixture = createBusinessReportHttpFixture(); for (const row of fixture.records) if (row.currency !== "DOP") { row.currency = "DOP"; row.recorded_currency = "DOP"; } if (options.presentation) fixture.controls.presentation = options.presentation; options.edit?.(fixture.records); if (options.large) { fixture.records[1].family = "purchase"; fixture.records[0].gross_amount = "9007199254740993.01"; fixture.records[0].recorded_amount = "9007199254740993.01"; fixture.records[3].family = "purchase"; fixture.records[3].document_kind = "credit_note"; fixture.records[3].gross_amount = "20.00"; fixture.records[3].adjustment_effect = "known"; fixture.records[4].gross_amount = "-20.00"; fixture.records[4].document_kind = "credit_note"; fixture.records[4].adjustment_effect = "known"; } fixture.controls.readOnly = options.readOnly ?? false; fixture.controls.legacy = options.legacy ?? false;
@@ -24,8 +24,15 @@ export async function mountConnectedReport(options: { onAdd?: () => void; defaul
     const style = computedStyle(element);
     return new Proxy(style, { get(target, key) { if (key === 'getPropertyValue') return (name: string) => name === '--records-narrow' ? '1' : target.getPropertyValue(name); const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value; } });
   }) as typeof getComputedStyle;
+  const dismissedGuides = new Set(options.dismissedGuides); const guideRequests: string[] = [];
   const originalFetch = globalThis.fetch; globalThis.fetch = (async (input, init) => {
     if (String(input).endsWith("/me")) return Response.json({ user: { id: "synthetic-person", language: "es-419" } });
+    const guide = /\/business\/guide-cards\/([^/]+?)(\/dismiss)?$/.exec(String(input));
+    if (guide) {
+      guideRequests.push(`${init?.method ?? "GET"} ${guide[0]}`);
+      if (guide[2]) { await options.guideDismissGate; dismissedGuides.add(guide[1]); }
+      return Response.json({ dismissed: dismissedGuides.has(guide[1]) });
+    }
     const query = String(input).endsWith("/reports/query");
     if (options.queryGate && query) await options.queryGate;
     const response = await fixture.request(input, init);
@@ -58,5 +65,5 @@ export async function mountConnectedReport(options: { onAdd?: () => void; defaul
   const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || label === "Filtros" && button.textContent?.startsWith("Filtros") || button.getAttribute("aria-label") === label);
   const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => { await act(async () => { const prototype = element instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); }); };
   if (options.waitForAnswer !== false) await settle(() => document.querySelector(`[data-report-schema="${options.legacy ? 1 : 2}"] [data-testid="records-count"]`) !== null);
-  return { fixture, settle, click, button, type, downloads, opened, context, rerender, reloads: () => reloads };
+  return { fixture, settle, click, button, type, downloads, opened, context, rerender, reloads: () => reloads, dismissedGuides, guideRequests };
 }

@@ -65,15 +65,15 @@ describe("synthetic Business fallback", () => {
     expect(reportAnswerSchema.parse(first.responses[0])).toMatchObject({ page: 3, page_size: 50, page_count: 0, items: [] });
   });
 
-  test("returns the undismissed state for the known guide card", async () => {
-    const route = syntheticRoute("guide-cards/bandeja-intro", "GET");
+  test.each(["bandeja-intro", "registros-intro"])("returns the undismissed state for the known guide card %s", async (card) => {
+    const route = syntheticRoute(`guide-cards/${card}`, "GET");
     await fulfillSyntheticBusinessFallback(route);
 
     expect(route.responses).toEqual([{ dismissed: false }]);
   });
 
-  test("returns the dismissed state for the known guide card", async () => {
-    const route = syntheticRoute("guide-cards/bandeja-intro/dismiss", "POST");
+  test.each(["bandeja-intro", "registros-intro"])("returns the dismissed state for the known guide card %s", async (card) => {
+    const route = syntheticRoute(`guide-cards/${card}/dismiss`, "POST");
     await fulfillSyntheticBusinessFallback(route);
 
     expect(route.responses).toEqual([{ dismissed: true }]);
@@ -142,6 +142,8 @@ describe("synthetic Business fallback", () => {
     ["guide-cards/bandeja-intro/", "GET"],
     ["guide-cards/bandeja-intro/dismiss/", "POST"],
     ["guide-cards/bandeja-intro-extra", "GET"],
+    ["guide-cards/registros-intro", "POST"],
+    ["guide-cards/registros-intro/dismiss", "GET"],
     ["guide-cards/bandeja-intro/dismiss-extra", "POST"],
   ])("rejects unsupported guide request %s with %s", async (path, method) => {
     const route = syntheticRoute(path, method);
