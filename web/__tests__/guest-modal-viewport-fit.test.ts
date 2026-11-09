@@ -5,17 +5,21 @@ import { join } from "node:path";
 const webRoot = join(import.meta.dir, "..");
 
 describe("guest modal viewport fit", () => {
-  test("keeps feedback inside the dynamic viewport with a compact desktop cap", () => {
+  test("keeps feedback inside the dynamic viewport and lets it grow to the screen", () => {
     const source = readFileSync(
       join(webRoot, "components/feedback/FeedbackDialog.tsx"),
       "utf8",
     );
 
     // Height and scrolling are the shell's now: a sheet below the panel line,
-    // a capped centered dialog above it. Either way the form scrolls inside itself.
+    // a centered dialog above it that grows to the viewport before it scrolls.
     expect(source).toContain("<CenteredDialog");
     const dialog = readFileSync(join(webRoot, "components/ui/CenteredDialog.tsx"), "utf8");
-    expect(dialog).toContain("max-h-[min(720px,calc(100dvh-64px))]");
+    const panelClass = dialog.match(/role="dialog"[\s\S]*?className=\{`([^`]*)`\}/)?.[1] ?? "";
+    expect(panelClass).toContain("max-h-[calc(100dvh-64px)]");
+    expect(panelClass).not.toMatch(/\d+px,calc/);
+    // Only a ceiling: a short dialog keeps its own height.
+    expect(panelClass).not.toMatch(/(^|\s)(min-)?h-/);
     expect(dialog).toContain('<AdaptivePanel title={title}');
     expect(source).toContain("flex-1 overflow-y-auto");
     // The actions are pinned outside the scrolling body, so a long form cannot
