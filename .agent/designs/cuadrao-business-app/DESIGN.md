@@ -616,11 +616,12 @@ Which container, screen by screen (Lucas, October 20, 2026):
   that opens in the shared modal bottom sheet and returns to the same list
   position when closed (October 25, 2026). The desktop record tray remains
   non-modal.
-- **Sheets:** Agregar, Exportar registros, forms and lists.
+- **Sheets:** Agregar, forms and lists.
 - **Window:** Ajustes, the person's own settings (Lucas, November 2, 2026).
   This reverses settings as sheets for user settings only; Business settings
   stay on Negocio. See [Ajustes](#ajustes-approved-november-2-2026).
-- **Centered dialog, sheet on a phone:** Comentarios.
+- **Centered dialog, sheet on a phone:** Comentarios, Exportar registros
+  (Lucas, November 8, 2026).
 - **Popovers:** pickers (a date, a month, a menu, the period's Personalizado
   range, which opens under its segment and in a sheet on a phone).
 - **Alerts:** closing a month, deleting, removing someone's access.
@@ -1351,14 +1352,18 @@ A month without receipts shows as empty, never as a closed month at RD$0.00.
 This guide sets the screen's presentation only, not the file formats. The
 screen shows amounts in RD$ and never converts currency.
 
-Registros keeps its Exportar registros toolbar button. The existing export
-sheet uses a period segmented control with this month, last month and this year by name, and
-"Otras fechas" for a typed range of up to 366 days. Under it, one line gives
-the exact dates. "Incluye" lists what the ZIP holds: records (Excel and CSV),
-originals, and the 606 and 607, whose line says whether they come with this
-period: included, close the month first, or whole month only. Exportar is the
-green action pinned at the bottom. A finished download closes the sheet and
-says so in a toast.
+Registros keeps its Exportar registros toolbar button, and the search command
+of that name opens Registros with the same dialog (Lucas, November 8, 2026).
+The dialog holds only the title, one summary line, the two option cards (Lo que
+ves; Formato DGII 606 or 607), the Columnas line, Monedas and Formato as
+segmented controls, the DGII line "La DGII define las columnas. Solo en pesos.",
+notices only when their count is above zero, and the green action with its
+count. Editar opens the column choice inside the same dialog with a back arrow. Revisar on
+the DGII notice shows exactly the records it counted: the tab, the period, pesos
+and Faltan datos fiscales, with the other filters and the search cleared.
+A finished download closes the dialog and says so in a toast with "Descargar de
+nuevo". The period ZIP sheet stays for the sample and bank-matching Registros
+screen and the close-a-Business copy.
 
 **Behavior rules (pending from Product).**
 

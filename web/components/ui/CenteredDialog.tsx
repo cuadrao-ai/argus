@@ -46,7 +46,7 @@ function DesktopSurface({ title, closeLabel, onClose, initialFocusRef, returnFoc
         aria-modal="true"
         aria-labelledby={titleId}
         data-testid={testId}
-        className={`relative flex max-h-[min(720px,calc(100dvh-64px))] w-[min(520px,100%)] flex-col overflow-hidden rounded-surface border border-[#DCE0DA] bg-white text-[#172b26] dark:border-white/10 dark:bg-[#1b1d20] dark:text-white ${styles.dialog}`}
+        className={`relative flex max-h-[calc(100dvh-64px)] w-[min(520px,100%)] flex-col overflow-hidden rounded-surface border border-[#DCE0DA] bg-white text-[#172b26] dark:border-white/10 dark:bg-[#1b1d20] dark:text-white ${styles.dialog}`}
       >
         <header className="flex shrink-0 items-start justify-between gap-3 pl-6 pr-3 pt-3">
           <h2 id={titleId} className="pt-2 font-display text-[21px] font-medium">{title}</h2>

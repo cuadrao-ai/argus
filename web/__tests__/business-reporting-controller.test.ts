@@ -7,7 +7,7 @@ import { reportRequestSchema } from "@/lib/business-reports-api";
 const answer = (request: ReportRequest, count = 125): ReportAnswer => ({ ...recordedReportAnswer, items: [], matching_count: count, page: request.page, page_size: request.page_size, page_count: Math.ceil(count / request.page_size), totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
 const scope = { userId: "person", businessId: "business-a", grantId: null };
 const problem = (status: number, code: string) => Object.assign(new Error(code), { status, code });
-const transport = (overrides: Partial<ReportingTransport> = {}): ReportingTransport => ({ query: async (_scope, request) => answer(request), export: async () => new Blob(["archive"]), listViews: async () => [], mutateView: async () => null, ...overrides });
+const transport = (overrides: Partial<ReportingTransport> = {}): ReportingTransport => ({ query: async (_scope, request) => answer(request), exportPreview: async () => { throw new Error("unused"); }, exportFile: async () => { throw new Error("unused"); }, listViews: async () => [], mutateView: async () => null, ...overrides });
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done; }); return { promise, resolve }; }
 
 describe("Business report controller", () => {
@@ -110,14 +110,6 @@ describe("Business report controller", () => {
     expect(controller.getSnapshot().missingAnchor).toBe(true);
     await controller.recoverPage();
     expect(controller.getSnapshot().request.page).toBe(2);
-  });
-  test("export 409 stays failed until explicit refresh; it never retries with a new set", async () => {
-    let exports = 0; let reads = 0;
-    const controller = createBusinessReportController(scope, undefined, transport({ query: async (_scope, request) => { reads++; return answer(request); }, export: async () => { exports++; throw problem(409, "business_report_changed"); } }));
-    await controller.load(); await controller.export();
-    expect(controller.getSnapshot().export).toEqual({ kind: "failed", problem: { kind: "changed", code: "business_report_changed", requestId: undefined } });
-    expect([reads, exports]).toEqual([1, 1]);
-    await controller.refresh(); expect(reads).toBe(2);
   });
   test("an uncertain view write replays the frozen command/key, while stale versions require reconciliation", async () => {
     const commands: ReportViewCommand[] = [];

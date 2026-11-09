@@ -1,4 +1,4 @@
-"""Registros queries, complete answer exports, and private saved recipes."""
+"""Registros queries, one-file exports, and private saved recipes."""
 
 from __future__ import annotations
 
@@ -17,12 +17,18 @@ from argus.api.business import (
     require_business_surface,
 )
 from argus.api.business_drafts import DraftContext, action_problem, require_drafts
-from argus.api.business_reporting_schemas import DeleteReportView, ExportReport
+from argus.api.business_reporting_schemas import DeleteReportView
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.routers.business_export import ExportRoute
 from argus.domain.business.authority import ActionError
-from argus.domain.business.reporting_export import export_report
+from argus.domain.business.reporting_file import (
+    ExportPreview,
+    ExportPreviewRequest,
+    RecordsExport,
+    export_file,
+    preview_export,
+)
 from argus.domain.business.reporting_preferences import ReportInput
 from argus.domain.business.reporting_query import ReportAnswer
 from argus.domain.business.reporting_store import read_report
@@ -92,42 +98,60 @@ def query_report(
     )
 
 
+@router.post("/reports/export/preview", response_model=ExportPreview)
+def preview_report_export(
+    request: Request,
+    response: Response,
+    body: ExportPreviewRequest,
+    context: Context,
+    person: Person,
+) -> ExportPreview:
+    return _run(
+        request,
+        response,
+        lambda: preview_export(
+            context.service.authority,
+            context.for_space(request, person.spaces),
+            body.report,
+        ),
+    )
+
+
 @router.post(
     "/reports/export",
     response_class=Response,
     responses={
         200: {
-            "content": {"application/zip": {}},
-            "description": "Complete filtered records, CSV, XLSX and scope manifest; originals excluded.",
-        },
-        409: {
-            "description": "business_report_changed; explicitly refresh the query before retrying."
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+                "text/csv": {},
+            },
+            "description": "One Excel or CSV file: the table's records or the 606/607 lines.",
         },
     },
 )
 def download_report(
     request: Request,
     response: Response,
-    body: ExportReport,
+    body: RecordsExport,
     context: Context,
     person: Person,
 ) -> Response:
-    data = _run(
+    built = _run(
         request,
         response,
-        lambda: export_report(
+        lambda: export_file(
             context.service.authority,
             context.for_space(request, person.spaces),
-            body.report,
-            body.expected_fingerprint,
+            body,
         ),
     )
     return Response(
-        data,
-        media_type="application/zip",
+        built.content,
+        media_type=built.media_type,
         headers={
             **NO_STORE,
-            "Content-Disposition": 'attachment; filename="business-records.zip"',
+            "Content-Disposition": f'attachment; filename="{built.filename}"',
         },
     )
 

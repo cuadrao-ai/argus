@@ -18,7 +18,7 @@ const SHARED_CONTEXTS = new Map([
   ["business.dgii.option.id_type.1", "1 - RNC"],
   ["business.dgii.option.id_type.2", "2 - Cédula"],
 ]);
-const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Personal", "Normal", "No", "Ref."]);
+const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Personal", "Normal", "No", "Ref.", "Excel", "CSV"]);
 
 type Tree = { [key: string]: string | Tree };
 

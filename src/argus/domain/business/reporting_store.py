@@ -488,6 +488,37 @@ def read_606(
         return answers
 
 
+@dataclass(frozen=True)
+class ExportSource:
+    """Every projected row with the approved record its 606 or 607 line reads."""
+
+    records: tuple[ReportRecord, ...]
+    approved: dict[str, FiscalRecord]
+    observed_at: datetime
+
+
+def read_export_source(
+    authority: BusinessAuthority, context: ActionContext
+) -> ExportSource:
+    with authority.pool.connection() as connection, connection.transaction():
+        connection.execute("set transaction isolation level repeatable read")
+        authorize(connection, context.actor, context.grant_id).require("export")
+        snapshot, records = _projected(authority, context, connection)
+        authorize(connection, context.actor, context.grant_id).require("export")
+    return ExportSource(
+        records,
+        {record.approved.activity_id: record.approved for record in snapshot.records},
+        snapshot.observed_at,
+    )
+
+
+def require_export(authority: BusinessAuthority, context: ActionContext) -> None:
+    """The grant still exports when the built file is released."""
+
+    with authority.pool.connection() as connection:
+        authorize(connection, context.actor, context.grant_id).require("export")
+
+
 def read_report_snapshot(
     authority: BusinessAuthority,
     context: ActionContext,
