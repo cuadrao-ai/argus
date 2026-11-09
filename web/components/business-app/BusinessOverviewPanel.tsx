@@ -2,6 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import { businessSettlementAvailable } from "@/lib/business-api";
 import { formatBusinessName } from "./business-format";
 import { inboxCount, problemCount, readingCount } from "./inbox-count";
 import { useBusiness } from "./BusinessWorkspace";
@@ -9,7 +10,7 @@ import BusinessAddMenu from "./BusinessAddMenu";
 import BusinessMonthClosePanel, { useMonthCloseSource, type MonthCloseParts } from "./BusinessMonthClosePanel";
 import { cardClass } from "./business-ui";
 import { HomeHeading } from "./foundation/HomeHeading";
-import { HomeCustomize, HomeSetupLead, HomeWork, useHomeOrder, type HomeSectionKey } from "./inicio/HomeOverviewDraft";
+import { HOME_DEFAULT_ORDER, HomeCustomize, HomeSetupLead, HomeWork, useHomeOrder, type HomeSectionKey } from "./inicio/HomeOverviewDraft";
 
 /**
  * Inicio: the greeting (in the top bar from the tablet up, here on a phone), then its three layers in the person's
@@ -24,7 +25,9 @@ export default function BusinessOverviewPanel() {
   const reading = readingCount(records) ?? 0;
   const problem = problemCount(records) ?? 0;
   const monthClose = useMonthCloseSource();
-  const homeOrder = useHomeOrder(userId, chosen?.space_id);
+  // Cobros y pagos is Por cobrar and Por pagar: no section, and nothing to reorder, while settlement is off.
+  const shown = businessSettlementAvailable(records.workspace) ? HOME_DEFAULT_ORDER : HOME_DEFAULT_ORDER.filter((key) => key !== "money");
+  const homeOrder = useHomeOrder(userId, chosen?.space_id, shown);
 
   const home = (parts: MonthCloseParts) => {
     const sections: Record<HomeSectionKey, React.ReactNode> = { work: <HomeWork />, month: parts.month, money: parts.money };
@@ -34,7 +37,7 @@ export default function BusinessOverviewPanel() {
         {parts.receiptStatus ? <div className={cardClass}>{parts.receiptStatus}</div> : null}
         <HomeSetupLead />
         {homeOrder.order.map((key) => <div key={key} data-home-section={key}>{sections[key]}</div>)}
-        <div className="flex border-t border-[color:var(--surface-divider)] pt-4"><HomeCustomize order={homeOrder.order} onChange={homeOrder.save} isDefault={homeOrder.isDefault} /></div>
+        <div className="flex border-t border-[color:var(--surface-divider)] pt-4"><HomeCustomize order={homeOrder.order} defaults={homeOrder.defaults} onChange={homeOrder.save} isDefault={homeOrder.isDefault} /></div>
       </div>
     );
   };

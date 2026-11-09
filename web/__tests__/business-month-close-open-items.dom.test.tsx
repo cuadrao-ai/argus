@@ -413,7 +413,7 @@ test.each([
   const root = createRoot(host);
   let added = 0;
   try {
-    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} businessCurrency="DOP" onAdd={() => { added += 1; }} /></I18nextProvider>); });
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={now} businessCurrency="DOP" onAdd={() => { added += 1; }} /></I18nextProvider>); });
     const empty = host.querySelector(`[data-testid="month-close-${card}-empty"]`);
     assert.ok(empty?.textContent?.includes(explanation), "either settled balance explains why its list is empty");
     const button = empty?.querySelector("button");

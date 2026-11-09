@@ -31,6 +31,13 @@ pytestmark = pytest.mark.skipif(
     not (shared.DSN and os.getenv("ARGUS_LOCAL_SUPABASE_URL")),
     reason="local Supabase proof variables are not configured",
 )
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 GRANT = "X-Business-Grant"
 API = "/api/v1"
 OTHER_RECEIPT = RECEIPT[:-8] + bytes(8)

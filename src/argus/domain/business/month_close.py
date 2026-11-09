@@ -284,7 +284,10 @@ def set_document_status(
     return match.role, planned, True
 
 
-def _line(document: MonthDocument) -> dict:
+def _line(document: MonthDocument, settlement: bool = True) -> dict:
+    """One document as the month close lists it; its cobrado or pagado status
+    only while settlement is on."""
+
     currency = document.currency
     before = (
         expense_base(document)
@@ -292,7 +295,7 @@ def _line(document: MonthDocument) -> dict:
         else before_itbis(document.total_minor, document.itbis_minor)
     )
     itbis = document.itbis_minor
-    return {
+    line = {
         "activity_id": document.activity_id,
         "document_kind": document.role,
         "currency": currency,
@@ -312,6 +315,23 @@ def _line(document: MonthDocument) -> dict:
         "due_on": None if document.due_on is None else document.due_on.isoformat(),
         "payment_form": document.payment_form,
     }
+    if not settlement:
+        del line["status"]
+    return line
+
+
+#: A currency block's figures that only cobrado, pagado or pendiente give.
+BLOCK_SETTLEMENT_FIELDS = frozenset(
+    {
+        "cuentas_por_cobrar_minor",
+        "cuentas_por_cobrar",
+        "cuentas_por_pagar_minor",
+        "cuentas_por_pagar",
+        "itbis_cobrado_minor",
+        "itbis_cobrado",
+        "by_status",
+    }
+)
 
 
 def _pair(minor: int, currency: str) -> dict[str, int | str]:
@@ -324,11 +344,19 @@ def summarize(
     end: date,
     no_payment_form: Collection[str] = (),
     missing: Mapping[str, Sequence[str]] | None = None,
+    settlement: bool = True,
 ) -> dict:
     """The month's money and lists. ``no_payment_form`` names the activities the
     606 holds for a missing Forma de Pago, and ``missing`` what the 606 or 607
     still needs from each activity it holds, in the export's own words; the
-    export owns both rules. ``closed`` is month completion alone."""
+    export owns both rules. ``closed`` is month completion alone. Without
+    ``settlement`` nothing here says cobrado, pagado or pendiente: no
+    receivables or payables, no status on a line, no counts by status and no
+    ITBIS cobrado, and the net result (income minus expenses of the approved
+    records) waits only on a rate (Lucas, 2026-11-08)."""
+
+    def line(document: MonthDocument) -> dict:
+        return _line(document, settlement)
 
     chosen = [
         document
@@ -345,7 +373,7 @@ def summarize(
     for document in sorted(chosen, key=lambda item: (item.occurred_on, item.activity_id)):
         if missing and document.activity_id in missing:
             missing_fiscal_data.append(
-                {**_line(document), "missing": list(missing[document.activity_id])}
+                {**line(document), "missing": list(missing[document.activity_id])}
             )
         if document.sin_comprobante:
             continue
@@ -354,7 +382,7 @@ def summarize(
             and document.role == "receipt"
             and document.payment_form is None
         ):
-            missing_payment_form.append(_line(document))
+            missing_payment_form.append(line(document))
         if not document.rnc:
             reasons.append(
                 {
@@ -363,7 +391,7 @@ def summarize(
                     "document_kind": document.role,
                 }
             )
-            missing_rnc.append(_line(document))
+            missing_rnc.append(line(document))
         if not _fiscal(document) or normalized_ncf(document.ecf or document.ncf) is None:
             reasons.append(
                 {
@@ -372,9 +400,9 @@ def summarize(
                     "document_kind": document.role,
                 }
             )
-            missing_ncf.append(_line(document))
+            missing_ncf.append(line(document))
             if _fiscal(document):
-                ncf_malformed.append(_line(document))
+                ncf_malformed.append(line(document))
     receivables = [
         _line(document)
         for document in chosen
@@ -440,33 +468,39 @@ def summarize(
             "cuentas_por_cobrar": _pair(receivable, currency),
             "cuentas_por_pagar": _pair(payable, currency),
         }
-        blocks.append(
-            {
-                "currency": currency,
-                "income_before_itbis_minor": shown["income_before_itbis"]["minor"],
-                "income_before_itbis": shown["income_before_itbis"]["amount"],
-                "expense_before_itbis_minor": shown["expense_before_itbis"]["minor"],
-                "expense_before_itbis": shown["expense_before_itbis"]["amount"],
-                "net_result_minor": shown["net_result"]["minor"],
-                "net_result": shown["net_result"]["amount"],
-                "itbis_charged_minor": shown["itbis_charged"]["minor"],
-                "itbis_charged": shown["itbis_charged"]["amount"],
-                "itbis_paid_minor": shown["itbis_paid"]["minor"],
-                "itbis_paid": shown["itbis_paid"]["amount"],
-                "itbis_owed_minor": shown["itbis_owed"]["minor"],
-                "itbis_owed": shown["itbis_owed"]["amount"],
-                "itbis_cobrado_minor": shown["itbis_cobrado"]["minor"],
-                "itbis_cobrado": shown["itbis_cobrado"]["amount"],
-                "cuentas_por_cobrar_minor": shown["cuentas_por_cobrar"]["minor"],
-                "cuentas_por_cobrar": shown["cuentas_por_cobrar"]["amount"],
-                "cuentas_por_pagar_minor": shown["cuentas_por_pagar"]["minor"],
-                "cuentas_por_pagar": shown["cuentas_por_pagar"]["amount"],
-                "by_status": status,
-                "net_result_final": pending_count == 0 and not pending_rate,
+        block = {
+            "currency": currency,
+            "income_before_itbis_minor": shown["income_before_itbis"]["minor"],
+            "income_before_itbis": shown["income_before_itbis"]["amount"],
+            "expense_before_itbis_minor": shown["expense_before_itbis"]["minor"],
+            "expense_before_itbis": shown["expense_before_itbis"]["amount"],
+            "net_result_minor": shown["net_result"]["minor"],
+            "net_result": shown["net_result"]["amount"],
+            "itbis_charged_minor": shown["itbis_charged"]["minor"],
+            "itbis_charged": shown["itbis_charged"]["amount"],
+            "itbis_paid_minor": shown["itbis_paid"]["minor"],
+            "itbis_paid": shown["itbis_paid"]["amount"],
+            "itbis_owed_minor": shown["itbis_owed"]["minor"],
+            "itbis_owed": shown["itbis_owed"]["amount"],
+            "itbis_cobrado_minor": shown["itbis_cobrado"]["minor"],
+            "itbis_cobrado": shown["itbis_cobrado"]["amount"],
+            "cuentas_por_cobrar_minor": shown["cuentas_por_cobrar"]["minor"],
+            "cuentas_por_cobrar": shown["cuentas_por_cobrar"]["amount"],
+            "cuentas_por_pagar_minor": shown["cuentas_por_pagar"]["minor"],
+            "cuentas_por_pagar": shown["cuentas_por_pagar"]["amount"],
+            "by_status": status,
+            "net_result_final": (pending_count == 0 or not settlement)
+            and not pending_rate,
+        }
+        if not settlement:
+            block = {
+                key: value
+                for key, value in block.items()
+                if key not in BLOCK_SETTLEMENT_FIELDS
             }
-        )
+        blocks.append(block)
     in_scope = [document.occurred_on for document in documents if in_close(document)]
-    return {
+    summary = {
         "from": start.isoformat(),
         "to": end.isoformat(),
         "closed": not reasons,
@@ -478,9 +512,11 @@ def summarize(
         "missing_ncf": missing_ncf,
         "missing_payment_form": missing_payment_form,
         "missing_fiscal_data": missing_fiscal_data,
-        "cuentas_por_cobrar": receivables,
-        "cuentas_por_pagar": payables,
     }
+    if settlement:
+        summary["cuentas_por_cobrar"] = receivables
+        summary["cuentas_por_pagar"] = payables
+    return summary
 
 
 def draft_close_day(receipt_on: object, arrived_at: object) -> date:
@@ -510,10 +546,12 @@ def with_unreviewed(summary: dict, count: int, month_unknown: bool = False) -> d
     and ``filing_ready``: the one fact "ready for the 606 and 607", true only
     when both forms stand by the export's verdict and no step of this month
     remains: nothing still in the Bandeja (reading, waiting or unreadable),
-    nothing the forms hold, nothing left to mark cobrado or pagado. While a
-    read in flight has no date, ``month_unknown`` holds every month: nobody yet
-    knows which one it belongs to. It adds no count and no reason. The web
-    words the reason from the code, the count and the month."""
+    nothing the forms hold, nothing left to mark cobrado or pagado. A month
+    close without settlement carries no receivables or payables, so marking is
+    no step of it. While a read in flight has no date, ``month_unknown`` holds
+    every month: nobody yet knows which one it belongs to. It adds no count and
+    no reason. The web words the reason from the code, the count and the
+    month."""
 
     reasons = list(summary["reasons"])
     if count:
@@ -528,8 +566,8 @@ def with_unreviewed(summary: dict, count: int, month_unknown: bool = False) -> d
         and not count
         and not month_unknown
         and not summary["missing_fiscal_data"]
-        and not summary["cuentas_por_cobrar"]
-        and not summary["cuentas_por_pagar"],
+        and not summary.get("cuentas_por_cobrar")
+        and not summary.get("cuentas_por_pagar"),
     }
 
 

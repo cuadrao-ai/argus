@@ -46,7 +46,7 @@ import {
 import { formatAmount, formatDay, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, formatShortDay, UNKNOWN_VALUE, type Lateness } from "./business-format";
 import { canAddRecords, cardClass, quietButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
-import { businessWorkspaceCurrency } from "@/lib/business-api";
+import { businessSettlementAvailable, businessWorkspaceCurrency } from "@/lib/business-api";
 import { dismissToast, showToast, useToasts } from "./foundation/toasts";
 import { EmptyState } from "./foundation/EmptyState";
 import { resolveLanguage } from "@/lib/language-features";
@@ -382,8 +382,12 @@ type BusinessMonthCloseViewProps = {
   openDocument?: (document: MonthCloseDocument) => (() => void) | null;
   arrange?: (parts: MonthCloseParts) => ReactNode;
   receiptStatusPlacement?: "lead" | "default";
-  /** A row's own payment workflow: the opener, given `onSaved` to call after it saves; null while the record has none. No caller passes one yet. */
-  openSettlement?: (document: MonthCloseDocument) => ((onSaved: () => void) => void) | null;
+  /**
+   * The server's `settlement_available`. Off, there is no Por cobrar, Por pagar, mark, settle step or "left to mark"
+   * line, and the open items are never read; the net says it is approved income minus approved expenses, and ITBIS en
+   * ventas stands where ITBIS cobrado was.
+   */
+  settlement: boolean;
   /** The Business's own currency: the figures' default and the first in its menu. Null while unknown. */
   businessCurrency?: string | null;
   /**
@@ -411,11 +415,11 @@ function BusinessMonthCloseContent({
   header = (switcher) => switcher,
   headingAction,
   openDocument,
-  openSettlement,
   arrange,
   receiptStatusPlacement = "default",
   businessCurrency = null,
   layout = "inicio",
+  settlement,
 }: BusinessMonthCloseViewProps) {
   const finance = layout === "finance";
   // The finance layout keeps the close steps behind "Ver cuáles"; the list itself is unchanged.
@@ -476,7 +480,7 @@ function BusinessMonthCloseContent({
   }
 
   useEffect(() => {
-    if (preview === "loading" || preview === "error") return;
+    if (!settlement || preview === "loading" || preview === "error") return;
     if (preview === "empty") {
       const none: OpenItemsList = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] };
       setOpenItems({ today: null, cuentas_por_cobrar: none, cuentas_por_pagar: none });
@@ -487,7 +491,7 @@ function BusinessMonthCloseContent({
     void readOpenItems();
     // readOpenItems reads the same client and scope listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, openAttempt, preview, scopeKey]);
+  }, [client, openAttempt, preview, scopeKey, settlement]);
 
   useEffect(() => {
     const request = ++generation.current;
@@ -516,7 +520,8 @@ function BusinessMonthCloseContent({
 
   const unreviewed = snapshot?.unreviewed_movements ?? 0;
   // The cards show one currency's block at a time; the others stay one choice away, never added in.
-  const blocks = snapshot?.figures ?? [];
+  // Settlement off: no document is left to mark, so a block the server does not call final waits on a rate.
+  const blocks = (snapshot?.figures ?? []).map((block) => (settlement ? block : { ...block, pending_count: 0 }));
   const currencies = currenciesInOrder(blocks.map((block) => block.currency), businessCurrency);
   const chosenCurrency = useCurrencyView(scopeKey);
   const shownCurrency = currencyShown(currencies, businessCurrency, chosenCurrency);
@@ -527,7 +532,7 @@ function BusinessMonthCloseContent({
   const monthToday = snapshot?.today ?? null;
   const openToday = openItems?.today ?? null;
   const markMethod = oneTapPaymentMethod(snapshot?.payment_methods ?? null);
-  const canMark = canMutate && markMethod !== null && openToday !== null;
+  const canMark = settlement && canMutate && markMethod !== null && openToday !== null;
   const locked = Boolean(snapshot?.closed_at) && unreviewed === 0;
   // A closed month locks its own documents; Pendiente hoy still marks what other months left open.
   const lockedHere = (document: Pick<MonthCloseDocument, "occurred_on">) => locked && snapshot !== null && document.occurred_on >= snapshot.from && document.occurred_on <= snapshot.to;
@@ -656,7 +661,7 @@ function BusinessMonthCloseContent({
   const overdueOn = (document: MonthCloseDocument, today: string | null) => today !== null && documentOverdue(document, today);
   /** A day against the server's day, or the plain date when the server sent none. */
   const dayText = (day: string, today: string | null) => (today === null ? formatShortDay(day, locale) : formatRelativeDay(day, today, locale));
-  const unsettled = documents.filter((document) => document.status === "pendiente");
+  const unsettled = settlement ? documents.filter((document) => document.status === "pendiente") : [];
   const overdueCount = unsettled.filter((document) => overdueOn(document, monthToday)).length;
   // What the 606 or 607 still holds, by the export's own verdict. Month completion (`closed`) never reads into it.
   const held = documents.filter((document) => document.missing && document.missing.length > 0);
@@ -718,7 +723,7 @@ function BusinessMonthCloseContent({
         data-locked={locked ? "true" : "false"}
         className={`flex flex-col gap-3 rounded-item px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 ${rowGrid}`}
       >
-        <StatusChip status={document.status} overdue={overdue} label={overdue ? t("business.month_close.status_vencida", "Overdue") : statusLabel(document.status)} />
+        {document.status ? <StatusChip status={document.status} overdue={overdue} label={overdue ? t("business.month_close.status_vencida", "Overdue") : statusLabel(document.status)} /> : <span />}
         <div className="min-w-0">
           <span className="block text-[14px] text-[#56635e] dark:text-white/70">
             {document.kind === "invoice" ? t("business.month_close.kind_invoice", "Invoice") : t("business.month_close.kind_receipt", "Expense")}
@@ -785,22 +790,6 @@ function BusinessMonthCloseContent({
           {saving ? t("business.capture.saving", "Saving…") : t("common.retry", "Retry")}
         </button> : null}
       </div>
-    );
-  }
-
-  /**
-   * Home's compact "Registrar cobro / pago": it opens the record's own payment workflow and rereads the open items
-   * once that workflow saves; it never marks a document settled itself. With no workflow it is not shown
-   * (MISSING: a server-backed payment workflow for open items; `openSettlement` is the seam).
-   */
-  function settlementAction(document: MonthCloseDocument) {
-    const open = openSettlement?.(document) ?? null;
-    if (!open) return null;
-    const label = document.kind === "invoice" ? t("business.month_close.record_collection", "Record collection") : t("business.month_close.record_payment", "Record payment");
-    return (
-      <button type="button" data-testid="month-close-settle" aria-label={`${label}: ${nameOf(document, t)}`} onClick={() => open(() => void readOpenItems())} className={`${moneyCard.action} inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-[14px] font-medium text-[var(--cuadrao-green)] hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 dark:hover:bg-white/[0.05]`}>
-        {label}
-      </button>
     );
   }
 
@@ -878,7 +867,7 @@ function BusinessMonthCloseContent({
                     className="rounded-item py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50"
                   >
                     <div className={finance ? moneyCard.row : "flex items-center"}>
-                      {/* Home never settles in one tap: its action opens the record's own payment workflow (settlementAction). */}
+                      {/* Home never settles in one tap. */}
                       {canMark && !finance && !lockedHere(document) ? markButton(document) : null}
                       {opens ? (
                         <button type="button" data-testid="month-close-row-open" onClick={opens} className={`${bodyClass} transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--cuadrao-green)]/50 dark:hover:bg-white/[0.05]`}>
@@ -887,7 +876,6 @@ function BusinessMonthCloseContent({
                       ) : (
                         <div className={bodyClass}>{body}</div>
                       )}
-                      {finance && canMutate && !lockedHere(document) ? settlementAction(document) : null}
                     </div>
                     {renderWorkProblem(document.id)}
                   </li>
@@ -959,6 +947,7 @@ function BusinessMonthCloseContent({
 
   /** Pendiente hoy: what every month left open, so it sits apart from the month above it. */
   function moneySection() {
+    if (!settlement) return null;
     return (
       <section id="month-close-money" aria-labelledby="month-close-money-title" data-testid="month-close-money" className={finance ? "scroll-mt-6" : `scroll-mt-6 pt-4 tablet:pt-6 ${WIDE.money}`}>
         <div className={`flex flex-wrap items-center justify-between gap-3 ${finance ? "min-h-11" : ""}`}>
@@ -1185,7 +1174,13 @@ function BusinessMonthCloseContent({
     itbis.state !== "pending" ? itbis.value : null,
   ].filter((value): value is string => Boolean(value));
   const manyCurrencies = currencies.length > 1 && shownCurrency !== null;
+  // ITBIS cobrado needs marks; while settlement is off the server's ITBIS on the approved sales stands in its place.
+  const itbisCobrado = settlement
+    ? <>{t("business.month_close.itbis_cobrado", "ITBIS collected")} <span data-testid="month-close-itbis-cobrado" className="cuadrao-amount tabular-nums">{shown?.itbis_cobrado && shownCurrency ? formatMoney(shown.itbis_cobrado, shownCurrency, locale) : UNKNOWN_VALUE}</span></>
+    : <>{t("business.month_close.approved_figures.itbis_sales", "ITBIS on sales")} <span data-testid="month-close-itbis-sales" className="cuadrao-amount tabular-nums">{shown?.itbis_charged && shownCurrency ? formatMoney(shown.itbis_charged, shownCurrency, locale) : UNKNOWN_VALUE}</span></>;
   function netDetail(): ReactNode | undefined {
+    // While settlement is off the server's final net is the approved income minus the approved expenses.
+    if (net.state === "final") return settlement ? undefined : t("business.month_close.approved_figures.net_detail", "Approved income minus expenses");
     if (net.state !== "pending") return undefined;
     if (net.reason === "documents") {
       return manyCurrencies && shownCurrency
@@ -1229,7 +1224,7 @@ function BusinessMonthCloseContent({
           {figure("month-close-income", t("business.month_close.income_label", "Income"), figures.income.state, figures.income.value, figures.income.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
           {figure("month-close-expenses", t("business.month_close.expense_label", "Expenses"), figures.expenses.state, figures.expenses.value, figures.expenses.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
           {figure("month-close-net", t("business.month_close.net_label", "Net result"), net.state, net.state === "final" ? net.net_before_itbis : "", netDetail())}
-          {figure("month-close-itbis", itbis.credit ? t("business.month_close.itbis_credit_label", "ITBIS balance in your favor") : t("business.month_close.itbis_label", "ITBIS to pay"), itbis.state, itbis.value, itbis.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : <>{t("business.month_close.itbis_cobrado", "ITBIS collected")} <span data-testid="month-close-itbis-cobrado" className="cuadrao-amount tabular-nums">{shown?.itbis_cobrado && shownCurrency ? formatMoney(shown.itbis_cobrado, shownCurrency, locale) : UNKNOWN_VALUE}</span></>)}
+          {figure("month-close-itbis", itbis.credit ? t("business.month_close.itbis_credit_label", "ITBIS balance in your favor") : t("business.month_close.itbis_label", "ITBIS to pay"), itbis.state, itbis.value, itbis.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : itbisCobrado)}
         </div>
       </section>
     );
@@ -1281,7 +1276,7 @@ function BusinessMonthCloseContent({
       </div>
       </div>
     );
-    const moneyPart = <div className="@container">{moneySection()}</div>;
+    const moneyPart = settlement ? <div className="@container">{moneySection()}</div> : null;
     return arrange ? <>{arrange({ month: monthPart, money: moneyPart, receiptStatus: receiptStatusInLead ? receiptStatus : null })}</> : <div className="space-y-6">{monthPart}{moneyPart}</div>;
   }
 
@@ -1385,9 +1380,7 @@ function BusinessMonthCloseContent({
               itbis.credit ? t("business.month_close.itbis_credit_label", "ITBIS balance in your favor") : t("business.month_close.itbis_label", "ITBIS to pay"),
               itbis.state,
               itbis.value,
-              itbis.state === "pending"
-                ? t("business.month_close.figure_unknown", "Can't be calculated yet.")
-                : <>{t("business.month_close.itbis_cobrado", "ITBIS collected")} <span data-testid="month-close-itbis-cobrado" className="cuadrao-amount tabular-nums">{shown?.itbis_cobrado && shownCurrency ? formatMoney(shown.itbis_cobrado, shownCurrency, locale) : UNKNOWN_VALUE}</span></>,
+              itbis.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : itbisCobrado,
             )}
             </div>
           </section>
@@ -1406,23 +1399,26 @@ function BusinessMonthCloseContent({
 export type MonthCloseSource = { client: MonthCloseClient; scopeKey: string | null };
 
 /** The month close the selected Business reads. One per view, so the sample books Inicio closes are the books its export sees. */
-// One sample book per sample source, so Inicio and an export opened from the top bar see the same closed months.
-const SAMPLE_CLIENTS = new WeakMap<object, MonthCloseClient>();
-function sampleClientFor(source: object, empty = false): MonthCloseClient {
-  const known = SAMPLE_CLIENTS.get(source);
+// One sample book per sample source and settlement answer, so Inicio and an export opened from the top bar see the same closed months.
+const SAMPLE_CLIENTS = new WeakMap<object, Map<boolean, MonthCloseClient>>();
+function sampleClientFor(source: object, empty = false, settlement = false): MonthCloseClient {
+  const books = SAMPLE_CLIENTS.get(source) ?? new Map<boolean, MonthCloseClient>();
+  SAMPLE_CLIENTS.set(source, books);
+  const known = books.get(settlement);
   if (known) return known;
   // `?currencies=two` on the preview adds dollar documents to the open month.
   const dollars = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("currencies") === "two";
-  const made = createMockMonthCloseClient({ dollars, empty });
-  SAMPLE_CLIENTS.set(source, made);
+  const made = createMockMonthCloseClient({ dollars, empty, settlement });
+  books.set(settlement, made);
   return made;
 }
 
 export function useMonthCloseSource(): MonthCloseSource {
-  const { chosen, source, spaces } = useBusiness();
+  const { chosen, source, spaces, records } = useBusiness();
   // One key per Business, known before the first load: the own Business is "own" before and after the list arrives.
   const scopeKey = spaces === null ? null : chosen && (chosen.role !== "owner" || chosen.space_id?.startsWith(LOCAL_BUSINESS_PREFIX)) ? chosen.grant_id : "own";
-  return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX)) : monthCloseClient, scopeKey };
+  // The sample books answer as the sample workspace's settlement switch says, the way the server would.
+  return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX), businessSettlementAvailable(records?.workspace)) : monthCloseClient, scopeKey };
 }
 
 export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header, headingAction, layout, arrange, receiptStatusPlacement }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: MonthCloseReview | null; header?: (switcher: ReactNode) => ReactNode; headingAction?: ReactNode; layout?: "inicio" | "finance"; arrange?: BusinessMonthCloseViewProps["arrange"]; receiptStatusPlacement?: BusinessMonthCloseViewProps["receiptStatusPlacement"] }) {
@@ -1442,6 +1438,7 @@ export default function BusinessMonthClosePanel({ monthClose, onMonthChange, rev
       headingAction={headingAction}
       openDocument={openDocument}
       businessCurrency={businessWorkspaceCurrency(records?.workspace)}
+      settlement={businessSettlementAvailable(records?.workspace)}
       layout={layout}
       arrange={arrange}
       receiptStatusPlacement={receiptStatusPlacement}

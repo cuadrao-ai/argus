@@ -27,6 +27,13 @@ from tests.test_business_scope_switch_routes_postgres import (
 )
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 BANK = f"{API}/business/bank"
 OCTOBER = {"period_start": "2026-10-01", "period_end": "2026-10-31"}
 

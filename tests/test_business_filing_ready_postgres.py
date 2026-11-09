@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from uuid import uuid4
 
 import psycopg
+import pytest
 from argus.api.documents import documents_service
 from argus.api.email_intake import configure_email_intake, email_intake
 from argus.domain.ingestion.email_intake.service import (
@@ -35,6 +36,13 @@ from tests.test_business_document_type_postgres import pytestmark as _local_supa
 from tests.test_business_email_intake_postgres import Provider, message
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 MONTH = "2026-09"
 
 
@@ -67,6 +75,80 @@ def test_a_receipt_still_in_the_bandeja_holds_filing_ready_while_the_forms_stand
     assert month["dgii_forms"]["606"] == "prepared_candidate"
     assert month["unreviewed_movements_count"] == 1
     assert month["filing_ready"] is False
+
+
+def test_an_unpaid_sale_and_purchase_hold_filing_ready_only_while_settlement_is_on(
+    web,  # noqa: ANN001, F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """Off, the month is ready with a sale still to collect and a purchase still
+    to pay, its net and ITBIS come from the approved records alone, and a
+    receipt in the Bandeja changes no figure: it holds the month instead."""
+
+    _own_rnc(web)
+    draft, recorded = unpaid._recorded(web, "expense", "B0100000061")
+    unpaid._declare(web, draft, category="02", payment_method="01")
+    purchase = recorded["approval_result"]["activity_id"]
+    _, recorded = unpaid._recorded(
+        web,
+        "income",
+        "B0100000062",
+        id_type="1",
+        income_type="1",
+        billed_amount="1000.00",
+        credit="1180.00",
+    )
+    sale = recorded["approval_result"]["activity_id"]
+
+    held = _month(web)
+    assert held["dgii_forms"] == {
+        "606": "prepared_candidate",
+        "607": "prepared_candidate",
+    }
+    assert [line["activity_id"] for line in held["cuentas_por_cobrar"]] == [sale]
+    assert [line["activity_id"] for line in held["cuentas_por_pagar"]] == [purchase]
+    assert held["filing_ready"] is False
+
+    monkeypatch.setenv("CUADRAO_BUSINESS_SETTLEMENT_ENABLED", "false")
+    ready = _month(web)
+    assert {"payment_methods", "cuentas_por_cobrar", "cuentas_por_pagar"}.isdisjoint(
+        ready
+    )
+    assert ready["dgii_forms"] == held["dgii_forms"]
+    assert ready["missing_fiscal_data"] == held["missing_fiscal_data"] == []
+    assert ready["filing_ready"] is True
+    [held_pesos], [pesos] = held["currencies"], ready["currencies"]
+    assert held_pesos["net_result_final"] is False
+    assert pesos["net_result_final"] is True
+    figures = (
+        "net_result",
+        "income_before_itbis",
+        "expense_before_itbis",
+        "itbis_charged",
+    )
+    approved = {name: pesos[name] for name in figures}
+    assert approved == {name: held_pesos[name] for name in figures}
+    assert approved == {
+        "net_result": "0.00",
+        "income_before_itbis": "1000.00",
+        "expense_before_itbis": "1000.00",
+        "itbis_charged": "180.00",
+    }
+    assert {"itbis_cobrado", "by_status"}.isdisjoint(pesos)
+
+    _upload(web, SUPPLIER_RNC, occurred_on=f"{MONTH}-10", total="5900.00")
+    waiting = _month(web)
+    assert waiting["unreviewed_movements_count"] == 1
+    assert waiting["filing_ready"] is False
+    [still] = waiting["currencies"]
+    assert {name: still[name] for name in figures} == approved
+    assert still["net_result_final"] is True
+
+    refused = web.client.get(f"{API}/business/open-items", headers=web.alice.headers)
+    assert (refused.status_code, refused.json()["code"]) == (
+        404,
+        "business_settlement_unavailable",
+    )
 
 
 @contextmanager

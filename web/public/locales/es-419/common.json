@@ -2690,12 +2690,8 @@
           "currencies_other": "Importes en {{count}} monedas",
           "exclusions": "Importes excluidos",
           "metrics": {
-            "collected": "Cobrado",
             "expenses": "Compras",
-            "invoiced": "Ventas",
-            "paid": "Pagado",
-            "payable": "Por pagar",
-            "receivable": "Por cobrar"
+            "invoiced": "Ventas"
           },
           "no_currency": "Sin moneda",
           "partial": "Parcial: {{amount}}",
@@ -4114,8 +4110,6 @@
       "overdue_count_other": "{{count}} vencidas",
       "overdue_included_one": "Incluye {{count}} vencida",
       "overdue_included_other": "Incluye {{count}} vencidas",
-      "record_collection": "Registrar cobro",
-      "record_payment": "Registrar pago",
       "checklist_required": "Necesario para cerrar el mes",
       "filing_ready": "Ya tienes todo para el 606 y el 607.",
       "nothing_open": "Todo al día",
@@ -4158,6 +4152,11 @@
       "itbis_cobrado": "ITBIS cobrado",
       "itbis_credit_label": "Saldo a favor de ITBIS",
       "itbis_label": "ITBIS a pagar",
+      "approved_figures": {
+        "copy_review": "approved",
+        "itbis_sales": "ITBIS en ventas",
+        "net_detail": "Ingresos menos gastos aprobados"
+      },
       "receipts_failed": "No pudimos cargar el conteo de recibos. Aún no se puede cerrar el mes.",
       "receipts_loading": "Cargando el conteo de recibos. Aún no se puede cerrar el mes.",
       "receipts_unknown": "El conteo de recibos no está disponible. Aún no se puede cerrar el mes.",

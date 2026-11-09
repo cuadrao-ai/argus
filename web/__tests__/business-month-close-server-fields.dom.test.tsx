@@ -90,7 +90,7 @@ async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  const render = () => root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={browser} scopeKey="own" businessCurrency="DOP" review={review} layout={layout} /></I18nextProvider>);
+  const render = () => root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={browser} scopeKey="own" businessCurrency="DOP" review={review} layout={layout} /></I18nextProvider>);
   await act(async () => { render(); });
   const setReview = async (next: typeof review) => { review = next; await act(async () => { render(); }); };
   const settle = async () => { for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); }); };
@@ -250,7 +250,7 @@ describe("Inicio reads today from the server", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
-    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={ahead} scopeKey="own" /></I18nextProvider>); });
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={ahead} scopeKey="own" /></I18nextProvider>); });
     for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); });
     try {
       assert.equal(host.querySelector('[data-testid="month-close-month"]')?.textContent, "Octubre 2026");
