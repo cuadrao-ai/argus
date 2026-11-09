@@ -70,7 +70,6 @@ import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
 import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
-import type { ReceptionView } from "./recepcion/reception-model";
 import type { RecordsFocus } from "./transacciones/records-focus";
 import { useEmailDeliveries } from "./useEmailDeliveries";
 import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
@@ -83,8 +82,7 @@ import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, pu
 
 export type BusinessPanelState =
   | { kind: "overview" }
-  // `view` opens the Bandeja on that tab: a count elsewhere opens exactly the rows it counted.
-  | { kind: "inbox"; view?: ReceptionView }
+  | { kind: "inbox" }
   | { kind: "invoicing" }
   // Actividad: the history of changes in this Business, live from the server.
   | { kind: "activity" }
