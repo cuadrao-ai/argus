@@ -59,6 +59,8 @@ export const STORAGE_REGISTRY = {
   "cuadrao:business_recent_searches:v1": "layout",
   // Each person's Inicio section order per Business, on this device only, until the account keeps it.
   "cuadrao:home_section_order:v1": "layout",
+  // Whether each person folded Inicio's setup guide, per Business, on this device only.
+  "cuadrao:setup_guide_collapsed:v1": "layout",
   "cuadrao:business_creation:v1": "temporary",
   // Which currency Inicio's month figures show, per Business, until the account keeps it.
   "cuadrao:business_currency_view:v1": "layout",

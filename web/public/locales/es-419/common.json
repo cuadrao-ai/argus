@@ -3324,40 +3324,45 @@
       "title": "¿Qué hacemos hoy por tu negocio?"
     },
     "home_setup": {
+      "completed": "Completado",
       "copy_review": "pending_lucas",
-      "lead": "Completa estos pasos para empezar a recibir y revisar documentos.",
+      "hide": "Ocultar",
+      "list_label": "Guía de configuración",
+      "missing": "Por completar",
       "optional": "Opcional",
-      "progress": "{{done}} de {{total}} listos",
-      "remaining_one": "Falta 1 paso",
-      "remaining_other": "Faltan {{count}} pasos",
-      "see_all": "Ver todos los pasos",
+      "progress": "{{done}} / {{total}}",
+      "progress_description": "Acciones de la guía completadas: {{done}} de {{total}}.",
+      "show": "Mostrar",
       "steps": {
         "created": {
-          "body": "Nombre y país de operación.",
-          "title": "Crear el negocio"
+          "action": "Editar nombre",
+          "title": "Tu espacio de trabajo"
         },
         "fiscal_identity": {
+          "action": "Revisar datos del negocio",
           "body": "Identifica a este negocio en sus registros y reportes.",
-          "title": "Agrega el RNC o la cédula"
+          "title": "Datos del negocio"
         },
         "receipt_reading": {
-          "body": "Cuadrao lee tus facturas, recibos y PDF y extrae sus datos. Incluye correo, WhatsApp y archivos subidos.",
           "title": "Activar lectura de documentos"
         },
         "receiving_address": {
-          "body": "Reenvía facturas y recibos a una dirección propia.",
-          "title": "Activa el correo de recepción"
+          "title": "Tu correo de documentos"
         },
         "team": {
-          "body": "Da acceso al contador o al equipo.",
-          "title": "Invita al equipo"
+          "action": "Invita a colaboradores",
+          "body": "Dale acceso a alguien que te ayude con este negocio.",
+          "title": "Invita a un colaborador"
         },
         "whatsapp": {
-          "body": "Envía documentos desde tu teléfono.",
-          "title": "Conecta WhatsApp"
+          "action": "Conectar WhatsApp",
+          "linked": "Conectado",
+          "manage": "Administrar",
+          "title": "Conecta WhatsApp",
+          "unlinked": "WhatsApp sin conectar"
         }
       },
-      "title": "Configurar negocio"
+      "title": "Configura tu espacio de trabajo"
     },
     "add_menu": {
       "more": "Más acciones"

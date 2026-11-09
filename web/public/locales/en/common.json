@@ -4020,40 +4020,45 @@
       "body": "Add a receipt, record an expense, or ask about what you've saved."
     },
     "home_setup": {
+      "completed": "Completed",
       "copy_review": "pending_lucas",
-      "lead": "Finish these steps to start receiving and reviewing documents.",
+      "hide": "Hide",
+      "list_label": "Setup guide",
+      "missing": "To complete",
       "optional": "Optional",
-      "progress": "{{done}} of {{total}} done",
-      "remaining_one": "1 step left",
-      "remaining_other": "{{count}} steps left",
-      "see_all": "See all steps",
+      "progress": "{{done}} / {{total}}",
+      "progress_description": "Guide actions completed: {{done}} of {{total}}.",
+      "show": "Show",
       "steps": {
         "created": {
-          "body": "Name and country of operation.",
-          "title": "Create the business"
+          "action": "Edit name",
+          "title": "Your workspace"
         },
         "fiscal_identity": {
+          "action": "Review business details",
           "body": "Identifies this business in its records and reports.",
-          "title": "Add the RNC or cédula"
+          "title": "Business details"
         },
         "receipt_reading": {
-          "body": "Cuadrao reads your invoices, receipts and PDFs and pulls out their details. Includes email, WhatsApp and uploaded files.",
           "title": "Turn on document reading"
         },
         "receiving_address": {
-          "body": "Forward invoices and receipts to its own address.",
-          "title": "Turn on the receiving email"
+          "title": "Your document email"
         },
         "team": {
-          "body": "Give the accountant or team access.",
-          "title": "Invite the team"
+          "action": "Invite collaborators",
+          "body": "Give someone access to help you run this business.",
+          "title": "Invite a collaborator"
         },
         "whatsapp": {
-          "body": "Send documents from your phone.",
-          "title": "Connect WhatsApp"
+          "action": "Connect WhatsApp",
+          "linked": "Connected",
+          "manage": "Manage",
+          "title": "Connect WhatsApp",
+          "unlinked": "WhatsApp not connected"
         }
       },
-      "title": "Set up business"
+      "title": "Set up your workspace"
     },
     "receipt": {
       "untitled": "Receipt"
