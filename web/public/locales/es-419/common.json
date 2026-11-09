@@ -3257,8 +3257,8 @@
           "title": "Agrega el RNC o la cédula"
         },
         "receipt_reading": {
-          "body": "Cuadrao prepara los datos para que tú los revises.",
-          "title": "Activa la lectura de recibos"
+          "body": "Cuadrao lee tus facturas, recibos y PDF y extrae sus datos. Incluye correo, WhatsApp y archivos subidos.",
+          "title": "Activar lectura de documentos"
         },
         "receiving_address": {
           "body": "Reenvía facturas y recibos a una dirección propia.",

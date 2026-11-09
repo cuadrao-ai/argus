@@ -3950,8 +3950,8 @@
           "title": "Add the RNC or cédula"
         },
         "receipt_reading": {
-          "body": "Cuadrao prepares the details for you to review.",
-          "title": "Turn on receipt reading"
+          "body": "Cuadrao reads your invoices, receipts and PDFs and pulls out their details. Includes email, WhatsApp and uploaded files.",
+          "title": "Turn on document reading"
         },
         "receiving_address": {
           "body": "Forward invoices and receipts to its own address.",
