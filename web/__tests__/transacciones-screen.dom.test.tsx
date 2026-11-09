@@ -400,7 +400,7 @@ describe("the gate", () => {
       await page.click(row.matches("tr") ? row : row.querySelector("button"));
       await page.settle(() => Boolean(document.querySelector('[role="dialog"]')), "record sheet");
       assert.ok(document.querySelector('[data-testid="records-page-preview"]'));
-      assert.ok(document.querySelector('[data-testid="loaded-record-glance"]'));
+      assert.deepEqual([...document.querySelectorAll('[data-testid="loaded-record-glance"] dt')].map((term) => term.textContent).filter((term) => term === "Tipo de gasto" || term === "Categoría"), ["Tipo de gasto"]);
       assert.equal(detailReads, 0, "explicit loaded-row preview makes no detail request");
       assert.ok(page.records().some((item) => item.dataset.recordKey === key));
       await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]'));

@@ -101,6 +101,23 @@ describe("the expense detail panel", () => {
     await page.act(async () => page.root.unmount());
   });
 
+  test("an expense entered by hand shows its Tipo de gasto as Registros does, and no Categoría", async () => {
+    const services = { code: "02", label: "Gastos por trabajos, suministros y servicios" };
+    const cases: [BusinessExpenseDetail["dgii_606"], string][] = [
+      [{ expense_type: services, payment_form: null }, services.label],
+      [{ expense_type: null, payment_form: null }, "Falta"],
+      [null, "No aplica"],
+    ];
+    for (const [dgii_606, word] of cases) {
+      const page = await mountWorkspace({ detail: expense({ dgii_606 }) });
+      const terms = [...page.host.querySelectorAll('[data-testid="business-expense-detail"] dt')];
+      assert.deepEqual(terms.filter((term) => term.textContent === "Categoría"), []);
+      const answer = terms.find((term) => term.textContent === "Tipo de gasto")?.nextElementSibling;
+      assert.ok(answer?.textContent?.includes(word), `${word} in ${answer?.textContent}`);
+      await page.act(async () => page.root.unmount());
+    }
+  });
+
   test("closing returns to Transacciones naming the expense; after the real remount the list focuses that row", async () => {
     const page = await mountWorkspace({ detail: expense({}) });
     const back = page.host.querySelector('[data-testid="business-expense-detail"] button')!;

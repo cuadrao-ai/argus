@@ -67,6 +67,10 @@ try {
       if (profileSpace) return route.fulfill({ json: { space_id: profileSpace, name: [owner, client, closed].find(space => space.space_id === profileSpace)?.name ?? owner.name, country: "DO", currency: "DOP", revision: 0, details: {}, appearance: { kind: "default" }, image: null } });
       return fulfillSyntheticBusinessFallback(route);
     });
+    // The delete alert renders the server's deletion rule, read before it opens.
+    await page.route("**/api/v1/account/deletion", route => route.fulfill({ json: state === "deletion-owned"
+      ? { allowed: false, blockers: [{ kind: "business_owner", business_id: owner.space_id, business_name: owner.name }], notices: [] }
+      : { allowed: true, blockers: [], notices: state === "deletion-closed" ? [{ kind: "closed_business", business_id: closed.space_id, business_name: closed.name, purge_at: closed.reopen_until }] : [] } }));
     const query = state.startsWith("close-") ? `?lifecycle=close&business=${owner.space_id}` : state === "transfer-picker" ? `?lifecycle=transfer&business=${owner.space_id}` : state.startsWith("accept-") ? `?transfer=${transfer.id}` : state === "owner-datos" ? "?view=business&tab=datos" : "";
     try {
       await page.goto(`${baseURL}/biz${query}`);
@@ -92,14 +96,15 @@ try {
       if (state === "switcher") { await page.getByRole("button", { name: "Colmado Rosa", exact: true }).first().click(); await expect((width === 390 ? page.getByRole("dialog", { name: "Colmado Rosa", exact: true }) : page.getByRole("menu", { name: "Colmado Rosa", exact: true })).getByText("Cerrados", { exact: true })).toBeVisible(); }
       if (state.startsWith("deletion-")) {
         await page.getByTestId("header-profile-trigger").click();
-        await page.getByRole("button", { name: "Controles de datos", exact: true }).click();
-        await page.getByRole("button", { name: /^Eliminar cuenta/ }).click();
+        const settingsRow = page.getByTestId("profile-menu-settings");
+        await expect(settingsRow).toContainText("Ajustes");
+        await settingsRow.click();
+        await page.getByTestId("settings-window").getByRole("button", { name: "Eliminar cuenta", exact: true }).click();
         const dialog = page.getByRole("dialog", { name: "¿Eliminar tu cuenta?", exact: true });
         await expect(dialog).toBeVisible();
         const submit = dialog.getByRole("button", { name: "Eliminar cuenta", exact: true });
-        if (state === "deletion-owned") { await expect(submit).toBeDisabled(); await expect(dialog).toContainText("Primero transfiere o cierra tus negocios."); }
-        else { await expect(submit).toBeEnabled(); await expect(dialog).toContainText("nadie podrá reabrirlo"); await expect(dialog).toContainText("hora de RD"); }
-        await submit.scrollIntoViewIfNeeded();
+        if (state === "deletion-owned") { await expect(dialog).toContainText("cada negocio tuyo necesita otro dueño o cerrarse"); await expect(dialog).toContainText(owner.name); await expect(submit).toHaveCount(0); await dialog.scrollIntoViewIfNeeded(); }
+        else { await expect(submit).toBeEnabled(); await expect(dialog).toContainText("nadie podrá reabrirlo"); await expect(dialog).toContainText("hora de RD"); await submit.scrollIntoViewIfNeeded(); }
       }
       await page.evaluate(label => { const stamp = document.createElement("div"); stamp.textContent = label; stamp.style.cssText = "position:fixed;bottom:4px;right:4px;background:#fff;color:#111;border:1px solid #999;padding:3px;z-index:99999;font:10px sans-serif"; document.body.append(stamp); }, `Synthetic fixture proof · ${head.slice(0, 7)}`);
       const file = `${state}-${width}-${theme}.png`;

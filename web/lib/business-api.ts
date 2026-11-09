@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { RecordsCurrency } from "./business-reports-api";
+import type { Purchase606, RecordsCurrency } from "./business-reports-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
@@ -416,8 +416,8 @@ export type BusinessExpense = {
   include_606_by?: string | null;
 };
 
-/** One saved expense with when it was recorded and its revision; both null when the money read does not say. */
-export type BusinessExpenseDetail = BusinessExpense & { recorded_at: string | null; revision: number | null };
+/** One saved expense with when it was recorded and its revision; both null when the money read does not say. `dgii_606` is its Registros row's 606 answers, null for a record the 606 never lists; absent from an older backend. */
+export type BusinessExpenseDetail = BusinessExpense & { recorded_at: string | null; revision: number | null; dgii_606?: Purchase606 | null };
 
 export type BusinessOverview = {
   from: string;

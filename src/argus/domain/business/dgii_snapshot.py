@@ -16,7 +16,10 @@ from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.owner_funds import no_account
 
 
-def fiscal_snapshot(cursor, context, activities):
+def fiscal_snapshot(cursor, context, activities, *, only_these=False):
+    """The approved fiscal record of each activity. ``only_these`` reads the
+    approvals of the given activities alone, for a reader of a few records."""
+
     cursor.execute(
         "select name,business_rnc from public.spaces where id=%s",
         (context.actor.space_id,),
@@ -42,8 +45,13 @@ def fiscal_snapshot(cursor, context, activities):
         " where draft_id=e.id and space_id=e.owner_space_id"
         " order by version desc limit 1) d on true"
         " where e.user_id=%s and e.owner_space_id=%s and e.state='accepted'"
-        " and e.activity_id is not null and e.accept_key is not null",
-        (context.owner_id, context.actor.space_id),
+        " and e.activity_id is not null and e.accept_key is not null"
+        + (" and e.activity_id = any(%s::uuid[])" if only_these else ""),
+        (
+            context.owner_id,
+            context.actor.space_id,
+            *([[item["activity_id"] for item in activities]] if only_these else []),
+        ),
     )
     approved = {}
     for row in cursor.fetchall():

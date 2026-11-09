@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from argus.api.business import BusinessContext
-from argus.api.business_drafts import search_with_drafts
+from argus.api.business_drafts import answers_606, search_with_drafts
 from argus.api.business_spaces import business_search_memory
 from argus.api.email_intake import email_history, email_receiving_available
 from argus.domain import financial_search
@@ -128,4 +128,20 @@ def search(
             limit=limit,
             cursor=cursor,
         )
+    # Each page's expenses, ventas and saved receipts carry the 606 answers of
+    # the record behind them; a receipt not yet approved has none.
+    records = {"expenses": "id", "ventas": "id", "receipts": "expense_id"}
+    answers = answers_606(
+        context,
+        [
+            item[key]
+            for name, key in records.items()
+            for item in result[name]
+            if item[key]
+        ],
+    )
+    for name, key in records.items():
+        result[name] = [
+            {**item, "dgii_606": answers.get(item[key])} for item in result[name]
+        ]
     return result

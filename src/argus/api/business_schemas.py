@@ -21,6 +21,7 @@ from argus.domain.business.country import CountryCode
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipt_consent import SCOPE_VERSION
 from argus.domain.business.receipts import Attention
+from argus.domain.business.reporting_query import Purchase606
 from argus.domain.business.roles import BusinessRole, Permission
 from argus.domain.business.search import SearchKind
 from argus.domain.business.spaces import MAX_NAME_LENGTH
@@ -448,11 +449,26 @@ class BusinessExpense(_Wire):
     sin_comprobante: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
-class ExpenseDetail(BusinessExpense):
+class _Answers606(_Wire):
+    # The 606 answers its approved record's Registros row shows: null for a
+    # record the 606 never lists (a sale, a Personal record the accountant did
+    # not admit, a purchase with no comprobante) and while nothing is approved.
+    dgii_606: Purchase606 | None = None
+
+
+class ExpenseDetail(BusinessExpense, _Answers606):
     # When the activity was recorded and its current revision; null when the
     # money read does not say.
     recorded_at: datetime | None = None
     revision: int | None = None
+
+
+class ExpenseHit(BusinessExpense, _Answers606):
+    pass
+
+
+class ReceiptHit(ReceiptSummary, _Answers606):
+    pass
 
 
 class ExpensePage(_Wire):
@@ -553,10 +569,10 @@ class SearchCursors(_Wire):
 class BusinessSearch(_Wire):
     """A page of each list, or only of the ``kind`` asked for."""
 
-    expenses: list[BusinessExpense]
+    expenses: list[ExpenseHit]
     # Saved ventas (income); ``merchant`` is the client, as on a venta's receipt.
-    ventas: list[BusinessExpense]
-    receipts: list[ReceiptSummary]
+    ventas: list[ExpenseHit]
+    receipts: list[ReceiptHit]
     accounts: list[BusinessAccount]
     email_deliveries: list[EmailDeliveryHit]
     email_senders: list[EmailSenderHit]

@@ -160,7 +160,7 @@ test("an English account opens Business in English", async ({ page }) => {
   const review = page.getByTestId("side-drawer");
   await expect(review).toContainText(en("business.dossier.field.counterparty"));
   await expect(review).toContainText(en("business.dossier.field.occurred_on"));
-  await expect(review).toContainText(en("business.review.category"));
+  await expect(review).toContainText(en("business.dossier.field.category_id"));
   await expect(review).toContainText(en("business.review.currency"));
   await expect(review).toContainText(en("business.review.account"));
   await expect(review).not.toContainText("Contraparte");

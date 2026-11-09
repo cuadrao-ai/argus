@@ -7,12 +7,14 @@ import type { BusinessExpenseDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import type { RecordRow } from "./transacciones/transacciones-model";
 import RecordWorkflowBadge from "./transacciones/RecordWorkflowBadge";
+import RecordDgiiCell, { DgiiAnswer } from "./transacciones/RecordDgiiCell";
+import { recordsColumnLabelKey } from "./transacciones/records-view-preferences";
 import { RecordAttachmentPreview, RecordNotePreview } from "./transacciones/RecordsAnnotationsPreview";
 import { formatRecordActivityDate } from "./transacciones/records-row-preview";
 import { AccountLabel, PlainAmount } from "./transacciones/transacciones-parts";
 import { expensePanel } from "./business-expense-target";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
-import { cardClass, secondaryButtonClass, useCategoryLabel, RecordMarks, recordFiscalMark } from "./business-ui";
+import { cardClass, secondaryButtonClass, RecordMarks, recordFiscalMark } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import { useRecordTray } from "./record-tray";
 import { resolveLanguage } from "@/lib/language-features";
@@ -35,7 +37,6 @@ export default function ExpenseDetailPanel({ expenseId, preview }: { expenseId: 
 /** A local preview of facts already loaded in the selected row, with no detail request. */
 function LoadedRecordGlance({ row }: { row: RecordRow }) {
   const { t, i18n } = useTranslation();
-  const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   return <section data-testid="loaded-record-glance" aria-labelledby="loaded-record-title">
     <header className="mb-5">
@@ -45,7 +46,7 @@ function LoadedRecordGlance({ row }: { row: RecordRow }) {
     </header>
     <div className={cardClass}><dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[14px]">
       <dt>{t("business.review.date")}</dt><dd>{formatRecordActivityDate(row.occurredOn, locale)}</dd>
-      <dt>{t("business.review.category")}</dt><dd>{categoryLabel(row.categoryId)}</dd>
+      <dt>{t(recordsColumnLabelKey("tipo_gasto"))}</dt><dd className="min-w-0"><RecordDgiiCell row={row} field="expense_type" /></dd>
       <dt>{t("business.transactions.columns.cuenta")}</dt><dd><AccountLabel account={row.account} /></dd>
       <dt>{t("business.transactions.layout.column_state")}</dt><dd><RecordWorkflowBadge row={row} /></dd>
       <dt>{t("business.transactions.columns.notas")}</dt><dd className="min-w-0"><RecordNotePreview row={row} /></dd>
@@ -58,7 +59,6 @@ function LoadedRecordGlance({ row }: { row: RecordRow }) {
 function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
   const { t, i18n } = useTranslation();
   const { source, records, openPanel } = useBusiness();
-  const categoryLabel = useCategoryLabel();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [state, setState] = useState<{ status: "loading" } | { status: "ready"; expense: BusinessExpenseDetail } | { status: "failed" }>({ status: "loading" });
   const panel = useRef<HTMLElement>(null);
@@ -116,8 +116,8 @@ function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[14px]">
               <dt className="text-black/55 dark:text-white/55">{t("business.review.date", "Date")}</dt>
               <dd className="text-black dark:text-white">{formatDay(state.expense.occurred_on, locale)}</dd>
-              <dt className="text-black/55 dark:text-white/55">{t("business.review.category", "Category")}</dt>
-              <dd className="text-black dark:text-white">{categoryLabel(state.expense.category_id)}</dd>
+              <dt className="text-black/55 dark:text-white/55">{t(recordsColumnLabelKey("tipo_gasto"))}</dt>
+              <dd className="min-w-0 text-black dark:text-white"><DgiiAnswer purchase={state.expense.dgii_606} field="expense_type" /></dd>
               <dt className="text-black/55 dark:text-white/55">{t("business.review.account", "Paid from")}</dt>
               <dd className="text-black dark:text-white">{state.expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : (state.expense.account_id && accounts.get(state.expense.account_id)?.nickname) || t("business.expenses.account_unknown", "Unknown")}</dd>
             </dl>
