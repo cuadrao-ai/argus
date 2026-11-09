@@ -101,6 +101,7 @@ def test_each_step_follows_the_saved_facts(world):  # noqa: ANN001
     assert steps["created"] == {"key": "created", "required": True, "done": True}
     assert steps["fiscal_identity"] == {"key": "fiscal_identity", "required": True, "done": False}
     assert steps["team"] == {"key": "team", "required": False, "done": False}
+    assert steps["first_document"] == {"key": "first_document", "required": False, "done": False}
 
     reading = world.client.get(f"{API}/business/receipt-reading", headers=alice.headers).json()
     if reading["available"]:

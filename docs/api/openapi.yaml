@@ -18915,6 +18915,7 @@ components:
           - fiscal_identity
           - receiving_address
           - receipt_reading
+          - first_document
           - team
           - whatsapp
         required:

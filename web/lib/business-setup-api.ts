@@ -4,7 +4,7 @@ import { apiFetch } from "./argus-api-transport";
 /** `GET /business/setup`: the server's setup steps in order. A step whose feature is off is absent. */
 export const businessSetupSchema = z.object({
   steps: z.array(z.object({
-    key: z.enum(["created", "fiscal_identity", "receiving_address", "receipt_reading", "team", "whatsapp"]),
+    key: z.enum(["created", "fiscal_identity", "receiving_address", "receipt_reading", "first_document", "team", "whatsapp"]),
     required: z.boolean(),
     done: z.boolean(),
   })),

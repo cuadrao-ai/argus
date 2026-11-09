@@ -1,8 +1,8 @@
 "use client";
 
-// Inicio's first layer, Resumen del negocio: everything waiting in the Bandeja and where to continue, plus
-// Personalizar Inicio. Draft copy lives here (es-419 first) until the copy pass moves it to the locale files; the
-// setup guide (SetupGuide) sits above it and its copy already lives there.
+// Inicio's first layer, Resumen del negocio: everything waiting in the Bandeja, where to continue and what setup
+// remains, plus Personalizar Inicio. Draft copy lives here (es-419 first) until the copy pass moves it to the locale
+// files; the setup guide's copy already lives there (HomeSetup).
 
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ import type { Icon } from "@phosphor-icons/react";
 import { ArrowDown, ArrowUp, ChevronRight, CircleAlert, FilePenLine, GripVertical, PenLine, RotateCcw, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { readStored, writeStored } from "@/lib/browser-storage";
+import type { BusinessSetupStep } from "@/lib/business-setup-api";
 import { invoicingShown, useBusiness } from "../BusinessWorkspace";
 import { formatRelativeTime } from "../business-format";
 import { inboxCount } from "../inbox-count";
@@ -23,6 +24,7 @@ import { SCREEN_ICON } from "../nav-glyphs";
 import { useReceiptStateWord } from "../receipt-state-word";
 import { receptionDocumentTitle, receptionRows, receptionTarget, type ReceptionRow } from "../recepcion/reception-model";
 import { RECENT_WORK, type RecentWork } from "./home-draft-data";
+import { GuidedSetup, setupPlacement } from "./HomeSetup";
 import { useHomeCounts, useSampleBusiness } from "./useHomeCounts";
 
 const COPY = {
@@ -333,13 +335,20 @@ export function HomeCustomize({ order, defaults, onChange, isDefault }: { order:
   );
 }
 
-export function HomeWork() {
+/** A brand-new Business leads with setup; it stays above the movable sections. */
+export function HomeSetupLead({ steps = null }: { steps?: readonly BusinessSetupStep[] | null }) {
+  return setupPlacement(steps) === "lead" && steps ? <GuidedSetup steps={steps} placement="lead" /> : null;
+}
+
+/** `setup` is the server's setup steps (useBusinessSetup); a Business already under way keeps a compact entry here. */
+export function HomeWork({ setup: steps = null }: { setup?: readonly BusinessSetupStep[] | null }) {
   const c = useCopy();
   const counts = useHomeCounts();
   // Recent work has no endpoint yet (MISSING: GET /business/recents): the local preview shows its samples, a live
   // Business does not show it at all rather than invent it.
   const samples = useSampleBusiness();
   const { invoicing } = useBusiness();
+  const setup = setupPlacement(steps) === "entry" && steps !== null;
   const recents = samples ? RECENT_WORK.filter((item) => item.target.kind !== "invoicing" || invoicingShown(invoicing)) : [];
   const drafts = counts.drafts ?? 0;
   const keepWorking = recents.length > 0 || drafts > 0;
@@ -350,10 +359,11 @@ export function HomeWork() {
     <div className="flex min-h-11 items-center">
       <h2 id="home-work-title" className="font-display text-[21px] font-medium text-[#172b26] dark:text-white">{c.today}</h2>
     </div>
-    <div data-testid="home-work" className={keepWorking ? "space-y-6 @min-[60rem]:grid @min-[60rem]:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] @min-[60rem]:gap-6 @min-[60rem]:space-y-0" : ""}>
+    <div data-testid="home-work" className={setup || keepWorking ? "space-y-6 @min-[60rem]:grid @min-[60rem]:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] @min-[60rem]:gap-6 @min-[60rem]:space-y-0" : ""}>
       <div><NeedsAttention c={c} /></div>
-      {keepWorking ? <div className="flex flex-col justify-between gap-4">
-        <ContinueWorking c={c} recents={recents} drafts={drafts} />
+      {setup || keepWorking ? <div className="flex flex-col justify-between gap-4">
+        {setup ? <GuidedSetup steps={steps} placement="entry" /> : null}
+        {keepWorking ? <ContinueWorking c={c} recents={recents} drafts={drafts} /> : null}
       </div> : null}
     </div>
     </section>

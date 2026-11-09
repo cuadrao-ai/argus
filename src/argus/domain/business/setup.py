@@ -15,6 +15,7 @@ SetupStepKey = Literal[
     "fiscal_identity",
     "receiving_address",
     "receipt_reading",
+    "first_document",
     "team",
     "whatsapp",
 ]
@@ -36,12 +37,15 @@ class SetupFacts:
 
     ``fiscal_identity``: the RNC or cédula and a legal name other than the
     default are saved. ``receiving_address``: the email receiving address can
-    receive. ``receipt_reading``: the owner turned reading on. ``team``: someone
-    was invited or holds access. ``whatsapp``: a number is linked."""
+    receive. ``receipt_reading``: the owner turned reading on. ``first_document``:
+    the Business received a document; opening upload, copying the address or
+    linking a phone does not count. ``team``: someone was invited or holds access.
+    ``whatsapp``: a number is linked."""
 
     fiscal_identity: bool
     receiving_address: bool | None
     receipt_reading: bool | None
+    first_document: bool
     team: bool | None
     whatsapp: bool | None
 
@@ -54,6 +58,7 @@ def setup_steps(facts: SetupFacts) -> list[SetupStep]:
         ("fiscal_identity", facts.fiscal_identity),
         ("receiving_address", facts.receiving_address),
         ("receipt_reading", facts.receipt_reading),
+        ("first_document", facts.first_document),
         ("team", facts.team),
         ("whatsapp", facts.whatsapp),
     )

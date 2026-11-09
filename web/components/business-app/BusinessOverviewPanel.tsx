@@ -10,14 +10,13 @@ import BusinessAddMenu from "./BusinessAddMenu";
 import BusinessMonthClosePanel, { useMonthCloseSource, type MonthCloseParts } from "./BusinessMonthClosePanel";
 import { cardClass } from "./business-ui";
 import { HomeHeading } from "./foundation/HomeHeading";
-import { HOME_DEFAULT_ORDER, HomeCustomize, HomeWork, useHomeOrder, type HomeSectionKey } from "./inicio/HomeOverviewDraft";
-import { SetupGuide } from "./inicio/SetupGuide";
+import { HOME_DEFAULT_ORDER, HomeCustomize, HomeSetupLead, HomeWork, useHomeOrder, type HomeSectionKey } from "./inicio/HomeOverviewDraft";
 import { useBusinessSetup } from "./inicio/useBusinessSetup";
 
 /**
- * Inicio: the setup guide while setup is open, the greeting (in the top bar from the tablet up, here on a phone), then
- * its three layers in the person's order: Resumen del negocio, Finanzas por mes and Cobros y pagos. The month-close
- * panel loads once and hands over its month and money parts. Agregar lives in the top bar; a phone keeps its page button.
+ * Inicio: the greeting (in the top bar from the tablet up, here on a phone), then its three layers in the person's
+ * order: Resumen del negocio, Finanzas por mes and Cobros y pagos. The month-close panel loads once and hands over
+ * its month and money parts. Agregar lives in the top bar; a phone keeps its page button.
  */
 export default function BusinessOverviewPanel() {
   const { isBelowTablet } = useResponsiveLayout();
@@ -29,16 +28,16 @@ export default function BusinessOverviewPanel() {
   // Cobros y pagos is Por cobrar and Por pagar: no section, and nothing to reorder, while settlement is off.
   const shown = businessSettlementAvailable(records.workspace) ? HOME_DEFAULT_ORDER : HOME_DEFAULT_ORDER.filter((key) => key !== "money");
   const homeOrder = useHomeOrder(userId, chosen?.space_id, shown);
-  // Asked here, outside the month panel's arrangement, so a re-arranged Inicio does not ask again.
+  // Read once: the lead card and the compact entry are two places for one answer.
   const setup = useBusinessSetup();
 
   const home = (parts: MonthCloseParts) => {
-    const sections: Record<HomeSectionKey, React.ReactNode> = { work: <HomeWork />, month: parts.month, money: parts.money };
+    const sections: Record<HomeSectionKey, React.ReactNode> = { work: <HomeWork setup={setup} />, month: parts.month, money: parts.money };
     return (
       <div data-testid="home-overview" className="w-full space-y-6 pb-6">
-        <SetupGuide setup={setup} />
         {isBelowTablet ? <HomeHeading name={bridge?.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} /> : null}
         {parts.receiptStatus ? <div className={cardClass}>{parts.receiptStatus}</div> : null}
+        <HomeSetupLead steps={setup} />
         {homeOrder.order.map((key) => <div key={key} data-home-section={key}>{sections[key]}</div>)}
         <div className="flex border-t border-[color:var(--surface-divider)] pt-4"><HomeCustomize order={homeOrder.order} defaults={homeOrder.defaults} onChange={homeOrder.save} isDefault={homeOrder.isDefault} /></div>
       </div>

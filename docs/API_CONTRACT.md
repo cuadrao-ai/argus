@@ -10403,13 +10403,16 @@ person starts their space, every route below except POST `/space` answers 404
 - GET `/api/v1/business/setup` returns `{steps: [{key, required, done}]}` for
   the selected Business, in display order. Only someone with `manage` on the
   Business reads it; anyone else gets 403. `key` is one of `created`,
-  `fiscal_identity`, `receiving_address`, `receipt_reading`, `team` and
-  `whatsapp`; the first four are required, `team` and `whatsapp` are optional.
+  `fiscal_identity`, `receiving_address`, `receipt_reading`, `first_document`,
+  `team` and `whatsapp`; the first four are required, `first_document`, `team`
+  and `whatsapp` are optional.
   `created` is always done. `fiscal_identity` is done when the RNC or cédula is
   saved and the name is not a default. `receiving_address` is done when the
   receiving address can receive, as GET `/api/v1/business/email` says.
   `receipt_reading` is done when the owner turned reading on, as GET
-  `/api/v1/business/receipt-reading` says. `team` is done once someone was
+  `/api/v1/business/receipt-reading` says. `first_document` is done once the
+  Business received a document by any channel; opening upload, copying the
+  address or linking a phone does not complete it. `team` is done once someone was
   invited or holds access besides the owner. `whatsapp` is done when a number is
   linked. A step whose feature is off on this server is absent: email receiving,
   receipt reading (no reading route), invitations, WhatsApp. Setup is complete
