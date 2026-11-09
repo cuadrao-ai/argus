@@ -4,7 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { I18nextProvider } from "react-i18next";
 import { readFileSync } from "node:fs";
-import type { ReportRecord, ReportRequest } from "@/lib/business-reports-api";
+import { reportFiltersSchema, reportRequestSchema, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
 import { openRecordsExport, useRecordsExportRequested } from "@/components/business-app/transacciones/records-export-request";
 import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
@@ -176,6 +176,21 @@ test("before the server counts, the button names no number and cannot start", as
   assert.deepEqual([downloadButton()!.textContent!.trim(), downloadButton()!.disabled], ["Exportar", true]);
   release();
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 63 registros");
+});
+
+test("Revisar from the DGII notice leaves only tab, period and Faltan datos, so the list holds the notice's count", async () => {
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["purchase"], currencies: ["DOP"], counterparties: ["101001577"], q: "proveedor", has_document: true } });
+  const page = await mount({ edit: fiscalBooks, initial });
+  await open(page);
+  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+  await page.settle(() => page.button("Revisar") !== undefined);
+  const notice = Number(/(\d+) compras tienen datos fiscales pendientes/.exec(dialogText())![1]);
+  await page.click(page.button("Revisar"));
+  await page.settle(() => panel() === null && document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "true" && document.querySelector('[data-testid="records-count"]') !== null);
+  const last = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as ReportRequest;
+  assert.deepEqual(last.filters, reportFiltersSchema.parse({ period: initial.filters.period, record_families: ["purchase"], currencies: ["DOP"], fiscal_data: "missing" }));
+  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, new RegExp(`de ${notice} registros?`));
+  assert.equal(notice, 3);
 });
 
 test("no records disables the export and sends no request", async () => {

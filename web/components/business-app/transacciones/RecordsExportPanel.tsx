@@ -33,8 +33,8 @@ export type RecordsExportProps = {
   /** Optional filters and search the screen has on. */
   filterCount: number;
   transport: Pick<ReportingTransport, "exportPreview" | "exportFile">;
-  /** Applies the Faltan datos fiscales filter, as the card does. */
-  onReviewFiscal: () => void;
+  /** Shows the records the DGII notice counts: tab, period, the form's currency and Faltan datos fiscales. */
+  onReviewFiscal: (currency: string) => void;
   onClose: () => void;
 };
 
@@ -169,7 +169,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
         </> : null}
         {preview && mode === "dgii" ? <div className="mt-4 space-y-2 text-[14px]" data-testid="records-export-dgii">
           <p>{t("business.transactions.reporting.export.dgii_note")}</p>
-          {preview.dgii.pending_fiscal_count ? <p>{t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count })} <button type="button" className={quietButtonClass} onClick={() => { onClose(); onReviewFiscal(); }}>{t("business.transactions.reporting.export.review")}</button></p> : null}
+          {preview.dgii.pending_fiscal_count ? <p>{t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count })} <button type="button" className={quietButtonClass} onClick={() => { onClose(); onReviewFiscal(preview.dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button></p> : null}
           {preview.dgii.pending_rate_count ? <p>{t(sale ? "business.transactions.reporting.export.pending_rate_sales" : "business.transactions.reporting.export.pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) })}</p> : null}
         </div> : null}
         {preview ? <div className="mt-3"><SegmentedControl fill testId="records-export-format" label={t("business.transactions.reporting.export.format")} value={format} onChange={setFormat} segments={[{ key: "xlsx" as const, label: t("business.transactions.reporting.export.format_xlsx") }, { key: "csv" as const, label: t("business.transactions.reporting.export.format_csv") }]} /></div> : null}

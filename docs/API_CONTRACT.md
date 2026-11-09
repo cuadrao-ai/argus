@@ -11415,12 +11415,16 @@ accept path recorded.
   matches, with their currencies; `table.all` counts the same request in every
   currency, and is null while an amount range ties the request to one currency.
   `dgii` counts by the tab and period only, whatever the other filters say:
-  `form` is `606` on Compras and `607` on Ventas, `record_count` the records whose
+  `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
+  currency (`DOP`), `record_count` the records whose
   current `fiscal_data` is `complete` (a line on its month's form),
   `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing` (the
   Faltan datos fiscales card for the same tab, period and DOP), and
   `pending_rate_count` with `pending_rate_currencies` the foreign-currency
   records the form holds until they have a rate. No count is computed on the web.
+  The notice's Revisar queries exactly those records: the tab, the period,
+  `currency` and `fiscal_data: missing`, with every other filter and the search
+  cleared.
 
 - POST `/api/v1/business/reports/export` takes `{report, mode, columns, currencies,
   format}` and returns one no-store file named in `Content-Disposition`

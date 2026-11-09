@@ -80,9 +80,11 @@ def source(*records: ReportRecord, approved=None) -> ExportSource:
     return ExportSource(tuple(records), approved or {}, NOW)
 
 
-def books() -> ExportSource:
+def books(*, exported_then_duplicated: bool = False) -> ExportSource:
     """The practice month plus a pesos purchase missing its NCF and two in
-    dollars and euros, projected the way the store projects them."""
+    dollars and euros, projected the way the store projects them. Optionally
+    the first purchase's line was already exported and a second purchase with
+    the same RNC and NCF arrived since, so both now fail the duplicate check."""
 
     practice = practice_records()
     purchase = practice[0]
@@ -103,6 +105,10 @@ def books() -> ExportSource:
         copy(170, Unknown()),
         copy(171, ncf("B0100000171"), currency="USD"),
         copy(172, ncf("B0100000172"), currency="EUR"),
+        *((copy(173, purchase.facts.fiscal.ncf),) if exported_then_duplicated else ()),
+    )
+    exported = (
+        frozenset({purchase.activity_id}) if exported_then_duplicated else frozenset()
     )
     verdicts = line_verdicts(records, rnc=FILER, captured_on=NOW.date())
     rows = tuple(
@@ -122,7 +128,7 @@ def books() -> ExportSource:
         for index, record in enumerate(records)
     )
     return ExportSource(
-        with_export_verdicts(rows, verdicts, frozenset()),
+        with_export_verdicts(rows, verdicts, exported),
         {record.activity_id: record for record in records},
         NOW,
     )
@@ -517,6 +523,19 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
         ),
     )
     assert (sales.dgii.form, sales.dgii.record_count) == ("607", len(lines["607"]))
+
+
+def test_an_exported_line_that_is_now_incomplete_counts_as_pending_like_the_card():
+    month = books(exported_then_duplicated=True)
+    exported = next(row for row in month.records if row.stage == "exported")
+    assert exported.fiscal_data == "missing"
+    card = run_query(
+        ReportIdentity("b", "a", "o", "g", ""),
+        month.records,
+        report(currencies=["DOP"]),
+        NOW,
+    ).overview.needs_fiscal_data
+    assert summarize_export(month, report()).dgii.pending_fiscal_count == card == 3
 
 
 def test_dgii_excel_amounts_are_numbers_and_codes_stay_text():

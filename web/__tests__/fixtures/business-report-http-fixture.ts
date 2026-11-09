@@ -91,7 +91,7 @@ export function createBusinessReportHttpFixture() {
       const foreign = family.filter((row) => row.fiscal_data && row.currency && row.currency !== "DOP");
       return Response.json({
         table: { columns: presentation.order.filter((key) => !sale || (key !== "expense_type" && key !== "payment_form")).map((key) => ({ key, shown: !presentation.hidden.includes(key) })), current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } })) },
-        dgii: { form: sale ? "607" : "606", record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_fiscal_count: family.filter((row) => row.fiscal_data === "missing" && row.currency === "DOP").length, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort() },
+        dgii: { form: sale ? "607" : "606", currency: "DOP", record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_fiscal_count: family.filter((row) => row.fiscal_data === "missing" && row.currency === "DOP").length, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort() },
       });
     }
     if (path.endsWith("/reports/export")) {

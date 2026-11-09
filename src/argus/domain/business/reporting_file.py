@@ -24,7 +24,7 @@ from pydantic import model_validator
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
 from argus.domain.business.dgii_columns import COLUMNS
 from argus.domain.business.dgii_export import line_values
-from argus.domain.business.dgii_validation import declarable
+from argus.domain.business.dgii_validation import DECLARABLE_CURRENCY, declarable
 from argus.domain.business.export import spreadsheet_cell
 from argus.domain.business.reporting_preferences import (
     PURCHASE_ONLY_COLUMNS,
@@ -134,6 +134,8 @@ class TableExport(Contract):
 
 class DgiiExport(Contract):
     form: Literal["606", "607"]
+    #: The one currency the form states; Revisar shows its pending records.
+    currency: str = DECLARABLE_CURRENCY
     record_count: int
     #: Pesos records the 606/607 holds for missing fiscal data, the card's count.
     pending_fiscal_count: int

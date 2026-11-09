@@ -1358,7 +1358,9 @@ The dialog holds only the title, one summary line, the two option cards (Lo que
 ves; Formato DGII 606 or 607), the Columnas line, Monedas and Formato as
 segmented controls, the DGII line "La DGII define las columnas. Solo en pesos.",
 notices only when their count is above zero, and the green action with its
-count. Editar opens the column choice inside the same dialog with a back arrow.
+count. Editar opens the column choice inside the same dialog with a back arrow. Revisar on
+the DGII notice shows exactly the records it counted: the tab, the period, pesos
+and Faltan datos fiscales, with the other filters and the search cleared.
 A finished download closes the dialog and says so in a toast with "Descargar de
 nuevo". The period ZIP sheet stays for the sample and bank-matching Registros
 screen and the close-a-Business copy.

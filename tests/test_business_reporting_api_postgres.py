@@ -160,6 +160,7 @@ def test_dgii_export_holds_the_606_txt_lines_and_ignores_other_filters(client, a
     summary = preview(http, unrelated)["dgii"]
     assert summary == {
         "form": "606",
+        "currency": "DOP",
         "record_count": 1,
         "pending_fiscal_count": card,
         "pending_rate_count": 0,

@@ -172,6 +172,8 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   // The export works on the table's request as it stood when Exportar was pressed.
   const [exporting, setExporting] = useState<{ request: ReportRequest; scope: ReportScope; periodLabel: string; filterCount: number } | null>(null);
   const exportRequested = useRecordsExportRequested();
+  // The DGII notice counts by tab and period only; Revisar clears the rest so the list shows exactly those records.
+  const reviewDgiiPending = (currency: string) => recipe({ filters: reportFiltersSchema.parse({ period: state.request.filters.period, record_families: state.request.filters.record_families, currencies: [currency], fiscal_data: "missing" }) });
   const openExport = () => { if (presentation) setExporting({ scope: { userId, businessId, grantId }, request: reportRequestSchema.parse({ ...state.request, schema_version: 2, presentation }), periodLabel: periodLabel(selectedPeriod, state.request.filters.period), filterCount: activeFilterGroups(filters).length + (filter.query.trim() ? 1 : 0) }); };
   const views = state.views.kind === "ready" ? state.views.items : [];
   const viewProblem = state.viewOperation.kind === "failed" ? state.viewOperation.problem : state.views.kind === "failed" ? state.views.problem : null;
@@ -277,6 +279,6 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
         <RecordsPagePreview purchase={filter.kind === "gasto"} records={rows} preferences={preferences} onSortChange={() => undefined} density={preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: state.load.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
       </RecordEvidenceContext.Provider></RecordGlanceContext.Provider>}
     </section>
-    {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={() => { if (filters.fiscal_data !== "missing" || filters.review.length) toggleFiscal(); }} onClose={() => setExporting(null)} /> : null}
+    {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={reviewDgiiPending} onClose={() => setExporting(null)} /> : null}
   </PullToRefresh></RecordsAnnotationsPreview>;
 }

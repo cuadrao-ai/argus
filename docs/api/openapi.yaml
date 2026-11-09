@@ -21369,6 +21369,9 @@ components:
           enum:
           - '606'
           - '607'
+        currency:
+          type: string
+          default: DOP
         record_count:
           type: integer
         pending_fiscal_count:
