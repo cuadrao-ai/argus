@@ -920,7 +920,7 @@
       "redeploy_note": "NEXT_PUBLIC_* values are baked at build time: trigger a web redeploy (clear build cache) for these changes to reach the browser.",
       "entries": [
         {
-          "name": "ARGUS_APP_ORIGIN",
+          "name": "CUADRAO_APP_ORIGIN",
           "kind": "plain",
           "value": "https://cuadrao-web-staging.onrender.com",
           "production": {

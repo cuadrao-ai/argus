@@ -1,4 +1,5 @@
 import { WEB_APP_NAME } from "@/lib/app-brand";
+import { appOrigin } from "@/server/app-origin";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import ReceiptFollowup from "@/components/receipt/ReceiptFollowup";
@@ -37,7 +38,7 @@ type ReceiptPageProps = {
 
 // Needed so the preview image resolves to an absolute url in the card markup.
 function metadataBase(): URL | undefined {
-  const origin = process.env.ARGUS_APP_ORIGIN?.trim();
+  const origin = appOrigin()?.trim();
   if (!origin) return undefined;
   try {
     return new URL(origin);
