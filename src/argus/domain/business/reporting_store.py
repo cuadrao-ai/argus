@@ -131,12 +131,18 @@ def _authorized(connection: Connection, context: ActionContext) -> Authorization
     return live
 
 
+# Registros lists approved records only: a draft reaches a row through the
+# money row it recorded, so open drafts stay in the Bandeja.
+_RECORDED_DRAFT_STATES = ("accepting", "accepted", "dismissed")
+
+
+def _business(events: Iterable[ImportEvent]) -> list[ImportEvent]:
+    return [event for event in events if "business" in event.resolution]
+
+
 def _business_drafts(
     connection: Connection, live: Authorization
 ) -> tuple[ActionTransaction, list[ImportEvent]]:
-    """Registros lists approved records only: a draft reaches a row through the
-    money row it recorded, so open drafts stay in the Bandeja."""
-
     from argus.domain.business.transactions import ActionTransaction
     from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
 
@@ -144,12 +150,7 @@ def _business_drafts(
     tx = ActionTransaction(
         connection, live, _PostgresTx(connection, context.owner_id, context.scope)
     )
-    events = [
-        event
-        for event in tx.imports.events(("accepting", "accepted", "dismissed"))
-        if "business" in event.resolution
-    ]
-    return tx, events
+    return tx, _business(tx.imports.events(_RECORDED_DRAFT_STATES))
 
 
 def _speaking_drafts(
@@ -450,19 +451,27 @@ def read_606(
     activities: Sequence[dict[str, Any]],
 ) -> dict[str, Purchase606 | None]:
     """The 606 answers Registros shows for these money rows, by activity id,
-    read without every activity. A row Registros does not list yet, while its
-    approval settles, is left out."""
+    reading only their approvals and drafts. A row Registros does not list
+    yet, while its approval settles, is left out."""
 
     from argus.domain.business.contracts.facts import BusinessResolution
     from argus.domain.business.reporting_projection import current_marks, purchase_606
+    from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
 
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         live = _authorized(connection, context)
         with connection.cursor(row_factory=dict_row) as cursor:
-            approved, _, _ = fiscal_snapshot(cursor, live.context, activities)
-        _, events = _business_drafts(connection, live)
-        speaking = _speaking_drafts(approved, events)
+            approved, _, _ = fiscal_snapshot(
+                cursor, live.context, activities, only_these=True
+            )
+        drafts = _PostgresTx(connection, live.context.owner_id, live.context.scope)
+        events = drafts.events_of(
+            _RECORDED_DRAFT_STATES,
+            [record.draft_id for record in approved if record.draft_id],
+            [record.activity_id for record in approved],
+        )
+        speaking = _speaking_drafts(approved, _business(events))
         answers: dict[str, Purchase606 | None] = {}
         for record in approved:
             event = speaking.get(record.activity_id)

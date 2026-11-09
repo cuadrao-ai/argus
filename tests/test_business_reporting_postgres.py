@@ -758,10 +758,12 @@ def test_expense_detail_and_search_carry_the_606_answers_registros_shows(
 
     from argus.api import business_search
     from argus.api.business_drafts import expense_detail
+    from argus.domain.business import reporting_store
     from argus.domain.business.contracts.actions import ReviewDraft
     from argus.domain.business.contracts.dgii import PurchaseReview
     from argus.domain.business.reporting_query import ReportRequest
     from argus.domain.business.reporting_store import read_report
+    from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
 
     from tests.test_business_declaration_after_approval_postgres import (
         account_funding,
@@ -801,9 +803,17 @@ def test_expense_detail_and_search_carry_the_606_answers_registros_shows(
     web = _web(service, context)
     # Ranking by past opens is not under test; another test's store may linger.
     monkeypatch.setattr(business_search, "business_search_memory", lambda: None)
+
+    def every(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        raise AssertionError("the 606 answers of a few records read only those")
+
     purchases = (typed, missing, personal)
-    for activity in purchases:
-        assert expense_detail(web, activity)["dgii_606"] == registros[activity]
+    with monkeypatch.context() as narrow:
+        # One expense reads its own approval and drafts, never every one.
+        narrow.setattr(reporting_store, "current_activities", every)
+        narrow.setattr(_PostgresTx, "events", every)
+        for activity in purchases:
+            assert expense_detail(web, activity)["dgii_606"] == registros[activity]
 
     def hits(q: str) -> dict:
         found = business_search.search(web, q, kind=None, limit=20, cursor=None)
