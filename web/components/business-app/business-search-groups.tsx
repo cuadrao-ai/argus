@@ -2,12 +2,14 @@ import { createElement, type ReactNode } from "react";
 import { AtSign, Banknote, FileText, HandCoins, ImageIcon, Landmark, Mail } from "lucide-react";
 import type { TFunction } from "i18next";
 import type { WorkspaceSearchGroup, WorkspaceSearchHit, WorkspaceSearchPage } from "@/components/chat/ChatWorkspace";
-import type { BusinessAccount, BusinessExpense, ReceiptSummary } from "@/lib/business-api";
+import type { BusinessAccount, ReceiptSummary } from "@/lib/business-api";
 import {
   isInvalidSearchCursor,
   isStaleSearchCursor,
   type BusinessSearchEmail,
+  type BusinessSearchExpense,
   type BusinessSearchKind,
+  type BusinessSearchReceipt,
   type BusinessSearchResult,
   type BusinessSearchSender,
 } from "@/lib/business-search-api";
@@ -15,12 +17,13 @@ import type { BusinessDataSource } from "./business-data";
 import BusinessSearchDossier, { type BusinessSearchRecord } from "./BusinessSearchDossier";
 import { expensePanel } from "./business-expense-target";
 import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
+import { dgiiAnswerText } from "./transacciones/RecordDgiiCell";
 import type { BusinessPanelState } from "./BusinessWorkspace";
 
 type Items = {
-  expenses: BusinessExpense;
-  ventas: BusinessExpense;
-  receipts: ReceiptSummary;
+  expenses: BusinessSearchExpense;
+  ventas: BusinessSearchExpense;
+  receipts: BusinessSearchReceipt;
   accounts: BusinessAccount;
   email_deliveries: BusinessSearchEmail;
   email_senders: BusinessSearchSender;
@@ -33,7 +36,6 @@ export type SearchGroupContext = Readonly<{
   accounts: readonly BusinessAccount[];
   openPanel: (panel: BusinessPanelState) => void;
   stateWord: (receipt: ReceiptSummary) => string;
-  categoryLabel: (id: string | null) => string;
 }>;
 
 const line = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
@@ -74,7 +76,7 @@ function pager<K extends BusinessSearchKind>(
 
 /** The six record groups of one answer, in the order the owner reads them. */
 export function searchKindGroups(ctx: SearchGroupContext, query: string, found: BusinessSearchResult): Record<BusinessSearchKind, WorkspaceSearchGroup> {
-  const { t, locale, source, accounts, openPanel, stateWord, categoryLabel } = ctx;
+  const { t, locale, source, accounts, openPanel, stateWord } = ctx;
   const nickname = new Map(accounts.map((account) => [account.id, account.nickname]));
   const preview = (record: BusinessSearchRecord): ReactNode => createElement(BusinessSearchDossier, { record, source, accounts });
   // Opening a result tells the backend, so it ranks first next time; a miss never reaches the person.
@@ -88,13 +90,14 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
   };
   const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
 
-  const expenseHit = (kind: "expenses" | "ventas") => (expense: BusinessExpense): WorkspaceSearchHit => {
+  // The line names the tipo de gasto of a purchase the 606 lists; the preview also says when none applies.
+  const expenseHit = (kind: "expenses" | "ventas") => (expense: BusinessSearchExpense): WorkspaceSearchHit => {
     const sale = kind === "ventas";
     return {
       id: expense.id,
       icon: sale ? HandCoins : Banknote,
       title: expense.merchant ?? (sale ? UNKNOWN_VALUE : t("business.expenses.no_merchant", "Expense")),
-      detail: line(expense.occurred_on ? formatDay(expense.occurred_on, locale) : UNKNOWN_VALUE, sale && !expense.category_id ? null : categoryLabel(expense.category_id), expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? nickname.get(expense.account_id) : null),
+      detail: line(expense.occurred_on ? formatDay(expense.occurred_on, locale) : UNKNOWN_VALUE, expense.dgii_606 ? dgiiAnswerText(t, expense.dgii_606, "expense_type") : null, expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? nickname.get(expense.account_id) : null),
       amount: money(expense.amount, expense.currency),
       badge: sale ? t("business.search.badge_venta", "Sale") : t("business.search.badge_expense", "Expense"),
       preview: preview({ kind: "expense", expense }),

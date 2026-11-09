@@ -749,6 +749,71 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
     assert {row.draft_id for row in missing.items} == {str(owner_paid)}
 
 
+def test_expense_detail_and_search_carry_the_606_answers_registros_shows(
+    actions, monkeypatch
+):
+    """A purchase with a tipo de gasto, one missing it, a Personal purchase and
+    a sale: the expense detail and each search hit carry the same `dgii_606`
+    as that record's Registros row."""
+
+    from argus.api import business_search
+    from argus.api.business_drafts import expense_detail
+    from argus.domain.business.contracts.actions import ReviewDraft
+    from argus.domain.business.contracts.dgii import PurchaseReview
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+
+    from tests.test_business_declaration_after_approval_postgres import (
+        account_funding,
+        approved,
+        captured,
+    )
+    from tests.test_business_receipt_views_postgres import _web
+
+    service, context, _ = actions
+    account = cash_account(service, context)
+    draft, version = captured(service, context, "B0100000021", account_funding(account))
+    saved = approved(service, context, draft, version)
+    chosen = service.review(
+        context,
+        draft,
+        ReviewDraft(version=saved.version, purchase=PurchaseReview(category="02")),
+        str(uuid4()),
+    )
+    assert chosen.outcome == "applied", chosen
+    typed = str(saved.approval_result.activity_id)
+    _, missing = record_expense(service, context, owner_funds=True)
+    _, personal = record_personal_expense(service, context)
+    sale = approve(service, context, reviewed(service, context, account, 4))
+    assert sale.outcome == "applied", sale
+    sold = str(sale.activity_id)
+
+    registros = {
+        row.linked_activity_ids[0]: (
+            row.dgii_606.model_dump(mode="json") if row.dgii_606 else None
+        )
+        for row in read_report(service.authority, context, ReportRequest()).items
+    }
+    assert registros[typed]["expense_type"]["code"] == "02"
+    assert registros[missing] == {"expense_type": None, "payment_form": None}
+    assert registros[personal] is registros[sold] is None
+
+    web = _web(service, context)
+    # Ranking by past opens is not under test; another test's store may linger.
+    monkeypatch.setattr(business_search, "business_search_memory", lambda: None)
+    purchases = (typed, missing, personal)
+    for activity in purchases:
+        assert expense_detail(web, activity)["dgii_606"] == registros[activity]
+
+    def hits(q: str) -> dict:
+        found = business_search.search(web, q, kind=None, limit=20, cursor=None)
+        return {item["id"]: item for item in [*found["expenses"], *found["ventas"]]}
+
+    found = {**hits("PRÁCTICA"), **hits("850")}
+    for activity in (*purchases, sold):
+        assert found[activity]["dgii_606"] == registros[activity], activity
+
+
 def test_each_offered_document_kind_filter_matches_a_record_of_that_kind(actions):
     from argus.domain.business.reporting_query import ReportRequest
     from argus.domain.business.reporting_store import read_report

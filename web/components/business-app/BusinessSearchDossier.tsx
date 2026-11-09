@@ -2,23 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { BusinessAccount, BusinessCapture, BusinessExpense, ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
+import type { BusinessAccount, BusinessCapture, ReceiptDetail } from "@/lib/business-api";
 import { factsRevision, type BusinessDossier } from "@/lib/business-dossier";
-import type { BusinessSearchEmail, BusinessSearchSender } from "@/lib/business-search-api";
+import type { BusinessSearchEmail, BusinessSearchExpense, BusinessSearchReceipt, BusinessSearchSender } from "@/lib/business-search-api";
 import type { BusinessDataSource } from "./business-data";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
-import { cardClass, useCategoryLabel } from "./business-ui";
+import { cardClass } from "./business-ui";
+import { DgiiAnswer } from "./transacciones/RecordDgiiCell";
+import { recordsColumnLabelKey } from "./transacciones/records-view-preferences";
 import { StatusPill } from "./foundation/StatusPill";
 import { useReceiptStateWord } from "./receipt-state-word";
 import { Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
 export type BusinessSearchRecord =
-  | { kind: "receipt"; receipt: ReceiptSummary }
-  | { kind: "expense"; expense: BusinessExpense }
+  | { kind: "receipt"; receipt: BusinessSearchReceipt }
+  | { kind: "expense"; expense: BusinessSearchExpense }
   | { kind: "note"; note: BusinessCapture }
   | { kind: "email"; email: BusinessSearchEmail }
   | { kind: "sender"; sender: BusinessSearchSender };
@@ -56,18 +58,13 @@ export default function BusinessSearchDossier({ record, source, accounts }: { re
     {record.kind === "receipt" ? <StatusPill status={record.receipt.status} label={stateWord(record.receipt)} /> : null}
     {summary.amount ? <p className="text-3xl font-medium tabular-nums">{formatMoney(summary.amount, summary.currency, locale)}</p> : null}
     <Field label={t("business.review.date", "Date")}>{summary.occurred_on ? formatDay(summary.occurred_on, locale) : t("business.dossier.unknown", "Unknown")}</Field>
-    <Field label={t("business.review.category", "Category")}><CategoryName id={summary.category_id} /></Field>
+    {record.kind === "expense" || record.receipt.expense_id ? <Field label={t(recordsColumnLabelKey("tipo_gasto"))}><DgiiAnswer purchase={summary.dgii_606} field="expense_type" /></Field> : null}
     {receiptId ? <ReceiptPreview receiptId={receiptId} source={source} /> : <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</p>}
   </section>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="text-sm"><dt className="text-black/45 dark:text-white/45">{label}</dt><dd>{children}</dd></div>;
-}
-
-function CategoryName({ id }: { id: string | null }) {
-  const category = useCategoryLabel();
-  return <>{category(id)}</>;
 }
 
 function ReceiptPreview({ receiptId, source }: { receiptId: string; source: BusinessDataSource }) {

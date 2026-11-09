@@ -11194,7 +11194,10 @@ accept path recorded.
   `recorded_at` and `revision` from the money read; 404 `expense_not_found`
   for any other id, including another Business's. An expense entered by hand
   has `receipt_id` and `draft_id` null: the web shows a plain detail that says
-  no receipt is attached, with when it was recorded and its revision.
+  no receipt is attached, with when it was recorded and its revision. It
+  carries `dgii_606`, the same value as its Registros row (below), read for
+  this one record without reading every activity; null when Registros does not
+  list it yet.
 - POST `/api/v1/business/expenses` (`Idempotency-Key` required) takes
   `{account_id, amount, occurred_on, merchant, category_id}` and records one
   expense through `MoneyService`, in the account's currency. A retry with the
@@ -11537,9 +11540,14 @@ accept path recorded.
   Received-document selection and unlink remain unavailable.
 
 - GET `/api/v1/business/search?q&limit&kind&cursor` returns
-  `{expenses: BusinessExpense[], ventas: BusinessExpense[], receipts:
-  ReceiptSummary[], accounts: BusinessAccount[], email_deliveries:
-  EmailDeliveryHit[], email_senders: EmailSenderHit[], next_cursors}`. `q` is
+  `{expenses: ExpenseHit[], ventas: ExpenseHit[], receipts: ReceiptHit[],
+  accounts: BusinessAccount[], email_deliveries: EmailDeliveryHit[],
+  email_senders: EmailSenderHit[], next_cursors}`. `ExpenseHit` is a
+  `BusinessExpense` and `ReceiptHit` a `ReceiptSummary`, each with `dgii_606`:
+  the value the Registros row of its approved record carries (above), read
+  for the page's records only. A receipt names that record by `expense_id`;
+  a receipt not yet approved has `expense_id` and `dgii_606` null, and the web
+  shows no Tipo de gasto for it. `q` is
   1 to 512 characters and `limit` is 1 to 20 (default 5), applied to each
   list. There is no index of its own: every request reads the records from
   their owners. Expenses, ventas and accounts are the space's hits from the

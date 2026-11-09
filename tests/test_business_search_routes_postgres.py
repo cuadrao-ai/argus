@@ -45,6 +45,9 @@ def test_rnc_ncf_and_amount_find_receipts_expenses_and_ventas(web) -> None:  # n
     pending = {"expenses": [], "ventas": [], "receipts": [receipt["id"]]}
     for q in ("B0100000001", "b01-0000-0001", "199-99002-1", "199990021"):
         assert _ids(web, q) == pending, q
+    # No approved record yet: nothing the 606 lists.
+    [waiting] = _search(web, "B0100000001")["receipts"]
+    assert (waiting["expense_id"], waiting["dgii_606"]) == (None, None)
 
     bought = receipt["draft_id"]
     reviewed = _review(
@@ -73,6 +76,16 @@ def test_rnc_ncf_and_amount_find_receipts_expenses_and_ventas(web) -> None:  # n
         bought,
         "1180.00",
     )
+    # The saved purchase carries its 606 answers, in the hit and in its detail.
+    assert (
+        expense["dgii_606"]["expense_type"]["code"]
+        == PURCHASE_606["declaration"]["category"]
+    )
+    detail = web.client.get(
+        f"{API}/business/expenses/{expense['id']}", headers=web.alice.headers
+    )
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["dgii_606"] == expense["dgii_606"]
     saved = {"expenses": [expense["id"]], "ventas": [], "receipts": []}
     for q in (
         "B0100000001",
@@ -97,6 +110,7 @@ def test_rnc_ncf_and_amount_find_receipts_expenses_and_ventas(web) -> None:  # n
         sold,
         sale["id"],
     )
+    assert venta["dgii_606"] is None
     sold_ids = {"expenses": [], "ventas": [venta["id"]], "receipts": []}
     for q in ("B0100000002", CLIENT_RNC, "2360", "2,360", "2,360.00"):
         assert _ids(web, q) == sold_ids, q

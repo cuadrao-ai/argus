@@ -10,7 +10,6 @@ import type { BusinessDataSource } from "./business-data";
 import BusinessSearchDossier, { type BusinessSearchRecord } from "./BusinessSearchDossier";
 import { searchKindGroups } from "./business-search-groups";
 import { formatDay } from "./business-format";
-import { useCategoryLabel } from "./business-ui";
 import type { BusinessPanelState } from "./BusinessWorkspace";
 import { copyText } from "./foundation/CopyButton";
 import { SEARCHABLE_LISTS, type SearchableList } from "./foundation/list-search";
@@ -59,7 +58,6 @@ export function useBusinessSearch({
 }): WorkspaceSearch {
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
-  const categoryLabel = useCategoryLabel();
   const forwardAddress = useSourceForwardAddress(owner && emailAvailable ? source : null);
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
 
@@ -146,7 +144,7 @@ export function useBusinessSearch({
       find: async (query) => {
         const [records, captures] = await Promise.allSettled([source.search(query), source.captures(query)]);
         if (records.status === "rejected") throw records.reason;
-        const kinds = searchKindGroups({ t, locale, source, accounts, openPanel, stateWord, categoryLabel }, query, records.value);
+        const kinds = searchKindGroups({ t, locale, source, accounts, openPanel, stateWord }, query, records.value);
         const notes: WorkspaceSearchGroup = {
           id: "captures",
           label: t("business.capture.notes", "Original notes"),
@@ -165,5 +163,5 @@ export function useBusinessSearch({
         return [kinds.expenses, kinds.ventas, kinds.receipts, notes, kinds.accounts, kinds.email_deliveries, ...(emailAvailable ? [kinds.email_senders] : [])];
       },
     };
-  }, [emailAvailable, accounts, actions.create, adaptive, canExport, categoryLabel, forwardAddress, listScope, locale, openExport, openPanel, owner, recentsServer, scope, source, stateWord, t]);
+  }, [emailAvailable, accounts, actions.create, adaptive, canExport, forwardAddress, listScope, locale, openExport, openPanel, owner, recentsServer, scope, source, stateWord, t]);
 }

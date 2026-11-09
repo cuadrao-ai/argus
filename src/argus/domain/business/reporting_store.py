@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from psycopg import Connection
 from psycopg.rows import dict_row
@@ -16,6 +17,7 @@ from argus.domain.business.annotations import annotation_available, supporting_s
 from argus.domain.business.authority import (
     ActionContext,
     ActionError,
+    Authorization,
     BusinessAuthority,
     authorize,
 )
@@ -25,6 +27,7 @@ from argus.domain.business.ledger import occurred_on
 from argus.domain.business.month_close import Settlement
 from argus.domain.business.reporting import ReportIdentity, ReportRow
 from argus.domain.business.reporting_query import (
+    Purchase606,
     ReportAnswer,
     ReportAttachment,
     ReportRecord,
@@ -33,6 +36,10 @@ from argus.domain.business.reporting_query import (
 from argus.domain.recording.canonical_groups import VisibleAccounts, load
 from argus.domain.recording.money_reads import current_activities
 from argus.domain.recording.postgres_repository import PostgresFinancialAccountRepository
+
+if TYPE_CHECKING:
+    from argus.domain.business.transactions import ActionTransaction
+    from argus.domain.ingestion.reconcile.model import ImportEvent
 
 
 @dataclass(frozen=True)
@@ -113,9 +120,7 @@ def _json(value: Any) -> str:
     )
 
 
-def _recorded(
-    authority: BusinessAuthority, context: ActionContext, connection: Connection
-) -> RecordedSnapshot:
+def _authorized(connection: Connection, context: ActionContext) -> Authorization:
     live = authorize(connection, context.actor, context.grant_id)
     live.require("read")
     if (
@@ -123,7 +128,54 @@ def _recorded(
         or live.context.current_owner_id != context.current_owner_id
     ):
         raise ActionError("not_found", "business_record_not_found")
+    return live
+
+
+def _business_drafts(
+    connection: Connection, live: Authorization
+) -> tuple[ActionTransaction, list[ImportEvent]]:
+    """Registros lists approved records only: a draft reaches a row through the
+    money row it recorded, so open drafts stay in the Bandeja."""
+
+    from argus.domain.business.transactions import ActionTransaction
+    from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+
     context = live.context
+    tx = ActionTransaction(
+        connection, live, _PostgresTx(connection, context.owner_id, context.scope)
+    )
+    events = [
+        event
+        for event in tx.imports.events(("accepting", "accepted", "dismissed"))
+        if "business" in event.resolution
+    ]
+    return tx, events
+
+
+def _speaking_drafts(
+    records: Iterable[FiscalRecord], events: Iterable[ImportEvent]
+) -> dict[str, ImportEvent]:
+    """The draft that speaks for each approved record, by activity: the one
+    that recorded it, else the one draft that names its activity."""
+
+    by_id = {event.id: event for event in events}
+    by_activity: dict[str, ImportEvent] = {}
+    for event in by_id.values():
+        if event.activity_id:
+            if event.activity_id in by_activity:
+                raise ValueError("duplicate canonical draft activity")
+            by_activity[event.activity_id] = event
+    return {
+        record.activity_id: event
+        for record in records
+        if (event := by_id.get(record.draft_id) or by_activity.get(record.activity_id))
+    }
+
+
+def _recorded(
+    authority: BusinessAuthority, context: ActionContext, connection: Connection
+) -> RecordedSnapshot:
+    context = _authorized(connection, context).context
     observed_at = connection.execute("select transaction_timestamp()").fetchone()[0]
     canonical = load(
         PostgresFinancialAccountRepository(authority.pool),
@@ -239,22 +291,11 @@ def _projected(
         is_personal,
     )
     from argus.domain.business.reporting_projection import DraftState, project, value
-    from argus.domain.business.transactions import ActionTransaction
-    from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
 
     snapshot = _recorded(authority, context, connection)
     context = snapshot.context
     live = authorize(connection, context.actor, context.grant_id)
-    tx = ActionTransaction(
-        connection, live, _PostgresTx(connection, context.owner_id, context.scope)
-    )
-    # Registros lists approved records only: a draft reaches a row through the
-    # money row it recorded, so open drafts stay in the Bandeja.
-    events = [
-        event
-        for event in tx.imports.events(("accepting", "accepted", "dismissed"))
-        if "business" in event.resolution
-    ]
+    tx, events = _business_drafts(connection, live)
     if len(events) + len(snapshot.records) > 10000:
         raise ActionError("invalid_input", "business_report_too_large")
     accounts = record_context(tx).accounts
@@ -333,17 +374,11 @@ def _projected(
     filer_identity = connection.execute(
         "select business_rnc from public.spaces where id=%s", (context.actor.space_id,)
     ).fetchone()[0]
-    by_activity = {}
-    for draft in drafts.values():
-        if draft.event.activity_id:
-            if draft.event.activity_id in by_activity:
-                raise ValueError("duplicate canonical draft activity")
-            by_activity[draft.event.activity_id] = draft
+    speaking = _speaking_drafts((record.approved for record in snapshot.records), events)
     projected = []
     for record in snapshot.records:
-        draft = drafts.get(record.approved.draft_id) or by_activity.get(
-            record.row.activity_id
-        )
+        event = speaking.get(record.row.activity_id)
+        draft = drafts[event.id] if event else None
         # A record mid-approval shows once the approval settles.
         if draft and draft.event.state == "accepting":
             continue
@@ -407,6 +442,41 @@ def _projected(
         ).fetchall()
     )
     return snapshot, with_export_verdicts(tuple(public_rows), verdicts, exported)
+
+
+def read_606(
+    authority: BusinessAuthority,
+    context: ActionContext,
+    activities: Sequence[dict[str, Any]],
+) -> dict[str, Purchase606 | None]:
+    """The 606 answers Registros shows for these money rows, by activity id,
+    read without every activity. A row Registros does not list yet, while its
+    approval settles, is left out."""
+
+    from argus.domain.business.contracts.facts import BusinessResolution
+    from argus.domain.business.reporting_projection import current_marks, purchase_606
+
+    with authority.pool.connection() as connection, connection.transaction():
+        connection.execute("set transaction isolation level repeatable read")
+        live = _authorized(connection, context)
+        with connection.cursor(row_factory=dict_row) as cursor:
+            approved, _, _ = fiscal_snapshot(cursor, live.context, activities)
+        _, events = _business_drafts(connection, live)
+        speaking = _speaking_drafts(approved, events)
+        answers: dict[str, Purchase606 | None] = {}
+        for record in approved:
+            event = speaking.get(record.activity_id)
+            if event and event.state == "accepting":
+                continue
+            draft = (
+                BusinessResolution.model_validate(event.resolution["business"]).facts
+                if event
+                else None
+            )
+            answers[record.activity_id] = purchase_606(
+                record, current_marks(record, draft)
+            )
+        return answers
 
 
 def read_report_snapshot(
