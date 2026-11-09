@@ -1,40 +1,40 @@
 "use client";
 
-// Inicio's first layer, Resumen del negocio: what needs attention, where to continue and what setup remains, plus
-// Personalizar Inicio. Draft copy lives here (es-419 first) until the copy pass moves it to the locale files.
+// Inicio's first layer, Resumen del negocio: everything waiting in the Bandeja, where to continue and what setup
+// remains, plus Personalizar Inicio. Draft copy lives here (es-419 first) until the copy pass moves it to the locale
+// files; the setup guide's copy already lives there (HomeSetup).
 
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveLanguage } from "@/lib/language-features";
-import { Briefcase, Check, IdentificationCard, Scan, UsersThree, type Icon } from "@phosphor-icons/react";
-import { ArrowDown, ArrowUp, ChevronRight, CircleAlert, FilePenLine, FileSearch, GripVertical, PenLine, RotateCcw, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import type { Icon } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, ChevronRight, CircleAlert, FilePenLine, GripVertical, PenLine, RotateCcw, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { readStored, writeStored } from "@/lib/browser-storage";
-import type { ReceiptSummary } from "@/lib/business-api";
-import { useReceivingChannels } from "../business-context";
-import { invoicingShown, useBusiness, type BusinessPanelState } from "../BusinessWorkspace";
+import type { BusinessSetupStep } from "@/lib/business-setup-api";
+import { invoicingShown, useBusiness } from "../BusinessWorkspace";
 import { formatRelativeTime } from "../business-format";
-import { bandejaAttentionCount } from "../inbox-count";
+import { inboxCount } from "../inbox-count";
 import { EmptyState } from "../foundation/EmptyState";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { CHANNEL_ICON } from "../foundation/channel-icons";
 import { FOCUS_RING } from "../foundation/presentation";
-import { canManageBusiness, cardClass, quietButtonClass } from "../business-ui";
+import { cardClass, quietButtonClass } from "../business-ui";
 import { SCREEN_ICON } from "../nav-glyphs";
 import { useReceiptStateWord } from "../receipt-state-word";
-import { RECENT_WORK, SETUP_STATE, type RecentWork, type SetupStep, type SetupStepKey } from "./home-draft-data";
-import { useHomeCounts, useSampleBusiness, type ReviewCount } from "./useHomeCounts";
+import { receptionDocumentTitle, receptionRows, receptionTarget, type ReceptionRow } from "../recepcion/reception-model";
+import { RECENT_WORK, type RecentWork } from "./home-draft-data";
+import { GuidedSetup, setupPlacement } from "./HomeSetup";
+import { useHomeCounts, useSampleBusiness } from "./useHomeCounts";
 
 const COPY = {
   es: {
     today: "Resumen del negocio",
-    recordsToReview: (n: number) => (n === 1 ? "1 registro por revisar" : `${n} registros por revisar`),
     invoiceDrafts: (n: number) => (n === 1 ? "1 factura en borrador" : `${n} facturas en borrador`),
     needs: "Necesita atención",
     loading: "Cargando la Bandeja",
     needsFailed: "No pudimos cargar lo que necesita atención",
     needsFailedBody: "Tus documentos están guardados. Revisa tu conexión e inténtalo otra vez.",
-    reviewCountFailed: "No pudimos cargar cuántos registros esperan revisión",
     retry: "Reintentar",
     showing: (shown: number, total: number) => `Mostrando ${shown} de ${total}`,
     customize: "Personalizar Inicio",
@@ -55,31 +55,16 @@ const COPY = {
     allClearBody: "No hay documentos esperando por ti.",
     edited: "Editado",
     recentKinds: { invoice_draft: "Borrador de factura", record: "Registro", receipt: "Documento" },
-    setupTitle: "Configurar negocio",
-    setupProgress: (done: number, total: number) => `${done} de ${total} listos`,
-    setupLead: "Completa estos pasos para empezar a recibir y revisar documentos.",
-    setupRemaining: (left: number) => (left === 1 ? "Falta 1 paso" : `Faltan ${left} pasos`),
-    setupOptional: "Opcional",
-    setupSeeAll: "Ver todos los pasos",
-    steps: {
-      created: { title: "Crear el negocio", body: "Nombre y país de operación." },
-      fiscal_identity: { title: "Agrega el RNC o la cédula", body: "Identifica a este negocio en sus registros y reportes." },
-      receiving_address: { title: "Activa el correo de recepción", body: "Reenvía facturas y recibos a una dirección propia." },
-      receipt_reading: { title: "Activar lectura de documentos", body: "Cuadrao lee tus facturas, recibos y PDF y extrae sus datos. Incluye correo, WhatsApp y archivos subidos." },
-      team: { title: "Invita al equipo", body: "Da acceso al contador o al equipo." },
-      whatsapp: { title: "Conecta WhatsApp", body: "Envía documentos desde tu teléfono." },
-      invoicing: { title: "Configura la facturación", body: "Prepara las facturas electrónicas." },
-    } as Record<SetupStepKey, { title: string; body: string }>,
+    noteTag: "Nota",
+    emailTag: "Correo",
   },
   en: {
     today: "Business overview",
-    recordsToReview: (n: number) => (n === 1 ? "1 record to review" : `${n} records to review`),
     invoiceDrafts: (n: number) => (n === 1 ? "1 invoice draft" : `${n} invoice drafts`),
     needs: "Needs attention",
     loading: "Loading the Inbox",
     needsFailed: "We couldn't load what needs attention",
     needsFailedBody: "Your documents are saved. Check your connection and try again.",
-    reviewCountFailed: "We couldn't load how many records await review",
     retry: "Try again",
     showing: (shown: number, total: number) => `Showing ${shown} of ${total}`,
     customize: "Customize Home",
@@ -100,54 +85,21 @@ const COPY = {
     allClearBody: "No documents are waiting for you.",
     edited: "Edited",
     recentKinds: { invoice_draft: "Invoice draft", record: "Record", receipt: "Document" },
-    setupTitle: "Set up business",
-    setupProgress: (done: number, total: number) => `${done} of ${total} done`,
-    setupLead: "Finish these steps to start receiving and reviewing documents.",
-    setupRemaining: (left: number) => (left === 1 ? "1 step left" : `${left} steps left`),
-    setupOptional: "Optional",
-    setupSeeAll: "See all steps",
-    steps: {
-      created: { title: "Create the business", body: "Name and country of operation." },
-      fiscal_identity: { title: "Add the RNC or cédula", body: "Identifies this business in its records and reports." },
-      receiving_address: { title: "Turn on the receiving email", body: "Forward invoices and receipts to its own address." },
-      receipt_reading: { title: "Turn on document reading", body: "Cuadrao reads your invoices, receipts and PDFs and pulls out their details. Includes email, WhatsApp and uploaded files." },
-      team: { title: "Invite the team", body: "Give the accountant or team access." },
-      whatsapp: { title: "Connect WhatsApp", body: "Send documents from your phone." },
-      invoicing: { title: "Set up invoicing", body: "Prepare electronic invoices." },
-    } as Record<SetupStepKey, { title: string; body: string }>,
+    noteTag: "Note",
+    emailTag: "Email",
   },
 } as const;
 
 type Copy = (typeof COPY)["es"] | (typeof COPY)["en"];
 
-const STEP_ICON: Record<SetupStepKey, Icon> = { created: Briefcase, fiscal_identity: IdentificationCard, receiving_address: CHANNEL_ICON.email, receipt_reading: Scan, team: UsersThree, whatsapp: CHANNEL_ICON.whatsapp, invoicing: SCREEN_ICON.invoicing };
-const STEP_TARGET: Record<SetupStepKey, BusinessPanelState> = {
-  created: { kind: "business", tab: "datos" }, fiscal_identity: { kind: "business", tab: "datos" }, receiving_address: { kind: "business", tab: "correo" },
-  receipt_reading: { kind: "business", tab: "correo" }, team: { kind: "business", tab: "equipo" }, whatsapp: { kind: "business", tab: "correo" }, invoicing: { kind: "invoicing" },
-};
 // The shared Business card (cardClass), without its padding, so the overview and Finanzas below read as one system.
 // Read at render: business-ui sits in an import cycle with this module, so it is not ready at load.
 const surface = () => cardClass.replace(/\bp-5\b/, "").trim();
 const MUTED = "text-[#56635e] dark:text-white/70";
-const ROW = `flex min-h-11 w-full items-center gap-3 rounded-item px-4 py-4 text-left transition-colors duration-[80ms] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] ${FOCUS_RING}`;
 
 function useCopy(): Copy {
   const { i18n } = useTranslation();
   return COPY[(i18n.resolvedLanguage ?? resolveLanguage({})) === "en" ? "en" : "es"];
-}
-
-/** A compact neutral ring with `n / n` in its center (Guide readiness rules). */
-function ProgressRing({ done, total, label }: { done: number; total: number; label: string }) {
-  const r = 19; const c = 2 * Math.PI * r;
-  return (
-    <span role="img" aria-label={label} className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center">
-      <svg viewBox="0 0 44 44" className="absolute inset-0" aria-hidden="true">
-        <circle cx="22" cy="22" r={r} fill="none" strokeWidth="3" className="stroke-black/10 dark:stroke-white/15" />
-        <circle cx="22" cy="22" r={r} fill="none" strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(done / total) * c} ${c}`} transform="rotate(-90 22 22)" className="stroke-[#172b26] dark:stroke-white" />
-      </svg>
-      <span aria-hidden="true" className="text-[12px] font-medium tabular-nums">{done}/{total}</span>
-    </span>
-  );
 }
 
 /**
@@ -161,7 +113,7 @@ function Section({ title, icon: HeadIcon, count, meta, action, children, footer,
       <header className="flex min-h-12 flex-wrap items-center gap-x-2 gap-y-1 border-b border-[color:var(--surface-divider)] px-5 py-1.5">
         {HeadIcon ? <HeadIcon className={`h-[18px] w-[18px] shrink-0 ${MUTED}`} aria-hidden="true" /> : null}
         <h3 className="font-display text-[17px] font-medium text-[#172b26] dark:text-white">{title}</h3>
-        {count != null ? <span className="rounded-full border border-[color:var(--surface-divider)] bg-white px-2 text-[13px] tabular-nums text-[#56635e] dark:bg-white/[0.06] dark:text-white/70">{count}</span> : null}
+        {count != null ? <span data-testid={testId ? `${testId}-count` : undefined} className="rounded-full border border-[color:var(--surface-divider)] bg-white px-2 text-[13px] tabular-nums text-[#56635e] dark:bg-white/[0.06] dark:text-white/70">{count}</span> : null}
         {meta ? <span className={`text-[14px] ${MUTED}`}>{meta}</span> : null}
         <span className="ml-auto">{action}</span>
       </header>
@@ -193,8 +145,8 @@ const sampleParam = (name: string) => process.env.NODE_ENV === "development" && 
 const SKELETON = "bg-black/[0.06] dark:bg-white/[0.08]";
 
 /**
- * A count that lives on another screen, at the foot of a list: Registros waiting for review, invoice drafts.
- * It reads as a total, not an item, so it sits under the rows on its own hairline and never joins the list's count.
+ * A count that lives on another screen, at the foot of a list: invoice drafts. It reads as a total, not an item, so
+ * it sits under the rows on its own hairline and never joins the list's count.
  */
 function SummaryRow({ Icon, label, verb, onOpen, testId }: { Icon: LucideIcon; label: string; verb: string; onOpen: () => void; testId: string }) {
   return (
@@ -206,55 +158,32 @@ function SummaryRow({ Icon, label, verb, onOpen, testId }: { Icon: LucideIcon; l
   );
 }
 
-/** The review count is on its way: a quiet skeleton line where the summary row will stand. */
-function CountLoading({ label }: { label: string }) {
-  return (
-    <div role="status" aria-busy="true" className="flex min-h-12 items-center gap-3 border-t border-[color:var(--surface-divider)] px-5">
-      <span className="sr-only">{label}</span>
-      <span aria-hidden="true" className={`h-[18px] w-[18px] shrink-0 animate-pulse rounded-full motion-reduce:animate-none ${SKELETON}`} />
-      <span aria-hidden="true" className={`h-4 w-2/5 animate-pulse rounded-mark motion-reduce:animate-none ${SKELETON}`} />
-    </div>
-  );
-}
-
-/** The review count could not be read: say so with its reference and a way to ask again, never a zero. */
-function CountFailed({ c, reference, retry }: { c: Copy; reference: string; retry: () => void }) {
-  return (
-    <div data-testid="home-records-to-review-failed" role="alert" className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 border-t border-[color:var(--surface-divider)] px-5 py-2">
-      <CircleAlert aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[#9e2f39] dark:text-[#ec9aa0]" />
-      <span className="min-w-0 flex-1 text-[15px] text-[#172b26] dark:text-white">{c.reviewCountFailed}</span>
-      <ReferenceCode reference={reference} />
-      <button type="button" className={`${quietButtonClass} text-[14px]`} onClick={retry}>{c.retry}</button>
-    </div>
-  );
-}
-
 /** Rows each list previews, so the month's figures begin in view on a laptop. Bandeja ("Ver todo") holds every waiting row; older work stays in its own screen. */
 const PREVIEW_ROWS = { needs: 4, recent: 3 } as const;
 
+/** A row that needs a fix before anything else: a receipt with a problem, or an email that brought no receipt. */
+const problemRow = (row: ReceptionRow) => (row.kind === "receipt" ? Boolean(row.receipt.bandeja?.con_problema) : row.kind === "email" && row.email.standing === "no_receipt");
+
 /**
- * Scope: every Bandeja document waiting on a person, problems first, then ready to review. The count is the
- * server's Necesitan atención number, the one the Bandeja's tab shows.
+ * Scope: everything waiting in the Bandeja, mixed kinds included, problems first. The count is the server's one
+ * Bandeja number, the one the sidebar shows (Lucas, 2026-11-09); "Ver todo" opens the Bandeja as it is.
  */
-function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; toReview: ReviewCount; retryCount: () => void }) {
-  const { records, openPanel, reload } = useBusiness();
+function NeedsAttention({ c }: { c: Copy }) {
+  const { records, openPanel, reload, chosen } = useBusiness();
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
+  // Resolver and Revisar are work: a read-only person opens the same rows to look, with no verb.
+  const prepares = Boolean(chosen?.capabilities?.includes("prepare"));
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const forceEmpty = sampleParam("attention") === "empty";
-  const inbox = forceEmpty ? [] : records.inbox ?? [];
-  const attention = inbox.filter((r) => r.bandeja_group?.group === "attention");
-  const all: ReceiptSummary[] = [...attention.filter((r) => r.bandeja?.con_problema), ...attention.filter((r) => !r.bandeja?.con_problema)];
-  const rows = all.slice(0, PREVIEW_ROWS.needs);
-  const total = bandejaAttentionCount(records);
-  const ready = records.inbox !== null || forceEmpty;
-  const toReview: ReviewCount = forceEmpty ? { kind: "ready", value: 0 } : liveToReview;
-  let footer: ReactNode = null;
-  if (toReview.kind === "ready" && toReview.value > 0) footer = <SummaryRow testId="home-records-to-review" Icon={FileSearch} label={c.recordsToReview(toReview.value)} verb={c.review} onOpen={() => openPanel({ kind: "inbox" })} />;
-  else if (toReview.kind === "failed") footer = <CountFailed c={c} reference={toReview.reference} retry={retryCount} />;
-  else if (toReview.kind === "loading") footer = <CountLoading label={c.loading} />;
-  if (records.error && !forceEmpty) {
-    // The Business did not load: say so with the server's reference and a way to try again, never an endless skeleton.
+  const waiting = forceEmpty ? [] : receptionRows(records.inbox ?? [], records.notes ?? [], records.emails ?? []);
+  const rows = [...waiting.filter(problemRow), ...waiting.filter((row) => !problemRow(row))].slice(0, PREVIEW_ROWS.needs);
+  const total = forceEmpty ? 0 : inboxCount(records);
+  // Rows show once their lists are in; the count shows once the server has counted, never guessed from the rows.
+  const ready = forceEmpty || (records.inbox !== null && (records.notes !== null || Boolean(records.notesFailure)) && (records.emails !== null || Boolean(records.emailsFailure)) && (total !== null || waiting.length > 0));
+  // The Business did not load, or the server could not count the Bandeja: say so with its reference and a way to try
+  // again, never an endless skeleton and never a zero.
+  if ((records.error || (total === null && records.serverReference)) && !forceEmpty) {
     const reference = records.failureReference ?? records.serverReference;
     return (
       <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention">
@@ -263,9 +192,9 @@ function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; to
       </Section>
     );
   }
-  // Bandeja still loading, or nothing in it while the review count is still on its way: the card as it will stand,
-  // header and four row cards, never an empty panel and never "Todo al día" before the server has said so.
-  if ((!ready && toReview.kind !== "failed") || (rows.length === 0 && toReview.kind === "loading")) {
+  // The Bandeja still loading: the card as it will stand, header and four row cards, never an empty panel and never
+  // "Todo al día" before the server has said so.
+  if (!ready) {
     return (
       <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention">
         <ul role="status" aria-busy="true" className="space-y-2">
@@ -281,24 +210,27 @@ function NeedsAttention({ c, toReview: liveToReview, retryCount }: { c: Copy; to
       </Section>
     );
   }
-  if (rows.length === 0) {
-    // Nothing waiting in Bandeja and the count is a number: a short settled line, never an empty panel the height of five rows.
-    return <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention" footer={footer}>{footer ? null : <EmptyState kind="done" settled title={c.allClearTitle} body={c.allClearBody} />}</Section>;
+  if (total === 0) {
+    // Nothing waiting in the Bandeja: a short settled line, never an empty panel the height of five rows.
+    return <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention"><EmptyState kind="done" settled title={c.allClearTitle} body={c.allClearBody} /></Section>;
   }
+  const neutral = `${TAG} bg-black/5 text-[#56635e] dark:bg-white/10 dark:text-white/70`;
+  const alert = (text: string) => <span className={`${TAG} inline-flex items-center gap-1 bg-[#f6dfe0] text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]`}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{text}</span>;
+  const titleOf = (row: ReceptionRow) => receptionDocumentTitle(row, { untitled: c.untitled, pending: t("business.reception_preview.intake_pending"), exception: t("business.reception_preview.intake_exception"), text: t("business.reception_preview.text_intake") });
   return (
-    <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention" footer={footer} count={total} meta={total !== null && total > rows.length ? c.showing(rows.length, total) : undefined} action={<button type="button" className={`${quietButtonClass} text-[14px]`} onClick={() => openPanel({ kind: "inbox" })}>{c.seeAll}</button>}>
-      <ul className="space-y-2">
-        {rows.map((receipt) => {
-          const Channel = CHANNEL_ICON[receipt.channel as keyof typeof CHANNEL_ICON] ?? CHANNEL_ICON.web;
-          const problem = Boolean(receipt.bandeja?.con_problema);
-          // The verb says what the record screen lets you do: fix a problem, review a prepared record, or just look.
-          const verb = problem ? c.resolve : receipt.bandeja?.por_revisar ? c.review : c.open;
-          const tag = problem
-            ? <span className={`${TAG} inline-flex items-center gap-1 bg-[#f6dfe0] text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]`}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{t(`business.attention_short.${receipt.attention ?? "other"}`)}</span>
-            : <span className={`${TAG} bg-black/5 text-[#56635e] dark:bg-white/10 dark:text-white/70`}>{stateWord(receipt)}</span>;
-          return <li key={receipt.id}><RowCard Icon={Channel} title={receipt.merchant || receipt.filename || c.untitled} tag={tag} date={formatRelativeTime(receipt.received_at, locale)} verb={verb} onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id, list: "inbox" })} /></li>;
+    <Section title={c.needs} icon={CircleAlert} testId="home-needs-attention" count={total} meta={rows.length > 0 && total !== null && total > rows.length ? c.showing(rows.length, total) : undefined} action={<button type="button" data-testid="home-needs-see-all" className={`${quietButtonClass} text-[14px]`} onClick={() => openPanel({ kind: "inbox" })}>{c.seeAll}</button>}>
+      {rows.length ? <ul className="space-y-2">
+        {rows.map((row) => {
+          const problem = problemRow(row);
+          // The verb says what the record screen lets you do: fix a problem, review what is ready, or just look.
+          const verb = !prepares ? undefined : problem ? c.resolve : row.kind === "note" || (row.kind === "receipt" && row.receipt.bandeja?.por_revisar) ? c.review : c.open;
+          const tag = row.kind === "receipt"
+            ? problem ? alert(t(`business.attention_short.${row.receipt.attention ?? "other"}`)) : <span className={neutral}>{stateWord(row.receipt)}</span>
+            : row.kind === "note" ? <span className={neutral}>{c.noteTag}</span>
+            : problem ? alert(c.emailTag) : <span className={neutral}>{c.emailTag}</span>;
+          return <li key={`${row.kind}:${row.id}`} data-kind={row.kind}><RowCard Icon={CHANNEL_ICON[row.source]} title={titleOf(row)} tag={tag} date={formatRelativeTime(row.receivedAt, locale)} verb={verb} onOpen={() => openPanel(receptionTarget(row))} /></li>;
         })}
-      </ul>
+      </ul> : null}
     </Section>
   );
 }
@@ -320,79 +252,6 @@ function ContinueWorking({ c, recents, drafts }: { c: Copy; recents: readonly Re
         ))}
       </ul>
     </Section>
-  );
-}
-
-function StepRow({ step, c, onOpen }: { step: SetupStep; c: Copy; onOpen: (step: SetupStep) => void }) {
-  const StepIcon = STEP_ICON[step.key];
-  const words = c.steps[step.key];
-  if (step.done) {
-    // A finished step is a quiet row: muted title and a check, no description.
-    return (
-      <button type="button" onClick={() => onOpen(step)} className={`${ROW} ${MUTED}`}>
-        <StepIcon size={20} aria-hidden="true" className="shrink-0" />
-        <span className="min-w-0 flex-1 text-[16px]">{words.title}</span>
-        <Check size={18} weight="bold" aria-label={c.setupProgress(1, 1)} className="shrink-0 text-[var(--cuadrao-green)]" />
-      </button>
-    );
-  }
-  return (
-    <button type="button" onClick={() => onOpen(step)} className={`${surface()} ${ROW} !px-4 !py-4`}>
-      <StepIcon size={20} aria-hidden="true" className="shrink-0 self-start text-[#172b26] dark:text-white" />
-      <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{words.title}</span><span className={`mt-0.5 block text-[14px] ${MUTED}`}>{words.body}</span></span>
-      <ChevronRight aria-hidden="true" className={`h-4 w-4 shrink-0 ${MUTED}`} />
-    </button>
-  );
-}
-
-/** Setup lives apart from the work: a compact entry on Inicio, the steps in a side panel (a full sheet on a phone). */
-function GuidedSetup({ c, stage }: { c: Copy; stage: "active" | "new" }) {
-  const { openPanel, chosen, source, invoicing } = useBusiness();
-  const [open, setOpen] = useState(false);
-  const channels = useReceivingChannels();
-  const steps = SETUP_STATE[stage].filter((s) => (s.key !== "invoicing" || invoicingShown(invoicing)) && (s.key !== "receiving_address" || channels.email.available) && (s.key !== "whatsapp" || channels.whatsapp.available));
-  const required = steps.filter((s) => s.required);
-  const done = required.filter((s) => s.done).length;
-  // Every step is a configuration action (details, reception, access, invoicing), so setup shows only to people
-  // who may configure this Business; the rest see the same Inicio without it. Optional steps never count.
-  if (done === required.length || !canManageBusiness(chosen, source.mode === "live")) return null;
-  const progress = c.setupProgress(done, required.length);
-  const go = (step: SetupStep) => { setOpen(false); openPanel(STEP_TARGET[step.key]); };
-  const panel = open ? (
-    <AdaptivePanel title={c.setupTitle} summary={progress} onClose={() => setOpen(false)} closeLabel="Cerrar" width="md" snaps={["full"]} initialSnap="full">
-      <div className="space-y-3 px-5 pb-6 pt-2" data-testid="home-setup-panel">
-        <p className={`text-[16px] ${MUTED}`}>{c.setupLead}</p>
-        {required.map((step) => <StepRow key={step.key} step={step} c={c} onOpen={go} />)}
-        <h3 className={`pt-3 text-[14px] font-medium ${MUTED}`}>{c.setupOptional}</h3>
-        {steps.filter((s) => !s.required).map((step) => <StepRow key={step.key} step={step} c={c} onOpen={go} />)}
-      </div>
-    </AdaptivePanel>
-  ) : null;
-  if (stage === "new") {
-    // A brand-new Business: setup is the main job, so it leads Inicio with its open steps.
-    return (
-      <section className={`${surface()} p-5`} data-testid="home-setup-new">
-        <div className="flex items-start gap-4">
-          <span className="min-w-0 flex-1"><h3 className="font-display text-[21px] font-medium">{c.setupTitle}</h3><p className={`mt-1 text-[16px] ${MUTED}`}>{c.setupLead}</p></span>
-          <ProgressRing done={done} total={required.length} label={progress} />
-        </div>
-        <div className="mt-4 space-y-3">{required.filter((s) => !s.done).map((step) => <StepRow key={step.key} step={step} c={c} onOpen={go} />)}</div>
-        <button type="button" className={`${quietButtonClass} mt-2 text-[14px]`} onClick={() => setOpen(true)}>{c.setupSeeAll}</button>
-        {panel}
-      </section>
-    );
-  }
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} data-testid="home-setup-entry" aria-haspopup="dialog" className={`${surface()} flex min-h-14 w-full items-center gap-3 px-3 py-[5px] text-left transition-colors duration-[80ms] hover:bg-white dark:hover:bg-[#25292c] ${FOCUS_RING}`}>
-        <ProgressRing done={done} total={required.length} label={progress} />
-        {/* One line: the ring carries "n de 4" (and its label), the steps left sit by the chevron. */}
-        <span className="min-w-0 flex-1 truncate text-[16px] font-medium">{c.setupTitle}</span>
-        <span className={`shrink-0 text-[14px] ${MUTED}`}>{c.setupRemaining(required.length - done)}</span>
-        <ChevronRight aria-hidden="true" className={`h-4 w-4 shrink-0 ${MUTED}`} />
-      </button>
-      {panel}
-    </>
   );
 }
 
@@ -481,21 +340,19 @@ export function HomeCustomize({ order, defaults, onChange, isDefault }: { order:
 }
 
 /** A brand-new Business leads with setup; it stays above the movable sections. */
-export function HomeSetupLead() {
-  const c = useCopy();
-  const samples = useSampleBusiness();
-  return samples && sampleParam("setup") === "new" ? <GuidedSetup c={c} stage="new" /> : null;
+export function HomeSetupLead({ steps = null }: { steps?: readonly BusinessSetupStep[] | null }) {
+  return setupPlacement(steps) === "lead" && steps ? <GuidedSetup steps={steps} placement="lead" /> : null;
 }
 
-
-export function HomeWork() {
+/** `setup` is the server's setup steps (useBusinessSetup); a Business already under way keeps a compact entry here. */
+export function HomeWork({ setup: steps = null }: { setup?: readonly BusinessSetupStep[] | null }) {
   const c = useCopy();
   const counts = useHomeCounts();
-  // Recent work and setup progress have no endpoint yet (MISSING: GET /business/recents, GET /business/setup): the
-  // local preview shows their samples, a live Business does not show them at all rather than invent them.
+  // Recent work has no endpoint yet (MISSING: GET /business/recents): the local preview shows its samples, a live
+  // Business does not show it at all rather than invent it.
   const samples = useSampleBusiness();
   const { invoicing } = useBusiness();
-  const setup = samples && sampleParam("setup") !== "new";
+  const setup = setupPlacement(steps) === "entry" && steps !== null;
   const recents = samples ? RECENT_WORK.filter((item) => item.target.kind !== "invoicing" || invoicingShown(invoicing)) : [];
   const drafts = counts.drafts ?? 0;
   const keepWorking = recents.length > 0 || drafts > 0;
@@ -507,9 +364,9 @@ export function HomeWork() {
       <h2 id="home-work-title" className="font-display text-[21px] font-medium text-[#172b26] dark:text-white">{c.today}</h2>
     </div>
     <div data-testid="home-work" className={setup || keepWorking ? "space-y-6 @min-[60rem]:grid @min-[60rem]:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] @min-[60rem]:gap-6 @min-[60rem]:space-y-0" : ""}>
-      <div><NeedsAttention c={c} toReview={counts.toReview} retryCount={counts.retry} /></div>
+      <div><NeedsAttention c={c} /></div>
       {setup || keepWorking ? <div className="flex flex-col justify-between gap-4">
-        {setup ? <GuidedSetup c={c} stage="active" /> : null}
+        {setup ? <GuidedSetup steps={steps} placement="entry" /> : null}
         {keepWorking ? <ContinueWorking c={c} recents={recents} drafts={drafts} /> : null}
       </div> : null}
     </div>

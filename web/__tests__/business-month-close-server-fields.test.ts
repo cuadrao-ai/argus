@@ -18,7 +18,7 @@ function block(currency: string, extra: Record<string, unknown> = {}) {
     income_before_itbis_minor: 400000,
     expense_before_itbis_minor: 150000,
     net_result_minor: 250000,
-    itbis_owed_minor: 18000,
+    itbis_paid_minor: 18000,
     itbis_cobrado_minor: 45000,
     by_status: { invoices: { pendiente: { count: 2, before_itbis_minor: 0 }, cobrado: { count: 1, before_itbis_minor: 0 } }, receipts: { pendiente: { count: 1, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } },
     net_result_final: false,

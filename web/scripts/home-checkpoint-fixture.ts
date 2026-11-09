@@ -110,8 +110,8 @@ Bun.serve({ hostname: '127.0.0.1', port: Number(process.env.EVIDENCE_FIXTURE_POR
         currency.expense_before_itbis = '0.00';
         currency.net_result_minor = 0;
         currency.net_result = '0.00';
-        currency.itbis_owed_minor = 0;
-        currency.itbis_owed = '0.00';
+        currency.itbis_paid_minor = 0;
+        currency.itbis_paid = '0.00';
         currency.itbis_cobrado_minor = 0;
         currency.itbis_cobrado = '0.00';
         currency.by_status.invoices.pendiente.count = 0;

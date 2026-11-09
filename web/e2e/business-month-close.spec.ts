@@ -18,7 +18,7 @@ function summaryFor(offset: number): Record<Exclude<keyof MonthCloseFigures, "cu
     if (value === null || value === undefined) throw new Error("the sample month has no peso figures");
     return value;
   };
-  return { income_before_itbis: known(pesos?.income_before_itbis), expense_before_itbis: known(pesos?.expense_before_itbis), net_before_itbis: known(pesos?.net_before_itbis), itbis_owed: known(pesos?.itbis_owed) };
+  return { income_before_itbis: known(pesos?.income_before_itbis), expense_before_itbis: known(pesos?.expense_before_itbis), net_before_itbis: known(pesos?.net_before_itbis), itbis_paid: known(pesos?.itbis_paid) };
 }
 
 async function shot(page: Page, name: string, target?: Locator) {
@@ -71,7 +71,7 @@ test.describe("inicio is the month close", () => {
       await expect(page.getByTestId("month-close-expenses")).toHaveAttribute("data-amount", current.expense_before_itbis);
       await expect(page.getByTestId("month-close-itbis")).toContainText("ITBIS a pagar");
       await expect(page.getByTestId("month-close-itbis")).toContainText("RD$");
-      await expect(page.getByTestId("month-close-itbis")).toHaveAttribute("data-amount", current.itbis_owed);
+      await expect(page.getByTestId("month-close-itbis")).toHaveAttribute("data-amount", current.itbis_paid);
 
       const net = page.getByTestId("month-close-net");
       await expect(net).toContainText("Resultado neto");
@@ -121,7 +121,7 @@ test.describe("inicio is the month close", () => {
       await expect(net).toHaveAttribute("data-state", "pending");
       await expect(net).toContainText(/Falta marcar \d+ documentos/);
       await expect(net).not.toContainText("RD$");
-      await expect(page.getByTestId("month-close-itbis")).toHaveAttribute("data-amount", previous.itbis_owed);
+      await expect(page.getByTestId("month-close-itbis")).toHaveAttribute("data-amount", previous.itbis_paid);
       await expect(page.getByTestId("month-close-close")).toHaveCount(0);
       await expect(page.getByTestId("month-close-steps-note")).toContainText(/Cuando termines/);
       await expect(page.getByTestId("month-close-blockers")).toHaveCount(0);

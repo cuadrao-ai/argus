@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { createMockMonthCloseClient, MonthCloseError, monthCloseFiguresFrom, openItemsFrom, type MonthCloseClient, type MonthCloseDocument } from "../lib/business-month-close";
+import { createMockMonthCloseClient, MonthCloseError, monthCloseFiguresFrom, monthCloseFiscalRowsFrom, openItemsFrom, type MonthCloseClient, type MonthCloseDocument } from "../lib/business-month-close";
 import type { BusinessContextValue } from "../components/business-app/BusinessWorkspace";
 
 beforeAll(() => {
@@ -505,7 +505,7 @@ describe("Inicio in two columns", () => {
   const document_ = (over: Partial<MonthCloseDocument>): MonthCloseDocument => ({ id: "inv-1", kind: "invoice", currency: "DOP", counterparty: "Colmado Don Luis", occurred_on: "2026-10-04", due_on: null, amount: "1180.00", itbis: "180.00", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "cobrado", ...over });
   const clientOf = (documents: MonthCloseDocument[]): MonthCloseClient => ({
     mode: "mock",
-    async load() { return { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed_at: null, unreviewed_movements: 0, earliest_month: null, payment_methods: ["otro"], dgii_forms: null, documents, figures: monthCloseFiguresFrom(documents) }; },
+    async load() { return { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed_at: null, unreviewed_movements: 0, earliest_month: null, payment_methods: ["otro"], dgii_forms: null, documents, figures: monthCloseFiguresFrom(documents), fiscal_rows: monthCloseFiscalRowsFrom(documents) }; },
     async openItems() { return openItemsFrom(documents, "2026-10-18"); },
     async markCobrado() { throw new Error("no mark"); },
     async markPagado() { throw new Error("no mark"); },
@@ -569,9 +569,9 @@ describe("Inicio in two columns", () => {
       assert.match(cards.className, /@min-\[56rem\]:col-span-2 @min-\[56rem\]:grid-cols-subgrid/);
       const month = cards.querySelector('[data-testid="month-close-cards-month"]')!;
       const result = cards.querySelector<HTMLElement>('[data-testid="month-close-cards-result"]')!;
-      assert.deepEqual([...month.children].map((node) => node.getAttribute("data-testid")), ["month-close-income", "month-close-expenses"]);
-      assert.deepEqual([...result.children].map((node) => node.getAttribute("data-testid")), ["month-close-net", "month-close-itbis"]);
-      // Twice the card's 20px padding plus the 24px between Por cobrar and Por pagar puts Neto and ITBIS on their columns.
+      assert.deepEqual([...month.children].map((node) => node.getAttribute("data-testid")), ["month-close-income", "month-close-expenses", "month-close-net"]);
+      assert.deepEqual([...result.children].map((node) => node.getAttribute("data-testid")), ["month-close-itbis-sales", "month-close-itbis-purchases"]);
+      // Twice the card's 20px padding plus the 24px between Por cobrar and Por pagar puts the two ITBIS totals on their columns.
       assert.match(result.className, /p-5/);
       assert.match(result.className, /@min-\[56rem\]:gap-x-16/);
       const order = [...view.host.querySelectorAll('[data-testid="month-close-head"], [data-testid="month-close-checklist"], [data-testid="month-close-cards"], [data-testid="month-close-money"]')].map((node) => node.getAttribute("data-testid"));

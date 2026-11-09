@@ -31,6 +31,7 @@ import {
   OPEN_ITEMS_CAP,
   readOpenItemsWire,
   readMonthCloseWire,
+  monthCloseFiscalRowsFrom,
   rncPresent,
   statementMissingBlocker,
   unmatchedCharges,
@@ -54,7 +55,7 @@ function document(partial: Pick<MonthCloseDocument, "id" | "kind" | "amount" | "
 }
 
 describe("month close money", () => {
-  test("net is income minus expenses before ITBIS, and ITBIS owed is the tax difference", () => {
+  test("net is income minus expenses before ITBIS, and ITBIS on purchases and on sales are two plain totals", () => {
     const [summary] = monthCloseFiguresFrom([
       document({ id: "invoice", kind: "invoice", amount: "118.00", itbis: "18.00", status: "cobrado" }),
       document({ id: "receipt", kind: "receipt", amount: "59.00", itbis: null, status: "pagado" }),
@@ -64,7 +65,7 @@ describe("month close money", () => {
       income_before_itbis: "100.00",
       expense_before_itbis: "59.00",
       net_before_itbis: "41.00",
-      itbis_owed: "18.00",
+      itbis_paid: "0.00",
       itbis_cobrado: "18.00",
       itbis_charged: "18.00",
       net_result_final: true,
@@ -78,7 +79,8 @@ describe("month close money", () => {
       document({ id: "receipt", kind: "receipt", amount: "40.00", itbis: "5.00", status: "pendiente" }),
     ]);
     expect(summary.net_before_itbis).toBe("-25.00");
-    expect(summary.itbis_owed).toBe("-5.00");
+    expect(summary.itbis_paid).toBe("5.00");
+    expect(summary.itbis_charged).toBe("0.00");
   });
 
   test("the sample month matches the hand totals, including a receipt with no stated ITBIS", () => {
@@ -90,7 +92,7 @@ describe("month close money", () => {
       income_before_itbis: "58400.00",
       expense_before_itbis: "9600.00",
       net_before_itbis: "48800.00",
-      itbis_owed: "7902.00",
+      itbis_paid: "1458.00",
       itbis_cobrado: "6120.00",
       itbis_charged: "9360.00",
       net_result_final: false,
@@ -101,7 +103,7 @@ describe("month close money", () => {
       income_before_itbis: "17000.00",
       expense_before_itbis: "2800.00",
       net_before_itbis: "14200.00",
-      itbis_owed: "2556.00",
+      itbis_paid: "504.00",
       itbis_cobrado: "2160.00",
       itbis_charged: "3060.00",
       net_result_final: false,
@@ -365,8 +367,8 @@ const mappedWire = {
       net_result: "1.00",
       itbis_charged_minor: 100,
       itbis_charged: "1.00",
-      itbis_owed_minor: 100,
-      itbis_owed: "1.00",
+      itbis_paid_minor: 100,
+      itbis_paid: "1.00",
     },
     {
       currency: "DOP",
@@ -378,8 +380,8 @@ const mappedWire = {
       net_result: "2500.00",
       itbis_charged_minor: 72000,
       itbis_charged: "720.00",
-      itbis_owed_minor: 18000,
-      itbis_owed: "180.00",
+      itbis_paid_minor: 18000,
+      itbis_paid: "180.00",
       by_status: {
         invoices: {
           pendiente: { count: 1, before_itbis_minor: 100000 },
@@ -415,14 +417,14 @@ describe("live figure mapping", () => {
     expect(dopBlock()?.income_before_itbis).toBe("4000.00");
   });
 
-  test("M4 the ITBIS card reads itbis_owed, not itbis_charged", () => {
-    expect(dopBlock()?.itbis_owed).toBe("180.00");
+  test("M4 ITBIS en compras reads itbis_paid, apart from itbis_charged", () => {
+    expect(dopBlock()?.itbis_paid).toBe("180.00");
   });
 
   test("M5 every currency keeps its own block, in the server's order", () => {
     expect(readMonthCloseWire(mappedWire).figures).toEqual([
-      { currency: "USD", income_before_itbis: "1.00", expense_before_itbis: "1.00", net_before_itbis: "1.00", itbis_owed: "1.00", itbis_cobrado: null, itbis_charged: "1.00", net_result_final: null, pending_count: null },
-      { currency: "DOP", income_before_itbis: "4000.00", expense_before_itbis: "1500.00", net_before_itbis: "2500.00", itbis_owed: "180.00", itbis_cobrado: null, itbis_charged: "720.00", net_result_final: null, pending_count: 1 },
+      { currency: "USD", income_before_itbis: "1.00", expense_before_itbis: "1.00", net_before_itbis: "1.00", itbis_paid: "1.00", itbis_cobrado: null, itbis_charged: "1.00", net_result_final: null, pending_count: null },
+      { currency: "DOP", income_before_itbis: "4000.00", expense_before_itbis: "1500.00", net_before_itbis: "2500.00", itbis_paid: "180.00", itbis_cobrado: null, itbis_charged: "720.00", net_result_final: null, pending_count: 1 },
     ]);
   });
 
@@ -439,9 +441,9 @@ describe("live figure mapping", () => {
     const usd = { ...document({ id: "usd", kind: "invoice", amount: "50.00", itbis: "5.00", status: "cobrado" }), currency: "USD" };
     const eur = { ...document({ id: "eur", kind: "receipt", amount: "20.00", itbis: "2.00", status: "pagado" }), currency: "EUR" };
     expect(monthCloseFiguresFrom([dop, usd, eur])).toEqual([
-      { currency: "DOP", income_before_itbis: "100.00", expense_before_itbis: "0.00", net_before_itbis: "100.00", itbis_owed: "18.00", itbis_cobrado: "18.00", itbis_charged: "18.00", net_result_final: true, pending_count: 0 },
-      { currency: "EUR", income_before_itbis: "0.00", expense_before_itbis: "18.00", net_before_itbis: "-18.00", itbis_owed: "-2.00", itbis_cobrado: "0.00", itbis_charged: "0.00", net_result_final: true, pending_count: 0 },
-      { currency: "USD", income_before_itbis: "45.00", expense_before_itbis: "0.00", net_before_itbis: "45.00", itbis_owed: "5.00", itbis_cobrado: "5.00", itbis_charged: "5.00", net_result_final: true, pending_count: 0 },
+      { currency: "DOP", income_before_itbis: "100.00", expense_before_itbis: "0.00", net_before_itbis: "100.00", itbis_paid: "0.00", itbis_cobrado: "18.00", itbis_charged: "18.00", net_result_final: true, pending_count: 0 },
+      { currency: "EUR", income_before_itbis: "0.00", expense_before_itbis: "18.00", net_before_itbis: "-18.00", itbis_paid: "2.00", itbis_cobrado: "0.00", itbis_charged: "0.00", net_result_final: true, pending_count: 0 },
+      { currency: "USD", income_before_itbis: "45.00", expense_before_itbis: "0.00", net_before_itbis: "45.00", itbis_paid: "0.00", itbis_cobrado: "5.00", itbis_charged: "5.00", net_result_final: true, pending_count: 0 },
     ]);
   });
 
@@ -459,7 +461,7 @@ describe("live figure mapping", () => {
     const snapshot = readMonthCloseWire({
       ...mappedWire,
       currencies: [
-        { currency: "DOP", income_before_itbis_minor: 100000, expense_before_itbis_minor: 0, net_result_minor: 100000, itbis_owed_minor: 1800 },
+        { currency: "DOP", income_before_itbis_minor: 100000, expense_before_itbis_minor: 0, net_result_minor: 100000, itbis_paid_minor: 1800 },
       ],
       cuentas_por_cobrar: [],
       cuentas_por_pagar: [line],
@@ -680,4 +682,25 @@ test("a new local business has no seeded month figures or outstanding invoices",
   const open = await client.openItems("local-business-empty");
   expect(open.cuentas_por_cobrar.items).toEqual([]);
   expect(open.cuentas_por_pagar.items).toEqual([]);
+});
+
+describe("Faltan datos fiscales rows", () => {
+  test("the reader keeps the server's rows as sent; an older server sends none", () => {
+    const rows = [{ family: "purchase", currency: "DOP", count: 1, by_currency: true }, { family: "purchase", currency: "USD", count: 2, by_currency: true }];
+    expect(readMonthCloseWire({ ...mappedWire, missing_fiscal_rows: rows }).fiscal_rows).toEqual(rows);
+    expect(readMonthCloseWire(mappedWire).fiscal_rows).toEqual([]);
+    expect(() => readMonthCloseWire({ ...mappedWire, missing_fiscal_rows: [{ family: "gasto", currency: "DOP", count: 1, by_currency: false }] })).toThrow(MonthCloseError);
+  });
+
+  test("the sample books count them by the server's rule: one row per tab, split by currency only when it spans two", () => {
+    const held = (id: string, kind: "invoice" | "receipt", currency: string) => ({ ...document({ id, kind, amount: "10.00", itbis: null, status: "pagado" }), currency, missing: ["expense_type_missing" as const] });
+    expect(monthCloseFiscalRowsFrom([held("a", "receipt", "DOP"), held("b", "receipt", "DOP"), held("c", "invoice", "DOP")])).toEqual([
+      { family: "purchase", currency: "DOP", count: 2, by_currency: false },
+      { family: "sale", currency: "DOP", count: 1, by_currency: false },
+    ]);
+    expect(monthCloseFiscalRowsFrom([held("a", "receipt", "DOP"), held("b", "receipt", "USD"), held("c", "receipt", "USD")])).toEqual([
+      { family: "purchase", currency: "DOP", count: 1, by_currency: true },
+      { family: "purchase", currency: "USD", count: 2, by_currency: true },
+    ]);
+  });
 });

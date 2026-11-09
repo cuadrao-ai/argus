@@ -70,8 +70,6 @@ class CurrencyBlock(_Wire):
     itbis_charged: str
     itbis_paid_minor: int
     itbis_paid: str
-    itbis_owed_minor: int
-    itbis_owed: str
     # Settlement only, absent while it is off: what is still to collect and pay,
     # the ITBIS charged on the sales already marked cobrado, and the counts by
     # status. While it is off the web shows itbis_charged in ITBIS cobrado's place.
@@ -147,6 +145,16 @@ class HeldLine(DocumentLine):
     missing: list[str]
 
 
+class FiscalDataRow(_Wire):
+    # One "Faltan datos fiscales" row: the held documents of one Registros tab
+    # in one currency. `by_currency` is true when that tab's held documents
+    # this month span more than one currency, so the row names its currency.
+    family: Literal["purchase", "sale"]
+    currency: str
+    count: int
+    by_currency: bool
+
+
 class ForeignCurrencyForm(_Wire):
     # Foreign-currency lines left out of this form until a rate exists.
     pending_rate_count: int = 0
@@ -193,6 +201,9 @@ class MonthClose(_Wire):
     # Every document the 606 or 607 holds this month, with what it needs. The
     # export's verdict, not month completion: `closed` never reads into it.
     missing_fiscal_data: list[HeldLine] = Field(default_factory=list)
+    # The same documents counted per Registros tab and currency, in order:
+    # Compras, then Ventas.
+    missing_fiscal_rows: list[FiscalDataRow] = Field(default_factory=list)
     # The month's documents still pendiente; absent while settlement is off.
     cuentas_por_cobrar: list[DocumentLine] | None = _settlement()
     cuentas_por_pagar: list[DocumentLine] | None = _settlement()

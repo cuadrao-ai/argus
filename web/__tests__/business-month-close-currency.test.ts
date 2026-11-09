@@ -10,13 +10,13 @@ import {
 
 const now = new Date(2026, 9, 18);
 
-function block(currency: string, minor: { income: number; expense: number; itbisOwed: number }) {
+function block(currency: string, minor: { income: number; expense: number; itbisPaid: number }) {
   return {
     currency,
     income_before_itbis_minor: minor.income,
     expense_before_itbis_minor: minor.expense,
     net_result_minor: minor.income - minor.expense,
-    itbis_owed_minor: minor.itbisOwed,
+    itbis_paid_minor: minor.itbisPaid,
   };
 }
 
@@ -41,29 +41,29 @@ function wire(currencies: unknown[], lists: Record<string, unknown[]> = {}) {
 
 describe("month close keeps every currency the server sends", () => {
   test("a USD-only month keeps its own figures, not unknown", () => {
-    const snapshot = readMonthCloseWire(wire([block("USD", { income: 120000, expense: 2400, itbisOwed: 21600 })]));
+    const snapshot = readMonthCloseWire(wire([block("USD", { income: 120000, expense: 2400, itbisPaid: 21600 })]));
     expect(snapshot.figures).toEqual([
-      { currency: "USD", income_before_itbis: "1200.00", expense_before_itbis: "24.00", net_before_itbis: "1176.00", itbis_owed: "216.00", itbis_cobrado: null, itbis_charged: null, net_result_final: null, pending_count: null },
+      { currency: "USD", income_before_itbis: "1200.00", expense_before_itbis: "24.00", net_before_itbis: "1176.00", itbis_paid: "216.00", itbis_cobrado: null, itbis_charged: null, net_result_final: null, pending_count: null },
     ]);
   });
 
   test("a DOP and USD month keeps one block per currency, in the server's order", () => {
-    const snapshot = readMonthCloseWire(wire([block("DOP", { income: 400000, expense: 150000, itbisOwed: 18000 }), block("USD", { income: 120000, expense: 2400, itbisOwed: 21600 })]));
+    const snapshot = readMonthCloseWire(wire([block("DOP", { income: 400000, expense: 150000, itbisPaid: 18000 }), block("USD", { income: 120000, expense: 2400, itbisPaid: 21600 })]));
     expect(snapshot.figures.map((figures) => [figures.currency, figures.net_before_itbis])).toEqual([["DOP", "2500.00"], ["USD", "1176.00"]]);
   });
 
   test("a figure the block does not send is unknown, never zero", () => {
     const snapshot = readMonthCloseWire(wire([{ currency: "DOP", income_before_itbis_minor: 1000 }]));
-    expect(snapshot.figures).toEqual([{ currency: "DOP", income_before_itbis: "10.00", expense_before_itbis: null, net_before_itbis: null, itbis_owed: null, itbis_cobrado: null, itbis_charged: null, net_result_final: null, pending_count: null }]);
+    expect(snapshot.figures).toEqual([{ currency: "DOP", income_before_itbis: "10.00", expense_before_itbis: null, net_before_itbis: null, itbis_paid: null, itbis_cobrado: null, itbis_charged: null, net_result_final: null, pending_count: null }]);
   });
 
   test("zero and three decimal currencies read exactly from minor units", () => {
     const snapshot = readMonthCloseWire(wire(
-      [block("BHD", { income: 1234567, expense: 1234572, itbisOwed: 50 }), block("JPY", { income: 1500, expense: 0, itbisOwed: 0 })],
+      [block("BHD", { income: 1234567, expense: 1234572, itbisPaid: 50 }), block("JPY", { income: 1500, expense: 0, itbisPaid: 0 })],
       { cuentas_por_cobrar: [line("yen", "invoice", "JPY", 1500, null)], cuentas_por_pagar: [line("dinar", "receipt", "BHD", 1050, 50)] },
     ));
     const [bhd, jpy] = snapshot.figures;
-    expect(bhd).toEqual({ currency: "BHD", income_before_itbis: "1234.567", expense_before_itbis: "1234.572", net_before_itbis: "-0.005", itbis_owed: "0.050", itbis_cobrado: null, itbis_charged: null, net_result_final: null, pending_count: null });
+    expect(bhd).toEqual({ currency: "BHD", income_before_itbis: "1234.567", expense_before_itbis: "1234.572", net_before_itbis: "-0.005", itbis_paid: "0.050", itbis_cobrado: null, itbis_charged: null, net_result_final: null, pending_count: null });
     expect(jpy.income_before_itbis).toBe("1500");
     expect(snapshot.documents.map((item) => [item.id, item.amount, item.itbis])).toEqual([["yen", "1500", null], ["dinar", "1.050", "0.050"]]);
     const open = readOpenItemsWire({
@@ -94,8 +94,8 @@ describe("the net waits only on its own currency", () => {
   test("a pending USD document does not hold back the DOP net: each block says whether its own net is final", () => {
     const byStatus = (pending: number) => ({ invoices: { pendiente: { count: pending, before_itbis_minor: 0 }, cobrado: { count: 0, before_itbis_minor: 0 } }, receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } });
     const [dop, usd] = readMonthCloseWire(wire([
-      { ...block("DOP", { income: 10000, expense: 0, itbisOwed: 0 }), by_status: byStatus(0), net_result_final: true },
-      { ...block("USD", { income: 5000, expense: 0, itbisOwed: 0 }), by_status: byStatus(1), net_result_final: false },
+      { ...block("DOP", { income: 10000, expense: 0, itbisPaid: 0 }), by_status: byStatus(0), net_result_final: true },
+      { ...block("USD", { income: 5000, expense: 0, itbisPaid: 0 }), by_status: byStatus(1), net_result_final: false },
     ])).figures;
     expect(monthCloseNetDisplay(dop)).toEqual({ state: "final", net_before_itbis: "100.00" });
     expect(monthCloseNetDisplay(usd)).toEqual({ state: "pending", pending_count: 1, reason: "documents" });
@@ -140,7 +140,7 @@ describe("the sample month holds a second currency", () => {
     const current = await client.load("2026-10");
     expect(current.figures.map((figures) => figures.currency)).toEqual(["DOP", "USD"]);
     expect(current.figures[0]).toMatchObject({ income_before_itbis: "58400.00", expense_before_itbis: "9600.00" });
-    expect(current.figures[1]).toEqual({ currency: "USD", income_before_itbis: "1200.00", expense_before_itbis: "24.00", net_before_itbis: "1176.00", itbis_owed: "216.00", itbis_cobrado: "216.00", itbis_charged: "216.00", net_result_final: true, pending_count: 0 });
+    expect(current.figures[1]).toEqual({ currency: "USD", income_before_itbis: "1200.00", expense_before_itbis: "24.00", net_before_itbis: "1176.00", itbis_paid: "0.00", itbis_cobrado: "216.00", itbis_charged: "216.00", net_result_final: true, pending_count: 0 });
     const previous = await client.load("2026-09");
     expect(previous.figures.map((figures) => figures.currency)).toEqual(["DOP"]);
   });

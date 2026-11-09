@@ -20394,10 +20394,6 @@ components:
           type: integer
         itbis_paid:
           type: string
-        itbis_owed_minor:
-          type: integer
-        itbis_owed:
-          type: string
         cuentas_por_cobrar_minor:
           anyOf:
           - type: integer
@@ -20449,8 +20445,6 @@ components:
       - itbis_charged
       - itbis_paid_minor
       - itbis_paid
-      - itbis_owed_minor
-      - itbis_owed
       - net_result_final
     CurrencySelection:
       properties:
@@ -22911,6 +22905,26 @@ components:
       - attention_at
       - created_at
       - disconnected_at
+    FiscalDataRow:
+      properties:
+        family:
+          type: string
+          enum:
+          - purchase
+          - sale
+        currency:
+          type: string
+        count:
+          type: integer
+        by_currency:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - family
+      - currency
+      - count
+      - by_currency
     FiscalFacts:
       properties:
         rnc:
@@ -27433,6 +27447,10 @@ components:
         missing_fiscal_data:
           items:
             $ref: '#/components/schemas/HeldLine'
+          type: array
+        missing_fiscal_rows:
+          items:
+            $ref: '#/components/schemas/FiscalDataRow'
           type: array
         cuentas_por_cobrar:
           anyOf:

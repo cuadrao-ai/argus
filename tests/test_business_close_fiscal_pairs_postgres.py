@@ -44,9 +44,13 @@ def test_each_fiscal_row_opens_exactly_the_records_it_counts(web) -> None:  # no
     unpaid._recorded(web, "income", "B0100000054")
 
     month = _month(web, "2026-09")
-    groups: dict[tuple[str, str], list[str]] = defaultdict(list)
+    lines: dict[tuple[str, str], list[str]] = defaultdict(list)
     for document in month["missing_fiscal_data"]:
-        groups[(FAMILY[document["document_kind"]], document["currency"])].append(document["activity_id"])
-    assert set(held) <= set(groups[("purchase", "DOP")])
-    for (family, currency), ids in groups.items():
-        assert _registros(web, family, currency, month["from"], month["to"]) == sorted(ids), (family, currency)
+        lines[(FAMILY[document["document_kind"]], document["currency"])].append(document["activity_id"])
+    assert set(held) <= set(lines[("purchase", "DOP")])
+    rows = month["missing_fiscal_rows"]
+    assert {(row["family"], row["currency"]) for row in rows} == set(lines)
+    for row in rows:
+        opened = _registros(web, row["family"], row["currency"], month["from"], month["to"])
+        assert len(opened) == row["count"], row
+        assert opened == sorted(lines[(row["family"], row["currency"])]), row

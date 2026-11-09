@@ -4,13 +4,14 @@ import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { businessSettlementAvailable } from "@/lib/business-api";
 import { formatBusinessName } from "./business-format";
-import { inboxCount, problemCount, readingCount } from "./inbox-count";
+import { inboxCount, readingCount } from "./inbox-count";
 import { useBusiness } from "./BusinessWorkspace";
 import BusinessAddMenu from "./BusinessAddMenu";
 import BusinessMonthClosePanel, { useMonthCloseSource, type MonthCloseParts } from "./BusinessMonthClosePanel";
 import { cardClass } from "./business-ui";
 import { HomeHeading } from "./foundation/HomeHeading";
 import { HOME_DEFAULT_ORDER, HomeCustomize, HomeSetupLead, HomeWork, useHomeOrder, type HomeSectionKey } from "./inicio/HomeOverviewDraft";
+import { useBusinessSetup } from "./inicio/useBusinessSetup";
 
 /**
  * Inicio: the greeting (in the top bar from the tablet up, here on a phone), then its three layers in the person's
@@ -19,23 +20,24 @@ import { HOME_DEFAULT_ORDER, HomeCustomize, HomeSetupLead, HomeWork, useHomeOrde
  */
 export default function BusinessOverviewPanel() {
   const { isBelowTablet } = useResponsiveLayout();
-  const { records, openPanel, bridge, reload, chosen, userId } = useBusiness();
+  const { records, bridge, reload, chosen, userId } = useBusiness();
   const { t } = useTranslation();
-  const porRevisar = inboxCount(records);
+  const waiting = inboxCount(records);
   const reading = readingCount(records) ?? 0;
-  const problem = problemCount(records) ?? 0;
   const monthClose = useMonthCloseSource();
   // Cobros y pagos is Por cobrar and Por pagar: no section, and nothing to reorder, while settlement is off.
   const shown = businessSettlementAvailable(records.workspace) ? HOME_DEFAULT_ORDER : HOME_DEFAULT_ORDER.filter((key) => key !== "money");
   const homeOrder = useHomeOrder(userId, chosen?.space_id, shown);
+  // Read once: the lead card and the compact entry are two places for one answer.
+  const setup = useBusinessSetup();
 
   const home = (parts: MonthCloseParts) => {
-    const sections: Record<HomeSectionKey, React.ReactNode> = { work: <HomeWork />, month: parts.month, money: parts.money };
+    const sections: Record<HomeSectionKey, React.ReactNode> = { work: <HomeWork setup={setup} />, month: parts.month, money: parts.money };
     return (
       <div data-testid="home-overview" className="w-full space-y-6 pb-6">
         {isBelowTablet ? <HomeHeading name={bridge?.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} /> : null}
         {parts.receiptStatus ? <div className={cardClass}>{parts.receiptStatus}</div> : null}
-        <HomeSetupLead />
+        <HomeSetupLead steps={setup} />
         {homeOrder.order.map((key) => <div key={key} data-home-section={key}>{sections[key]}</div>)}
         <div className="flex border-t border-[color:var(--surface-divider)] pt-4"><HomeCustomize order={homeOrder.order} defaults={homeOrder.defaults} onChange={homeOrder.save} isDefault={homeOrder.isDefault} /></div>
       </div>
@@ -50,13 +52,7 @@ export default function BusinessOverviewPanel() {
         layout="finance"
         arrange={home}
         receiptStatusPlacement={isBelowTablet ? "lead" : "default"}
-        review={records.error ? (records.refused ? { state: "refused", reference: records.failureReference } : { state: "failed", retry: reload, reference: records.failureReference }) : porRevisar === null ? { state: records.inbox === null ? "loading" : "unknown" } : {
-          count: porRevisar,
-          detail: null,
-          reading,
-          attention: problem,
-          open: () => openPanel({ kind: "inbox" }),
-        }}
+        review={records.error ? (records.refused ? { state: "refused", reference: records.failureReference } : { state: "failed", retry: reload, reference: records.failureReference }) : waiting === null ? { state: records.inbox === null ? "loading" : "unknown" } : { count: waiting, reading }}
       />
     </section>
   );

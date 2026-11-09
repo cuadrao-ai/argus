@@ -3,13 +3,8 @@
 import { useEffect, useState } from "react";
 import { getChosenGrant, LOCAL_BUSINESS_PREFIX } from "@/lib/business-grant";
 import { listInvoices } from "@/lib/business-invoices-api";
-import { referenceCode } from "@/lib/failure-screen";
 import { invoicingShown, useBusiness } from "../BusinessWorkspace";
-import { inboxCount } from "../inbox-count";
 import { INVOICE_STAGE_COUNTS } from "./home-draft-data";
-
-/** Bandeja rows waiting for review, as the server answered it: still loading, unreadable (with its reference), or a number. `none` is a Business with no server to ask. */
-export type ReviewCount = { kind: "none" } | { kind: "loading" } | { kind: "failed"; reference: string } | { kind: "ready"; value: number };
 
 type Counts = { key: string; drafts: number | null };
 
@@ -19,9 +14,9 @@ export function useSampleBusiness() {
   return source.mode !== "live" && !chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX);
 }
 
-/** Receipt review uses the shared Bandeja count. Only invoice drafts need a separate request. */
-export function useHomeCounts(): { toReview: ReviewCount; drafts: number | null; retry: () => void } {
-  const { source, chosen, userId, records, reload, invoicing: invoicingState } = useBusiness();
+/** Invoice drafts, the one count Inicio reads on its own; the Bandeja's numbers come with the workspace records. */
+export function useHomeCounts(): { drafts: number | null } {
+  const { source, chosen, userId, invoicing: invoicingState } = useBusiness();
   const live = source.mode === "live";
   const samples = useSampleBusiness();
   const invoicing = invoicingShown(invoicingState);
@@ -36,12 +31,7 @@ export function useHomeCounts(): { toReview: ReviewCount; drafts: number | null;
       .then((drafts) => { if (!controller.signal.aborted) setCounts({ key, drafts }); });
     return () => controller.abort();
   }, [live, userId, chosen, invoicing, key]);
-  const waiting = inboxCount(records);
-  const toReview: ReviewCount = records.error || (waiting === null && records.serverReference)
-    ? { kind: "failed", reference: records.failureReference ?? records.serverReference ?? referenceCode(null) }
-    : waiting !== null ? { kind: "ready", value: waiting }
-    : live ? { kind: "loading" } : { kind: "none" };
-  if (samples) return { toReview, drafts: invoicing ? INVOICE_STAGE_COUNTS.draft ?? 0 : null, retry: reload };
+  if (samples) return { drafts: invoicing ? INVOICE_STAGE_COUNTS.draft ?? 0 : null };
   const current = live && invoicing && counts?.key === key ? counts : null;
-  return { toReview, drafts: current?.drafts ?? null, retry: reload };
+  return { drafts: current?.drafts ?? null };
 }

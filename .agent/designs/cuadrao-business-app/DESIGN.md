@@ -70,14 +70,14 @@ the code, named after it, and every screen uses that owner.
   header lists one total per currency, the header's currency first. Owner:
   `openItemsHeaderCurrency` in `business-month-close.ts`. A single amount with
   no header, such as a Bandeja row, keeps its symbol.
-- **Short headline figures.** Only the big summary figures (Ingresos, Gastos,
-  Resultado neto, ITBIS a pagar) shorten, and only from 10,000 up: "RD$ 58.4 mil",
-  "RD$ 1.3 M". Spanish uses "mil" and "M", never "k". One decimal, rounded half
-  up. The exact amount shows in a tooltip on hover and on keyboard focus, and
-  is what a screen reader reads. The row shortens together: when its largest
-  figure is 10,000 or more, every figure in it uses that unit ("RD$ 9.6 mil"
-  beside "RD$ 58.4 mil"), and below that every figure is exact. Owner:
-  `formatHeadlineMoney`.
+- **Whole units on Inicio.** Inicio's overview totals (Ingresos, Gastos,
+  Resultado neto, ITBIS en ventas, ITBIS en compras) show whole currency units:
+  "RD$ 1,444,210", "RD$ 41,830". No cents and no compact "mil" or "M" form.
+  Rounding is half up from the decimal text, never through a float. Detail
+  screens (Registros, Bandeja, invoices, a record) keep exact cents. A negative
+  Resultado neto is a plain minus sign in the normal text color. ITBIS shows as
+  those two totals, never a balance between them (Lucas, 2026-11-09). Owner:
+  `formatMoney` with `{ decimals: 0 }` in `business-format.ts`.
 - **Relative time when recent.** Under 7 days a time reads relative: "hace 15
   minutos", "ayer", "hace 3 días". From 7 days on it reads as a short date,
   "12 oct", with the year only when it is not this year: "24 dic 2025". Owner:

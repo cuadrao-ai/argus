@@ -81,8 +81,6 @@ The error body is the usual problem document. `code` is the field above.
       "itbis_charged": "27.00",
       "itbis_paid_minor": 540,
       "itbis_paid": "5.40",
-      "itbis_owed_minor": 2160,
-      "itbis_owed": "21.60",
       "itbis_cobrado_minor": 1800,
       "itbis_cobrado": "18.00",
       "cuentas_por_cobrar_minor": 5900,
@@ -106,6 +104,7 @@ The error body is the usual problem document. `code` is the field above.
   "missing_ncf": [],
   "missing_payment_form": [],
   "missing_fiscal_data": [],
+  "missing_fiscal_rows": [],
   "filing_ready": false,
   "cuentas_por_cobrar": [],
   "cuentas_por_pagar": []
@@ -124,6 +123,7 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
 | `missing_payment_form` | Purchases the 606 holds until a person sets Forma de Pago, marked paid or not, each with `payment_form` null. Forma de Pago is never defaulted. This list adds no `reasons` code, so it does not read into `closed`; `dgii_forms` carries the 606 status. |
 | `missing_fiscal_data` | Every document the 606 or 607 holds this month, as a document line plus `missing`: what the export still needs from it, first fix first, in the export's own words (`expense_type_missing`, `rnc_missing`, `rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`, `payment_method_missing`, else `detail_missing`), the same words Registros shows as `export_missing`. Empty when both forms carry every document, when nothing is reportable, and when the Business has no RNC. `closed` is month completion and never says the forms are ready. |
+| `missing_fiscal_rows` | The `missing_fiscal_data` documents counted for Inicio's "Faltan datos fiscales" rows, each `{family, currency, count, by_currency}`: `family` is `purchase` (Compras) or `sale` (Ventas), in that order. One row per family, in its one currency. A family whose held documents this month are in more than one currency gets a row per currency, with `by_currency` true, because Registros lists one currency at a time and each row opens exactly what it counts: Registros on that family's tab, in that currency, over this month, with "Faltan datos fiscales" (`fiscal_data: missing`). The month close and Registros read the same export verdict (`manifest_verdicts`). Empty when nothing is held. |
 | `filing_ready` | The one fact "ready for the 606 and 607". True only when both `dgii_forms` stand by the export's verdict (`prepared_candidate`, `no_operations` or `summary_only`) and no step of this month remains: `unreviewed_movements_count` is zero (a receipt waiting for review or unreadable is not in the export yet), no read is in flight with no date (a receipt being read for the first time, or an email being read, could still land in any month, so every month answers false until it lands), `missing_fiscal_data` is empty, and `cuentas_por_cobrar` and `cuentas_por_pagar` are empty (absent while settlement is off, so they never hold it). The web shows "Ya tienes todo para el 606 y el 607" from this field alone. |
 | `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. Every document counts in its own currency's block. Only the 606 and 607 files and `dgii_forms` are DOP-only (`argus.domain.business.dgii_validation.declarable`, the one gate the export and month close share). The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
 | `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS, plus sin comprobante purchases at their whole total. |
@@ -132,7 +132,6 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `net_result_minor` | Income before ITBIS minus expenses before ITBIS. Negative when expenses are larger. |
 | `itbis_charged_minor` | ITBIS on the 607 lines, plus ITBIS stated on a sin comprobante sale. A credit note subtracts. |
 | `itbis_paid_minor` | ITBIS on the 606 lines. A sin comprobante purchase adds none. |
-| `itbis_owed_minor` | Charged minus paid. Negative when the business paid more ITBIS than it charged. |
 | `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Invoice totals use the same signed Monto Facturado as income, so a credit note subtracts. Receipt totals are the activity total minus ITBIS, and the whole total for a sin comprobante receipt. Those incomplete documents are not part of the net. |
 | `cuentas_por_cobrar` | Invoices still `pendiente`. The list amount is the document total, the amount still to collect. |
 | `cuentas_por_pagar` | Receipts still `pendiente`. The list amount is the document total, the amount still to pay. |

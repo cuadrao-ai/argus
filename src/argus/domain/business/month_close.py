@@ -134,10 +134,6 @@ def net_result(income_before: int, expense_before: int) -> int:
     return income_before - expense_before
 
 
-def itbis_owed(charged: int, paid: int) -> int:
-    return charged - paid
-
-
 def _fiscal(document: MonthDocument) -> bool:
     return bool(document.ncf or document.ecf)
 
@@ -463,7 +459,6 @@ def summarize(
             "net_result": _pair(net_result(income, expense), currency),
             "itbis_charged": _pair(charged, currency),
             "itbis_paid": _pair(paid, currency),
-            "itbis_owed": _pair(itbis_owed(charged, paid), currency),
             "itbis_cobrado": _pair(part.itbis_collected, currency),
             "cuentas_por_cobrar": _pair(receivable, currency),
             "cuentas_por_pagar": _pair(payable, currency),
@@ -480,8 +475,6 @@ def summarize(
             "itbis_charged": shown["itbis_charged"]["amount"],
             "itbis_paid_minor": shown["itbis_paid"]["minor"],
             "itbis_paid": shown["itbis_paid"]["amount"],
-            "itbis_owed_minor": shown["itbis_owed"]["minor"],
-            "itbis_owed": shown["itbis_owed"]["amount"],
             "itbis_cobrado_minor": shown["itbis_cobrado"]["minor"],
             "itbis_cobrado": shown["itbis_cobrado"]["amount"],
             "cuentas_por_cobrar_minor": shown["cuentas_por_cobrar"]["minor"],
@@ -512,11 +505,38 @@ def summarize(
         "missing_ncf": missing_ncf,
         "missing_payment_form": missing_payment_form,
         "missing_fiscal_data": missing_fiscal_data,
+        "missing_fiscal_rows": fiscal_rows(missing_fiscal_data),
     }
     if settlement:
         summary["cuentas_por_cobrar"] = receivables
         summary["cuentas_por_pagar"] = payables
     return summary
+
+
+FAMILY = {"receipt": "purchase", "invoice": "sale"}
+
+
+def fiscal_rows(held: Sequence[Mapping]) -> list[dict]:
+    """Para cerrar's "Faltan datos fiscales" rows: one per family (Compras,
+    then Ventas), each opening Registros on that tab, which shows one currency
+    at a time. A family whose held documents this month are in more than one
+    currency gets a row per currency, so each row opens exactly what it
+    counts."""
+
+    counts: dict[str, dict[str, int]] = {"purchase": {}, "sale": {}}
+    for line in held:
+        family = counts[FAMILY[line["document_kind"]]]
+        family[line["currency"]] = family.get(line["currency"], 0) + 1
+    return [
+        {
+            "family": family,
+            "currency": currency,
+            "count": count,
+            "by_currency": len(currencies) > 1,
+        }
+        for family, currencies in counts.items()
+        for currency, count in sorted(currencies.items())
+    ]
 
 
 def draft_close_day(receipt_on: object, arrived_at: object) -> date:

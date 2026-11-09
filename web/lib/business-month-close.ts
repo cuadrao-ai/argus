@@ -133,7 +133,15 @@ export type MonthCloseSnapshot = {
   filing_ready?: boolean | null;
   /** One block per currency the month holds, in the server's order. A month with no documents has none. */
   figures: MonthCloseFigures[];
+  /** Para cerrar's "Faltan datos fiscales" rows as the server counts them, Compras first. Empty from an older server. */
+  fiscal_rows: MonthCloseFiscalRow[];
 };
+
+/**
+ * One "Faltan datos fiscales" row: the documents the 606 or 607 holds this month on one Registros tab, in one
+ * currency. `by_currency` says the tab's held documents span more than one currency, so the row names its own.
+ */
+export type MonthCloseFiscalRow = { family: "purchase" | "sale"; currency: string; count: number; by_currency: boolean };
 
 /** One currency's month. A null figure is unknown. */
 export type MonthCloseFigures = {
@@ -144,8 +152,8 @@ export type MonthCloseFigures = {
   expense_before_itbis: string | null;
   /** Invoice bases minus receipt bases. ITBIS is not part of this figure. */
   net_before_itbis: string | null;
-  /** Invoice ITBIS minus receipt ITBIS. */
-  itbis_owed: string | null;
+  /** ITBIS on the month's approved purchases: "ITBIS en compras". No balance against sales is ever shown. */
+  itbis_paid: string | null;
   /** ITBIS charged on the sales already marked cobrado. Null while settlement is off. */
   itbis_cobrado: string | null;
   /** ITBIS charged on the month's approved sales: "ITBIS en ventas", shown in ITBIS cobrado's place while settlement is off. */
@@ -268,17 +276,6 @@ function toMinor(amount: string, currency: string): bigint {
   return trimmed.startsWith("-") ? -minor : minor;
 }
 
-export type ItbisBalanceDisplay =
-  | { kind: "payable"; amount: string }
-  | { kind: "credit"; amount: string };
-
-/** A balance below zero is in the Business's favor, shown without its sign. */
-export function itbisBalanceDisplay(amount: string): ItbisBalanceDisplay {
-  const trimmed = amount.trim();
-  if (trimmed.startsWith("-") && /[1-9]/.test(trimmed)) return { kind: "credit", amount: trimmed.slice(1) };
-  return { kind: "payable", amount };
-}
-
 /** An RNC with no nonzero digit is no RNC. */
 export function rncPresent(value: string | null | undefined): boolean {
   return Boolean(value && /[1-9]/.test(value));
@@ -325,7 +322,7 @@ export function monthCloseFiguresFrom(documents: readonly MonthCloseDocument[]):
     income_before_itbis: minorToDecimal(book.invoiceBase, currency),
     expense_before_itbis: minorToDecimal(book.receiptBase, currency),
     net_before_itbis: minorToDecimal(book.invoiceBase - book.receiptBase, currency),
-    itbis_owed: minorToDecimal(book.invoiceItbis - book.receiptItbis, currency),
+    itbis_paid: minorToDecimal(book.receiptItbis, currency),
     itbis_cobrado: minorToDecimal(book.collectedItbis, currency),
     itbis_charged: minorToDecimal(book.invoiceItbis, currency),
     net_result_final: book.pending === 0,
@@ -721,6 +718,7 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
     dgii_forms: sampleForms(inWindow, to, today),
     documents: inWindow,
     figures: monthCloseFiguresFrom(inWindow),
+    fiscal_rows: monthCloseFiscalRowsFrom(inWindow),
     unreviewed_movements: 0,
     filing_ready: dgiiFormsReady(sampleForms(inWindow, to, today)) && inWindow.every((document) => document.status !== "pendiente" && !document.missing),
   };
@@ -985,7 +983,7 @@ function readFigures(value: unknown): MonthCloseFigures[] {
       income_before_itbis: figure("income_before_itbis"),
       expense_before_itbis: figure("expense_before_itbis"),
       net_before_itbis: figure("net_result"),
-      itbis_owed: figure("itbis_owed"),
+      itbis_paid: figure("itbis_paid"),
       itbis_cobrado: figure("itbis_cobrado"),
       itbis_charged: figure("itbis_charged"),
       net_result_final: typeof block.net_result_final === "boolean" ? block.net_result_final : null,
@@ -1092,9 +1090,34 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     documents: lines.map((line) => wireDocument(line, malformed.has(line.activity_id))),
     blockers,
     figures: readFigures(value.currencies),
+    fiscal_rows: readFiscalRows(value.missing_fiscal_rows),
     unreviewed_movements,
     filing_ready: typeof value.filing_ready === "boolean" ? value.filing_ready : null,
   };
+}
+
+/** The server's rows, as sent. An older server sends none. */
+function readFiscalRows(value: unknown): MonthCloseFiscalRow[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new MonthCloseError("unavailable", "month close fiscal rows are unknown");
+  return value.map((row) => {
+    if (!isRecord(row) || (row.family !== "purchase" && row.family !== "sale") || typeof row.currency !== "string" || !CURRENCY_CODE.test(row.currency) || typeof row.by_currency !== "boolean" || typeof row.count !== "number" || !Number.isInteger(row.count) || row.count < 1) {
+      throw new MonthCloseError("unavailable", "month close fiscal rows are unknown");
+    }
+    return { family: row.family, currency: row.currency, count: row.count, by_currency: row.by_currency };
+  });
+}
+
+/** The sample books' stand-in for the server's `missing_fiscal_rows`, by the server's rule (`month_close.fiscal_rows`). */
+export function monthCloseFiscalRowsFrom(documents: readonly MonthCloseDocument[]): MonthCloseFiscalRow[] {
+  return (["purchase", "sale"] as const).flatMap((family) => {
+    const counts = new Map<string, number>();
+    for (const document of documents) {
+      if (!document.missing?.length || !document.currency || (document.kind === "receipt") !== (family === "purchase")) continue;
+      counts.set(document.currency, (counts.get(document.currency) ?? 0) + 1);
+    }
+    return [...counts].sort(([a], [b]) => a.localeCompare(b)).map(([currency, count]) => ({ family, currency, count, by_currency: counts.size > 1 }));
+  });
 }
 
 function readWholeCount(value: unknown): number {

@@ -48,7 +48,7 @@ async function mount(waiting: number | null, showReports = true) {
     userId: "synthetic-person", source: { ...source, mode: "live" }, revision: 0,
     actions: { create: [] }, panel: { kind: "overview" }, invoicing: "unavailable",
     openPanel: (panel: BusinessContextValue["panel"]) => { opened.push(panel); }, reload: () => { reloads += 1; },
-    records: { workspace: await source.workspace(), inbox: [], error: false, receiptActivity: null },
+    records: { workspace: await source.workspace(), inbox: [], notes: [], emails: [], error: false, receiptActivity: null },
   } as unknown as BusinessContextValue;
   const activity = (count: number | null) => count === null ? null : {
     reading_count: 0, unread_count: 0, presentation: "none" as const,
@@ -80,7 +80,9 @@ async function mount(waiting: number | null, showReports = true) {
 function counts(host: HTMLElement, expected: number) {
   assert.equal(host.querySelector('[data-testid="business-inbox-count"]')?.textContent, String(expected));
   assert.equal(host.querySelector('[data-testid="records-bandeja-waiting"]')?.textContent, expected === 1 ? "1 recibo espera en la Bandeja" : `${expected} recibos esperan en la Bandeja`);
-  assert.equal(host.querySelector('[data-testid="home-records-to-review"]')?.textContent, `${expected === 1 ? "1 registro por revisar" : `${expected} registros por revisar`}Revisar`);
+  // Necesita atención is everything waiting in the Bandeja: the sidebar's one count, and no footer row repeating it.
+  assert.equal(host.querySelector('[data-testid="home-needs-attention-count"]')?.textContent, String(expected));
+  assert.equal(host.querySelector('[data-testid="home-records-to-review"]'), null);
 }
 
 test("Inicio, Bandeja and Registros use the same server count and follow its updates", async () => {
@@ -90,9 +92,10 @@ test("Inicio, Bandeja and Registros use the same server count and follow its upd
   await page.update(1);
   counts(page.host, 1);
   await page.update(0);
-  for (const id of ["home-records-to-review", "business-inbox-count", "records-bandeja-waiting"]) {
+  for (const id of ["home-needs-attention-count", "business-inbox-count", "records-bandeja-waiting"]) {
     assert.equal(page.host.querySelector(`[data-testid="${id}"]`), null, id);
   }
+  assert.match(page.host.querySelector('[data-testid="home-needs-attention"]')?.textContent ?? "", /Todo al día/);
   assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length, reportRequests, "receipt activity updates do not request another report");
 });
 
@@ -102,7 +105,7 @@ test("Inicio does not request a report while its shared receipt count is unknown
   assert.ok(page.host.querySelector('[data-testid="home-needs-attention"] [aria-busy="true"]'));
   assert.equal(page.fixture.calls.length, 0);
   await page.update(28);
-  assert.equal(page.host.querySelector('[data-testid="home-records-to-review"]')?.textContent, "28 registros por revisarRevisar");
+  assert.equal(page.host.querySelector('[data-testid="home-needs-attention-count"]')?.textContent, "28");
 });
 
 test("a failed shared receipt load keeps its reference and retries that load", async () => {
@@ -110,7 +113,6 @@ test("a failed shared receipt load keeps its reference and retries that load", a
   await page.update(null, { error: true, failureReference: "receipt-count-test" });
   const section = page.host.querySelector('[data-testid="home-needs-attention"]')!;
   assert.ok(section.textContent?.includes("receipt-count-test"));
-  assert.equal(page.host.querySelector('[data-testid="home-records-to-review"]'), null);
   const retry = [...section.querySelectorAll("button")].find((button) => button.textContent === "Reintentar");
   assert.ok(retry);
   await act(async () => retry.click());
@@ -122,7 +124,7 @@ test("a failed shared receipt load keeps its reference and retries that load", a
 test("an unavailable shared receipt count shows its reference instead of an endless skeleton", async () => {
   const page = await mount(null, false);
   await page.update(null, { inbox: null, serverReference: "receipt-service-test" });
-  const failure = page.host.querySelector('[data-testid="home-records-to-review-failed"]');
+  const failure = page.host.querySelector('[data-testid="home-needs-attention"]');
   assert.ok(failure);
   assert.ok(failure.textContent?.includes("receipt-service-test"));
   assert.equal(page.host.querySelector('[data-testid="home-needs-attention"] [aria-busy="true"]'), null);
@@ -134,11 +136,10 @@ test("an unavailable shared receipt count shows its reference instead of an endl
 });
 
 
-test("clicking the Inicio review count opens the Bandeja queue it counts", async () => {
+test("Ver todo opens the Bandeja in its normal view: no tab, no filter", async () => {
   const page = await mount(28, false);
-  const review = page.host.querySelector<HTMLButtonElement>('[data-testid="home-records-to-review"]');
-  assert.ok(review);
-  assert.equal(review.textContent, "28 registros por revisarRevisar");
-  await act(async () => review.click());
+  const seeAll = page.host.querySelector<HTMLButtonElement>('[data-testid="home-needs-see-all"]');
+  assert.ok(seeAll);
+  await act(async () => seeAll.click());
   assert.deepEqual(page.opened, [{ kind: "inbox" }]);
 });

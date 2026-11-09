@@ -343,25 +343,19 @@ describe("the Business top bar on a phone", () => {
     await page.act(async () => window.dispatchEvent(new Event("resize")));
     assert.equal(page.screen().querySelector('[data-testid="inicio-error"]')?.getAttribute("role"), "alert");
     assert.equal(page.screen().querySelector('[data-testid="month-close-close"]'), null, "a receipt failure prevents closing the month");
-    const toggle = page.screen().querySelector<HTMLButtonElement>('[data-testid="month-close-tasks-toggle"]');
-    if (toggle) await page.act(async () => toggle.click());
     // Only the workspace's answer turns settlement on, and the failed read left it unknown.
     assert.equal(page.screen().querySelector('[data-testid="month-close-task-settle"]'), null);
     assert.equal(page.screen().querySelector("#month-close-money"), null);
     assert.equal(page.screen().querySelector('[data-home-section="money"]'), null);
   });
 
-  test("with settlement on, the settlement step reaches Cobros y pagos through Ver cuáles on a phone", async () => {
+  test("with settlement on, the settlement step shows directly and reaches Cobros y pagos on a phone", async () => {
     const page = await mount({ width: 390, overrides: await settlementOn() });
     await page.settle(() => page.screen().querySelector('[data-testid="month-close-checklist"]') !== null && page.screen().querySelector('[data-testid="month-close-payable"]') !== null, "the checklist and money cards");
     await page.act(async () => window.dispatchEvent(new Event("resize")));
-    const toggle = page.screen().querySelector<HTMLButtonElement>('[data-testid="month-close-tasks-toggle"]')!;
-    assert.equal(toggle.textContent, "Ver cuáles");
-    assert.equal(toggle.getAttribute("aria-expanded"), "false");
-    assert.equal(page.screen().querySelector('[data-testid="month-close-task-settle"]'), null);
-    await page.act(async () => toggle.click());
+    assert.equal(page.screen().querySelector('[data-testid="month-close-tasks-toggle"]'), null, "no Ver cuáles");
     const task = page.screen().querySelector('[data-testid="month-close-task-settle"]');
-    assert.ok(task, "the disclosure reveals the settlement task");
+    assert.ok(task, "the step shows without a disclosure");
     const see = task.querySelector<HTMLButtonElement>("button")!;
     assert.equal(see.textContent, "Ver");
     const money = page.screen().querySelector<HTMLElement>("#month-close-money");

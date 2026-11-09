@@ -76,7 +76,7 @@ function tag(host: HTMLElement, merchant: string): HTMLElement {
   return mark;
 }
 
-async function mount(inbox: ReceiptSummary[], extra?: ReactNode) {
+async function mount(inbox: ReceiptSummary[], extra?: ReactNode, capabilities: string[] = ["read"]) {
   const { act, createElement } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -88,10 +88,11 @@ async function mount(inbox: ReceiptSummary[], extra?: ReactNode) {
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const value = {
     source: { mode: "fixture" },
-    records: { inbox, error: false, receiptActivity: null },
+    // The server's one Bandeja count: every row waiting, as the sidebar shows it.
+    records: { inbox, notes: [], emails: [], error: false, receiptActivity: { pending_review_count: inbox.length } },
     openPanel: () => undefined,
     reload: () => undefined,
-    chosen: { space_id: "local-business-inicio-state", name: "Negocio de prueba", grant_id: "g", role: "owner", capabilities: ["read"] },
+    chosen: { space_id: "local-business-inicio-state", name: "Negocio de prueba", grant_id: "g", role: "owner", capabilities },
     userId: null,
     panel: { kind: "overview" },
   } as unknown as BusinessContextValue;
@@ -125,32 +126,49 @@ describe("Inicio names a receipt with the Bandeja's word", () => {
     }
   });
 
-  test("the list holds the server's attention group: a Listos row is never under a count that excludes it", async () => {
+  test("the card lists everything waiting in the Bandeja, Listos and still-reading rows included, problems first", async () => {
     const listo = receipt({ id: "listo", merchant: "Suplidora Lista", bandeja_group: { group: "listo", reason: null, draft_id: "draft", version: 1 } });
     const waiting = receipt({ id: "waiting", merchant: "Taller Sin NCF" });
     const reading = receipt({ id: "reading", merchant: "Colmado Leyendo", status: "queued", bandeja: { por_revisar: false, con_problema: false, leyendo: true }, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } });
-    const page = await mount([listo, waiting, reading]);
+    const problem = receipt({ id: "problem", merchant: "Recibo Borroso", filename: "borroso.jpg", status: "needs_attention", attention: "unreadable", received_at: "2026-10-01T10:00:00Z", bandeja: { por_revisar: false, con_problema: true, leyendo: false } });
+    const page = await mount([listo, waiting, reading, problem]);
     try {
       const section = page.host.querySelector('[data-testid="home-needs-attention"]')!;
-      assert.equal(section.textContent?.includes("Suplidora Lista"), false);
-      assert.equal(section.textContent?.includes("Taller Sin NCF"), true);
-      assert.equal(section.textContent?.includes("Colmado Leyendo"), false, "the count leaves out what is still being read");
+      const titles = [...section.querySelectorAll("li button")].map((item) => item.textContent ?? "");
+      assert.equal(titles.length, 4);
+      assert.match(titles[0], /borroso\.jpg/, "a problem leads, even the oldest; an unreadable receipt is named by its file, as the Bandeja names it");
+      for (const merchant of ["Suplidora Lista", "Taller Sin NCF", "Colmado Leyendo"]) assert.ok(titles.some((title) => title.includes(merchant)), merchant);
     } finally {
       await page.unmount();
     }
   });
 
   test("a problem row keeps the red attention word, including when attention is absent", async () => {
-    const named = receipt({ id: "problem", merchant: "Recibo Borroso", status: "needs_attention", attention: "unreadable", bandeja: { por_revisar: false, con_problema: true, leyendo: false } });
+    const named = receipt({ id: "problem", merchant: "Recibo Borroso", filename: "borroso.jpg", status: "needs_attention", attention: "unreadable", bandeja: { por_revisar: false, con_problema: true, leyendo: false } });
     const bare = receipt({ id: "problem-bare", merchant: "Recibo Sin Motivo", status: "needs_attention", attention: null, bandeja: { por_revisar: false, con_problema: true, leyendo: false } });
     const page = await mount([named, bare]);
     try {
-      assert.equal(tag(page.host, named.merchant!).textContent, "No se pudo leer");
-      assert.match(tag(page.host, named.merchant!).className, /bg-\[#f6dfe0\]/);
+      assert.equal(tag(page.host, "borroso.jpg").textContent, "No se pudo leer");
+      assert.match(tag(page.host, "borroso.jpg").className, /bg-\[#f6dfe0\]/);
       assert.equal(tag(page.host, bare.merchant!).textContent, "Necesita atención");
       assert.match(tag(page.host, bare.merchant!).className, /bg-\[#f6dfe0\]/);
     } finally {
       await page.unmount();
     }
+  });
+
+  test("Resolver and Revisar show only for someone who may prepare; a read-only person sees the rows without a verb", async () => {
+    const problem = receipt({ id: "problem", merchant: "Recibo Sin Motivo", status: "needs_attention", bandeja: { por_revisar: false, con_problema: true, leyendo: false } });
+    const ready = receipt({ id: "ready", merchant: "Ferretería Lista", status: "review_ready" });
+    const reader = await mount([problem, ready]);
+    try {
+      assert.doesNotMatch(reader.host.querySelector('[data-testid="home-needs-attention"]')?.textContent ?? "", /Resolver|Revisar/);
+    } finally { await reader.unmount(); }
+    const preparer = await mount([problem, ready], undefined, ["read", "prepare"]);
+    try {
+      const text = preparer.host.querySelector('[data-testid="home-needs-attention"]')?.textContent ?? "";
+      assert.match(text, /Resolver/);
+      assert.match(text, /Revisar/);
+    } finally { await preparer.unmount(); }
   });
 });

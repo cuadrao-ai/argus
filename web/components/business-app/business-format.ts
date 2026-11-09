@@ -79,59 +79,6 @@ export function formatMoney(
   return `${negative ? "-" : ""}${currencySymbol(currency)} ${negative ? number.slice(1) : number}`;
 }
 
-/** Headline figures shorten from here up; anything smaller reads exactly. */
-export const HEADLINE_COMPACT_FROM = BigInt(10_000);
-
-/**
- * Spanish readers say "58.4 mil" and "1.3 M"; `Intl` gives es-419 an English "k".
- * Largest unit first. Billions stay in millions in Spanish, as people say them.
- */
-const COMPACT_UNITS: Record<"es" | "en", { size: bigint; label: string; space: boolean }[]> = {
-  es: [
-    { size: BigInt(1_000_000), label: "M", space: true },
-    { size: BigInt(1_000), label: "mil", space: true },
-  ],
-  en: [
-    { size: BigInt(1_000_000_000), label: "B", space: false },
-    { size: BigInt(1_000_000), label: "M", space: false },
-    { size: BigInt(1_000), label: "K", space: false },
-  ],
-};
-
-/**
- * A big summary figure: one decimal and a unit from 10,000 up ("RD$ 58.4 mil"),
- * the exact amount below it. Rounds half up from the decimal text, never a float.
- * `row` holds every figure shown beside this one: the largest picks the unit for
- * all of them, so a row never mixes "58.4 mil" with "9,600.00".
- * `exact` is what the tooltip and the accessible name read.
- */
-export function formatHeadlineMoney(amount: string, currency: string, locale: string, row: readonly string[] = [amount]): { short: string; exact: string } {
-  const exact = formatMoney(amount, currency, locale);
-  const match = DECIMAL_AMOUNT.exec(amount.trim());
-  const parsed = row.map((value) => DECIMAL_AMOUNT.exec(value.trim())).filter((found) => found !== null);
-  if (!match || parsed.length === 0) return { short: exact, exact };
-  const largest = parsed.reduce((top, found) => (BigInt(found[2]) > BigInt(top[2]) ? found : top));
-  if (BigInt(largest[2]) < HEADLINE_COMPACT_FROM) return { short: exact, exact };
-  const units = COMPACT_UNITS[locale.toLowerCase().startsWith("es") ? "es" : "en"];
-  const ten = BigInt(10);
-  const tenthsIn = ([, , whole, fraction = ""]: RegExpExecArray, size: bigint) => {
-    const scaled = BigInt(`${whole}${fraction}`);
-    const scale = ten ** BigInt(fraction.length);
-    return (scaled * ten * BigInt(2) + size * scale) / (size * scale * BigInt(2));
-  };
-  let index = units.findIndex((unit) => BigInt(largest[2]) >= unit.size);
-  // 999,960 rounds to "1,000.0 mil"; the next unit up says it as "1 M".
-  if (index > 0 && tenthsIn(largest, units[index].size) >= BigInt(10_000)) index -= 1;
-  const unit = units[index];
-  const tenths = tenthsIn(match, unit.size);
-  const { group, decimal } = separators(locale);
-  const tenth = tenths % ten;
-  const number = `${groupDigits((tenths / ten).toString(), group)}${tenth === BigInt(0) ? "" : `${decimal}${tenth}`}`;
-  // A figure too small for the row's unit would read "0"; it shows its real amount instead.
-  if (tenths === BigInt(0)) return { short: exact, exact };
-  return { short: `${match[1]}${currencySymbol(currency)} ${number}${unit.space ? " " : ""}${unit.label}`, exact };
-}
-
 export function formatDay(day: string | null, locale: string): string {
   if (!day) return "";
   const date = new Date(`${day.slice(0, 10)}T12:00:00`);

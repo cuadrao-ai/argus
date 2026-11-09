@@ -9722,7 +9722,11 @@ month, as a document line plus `missing`, the export's own words for what it
 still needs, first fix first: `expense_type_missing`, `rnc_missing`,
 `rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`,
 `payment_method_missing` or `detail_missing`, the same words Registros shows as
-`export_missing`) and `filing_ready` (bool: the one fact "ready for the 606 and
+`export_missing`) and `missing_fiscal_rows` (those documents counted for
+Inicio's "Faltan datos fiscales" rows as `{family, currency, count,
+by_currency}`, Compras then Ventas: one row per family, split by currency only
+when that family's held documents span more than one, so each row opens exactly
+the Registros list it counts) and `filing_ready` (bool: the one fact "ready for the 606 and
 607", true only when both `dgii_forms` stand by the export's verdict
 (`prepared_candidate`, `no_operations` or `summary_only`) and no step of the
 month remains: `unreviewed_movements_count` zero, no read in flight with no
@@ -9730,7 +9734,10 @@ date (a receipt being read for the first time, or an email being read, holds
 every month until it lands), `missing_fiscal_data` empty, `cuentas_por_cobrar`
 and `cuentas_por_pagar` empty while settlement is on; the web shows that sentence
 from this field alone, never from `closed`, which stays month completion). Each
-currency block adds `itbis_cobrado_minor` and
+currency block carries `itbis_charged` (ITBIS on the month's approved sales)
+and `itbis_paid` (ITBIS on its approved purchases, the 606 lines) as two plain
+totals, with no balance between them: the real ITBIS position needs facts the
+server does not hold. It adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
 `pendiente` and, for a currency other than DOP, while that currency has no

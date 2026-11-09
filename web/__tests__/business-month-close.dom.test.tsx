@@ -404,7 +404,7 @@ describe("month close layouts", () => {
       closed_at: null, unreviewed_movements: 0,
       earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [],
-      figures: [{ currency: "DOP", income_before_itbis: null, expense_before_itbis: null, net_before_itbis: null, itbis_owed: null }],
+      figures: [{ currency: "DOP", income_before_itbis: null, expense_before_itbis: null, net_before_itbis: null, itbis_paid: null }],
       blockers: [statementMissingBlocker, unmatchedCharges(2)],
     };
     const client: MonthCloseClient = {
@@ -417,7 +417,7 @@ describe("month close layouts", () => {
       async closeMonth() { throw new Error("no close"); },
     };
     const { host, root, act } = await renderView(client);
-    for (const id of ["month-close-income", "month-close-expenses", "month-close-net", "month-close-itbis"]) {
+    for (const id of ["month-close-income", "month-close-expenses", "month-close-net", "month-close-itbis-sales", "month-close-itbis-purchases"]) {
       const card = host.querySelector(`[data-testid="${id}"]`);
       assert.equal(card?.getAttribute("data-state"), "pending");
       assert.equal(card?.getAttribute("data-amount"), null);
@@ -460,7 +460,7 @@ describe("month close layouts", () => {
     };
     const { act, host, root } = await renderView(client);
     const income = host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "";
-    assert.match(income, /RD\$ 58\.4 mil/);
+    assert.match(income, /RD\$ 58,400(?![.\d])/);
     assert.match(host.textContent ?? "", /Farmacia Central/);
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="month-close-month-prev"]')?.click();
@@ -482,7 +482,7 @@ describe("month close layouts", () => {
       release(await inner.load("2026-09"));
       await Promise.resolve();
     });
-    assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 17 mil/);
+    assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 17,000(?![.\d])/);
     assert.ok(host.querySelector('[data-testid="month-close-receivable"] [data-document-id="inv-farmacia"]'), "the columns are every month's pending documents, so a month change keeps them");
     assert.equal(host.querySelector('[data-testid="month-close-cards"]')?.getAttribute("data-loading"), null);
     await act(async () => root.unmount());
@@ -533,7 +533,7 @@ describe("fiscal complete months stay editable", () => {
           expense_before_itbis_minor: 50000, expense_before_itbis: "500.00",
           net_result_minor: 350000, net_result: "3500.00",
           itbis_charged_minor: 72000, itbis_charged: "720.00",
-          itbis_owed_minor: 18000, itbis_owed: "180.00",
+          itbis_paid_minor: 18000, itbis_paid: "180.00",
           by_status: {
             invoices: { pendiente: statusCell(1, 100000), cobrado: statusCell(0, 0) },
             receipts: { pendiente: statusCell(1, 50000), pagado: statusCell(0, 0) },
@@ -699,29 +699,14 @@ describe("fiscal complete months stay editable", () => {
   });
 });
 
-describe("Inicio ITBIS balance", () => {
-  function amountSnapshot(itbisOwed: string): MonthCloseSnapshot {
-    return {
-      month: "2026-10",
-      today: "2026-10-18",
-      payment_methods: ["efectivo", "otro"],
-      from: "2026-10-01",
-      to: "2026-10-31",
-      closed_at: null, unreviewed_movements: 0,
-      earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
-      documents: [],
-      figures: [{
-        currency: "DOP",
-        income_before_itbis: "1000.00",
-        expense_before_itbis: "2000.00",
-        net_before_itbis: "-1000.00",
-        itbis_owed: itbisOwed,
-      }],
+describe("Inicio ITBIS totals", () => {
+  function clientFor(figures: { itbis_paid: string; itbis_charged: string; net: string }): MonthCloseClient {
+    const snapshot: MonthCloseSnapshot = {
+      month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31",
+      closed_at: null, unreviewed_movements: 0, earliest_month: null, payment_methods: ["otro"], dgii_forms: null,
+      documents: [], fiscal_rows: [],
+      figures: [{ currency: "DOP", income_before_itbis: "1000.00", expense_before_itbis: "2000.00", net_before_itbis: figures.net, itbis_paid: figures.itbis_paid, itbis_charged: figures.itbis_charged, itbis_cobrado: null, net_result_final: true, pending_count: 0 }],
     };
-  }
-
-  function clientFor(itbisOwed: string): MonthCloseClient {
-    const snapshot = amountSnapshot(itbisOwed);
     return {
       mode: "mock",
       async load() { return snapshot; },
@@ -732,42 +717,31 @@ describe("Inicio ITBIS balance", () => {
       async closeMonth() { throw new Error("no close"); },
     };
   }
+  const BALANCE = /saldo|a favor|a pagar|por pagar|in your favor|to pay|balance|pérdida/i;
 
-  test("a negative ITBIS balance shows the credit label and the absolute amount", async () => {
-    const { act, host, root } = await renderView(clientFor("-1250.00"));
-    const card = host.querySelector('[data-testid="month-close-itbis"]');
-    const [label, amount] = [...(card?.querySelectorAll("p") ?? [])].map((item) => item.textContent);
-    assert.equal(label, "Saldo a favor de ITBIS");
-    assert.equal(amount, "RD$ 1,250.00");
-    assert.equal(/-/.test(amount ?? "missing"), false);
-    assert.equal(card?.getAttribute("data-amount"), "1250.00");
-    assert.equal(card?.textContent?.includes("reembolso"), false);
-    assert.equal(card?.textContent?.includes("devuelven"), false);
-    assert.equal(host.textContent?.includes("reembolso"), false);
-    assert.equal(host.textContent?.includes("devuelven"), false);
-    assert.equal(card?.textContent?.includes("ITBIS a pagar"), false);
-    await act(async () => root.unmount());
-    host.remove();
-  });
+  for (const [paid, charged] of [["1250.49", "180.00"], ["180.00", "1250.50"], ["0.00", "0.00"]] as const) {
+    test(`ITBIS en ventas ${charged} and ITBIS en compras ${paid} are two plain totals, never a balance`, async () => {
+      const { act, host, root } = await renderView(clientFor({ itbis_paid: paid, itbis_charged: charged, net: "-1000.00" }));
+      const read = (testId: string) => [...(host.querySelector(`[data-testid="${testId}"]`)?.querySelectorAll("p") ?? [])].map((item) => item.textContent);
+      const whole = (amount: string) => `RD$ ${Number(amount.split(".")[0]) + (Number(amount.split(".")[1]) >= 50 ? 1 : 0)}`.replace(/(\d)(?=(\d{3})+$)/g, "$1,");
+      assert.deepEqual(read("month-close-itbis-sales").slice(0, 2), ["ITBIS en ventas", whole(charged)]);
+      assert.deepEqual(read("month-close-itbis-purchases").slice(0, 2), ["ITBIS en compras", whole(paid)]);
+      assert.equal(host.querySelector('[data-testid="month-close-itbis-sales"]')?.getAttribute("data-amount"), charged);
+      assert.equal(host.querySelector('[data-testid="month-close-itbis-purchases"]')?.getAttribute("data-amount"), paid);
+      assert.equal(host.querySelector('[data-testid="month-close-itbis"]'), null, "no balance card");
+      assert.doesNotMatch(host.querySelector('[data-testid="month-close-cards"]')?.textContent ?? "", BALANCE);
+      await act(async () => root.unmount());
+      host.remove();
+    });
+  }
 
-  test("a positive ITBIS balance keeps ITBIS a pagar", async () => {
-    const { act, host, root } = await renderView(clientFor("1250.00"));
-    const card = host.querySelector('[data-testid="month-close-itbis"]');
-    const [label, amount] = [...(card?.querySelectorAll("p") ?? [])].map((item) => item.textContent);
-    assert.equal(label, "ITBIS a pagar");
-    assert.equal(amount, "RD$ 1,250.00");
-    assert.equal(card?.textContent?.includes("Saldo a favor de ITBIS"), false);
-    await act(async () => root.unmount());
-    host.remove();
-  });
-
-  test("a zero ITBIS balance keeps ITBIS a pagar", async () => {
-    const { act, host, root } = await renderView(clientFor("0.00"));
-    const card = host.querySelector('[data-testid="month-close-itbis"]');
-    const [label, amount] = [...(card?.querySelectorAll("p") ?? [])].map((item) => item.textContent);
-    assert.equal(label, "ITBIS a pagar");
-    assert.equal(amount, "RD$ 0.00");
-    assert.equal(card?.textContent?.includes("Saldo a favor de ITBIS"), false);
+  test("a negative Resultado neto is a plain minus sign in the normal text color", async () => {
+    const { act, host, root } = await renderView(clientFor({ itbis_paid: "0.00", itbis_charged: "0.00", net: "-1000.00" }));
+    const amount = host.querySelector('[data-testid="month-close-net"] p:nth-of-type(2)');
+    assert.equal(amount?.textContent, "-RD$ 1,000");
+    assert.match(amount?.className ?? "", /text-black/);
+    assert.doesNotMatch(amount?.className ?? "", /9e2f39|red/);
+    assert.doesNotMatch(host.textContent ?? "", /pérdida/i);
     await act(async () => root.unmount());
     host.remove();
   });
@@ -794,7 +768,7 @@ describe("a fully settled month", () => {
         expense_before_itbis_minor: 100000, expense_before_itbis: "1000.00",
         net_result_minor: 300000, net_result: "3000.00",
         itbis_charged_minor: 72000, itbis_charged: "720.00",
-        itbis_owed_minor: 18000, itbis_owed: "180.00",
+        itbis_paid_minor: 18000, itbis_paid: "180.00",
         by_status: {
           invoices: { pendiente: statusCell(0, 0), cobrado: statusCell(2, 200000) },
           receipts: { pendiente: statusCell(0, 0), pagado: statusCell(1, 100000) },
@@ -809,7 +783,7 @@ describe("a fully settled month", () => {
       cuentas_por_pagar: [],
     }));
     const { act, host, root } = await renderMonthCloseView(client, now, null, { count: 0, detail: null, open: () => {} });
-    assert.match(host.querySelector('[data-testid="month-close-net"]')?.textContent ?? "", /RD\$ 3,000\.00/);
+    assert.match(host.querySelector('[data-testid="month-close-net"]')?.textContent ?? "", /RD\$ 3,000(?![.\d])/);
     assert.equal(host.querySelector('[data-testid="month-close-filing"]')?.textContent, "Ya tienes todo para el 606 y el 607.");
     assert.equal(host.querySelector('[data-testid="month-close-checklist-ready"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-close"]'), null, "there is no close action");
@@ -819,7 +793,7 @@ describe("a fully settled month", () => {
     assert.equal(host.querySelector('[data-testid="month-close-payable"]'), null);
     const order = [...host.querySelectorAll('[data-testid="month-close-checklist"], [data-testid="month-close-nothing-open"], [data-testid="month-close-cards"]')].map((node) => node.getAttribute("data-testid"));
     assert.deepEqual(order, ["month-close-checklist", "month-close-cards", "month-close-nothing-open"]);
-    assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 4,000\.00/);
+    assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 4,000(?![.\d])/);
     assert.equal(host.querySelector('[data-testid="month-close-empty"]'), null);
     assert.equal(host.textContent?.includes("Este mes no tiene documentos"), false);
     await act(async () => root.unmount());
@@ -827,14 +801,7 @@ describe("a fully settled month", () => {
   });
 });
 
-describe("unreviewed drafts on the month-close panel", () => {
-  const sentences = [
-    ["es-419", 1, "Tienes 1 movimiento sin revisar en octubre. Revísalo en la Bandeja antes de cerrar el mes."],
-    ["es-419", 5, "Tienes 5 movimientos sin revisar en octubre. Revísalos en la Bandeja antes de cerrar el mes."],
-    ["en", 1, "You have 1 unreviewed item in October. Review it in the Bandeja before closing the month."],
-    ["en", 5, "You have 5 unreviewed items in October. Review them in the Bandeja before closing the month."],
-  ] as const;
-
+describe("the Bandeja on the month-close panel", () => {
   async function renderUnreviewed(language: "es-419" | "en", count: number) {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
@@ -843,7 +810,6 @@ describe("unreviewed drafts on the month-close panel", () => {
     const spanish = (await import("../public/locales/es-419/common.json")).default;
     const english = (await import("../public/locales/en/common.json")).default;
     const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
-    const catalog = language === "en" ? english : spanish;
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
     const parsed = readMonthCloseWire({
@@ -851,10 +817,10 @@ describe("unreviewed drafts on the month-close panel", () => {
       today: "2026-10-18",
       from: "2026-10-01",
       to: "2026-10-31",
-      closed: false,
-      reasons: [{ code: "movimientos_sin_revisar", count }],
+      closed: count === 0,
+      reasons: count ? [{ code: "movimientos_sin_revisar", count }] : [],
       unreviewed_movements_count: count,
-      currencies: [{ currency: "DOP", income_before_itbis_minor: 100, expense_before_itbis_minor: 0, net_result_minor: 100, itbis_owed_minor: 0, net_result_final: true }],
+      currencies: [{ currency: "DOP", income_before_itbis_minor: 100, expense_before_itbis_minor: 0, net_result_minor: 100, itbis_paid_minor: 0, net_result_final: true }],
       missing_rnc: [],
       missing_ncf: [],
       cuentas_por_cobrar: [],
@@ -862,45 +828,51 @@ describe("unreviewed drafts on the month-close panel", () => {
     });
     const client: MonthCloseClient = {
       mode: "mock",
-      async load() { return { ...parsed, closed: true, closed_at: "2026-10-18T15:00:00.000Z" }; },
+      async load() { return parsed; },
       async openItems() { return openItemsFrom([], "2026-10-18"); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
       async markPendiente() { throw new Error("no undo"); },
       async closeMonth() { throw new Error("no close"); },
     };
+    const opened: string[] = [];
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView settlement client={client} now={now} layout="finance" review={{ count: 0, detail: null, open() {} }} />
+          <BusinessMonthCloseView settlement client={client} now={now} layout="finance" review={{ count: 7, reading: 0 }} openBandeja={() => opened.push("bandeja")} />
         </I18nextProvider>,
       );
     });
     await act(async () => { await Promise.resolve(); });
-    const key = count === 1 ? "unreviewed_movements_one" : "unreviewed_movements_other";
-    const fromLocale = catalog.business.month_close[key].replaceAll("{{month}}", language === "en" ? "October" : "octubre").replaceAll("{{count}}", String(count));
-    return { act, host, root, fromLocale };
+    return { act, host, root, opened };
   }
 
-  for (const [language, count, sentence] of sentences) {
-    test(`${language} shows the ${count === 1 ? "singular" : "plural"} sentence and does not treat the month as closed`, async () => {
-      const { act, host, root, fromLocale } = await renderUnreviewed(language, count);
-      const line = host.querySelector('[data-testid="month-close-unreviewed"]');
-      assert.equal(fromLocale, sentence);
-      assert.equal(line?.textContent, sentence);
-      assert.equal(line?.textContent?.includes("2026"), false);
-      assert.equal(line?.textContent?.includes("octubre de"), false);
-      assert.equal(host.querySelector('[data-testid="month-close"]')?.getAttribute("data-closed"), "false");
-      assert.equal(host.querySelector('[data-testid="month-close-closed"]'), null);
-      assert.equal(host.querySelector('[data-testid="month-close-checklist-ready"]'), null);
-      assert.equal(host.querySelector('[data-testid="month-close-close"]'), null);
+  for (const [language, count, words] of [["es-419", 5, "Revisa la Bandeja"], ["en", 1, "Review the Inbox"]] as const) {
+    test(`${language}: Bandeja items holding the month are one row with no number, opening the Bandeja`, async () => {
+      const { act, host, root, opened } = await renderUnreviewed(language, count);
+      const row = host.querySelector('[data-testid="month-close-task-bandeja"]');
+      assert.equal(row?.querySelector("p")?.textContent, words);
+      const checklist = host.querySelector('[data-testid="month-close-checklist"]')?.textContent ?? "";
+      const left = host.querySelector('[data-testid="month-close-checklist-left"]')?.textContent ?? "";
+      assert.doesNotMatch(checklist.replace(left, ""), /\d/, "Para cerrar shows no Bandeja number");
+      assert.equal(host.querySelector('[data-testid="month-close-checklist-left"]')?.textContent, language === "en" ? "1 left" : "falta 1");
+      await act(async () => { row?.querySelector("button")?.click(); });
+      assert.deepEqual(opened, ["bandeja"]);
       assert.equal(host.querySelector('[data-testid="month-close-filing"]'), null);
       await act(async () => root.unmount());
       host.remove();
     });
   }
+
+  test("no Bandeja row when nothing in the Bandeja holds this month, whatever waits there", async () => {
+    const { act, host, root } = await renderUnreviewed("es-419", 0);
+    assert.equal(host.querySelector('[data-testid="month-close-task-bandeja"]'), null);
+    assert.doesNotMatch(host.querySelector('[data-testid="month-close-checklist"]')?.textContent ?? "", /7|Bandeja/);
+    await act(async () => root.unmount());
+    host.remove();
+  });
 });
 });

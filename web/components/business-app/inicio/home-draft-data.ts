@@ -1,6 +1,6 @@
 // DRAFT (design lane): Inicio overview preview data. Each value is shaped like the response that owns it.
 // Real and wired today: receipt counts and Bandeja rows come from the workspace records (GET /business/receipt-activity, the Bandeja page).
-// MISSING on the server: `RECENT_WORK` (no recents endpoint) and `SETUP_STATE` (no setup-progress endpoint).
+// MISSING on the server: `RECENT_WORK` (no recents endpoint). Setup progress is the server's (GET /business/setup).
 
 import { dossierFixtureIds } from "../dossier-fixtures";
 
@@ -16,30 +16,3 @@ export const RECENT_WORK: RecentWork[] = [
   { id: "r3", kind: "record", label: "Cliente Taller Rodríguez", edited_at: hoursAgo(26), target: { kind: "draft", id: dossierFixtureIds.income } },
   { id: "r4", kind: "receipt", label: "Estación Ruta 3", edited_at: hoursAgo(50), target: { kind: "draft", id: dossierFixtureIds.fiscal } },
 ];
-
-/**
- * MISSING: `GET /business/setup` → the Business's saved setup outcomes. Required steps count toward "n de 4";
- * optional ones never do (Guide readiness rules: invoicing, uploads and invitations are optional).
- */
-export type SetupStepKey = "created" | "fiscal_identity" | "receiving_address" | "receipt_reading" | "team" | "whatsapp" | "invoicing";
-export type SetupStep = { key: SetupStepKey; required: boolean; done: boolean };
-export const SETUP_STATE: Record<"active" | "new", SetupStep[]> = {
-  active: [
-    { key: "created", required: true, done: true },
-    { key: "fiscal_identity", required: true, done: false },
-    { key: "receiving_address", required: true, done: true },
-    { key: "receipt_reading", required: true, done: false },
-    { key: "team", required: false, done: false },
-    { key: "whatsapp", required: false, done: false },
-    { key: "invoicing", required: false, done: false },
-  ],
-  new: [
-    { key: "created", required: true, done: true },
-    { key: "fiscal_identity", required: true, done: false },
-    { key: "receiving_address", required: true, done: false },
-    { key: "receipt_reading", required: true, done: false },
-    { key: "team", required: false, done: false },
-    { key: "whatsapp", required: false, done: false },
-    { key: "invoicing", required: false, done: false },
-  ],
-};

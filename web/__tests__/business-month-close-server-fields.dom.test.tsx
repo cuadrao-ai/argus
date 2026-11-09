@@ -30,7 +30,7 @@ function byStatus(pending: number) {
 }
 
 function block(currency: string, final: boolean, pending = 0) {
-  return { currency, income_before_itbis_minor: 400000, expense_before_itbis_minor: 150000, net_result_minor: 250000, itbis_owed_minor: 18000, itbis_cobrado_minor: 45000, by_status: byStatus(pending), net_result_final: final };
+  return { currency, income_before_itbis_minor: 400000, expense_before_itbis_minor: 150000, net_result_minor: 250000, itbis_charged_minor: 72000, itbis_paid_minor: 18000, itbis_cobrado_minor: 45000, by_status: byStatus(pending), net_result_final: final };
 }
 
 function line(id: string, dueOn: string | null, currency = "DOP") {
@@ -77,7 +77,7 @@ function serverClient(server: Server): { client: MonthCloseClient; asked: string
   return { client, asked };
 }
 
-async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"], layout: "inicio" | "finance" = "inicio", language: "es-419" | "en" = "es-419") {
+async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"], layout: "inicio" | "finance" = "inicio", language: "es-419" | "en" = "es-419", prepares = true) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -90,7 +90,8 @@ async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  const render = () => root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={browser} scopeKey="own" businessCurrency="DOP" review={review} layout={layout} /></I18nextProvider>);
+  const opened: unknown[] = [];
+  const render = () => root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={browser} scopeKey="own" businessCurrency="DOP" review={review} layout={layout} openRecords={prepares ? (focus) => opened.push(focus) : undefined} openBandeja={prepares ? () => opened.push("bandeja") : undefined} /></I18nextProvider>);
   await act(async () => { render(); });
   const setReview = async (next: typeof review) => { review = next; await act(async () => { render(); }); };
   const settle = async () => { for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); }); };
@@ -98,25 +99,23 @@ async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof
   const find = (id: string) => host.querySelector<HTMLElement>(`[data-testid="${id}"]`);
   const text = (id: string) => find(id)?.textContent ?? "";
   const unmount = async () => { await act(async () => root.unmount()); host.remove(); };
-  return { act, host, find, text, settle, setReview, unmount };
+  return { act, host, find, text, settle, setReview, unmount, opened };
 }
 
 describe("Inicio waits for the server receipt count before closing", () => {
-  test("known reading and attention groups stay separate and prevent a false ready state", async () => {
+  test("Para cerrar carries no Bandeja count: only receipts still being read, which keep the month from a false ready state", async () => {
     const { client } = serverClient({});
-    const view = await renderInicio(client, { count: 0, detail: null, reading: 1, attention: 0, open() {} });
+    const view = await renderInicio(client, { count: 0, reading: 1 });
     try {
-      assert.ok(view.find("month-close-reading"));
+      assert.match(view.text("month-close-task-reading"), /1/);
       assert.equal(view.find("month-close-checklist-ready"), null);
       assert.equal(view.find("month-close-checklist-unknown"), null);
       assert.equal(view.find("month-close-close"), null);
-      await view.setReview({ count: 4, detail: null, reading: 1, attention: 5, open() {} });
-      assert.match(view.text("month-close-task-review"), /4/);
-      assert.match(view.text("month-close-task-attention"), /5/);
-      assert.match(view.text("month-close-reading"), /1/);
-      assert.equal(view.find("month-close-steps-note"), null, "finishing tasks cannot promise closure while reading still blocks it");
+      await view.setReview({ count: 4, reading: 1 });
+      assert.equal(view.find("month-close-task-review"), null, "Necesita atención owns the Bandeja count");
+      assert.equal(view.find("month-close-task-attention"), null);
+      assert.match(view.text("month-close-task-reading"), /1/);
       assert.equal(view.find("month-close-checklist-footer"), null, "no empty footer divider remains without a status or action");
-      assert.equal(view.find("month-close-close"), null);
       assert.equal(view.find("month-close-nothing-open")?.querySelector("button"), null);
     } finally { await view.unmount(); }
   });
@@ -136,7 +135,7 @@ describe("Inicio waits for the server receipt count before closing", () => {
 
   test("a server-known zero keeps the all-settled message and still offers no close", async () => {
     const { client } = serverClient({});
-    const view = await renderInicio(client, { count: 0, detail: null, open: () => {} });
+    const view = await renderInicio(client, { count: 0 });
     try {
       assert.equal(view.text("month-close-checklist-ready").trim(), "Todo al día");
       assert.equal(view.find("month-close-close"), null, "there is no close action");
@@ -144,16 +143,13 @@ describe("Inicio waits for the server receipt count before closing", () => {
     } finally { await view.unmount(); }
   });
 
-  test("a positive server count keeps the review task and its action", async () => {
-    let opened = false;
+  test("a positive Bandeja count adds no row: items waiting from other months do not hold this one", async () => {
     const { client } = serverClient({});
-    const view = await renderInicio(client, { count: 2, detail: null, open: () => { opened = true; } });
+    const view = await renderInicio(client, { count: 2 });
     try {
-      assert.match(view.text("month-close-task-review"), /2 por revisar en la Bandeja/);
-      assert.equal(view.find("month-close-checklist-ready"), null);
-      assert.equal(view.find("month-close-close"), null);
-      await view.act(async () => view.find("month-close-task-review")!.querySelector("button")!.click());
-      assert.equal(opened, true);
+      assert.equal(view.find("month-close-task-review"), null);
+      assert.equal(view.text("month-close-checklist-ready").trim(), "Todo al día");
+      assert.doesNotMatch(view.text("month-close-checklist"), /2/);
     } finally { await view.unmount(); }
   });
 });
@@ -293,18 +289,18 @@ describe("the net result follows net_result_final", () => {
     const view = await renderInicio(client);
     try {
       assert.equal(view.find("month-close-net")?.dataset.state, "final");
-      assert.match(view.text("month-close-net"), /RD\$\s?2,500\.00/);
+      assert.match(view.text("month-close-net"), /RD\$\s?2,500(?![.\d])/);
     } finally {
       await view.unmount();
     }
   });
 
-  test("ITBIS cobrado sits under the ITBIS card, from the block", async () => {
+  test("ITBIS cobrado sits under ITBIS en ventas, from the block", async () => {
     const { client } = serverClient({});
     const view = await renderInicio(client);
     try {
-      assert.match(view.text("month-close-itbis"), /ITBIS cobrado/);
-      assert.match(view.text("month-close-itbis"), /RD\$\s?450\.00/);
+      assert.match(view.text("month-close-itbis-sales"), /ITBIS cobrado/);
+      assert.match(view.text("month-close-itbis-sales"), /RD\$\s?450(?![.\d])/);
     } finally {
       await view.unmount();
     }
@@ -324,7 +320,7 @@ describe("a non-final block with no documents left names the pending rate", () =
       income_before_itbis: null,
       expense_before_itbis: null,
       net_before_itbis: null,
-      itbis_owed: null,
+      itbis_paid: null,
       itbis_cobrado: null,
       net_result_final: false,
       pending_count: 0,
@@ -390,7 +386,7 @@ describe("a non-final block with no documents left names the pending rate", () =
 });
 
 describe("the close card names a pending rate only when the month has one", () => {
-  const readyReview = { count: 0, detail: null, open() {} };
+  const readyReview = { count: 0 };
 
   function paid(currency: string, final: boolean): MonthCloseFigures {
     return {
@@ -398,7 +394,7 @@ describe("the close card names a pending rate only when the month has one", () =
       income_before_itbis: "1200.00",
       expense_before_itbis: "240.00",
       net_before_itbis: "960.00",
-      itbis_owed: "180.00",
+      itbis_paid: "180.00",
       itbis_cobrado: "180.00",
       net_result_final: final,
       pending_count: 0,
@@ -573,59 +569,63 @@ describe("Exportar shows each form's own status from the packet", () => {
   });
 });
 
-describe("a malformed NCF reads as an error in the month's list, not as a missing one", () => {
-  const cases = [
-    { malformed: ["Ferretería La Esquina"], missing: [] },
-    { malformed: ["Ferretería La Esquina", "Colmado Don Pedro"], missing: ["Supermercado Bravo"] },
-  ];
+describe("Faltan datos fiscales rows are the server's, each opening exactly what it counts", () => {
+  const purchase = (id: string, currency = "DOP") => ({ ...receiptLine(id, `Proveedor ${id}`, null, SERVER_TODAY), currency, missing: ["expense_type_missing"] });
   for (const language of ["es-419", "en"] as const) {
-    for (const names of cases) {
-      const count = names.malformed.length + names.missing.length;
-      test(`${language}: ${names.malformed.length} malformed and ${names.missing.length} missing`, async () => {
-        const catalog = language === "en" ? english : spanish;
-        const copy = catalog.business.month_close.placeholder;
-        const words = catalog.business.transactions.layout.workflow.missing;
-        const malformed = names.malformed.map((name, index) => receiptLine(`act-malformed-${index}`, name, READ_VALUES.ncf.flagged, SERVER_TODAY));
-        const missing = names.missing.map((name, index) => receiptLine(`act-missing-${index}`, name, null, SERVER_TODAY));
-        const reasons = [...malformed, ...missing].map((item) => ({ code: "missing_ncf", activity_id: item.activity_id }));
-        // The export's verdict names each document once, in its own words; the month-completion lists stay beside it.
-        const held = [...malformed.map((item) => ({ ...item, missing: ["ncf_invalid"] })), ...missing.map((item) => ({ ...item, missing: ["ncf_missing"] }))];
-        const { client } = serverClient({ month: () => ({ reasons, missing_ncf: [...malformed, ...missing], ncf_malformed: malformed, missing_fiscal_data: held }) });
-        const view = await renderInicio(client, { count: 0, detail: null, open() {} }, "inicio", language);
-        try {
-          const task = view.find("month-close-task-fiscal");
-          assert.equal(task?.querySelector("p")?.textContent, (count === 1 ? copy.checklist_fiscal_data_one : copy.checklist_fiscal_data_other).replace("{{count}}", String(count)));
-          const which = task?.querySelector<HTMLButtonElement>('button[aria-controls="month-close-blockers"]');
-          assert.ok(which);
-          await view.act(async () => which.click());
-          assert.deepEqual([...view.host.querySelectorAll('[data-testid="month-close-blocker"]')].map((item) => item.textContent), [
-            ...names.malformed.map((name) => `${name} · ${words.ncf_invalid}`),
-            ...names.missing.map((name) => `${name} · ${words.ncf_missing}`),
-          ]);
-          assert.equal(view.find("month-close-close"), null, "there is no close action");
-          assert.equal(view.find("month-close-filing"), null, "a held document is never ready for the 606");
-        } finally { await view.unmount(); }
-      });
-    }
+    test(`${language}: one row per tab in its one currency, and Ver opens Registros on that tab, currency and month`, async () => {
+      const copy = (language === "en" ? english : spanish).business.month_close.placeholder;
+      const held = [purchase("p1"), purchase("p2")];
+      const rows = [{ family: "purchase", currency: "DOP", count: 2, by_currency: false }, { family: "sale", currency: "DOP", count: 1, by_currency: false }];
+      const { client } = serverClient({ month: () => ({ missing_fiscal_data: held, missing_fiscal_rows: rows }) });
+      const view = await renderInicio(client, { count: 0 }, "finance", language);
+      try {
+        assert.equal(view.find("month-close-task-fiscal-purchase-DOP")?.querySelector("p")?.textContent, copy.checklist_fiscal_purchases_other.replace("{{count}}", "2"));
+        assert.equal(view.find("month-close-task-fiscal-sale-DOP")?.querySelector("p")?.textContent, copy.checklist_fiscal_sales_one);
+        assert.equal(view.host.querySelector('[aria-controls="month-close-blockers"]'), null, "no Ver cuáles");
+        await view.act(async () => view.find("month-close-task-fiscal-purchase-DOP")!.querySelector("button")!.click());
+        assert.deepEqual(view.opened, [{ family: "purchase", currency: "DOP", from: "2026-11-01", to: "2026-11-30", fiscal_data: "missing" }]);
+        assert.equal(view.find("month-close-filing"), null, "a held document is never ready for the 606");
+      } finally { await view.unmount(); }
+    });
   }
+
+  test("a read-only person sees the same rows and counts without actions", async () => {
+    const rows = [{ family: "purchase", currency: "DOP", count: 2, by_currency: false }];
+    const { client } = serverClient({ month: () => ({ missing_fiscal_data: [purchase("p1"), purchase("p2")], missing_fiscal_rows: rows, reasons: [{ code: "movimientos_sin_revisar", count: 3 }], unreviewed_movements_count: 3 }) });
+    const view = await renderInicio(client, { count: 3 }, "finance", "es-419", false);
+    try {
+      assert.equal(view.find("month-close-task-fiscal-purchase-DOP")?.querySelector("p")?.textContent, "Faltan datos fiscales en 2 compras");
+      assert.ok(view.find("month-close-task-bandeja"));
+      assert.equal(view.find("month-close-checklist")?.querySelectorAll("button").length, 0, "no action for someone who may not prepare");
+    } finally { await view.unmount(); }
+  });
+
+  test("a tab whose held documents span two currencies splits into a row per currency, each naming its own", async () => {
+    const rows = [{ family: "purchase", currency: "DOP", count: 1, by_currency: true }, { family: "purchase", currency: "USD", count: 2, by_currency: true }];
+    const { client } = serverClient({ month: () => ({ missing_fiscal_data: [purchase("p1"), purchase("u1", "USD"), purchase("u2", "USD")], missing_fiscal_rows: rows }) });
+    const view = await renderInicio(client, { count: 0 }, "finance");
+    try {
+      assert.equal(view.find("month-close-task-fiscal-purchase-DOP")?.querySelector("p")?.textContent, "Faltan datos fiscales en 1 compra en RD$");
+      assert.equal(view.find("month-close-task-fiscal-purchase-USD")?.querySelector("p")?.textContent, "Faltan datos fiscales en 2 compras en US$");
+      await view.act(async () => view.find("month-close-task-fiscal-purchase-USD")!.querySelector("button")!.click());
+      assert.deepEqual(view.opened, [{ family: "purchase", currency: "USD", from: "2026-11-01", to: "2026-11-30", fiscal_data: "missing" }]);
+      assert.equal(view.text("month-close-checklist-left"), "faltan 2");
+    } finally { await view.unmount(); }
+  });
 });
 
 describe("ready for the 606 and 607 follows the export verdict, not month completion", () => {
-  const reviewed = { count: 0, detail: null, open() {} };
+  const reviewed = { count: 0 };
   /** Approved and paid, with its RNC and B01 NCF: month completion is satisfied, the 606 still holds it. */
   const paidPurchase = { activity_id: "rcpt-held", document_kind: "receipt", currency: "DOP", occurred_on: "2026-10-03", total_minor: 118000, itbis_minor: 18000, status: "pagado", counterparty: "Ferretería Prueba", due_on: null, rnc: "199990021", ncf: "B0100000021", ecf: null, sin_comprobante: false, payment_form: null };
 
   test("a complete month the 606 still holds names what the export is missing and claims nothing", async () => {
-    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: { "606": "needs_review", "607": "no_operations" }, missing_fiscal_data: [{ ...paidPurchase, missing: ["expense_type_missing", "payment_method_missing"] }] }) });
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: { "606": "needs_review", "607": "no_operations" }, missing_fiscal_data: [{ ...paidPurchase, missing: ["expense_type_missing", "payment_method_missing"] }], missing_fiscal_rows: [{ family: "purchase", currency: "DOP", count: 1, by_currency: false }] }) });
     const view = await renderInicio(client, reviewed);
     try {
       assert.equal(view.find("month-close-filing"), null, "month completion does not say the 606 is ready");
       assert.equal(view.find("month-close-checklist-ready"), null);
-      assert.match(view.text("month-close-task-fiscal"), /1 documento/);
-      const which = view.find("month-close-task-fiscal")?.querySelector<HTMLButtonElement>('button[aria-controls="month-close-blockers"]');
-      assert.ok(which);
-      await view.act(async () => which.click());
-      assert.deepEqual([...view.host.querySelectorAll('[data-testid="month-close-blocker"]')].map((item) => item.textContent), ["Ferretería Prueba · Falta el tipo de gasto · Falta la forma de pago"]);
+      assert.equal(view.text("month-close-task-fiscal-purchase-DOP"), "Faltan datos fiscales en 1 compraVer");
       assert.equal(view.find("month-close-close"), null, "there is no close action");
       assert.equal(view.find("month-close-steps-note"), null, "no promise that the steps close the month");
     } finally { await view.unmount(); }
@@ -637,7 +637,7 @@ describe("ready for the 606 and 607 follows the export verdict, not month comple
     try {
       assert.equal(view.text("month-close-filing").trim(), "Ya tienes todo para el 606 y el 607.");
       assert.equal(view.find("month-close-close"), null);
-      assert.equal(view.find("month-close-task-fiscal"), null);
+      assert.equal(view.host.querySelector('[data-testid^="month-close-task-fiscal"]'), null);
       assert.doesNotMatch(view.host.textContent ?? "", /Cierra el mes|podrás cerrar|Todo listo para cerrar/);
     } finally { await view.unmount(); }
   });
@@ -647,7 +647,7 @@ describe("ready for the 606 and 607 follows the export verdict, not month comple
     const view = await renderInicio(client, reviewed);
     try {
       assert.equal(view.find("month-close-filing"), null);
-      assert.equal(view.find("month-close-task-fiscal"), null);
+      assert.equal(view.host.querySelector('[data-testid^="month-close-task-fiscal"]'), null);
       assert.equal(view.text("month-close-checklist-ready").trim(), "Todo al día");
     } finally { await view.unmount(); }
   });
@@ -663,7 +663,7 @@ describe("ready for the 606 and 607 follows the export verdict, not month comple
 });
 
 describe("the ready line is the server's one fact, and never shows while a step remains", () => {
-  const reviewed = { count: 0, detail: null, open() {} };
+  const reviewed = { count: 0 };
   const prepared = { "606": "prepared_candidate", "607": "no_operations" } as const;
 
   test("prepared forms alone do not make the month ready", async () => {
@@ -686,9 +686,9 @@ describe("the ready line is the server's one fact, and never shows while a step 
 
   test("receipts still being read hide the line even when the server says ready", async () => {
     const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: prepared, missing_fiscal_data: [], filing_ready: true }) });
-    const view = await renderInicio(client, { count: 0, detail: null, reading: 2, attention: 0, open() {} });
+    const view = await renderInicio(client, { count: 0, reading: 2 });
     try {
-      assert.match(view.text("month-close-reading"), /2/);
+      assert.match(view.text("month-close-task-reading"), /2/);
       assert.equal(view.find("month-close-filing"), null, "a receipt still being read is not in the export yet");
       assert.equal(view.find("month-close-checklist-ready"), null);
     } finally { await view.unmount(); }
