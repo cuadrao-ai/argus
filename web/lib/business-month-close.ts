@@ -691,10 +691,25 @@ export function windowForMonth(month: string): MonthCloseWindow {
   return { from: `${month}-01`, to: lastDayOfMonth(year, monthNumber) };
 }
 
-function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthCloseWindow, today: string, closedAt: Map<string, string>): MonthCloseSnapshot {
+/**
+ * The sample books' month as the server sends it. With `settlement` off, as the server with the switch off: no
+ * statuses, methods, counts by status or ITBIS cobrado, a net that waits on nothing to mark, and no open document
+ * holding filing.
+ */
+function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthCloseWindow, today: string, closedAt: Map<string, string>, settlement = true): MonthCloseSnapshot {
   const to = window.to ?? today;
   const month = calendarMonthOf(window.from, window.to, today);
   const inWindow = documentsInWindow(documents, window.from, to);
+  if (!settlement) {
+    const shown = inWindow.map((document) => ({ ...document, status: null }));
+    return {
+      ...snapshotFor(documents, window, today, closedAt),
+      payment_methods: null,
+      documents: shown,
+      figures: monthCloseFiguresFrom(inWindow).map((block) => ({ ...block, itbis_cobrado: null, pending_count: null, net_result_final: true })),
+      filing_ready: dgiiFormsReady(sampleForms(inWindow, to, today)) && inWindow.every((document) => !document.missing),
+    };
+  }
   return {
     month,
     today,
@@ -745,6 +760,8 @@ export type MockMonthCloseOptions = {
   dollars?: boolean;
   /** Mark calls for these ids fail, so the view can roll the optimistic row back. */
   failIds?: readonly string[];
+  /** The sample server's settlement switch; on unless said otherwise. */
+  settlement?: boolean;
 };
 
 export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}): MonthCloseClient {
@@ -782,7 +799,7 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
     mode: "mock",
     async load(month, scope = "default") {
       const current = book(scope);
-      return snapshotFor(current.documents, windowForMonth(month), today, current.closedAt);
+      return snapshotFor(current.documents, windowForMonth(month), today, current.closedAt, options.settlement ?? true);
     },
     async openItems(scope = "default") {
       return openItemsFrom(book(scope).documents, today);
@@ -808,7 +825,7 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
       const gate = canCloseMonth({ month, closed_at: current.closedAt.get(month) ?? null, documents: included, unreviewed_movements: 0 });
       if (!gate.ok && gate.reason === "blockers") throw new MonthCloseError("blockers", "month still has blockers");
       if (!current.closedAt.has(month)) current.closedAt.set(month, new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0).toISOString());
-      return snapshotFor(current.documents, { from, to }, today, current.closedAt);
+      return snapshotFor(current.documents, { from, to }, today, current.closedAt, options.settlement ?? true);
     },
   };
 }

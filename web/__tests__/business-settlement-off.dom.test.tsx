@@ -151,6 +151,20 @@ describe("Por cobrar and Por pagar while settlement is off", () => {
       }
     });
 
+    test(`${layout}: the sample books answer as a server with settlement off`, async () => {
+      const { act, host, root } = await render(createMockMonthCloseClient({ now, settlement: false }), false, layout);
+      try {
+        const net = host.querySelector('[data-testid="month-close-net"]')!;
+        assert.equal(net.getAttribute("data-state"), "final");
+        assert.match(net.textContent ?? "", /Ingresos menos gastos aprobados/);
+        assert.equal(/pendiente de tasa|Falta marcar/.test(host.textContent ?? ""), false);
+        assert.ok(host.querySelector('[data-testid="month-close-itbis-sales"]'));
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    });
+
     test(`${layout}: with settlement on, Por cobrar and Por pagar show as before`, async () => {
       const { calls, client } = counted(createMockMonthCloseClient({ now }));
       const { act, host, root } = await render(client, true, layout);

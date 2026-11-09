@@ -1399,23 +1399,26 @@ function BusinessMonthCloseContent({
 export type MonthCloseSource = { client: MonthCloseClient; scopeKey: string | null };
 
 /** The month close the selected Business reads. One per view, so the sample books Inicio closes are the books its export sees. */
-// One sample book per sample source, so Inicio and an export opened from the top bar see the same closed months.
-const SAMPLE_CLIENTS = new WeakMap<object, MonthCloseClient>();
-function sampleClientFor(source: object, empty = false): MonthCloseClient {
-  const known = SAMPLE_CLIENTS.get(source);
+// One sample book per sample source and settlement answer, so Inicio and an export opened from the top bar see the same closed months.
+const SAMPLE_CLIENTS = new WeakMap<object, Map<boolean, MonthCloseClient>>();
+function sampleClientFor(source: object, empty = false, settlement = false): MonthCloseClient {
+  const books = SAMPLE_CLIENTS.get(source) ?? new Map<boolean, MonthCloseClient>();
+  SAMPLE_CLIENTS.set(source, books);
+  const known = books.get(settlement);
   if (known) return known;
   // `?currencies=two` on the preview adds dollar documents to the open month.
   const dollars = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("currencies") === "two";
-  const made = createMockMonthCloseClient({ dollars, empty });
-  SAMPLE_CLIENTS.set(source, made);
+  const made = createMockMonthCloseClient({ dollars, empty, settlement });
+  books.set(settlement, made);
   return made;
 }
 
 export function useMonthCloseSource(): MonthCloseSource {
-  const { chosen, source, spaces } = useBusiness();
+  const { chosen, source, spaces, records } = useBusiness();
   // One key per Business, known before the first load: the own Business is "own" before and after the list arrives.
   const scopeKey = spaces === null ? null : chosen && (chosen.role !== "owner" || chosen.space_id?.startsWith(LOCAL_BUSINESS_PREFIX)) ? chosen.grant_id : "own";
-  return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX)) : monthCloseClient, scopeKey };
+  // The sample books answer as the sample workspace's settlement switch says, the way the server would.
+  return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX), businessSettlementAvailable(records?.workspace)) : monthCloseClient, scopeKey };
 }
 
 export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header, headingAction, layout, arrange, receiptStatusPlacement }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: MonthCloseReview | null; header?: (switcher: ReactNode) => ReactNode; headingAction?: ReactNode; layout?: "inicio" | "finance"; arrange?: BusinessMonthCloseViewProps["arrange"]; receiptStatusPlacement?: BusinessMonthCloseViewProps["receiptStatusPlacement"] }) {

@@ -41,7 +41,7 @@ const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_i
 const A: GrantedSpace = { space_id: "s-a", name: "Colmado Peña", grant_id: "g-a", role: "accountant", capabilities: ["read", "prepare"], access_seen: true };
 const B: GrantedSpace = { space_id: "s-b", name: "Taller Brito", grant_id: "g-b", role: "accountant", capabilities: ["read", "prepare"], access_seen: true };
 
-async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
+async function mount(listed: GrantedSpace[] = [OWN, A, B], settlement = false) {
   const React = await import("react");
   const { act, useState } = React;
   const { createRoot } = await import("react-dom/client");
@@ -63,6 +63,8 @@ async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
   const source = {
     ...fixture,
     spaces: async () => listed,
+    // The sample workspace with Por cobrar and Por pagar on, for a test that marks a document.
+    ...(settlement ? { workspace: async () => ({ ...await fixture.workspace(), settlement_available: true }) } : {}),
     // Read the list through receipts so each read names the grant it ran under.
     receiptPage: undefined,
     receipts: async (view: "inbox" | "all") => {
@@ -245,7 +247,7 @@ test("preview settlement survives switching businesses without leaking to anothe
   const previousEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   const { currentMonthKey } = await import("@/lib/business-month-close");
-  const page = await mount();
+  const page = await mount(undefined, true);
   const month = currentMonthKey();
   try {
     await page.act(async () => page.api().chooseBusiness(A.grant_id));
