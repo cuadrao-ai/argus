@@ -2,18 +2,16 @@
   "presentation": {
     "order": [
       "counterparty",
+      "fiscal_number",
       "date",
       "gross_amount",
-      "currency",
-      "family",
-      "expense_type",
-      "payment_form",
+      "itbis_amount",
       "stage",
       "note",
       "attachment",
-      "funding",
-      "fiscal_number",
-      "itbis_amount"
+      "expense_type",
+      "payment_form",
+      "funding"
     ],
     "hidden": [
       "funding",
@@ -40,7 +38,7 @@
   "page_count": 0,
   "totals": [],
   "fiscal_totals": [],
-  "fingerprint": "816622634cd50615c25a64e59fadad0bcd7a650ccc26f630483ee4c0bddb203b",
+  "fingerprint": "e5513eecbbf0cbe3d6450123abedd7f75ae21572c5f98c1b1c3b70b74d85b73c",
   "captured_at": "2026-11-06T00:00:00Z",
   "resolved_period": {
     "from_date": null,

@@ -21,13 +21,13 @@ test("pending table follows selected columns, pinned identity, required amounts 
   let preferences = sampleRecordsPreferences();
   preferences = toggleRecordsColumn(preferences, "notas");
   preferences = toggleRecordsColumn(preferences, "monto");
-  preferences = toggleRecordsColumn(preferences, "moneda");
-  preferences = moveRecordsColumn(preferences, "moneda", 1);
+  preferences = toggleRecordsColumn(preferences, "itbis");
+  preferences = moveRecordsColumn(preferences, "itbis", 1);
   const html = await render(<RecordsLoadingPreview preferences={preferences} density="compacto" />);
   const columns = [...html.matchAll(/<th\b[^>]*data-col="([^"]+)"/g)].map((match) => match[1]);
   assert.deepEqual(columns, visibleRecordsColumns(preferences).map(({ key }) => key));
   assert.equal(columns[0], "contraparte");
-  assert.equal(columns[1], "moneda");
+  assert.equal(columns[1], "itbis");
   assert.ok(columns.includes("monto"));
   assert.ok(!columns.includes("notas"));
   assert.match(html, /data-col="contraparte" data-pinned="left"/);

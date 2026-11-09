@@ -16,10 +16,10 @@ export function RecordsLoadingBar({ className = "", overview = false }: { classN
 }
 
 /** Pending slots follow the same column owner and narrow container as the loaded ledger. */
-export default function RecordsLoadingPreview({ density, preferences }: { density: Density; preferences?: RecordsViewPreferences }) {
+export default function RecordsLoadingPreview({ purchase = true, density, preferences }: { purchase?: boolean; density: Density; preferences?: RecordsViewPreferences }) {
   const { t } = useTransaccionesWords();
   const visible = useDelayedPending(true);
-  const columns = preferences ? visibleRecordsColumns(preferences) : COLUMNS;
+  const columns = preferences ? visibleRecordsColumns(preferences, purchase) : COLUMNS;
   return <div className={page.container} role="status" aria-label={t("common.loading")} data-testid="transacciones-loading">
     <div aria-hidden="true" className={visible ? undefined : styles.waiting}>
       <div className={styles.table}>

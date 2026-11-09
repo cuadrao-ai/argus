@@ -57,7 +57,7 @@ test("Total stays static without requests, filters or navigation", async () => {
 });
 
 test("six cards show report scope and only fiscal applies its stage", async () => {
-  const page = await mount({ edit: (rows) => rows.slice(3, 63).forEach((row) => { row.stage = "needs_fiscal_data"; }) });
+  const page = await mount({ edit: (rows) => rows.slice(3, 63).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; }) });
   assert.deepEqual(overviewCards().map((card) => card.getAttribute("data-overview-filter")), ["fiscal"]);
   assert.equal(document.querySelectorAll("[data-overview-card]").length, 6);
   assert.match(document.querySelector('[data-overview-card="quantity"]')!.textContent!, /63/);
@@ -65,15 +65,15 @@ test("six cards show report scope and only fiscal applies its stage", async () =
   assert.doesNotMatch(document.querySelector('[data-testid="records-overview-preview"]')!.textContent!, /Listos para exportar|Ya exportados|Por aprobar|Por revisar/);
   const before = sentFilters(page).length;
   await page.click(fiscal); await page.settle(() => sentFilters(page).length > before);
-  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["needs_fiscal_data"]);
+  assert.equal(sentFilters(page).at(-1)!.fiscal_data, "missing");
   assert.equal(document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed"), "true");
-  assert.ok(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
+  assert.ok(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
   await page.click(fiscal);
   await page.settle(() => document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "false");
   assert.deepEqual(sentFilters(page).at(-1)!.review_stages, []);
   await page.click(fiscal);
   await page.settle(() => document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "true");
-  await page.click(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
+  await page.click(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
   await page.settle(() => document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "false");
 });
 
@@ -104,12 +104,12 @@ test("the Bandeja line shows the receipt activity count the sidebar shows, opens
   assert.equal(document.querySelector('[data-testid="records-bandeja-waiting"]'), null);
 });
 
-test("Filtros Revisión offers the server's remaining stages and nothing about approval", async () => {
+test("Filtros offers one current fiscal choice without export history", async () => {
   const page = await mount();
   await page.click(page.button("Filtros"));
-  await page.click(document.querySelector('[data-group="review"]'));
+  await page.click(document.querySelector('[data-group="fiscal_data"]'));
   const labels = [...document.querySelectorAll('[role="dialog"] label')].map((label) => label.textContent).filter((label) => label !== "Seleccionar todo");
-  assert.deepEqual(labels, ["Faltan datos fiscales", "Listos para exportar", "Ya exportados", "Por revisar"]);
+  assert.deepEqual(labels, ["Todos", "Completos", "Faltan datos"]);
 });
 
 test("a saved view or address bar naming a stage the server no longer has reads as no stage filter", async () => {
@@ -252,8 +252,7 @@ test("authoritative decimal text above the safe integer limit renders exactly be
   await mount({ large: true });
   const rows = [...document.querySelectorAll("tbody tr")];
   assert.equal(rows[0].querySelector('[data-col="monto"]')!.textContent, "9,007,199,254,740,993.01");
-  assert.equal(rows[0].querySelector('[data-col="moneda"]')!.textContent, "RD$");
-  assert.equal(rows[1].querySelector('[data-col="moneda"]')!.textContent, "RD$");
+  assert.equal(document.querySelector('th[data-col="moneda"]'), null);
   assert.match(rows[2].querySelector('[data-col="monto"]')!.textContent!, /-/);
   assert.equal(rows[3].querySelector('[data-col="monto"]')!.textContent, "20.00");
   assert.equal(rows[4].querySelector('[data-col="monto"]')!.textContent, "-20.00");
@@ -399,7 +398,7 @@ test("a period the person chose stays chosen when Registros opens again", async 
 });
 
 test("the Estado chip names the one missing fact on the live panel", async () => {
-  await mount({ edit: (records) => { Object.assign(records[0], { stage: "needs_fiscal_data", export_missing: "payment_method_missing", export_missing_several: false }); Object.assign(records[1], { family: "purchase", stage: "needs_fiscal_data", export_missing: "ncf_missing", export_missing_several: true }); } });
+  await mount({ edit: (records) => { Object.assign(records[0], { stage: "needs_fiscal_data", fiscal_data: "missing", export_missing: "payment_method_missing", export_missing_several: false }); Object.assign(records[1], { family: "purchase", stage: "needs_fiscal_data", fiscal_data: "missing", export_missing: "ncf_missing", export_missing_several: true }); } });
   const chip = (id: number) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="estado"] [data-record-workflow="fiscal"]`)?.textContent;
   assert.equal(chip(1), "Falta la forma de pago");
   assert.equal(chip(2), "Faltan datos fiscales");
@@ -409,7 +408,7 @@ test("chosen purchase columns use the server's name, missing word and a dash for
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, hidden: ["funding", "payment_form"] } }) });
   const cell = (id: number, column: string) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="${column}"]`);
   const headings = [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
-  assert.ok(!headings.includes("categoria") && headings.indexOf("tipo_gasto") === headings.indexOf("detalle") + 1, "Tipo de gasto sits where Categoría sat");
+  assert.ok(!headings.includes("categoria") && !headings.includes("detalle") && headings.includes("tipo_gasto"), "the optional purchase field replaces the removed table fields");
   assert.equal(document.querySelector('th[data-col="tipo_gasto"]')?.textContent, "Tipo de gasto");
   assert.equal(document.querySelector('th[data-col="forma_pago"]'), null, "Forma de pago starts hidden");
   assert.equal(cell(1, "tipo_gasto")?.textContent, "Falta");
@@ -424,9 +423,8 @@ test("chosen purchase columns use the server's name, missing word and a dash for
   const request = restoreReportLocation(new URL(window.location.href).searchParams).request;
   assert.deepEqual(request.schema_version === 2 ? request.presentation?.hidden : null, ["funding"], "the chosen columns travel with the saved presentation");
   await page.click(document.querySelector('#records-type-venta'));
-  await page.settle(() => cell(2, "tipo_gasto") !== null);
-  assert.equal(cell(2, "tipo_gasto")?.querySelector(".sr-only")?.textContent, "No aplica");
-  assert.equal(cell(2, "forma_pago")?.querySelector(".sr-only")?.textContent, "No aplica");
+  await page.settle(() => document.querySelector('th[data-col="tipo_gasto"]') === null);
+  assert.equal(document.querySelector('th[data-col="forma_pago"]'), null);
 });
 
 test("Filtros offers Tipo de gasto from the server's catalogue plus Falta, and sends expense_types", async () => {
@@ -739,7 +737,7 @@ test("closing the phone Filtros sheet without a choice sends no query", async ()
 
 const fiscalCard = () => document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!;
 const fiscalCount = () => fiscalCard().querySelector(".font-display")?.textContent;
-const fiscalRecords = (rows: ReportRecord[]) => rows.forEach((row, index) => { row.stage = index < 60 ? "needs_fiscal_data" : "ready_for_export"; });
+const fiscalRecords = (rows: ReportRecord[]) => rows.forEach((row, index) => { row.stage = index < 60 ? "needs_fiscal_data" : "ready_for_export"; row.fiscal_data = index < 60 ? "missing" : "complete"; });
 
 test("Fiscal narrows all pages then restores mixed statuses while preserving search edits", async () => {
   const prior = ["needs_fiscal_data", "ready_for_export"];
@@ -747,8 +745,8 @@ test("Fiscal narrows all pages then restores mixed statuses while preserving sea
   assert.equal(fiscalCount(), "30");
   assert.equal(fiscalCard().getAttribute("aria-pressed"), "false");
   await page.click(fiscalCard());
-  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 1 && !fiscalCard().disabled);
-  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["needs_fiscal_data"]);
+  await page.settle(() => sentFilters(page).at(-1)?.fiscal_data === "missing" && !fiscalCard().disabled);
+  assert.equal(sentFilters(page).at(-1)!.fiscal_data, "missing");
   assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /30/);
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
   await page.type(document.querySelector('input[type="search"]')!, "Proveedor 11");
@@ -774,7 +772,7 @@ test("clearing the status chip discards Fiscal's saved status selection", async 
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["needs_fiscal_data", "ready_for_export"] } }), edit: fiscalRecords });
   await page.click(fiscalCard());
   await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
-  await page.click(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
+  await page.click(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
   await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0 && !fiscalCard().disabled);
   await page.click(fiscalCard());
   await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
@@ -819,21 +817,20 @@ test("history restoring the same Fiscal stage discards the old toggle snapshot",
   await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
 });
 
-test("manual status edits replace the remembered Fiscal selection", async () => {
+test("manual fiscal choice clears the remembered legacy review selection", async () => {
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["needs_fiscal_data", "needs_review"] } }), edit: fiscalRecords });
   await page.click(fiscalCard());
   await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
-  await page.click([...document.querySelectorAll("button")].find((button) => button.textContent?.startsWith("Filtros")));
-  await page.click(document.querySelector('[data-group="review"]'));
-  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')].find((box) => box.parentElement?.textContent === "Listos para exportar"));
+  await page.click(page.button("Filtros"));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="radio"]')].find((box) => box.parentElement?.textContent === "Todos"));
   await page.click(page.button("Aplicar"));
-  await page.settle(() => sentFilters(page).at(-1)?.review_stages.includes("ready_for_export") === true && !fiscalCard().disabled);
-  assert.equal(fiscalCard().getAttribute("aria-pressed"), "false");
+  await page.settle(() => sentFilters(page).at(-1)?.fiscal_data === null && !fiscalCard().disabled);
+  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, []);
   await page.click(fiscalCard());
   await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
   await page.click(fiscalCard());
-  await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 2);
-  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, ["needs_fiscal_data", "ready_for_export"]);
+  await page.settle(() => sentFilters(page).at(-1)?.fiscal_data === null);
+  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, []);
 });
 
 test("selecting a saved Fiscal view discards the prior status snapshot", async () => {
@@ -867,7 +864,7 @@ function currencyCardAnswer(request: ReportRequest, answer: ReportAnswer): Repor
   return { ...answer, matching_count: count, page_count: count ? 2 : 0,
     items: count ? Array.from({ length: request.page === 1 ? 25 : count - 25 }, (_, index) => {
       const position = (request.page - 1) * 25 + index;
-      return { ...row, row_id: `draft:${fixtureId(200 + position)}`, draft_id: fixtureId(200 + position), linked_activity_ids: [], report_date: "2026-10-20", family, money_kind: kind, counterparty: `Proveedor ${position + 1}`, counterparty_key: "101001577", currency: value.currency, gross_amount: position === count - 1 ? value.last : "1.00", stage: position < value.fiscal ? "needs_fiscal_data" : "ready_for_export", funding_key: "cash", fiscal_classification: "B01", dgii_606: { expense_type: { code: "02", label: "Suministros" }, payment_form: null } };
+      return { ...row, row_id: `draft:${fixtureId(200 + position)}`, draft_id: fixtureId(200 + position), linked_activity_ids: [], report_date: "2026-10-20", family, money_kind: kind, counterparty: `Proveedor ${position + 1}`, counterparty_key: "101001577", currency: value.currency, gross_amount: position === count - 1 ? value.last : "1.00", stage: position < value.fiscal ? "needs_fiscal_data" : "ready_for_export", funding_key: "cash", fiscal_classification: "B01", dgii_606: family === "purchase" ? { expense_type: { code: "02", label: "Suministros" }, payment_form: null } : null };
     }) : [],
     totals: count ? [{ currency: value.currency, kind, basis: "document_family_amount", matching_count: count, complete: true, unknown_count: 0, unsupported_count: 0, amount: value.total, known_amount: value.total, amount_minor: value.totalMinor, known_amount_minor: value.totalMinor }] : [],
     fiscal_totals: count ? value.values.filter(([basis]) => family === "purchase" || basis === "itbis").map(([basis, amount, minor]) => ({ currency: value.currency, kind, basis, applicable_count: count, populated_count: count, complete: true, unknown_count: 0, unsupported_count: 0, amount, known_amount: amount, amount_minor: minor, known_amount_minor: minor })) : [],
@@ -885,7 +882,8 @@ for (const family of ["purchase", "sale"] as const) for (const sample of currenc
   assert.deepEqual(shelfMoney(), family === "purchase" ? [...sample.shown] : [sample.shown[0], sample.shown[1], null, null]);
   assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, String(sample.count));
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
-  assert.ok([...document.querySelectorAll('tbody td[data-col="detalle"]')].every((cell) => cell.textContent === (family === "sale" ? "Venta" : "Compra")));
+  assert.equal(document.querySelector('th[data-col="detalle"]'), null);
+  if (family === "sale") { assert.equal(document.querySelector('th[data-col="tipo_gasto"]'), null); assert.equal(sentFilters(page).at(-1)!.expense_types.length, 0); }
   assert.equal(document.querySelector('[data-overview-card="total"] button'), null);
   assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
   assert.deepEqual([...document.querySelectorAll('tbody td[data-col="monto"]')].map((cell) => cell.textContent), Array(25).fill("1.00"));
@@ -1043,4 +1041,71 @@ for (const width of [1440, 390]) test(`type tabs share filters and clearing on V
   await page.click(document.querySelector('#records-type-gasto'));
   await page.settle(() => sentFilters(page).at(-1)?.record_families[0] === "purchase");
   assert.equal(sentFilters(page).at(-1)?.has_document, null);
+});
+
+for (const choice of ["complete", "missing", null] as const) test(`choosing ${choice} replaces legacy stages loaded from a view`, async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { review_stages: ["exported"] } }), edit: (rows) => rows.forEach((row, index) => { row.stage = "exported"; row.fiscal_data = index < 60 ? "missing" : "complete"; }) });
+  assert.ok(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
+  await page.click(page.button("Filtros"));
+  await page.click([...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="radio"]')].find((box) => box.parentElement?.textContent === (choice === null ? "Todos" : choice === "complete" ? "Completos" : "Faltan datos")));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => sentFilters(page).at(-1)?.fiscal_data === choice);
+  assert.deepEqual(sentFilters(page).at(-1)!.review_stages, []);
+  assert.equal(document.querySelector('button[aria-label="Quitar filtro Revisión"]'), null);
+});
+
+test("purchase-only choices and filters disappear on sales and return on purchases", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { expense_types: ["02"] }, presentation: { ...recordedReportAnswer.presentation, hidden: [] } }) });
+  assert.ok(document.querySelector('th[data-col="tipo_gasto"]'));
+  await page.click(document.querySelector('#records-type-venta'));
+  await page.settle(() => sentFilters(page).at(-1)?.record_families[0] === "sale" && document.querySelector('[data-testid="records-count"]') !== null);
+  assert.deepEqual(sentFilters(page).at(-1)!.expense_types, []);
+  assert.equal(document.querySelector('th[data-col="tipo_gasto"], th[data-col="forma_pago"]'), null);
+  assert.ok(page.fixture.records.filter((row) => row.family === "sale").every((row) => row.dgii_606 === null));
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  assert.equal(document.querySelector('[data-column-setting="tipo_gasto"], [data-column-setting="forma_pago"]'), null);
+  await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  await page.click(page.button("Filtros"));
+  assert.equal(document.querySelector('[data-group="expense_type"]'), null);
+  await page.click(page.button("Aplicar"));
+  await page.click(document.querySelector('#records-type-gasto'));
+  await page.settle(() => document.querySelector('th[data-col="tipo_gasto"]') !== null);
+  assert.ok(document.querySelector('th[data-col="forma_pago"]'));
+  assert.deepEqual(sentFilters(page).at(-1)!.expense_types, []);
+});
+
+test("counterparty chips stay short and selecting every option clears the filter", async () => {
+  const options = Array.from({ length: 4 }, (_, index) => ({ key: `supplier-${index}`, labels: [`Proveedor sintético largo ${index}`] }));
+  const page = await mount({ edit: (rows) => rows.forEach((row, index) => { row.counterparty_key = `supplier-${Math.floor(index / 2) % 4}`; }), queryAnswer: (_request, answer) => ({ ...answer, counterparties: options }) });
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="counterparty"]'));
+  for (const option of options.slice(0, 3)) await page.click([...document.querySelectorAll('label')].find((label) => label.textContent === option.labels[0])?.querySelector('input'));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => sentFilters(page).at(-1)?.counterparties.length === 3);
+  const chips = document.querySelector('[data-testid="records-preview-filter-chips"]')!;
+  assert.match(chips.textContent!, /Contraparte · 3/);
+  assert.doesNotMatch(chips.textContent!, /Proveedor sintético/);
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="counterparty"]'));
+  await page.click([...document.querySelectorAll('label')].find((label) => label.textContent === "Seleccionar todo")?.querySelector('input'));
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => sentFilters(page).at(-1)?.counterparties.length === 0);
+  assert.equal(chips.textContent, "");
+});
+
+test("counterparty options never reuse the previous tab while its next request is pending", async () => {
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ queryAnswer: async (request, answer) => {
+    const sale = request.filters.record_families[0] === "sale";
+    if (sale) await gate;
+    return { ...answer, counterparties: [{ key: sale ? "client" : "supplier", labels: [sale ? "Cliente sintético" : "Proveedor sintético", "Alias antiguo"] }] };
+  } });
+  await page.click(document.querySelector('#records-type-venta'));
+  await page.click(page.button("Filtros"));
+  await page.click(document.querySelector('[data-group="counterparty"]'));
+  try { assert.doesNotMatch(document.querySelector('[role="dialog"]')!.textContent!, /Proveedor sintético|Alias antiguo/); }
+  finally { await act(async () => release()); }
+  await page.settle(() => document.querySelector('[role="dialog"]')?.textContent?.includes("Cliente sintético") === true);
+  assert.doesNotMatch(document.querySelector('[role="dialog"]')!.textContent!, /Proveedor sintético|Alias antiguo/);
 });

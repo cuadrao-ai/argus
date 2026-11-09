@@ -294,14 +294,21 @@ def with_export_verdicts(
     verdicts: dict[str, tuple[str, ...] | None],
     exported: frozenset[str],
 ) -> tuple[ReportRecord, ...]:
-    """A recorded row is ready only when the export carries it as a line, and
-    exported once a downloaded TXT froze that line (``exported`` names the
-    activities with a frozen line)."""
+    """Current fiscal data uses the current verdict. Export stage separately
+    keeps the history of downloaded lines."""
 
     def judged(row: ReportRecord) -> ReportRecord:
         if row.stage != "ready_for_export":
             return row
         identifier = row.linked_activity_ids[0]
+        if identifier in verdicts:
+            row = row.model_copy(
+                update={
+                    "fiscal_data": "complete"
+                    if verdicts[identifier] is None
+                    else "missing"
+                }
+            )
         if identifier in exported:
             return row.model_copy(update={"stage": "exported", "export_line": True})
         if identifier not in verdicts:

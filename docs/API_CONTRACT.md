@@ -11245,7 +11245,16 @@ accept path recorded.
   defaulting to `["purchase"]`, and normalizes old empty or both-type selections
   to that screen default. Its selected type scopes the table, all six cards,
   expanded Total and export. Malformed or unknown values are rejected.
-  The remaining multiselects are `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
+  The nullable `fiscal_data` filter accepts `complete`, `missing` or null (all).
+  Each row's `fiscal_data` comes from its current 606/607 verdict, independently
+  of downloads. `complete` means the current report carries a complete fiscal line;
+  `missing` means that verdict lists missing fiscal data. Rows outside the report,
+  unresolved rows and technical failures have null and match only all. Existing
+  admission rules remain unchanged. The fiscal card and this filter use the same
+  missing predicate, including when a downloaded line has since been edited.
+  The screen offers one fiscal choice and keeps old `review_stages` saved views
+  readable with a clearable legacy chip. The remaining multiselects are
+  `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
   `exported`),
   `currencies`, `counterparties`, `categories`, `expense_types`, `funding_sources`,
   `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`; the projection
@@ -11269,12 +11278,19 @@ accept path recorded.
   purchase the owner said has no comprobante. An answer written in Bandeja or on
   the recorded record shows in the next read. The answer's `expense_types` lists
   the tipos de gasto the records carry, `{code, label}` by code; `missing` is
-  always a valid filter value and is never listed.
+  always a valid filter value and is never listed. The screen offers tipo de gasto
+  only on Compras and clears it when changing to Ventas or opening a saved sales
+  recipe; forma de pago is an optional purchase column, not a filter.
   Categories use activity IDs plus
   `uncategorized`; funding uses `account:<id>` or `owner_funds` and returns the
   source account type/name, never a balance. Counterparty keys are exact normalized
   tax identities within this Business. Aliases share a key; equal names never
-  merge identities. A Venta uses its explicit client identity; the Business's
+  merge identities. Counterparty options follow the selected family across all dates.
+  Each option retains the `labels` array with exactly one name, chosen from the
+  latest report date with a nonempty name, then stable row ID ascending; undated
+  records sort last. A tax identity is the fallback only when no name exists.
+  Selecting all options clears the counterparty filter. The chip shows only its
+  count. A Venta uses its explicit client identity; the Business's
   own issuer RNC is not a customer. Unidentified records remain searchable by
   label and remain in unfiltered totals. Generic income and refunds do not imply
   Venta; a linked credit retains its original family. A trusted standalone manual
@@ -11435,15 +11451,21 @@ accept path recorded.
   `itbis_amount` columns append to saved orders hidden.
 
   `presentation.order` contains each supported table key once, with counterparty
-  first. `hidden` cannot hide counterparty, amount or currency. A saved presentation
+  first. The default visible order is counterparty, date, amount, stage, note,
+  attachment. Fiscal number follows counterparty and ITBIS follows amount, both
+  hidden by default; expense type, payment form and account are also hidden.
+  Expense type and payment form are offered and rendered only on Compras.
+  `family` and `currency` are removed from table order and hidden keys when reading
+  old saved presentations. `hidden` cannot hide counterparty or amount. A saved
+  presentation
   from before the 606 columns is read as current: `category` becomes `expense_type`
   in place, and `payment_form` joins the order after it, hidden. `category` is no
   longer a table column. Optional `fiscal_number` (NCF or e-CF) and
   `itbis_amount` columns are hidden by default. ITBIS uses the row currency;
   missing amounts or currency remain unknown, and zero remains numeric.
-  Density is 40/48/56, default 48. Amount and currency move
-  independently. `columns` remains the separate export field selection. No summary
-  or widget preference is accepted. Page, page size, columns and presentation do
+  Density is 40/48/56, default 48. Reordering supports drag and up/down buttons.
+  Amount uses heavier text; ITBIS uses regular text. `columns` remains the separate
+  export field selection. No summary or widget preference is accepted. Page, page size, columns and presentation do
   not alter the result fingerprint. The preview reads the recorded empty answer
   `web/test-fixtures/records-default-report-answer.json`; it is not a live fallback.
   `test_query_returns_backend_default_presentation`,
@@ -11452,9 +11474,10 @@ accept path recorded.
 
   Every report answer adds `overview` with `needs_review`, `needs_fiscal_data`,
   `ready_for_export`, `exported` and `export_lines` counts from the authorized
-  projection. `needs_fiscal_data` counts rows in that stage matching every table
-  filter, including search and selected review stages, before pagination. The
-  Fiscal card renders this count. The other overview counts remain scoped to
+  projection. `needs_fiscal_data` counts rows whose current `fiscal_data` is
+  `missing`, matching every table filter, including search, fiscal choice and
+  legacy review stages, before pagination. A row can count here while its
+  historical stage is `exported`. The Fiscal card renders this count. The other overview counts remain scoped to
   Business and period only. The Bandeja line reads `pending_review_count` from
   receipt activity, never this answer.
   Literal search ignores case and accents, and covers counterparty, current note,

@@ -28689,36 +28689,32 @@ components:
             type: string
             enum:
             - counterparty
+            - fiscal_number
             - date
             - gross_amount
-            - currency
-            - family
-            - expense_type
-            - payment_form
+            - itbis_amount
             - stage
             - note
             - attachment
+            - expense_type
+            - payment_form
             - funding
-            - fiscal_number
-            - itbis_amount
           type: array
         hidden:
           items:
             type: string
             enum:
             - counterparty
+            - fiscal_number
             - date
             - gross_amount
-            - currency
-            - family
-            - expense_type
-            - payment_form
+            - itbis_amount
             - stage
             - note
             - attachment
+            - expense_type
+            - payment_form
             - funding
-            - fiscal_number
-            - itbis_amount
           type: array
         density:
           type: integer
@@ -31723,6 +31719,13 @@ components:
             - exported
           type: array
           default: []
+        fiscal_data:
+          anyOf:
+          - type: string
+            enum:
+            - complete
+            - missing
+          - type: 'null'
         has_document:
           anyOf:
           - type: boolean
@@ -31825,6 +31828,13 @@ components:
             - exported
           type: array
           default: []
+        fiscal_data:
+          anyOf:
+          - type: string
+            enum:
+            - complete
+            - missing
+          - type: 'null'
         has_document:
           anyOf:
           - type: boolean
@@ -32215,6 +32225,13 @@ components:
             - needs_fiscal_data
             - ready_for_export
             - exported
+          - type: 'null'
+        fiscal_data:
+          anyOf:
+          - type: string
+            enum:
+            - complete
+            - missing
           - type: 'null'
         export_missing:
           anyOf:

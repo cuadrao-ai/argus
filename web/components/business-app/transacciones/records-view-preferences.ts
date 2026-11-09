@@ -2,15 +2,14 @@ import type { ColumnKey } from "./TransaccionesTable";
 import { type RecordsSort } from "./records-pagination";
 import type { Density } from "./table-density";
 
-/** The Registros columns: the ledger's, with Categoría's slot given to the 606 tipo de gasto, forma de pago beside it, and Estado, Moneda and Notas added. */
-export type RecordsColumnKey = Exclude<ColumnKey, "categoria"> | "tipo_gasto" | "forma_pago" | "estado" | "moneda" | "notas" | "ncf" | "itbis";
-type RecordsColumn = { key: RecordsColumnKey; width: number | null; align: "left" | "right"; pin?: "left" | "right" };
+/** Registros table keys. Currency metadata remains shared with Bandeja. */
+export type RecordsColumnKey = Exclude<ColumnKey, "categoria" | "detalle"> | "tipo_gasto" | "forma_pago" | "estado" | "notas" | "ncf" | "itbis";
+type RecordsColumn = { key: RecordsColumnKey | "moneda"; width: number | null; align: "left" | "right"; pin?: "left" | "right" };
 export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = [
   { key: "contraparte", width: 200, align: "left", pin: "left" },
   { key: "fecha", width: 116, align: "left" },
   { key: "monto", width: 104, align: "right" },
   { key: "moneda", width: 80, align: "left" },
-  { key: "detalle", width: 80, align: "left" },
   { key: "tipo_gasto", width: 120, align: "left" },
   { key: "forma_pago", width: 120, align: "left" },
   { key: "estado", width: 200, align: "left" },
@@ -21,11 +20,11 @@ export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = [
   { key: "itbis", width: 160, align: "right" },
 ];
 /** A column of either table: Registros' own, or the ledger's when bank matching mounts the records beside its movements. */
-export type TableColumnKey = RecordsColumnKey | ColumnKey;
+export type TableColumnKey = RecordsColumnKey | ColumnKey | "moneda";
 /** Tipo de gasto and Forma de pago read the words Bandeja's review form uses, so the two screens never name a 606 field differently. */
 export const recordsColumnLabelKey = (key: TableColumnKey) => key === "detalle" ? "business.transactions.layout.column_type" : key === "estado" ? "business.transactions.layout.column_state" : key === "comprobante" ? "business.transactions.layout.column_attachment" : key === "tipo_gasto" ? "business.dossier.placeholder.expense_type" : key === "forma_pago" ? "business.dossier.placeholder.payment_form" : `business.transactions.columns.${key}`;
 export type RecordsViewPreferences = { order: RecordsColumnKey[]; hidden: RecordsColumnKey[]; density: Density; sort: RecordsSort };
-export const requiredColumn = (key: RecordsColumnKey) => key === "contraparte" || key === "monto" || key === "moneda";
+export const requiredColumn = (key: RecordsColumnKey) => key === "contraparte" || key === "monto";
 export function moveRecordsColumn(value: RecordsViewPreferences, key: RecordsColumnKey, target: number): RecordsViewPreferences {
   if (key === "contraparte") return value;
   const order = value.order.filter((item) => item !== key);
@@ -36,11 +35,12 @@ export function toggleRecordsColumn(value: RecordsViewPreferences, key: RecordsC
   if (requiredColumn(key)) return value;
   return { ...value, hidden: value.hidden.includes(key) ? value.hidden.filter((item) => item !== key) : [...value.hidden, key] };
 }
-export function visibleRecordsColumns(value: RecordsViewPreferences) {
-  const keys: RecordsColumnKey[] = ["contraparte" as const, ...value.order.filter((key) => key !== "contraparte" && (requiredColumn(key) || !value.hidden.includes(key)))];
+export const purchaseOnlyColumn = (key: RecordsColumnKey) => key === "tipo_gasto" || key === "forma_pago";
+export function visibleRecordsColumns(value: RecordsViewPreferences, purchase = true) {
+  const keys: RecordsColumnKey[] = ["contraparte" as const, ...value.order.filter((key) => key !== "contraparte" && (purchase || !purchaseOnlyColumn(key)) && (requiredColumn(key) || !value.hidden.includes(key)))];
   return keys.map((key, index) => {
     const column = RECORDS_PREVIEW_COLUMNS.find((item) => item.key === key)!;
-    return { ...column, pin: key === "contraparte" ? "left" as const : key === "comprobante" && index === keys.length - 1 ? "right" as const : undefined };
+    return { ...column, key, pin: key === "contraparte" ? "left" as const : key === "comprobante" && index === keys.length - 1 ? "right" as const : undefined };
   });
 }
 export function recordsMinimumWidth(columns: readonly { key: TableColumnKey; width: number | null }[], amount: { units: number; width: string }) {

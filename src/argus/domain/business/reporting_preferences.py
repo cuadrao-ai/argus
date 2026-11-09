@@ -22,6 +22,7 @@ Family = Literal["sale", "purchase"]
 #: A recorded row's place on the way to the DGII. Registros lists approved
 #: records only; a draft waits in the Bandeja and is no stage here.
 Stage = Literal["needs_review", "needs_fiscal_data", "ready_for_export", "exported"]
+FiscalData = Literal["complete", "missing"]
 DocumentKind = Literal["invoice", "receipt", "credit_note", "unknown"]
 Column = Literal[
     "date",
@@ -78,6 +79,7 @@ class ReportFilters(Contract):
     period: Period = Period()
     record_families: tuple[Family, ...] = ()
     review_stages: tuple[Stage, ...] = ()
+    fiscal_data: FiscalData | None = None
     has_document: bool | None = None
     currencies: tuple[str, ...] = Field(default=(), max_length=200)
     amount_min: str | None = None
@@ -152,33 +154,29 @@ class ReportRequest(ReportRecipe):
 
 TableColumn = Literal[
     "counterparty",
+    "fiscal_number",
     "date",
     "gross_amount",
-    "currency",
-    "family",
-    "expense_type",
-    "payment_form",
+    "itbis_amount",
     "stage",
     "note",
     "attachment",
+    "expense_type",
+    "payment_form",
     "funding",
-    "fiscal_number",
-    "itbis_amount",
 ]
 TABLE_COLUMNS: tuple[TableColumn, ...] = (
     "counterparty",
+    "fiscal_number",
     "date",
     "gross_amount",
-    "currency",
-    "family",
-    "expense_type",
-    "payment_form",
+    "itbis_amount",
     "stage",
     "note",
     "attachment",
+    "expense_type",
+    "payment_form",
     "funding",
-    "fiscal_number",
-    "itbis_amount",
 )
 HIDDEN_COLUMNS: tuple[TableColumn, ...] = (
     "funding",
@@ -195,10 +193,15 @@ Sort = Literal[
 def _current_columns(value: Any) -> Any:
     if not isinstance(value, dict) or not isinstance(value.get("order"), list):
         return value
-    order = ["expense_type" if key == "category" else key for key in value["order"]]
+    order = [
+        "expense_type" if key == "category" else key
+        for key in value["order"]
+        if key not in ("family", "currency")
+    ]
     hidden = [
         "expense_type" if key == "category" else key
         for key in value.get("hidden", list(HIDDEN_COLUMNS))
+        if key not in ("family", "currency")
     ]
     if "payment_form" not in order and "expense_type" in order:
         order.insert(order.index("expense_type") + 1, "payment_form")
@@ -233,7 +236,6 @@ class Presentation(Contract):
         if len(set(self.hidden)) != len(self.hidden) or set(self.hidden) & {
             "counterparty",
             "gross_amount",
-            "currency",
         }:
             raise ValueError(
                 "required columns cannot be hidden; hidden columns are unique"

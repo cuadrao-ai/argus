@@ -28,6 +28,7 @@ from argus.domain.business.reporting_preferences import (
     Contract,
     DocumentKind,
     Family,
+    FiscalData,
     Period,
     Presentation,
     ReportFilters,
@@ -89,6 +90,8 @@ class ReportRecord(Contract):
     date_basis: Literal["document_issue", "activity_effective"]
     family: Family | None = None
     stage: Stage | None = None
+    #: Current 606/607 verdict, independent of downloaded export history.
+    fiscal_data: FiscalData | None = None
     export_missing: str | None = None
     export_missing_several: bool = False
     export_line: bool = False
@@ -274,6 +277,8 @@ def _matches_period(row: ReportRecord, period: ResolvedPeriod) -> bool:
 
 
 def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) -> bool:
+    if filters.fiscal_data is not None and row.fiscal_data != filters.fiscal_data:
+        return False
     if not _matches_period(row, period):
         return False
     if filters.q and not any(
@@ -578,12 +583,27 @@ def run_query(
         for row in records
         if row.dgii_606 and row.dgii_606.expense_type
     }
-    options = {
-        "counterparties": sorted(
-            (row.counterparty_key, row.counterparty or "")
-            for row in records
-            if row.counterparty_key
+    family_records = [
+        row
+        for row in records
+        if not request.filters.record_families
+        or row.family in request.filters.record_families
+    ]
+    parties: dict[str, str] = {}
+    for row in sorted(
+        family_records,
+        key=lambda row: (
+            -(row.report_date.toordinal() if row.report_date else 0),
+            row.row_id,
         ),
+    ):
+        if row.counterparty_key and row.counterparty:
+            parties.setdefault(row.counterparty_key, row.counterparty)
+    for row in family_records:
+        if row.counterparty_key:
+            parties.setdefault(row.counterparty_key, row.counterparty_key)
+    options = {
+        "counterparties": sorted(parties.items()),
         "categories": sorted({row.category_key for row in records}),
         "expense_types": [
             expense_types[code].model_dump(mode="json") for code in sorted(expense_types)
@@ -607,16 +627,10 @@ def run_query(
             payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode()
     ).hexdigest()
-    parties: dict[str, set[str]] = {}
-    for row in records:
-        if row.counterparty_key:
-            parties.setdefault(row.counterparty_key, set()).add(
-                row.counterparty or row.counterparty_key
-            )
     offset = (request.page - 1) * request.page_size
     overview_rows = [row for row in records if _matches_period(row, period)]
     overview = ReportOverview(
-        needs_fiscal_data=sum(row.stage == "needs_fiscal_data" for row in rows),
+        needs_fiscal_data=sum(row.fiscal_data == "missing" for row in rows),
         **{
             stage: sum(row.stage == stage for row in overview_rows)
             for stage in (
@@ -652,8 +666,8 @@ def run_query(
         resolved_period=period,
         excluded_unknown_dates=excluded_unknown_dates,
         counterparties=tuple(
-            FilterOption(key=key, labels=tuple(sorted(labels)))
-            for key, labels in sorted(parties.items())
+            FilterOption(key=key, labels=(label,))
+            for key, label in sorted(parties.items())
         ),
         categories=tuple(sorted({row.category_key for row in records})),
         expense_types=tuple(expense_types[code] for code in sorted(expense_types)),
