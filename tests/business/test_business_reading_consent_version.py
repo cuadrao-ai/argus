@@ -5,9 +5,13 @@ sentence promises that turning reading back on reads what was saved unread."""
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 from argus.domain.business import receipt_consent
+from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
 
 from tests.business.test_business_api import RECEIPT, Owner, alice  # noqa: F401
+from tests.business.test_business_email_api import runtime  # noqa: F401
 
 SPANISH = (
     "Leemos con inteligencia artificial los documentos que llegan por correo, por"
@@ -91,3 +95,58 @@ def test_turning_reading_back_on_reads_what_was_saved_while_it_was_off(
     assert again.json()["enabled"] is True
     assert alice.detail(while_off["id"])["activity"]["state"] == "ready"
     assert len(stub.calls) == 1
+
+
+def test_turning_reading_back_on_never_reads_the_email_itself(
+    alice: Owner,  # noqa: F811
+    stub,  # noqa: ANN001
+    runtime,  # noqa: ANN001, F811
+) -> None:
+    assert alice.reading(True).status_code == 200
+    assert alice.reading(False).status_code == 200
+    space_id = alice.scope().owner.space_id
+    store = runtime.store
+    route = store.create_route(
+        recipient="recibos-00000001@recibos.example.test",
+        space_id=space_id,
+        principal_id=alice.scope().person_id,
+        granted_by=alice.scope().person_id,
+        grant_id=str(uuid4()),
+    )
+    store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=space_id,
+        principal_id=route.principal_id,
+    )
+    claimed = store.claim()
+    original = alice.upload(
+        content=b"Subject: Factura 0041\r\n\r\nForwarded receipt",
+        consent=False,
+        name="forwarded.eml",
+        media_type="message/rfc822",
+    ).json()
+    attachment = alice.upload(content=RECEIPT, consent=False).json()
+    store.update(claimed, original_document_id=original["id"], subject="Factura 0041")
+    store.put_part(
+        claimed,
+        EmailDeliveryPart(
+            "1.2", "recibo.png", "image/png", "captured", attachment["id"], None
+        ),
+    )
+    store.finish(claimed, "captured")
+    assert alice.detail(original["id"])["email_original"] is True
+    assert alice.detail(attachment["id"])["activity"]["state"] == "saved_unread"
+    assert stub.calls == []
+
+    again = alice.reading(True)
+
+    assert again.status_code == 200, again.text
+    assert stub.calls == [attachment["id"]]
+    assert alice.detail(attachment["id"])["activity"]["state"] == "ready"
+
+    assert alice.reading(False).status_code == 200
+    assert alice.reading(True).status_code == 200
+    assert stub.calls == [attachment["id"]]
