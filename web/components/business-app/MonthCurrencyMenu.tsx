@@ -114,7 +114,7 @@ export function MonthCurrencyMenu({
           }
           // Placed before it opens, so the list never paints at a default spot first.
           const rect = buttonRef.current?.getBoundingClientRect();
-          if (rect) setPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - 256 - 8)), top: rect.bottom + 4 });
+          if (rect) setPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - 320 - 8)), top: rect.bottom + 4 });
           setActive(Math.max(0, currencies.indexOf(value)));
           setOpen(true);
         }}
@@ -136,7 +136,7 @@ export function MonthCurrencyMenu({
           aria-label={t("business.month_close.currency_menu")}
           aria-activedescendant={currencies[active] ? `${listId}-${currencies[active]}` : undefined}
           style={{ left: position.left, top: position.top }}
-          className="fixed z-[100] w-64 rounded-surface border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
+          className="fixed z-[100] w-80 max-w-[calc(100vw-16px)] rounded-surface border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
         >
           <li role="presentation" aria-hidden="true" className="px-3 pb-1 pt-1.5 text-[12px] font-medium text-[#56635e] dark:text-white/70">
             {t("business.month_close.currency_menu")}

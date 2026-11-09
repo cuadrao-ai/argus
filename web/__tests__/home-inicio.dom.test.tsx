@@ -297,3 +297,21 @@ describe("The month card", () => {
     } finally { await page.close(); }
   });
 });
+
+describe("what Inicio no longer has", () => {
+  test("Para cerrar, closing a sample month, Personalizar Inicio and Continuar trabajando are gone, with their copy", async () => {
+    const { existsSync, readFileSync } = await import("node:fs");
+    const here = (path: string) => new URL(`../${path}`, import.meta.url).pathname;
+    for (const path of ["components/business-app/inicio/HomeOverviewDraft.tsx", "components/business-app/inicio/home-draft-data.ts", "components/business-app/inicio/useHomeCounts.ts"]) {
+      assert.equal(existsSync(here(path)), false, path);
+    }
+    const { STORAGE_REGISTRY } = await import("@/lib/browser-storage");
+    assert.equal("cuadrao:home_section_order:v1" in STORAGE_REGISTRY, false, "no saved Inicio order");
+    const panel = readFileSync(here("components/business-app/BusinessMonthClosePanel.tsx"), "utf8");
+    for (const gone of ["checklistCard", "month-close-checklist", "filing_ready", "closed_at", "month-close-closed"]) assert.equal(panel.includes(gone), false, gone);
+    const spanish = (await import("@/public/locales/es-419/common.json")).default as { business: { month_close: Record<string, unknown> } };
+    for (const key of ["filing_ready", "checklist_title", "closed", "closed_on", "currency_others"]) assert.equal(key in spanish.business.month_close, false, key);
+    const sample = (await import("@/lib/business-month-close")).createMockMonthCloseClient();
+    assert.equal("closeMonth" in sample, false);
+  });
+});

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { createHttpMonthCloseClient, createMockMonthCloseClient, MonthCloseError, monthCloseFiguresFrom, openItemsFrom, type MonthCloseClient, type MonthCloseDocument, type MonthCloseSnapshot } from "../lib/business-month-close";
+import { createHttpMonthCloseClient, createMockMonthCloseClient, MonthCloseError, openItemsFrom, type MonthCloseClient, type MonthCloseDocument, type MonthCloseSnapshot } from "../lib/business-month-close";
 import { renderMonthCloseView } from "./helpers/month-close-view";
 
 beforeAll(() => {

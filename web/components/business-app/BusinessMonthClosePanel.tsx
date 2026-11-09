@@ -13,8 +13,6 @@ import {
   currencyShown,
   currentMonthKey,
   documentOverdue,
-  electronicNcf,
-  fiscalNumberPresent,
   formatMonthLabel,
   joinCurrencyList,
   loadCurrentMonth,
@@ -28,8 +26,6 @@ import {
   openItemsInDueOrder,
   openItemsTotalsInOrder,
   overdueTotalsInOrder,
-  paperNcf,
-  rncPresent,
   shiftMonthKey,
   type MonthCloseClient,
   type MonthCloseDocument,
@@ -478,7 +474,6 @@ function BusinessMonthCloseContent({
   const shown = blocks.find((block) => block.currency === shownCurrency) ?? null;
   const net = shown ? monthCloseNetDisplay(shown) : { state: "pending" as const, pending_count: 0, reason: "unknown" as const };
   // Each list is judged by the day its own response carries. An older server sends none: lateness is unknown and no mark can say when it settled.
-  const monthToday = snapshot?.today ?? null;
   const openToday = openItems?.today ?? null;
   const markMethod = oneTapPaymentMethod(snapshot?.payment_methods ?? null);
   const canMark = settlement && canMutate && markMethod !== null && openToday !== null;

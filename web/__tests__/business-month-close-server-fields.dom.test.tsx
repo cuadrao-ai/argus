@@ -3,9 +3,6 @@ import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { createHttpMonthCloseClient, type MonthCloseClient, type MonthCloseFigures, type MonthCloseSnapshot } from "../lib/business-month-close";
 import type { BusinessContextValue } from "../components/business-app/BusinessWorkspace";
-import english from "../public/locales/en/common.json";
-import spanish from "../public/locales/es-419/common.json";
-import { READ_VALUES, receiptLine } from "./fixtures/review-flags";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
