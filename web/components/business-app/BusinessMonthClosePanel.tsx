@@ -46,6 +46,7 @@ import type { RecordsFocus } from "./transacciones/records-focus";
 import { canAddRecords, cardClass, quietButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
 import { businessSettlementAvailable, businessWorkspaceCurrency } from "@/lib/business-api";
+import { recordsCurrencySchema } from "@/lib/business-reports-api";
 import { dismissToast, showToast, useToasts } from "./foundation/toasts";
 import { EmptyState } from "./foundation/EmptyState";
 import { resolveLanguage } from "@/lib/language-features";
@@ -660,12 +661,15 @@ function BusinessMonthCloseContent({
       ? t(`business.month_close.placeholder.checklist_fiscal_${word}_in`, { count: row.count, currency: currencySymbol(row.currency) })
       : t(`business.month_close.placeholder.checklist_fiscal_${word}`, { count: row.count });
     const range = snapshot ? { from: snapshot.from, to: snapshot.to } : null;
+    // Registros lists only the currencies it can show one at a time; a row in another currency keeps its count and
+    // offers no action rather than open a list that is not the one it counted.
+    const listable = recordsCurrencySchema.safeParse(row.currency).success;
     return {
       id: `fiscal-${row.family}-${row.currency}`,
       icon: FileWarning,
       text,
       tone: "attention",
-      action: openRecords && range ? { label: t("business.month_close.action_see", "See"), run: () => openRecords({ family: row.family, currency: row.currency, ...range, fiscal_data: "missing" }) } : undefined,
+      action: openRecords && range && listable ? { label: t("business.month_close.action_see", "See"), run: () => openRecords({ family: row.family, currency: row.currency, ...range, fiscal_data: "missing" }) } : undefined,
     };
   };
   const tasks: Task[] = [

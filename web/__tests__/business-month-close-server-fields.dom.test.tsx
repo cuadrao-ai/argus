@@ -590,6 +590,17 @@ describe("Faltan datos fiscales rows are the server's, each opening exactly what
     });
   }
 
+  test("a row in a currency Registros cannot list keeps its count and offers no action, never a different list", async () => {
+    const rows = [{ family: "purchase", currency: "CAD", count: 1, by_currency: true }, { family: "purchase", currency: "DOP", count: 1, by_currency: true }];
+    const { client } = serverClient({ month: () => ({ missing_fiscal_data: [purchase("c1", "CAD"), purchase("p1")], missing_fiscal_rows: rows }) });
+    const view = await renderInicio(client, { count: 0 }, "finance");
+    try {
+      assert.match(view.text("month-close-task-fiscal-purchase-CAD"), /1 compra/);
+      assert.equal(view.find("month-close-task-fiscal-purchase-CAD")?.querySelector("button"), null);
+      assert.ok(view.find("month-close-task-fiscal-purchase-DOP")?.querySelector("button"));
+    } finally { await view.unmount(); }
+  });
+
   test("a read-only person sees the same rows and counts without actions", async () => {
     const rows = [{ family: "purchase", currency: "DOP", count: 2, by_currency: false }];
     const { client } = serverClient({ month: () => ({ missing_fiscal_data: [purchase("p1"), purchase("p2")], missing_fiscal_rows: rows, reasons: [{ code: "movimientos_sin_revisar", count: 3 }], unreviewed_movements_count: 3 }) });
