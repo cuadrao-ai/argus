@@ -4878,6 +4878,13 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_settlement_unavailable`: Por cobrar and Por pagar are off
+            on this server (`CUADRAO_BUSINESS_SETTLEMENT_ENABLED`).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: '`business_document_settlement_conflict`: another first settlement
             of this document landed, and a fresh retry still collided.'
@@ -5091,6 +5098,13 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_settlement_unavailable`: Por cobrar and Por pagar are off
+            on this server (`CUADRAO_BUSINESS_SETTLEMENT_ENABLED`).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -6267,19 +6281,67 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExportReport'
+              $ref: '#/components/schemas/RecordsExport'
       responses:
         '200':
-          description: Complete filtered records, CSV, XLSX and scope manifest; originals
-            excluded.
+          description: 'One Excel or CSV file: the table''s records or the 606/607 lines.'
           content:
-            application/zip: {}
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: {}
+            text/csv: {}
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
-        '409':
-          description: business_report_changed; explicitly refresh the query before retrying.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/reports/export/preview:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportPreviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportPreview'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -18986,6 +19048,8 @@ components:
           type: boolean
         notifications_available:
           type: boolean
+        settlement_available:
+          type: boolean
         receiving_channels:
           $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
@@ -19011,6 +19075,7 @@ components:
       - chat_available
       - invoicing_available
       - notifications_available
+      - settlement_available
       - receiving_channels
       - receipt_limits
       - records_default_currency
@@ -20334,19 +20399,40 @@ components:
         itbis_owed:
           type: string
         cuentas_por_cobrar_minor:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_cobrar:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_pagar_minor:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_pagar:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         itbis_cobrado_minor:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         itbis_cobrado:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         by_status:
-          $ref: '#/components/schemas/StatusTotals'
+          anyOf:
+          - $ref: '#/components/schemas/StatusTotals'
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         net_result_final:
           type: boolean
       additionalProperties: false
@@ -20365,14 +20451,20 @@ components:
       - itbis_paid
       - itbis_owed_minor
       - itbis_owed
-      - cuentas_por_cobrar_minor
-      - cuentas_por_cobrar
-      - cuentas_por_pagar_minor
-      - cuentas_por_pagar
-      - itbis_cobrado_minor
-      - itbis_cobrado
-      - by_status
       - net_result_final
+    CurrencySelection:
+      properties:
+        record_count:
+          type: integer
+        currencies:
+          items:
+            type: string
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - record_count
+      - currencies
     CurrencySummaryResponse:
       properties:
         currency:
@@ -21282,6 +21374,34 @@ components:
       - code
       - label
       description: 'One 606 answer: its code and the name the DGII list gives it.'
+    DgiiExport:
+      properties:
+        form:
+          type: string
+          enum:
+          - '606'
+          - '607'
+        currency:
+          type: string
+          default: DOP
+        record_count:
+          type: integer
+        pending_fiscal_count:
+          type: integer
+        pending_rate_count:
+          type: integer
+        pending_rate_currencies:
+          items:
+            type: string
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - form
+      - record_count
+      - pending_fiscal_count
+      - pending_rate_count
+      - pending_rate_currencies
     DgiiForeignCurrency:
       properties:
         '606':
@@ -21497,7 +21617,10 @@ components:
           - type: string
           - type: 'null'
         status:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         sin_comprobante:
           type: boolean
           default: false
@@ -21527,7 +21650,6 @@ components:
       - rnc
       - ncf
       - ecf
-      - status
       - due_on
     DocumentResponse:
       properties:
@@ -22334,49 +22456,55 @@ components:
       type: object
       required:
       - items
-    ExportReport:
+    ExportColumn:
+      properties:
+        key:
+          type: string
+          enum:
+          - counterparty
+          - fiscal_number
+          - date
+          - gross_amount
+          - itbis_amount
+          - stage
+          - note
+          - attachment
+          - expense_type
+          - payment_form
+          - funding
+        shown:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - key
+      - shown
+    ExportPreview:
+      properties:
+        table:
+          $ref: '#/components/schemas/TableExport'
+        dgii:
+          $ref: '#/components/schemas/DgiiExport'
+      additionalProperties: false
+      type: object
+      required:
+      - table
+      - dgii
+    ExportPreviewRequest:
       properties:
         report:
           oneOf:
           - $ref: '#/components/schemas/ReportRequest'
           - $ref: '#/components/schemas/ReportRequestV2'
-          default:
-            schema_version: 1
-            filters:
-              categories: []
-              counterparties: []
-              currencies: []
-              document_kinds: []
-              expense_types: []
-              fiscal_classifications: []
-              funding_sources: []
-              period:
-                kind: all
-              q: ''
-              record_families: []
-              review_stages: []
-            columns:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - gross_amount
-            sort: date_desc
-            page: 1
-            page_size: 25
           discriminator:
             propertyName: schema_version
             mapping:
               '1': '#/components/schemas/ReportRequest'
               '2': '#/components/schemas/ReportRequestV2'
-        expected_fingerprint:
-          type: string
-          pattern: ^[0-9a-f]{64}$
       additionalProperties: false
       type: object
       required:
-      - expected_fingerprint
+      - report
     ExportWindow:
       properties:
         start:
@@ -24067,7 +24195,10 @@ components:
           - type: string
           - type: 'null'
         status:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         sin_comprobante:
           type: boolean
           default: false
@@ -24101,7 +24232,6 @@ components:
       - rnc
       - ncf
       - ecf
-      - status
       - due_on
       - missing
     HistoryItem:
@@ -27270,9 +27400,12 @@ components:
           - type: string
           - type: 'null'
         payment_methods:
-          items:
-            type: string
-          type: array
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         dgii_forms:
           $ref: '#/components/schemas/DgiiForms'
         dgii_foreign_currency:
@@ -27302,13 +27435,19 @@ components:
             $ref: '#/components/schemas/HeldLine'
           type: array
         cuentas_por_cobrar:
-          items:
-            $ref: '#/components/schemas/DocumentLine'
-          type: array
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/DocumentLine'
+            type: array
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_pagar:
-          items:
-            $ref: '#/components/schemas/DocumentLine'
-          type: array
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/DocumentLine'
+            type: array
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         unreviewed_movements_count:
           type: integer
           default: 0
@@ -27325,13 +27464,10 @@ components:
       - closed
       - reasons
       - earliest_month
-      - payment_methods
       - dgii_forms
       - currencies
       - missing_rnc
       - missing_ncf
-      - cuentas_por_cobrar
-      - cuentas_por_pagar
     MovementAccount:
       properties:
         account_id:
@@ -31419,6 +31555,56 @@ components:
       - approved_revision
       - approved_at
       - actor
+    RecordsExport:
+      properties:
+        report:
+          oneOf:
+          - $ref: '#/components/schemas/ReportRequest'
+          - $ref: '#/components/schemas/ReportRequestV2'
+          discriminator:
+            propertyName: schema_version
+            mapping:
+              '1': '#/components/schemas/ReportRequest'
+              '2': '#/components/schemas/ReportRequestV2'
+        mode:
+          type: string
+          enum:
+          - table
+          - dgii
+        columns:
+          items:
+            type: string
+            enum:
+            - counterparty
+            - fiscal_number
+            - date
+            - gross_amount
+            - itbis_amount
+            - stage
+            - note
+            - attachment
+            - expense_type
+            - payment_form
+            - funding
+          type: array
+          default: []
+        currencies:
+          type: string
+          enum:
+          - all
+          - current
+          default: all
+        format:
+          type: string
+          enum:
+          - xlsx
+          - csv
+          default: xlsx
+      additionalProperties: false
+      type: object
+      required:
+      - report
+      - mode
     RedeemResult:
       properties:
         admitted:
@@ -34446,6 +34632,24 @@ components:
       - source_id
       - receipt_id
       - sha256
+    TableExport:
+      properties:
+        columns:
+          items:
+            $ref: '#/components/schemas/ExportColumn'
+          type: array
+        current:
+          $ref: '#/components/schemas/CurrencySelection'
+        all:
+          anyOf:
+          - $ref: '#/components/schemas/CurrencySelection'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - columns
+      - current
+      - all
     TaxId:
       properties:
         type:

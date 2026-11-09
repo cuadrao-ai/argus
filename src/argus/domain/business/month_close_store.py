@@ -95,7 +95,9 @@ class _Race(Exception):
     """Another request inserted this settlement first."""
 
 
-def read_month(authority, context: ActionContext, month: str) -> dict:
+def read_month(
+    authority, context: ActionContext, month: str, settlement: bool = True
+) -> dict:
     start, end = month_period(month)
     today = ledger.today()
     with _session(authority, context, "read") as (connection, auth):
@@ -103,7 +105,9 @@ def read_month(authority, context: ActionContext, month: str) -> dict:
         forms, foreign, no_payment_form, missing = _form_statuses(
             connection, auth.context, tuple(by_id.values()), start, end, today
         )
-    return month_close(month, today, documents, forms, foreign, no_payment_form, missing)
+    return month_close(
+        month, today, documents, forms, foreign, no_payment_form, missing, settlement
+    )
 
 
 def foreign_currency(manifest_forms: dict) -> dict:
@@ -121,11 +125,17 @@ def foreign_currency(manifest_forms: dict) -> dict:
     return result
 
 
-def empty_month(month: str) -> dict:
+def empty_month(month: str, settlement: bool = True) -> dict:
     """The month as it reads with no documents and no store: the whole shape,
     nothing in it, and the forms with no operations."""
 
-    return month_close(month, ledger.today(), (), dict.fromkeys(COLUMNS, "no_operations"))
+    return month_close(
+        month,
+        ledger.today(),
+        (),
+        dict.fromkeys(COLUMNS, "no_operations"),
+        settlement=settlement,
+    )
 
 
 def month_close(  # noqa: ANN001
@@ -136,15 +146,19 @@ def month_close(  # noqa: ANN001
     foreign: dict | None = None,
     no_payment_form: frozenset[str] = frozenset(),
     missing: Mapping[str, Sequence[str]] | None = None,
+    settlement: bool = True,
 ) -> dict:
+    """The month-close answer. Without ``settlement`` it names no payment
+    method either: a method is only what a cobrado or pagado mark carries."""
+
     start, end = month_period(month)
     return {
         "month": month,
         "today": today,
-        "payment_methods": list(PAYMENT_METHODS),
+        **({"payment_methods": list(PAYMENT_METHODS)} if settlement else {}),
         "dgii_forms": forms,
         "dgii_foreign_currency": foreign or foreign_currency({}),
-        **summarize(documents, start, end, no_payment_form, missing or {}),
+        **summarize(documents, start, end, no_payment_form, missing or {}, settlement),
     }
 
 

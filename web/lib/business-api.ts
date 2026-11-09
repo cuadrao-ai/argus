@@ -352,6 +352,8 @@ export type BusinessWorkspaceInfo = {
   chat_available: boolean;
   /** Whether the server offers Facturación to this person; the one switch. */
   invoicing_available: boolean;
+  /** Whether the server offers Por cobrar and Por pagar; the one switch. Absent in older payloads. */
+  settlement_available?: boolean;
   /** Server-owned channel availability, independent of address or linking state. */
   receiving_channels?: ReceivingChannels;
   /** What a receipt upload accepts. The backend's document settings own it. */
@@ -374,6 +376,11 @@ export function businessChatAvailable(workspace: BusinessWorkspaceInfo | null): 
 /** The one reader of `invoicing_available`: an older payload without the field offers no Facturación. */
 export function businessInvoicingAvailable(workspace: BusinessWorkspaceInfo): boolean {
   return workspace.invoicing_available === true;
+}
+
+/** The one reader of `settlement_available`: an older payload, or none yet, offers no Por cobrar or Por pagar. */
+export function businessSettlementAvailable(workspace: Pick<BusinessWorkspaceInfo, "settlement_available"> | null | undefined): boolean {
+  return workspace?.settlement_available === true;
 }
 
 export type ReceiptLimits = {

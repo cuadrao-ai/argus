@@ -14,6 +14,8 @@ import io
 import json
 import zipfile
 
+import pytest
+
 from tests.test_business_scope_switch_routes_postgres import (  # noqa: F401
     API,
     GRANT,
@@ -29,6 +31,13 @@ from tests.test_business_sin_comprobante_postgres import (
 from tests.test_business_sin_comprobante_postgres import pytestmark as _local_supabase
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 MONTH, START, END = "2026-09", "2026-09-01", "2026-09-30"
 
 

@@ -117,7 +117,7 @@ The backend `Presentation` in `src/argus/domain/business/reporting_preferences.p
 | ncf | Available (hidden by default) | NCF / NCF | Existing `fiscal_number`, NCF or e-CF; missing stays unknown |
 | itbis | Available (hidden by default) | ITBIS / ITBIS | Existing `itbis_amount` in the row currency; missing amount or currency stays unknown, zero stays numeric |
 
-NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client’s workflow. These are semantic targets, not a ship list. They already exist in Más datos or export. The evolved export column and file-type picker is out of scope.
+NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client’s workflow. These are semantic targets, not a ship list. They already exist in Más datos or export. The Registros export chooses among the table columns and between Excel and CSV; see `docs/API_CONTRACT.md`.
 
 ## Score cards
 
@@ -136,7 +136,7 @@ Registros has six summary cards. Lucas approved the purchase-side meanings on 20
 
 Missing Bienes or Servicios values are not zero. Total is not forced to equal Bienes + Servicios + ITBIS. Registros always selects exactly one currency, DOP, USD or EUR. Without a valid single-currency URL or view, the server workspace `records_default_currency` supplies the selection, currently DOP. Never add incompatible currencies. A fiscal amount that its currency cannot represent exactly is not summed, is counted and shown as unsupported, and is never rounded.
 
-The same single-type, single-currency request scopes the table, all six cards and the Registros export. Compras / Ventas are always-visible tabs above the cards, Compras by default, using Bandeja’s tab component. Optional filters are shared across tabs except Tipo de gasto, which is Compras-only and clears on a switch to Ventas or a loaded sales recipe. Moneda is an always-visible DOP / USD / EUR selector beside the period, without search. Neither belongs in Filtros or its chips. The filter count and dots include only optional filters. Clear filters clears only optional filters, keeps the tab, currency, period and search, and is disabled in the editor when none are active. Switching currency clears both amount limits without conversion. Cards describe all matching records across all pages; changing pages does not change their totals. A new request hides the previous card values until its answer arrives. An empty answer shows zero matching records and no invented money amounts.
+The same single-type, single-currency request scopes the table and all six cards. The Registros export starts from it: Lo que ves follows it, in the screen's currency or every currency; Formato DGII follows only its type and period. Compras / Ventas are always-visible tabs above the cards, Compras by default, using Bandeja’s tab component. Optional filters are shared across tabs except Tipo de gasto, which is Compras-only and clears on a switch to Ventas or a loaded sales recipe. Moneda is an always-visible DOP / USD / EUR selector beside the period, without search. Neither belongs in Filtros or its chips. The filter count and dots include only optional filters. Clear filters clears only optional filters, keeps the tab, currency, period and search, and is disabled in the editor when none are active. Switching currency clears both amount limits without conversion. Cards describe all matching records across all pages; changing pages does not change their totals. A new request hides the previous card values until its answer arrives. An empty answer shows zero matching records and no invented money amounts.
 
 Datos fiscales is one nullable choice. Completos means the current 606/607 carries the record with every required fiscal field, downloaded or not. Faltan datos uses the same current missing verdict as the card. Records outside the report, waiting records and technical failures appear only under Todos. Download history does not set this choice. Existing fiscal admission and required fields are unchanged. Old review-stage views still load and keep a clearable chip.
 
@@ -165,7 +165,6 @@ Do **not** label a non-fiscal expense total as "Compras (606)".
 
 ## Out of scope
 
-- The evolved export column and file-type picker.
 - Home card renames, including Ingresos to Ventas.
 - App, code, and i18n changes. Their ship order stays parked until an explicit implementation request.
 - Storage key changes.

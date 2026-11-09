@@ -92,3 +92,9 @@ def provider_free_env(monkeypatch):
     monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
     for name in PROVIDER_CREDENTIAL_ENV_VARS:
         monkeypatch.setenv(name, "")
+
+
+@pytest.fixture
+def settlement_on(monkeypatch):
+    """Por cobrar and Por pagar on, for a flow that marks documents cobrado or pagado."""
+    monkeypatch.setenv("CUADRAO_BUSINESS_SETTLEMENT_ENABLED", "true")

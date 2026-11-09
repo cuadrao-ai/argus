@@ -60,6 +60,7 @@ import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
 import ExportRecordsPanel from "./ExportRecordsPanel";
+import { openRecordsExport } from "./transacciones/records-export-request";
 import { HandHeart } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AmountsToggle } from "./foundation/AmountsToggle";
@@ -173,7 +174,7 @@ export type BusinessContextValue = Readonly<{
   bridge: ChatShellBridge | null;
   attachedReceipt: ReceiptSummary | null;
   clearAttachedReceipt: () => void;
-  /** Opens Exportar registros over whatever screen is showing. */
+  /** Opens the period ZIP export; only the sample and bank-matching Registros screen uses it. */
   openExport: () => void;
   /** Asks the server for the emails again; the Negocio history shows it working. */
   emailRefresh: Readonly<{ refresh: () => void; refreshing: boolean; stalled: boolean }>;
@@ -652,6 +653,8 @@ function BusinessWorkspaceContent({
 
   const [exportOpen, setExportOpen] = useState(false);
   const openExport = useCallback(() => setExportOpen(true), []);
+  // Exportar registros from search opens Registros and its own export dialog.
+  const exportRegistros = useCallback(() => openRecordsExport(openPanel), [openPanel]);
 
   const value = useMemo<BusinessContextValue>(
     () => ({
@@ -701,7 +704,7 @@ function BusinessWorkspaceContent({
     owner: chosen?.role !== "accountant",
     scope: chosen?.space_id ?? "own",
     canExport: chosen?.permissions?.includes("export") === true,
-    openExport,
+    openExport: exportRegistros,
     listScope,
     adaptive: true,
     emailAvailable: receivingChannels.email.available,
@@ -796,7 +799,7 @@ export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; c
   return <BusinessReviewShortcutsProvider><BusinessWorkspaceContent {...props} /></BusinessReviewShortcutsProvider>;
 }
 
-/** The one Exportar registros, opened from the top bar's menu or from search over any screen. */
+/** The period ZIP export, opened from the sample and bank-matching Registros screen. */
 function WorkspaceExport({ onClose }: { onClose: () => void }) {
   const monthClose = useMonthCloseSource();
   return <ExportRecordsPanel monthClose={monthClose} onClose={onClose} />;

@@ -61,7 +61,9 @@ class FiscalPacket:
     files: dict[str, bytes]
 
 
-def _row(record: FiscalRecord) -> tuple[str, ...]:
+def line_values(record: FiscalRecord) -> tuple[str, ...]:
+    """One 606 or 607 line in annex order, as the TXT writes it."""
+
     declaration = confirmed_declaration(record)
     values = declaration.model_dump()
     values.update(
@@ -318,7 +320,7 @@ def fiscal_manifest(
             issues.extend(errors)
             item["reason"] = errors[0]["code"]
             continue
-        values = _row(record)
+        values = line_values(record)
         mapped = dict(zip((column[0] for column in COLUMNS[form]), values, strict=False))
         base, tax = Decimal(mapped["billed_amount"]), Decimal(mapped["itbis"])
         sign = Decimal(-1) if is_credit(record) else Decimal(1)

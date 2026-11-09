@@ -16,7 +16,7 @@ export async function renderMonthCloseView(client: MonthCloseClient, now: Date, 
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessMonthCloseView client={client} now={now} businessCurrency={businessCurrency} review={review} />
+        <BusinessMonthCloseView settlement client={client} now={now} businessCurrency={businessCurrency} review={review} />
       </I18nextProvider>,
     );
   });

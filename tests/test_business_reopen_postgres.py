@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from uuid import uuid4
 
+import pytest
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
@@ -51,6 +52,13 @@ from tests.test_business_scope_switch_routes_postgres import (
 )
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 #: A second supplier RNC whose check digit holds, so the fix is a real one.
 CORRECTED_SUPPLIER = "199990031"
 

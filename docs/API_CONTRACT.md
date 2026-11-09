@@ -9728,7 +9728,7 @@ still needs, first fix first: `expense_type_missing`, `rnc_missing`,
 month remains: `unreviewed_movements_count` zero, no read in flight with no
 date (a receipt being read for the first time, or an email being read, holds
 every month until it lands), `missing_fiscal_data` empty, `cuentas_por_cobrar`
-and `cuentas_por_pagar` empty; the web shows that sentence
+and `cuentas_por_pagar` empty while settlement is on; the web shows that sentence
 from this field alone, never from `closed`, which stays month completion). Each
 currency block adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
@@ -10678,7 +10678,14 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  receipt_limits: {max_bytes, media_types}, logo_url}`. `country` and `currency` are the Business's own,
+  settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
+  is on (default off). While it is false the month close carries no settlement state, its net result
+  waits only on a rate, the open items read and the settlement PATCH are refused with 404
+  `business_settlement_unavailable` before authentication (a malformed PATCH body can answer 422
+  first, as it does while the switch is on), and the web shows no Por cobrar, Por pagar or mark, and shows
+  ITBIS charged ("ITBIS en ventas") where ITBIS cobrado stood (see the
+  [month-close contract](contracts/business-month-close.md)). `country` and `currency` are the Business's own,
   the same values `GET /business/space` returns. `records_default_currency` is the
   server-owned initial Registros selection, currently DOP, independent of the
   Business currency. Its supported values are DOP, USD and EUR. The web waits for
@@ -11011,7 +11018,8 @@ accept path recorded.
   the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
   statement period. An NCF due notice is that one expense, marked
-  `Factura por pagar` on the dossier as `bill_mark`. When the same record
+  `Factura por pagar` on the dossier as `bill_mark` (null while settlement is
+  off; the draft keeps the mark). When the same record
   is prepared again as paid, the mark becomes `Factura pagada`. The draft
   id does not change and a second expense is not opened. A paid purchase
   that is not a due notice carries `bill_mark: null`. Other interrupted
@@ -11418,22 +11426,58 @@ accept path recorded.
   leaves the sum incomplete. Unknown currency is null and has no display amount.
   The web accepts these server fields without computing totals or coverage.
 
-- POST `/api/v1/business/reports/export` takes `{report, expected_fingerprint}`
-  and returns a no-store ZIP of the full filtered answer: `records.csv`,
-  `records.xlsx`, and `manifest.json`. It includes unresolved matching rows with
-  honest workflow and effect fields. Selected columns preserve order; identity,
-  workflow and effect columns always remain, and so do `personal` and
-  `include_606`, which say why a listed row is in or out of the manifest totals.
-  Spreadsheet cells are literal text.
-  XLSX includes server-computed Records, Totals and Scope sheets with no formulas.
-  The manifest states trusted Business/actor/grant, query, resolved dates,
-  captured/generated time, matching count, semantic totals, coverage limitations
-  and fingerprint. It is records-only; evidence downloads and existing period/DGII
-  packages remain separate and unchanged. The server recomputes the authorized
-  whole-result fingerprint, then checks authority and source/result dependencies
-  again after building bytes. Changed facts, visible dependencies, query or relative
-  date rollover returns 409 `business_report_changed`; explicitly refresh before
-  retrying. Page, selected columns and generation time are not result authority.
+- POST `/api/v1/business/reports/export/preview` takes `{report}`, the request
+  Registros sends for its table, and returns what the export modal shows before
+  any file is built. Both routes need the live `export` capability and the
+  report's one selected type (`business_export_family_required` otherwise).
+  `table.columns` lists the table columns the selected tab offers
+  (`reporting_preferences.py` owns them), in the table's order, each with `shown`
+  for the table's current visibility; expense type and payment form are offered
+  on Compras only. `table.current` counts the records the table's request
+  matches, with their currencies; `table.all` counts the same request in every
+  currency, and is null while an amount range ties the request to one currency.
+  `dgii` counts by the tab and period only, whatever the other filters say:
+  `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
+  currency (`DOP`), `record_count` the records whose
+  current `fiscal_data` is `complete` (a line on its month's form),
+  `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing` (the
+  Faltan datos fiscales card for the same tab, period and DOP), and
+  `pending_rate_count` with `pending_rate_currencies` the foreign-currency
+  records the form holds until they have a rate. No count is computed on the web.
+  The notice's Revisar queries exactly those records: the tab, the period,
+  `currency` and `fiscal_data: missing`, with every other filter and the search
+  cleared.
+
+- POST `/api/v1/business/reports/export` takes `{report, mode, columns, currencies,
+  format}` and returns one no-store file named in `Content-Disposition`
+  (exposed to the web origin): `Compras_noviembre-2026.xlsx`,
+  `Ventas_2026-11-01_2026-11-15.csv` or `606_noviembre-2026.xlsx`, without
+  accents or spaces; a whole year reads `2026` and an unbounded period has no
+  date part. `format` is `xlsx` (default, one sheet, frozen header row) or `csv`
+  (UTF-8 with a BOM). There is no ZIP, manifest, totals row or original.
+  `mode: "table"` writes what the table shows: the report's every filter, the
+  chosen `columns` in the table's order with Contraparte always first, and
+  `currencies` `current` (the screen's currency) or `all` (the same request in
+  every currency, with a Moneda column after Monto; refused with
+  `business_export_currency_required` while an amount range is set). A column
+  the tab does not offer is refused with `business_export_column_unavailable`.
+  Headers are the es-419 table headers, copied from the web locale into
+  `records_file_words.generated.json` by `scripts/generate_records_file_words.py`
+  (a test proves they agree). Values are words as the screen shows them: stage
+  words, tipo de gasto and forma de pago by their DGII names, `Falta` or
+  `No aplica`, `Sí`/`No` for the attachment, the account name. Amounts are
+  exact numbers shown with two decimals, or the currency's own precision when it
+  has more; an amount past Excel's 15 significant digits stays exact text. Dates
+  are real dates (`dd/mm/yyyy` in CSV).
+  `mode: "dgii"` takes no `columns` and `currencies` `all`, follows only the tab and
+  the period, and writes the `606` or `607` columns of `dgii_columns.py` in annex
+  order with the `dgii_export.line_values` of each record `dgii.record_count`
+  counts, exactly as the TXT writes that line: amounts are numbers, codes,
+  identities and `AAAAMMDD` dates stay text. A cell that starts with `=`, `+`,
+  `-` or `@` is text in both formats (a quote prefix in Excel, a leading `'` in
+  CSV). The grant is checked again after the file is built and before it is
+  released. The period ZIP below (`GET /business/exports`), its DGII TXT files and
+  the close-a-Business copy are unchanged.
 
 - GET/POST `/api/v1/business/report-views` and PATCH/DELETE
   `/api/v1/business/report-views/{view_id}` manage private Business+actor recipes.
@@ -11486,8 +11530,8 @@ accept path recorded.
   `itbis_amount` columns are hidden by default. ITBIS uses the row currency;
   missing amounts or currency remain unknown, and zero remains numeric.
   Density is 40/48/56, default 48. Reordering supports drag and up/down buttons.
-  Amount uses heavier text; ITBIS uses regular text. `columns` remains the separate
-  export field selection. No summary or widget preference is accepted. Page, page size, columns and presentation do
+  Amount uses heavier text; ITBIS uses regular text. `columns` is a retained
+  recipe field; the Registros export reads its own `columns` choice instead. No summary or widget preference is accepted. Page, page size, columns and presentation do
   not alter the result fingerprint. The preview reads the recorded empty answer
   `web/test-fixtures/records-default-report-answer.json`; it is not a live fallback.
   `test_query_returns_backend_default_presentation`,

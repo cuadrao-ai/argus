@@ -15,6 +15,7 @@ from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
+from argus.domain.business.config import business_settlement_enabled
 from argus.domain.business.contracts.actions import APPROVAL_ACTION
 from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
 from argus.domain.business.contracts.dossier import (
@@ -194,6 +195,14 @@ def workflow_blockers(
     return blocked, tuple(duplicate_ids)
 
 
+def shown_bill_mark(resolution: BusinessResolution) -> str | None:
+    """The due-notice mark a person sees. Factura por pagar and Factura pagada
+    are settlement state, so none shows while settlement is off; the draft
+    keeps the mark the read gave it."""
+
+    return resolution.bill_mark if business_settlement_enabled() else None
+
+
 def _chose_expense_type(declaration: DgiiDeclaration | None) -> bool:
     return (
         isinstance(declaration, PurchaseDeclaration)
@@ -319,7 +328,7 @@ def dossier(
         unrecorded_purchases=resolution.unrecorded_purchases(),
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
-        bill_mark=resolution.bill_mark,
+        bill_mark=shown_bill_mark(resolution),
         dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,

@@ -178,6 +178,8 @@ TABLE_COLUMNS: tuple[TableColumn, ...] = (
     "payment_form",
     "funding",
 )
+#: Offered and rendered on Compras only.
+PURCHASE_ONLY_COLUMNS: tuple[TableColumn, ...] = ("expense_type", "payment_form")
 HIDDEN_COLUMNS: tuple[TableColumn, ...] = (
     "funding",
     "payment_form",

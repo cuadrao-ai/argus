@@ -50,7 +50,7 @@ describe("month close optimistic marks", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView client={client} now={now} />
+          <BusinessMonthCloseView settlement client={client} now={now} />
         </I18nextProvider>,
       );
     });
@@ -108,7 +108,7 @@ describe("month close optimistic marks", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView client={client} now={now} />
+          <BusinessMonthCloseView settlement client={client} now={now} />
         </I18nextProvider>,
       );
     });
@@ -147,7 +147,7 @@ describe("month close optimistic marks", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView client={createMockMonthCloseClient({ now })} now={now} scopeKey="grant-read" canMutate={false} />
+          <BusinessMonthCloseView settlement client={createMockMonthCloseClient({ now })} now={now} scopeKey="grant-read" canMutate={false} />
         </I18nextProvider>,
       );
     });
@@ -186,7 +186,7 @@ describe("month close optimistic marks", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView client={client} now={now} />
+          <BusinessMonthCloseView settlement client={client} now={now} />
         </I18nextProvider>,
       );
     });
@@ -875,7 +875,7 @@ describe("unreviewed drafts on the month-close panel", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView client={client} now={now} layout="finance" review={{ count: 0, detail: null, open() {} }} />
+          <BusinessMonthCloseView settlement client={client} now={now} layout="finance" review={{ count: 0, detail: null, open() {} }} />
         </I18nextProvider>,
       );
     });

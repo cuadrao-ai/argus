@@ -30,6 +30,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 def _due(value: str) -> dict:
     return {"due_on": {"state": "known", "value": value}}
 

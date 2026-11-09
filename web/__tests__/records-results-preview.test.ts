@@ -60,7 +60,7 @@ test("summary labels are available at the same EN and ES layout paths", () => {
   for (const locale of [es, en]) {
     assert.ok(locale.business.transactions.layout.results.title);
     assert.ok(locale.business.transactions.layout.settings.columns);
-    assert.deepEqual(Object.keys(locale.business.transactions.layout.results.metrics), ["collected", "expenses", "invoiced", "paid", "payable", "receivable"]);
+    assert.deepEqual(Object.keys(locale.business.transactions.layout.results.metrics), ["expenses", "invoiced"]);
     assert.ok(locale.business.transactions.layout.column_state);
     assert.ok(locale.business.transactions.layout.workflow.unknown);
     assert.equal("results" in locale.business.transactions.layout.filters, false);

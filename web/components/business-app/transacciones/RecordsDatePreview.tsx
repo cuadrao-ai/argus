@@ -39,13 +39,19 @@ function PhoneDateSession({ open, title, ...choice }: DateSessionProps & { open:
   return <BottomSheet isOpen={open} onClose={choice.close} title={title ?? t("business.date_range.title")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen footer={<RangePickerConfirm session={session} phone />}><RangePicker session={session} phone /></BottomSheet>;
 }
 
+/** The screen's name for its period: the newest month by name, Todo, or the preset or range. */
+export function useRecordsPeriodLabel() {
+  const { t, i18n } = useTranslation();
+  const name = usePeriodLabel();
+  return (selected: Period, reportPeriod?: ReportPeriod) => reportPeriod?.kind === "latest_month" ? selected.from ? formatMonthYear(selected.from, i18n.language) : t("business.period.label") : selected.key === "all" ? t(PRESET_KEYS.all) : name(selected);
+}
+
 export default function RecordsDatePreview({ period, value, onChange, reportPeriod, title }: DateLabels & { reportPeriod?: ReportPeriod; period: Period; value?: Period; onChange?: (next: Period) => void }) {
   const [localPeriod, setLocalPeriod] = useState(period);
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState(0);
   const [wide, setWide] = useState(false);
   const { isBelowDesktop: phone } = useResponsiveLayout();
-  const { t, i18n } = useTranslation();
   useEffect(() => {
     const update = () => setWide(window.innerWidth >= 1600);
     update(); window.addEventListener("resize", update);
@@ -53,9 +59,7 @@ export default function RecordsDatePreview({ period, value, onChange, reportPeri
   }, []);
   const selected = value ?? localPeriod;
   const apply = (next: Period) => { if (onChange) onChange(next); else setLocalPeriod(next); };
-  const name = usePeriodLabel();
-  const latestMonth = selected.from ? formatMonthYear(selected.from, i18n.language) : t("business.period.label");
-  const label = reportPeriod?.kind === "latest_month" ? latestMonth : selected.key === "all" ? t(PRESET_KEYS.all) : name(selected);
+  const label = useRecordsPeriodLabel()(selected, reportPeriod);
   if (phone) return <>
     <button type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={() => { setSessionId((id) => id + 1); setOpen(true); }}><CalendarDays size={17} aria-hidden="true" /><span>{label}</span><ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
     <PhoneDateSession title={title} key={sessionId} period={selected} apply={apply} open={open} close={() => setOpen(false)} />

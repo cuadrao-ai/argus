@@ -3,7 +3,7 @@ import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createBusinessReportHttpFixture } from "./fixtures/business-report-http-fixture";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
-import { appendBusinessReportSupportingFile, exportBusinessReport, listBusinessReportViews, mutateBusinessReportView, queryBusinessReport, reportFiscalTotalSchema, reportRecordSchema, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, type ReportScope } from "@/lib/business-reports-api";
+import { appendBusinessReportSupportingFile, downloadRecordsExport, listBusinessReportViews, mutateBusinessReportView, previewRecordsExport, queryBusinessReport, reportFiscalTotalSchema, reportRecordSchema, reportRequestSchema, reportTotalSchema, setBusinessReportCurrentNote, type ReportScope } from "@/lib/business-reports-api";
 
 const scope: ReportScope = { userId: "synthetic-person", businessId: "synthetic-business", grantId: "00000000-0000-4000-8000-000000000001" };
 const answer = () => ({ ...recordedReportAnswer, items: [], matching_count: 102, page: 1, page_size: 25, page_count: 5, totals: [{ currency: "DOP", kind: "expense", basis: "recorded_activity_amount", matching_count: 102, known_amount_minor: 123456789, unknown_count: 1, unsupported_count: 0, complete: false, amount_minor: null, known_amount: "1234567.89", amount: null }], fingerprint: "a".repeat(64), captured_at: "2026-10-26T00:00:00Z", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
@@ -92,16 +92,24 @@ describe("Business report transport", () => {
     }) as typeof fetch;
     await expect(queryBusinessReport(scope, reportRequestSchema.parse({}))).rejects.toThrow("scope changed");
   });
-  test("exports the full ZIP with the shown fingerprint, with no automatic changed-set retry", async () => {
-    const report = reportRequestSchema.parse({ page: 4, page_size: 50 });
-    const calls = respond("complete archive", 200, "application/zip");
-    expect(await (await exportBusinessReport(scope, report, "a".repeat(64))).text()).toBe("complete archive");
-    expect(JSON.parse(String(calls[0].options.body))).toEqual({ report, expected_fingerprint: "a".repeat(64) });
-    const changed = respond({ detail: { code: "business_report_changed" } }, 409);
-    const error = await exportBusinessReport(scope, report, "a".repeat(64)).catch((error) => error);
-    expect(error.code).toBe("business_report_changed");
-    expect(error.requestId).toBe("synthetic-request");
-    expect(changed).toHaveLength(1);
+  test("previews the export from the table's request and saves the file under the server's name", async () => {
+    const report = reportRequestSchema.parse({ schema_version: 2, page: 4, filters: { record_families: ["purchase"], currencies: ["DOP"] } });
+    const preview = { table: { columns: [{ key: "counterparty", shown: true }], current: { record_count: 3, currencies: ["DOP"] }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [] } };
+    const previewCalls = respond(preview);
+    expect(await previewRecordsExport(scope, report)).toEqual(preview);
+    expect(previewCalls[0].path).toEndWith("/business/reports/export/preview");
+    expect(JSON.parse(String(previewCalls[0].options.body))).toEqual({ report });
+    const calls: Call[] = [];
+    globalThis.fetch = (async (path, options) => { calls.push({ path: String(path), options: options ?? {} }); return new Response("Contraparte", { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="Compras_noviembre-2026.csv"' } }); }) as typeof fetch;
+    const file = await downloadRecordsExport(scope, report, { mode: "table", columns: ["counterparty"], currencies: "current", format: "csv" });
+    expect(file.filename).toBe("Compras_noviembre-2026.csv");
+    expect(await file.blob.text()).toBe("Contraparte");
+    expect(JSON.parse(String(calls[0].options.body))).toEqual({ report, mode: "table", columns: ["counterparty"], currencies: "current", format: "csv" });
+    respond("not a file", 200, "application/zip");
+    await expect(downloadRecordsExport(scope, report, { mode: "dgii", format: "xlsx" })).rejects.toThrow("Invalid Registros export file");
+    respond({ detail: { code: "business_report_too_large" } }, 422);
+    const error = await downloadRecordsExport(scope, report, { mode: "dgii", format: "xlsx" }).catch((error) => error);
+    expect([error.code, error.requestId]).toEqual(["business_report_too_large", "synthetic-request"]);
   });
   test("private view CRUD preserves preset, expected version and replay key, including an empty DELETE", async () => {
     const recipe = reportRequestSchema.parse({ filters: { period: { kind: "this_month", from_date: null, to_date: null } } });
