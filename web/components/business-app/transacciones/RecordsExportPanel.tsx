@@ -122,7 +122,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
       {count === 0 ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.transactions.reporting.export.empty")}</p> : null}
       <button type="button" data-testid="records-export-download" disabled={!count || preparing} aria-busy={preparing || undefined} onClick={() => void download()} className={`${primaryButtonClass} w-full`}>
         {preparing ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
-        {preparing ? t("business.transactions.reporting.export.preparing") : t("business.transactions.reporting.export.action", { count: count ?? 0 })}
+        {preparing ? t("business.transactions.reporting.export.preparing") : count === null ? t("business.export.action") : t("business.transactions.reporting.export.action", { count })}
       </button>
     </div>
   );

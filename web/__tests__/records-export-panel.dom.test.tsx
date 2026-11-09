@@ -114,6 +114,22 @@ test("Formato DGII counts only tab and period, shows the server's notices and Re
   assert.equal(document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed"), "true");
 });
 
+test("before the server counts, the button names no number and cannot start", async () => {
+  const page = await mount();
+  const live = globalThis.fetch;
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).endsWith("/reports/export/preview")) await held;
+    return live(input, init);
+  }) as typeof fetch;
+  await page.click(document.querySelector('[data-testid="records-export"]'));
+  await page.settle(() => downloadButton() !== null);
+  assert.deepEqual([downloadButton()!.textContent!.trim(), downloadButton()!.disabled], ["Exportar", true]);
+  release();
+  await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 63 registros");
+});
+
 test("no records disables the export and sends no request", async () => {
   const page = await mount({ edit: (rows) => rows.forEach((row) => { row.family = "sale"; }) });
   await open(page);
