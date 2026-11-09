@@ -3203,6 +3203,22 @@
         "dismiss": "Ocultar guía",
         "read_failed": "No pudimos cargar la guía.",
         "save_failed": "No pudimos ocultar la guía."
+      },
+      "registros_intro": {
+        "browse": {
+          "body": "Cambia entre Compras y Ventas para revisar los datos de cada registro.",
+          "label": "Consulta tus registros"
+        },
+        "copy_review": "approved",
+        "find": {
+          "body": "Busca un registro o ajusta las fechas, la moneda y los filtros.",
+          "label": "Encuentra lo que buscas"
+        },
+        "pending": {
+          "body": "“Faltan datos fiscales” te muestra cuáles necesitan información para el 606 en Compras o el 607 en Ventas.",
+          "label": "Completa lo pendiente"
+        },
+        "title": "Tus compras y ventas, en orden"
       }
     },
     "history": {

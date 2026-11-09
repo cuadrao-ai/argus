@@ -3167,6 +3167,22 @@
         "dismiss": "Hide guide",
         "read_failed": "We couldn't load the guide.",
         "save_failed": "We couldn't hide the guide."
+      },
+      "registros_intro": {
+        "browse": {
+          "body": "Switch between Purchases and Sales to review each record's details.",
+          "label": "Browse your records"
+        },
+        "copy_review": "pending_lucas",
+        "find": {
+          "body": "Search for a record or adjust the dates, currency and filters.",
+          "label": "Find what you need"
+        },
+        "pending": {
+          "body": "\"Missing fiscal data\" shows which ones need details for the 606 on Purchases or the 607 on Sales.",
+          "label": "Finish what's pending"
+        },
+        "title": "Your purchases and sales, in order"
       }
     },
     "history": {
