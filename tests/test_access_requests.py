@@ -391,4 +391,4 @@ def test_access_request_environment_contract_is_value_free() -> None:
         "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD="
         "your_resend_smtp_password_here" in env_example
     )
-    assert "ARGUS_APP_ORIGIN=http://localhost:3000" in env_example
+    assert "CUADRAO_APP_ORIGIN=http://localhost:3000" in env_example

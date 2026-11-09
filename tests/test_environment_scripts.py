@@ -480,14 +480,14 @@ def test_render_web_declares_exact_server_only_https_app_origin() -> None:
     for name in ("CUADRAO_APP_ORIGIN", "CUADRAO_CORS_ALLOW_ORIGINS"):
         assert api_env[name] == {"key": name, "sync": False}
         assert api_rules[name] == {"copy_from": "ARGUS_APP_ORIGIN"}
-    assert _production_rules("web")["ARGUS_APP_ORIGIN"] == {
+    assert _production_rules("web")["CUADRAO_APP_ORIGIN"] == {
         "copy_from": "ARGUS_APP_ORIGIN",
         "service": "api",
     }
-    assert web_env["ARGUS_APP_ORIGIN"] == {"key": "ARGUS_APP_ORIGIN", "sync": False}
+    assert web_env["CUADRAO_APP_ORIGIN"] == {"key": "CUADRAO_APP_ORIGIN", "sync": False}
     assert "arguschat" not in _source("scripts/ops/staging_env_manifest.json")
     assert "value" not in web_env["NEXT_PUBLIC_CUADRAO_API_URL"]
-    assert "ARGUS_APP_ORIGIN" in _contract_array("ARGUS_RENDER_WEB_ENV")
+    assert "CUADRAO_APP_ORIGIN" in _contract_array("ARGUS_RENDER_WEB_ENV")
     assert 'ARGUS_PRIVATE_LAUNCH_APP_URL="https://arguschat.ai"' in env_contract
     assert 'ARGUS_PRIVATE_LAUNCH_API_URL="https://api.arguschat.ai"' in env_contract
 
