@@ -11432,7 +11432,8 @@ accept path recorded.
   (a test proves they agree). Values are words as the screen shows them: stage
   words, tipo de gasto and forma de pago by their DGII names, `Falta` or
   `No aplica`, `Sí`/`No` for the attachment, the account name. Amounts are
-  numbers with two decimals and dates real dates (`dd/mm/yyyy` in CSV).
+  exact numbers shown with two decimals, or the currency's own precision when it
+  has more, and dates real dates (`dd/mm/yyyy` in CSV).
   `mode: "dgii"` takes no `columns` and `currencies` `all`, follows only the tab and
   the period, and writes the `606` or `607` columns of `dgii_columns.py` in annex
   order with the `dgii_export.line_values` of each record `dgii.record_count`

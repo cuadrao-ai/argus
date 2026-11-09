@@ -356,7 +356,7 @@ def _csv(headers: Sequence[str], rows: Sequence[Sequence[Cell]]) -> bytes:
         if value is None:
             return ""
         if isinstance(value, Decimal):
-            return f"{value:.2f}"
+            return str(value)
         if isinstance(value, date):
             return value.strftime("%d/%m/%Y")
         return spreadsheet_cell(value)
@@ -378,7 +378,11 @@ def _xlsx(
     ) as book:
         book.set_properties({"created": datetime(1980, 1, 1, tzinfo=timezone.utc)})
         bold = book.add_format({"bold": True})
-        money = book.add_format({"num_format": "#,##0.00"})
+        # Two decimals, or the currency's own precision when it has more.
+        money = {
+            places: book.add_format({"num_format": "#,##0." + "0" * places})
+            for places in range(2, 5)
+        }
         day = book.add_format({"num_format": "dd/mm/yyyy"})
         quoted = book.add_format({"quote_prefix": True})
         sheet = book.add_worksheet(sheet_name)
@@ -388,7 +392,8 @@ def _xlsx(
                 if value is None:
                     continue
                 if isinstance(value, Decimal):
-                    sheet.write_number(index, column, float(value), money)
+                    places = min(max(2, -value.as_tuple().exponent), 4)
+                    sheet.write_number(index, column, float(value), money[places])
                 elif isinstance(value, date):
                     sheet.write_datetime(
                         index, column, datetime(value.year, value.month, value.day), day

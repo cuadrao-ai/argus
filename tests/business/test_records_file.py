@@ -288,7 +288,7 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         export_missing="ncf_missing",
         itbis_amount="18.00",
         has_document=True,
-        funding_label="Banco Popular",
+        funding_label="Cuenta de operaciones",
         dgii_606=Purchase606(
             expense_type=DgiiChoice(
                 code="02", label="Gastos por trabajos, suministros y servicios"
@@ -322,7 +322,7 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         "Sí",
         "Gastos por trabajos, suministros y servicios",
         "Falta",
-        "Banco Popular",
+        "Cuenta de operaciones",
     ]
     csv_line = list(
         csv.reader(
@@ -344,6 +344,21 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         record.gross_amount,
         "18.00",
     ]
+
+
+def test_amounts_keep_their_currency_precision_in_both_formats(fake):
+    record = row(fake, currency="KWD", gross_amount="1.234", itbis_amount="0.185")
+    request = report(currencies=["KWD"])
+    choice = table(request, ("gross_amount", "itbis_amount"), currencies="current")
+    cells = xlsx(build_file(source(record), choice).content)
+    assert [cell for cell in cells[1][1:]] == [
+        ("n", Decimal("1.234"), "#,##0.000"),
+        ("n", Decimal("0.185"), "#,##0.000"),
+    ]
+    written = build_file(
+        source(record), choice.model_copy(update={"format": "csv"})
+    ).content.decode("utf-8-sig")
+    assert written.splitlines()[1].split(",")[1:] == ["1.234", "0.185"]
 
 
 def test_formula_like_cells_are_escaped_in_both_formats(fake):
