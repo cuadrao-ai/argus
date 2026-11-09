@@ -19,8 +19,8 @@ from argus.domain.business.authority import ActionError
 # keep it on.
 SCOPE_VERSION = 3
 DISCLOSURES = {
-    "en": "PENDING: consent sentence from Iris",
-    "es-419": "PENDIENTE: frase de consentimiento de Iris",
+    "en": "We use artificial intelligence to read the documents that come in by email or WhatsApp, or that you upload to Cuadrao (invoices, receipts and PDFs), and prepare a draft of each one. You review it and approve it. If you turn it off, they are saved unread; if you turn it back on, the ones left unread are read too. Details in the privacy notice.",
+    "es-419": "Leemos con inteligencia artificial los documentos que llegan por correo, por WhatsApp o que subes en Cuadrao (facturas, recibos y PDF), y preparamos un borrador de cada uno. Tú lo revisas y lo apruebas. Si lo apagas, se guardan sin leer; si lo vuelves a activar, también se leen los que quedaron sin leer. Detalles en el aviso de privacidad.",
 }
 _COLUMNS = ("id", "scope_version", "consented_at", "revoked_at", "route", "disclosure")
 

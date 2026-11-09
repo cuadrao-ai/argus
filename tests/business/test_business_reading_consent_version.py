@@ -1,15 +1,28 @@
 """The document-reading card's one sentence is the consent the owner agrees to.
 It is scope version 3. A command for an earlier version reads nothing, and a
-consent counts by its scope version, not by the exact words it stored."""
+consent counts by its scope version, not by the exact words it stored. The
+sentence promises that turning reading back on reads what was saved unread."""
 
 from __future__ import annotations
 
 from argus.domain.business import receipt_consent
 
-from tests.business.test_business_api import Owner, alice  # noqa: F401
+from tests.business.test_business_api import RECEIPT, Owner, alice  # noqa: F401
 
-SPANISH = "PENDIENTE: frase de consentimiento de Iris"
-ENGLISH = "PENDING: consent sentence from Iris"
+SPANISH = (
+    "Leemos con inteligencia artificial los documentos que llegan por correo, por"
+    " WhatsApp o que subes en Cuadrao (facturas, recibos y PDF), y preparamos un borrador"
+    " de cada uno. Tú lo revisas y lo apruebas. Si lo apagas, se guardan sin leer; si lo"
+    " vuelves a activar, también se leen los que quedaron sin leer. Detalles en el aviso"
+    " de privacidad."
+)
+ENGLISH = (
+    "We use artificial intelligence to read the documents that come in by email or"
+    " WhatsApp, or that you upload to Cuadrao (invoices, receipts and PDFs), and prepare"
+    " a draft of each one. You review it and approve it. If you turn it off, they are"
+    " saved unread; if you turn it back on, the ones left unread are read too. Details in"
+    " the privacy notice."
+)
 
 
 def test_the_card_sentence_is_the_consent_in_both_languages(
@@ -60,3 +73,21 @@ def test_a_new_wording_of_the_same_scope_keeps_reading_on(
         accepted.json()["consent_id"],
     )
     assert shown["disclosure"] == "Edited words, same scope."
+
+
+def test_turning_reading_back_on_reads_what_was_saved_while_it_was_off(
+    alice: Owner,  # noqa: F811
+    stub,  # noqa: ANN001
+) -> None:
+    assert alice.reading(True).status_code == 200
+    assert alice.reading(False).status_code == 200
+    while_off = alice.upload(content=RECEIPT + b"while-off", consent=False).json()
+    assert while_off["activity"]["state"] == "saved_unread"
+    assert stub.calls == []
+
+    again = alice.reading(True)
+
+    assert again.status_code == 200, again.text
+    assert again.json()["enabled"] is True
+    assert alice.detail(while_off["id"])["activity"]["state"] == "ready"
+    assert len(stub.calls) == 1
