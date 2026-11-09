@@ -191,3 +191,13 @@ test("denied session storage still prevents replay for the current page session"
     assert.equal(host.textContent, "Buenos días");
   } finally { window.sessionStorage.setItem = original; }
 });
+
+test("the desktop top bar names the Business under the greeting, as the phone heading does", async () => {
+  const i18n = await translation();
+  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessHeader home name="Ana" business="Ferretería Los Pinos" /></I18nextProvider>));
+  const heading = host.querySelector('[data-testid="business-desktop-header"] [data-testid="home-heading"]')!;
+  const business = heading.querySelector('[data-testid="home-heading-business"]')!;
+  assert.equal(business.textContent, "Ferretería Los Pinos");
+  assert.ok(heading.querySelector("h1")!.compareDocumentPosition(business) & Node.DOCUMENT_POSITION_FOLLOWING, "under the greeting");
+  assert.doesNotMatch(heading.querySelector("time")!.textContent ?? "", /Ferretería/, "the date line carries the date alone");
+});
