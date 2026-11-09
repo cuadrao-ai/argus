@@ -168,7 +168,7 @@ test("without a consent provider, model actions stay blocked and manual recordin
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   const openLabels = [...host.querySelectorAll("button")].map((button) => button.textContent);
   assert.equal(openLabels.includes("What did I spend this month?"), true);
-  assert.equal(host.querySelector('[data-testid="receipt-reading-control"]')?.textContent?.includes("Turn receipt reading on"), true);
+  assert.equal(host.querySelector('[data-testid="receipt-reading-control"]')?.textContent?.includes("Turn on document reading"), true);
   await act(async () => { root.render(open(<ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-1" }} />)); });
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   const openPrepare = [...host.querySelectorAll("button")].find((button) => button.textContent?.includes("Read again")) as HTMLButtonElement;

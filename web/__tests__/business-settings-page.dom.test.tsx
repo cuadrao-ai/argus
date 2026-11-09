@@ -222,7 +222,7 @@ describe("the Negocio page", () => {
     }
   });
 
-  describe("Lectura de recibos", () => {
+  describe("Lectura de documentos", () => {
     const reading = (over: Partial<ReceiptReading> = {}): ReceiptReading => ({ scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Texto del servidor", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null, ...over });
     const row = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector('[data-testid="receipt-reading-inline"]');
     const toggle = (page: Awaited<ReturnType<typeof mount>>) => row(page)?.querySelector<HTMLButtonElement>('[role="switch"]');

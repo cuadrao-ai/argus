@@ -86,7 +86,7 @@ try {
       if (state === "transfer-picker") { await expect(page.getByRole("radio", { name: /Rosa Pérez/ })).toBeVisible(); await expect(page.getByRole("radio", { name: /Ana López/ })).toBeDisabled(); }
       if (state.startsWith("accept-")) {
         await page.getByRole("button", { name: "Aceptar transferencia", exact: true }).click();
-        await expect(page.getByRole("alertdialog")).toContainText("La lectura automática de recibos se apaga");
+        await expect(page.getByRole("alertdialog")).toContainText("La lectura automática de documentos se apaga");
         expect(calls.filter(call => call.path.endsWith("/accept"))).toHaveLength(0);
         if (state === "accept-uncertain") { await page.getByRole("alertdialog").getByRole("button", { name: "Aceptar transferencia", exact: true }).click(); await expect(page.getByRole("button", { name: "Actualizar", exact: true })).toBeVisible(); await expect(page.getByRole("button", { name: "Aceptar transferencia", exact: true })).toHaveCount(0); }
       }

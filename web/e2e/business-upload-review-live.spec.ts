@@ -52,10 +52,10 @@ test.describe("Owner upload reaches its saved receipt", () => {
     await page.locator('input[type="file"]').first().setInputFiles({ name: "image.png", mimeType: "image/png", buffer: PNG });
     await expect(dialog).toContainText("image.png");
     await expect(dialog.getByRole("checkbox")).toHaveCount(0);
-    const turnOn = dialog.getByRole("button", { name: "Turn receipt reading on", exact: true });
+    const turnOn = dialog.getByRole("button", { name: "Turn on document reading", exact: true });
     await expect(turnOn.or(dialog.getByRole("button", { name: "Turn reading off", exact: true }))).toBeVisible();
     if (await turnOn.isVisible()) await turnOn.click();
-    await expect(dialog.getByTestId("receipt-reading-control")).toContainText("Receipt reading is on.");
+    await expect(dialog.getByTestId("receipt-reading-control")).toContainText("Document reading is on.");
     const uploaded = page.waitForResponse((response) =>
       new URL(response.url()).pathname.endsWith("/business/receipts") && response.request().method() === "POST",
     );
@@ -86,9 +86,9 @@ test.describe("Owner upload reaches its saved receipt", () => {
     await page.getByRole("menuitem", { name: "Upload receipt", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Upload receipts", exact: true });
     const turnOff = dialog.getByRole("button", { name: "Turn reading off", exact: true });
-    await expect(turnOff.or(dialog.getByRole("button", { name: "Turn receipt reading on", exact: true }))).toBeVisible();
+    await expect(turnOff.or(dialog.getByRole("button", { name: "Turn on document reading", exact: true }))).toBeVisible();
     if (await turnOff.isVisible()) await turnOff.click();
-    await expect(dialog.getByTestId("receipt-reading-control")).toContainText("Your receipts are saved unread.");
+    await expect(dialog.getByTestId("receipt-reading-control")).toContainText("Your documents are saved unread.");
     const content = Buffer.from("Receipt\nMerchant: Synthetic shop\nTotal: DOP 850.00\n");
     await dialog.locator('input[type="file"]').first().setInputFiles({ name: "unread.txt", mimeType: "text/plain", buffer: content });
     const uploaded = page.waitForResponse((response) =>
@@ -111,7 +111,7 @@ test.describe("Owner upload reaches its saved receipt", () => {
     await page.reload();
     await expect(page.getByRole("figure", { name: /unread.txt/ })).toBeVisible();
     await expect(page.getByText("Saved, unread.", { exact: true })).toBeVisible();
-    await expect(page.getByTestId("receipt-reading-control")).toContainText("Your receipts are saved unread.");
+    await expect(page.getByTestId("receipt-reading-control")).toContainText("Your documents are saved unread.");
     const detail = await page.request.get(detailUrl);
     expect(detail.status()).toBe(200);
     const reopened = await detail.json();
