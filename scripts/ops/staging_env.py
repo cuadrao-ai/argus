@@ -439,7 +439,10 @@ def _validate_local(manifest: dict[str, Any]) -> None:
                 entry["kind"] != "plain"
                 or SECRETISH_NAME.search(name)
                 and name != "NEXT_PUBLIC_SUPABASE_ANON_KEY"
-                or not (name.startswith("NEXT_PUBLIC_") or name == "ARGUS_APP_ORIGIN")
+                or not (
+                    name.startswith("NEXT_PUBLIC_")
+                    or name in {"CUADRAO_APP_ORIGIN", "ARGUS_APP_ORIGIN"}
+                )
             ):
                 raise ManifestError(f"web: {name} cannot reach the browser environment")
             if "local_stack_value" in entry:
@@ -859,6 +862,7 @@ def guard_local(root: Path, manifest: dict[str, Any]) -> None:
         "SUPABASE_POSTGRES_DIRECT_URL",
         "SUPABASE_POSTGRES_TRANSACTION_POOLER_URL",
         "DATABASE_URL",
+        "CUADRAO_APP_ORIGIN",
         "ARGUS_APP_ORIGIN",
         "NEXT_PUBLIC_ARGUS_API_URL",
         "NEXT_PUBLIC_CUADRAO_API_URL",
