@@ -9726,15 +9726,17 @@ still needs, first fix first: `expense_type_missing`, `rnc_missing`,
 Inicio's "Faltan datos fiscales" rows as `{family, currency, count,
 by_currency}`, Compras then Ventas: one row per family, split by currency only
 when that family's held documents span more than one, so each row opens exactly
-the Registros list it counts) and `filing_ready` (bool: the one fact "ready for the 606 and
-607", true only when both `dgii_forms` stand by the export's verdict
-(`prepared_candidate`, `no_operations` or `summary_only`) and no step of the
-month remains: `unreviewed_movements_count` zero, no read in flight with no
-date (a receipt being read for the first time, or an email being read, holds
-every month until it lands), `missing_fiscal_data` empty, `cuentas_por_cobrar`
-and `cuentas_por_pagar` empty while settlement is on; the web shows that sentence
-from this field alone, never from `closed`, which stays month completion). Each
-currency block carries `itbis_charged` (ITBIS on the month's approved sales)
+the Registros list it counts). `filing_ready` is removed. Each currency block
+carries `documents_counted`, `documents_total` and `documents_in_bandeja`
+(ints): of the month's documents in that currency, from the same list as the
+figures, how many the figures count, how many there are in all (approved ones
+the close admits, so not those marked personal and left out, plus the drafts
+the Bandeja still holds in the month), and how many the Bandeja still holds. A
+Bandeja draft counts in its read's currency; a note, or a read with no currency
+yet, counts in the Business's own. A currency only the Bandeja holds gets its
+own block, with zero figures. `unreviewed_movements_count` is the sum of the
+blocks' `documents_in_bandeja`. Each currency block carries `itbis_charged`
+(ITBIS on the month's approved sales)
 and `itbis_paid` (ITBIS on its approved purchases, the 606 lines) as two plain
 totals, with no balance between them: the real ITBIS position needs facts the
 server does not hold. It adds `itbis_cobrado_minor` and

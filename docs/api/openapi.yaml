@@ -20432,6 +20432,15 @@ components:
           description: 'Settlement only: absent while settlement is off.'
         net_result_final:
           type: boolean
+        documents_counted:
+          type: integer
+          default: 0
+        documents_total:
+          type: integer
+          default: 0
+        documents_in_bandeja:
+          type: integer
+          default: 0
       additionalProperties: false
       type: object
       required:
@@ -27553,9 +27562,6 @@ components:
         unreviewed_movements_count:
           type: integer
           default: 0
-        filing_ready:
-          type: boolean
-          default: false
       additionalProperties: false
       type: object
       required:

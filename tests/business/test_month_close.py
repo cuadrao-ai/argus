@@ -953,3 +953,39 @@ def test_a_tab_split_by_currency_only_when_its_held_documents_span_two():
         {"family": "sale", "currency": "USD", "count": 1, "by_currency": False},
     ]
     assert sum(row["count"] for row in rows) == 3, "every held document is in one row"
+
+
+def _documents_by_currency(summary: dict) -> dict[str, tuple[int, int, int]]:
+    return {
+        block["currency"]: (
+            block["documents_counted"],
+            block["documents_total"],
+            block["documents_in_bandeja"],
+        )
+        for block in summary["currencies"]
+    }
+
+
+def test_each_currency_counts_the_months_documents_from_the_figures_own_list():
+    """The figures leave out a purchase with no NCF and a personal one; the
+    month still counts the first, never the second, and the Bandeja's drafts
+    join the total in their own currency."""
+
+    start, end = month_period("2026-10")
+    summary = summarize(october(), start, end, bandeja={"DOP": 2, "USD": 1})
+    assert _documents_by_currency(summary) == {"DOP": (4, 7, 2), "USD": (1, 2, 1)}
+    counted = [d for d in october() if d.currency == "DOP" and d.activity_id != "purchase-open"]
+    figures = formato_totals(counted, start, end)["DOP"]
+    [pesos] = [block for block in summary["currencies"] if block["currency"] == "DOP"]
+    assert pesos["expense_before_itbis_minor"] == figures.expense_before_itbis
+
+
+def test_a_currency_only_the_bandeja_holds_gets_its_own_block_of_zeros():
+    start, end = month_period("2026-10")
+    summary = summarize([], start, end, bandeja={"EUR": 3, "USD": 0})
+    [euros] = summary["currencies"]
+    assert (euros["currency"], euros["income_before_itbis"], euros["net_result"]) == ("EUR", "0.00", "0.00")
+    assert _documents_by_currency(summary) == {"EUR": (0, 3, 3)}
+    assert MonthClose.model_validate(
+        {"month": "2026-10", "today": DAY, "dgii_forms": {"606": "no_operations", "607": "no_operations"}, **summary}
+    ).currencies[0].documents_in_bandeja == 3

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Mapping, Sequence
 from uuid import UUID
 
@@ -14,7 +14,6 @@ from argus.domain.business.receipt_activity import (
     bandeja,
     inbox_counts,
     project_activity,
-    reading_undated,
 )
 from argus.domain.business.transactions import GrantImportStore, transaction
 
@@ -171,19 +170,23 @@ def unreviewed_days(
     context,  # noqa: ANN001
     views: list[dict],
     receipt_dates: Mapping[str, str] | None = None,
-) -> list:
-    """The month-close day of every receipt and note draft the Bandeja still
-    lists. A receipt with no date in its proposal keeps the date its read
-    found (``receipt_dates`` by id) before falling back to arrival. Notes
-    count by the day they arrived."""
+) -> list[tuple[date, str | None]]:
+    """The month-close day and currency of every receipt and note draft the
+    Bandeja still lists. A receipt with no date in its proposal keeps the date
+    its read found (``receipt_dates`` by id) before falling back to arrival;
+    its currency is its read's, None while unknown. Notes count by the day they
+    arrived and name no currency."""
 
     from argus.domain.business.month_close import draft_close_day
 
     retained = receipt_dates or {}
-    days = [
-        draft_close_day(
-            view.get("occurred_on") or retained.get(str(view.get("id"))),
-            view["received_at"],
+    days: list[tuple[date, str | None]] = [
+        (
+            draft_close_day(
+                view.get("occurred_on") or retained.get(str(view.get("id"))),
+                view["received_at"],
+            ),
+            view.get("currency") or None,
         )
         for view in views
         if awaiting_owner(view)
@@ -193,25 +196,10 @@ def unreviewed_days(
         from argus.domain.business.actions.captures import awaiting_note_arrivals
 
         with transaction(store.authority, store.context) as tx:
-            days += [draft_close_day(None, at) for at in awaiting_note_arrivals(tx)]
+            days += [
+                (draft_close_day(None, at), None) for at in awaiting_note_arrivals(tx)
+            ]
     return days
-
-
-def month_unknown(
-    context,  # noqa: ANN001
-    views: list[dict],
-    receipt_dates: Mapping[str, str] | None = None,
-) -> bool:
-    """Whether the Bandeja holds a read in flight that no month can claim yet:
-    a receipt being read with no date known, or an email being read. The same
-    views and email standings the Bandeja counts."""
-
-    from argus.api.email_intake import email_standings
-
-    retained = receipt_dates or {}
-    return any(reading_undated(view, retained) for view in views) or (
-        "reading" in email_standings(str(context.scope.owner.space_id))
-    )
 
 
 def counts(context, views: list[dict]) -> dict:  # noqa: ANN001

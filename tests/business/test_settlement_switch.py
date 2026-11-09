@@ -129,7 +129,7 @@ def test_off_the_month_close_carries_no_settlement_state() -> None:
     # Every fiscal figure, list and reason stays what it was.
     on = _october([*_open_month(), held], settlement=True)
     assert _stripped(close) == _stripped(on)
-    MonthClose.model_validate(with_unreviewed(close, 0))
+    MonthClose.model_validate(with_unreviewed(close))
 
 
 def test_off_the_net_result_is_income_minus_expenses_without_waiting_on_marks() -> None:
@@ -177,41 +177,6 @@ def test_on_the_net_result_still_waits_on_every_mark() -> None:
     assert on["itbis_cobrado_minor"] == 0
 
 
-def test_off_open_receivables_and_payables_never_hold_filing_ready() -> None:
-    off = with_unreviewed(_october(_open_month(), settlement=False), 0)
-    assert off["filing_ready"] is True
-    on = with_unreviewed(_october(_open_month(), settlement=True), 0)
-    assert on["filing_ready"] is False
-    assert on["cuentas_por_cobrar"] and on["cuentas_por_pagar"]
-
-
-@pytest.mark.parametrize(
-    ("change", "reason"),
-    [
-        ({"count": 1}, "a draft still in the Bandeja"),
-        ({"month_unknown": True}, "a read in flight with no date"),
-        ({"forms": {**STANDING, "606": "needs_review"}}, "a form that does not stand"),
-        ({"held": True}, "a document the 606 or 607 holds"),
-    ],
-)
-def test_off_the_fiscal_requirements_still_hold_filing_ready(change, reason) -> None:  # noqa: ANN001
-    forms = change.get("forms", STANDING)
-    close = _october(_open_month(), settlement=False, forms=forms)
-    if change.get("held"):
-        close = month_close(
-            "2026-10",
-            DAY,
-            _open_month(),
-            dict(forms),
-            missing={"sale-open": ("rnc_missing",)},
-            settlement=False,
-        )
-    ready = with_unreviewed(
-        close, change.get("count", 0), change.get("month_unknown", False)
-    )
-    assert ready["filing_ready"] is False, reason
-
-
 def test_on_the_month_close_is_unchanged() -> None:
     start, end = month_period("2026-10")
     on = _october(_open_month(), settlement=True)
@@ -236,7 +201,6 @@ def test_off_the_api_hides_and_refuses_settlement(alice: Owner, settlement_off) 
     month = alice.get("/month-close", month="2026-10")
     assert month.status_code == 200, month.text
     assert SETTLEMENT_KEYS.isdisjoint(month.json())
-    assert month.json()["filing_ready"] is True
     refused = alice.get("/open-items")
     assert (refused.status_code, refused.json()["code"]) == (
         404,

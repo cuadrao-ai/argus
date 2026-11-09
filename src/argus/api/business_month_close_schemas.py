@@ -83,6 +83,13 @@ class CurrencyBlock(_Wire):
     # False while a foreign line waits for a rate and, while settlement is on,
     # while a document in this currency is still pendiente.
     net_result_final: bool
+    # The month's documents in this currency, from the same list as the
+    # figures: how many the figures count, how many there are in all (the
+    # Bandeja's included), and how many the Bandeja still holds. A Bandeja
+    # draft whose read named no currency counts in the Business's own.
+    documents_counted: int = 0
+    documents_total: int = 0
+    documents_in_bandeja: int = 0
 
 
 FormStatus = Literal[
@@ -207,13 +214,9 @@ class MonthClose(_Wire):
     # The month's documents still pendiente; absent while settlement is off.
     cuentas_por_cobrar: list[DocumentLine] | None = _settlement()
     cuentas_por_pagar: list[DocumentLine] | None = _settlement()
-    # Receipt and note drafts the Bandeja still lists in this month.
+    # Receipt and note drafts the Bandeja still lists in this month: the sum of
+    # the currency blocks' documents_in_bandeja.
     unreviewed_movements_count: int = 0
-    # "Ready for the 606 and 607": both forms stand by the export's verdict and
-    # no step of this month remains (nothing in the Bandeja, nothing held,
-    # nothing left to mark while settlement is on, no read in flight with no
-    # date). The one fact the web shows that sentence from.
-    filing_ready: bool = False
 
 
 class OpenTotal(_Wire):
