@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { apiFetch } from "./argus-api-transport";
 
-export type BusinessGuideCardId = "bandeja-intro";
+export const BUSINESS_GUIDE_CARD_IDS = ["bandeja-intro", "registros-intro"] as const;
+export type BusinessGuideCardId = (typeof BUSINESS_GUIDE_CARD_IDS)[number];
 
 type GuideRequest = {
   cardId: BusinessGuideCardId;

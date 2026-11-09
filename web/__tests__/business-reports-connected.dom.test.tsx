@@ -1109,3 +1109,24 @@ test("counterparty options never reuse the previous tab while its next request i
   await page.settle(() => document.querySelector('[role="dialog"]')?.textContent?.includes("Cliente sintético") === true);
   assert.doesNotMatch(document.querySelector('[role="dialog"]')!.textContent!, /Proveedor sintético|Alias antiguo/);
 });
+
+test("Registros shows its own guide on both tabs and hides it only after the server confirms the dismissal", async () => {
+  let confirm = () => {};
+  const page = await mount({ dismissedGuides: ["bandeja-intro"], guideDismissGate: new Promise<void>((resolve) => { confirm = resolve; }) });
+  const guide = () => document.querySelector<HTMLElement>('[data-testid="transacciones"] > section[aria-labelledby]');
+  await page.settle(() => guide() !== null);
+  const copy = spanish.business.guide_cards.registros_intro;
+  assert.equal(guide()!.querySelector("h3")?.textContent, copy.title);
+  assert.deepEqual([...guide()!.querySelectorAll("li strong")].map((item) => item.textContent), [copy.browse.label, copy.find.label, copy.pending.label]);
+  assert.ok(guide()!.compareDocumentPosition(document.querySelector('[data-testid="records-overview-preview"]')!) & Node.DOCUMENT_POSITION_FOLLOWING);
+  await page.click(page.button("Ventas"));
+  await page.settle(() => page.button("Ventas")?.getAttribute("aria-selected") === "true");
+  assert.ok(guide());
+  await page.click(page.button("Ocultar guía"));
+  assert.ok(guide());
+  assert.equal(page.button("Ocultar guía")?.disabled, true);
+  await act(async () => confirm());
+  await page.settle(() => guide() === null);
+  assert.deepEqual(page.guideRequests, ["GET /business/guide-cards/registros-intro", "POST /business/guide-cards/registros-intro/dismiss"]);
+  assert.deepEqual([...page.dismissedGuides].sort(), ["bandeja-intro", "registros-intro"]);
+});

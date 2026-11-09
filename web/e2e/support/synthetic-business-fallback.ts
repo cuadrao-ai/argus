@@ -1,5 +1,6 @@
 import type { Request } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../../components/business-app/fixture-data";
+import { BUSINESS_GUIDE_CARD_IDS } from "../../lib/business-guide-api";
 import { reportAnswerSchema, reportRequestSchema } from "../../lib/business-reports-api";
 import { monthCloseWire } from "./month-close-wire";
 import recordedAnswer from "../../test-fixtures/records-default-report-answer.json";
@@ -28,13 +29,11 @@ export async function fulfillSyntheticBusinessFallback(
   const path = url.pathname.startsWith("/api/v1/business/") ? url.pathname.slice("/api/v1/business/".length) : null;
   const method = request.method();
 
-  if (path === "guide-cards/bandeja-intro") {
-    if (method !== "GET" || url.search) throw new Error("Synthetic guide-cards/bandeja-intro requires GET without query parameters");
-    return route.fulfill({ json: { dismissed: false } });
-  }
-  if (path === "guide-cards/bandeja-intro/dismiss") {
-    if (method !== "POST" || url.search) throw new Error("Synthetic guide-cards/bandeja-intro/dismiss requires POST without query parameters");
-    return route.fulfill({ json: { dismissed: true } });
+  const guide = path?.match(/^guide-cards\/([^/]+)(\/dismiss)?$/);
+  if (guide && BUSINESS_GUIDE_CARD_IDS.some(id => id === guide[1])) {
+    const verb = guide[2] ? "POST" : "GET";
+    if (method !== verb || url.search) throw new Error(`Synthetic ${path} requires ${verb} without query parameters`);
+    return route.fulfill({ json: { dismissed: verb === "POST" } });
   }
   if (path === "reports/query") {
     if (method !== "POST" || url.search) throw new Error("Synthetic reports/query requires POST without query parameters");

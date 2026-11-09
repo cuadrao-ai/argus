@@ -1,14 +1,13 @@
 """A recorded approval names the facts revision a person approved and when,
-not the latest revision a later mark added."""
+as the approved-revision reader finds it for the version the approval
+reviewed. Postgres tests prove the reader skips revisions later marks added."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from argus.domain.business.actions.dossier import approval_of
-from argus.domain.business.contracts.dossier import DraftRevision
-from argus.domain.business.contracts.facts import BusinessFacts
 
 ACTOR = {
     "actor_id": uuid4(),
@@ -21,18 +20,6 @@ ACTOR = {
 APPROVED_AT = datetime(2026, 10, 9, 14, 30, tzinfo=timezone.utc)
 
 
-def _revision(version: int) -> DraftRevision:
-    return DraftRevision(
-        draft_id=UUID(int=1),
-        version=version,
-        actor=ACTOR,
-        before=None,
-        after=BusinessFacts(),
-        source_ids=(),
-        created_at=APPROVED_AT,
-    )
-
-
 def _receipt(version: int, outcome: dict | None = None) -> dict:
     return {
         "actor": ACTOR,
@@ -42,13 +29,16 @@ def _receipt(version: int, outcome: dict | None = None) -> dict:
     }
 
 
-def test_recorded_approval_keeps_the_approved_revision_after_later_marks() -> None:
-    # Revision 2 approved at event version 3 (a settlement bumped it); the
-    # approval took 4 and a Personal mark wrote revision 5.
-    history = (_revision(1), _revision(2), _revision(5))
+def test_recorded_approval_names_the_revision_approved_at_its_version() -> None:
+    # Revision 2 approved at event version 3: a settlement bumped the version.
     activity = uuid4()
+    asked = []
 
-    result = approval_of(_receipt(3), activity, history)
+    def approved(version: int) -> int:
+        asked.append(version)
+        return 2
+
+    result = approval_of(_receipt(3), activity, approved)
 
     assert result is not None
     assert result.model_dump(mode="json", exclude={"actor"}) == {
@@ -58,13 +48,18 @@ def test_recorded_approval_keeps_the_approved_revision_after_later_marks() -> No
         "approved_revision": 2,
         "approved_at": "2026-10-09T14:30:00Z",
     }
+    assert asked == [3]
+
+
+def _unread(version: int) -> int:
+    raise AssertionError("an unsettled approval names no revision")
 
 
 def test_unsettled_approval_reports_its_outcome_without_a_revision() -> None:
     result = approval_of(
         _receipt(2, {"outcome": "outcome_unknown", "code": "ledger_unreachable"}),
         None,
-        (_revision(1), _revision(2)),
+        _unread,
     )
 
     assert result is not None
@@ -73,4 +68,4 @@ def test_unsettled_approval_reports_its_outcome_without_a_revision() -> None:
         "code": "ledger_unreachable",
         "reviewed_version": 2,
     }
-    assert approval_of(None, None, (_revision(1),)) is None
+    assert approval_of(None, None, _unread) is None

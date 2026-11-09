@@ -96,6 +96,30 @@ def test_guide_http_uses_the_person_across_grants_and_browser_sessions(web, monk
                 assert response.headers["cache-control"] == "no-store"
 
 
+
+@pytest.mark.skipif(
+    not os.getenv("ARGUS_LOCAL_SUPABASE_URL"), reason="Local Supabase Auth required"
+)
+def test_each_guide_card_keeps_its_own_dismissal(web):
+    bandeja, registros = (
+        f"{API}/business/guide-cards/{card}"
+        for card in ("bandeja-intro", "registros-intro")
+    )
+    headers = web.alice.headers
+
+    def dismissed(card: str) -> bool:
+        response = web.client.get(card, headers=headers)
+        assert response.status_code == 200, response.text
+        return response.json()["dismissed"]
+
+    assert (dismissed(bandeja), dismissed(registros)) == (False, False)
+    response = web.client.post(f"{registros}/dismiss", headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"dismissed": True}
+    assert (dismissed(bandeja), dismissed(registros)) == (False, True)
+    web.client.post(f"{bandeja}/dismiss", headers=headers)
+    assert (dismissed(bandeja), dismissed(registros)) == (True, True)
+
 def test_guide_row_security_and_retry_keep_the_first_dismissal(users):
     owner, other, guest = (users[label] for label in ("owner", "other", "guest"))
     with psycopg.connect(DSN) as db:
