@@ -4211,7 +4211,9 @@ paths:
         in: path
         required: true
         schema:
-          const: bandeja-intro
+          enum:
+          - bandeja-intro
+          - registros-intro
           type: string
       responses:
         '200':
@@ -4247,7 +4249,9 @@ paths:
         in: path
         required: true
         schema:
-          const: bandeja-intro
+          enum:
+          - bandeja-intro
+          - registros-intro
           type: string
       responses:
         '200':
