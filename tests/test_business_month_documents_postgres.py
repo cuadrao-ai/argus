@@ -7,6 +7,8 @@ documents and changes no figure.
 
 from __future__ import annotations
 
+from argus.domain.business import ledger
+
 from tests import test_business_approve_unpaid_postgres as unpaid
 from tests.test_business_document_type_postgres import (  # noqa: F401
     API,
@@ -72,3 +74,16 @@ def test_a_receipt_in_the_bandeja_is_one_of_the_months_documents_and_no_figure(
     assert waiting["unreviewed_movements_count"] == 1
     assert {name: still[name] for name in FIGURES} == approved
     assert _month(web, "2026-10")["unreviewed_movements_count"] == 0
+
+
+def test_a_note_reviewed_in_dollars_waits_in_the_dollar_block(
+    web,  # noqa: ANN001, F811
+) -> None:
+    unpaid._reviewed(web, "expense", "B0100000081", facts=unpaid._known({"currency": "USD", "amount": "118.00"}))
+    unpaid._note(web, web.alice, "Taxi al aeropuerto")
+
+    # A note counts by the day it arrived: today.
+    month = _month(web, ledger.today().strftime("%Y-%m"))
+    by_currency = {block["currency"]: _counts(block) for block in month["currencies"]}
+    assert by_currency["USD"] == (0, 1, 1)
+    assert month["unreviewed_movements_count"] == sum(c[2] for c in by_currency.values())

@@ -104,9 +104,9 @@ def _unavailable(request: Request):
 
 
 def _bandeja(business: BusinessContext, month: str) -> dict[str, int]:
-    """The month's drafts the Bandeja still holds, by currency. A draft whose
-    read named no currency yet (a note, a read in flight) counts in the
-    Business's own currency."""
+    """The month's drafts the Bandeja still holds, by currency. A draft that
+    names no currency yet (a note nobody reviewed, a read in flight) counts in
+    the Business's own currency."""
 
     from argus.api.business_drafts import receipt_read_dates, receipt_summaries
     from argus.api.business_receipt_activity import unreviewed_days

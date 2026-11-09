@@ -175,7 +175,7 @@ def unreviewed_days(
     Bandeja still lists. A receipt with no date in its proposal keeps the date
     its read found (``receipt_dates`` by id) before falling back to arrival;
     its currency is its read's, None while unknown. Notes count by the day they
-    arrived and name no currency."""
+    arrived, in the currency their review named, None until then."""
 
     from argus.domain.business.month_close import draft_close_day
 
@@ -197,7 +197,8 @@ def unreviewed_days(
 
         with transaction(store.authority, store.context) as tx:
             days += [
-                (draft_close_day(None, at), None) for at in awaiting_note_arrivals(tx)
+                (draft_close_day(None, at), currency or None)
+                for at, currency in awaiting_note_arrivals(tx)
             ]
     return days
 

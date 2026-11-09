@@ -180,13 +180,17 @@ def page(
     return {"items": rows[:limit], "has_more": len(rows) > limit}
 
 
-def awaiting_note_arrivals(tx) -> list:  # noqa: ANN001
-    """When each note draft the Bandeja still lists first arrived, one per draft."""
+def awaiting_note_arrivals(tx) -> list[tuple]:  # noqa: ANN001
+    """When each note draft the Bandeja still lists first arrived, one per
+    draft, with the currency its review named (None while unknown)."""
 
     return [
-        row["arrived_at"]
+        (row["arrived_at"], row["currency"])
         for row in tx.rows(
-            "select min(s.received_at) as arrived_at"
+            "select min(s.received_at) as arrived_at,"
+            " max(e.resolution #>> '{business,facts,currency,value}')"
+            " filter (where e.resolution #>> '{business,facts,currency,state}' = 'known')"
+            " as currency"
             + _NOTES
             + _AWAITING_WITHOUT_RECEIPT
             + " group by e.id",

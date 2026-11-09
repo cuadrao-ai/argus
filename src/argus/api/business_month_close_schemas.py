@@ -86,7 +86,7 @@ class CurrencyBlock(_Wire):
     # The month's documents in this currency, from the same list as the
     # figures: how many the figures count, how many there are in all (the
     # Bandeja's included), and how many the Bandeja still holds. A Bandeja
-    # draft whose read named no currency counts in the Business's own.
+    # draft that names no currency yet counts in the Business's own.
     documents_counted: int = 0
     documents_total: int = 0
     documents_in_bandeja: int = 0

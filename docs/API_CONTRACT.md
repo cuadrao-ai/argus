@@ -9732,8 +9732,8 @@ carries `documents_counted`, `documents_total` and `documents_in_bandeja`
 figures, how many the figures count, how many there are in all (approved ones
 the close admits, so not those marked personal and left out, plus the drafts
 the Bandeja still holds in the month), and how many the Bandeja still holds. A
-Bandeja draft counts in its read's currency; a note, or a read with no currency
-yet, counts in the Business's own. A currency only the Bandeja holds gets its
+Bandeja draft counts in the currency its read or review named; one that names
+none yet (a note nobody reviewed, a read in flight) counts in the Business's own. A currency only the Bandeja holds gets its
 own block, with zero figures. `unreviewed_movements_count` is the sum of the
 blocks' `documents_in_bandeja`. Each currency block carries `itbis_charged`
 (ITBIS on the month's approved sales)
