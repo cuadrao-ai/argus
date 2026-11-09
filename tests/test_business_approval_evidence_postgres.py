@@ -29,6 +29,7 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.export import export_package
+from argus.domain.business.reporting_store import read_recorded
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.recording.errors import RecordingInputError
 from psycopg.types.json import Jsonb
@@ -101,8 +102,27 @@ def assert_sourced(service, context, draft, fiscal: bool) -> None:  # noqa: ANN0
         assert set(fact.source_ids) <= linked, name
 
 
+def exported(service, context) -> dict:  # noqa: ANN001
+    """The DGII part of the export manifest."""
+
+    blob = export_package(service.authority, context, SEPTEMBER, InMemorySourceObjects())
+    with ZipFile(io.BytesIO(blob)) as archive:
+        return json.loads(archive.read("manifest.json"))["dgii"]
+
+
+def reconciled(service, context, activity: str) -> dict:  # noqa: ANN001
+    [item] = [
+        item
+        for item in exported(service, context)["reconciliation"]
+        if item["activity_id"] == activity
+    ]
+    return item
+
+
 def shipped(service, context, draft) -> list[dict]:  # noqa: ANN001
-    """The 606 issues for this draft's record, after the TXT carried its line."""
+    """The 606 issues for this draft's record, after the TXT carried its line.
+    The dossier's approval receipt, the export manifest and the recorded
+    snapshot name the same approved revision."""
 
     view = service.dossier(context, draft)
     activity = str(view.approval_result.activity_id)
@@ -110,6 +130,16 @@ def shipped(service, context, draft) -> list[dict]:  # noqa: ANN001
     mine = [issue for issue in issues if issue.get("activity_id") == activity]
     assert MISSING not in {issue["code"] for issue in mine}, mine
     assert [line for line in lines if NCF in line.split("|")], (lines, mine)
+    [recorded] = [
+        record
+        for record in read_recorded(service.authority, context).records
+        if str(record.row.activity_id) == activity
+    ]
+    assert (
+        view.approval_result.approved_revision,
+        reconciled(service, context, activity)["approved_revision"],
+        recorded.approved.approved_revision,
+    ) == (view.approval_result.approved_revision,) * 3
     return mine
 
 
@@ -370,14 +400,7 @@ def test_approved_facts_that_name_no_document_stay_held(actions) -> None:  # noq
             (Jsonb(bare.model_dump(mode="json")), draft, revision),
         )
 
-    blob = export_package(service.authority, context, SEPTEMBER, InMemorySourceObjects())
-    with ZipFile(io.BytesIO(blob)) as archive:
-        manifest = json.loads(archive.read("manifest.json"))["dgii"]
-    [held] = [
-        item
-        for item in manifest["reconciliation"]
-        if item["activity_id"] == str(outcome.activity_id)
-    ]
+    held = reconciled(service, context, str(outcome.activity_id))
     assert (held["disposition"], held["source_ids"]) == ("needs_review", [])
-    assert manifest["forms"]["606"]["status"] == "needs_review"
+    assert exported(service, context)["forms"]["606"]["status"] == "needs_review"
     assert not [line for line in lines_606(service, context)[0] if NCF in line]
