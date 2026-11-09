@@ -70,6 +70,7 @@ describe("foreign currency lines", () => {
       }],
       missing_rnc: [],
       missing_ncf: [],
+      missing_fiscal_rows: [],
       cuentas_por_cobrar: [line("act-usd", "invoice", "USD", "2026-10-06", 5000, null)],
       cuentas_por_pagar: [line("act-eur", "receipt", "EUR", "2026-10-07", 2000, null)],
     }));
@@ -136,6 +137,7 @@ describe("open items across months", () => {
       currencies: [{ currency: "DOP", income_before_itbis_minor: 0, income_before_itbis: "0.00", expense_before_itbis_minor: 0, expense_before_itbis: "0.00", net_result_minor: 0, net_result: "0.00", itbis_paid_minor: 0, itbis_paid: "0.00", by_status: settledByStatus(), net_result_final: true }],
       missing_rnc: [],
       missing_ncf: [],
+      missing_fiscal_rows: [],
       cuentas_por_cobrar: [],
       cuentas_por_pagar: [],
     }));

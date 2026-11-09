@@ -28,7 +28,7 @@ function serverWith(currencies: unknown[], lists: { cobrar?: unknown[]; pagar?: 
   const open = (items: unknown[]) => ({ count: items.length, totals: [], items });
   return createHttpMonthCloseClient(async (path) => path === "/business/open-items"
     ? { today: "2026-10-18", cuentas_por_cobrar: open(cobrar), cuentas_por_pagar: open(pagar) }
-    : { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed: true, reasons: [], payment_methods: ["efectivo", "otro"], currencies, missing_rnc: [], missing_ncf: [], cuentas_por_cobrar: cobrar, cuentas_por_pagar: pagar });
+    : { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed: true, reasons: [], payment_methods: ["efectivo", "otro"], currencies, missing_rnc: [], missing_ncf: [], missing_fiscal_rows: [], cuentas_por_cobrar: cobrar, cuentas_por_pagar: pagar });
 }
 
 const DOP_AND_USD = [block("DOP", 400000, 150000, 18000), block("USD", 120000, 2400, 21600)];

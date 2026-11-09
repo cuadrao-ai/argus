@@ -542,6 +542,7 @@ describe("fiscal complete months stay editable", () => {
         }],
         missing_rnc: [],
         missing_ncf: [],
+        missing_fiscal_rows: [],
         missing_fiscal_data: [],
         cuentas_por_cobrar: [wireLine("act-invoice", "invoice", 118000, 18000)],
         cuentas_por_pagar: [wireLine("act-receipt", "receipt", 59000, 9000)],
@@ -777,6 +778,7 @@ describe("a fully settled month", () => {
       }],
       missing_rnc: [],
       missing_ncf: [],
+      missing_fiscal_rows: [],
       missing_fiscal_data: [],
       filing_ready: true,
       cuentas_por_cobrar: [],
@@ -823,6 +825,7 @@ describe("the Bandeja on the month-close panel", () => {
       currencies: [{ currency: "DOP", income_before_itbis_minor: 100, expense_before_itbis_minor: 0, net_result_minor: 100, itbis_paid_minor: 0, net_result_final: true }],
       missing_rnc: [],
       missing_ncf: [],
+      missing_fiscal_rows: [],
       cuentas_por_cobrar: [],
       cuentas_por_pagar: [],
     });

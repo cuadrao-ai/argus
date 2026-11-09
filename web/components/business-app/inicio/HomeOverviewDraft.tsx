@@ -55,8 +55,6 @@ const COPY = {
     allClearBody: "No hay documentos esperando por ti.",
     edited: "Editado",
     recentKinds: { invoice_draft: "Borrador de factura", record: "Registro", receipt: "Documento" },
-    noteTag: "Nota",
-    emailTag: "Correo",
   },
   en: {
     today: "Business overview",
@@ -85,8 +83,6 @@ const COPY = {
     allClearBody: "No documents are waiting for you.",
     edited: "Edited",
     recentKinds: { invoice_draft: "Invoice draft", record: "Record", receipt: "Document" },
-    noteTag: "Note",
-    emailTag: "Email",
   },
 } as const;
 
@@ -226,8 +222,8 @@ function NeedsAttention({ c }: { c: Copy }) {
           const verb = !prepares ? undefined : problem ? c.resolve : row.kind === "note" || (row.kind === "receipt" && row.receipt.bandeja?.por_revisar) ? c.review : c.open;
           const tag = row.kind === "receipt"
             ? problem ? alert(t(`business.attention_short.${row.receipt.attention ?? "other"}`)) : <span className={neutral}>{stateWord(row.receipt)}</span>
-            : row.kind === "note" ? <span className={neutral}>{c.noteTag}</span>
-            : problem ? alert(c.emailTag) : <span className={neutral}>{c.emailTag}</span>;
+            : row.kind === "note" ? <span className={neutral}>{t("business.inbox.row_note")}</span>
+            : problem ? alert(t("business.reception_preview.source_email")) : <span className={neutral}>{t("business.reception_preview.source_email")}</span>;
           return <li key={`${row.kind}:${row.id}`} data-kind={row.kind}><RowCard Icon={CHANNEL_ICON[row.source]} title={titleOf(row)} tag={tag} date={formatRelativeTime(row.receivedAt, locale)} verb={verb} onOpen={() => openPanel(receptionTarget(row))} /></li>;
         })}
       </ul> : null}

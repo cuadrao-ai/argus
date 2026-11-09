@@ -133,8 +133,8 @@ export type MonthCloseSnapshot = {
   filing_ready?: boolean | null;
   /** One block per currency the month holds, in the server's order. A month with no documents has none. */
   figures: MonthCloseFigures[];
-  /** Para cerrar's "Faltan datos fiscales" rows as the server counts them, Compras first. Empty from an older server. */
-  fiscal_rows: MonthCloseFiscalRow[];
+  /** Para cerrar's "Faltan datos fiscales" rows as the server counts them, Compras first. Null from an older server: unknown, never none. */
+  fiscal_rows: MonthCloseFiscalRow[] | null;
 };
 
 /**
@@ -1096,9 +1096,9 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
   };
 }
 
-/** The server's rows, as sent. An older server sends none. */
-function readFiscalRows(value: unknown): MonthCloseFiscalRow[] {
-  if (value === undefined) return [];
+/** The server's rows, as sent. An older server sends none, which is unknown, not an empty list. */
+function readFiscalRows(value: unknown): MonthCloseFiscalRow[] | null {
+  if (value === undefined) return null;
   if (!Array.isArray(value)) throw new MonthCloseError("unavailable", "month close fiscal rows are unknown");
   return value.map((row) => {
     if (!isRecord(row) || (row.family !== "purchase" && row.family !== "sale") || typeof row.currency !== "string" || !CURRENCY_CODE.test(row.currency) || typeof row.by_currency !== "boolean" || typeof row.count !== "number" || !Number.isInteger(row.count) || row.count < 1) {

@@ -697,8 +697,9 @@ function BusinessMonthCloseContent({
   );
   const receiptStatusInLead = finance && Boolean(arrange) && receiptStatusPlacement === "lead";
   const embeddedReceiptStatus = receiptStatusInLead ? null : receiptStatus;
-  // Nothing left to list, and the Bandeja's counts are known, so no read in flight is hiding.
-  const allDone = tasks.length === 0 && knownReview !== null;
+  // Nothing left to list, the Bandeja's counts are known (no read in flight is hiding) and the server said which
+  // documents the forms hold: an older server that sends no fiscal rows leaves the card unknown, never "all settled".
+  const allDone = tasks.length === 0 && knownReview !== null && snapshot?.fiscal_rows !== null;
   // "Ready for the 606 and 607" is the server's one fact, said only when the card has no step left to show.
   const fiscalReady = snapshot?.filing_ready === true && allDone && !locked;
   const showChecklistFooter = Boolean(embeddedReceiptStatus || reason);

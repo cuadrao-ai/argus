@@ -69,6 +69,7 @@ function serverClient(server: Server): { client: MonthCloseClient; asked: string
       currencies: [block("DOP", true)],
       missing_rnc: [],
       missing_ncf: [],
+      missing_fiscal_rows: [],
       cuentas_por_cobrar: [],
       cuentas_por_pagar: [],
       ...server.month?.(month),
@@ -519,7 +520,7 @@ describe("Exportar shows each form's own status from the packet", () => {
       if (url.pathname.endsWith("/business/fiscal-profile")) return Response.json({ name: "Taller Luna", tax_id: null, can_edit: false });
       const month = url.searchParams.get("month")!;
       const shape = forms(month);
-      return Response.json({ month, today: FAR_TODAY, from: `${month}-01`, to: lastDay(month), closed: true, reasons: [], earliest_month: "2030-01", payment_methods: METHODS, ...(shape === undefined ? {} : { dgii_forms: shape }), currencies: [], missing_rnc: [], missing_ncf: [], cuentas_por_cobrar: [], cuentas_por_pagar: [] });
+      return Response.json({ month, today: FAR_TODAY, from: `${month}-01`, to: lastDay(month), closed: true, reasons: [], earliest_month: "2030-01", payment_methods: METHODS, ...(shape === undefined ? {} : { dgii_forms: shape }), currencies: [], missing_rnc: [], missing_ncf: [], missing_fiscal_rows: [], cuentas_por_cobrar: [], cuentas_por_pagar: [] });
     };
     const value = { source: { mode: "live" }, chosen: own } as unknown as BusinessContextValue;
     const host = document.createElement("div");
@@ -649,6 +650,16 @@ describe("ready for the 606 and 607 follows the export verdict, not month comple
       assert.equal(view.find("month-close-filing"), null);
       assert.equal(view.host.querySelector('[data-testid^="month-close-task-fiscal"]'), null);
       assert.equal(view.text("month-close-checklist-ready").trim(), "Todo al día");
+    } finally { await view.unmount(); }
+  });
+
+  test("an older server that sends no fiscal rows leaves the card unknown, never all settled", async () => {
+    const { client } = serverClient({ month: () => ({ closed: true, dgii_forms: { "606": "needs_review", "607": "no_operations" }, missing_fiscal_data: [{ ...paidPurchase, missing: ["expense_type_missing"] }], missing_fiscal_rows: undefined }) });
+    const view = await renderInicio(client, reviewed);
+    try {
+      assert.equal(view.find("month-close-checklist-ready"), null);
+      assert.equal(view.find("month-close-filing"), null);
+      assert.equal(view.text("month-close-checklist-unknown"), "-");
     } finally { await view.unmount(); }
   });
 

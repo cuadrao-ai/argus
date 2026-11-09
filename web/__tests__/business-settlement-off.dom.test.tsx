@@ -33,6 +33,7 @@ function offWire(currencies: Record<string, unknown>[] = [{ currency: "DOP", inc
     currencies,
     missing_rnc: [line],
     missing_ncf: [],
+    missing_fiscal_rows: [],
     missing_fiscal_data: [{ ...line, missing: ["rnc_missing"] }],
     unreviewed_movements_count: 0,
     filing_ready: false,

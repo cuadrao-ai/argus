@@ -688,7 +688,7 @@ describe("Faltan datos fiscales rows", () => {
   test("the reader keeps the server's rows as sent; an older server sends none", () => {
     const rows = [{ family: "purchase", currency: "DOP", count: 1, by_currency: true }, { family: "purchase", currency: "USD", count: 2, by_currency: true }];
     expect(readMonthCloseWire({ ...mappedWire, missing_fiscal_rows: rows }).fiscal_rows).toEqual(rows);
-    expect(readMonthCloseWire(mappedWire).fiscal_rows).toEqual([]);
+    expect(readMonthCloseWire(mappedWire).fiscal_rows).toBeNull();
     expect(() => readMonthCloseWire({ ...mappedWire, missing_fiscal_rows: [{ family: "gasto", currency: "DOP", count: 1, by_currency: false }] })).toThrow(MonthCloseError);
   });
 

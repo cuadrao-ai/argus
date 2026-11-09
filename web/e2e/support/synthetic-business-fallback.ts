@@ -132,6 +132,10 @@ export async function fulfillSyntheticBusinessFallback(
     if (method !== "GET") throw new Error("Synthetic invitations requires GET");
     return route.fulfill({ json: [] });
   }
+  if (path === "setup") {
+    if (method !== "GET") throw new Error("Synthetic setup requires GET");
+    return route.fulfill({ json: await source.setup!() });
+  }
 
   throw new Error(`Unmapped synthetic endpoint ${path ?? url.pathname}`);
 }

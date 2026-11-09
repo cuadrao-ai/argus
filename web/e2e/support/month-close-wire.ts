@@ -37,6 +37,7 @@ export function monthCloseWire(month: string) {
     dgii_forms: { "606": "needs_review", "607": "needs_review" },
     missing_rnc: [],
     missing_ncf: [],
+    missing_fiscal_rows: [],
     cuentas_por_cobrar: [{ ...PENDING_INVOICE, occurred_on: `${month}-05` }],
     cuentas_por_pagar: [],
     currencies: [{

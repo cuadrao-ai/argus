@@ -37,6 +37,7 @@ describe("Inicio month close source", () => {
     currencies: [{ currency: "DOP", by_status: openByStatus() }],
     missing_rnc: [],
     missing_ncf: [],
+    missing_fiscal_rows: [],
     cuentas_por_cobrar: [],
     cuentas_por_pagar: [],
   });
@@ -223,6 +224,7 @@ describe("Inicio export records panel", () => {
         currencies: [],
         missing_rnc: [],
         missing_ncf: [],
+        missing_fiscal_rows: [],
         cuentas_por_cobrar: [],
         cuentas_por_pagar: [],
         dgii_forms: { "606": "needs_review", "607": "no_operations" },
