@@ -306,7 +306,7 @@ services:
     buildCommand: bun install --frozen-lockfile && bun run build
     startCommand: bun run start -- -p $PORT
     envVars:
-      - key: ARGUS_APP_ORIGIN
+      - key: CUADRAO_APP_ORIGIN
         value: https://cuadrao-web-staging.onrender.com
       - key: CUADRAO_AUTH_EMAIL_HOOK_ENABLED
         value: "false"

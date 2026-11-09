@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { Webhook } from "standardwebhooks";
+import { appOrigin } from "../app-origin";
 import { parseAuthMail, renderAuthMail } from "./auth-actions";
 
 export const STAGING_AUTH_EMAIL = {
@@ -100,7 +101,7 @@ export function authEmailHookConfig(env: NodeJS.ProcessEnv): AuthEmailHookConfig
     enabled: env.CUADRAO_AUTH_EMAIL_HOOK_ENABLED === "true",
     projectRef: env.CUADRAO_AUTH_EMAIL_PROJECT_REF ?? "",
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    appOrigin: env.ARGUS_APP_ORIGIN ?? "",
+    appOrigin: appOrigin(env) ?? "",
     expirySeconds: Number(env.CUADRAO_AUTH_EMAIL_OTP_EXP_SECONDS),
     renderServiceId: env.RENDER_SERVICE_ID ?? "",
     hookSecret: env.CUADRAO_AUTH_EMAIL_HOOK_SECRET ?? "",

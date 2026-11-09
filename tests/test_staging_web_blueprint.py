@@ -19,7 +19,7 @@ def test_staging_web_has_its_own_manual_integration_and_recovery_config():
     assert stage["startCommand"] == "bun run start -- -p $PORT"
     assert "envVarGroups" not in stage
     env = {entry["key"]: entry for entry in stage["envVars"]}
-    assert env["ARGUS_APP_ORIGIN"]["value"] == "https://cuadrao-web-staging.onrender.com"
+    assert env["CUADRAO_APP_ORIGIN"]["value"] == "https://cuadrao-web-staging.onrender.com"
     assert (
         env["NEXT_PUBLIC_SUPABASE_URL"]["value"]
         == "https://skedzwocnmrhfigiwyzi.supabase.co"

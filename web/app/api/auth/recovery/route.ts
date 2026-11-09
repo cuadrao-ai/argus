@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase-server";
+import { appOrigin } from "@/server/app-origin";
 import {
   handleRecoveryRequest,
   RecoveryCaptchaRejectedError,
@@ -20,7 +21,7 @@ const globalLimiter = new RecoveryAttemptLimiter({
 
 export async function POST(request: Request) {
   return handleRecoveryRequest(request, {
-    configuredAppOrigin: process.env.ARGUS_APP_ORIGIN,
+    configuredAppOrigin: appOrigin(),
     environment: process.env.NODE_ENV,
     trustedClientIpHeader: process.env.ARGUS_TRUSTED_CLIENT_IP_HEADER,
     limiter,

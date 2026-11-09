@@ -221,6 +221,42 @@ def test_target_guard_checks_inherited_database_target(tmp_path, monkeypatch):
         se.guard_local(root, se.load_manifest())
 
 
+@pytest.mark.parametrize("name", ["CUADRAO_APP_ORIGIN", "ARGUS_APP_ORIGIN"])
+def test_local_manifest_accepts_server_app_origin(name):
+    manifest = json.loads((ROOT / "scripts/ops/staging_env_manifest.json").read_text())
+    entry = next(
+        entry
+        for entry in manifest["services"]["web"]["entries"]
+        if entry["name"] == "CUADRAO_APP_ORIGIN"
+    )
+    entry["name"] = name
+    se.validate_manifest(manifest)
+
+
+@pytest.mark.parametrize("name", ["CUADRAO_APP_ORIGIN", "ARGUS_APP_ORIGIN"])
+@pytest.mark.parametrize("source", ["inherited", ".env", "web/.env.local"])
+@pytest.mark.parametrize("local", [True, False])
+def test_target_guard_checks_both_app_origin_names(
+    tmp_path, monkeypatch, name, source, local
+):
+    monkeypatch.delenv("NEXT_PUBLIC_MOCK_AUTH", raising=False)
+    root = worker(tmp_path)
+    (root / ".env").write_text("SUPABASE_URL=http://localhost:54321\n")
+    (root / "web/.env.local").write_text("NEXT_PUBLIC_MOCK_AUTH=false\n")
+    target = "http://localhost:3000" if local else "https://outside.example.test"
+    if source == "inherited":
+        monkeypatch.setenv(name, target)
+    else:
+        path = root / source
+        path.write_text(path.read_text() + f"{name}={target}\n")
+    manifest = json.loads((ROOT / "scripts/ops/staging_env_manifest.json").read_text())
+    if local:
+        se.guard_local(root, manifest)
+    else:
+        with pytest.raises(se.ManifestError, match=f"{name}: unapproved target"):
+            se.guard_local(root, manifest)
+
+
 def test_local_manifest_rejects_server_source_for_browser(values):
     manifest = se.load_manifest()
     entry = next(
