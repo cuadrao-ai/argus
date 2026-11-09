@@ -97,6 +97,8 @@ def test_finds_the_business_expense_and_never_the_personal_one(alice: Owner) -> 
                 "occurred_on": "2026-10-06",
                 "receipt_id": receipt_id,
                 "fiscal_known": True,
+                # The memory store keeps no Registros rows: nothing approved to read.
+                "dgii_606": None,
             }
         ],
     }

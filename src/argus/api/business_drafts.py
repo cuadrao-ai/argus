@@ -669,12 +669,34 @@ def expenses_with_receipts(
     )
 
 
+def answers_606(
+    context: BusinessContext, activity_ids: list[str]
+) -> dict[str, dict | None]:
+    """The 606 answers each approved record's Registros row shows, by activity
+    id, from the same ``purchase_606`` (null for a record the 606 never lists).
+    An id with no Registros row, or a Business without the Postgres record
+    store, has none."""
+
+    from argus.domain.business.reporting_store import read_606
+
+    store = context.service.imports.store
+    if not isinstance(store, GrantImportStore) or not activity_ids:
+        return {}
+    return {
+        identifier: answer.model_dump(mode="json") if answer else None
+        for identifier, answer in read_606(
+            store.authority, store.context, activity_ids
+        ).items()
+    }
+
+
 def expense_detail(context: BusinessContext, expense_id: str) -> dict:
     """One saved expense with the records behind it: a receipt to open, the
-    draft that recorded it, or neither for an expense entered by hand."""
+    draft that recorded it, or neither for an expense entered by hand, and the
+    606 answers its Registros row shows."""
 
     [item] = _with_records(context, [context.service.expense(context.scope, expense_id)])
-    return item
+    return {**item, "dgii_606": answers_606(context, [expense_id]).get(expense_id)}
 
 
 def search_with_drafts(

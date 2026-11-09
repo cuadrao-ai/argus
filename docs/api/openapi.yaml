@@ -18911,15 +18911,15 @@ components:
       properties:
         expenses:
           items:
-            $ref: '#/components/schemas/BusinessExpense'
+            $ref: '#/components/schemas/ExpenseHit'
           type: array
         ventas:
           items:
-            $ref: '#/components/schemas/BusinessExpense'
+            $ref: '#/components/schemas/ExpenseHit'
           type: array
         receipts:
           items:
-            $ref: '#/components/schemas/ReceiptSummary'
+            $ref: '#/components/schemas/ReceiptHit'
           type: array
         accounts:
           items:
@@ -22356,6 +22356,10 @@ components:
       - replayed
     ExpenseDetail:
       properties:
+        dgii_606:
+          anyOf:
+          - $ref: '#/components/schemas/Purchase606'
+          - type: 'null'
         id:
           type: string
         merchant:
@@ -22427,6 +22431,85 @@ components:
           anyOf:
           - type: integer
           - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - merchant
+      - amount
+      - currency
+      - category_id
+      - account_id
+      - occurred_on
+      - receipt_id
+    ExpenseHit:
+      properties:
+        dgii_606:
+          anyOf:
+          - $ref: '#/components/schemas/Purchase606'
+          - type: 'null'
+        id:
+          type: string
+        merchant:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount:
+          type: string
+        currency:
+          type: string
+        category_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        account_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
+          - type: 'null'
+        occurred_on:
+          type: string
+          format: date
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        draft_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        personal_marked_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: true
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -30858,6 +30941,195 @@ components:
           - type: 'null'
       additionalProperties: false
       type: object
+    ReceiptHit:
+      properties:
+        dgii_606:
+          anyOf:
+          - $ref: '#/components/schemas/Purchase606'
+          - type: 'null'
+        id:
+          type: string
+        activity:
+          anyOf:
+          - $ref: '#/components/schemas/ReceiptActivity'
+          - type: 'null'
+        bandeja:
+          anyOf:
+          - $ref: '#/components/schemas/BandejaMembership'
+          - type: 'null'
+        bandeja_group:
+          anyOf:
+          - $ref: '#/components/schemas/BandejaGroup'
+          - type: 'null'
+        channel:
+          type: string
+          enum:
+          - web
+          - whatsapp
+          - email
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        source_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+        media_type:
+          type: string
+        size_bytes:
+          type: integer
+        received_at:
+          type: string
+          format: date-time
+        status:
+          anyOf:
+          - type: string
+            enum:
+            - saved
+            - queued
+            - preparing
+            - review_ready
+            - needs_attention
+          - type: string
+            enum:
+            - confirmed
+            - dismissed
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+        attention:
+          anyOf:
+          - type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - read_budget_day
+            - read_budget_month
+            - other
+          - type: 'null'
+        duplicate_of:
+          anyOf:
+          - type: string
+          - type: 'null'
+        replayed:
+          type: boolean
+          default: false
+        read_pending:
+          type: boolean
+          default: false
+        preparable:
+          type: boolean
+        enterable:
+          type: boolean
+        email_delivery_ids:
+          items:
+            type: string
+          type: array
+        email_original:
+          type: boolean
+          default: false
+        document_type:
+          type: string
+          enum:
+          - recibo
+          - venta
+          default: recibo
+        document_type_detected:
+          type: boolean
+          default: false
+        document_type_editable:
+          type: boolean
+          default: false
+        expense_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        merchant:
+          anyOf:
+          - type: string
+          - type: 'null'
+        occurred_on:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+        category_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        account_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        personal_marked_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: false
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
+        personal_editable:
+          type: boolean
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - channel
+      - filename
+      - media_type
+      - size_bytes
+      - received_at
+      - status
+      - error_code
+      - attention
+      - preparable
+      - enterable
+      - expense_id
+      - merchant
+      - occurred_on
+      - amount
+      - currency
+      - category_id
+      - account_id
     ReceiptLegacyRule:
       properties:
         cadence:

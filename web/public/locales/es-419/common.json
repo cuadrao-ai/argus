@@ -4401,7 +4401,6 @@
       "rebind_failed": "No pudimos vincular este recibo. Inténtalo de nuevo.",
       "account": "Pagado desde",
       "amount": "Total",
-      "category": "Categoría",
       "choose": "Elegir",
       "confirm": "Confirmar gasto",
       "currency": "Moneda",
