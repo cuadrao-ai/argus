@@ -50,7 +50,7 @@ async function renderView(client: MonthCloseClient, options: { scopeKey: string;
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessMonthCloseView client={client} now={now} scopeKey={options.scopeKey} businessCurrency={options.businessCurrency ?? null} />
+        <BusinessMonthCloseView settlement client={client} now={now} scopeKey={options.scopeKey} businessCurrency={options.businessCurrency ?? null} />
       </I18nextProvider>,
     );
   });

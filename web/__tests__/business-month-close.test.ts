@@ -66,6 +66,7 @@ describe("month close money", () => {
       net_before_itbis: "41.00",
       itbis_owed: "18.00",
       itbis_cobrado: "18.00",
+      itbis_charged: "18.00",
       net_result_final: true,
       pending_count: 0,
     });
@@ -91,6 +92,7 @@ describe("month close money", () => {
       net_before_itbis: "48800.00",
       itbis_owed: "7902.00",
       itbis_cobrado: "6120.00",
+      itbis_charged: "9360.00",
       net_result_final: false,
       pending_count: 4,
     });
@@ -101,6 +103,7 @@ describe("month close money", () => {
       net_before_itbis: "14200.00",
       itbis_owed: "2556.00",
       itbis_cobrado: "2160.00",
+      itbis_charged: "3060.00",
       net_result_final: false,
       pending_count: 2,
     }]);
@@ -418,8 +421,8 @@ describe("live figure mapping", () => {
 
   test("M5 every currency keeps its own block, in the server's order", () => {
     expect(readMonthCloseWire(mappedWire).figures).toEqual([
-      { currency: "USD", income_before_itbis: "1.00", expense_before_itbis: "1.00", net_before_itbis: "1.00", itbis_owed: "1.00", itbis_cobrado: null, net_result_final: null, pending_count: null },
-      { currency: "DOP", income_before_itbis: "4000.00", expense_before_itbis: "1500.00", net_before_itbis: "2500.00", itbis_owed: "180.00", itbis_cobrado: null, net_result_final: null, pending_count: 1 },
+      { currency: "USD", income_before_itbis: "1.00", expense_before_itbis: "1.00", net_before_itbis: "1.00", itbis_owed: "1.00", itbis_cobrado: null, itbis_charged: "1.00", net_result_final: null, pending_count: null },
+      { currency: "DOP", income_before_itbis: "4000.00", expense_before_itbis: "1500.00", net_before_itbis: "2500.00", itbis_owed: "180.00", itbis_cobrado: null, itbis_charged: "720.00", net_result_final: null, pending_count: 1 },
     ]);
   });
 
@@ -436,9 +439,9 @@ describe("live figure mapping", () => {
     const usd = { ...document({ id: "usd", kind: "invoice", amount: "50.00", itbis: "5.00", status: "cobrado" }), currency: "USD" };
     const eur = { ...document({ id: "eur", kind: "receipt", amount: "20.00", itbis: "2.00", status: "pagado" }), currency: "EUR" };
     expect(monthCloseFiguresFrom([dop, usd, eur])).toEqual([
-      { currency: "DOP", income_before_itbis: "100.00", expense_before_itbis: "0.00", net_before_itbis: "100.00", itbis_owed: "18.00", itbis_cobrado: "18.00", net_result_final: true, pending_count: 0 },
-      { currency: "EUR", income_before_itbis: "0.00", expense_before_itbis: "18.00", net_before_itbis: "-18.00", itbis_owed: "-2.00", itbis_cobrado: "0.00", net_result_final: true, pending_count: 0 },
-      { currency: "USD", income_before_itbis: "45.00", expense_before_itbis: "0.00", net_before_itbis: "45.00", itbis_owed: "5.00", itbis_cobrado: "5.00", net_result_final: true, pending_count: 0 },
+      { currency: "DOP", income_before_itbis: "100.00", expense_before_itbis: "0.00", net_before_itbis: "100.00", itbis_owed: "18.00", itbis_cobrado: "18.00", itbis_charged: "18.00", net_result_final: true, pending_count: 0 },
+      { currency: "EUR", income_before_itbis: "0.00", expense_before_itbis: "18.00", net_before_itbis: "-18.00", itbis_owed: "-2.00", itbis_cobrado: "0.00", itbis_charged: "0.00", net_result_final: true, pending_count: 0 },
+      { currency: "USD", income_before_itbis: "45.00", expense_before_itbis: "0.00", net_before_itbis: "45.00", itbis_owed: "5.00", itbis_cobrado: "5.00", itbis_charged: "5.00", net_result_final: true, pending_count: 0 },
     ]);
   });
 

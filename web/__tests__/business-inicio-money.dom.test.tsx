@@ -58,6 +58,7 @@ describe("Inicio month close source", () => {
       source: { mode },
       chosen: { grant_id: "own-grant", capabilities: ["approve"], role: "owner", name: "Taller" },
       actions: { create: [] },
+      records: { workspace: { settlement_available: true } },
     } as unknown as BusinessContextValue;
     const host = document.createElement("div");
     document.body.appendChild(host);
@@ -366,7 +367,7 @@ describe("Pendiente hoy cards", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView client={client} now={now} openDocument={openDocument} />
+          <BusinessMonthCloseView settlement client={client} now={now} openDocument={openDocument} />
           <Probe />
         </I18nextProvider>,
       );
@@ -524,7 +525,7 @@ describe("Inicio in two columns", () => {
     document.body.appendChild(host);
     const root = createRoot(host);
     await act(async () => {
-      root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} review={review} headingAction={headingAction ? <button data-testid="home-heading-add">Agregar</button> : undefined} header={(switcher) => <div data-testid="inicio-greeting-row"><h2>Hola</h2>{switcher}</div>} /></I18nextProvider>);
+      root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={now} review={review} headingAction={headingAction ? <button data-testid="home-heading-add">Agregar</button> : undefined} header={(switcher) => <div data-testid="inicio-greeting-row"><h2>Hola</h2>{switcher}</div>} /></I18nextProvider>);
     });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     return { act, host, close: async () => { await act(async () => root.unmount()); host.remove(); } };

@@ -37,6 +37,13 @@ actions = business.actions
 users = business.users
 world = routes.world
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 FILER = "199990013"
 BUYER_OR_SUPPLIER = "199990021"
 MONTH = "2026-09"

@@ -34,6 +34,11 @@ EMPTY_OPEN_LIST = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These reads and refusals include the settlement ones: settlement on."""
+
+
 @pytest.fixture
 def alice(bank_client: TestClient) -> Owner:  # noqa: F811
     return Owner(bank_client, ALICE)

@@ -45,6 +45,14 @@ import { currencyDigits, minorToDecimal } from "./money-entry";
  * `missing_fiscal_data`, which Inicio and Exportar both read. No screen
  * derives it from `closed`.
  *
+ * Por cobrar and Por pagar sit behind the server's one switch, the workspace's
+ * `settlement_available`. While it is off the month read carries no
+ * `cuentas_por_cobrar`, `cuentas_por_pagar`, `payment_methods`, settlement
+ * figure (receivable and payable totals, `by_status`, ITBIS cobrado) or line
+ * status, both settlement routes refuse, and no screen asks for them; a
+ * document's `status` is null. The server's net then waits only on a rate, and
+ * ITBIS charged on the approved sales stands where ITBIS cobrado was.
+ *
  * A currency's net shows only when its block says `net_result_final`.
  * Overdue counts and totals are the server's; a row's lateness chip reads its
  * `due_on` against the server's `today`. A field an older server does not
@@ -75,7 +83,8 @@ export type MonthCloseDocument = {
   ncf: string | null;
   /** e-CF / e-NCF as printed. Null when absent. Distinct from `ncf`. */
   ecf: string | null;
-  status: MonthCloseStatus;
+  /** Null while settlement is off: the server sends no status then. */
+  status: MonthCloseStatus | null;
   /**
    * False when this row does not carry RNC or fiscal-number text.
    * Absent means those fields are the record.
@@ -137,8 +146,10 @@ export type MonthCloseFigures = {
   net_before_itbis: string | null;
   /** Invoice ITBIS minus receipt ITBIS. */
   itbis_owed: string | null;
-  /** ITBIS charged on the sales already marked cobrado. */
+  /** ITBIS charged on the sales already marked cobrado. Null while settlement is off. */
   itbis_cobrado: string | null;
+  /** ITBIS charged on the month's approved sales: "ITBIS en ventas", shown in ITBIS cobrado's place while settlement is off. */
+  itbis_charged: string | null;
   /** True once no document of this currency in the month is pendiente. Null from an older server. */
   net_result_final: boolean | null;
   /** This currency's pendiente invoices and receipts, from `by_status`. */
@@ -316,6 +327,7 @@ export function monthCloseFiguresFrom(documents: readonly MonthCloseDocument[]):
     net_before_itbis: minorToDecimal(book.invoiceBase - book.receiptBase, currency),
     itbis_owed: minorToDecimal(book.invoiceItbis - book.receiptItbis, currency),
     itbis_cobrado: minorToDecimal(book.collectedItbis, currency),
+    itbis_charged: minorToDecimal(book.invoiceItbis, currency),
     net_result_final: book.pending === 0,
     pending_count: book.pending,
   }));
@@ -679,10 +691,25 @@ export function windowForMonth(month: string): MonthCloseWindow {
   return { from: `${month}-01`, to: lastDayOfMonth(year, monthNumber) };
 }
 
-function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthCloseWindow, today: string, closedAt: Map<string, string>): MonthCloseSnapshot {
+/**
+ * The sample books' month as the server sends it. With `settlement` off, as the server with the switch off: no
+ * statuses, methods, counts by status or ITBIS cobrado, a net that waits on nothing to mark, and no open document
+ * holding filing.
+ */
+function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthCloseWindow, today: string, closedAt: Map<string, string>, settlement = true): MonthCloseSnapshot {
   const to = window.to ?? today;
   const month = calendarMonthOf(window.from, window.to, today);
   const inWindow = documentsInWindow(documents, window.from, to);
+  if (!settlement) {
+    const shown = inWindow.map((document) => ({ ...document, status: null }));
+    return {
+      ...snapshotFor(documents, window, today, closedAt),
+      payment_methods: null,
+      documents: shown,
+      figures: monthCloseFiguresFrom(inWindow).map((block) => ({ ...block, itbis_cobrado: null, pending_count: null, net_result_final: true })),
+      filing_ready: dgiiFormsReady(sampleForms(inWindow, to, today)) && inWindow.every((document) => !document.missing),
+    };
+  }
   return {
     month,
     today,
@@ -733,6 +760,8 @@ export type MockMonthCloseOptions = {
   dollars?: boolean;
   /** Mark calls for these ids fail, so the view can roll the optimistic row back. */
   failIds?: readonly string[];
+  /** The sample server's settlement switch; on unless said otherwise. */
+  settlement?: boolean;
 };
 
 export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}): MonthCloseClient {
@@ -770,7 +799,7 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
     mode: "mock",
     async load(month, scope = "default") {
       const current = book(scope);
-      return snapshotFor(current.documents, windowForMonth(month), today, current.closedAt);
+      return snapshotFor(current.documents, windowForMonth(month), today, current.closedAt, options.settlement ?? true);
     },
     async openItems(scope = "default") {
       return openItemsFrom(book(scope).documents, today);
@@ -796,7 +825,7 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
       const gate = canCloseMonth({ month, closed_at: current.closedAt.get(month) ?? null, documents: included, unreviewed_movements: 0 });
       if (!gate.ok && gate.reason === "blockers") throw new MonthCloseError("blockers", "month still has blockers");
       if (!current.closedAt.has(month)) current.closedAt.set(month, new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0).toISOString());
-      return snapshotFor(current.documents, { from, to }, today, current.closedAt);
+      return snapshotFor(current.documents, { from, to }, today, current.closedAt, options.settlement ?? true);
     },
   };
 }
@@ -868,7 +897,8 @@ type WireLine = {
   occurred_on: string;
   total_minor: number;
   itbis_minor: number | null;
-  status: string;
+  /** Absent while settlement is off. */
+  status: string | null;
   currency: string | null;
   counterparty: string | null;
   due_on: string | null;
@@ -893,14 +923,14 @@ function readWireLine(value: unknown): WireLine {
   if (typeof value.occurred_on !== "string" || !DAY.test(value.occurred_on)) throw new MonthCloseError("unavailable", "month close document date is unknown");
   if (typeof value.total_minor !== "number") throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
   if (!(value.itbis_minor === null || typeof value.itbis_minor === "number")) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
-  if (typeof value.status !== "string" || !statusFits(value.document_kind, value.status)) throw new MonthCloseError("unavailable", "month close status does not fit the document");
+  if (value.status !== undefined && (typeof value.status !== "string" || !statusFits(value.document_kind, value.status))) throw new MonthCloseError("unavailable", "month close status does not fit the document");
   return {
     activity_id: value.activity_id,
     document_kind: value.document_kind,
     occurred_on: value.occurred_on,
     total_minor: value.total_minor,
     itbis_minor: value.itbis_minor,
-    status: value.status,
+    status: typeof value.status === "string" ? value.status : null,
     currency: lineCurrency(value.currency),
     counterparty: readNullableText(value.counterparty),
     due_on: readDay(value.due_on),
@@ -930,7 +960,7 @@ function wireDocument(line: WireLine, ncfMalformed = false): MonthCloseDocument 
     rnc: line.fiscal?.rnc ?? null,
     ncf: line.fiscal?.ncf ?? null,
     ecf: line.fiscal?.ecf ?? null,
-    status: line.status as MonthCloseStatus,
+    status: line.status as MonthCloseStatus | null,
     fiscal_known: Boolean(line.fiscal),
     ...(line.fiscal ? { sin_comprobante: line.fiscal.sin_comprobante } : {}),
     ...(ncfMalformed ? { ncf_malformed: true } : {}),
@@ -957,6 +987,7 @@ function readFigures(value: unknown): MonthCloseFigures[] {
       net_before_itbis: figure("net_result"),
       itbis_owed: figure("itbis_owed"),
       itbis_cobrado: figure("itbis_cobrado"),
+      itbis_charged: figure("itbis_charged"),
       net_result_final: typeof block.net_result_final === "boolean" ? block.net_result_final : null,
       pending_count: pendingCount(block.by_status),
     };
@@ -998,9 +1029,12 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
   if (typeof value.closed !== "boolean") throw new MonthCloseError("unavailable", "month close timestamp is unknown");
   if (!Array.isArray(value.reasons)) throw new MonthCloseError("unavailable", "month close documents are missing");
   const lists = ["missing_rnc", "missing_ncf", "cuentas_por_cobrar", "cuentas_por_pagar"] as const;
+  // Settlement off: the server sends no receivables or payables at all.
+  const settlementLists: readonly string[] = ["cuentas_por_cobrar", "cuentas_por_pagar"];
   const lines: WireLine[] = [];
   const seen = new Set<string>();
   for (const key of lists) {
+    if (value[key] === undefined && settlementLists.includes(key)) continue;
     if (!Array.isArray(value[key])) throw new MonthCloseError("unavailable", "month close documents are missing");
     for (const item of value[key]) {
       const line = readWireLine(item);

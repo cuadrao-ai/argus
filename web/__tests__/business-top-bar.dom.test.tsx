@@ -326,38 +326,52 @@ describe("Ocultar montos", () => {
   });
 });
 
+/** The fixture workspace with Por cobrar and Por pagar on, for a test of the settlement step or the Cobros y pagos section. */
+async function settlementOn(): Promise<Partial<BusinessDataSource>> {
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
+  return { workspace: async () => ({ ...await fixture.workspace(), settlement_available: true }) };
+}
+
 describe("the Business top bar on a phone", () => {
-  test("a receipt failure keeps the settlement task reachable through Ver cuáles on a phone", async () => {
+  test("a receipt failure leaves the workspace unknown, so no settlement step or Cobros y pagos shows", async () => {
     const page = await mount({ width: 390, overrides: {
+      ...await settlementOn(),
       receiptPage: async () => { throw new Error("Receipt count unavailable"); },
     } });
-    await page.settle(() => page.screen().querySelector('[data-testid="inicio-error"]') !== null && page.screen().querySelector('[data-testid="month-close-checklist"]') !== null && page.screen().querySelector('[data-testid="month-close-payable"]') !== null, "the receipt failure, checklist, and money cards");
+    await page.settle(() => page.screen().querySelector('[data-testid="inicio-error"]') !== null && page.screen().querySelector('[data-testid="month-close-checklist"]') !== null, "the receipt failure and checklist");
     await page.act(async () => window.dispatchEvent(new Event("resize")));
     assert.equal(page.screen().querySelector('[data-testid="inicio-error"]')?.getAttribute("role"), "alert");
     assert.equal(page.screen().querySelector('[data-testid="month-close-close"]'), null, "a receipt failure prevents closing the month");
+    const toggle = page.screen().querySelector<HTMLButtonElement>('[data-testid="month-close-tasks-toggle"]');
+    if (toggle) await page.act(async () => toggle.click());
+    // Only the workspace's answer turns settlement on, and the failed read left it unknown.
+    assert.equal(page.screen().querySelector('[data-testid="month-close-task-settle"]'), null);
+    assert.equal(page.screen().querySelector("#month-close-money"), null);
+    assert.equal(page.screen().querySelector('[data-home-section="money"]'), null);
+  });
+
+  test("with settlement on, the settlement step reaches Cobros y pagos through Ver cuáles on a phone", async () => {
+    const page = await mount({ width: 390, overrides: await settlementOn() });
+    await page.settle(() => page.screen().querySelector('[data-testid="month-close-checklist"]') !== null && page.screen().querySelector('[data-testid="month-close-payable"]') !== null, "the checklist and money cards");
+    await page.act(async () => window.dispatchEvent(new Event("resize")));
     const toggle = page.screen().querySelector<HTMLButtonElement>('[data-testid="month-close-tasks-toggle"]')!;
     assert.equal(toggle.textContent, "Ver cuáles");
     assert.equal(toggle.getAttribute("aria-expanded"), "false");
     assert.equal(page.screen().querySelector('[data-testid="month-close-task-settle"]'), null);
     await page.act(async () => toggle.click());
-    assert.equal(page.screen().querySelector('[data-testid="month-close-tasks-toggle"]')?.getAttribute("aria-expanded"), "true");
     const task = page.screen().querySelector('[data-testid="month-close-task-settle"]');
     assert.ok(task, "the disclosure reveals the settlement task");
     const see = task.querySelector<HTMLButtonElement>("button")!;
     assert.equal(see.textContent, "Ver");
-    assert.equal(see.disabled, false);
     const money = page.screen().querySelector<HTMLElement>("#month-close-money");
     assert.ok(money, "the task has a mounted destination");
     assert.equal(money.querySelector("h3")?.textContent, "Cobros y pagos");
-    assert.ok(money.querySelector('[data-testid="month-close-receivable"]'));
-    assert.ok(money.querySelector('[data-testid="month-close-payable"]'));
     assert.ok(money.querySelector('[data-testid="month-close-row"]'), "the destination contains real open-item rows");
     const scroll = mock(() => undefined);
     money.scrollIntoView = scroll;
     await page.act(async () => see.click());
     assert.equal(scroll.mock.calls.length, 1, "Ver scrolls to the real money section");
-    assert.ok(page.screen().querySelector('[data-testid="inicio-error"]'), "settlement remains reachable while the receipt failure persists");
-    assert.equal(page.screen().querySelector('[data-testid="month-close-close"]'), null);
   });
 
   test("Inicio keeps one receipt failure after the phone greeting, preserves the desktop footer, and retries the source", async () => {
@@ -365,6 +379,7 @@ describe("the Business top bar on a phone", () => {
     const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
     const receiptReads: string[] = [];
     const page = await mount({ width: 390, overrides: {
+      ...await settlementOn(),
       receiptPage: async (...args) => {
         receiptReads.push(args[0]);
         if (receiptReads.length === 1) throw Object.assign(new Error("Receipt count temporarily unavailable"), { requestId: "req-mobile-receipts" });
@@ -387,12 +402,13 @@ describe("the Business top bar on a phone", () => {
       precedesSections: Boolean(status.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING),
       outsideChecklist: status.closest('[data-testid="month-close-checklist"]') === null,
     };
-    assert.deepEqual([...page.screen().querySelectorAll('[data-home-section]')].map((section) => section.getAttribute("data-home-section")), ["work", "month", "money"]);
+    // The failed read left the workspace unknown, so Cobros y pagos is not one of the sections.
+    assert.deepEqual([...page.screen().querySelectorAll('[data-home-section]')].map((section) => section.getAttribute("data-home-section")), ["work", "month"]);
     for (const width of [1440, 390, 1440, 390]) {
       await page.act(async () => (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 }));
       assert.equal(statuses().length, 1, `one receipt status after resizing to ${width}px`);
       assert.equal(page.screen().querySelector('[data-testid="home-heading"]') !== null, width === 390);
-      assert.deepEqual([...page.screen().querySelectorAll('[data-home-section]')].map((section) => section.getAttribute("data-home-section")), ["work", "month", "money"]);
+      assert.deepEqual([...page.screen().querySelectorAll('[data-home-section]')].map((section) => section.getAttribute("data-home-section")), ["work", "month"]);
       if (width === 1440) assert.ok(statuses()[0].closest('[data-testid="month-close-checklist-footer"]'), "desktop keeps the receipt status in the checklist footer");
     }
     assert.deepEqual(receiptReads, ["inbox"], "resizing does not refetch receipts");

@@ -22,6 +22,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 @pytest.fixture
 def db():
     with psycopg.connect(DSN) as connection, connection.transaction(force_rollback=True):

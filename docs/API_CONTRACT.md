@@ -9728,7 +9728,7 @@ still needs, first fix first: `expense_type_missing`, `rnc_missing`,
 month remains: `unreviewed_movements_count` zero, no read in flight with no
 date (a receipt being read for the first time, or an email being read, holds
 every month until it lands), `missing_fiscal_data` empty, `cuentas_por_cobrar`
-and `cuentas_por_pagar` empty; the web shows that sentence
+and `cuentas_por_pagar` empty while settlement is on; the web shows that sentence
 from this field alone, never from `closed`, which stays month completion). Each
 currency block adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
@@ -10664,7 +10664,14 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  receipt_limits: {max_bytes, media_types}, logo_url}`. `country` and `currency` are the Business's own,
+  settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
+  is on (default off). While it is false the month close carries no settlement state, its net result
+  waits only on a rate, the open items read and the settlement PATCH are refused with 404
+  `business_settlement_unavailable` before authentication (a malformed PATCH body can answer 422
+  first, as it does while the switch is on), and the web shows no Por cobrar, Por pagar or mark, and shows
+  ITBIS charged ("ITBIS en ventas") where ITBIS cobrado stood (see the
+  [month-close contract](contracts/business-month-close.md)). `country` and `currency` are the Business's own,
   the same values `GET /business/space` returns. `records_default_currency` is the
   server-owned initial Registros selection, currently DOP, independent of the
   Business currency. Its supported values are DOP, USD and EUR. The web waits for
@@ -10997,7 +11004,8 @@ accept path recorded.
   the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
   statement period. An NCF due notice is that one expense, marked
-  `Factura por pagar` on the dossier as `bill_mark`. When the same record
+  `Factura por pagar` on the dossier as `bill_mark` (null while settlement is
+  off; the draft keeps the mark). When the same record
   is prepared again as paid, the mark becomes `Factura pagada`. The draft
   id does not change and a second expense is not opened. A paid purchase
   that is not a due notice carries `bill_mark: null`. Other interrupted

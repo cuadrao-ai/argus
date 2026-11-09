@@ -3,13 +3,24 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class _Wire(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+def _settlement() -> Any:  # noqa: ANN401
+    """A field only settlement gives: absent from the answer while
+    ``CUADRAO_BUSINESS_SETTLEMENT_ENABLED`` is off."""
+
+    return Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description="Settlement only: absent while settlement is off.",
+    )
 
 
 class SettlementUpdate(_Wire):
@@ -61,15 +72,18 @@ class CurrencyBlock(_Wire):
     itbis_paid: str
     itbis_owed_minor: int
     itbis_owed: str
-    cuentas_por_cobrar_minor: int
-    cuentas_por_cobrar: str
-    cuentas_por_pagar_minor: int
-    cuentas_por_pagar: str
-    # ITBIS charged on the sales already marked cobrado.
-    itbis_cobrado_minor: int
-    itbis_cobrado: str
-    by_status: StatusTotals
-    # False while a document in this currency is still pendiente.
+    # Settlement only, absent while it is off: what is still to collect and pay,
+    # the ITBIS charged on the sales already marked cobrado, and the counts by
+    # status. While it is off the web shows itbis_charged in ITBIS cobrado's place.
+    cuentas_por_cobrar_minor: int | None = _settlement()
+    cuentas_por_cobrar: str | None = _settlement()
+    cuentas_por_pagar_minor: int | None = _settlement()
+    cuentas_por_pagar: str | None = _settlement()
+    itbis_cobrado_minor: int | None = _settlement()
+    itbis_cobrado: str | None = _settlement()
+    by_status: StatusTotals | None = _settlement()
+    # False while a foreign line waits for a rate and, while settlement is on,
+    # while a document in this currency is still pendiente.
     net_result_final: bool
 
 
@@ -113,7 +127,8 @@ class DocumentLine(_Wire):
     rnc: str | None
     ncf: str | None
     ecf: str | None
-    status: str
+    # pendiente, cobrado or pagado; absent while settlement is off.
+    status: str | None = _settlement()
     # Marked in review as having no comprobante fiscal: counted in the totals,
     # left out of the 606 and 607, and never a missing RNC or NCF.
     sin_comprobante: bool = False
@@ -162,7 +177,8 @@ class MonthClose(_Wire):
     reasons: list[CloseReason | UnreviewedReason]
     # The first month with a document this close would show; null while none.
     earliest_month: str | None
-    payment_methods: list[str]
+    # The methods a cobrado or pagado mark may carry; absent while settlement is off.
+    payment_methods: list[str] | None = _settlement()
     dgii_forms: DgiiForms
     dgii_foreign_currency: DgiiForeignCurrency = Field(
         default_factory=DgiiForeignCurrency
@@ -177,14 +193,15 @@ class MonthClose(_Wire):
     # Every document the 606 or 607 holds this month, with what it needs. The
     # export's verdict, not month completion: `closed` never reads into it.
     missing_fiscal_data: list[HeldLine] = Field(default_factory=list)
-    cuentas_por_cobrar: list[DocumentLine]
-    cuentas_por_pagar: list[DocumentLine]
+    # The month's documents still pendiente; absent while settlement is off.
+    cuentas_por_cobrar: list[DocumentLine] | None = _settlement()
+    cuentas_por_pagar: list[DocumentLine] | None = _settlement()
     # Receipt and note drafts the Bandeja still lists in this month.
     unreviewed_movements_count: int = 0
     # "Ready for the 606 and 607": both forms stand by the export's verdict and
     # no step of this month remains (nothing in the Bandeja, nothing held,
-    # nothing left to mark, no read in flight with no date). The one fact the
-    # web shows that sentence from.
+    # nothing left to mark while settlement is on, no read in flight with no
+    # date). The one fact the web shows that sentence from.
     filing_ready: bool = False
 
 

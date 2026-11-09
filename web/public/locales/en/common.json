@@ -2731,12 +2731,8 @@
           "currencies_other": "Amounts in {{count}} currencies",
           "exclusions": "Excluded amounts",
           "metrics": {
-            "collected": "Collected",
             "expenses": "Purchases",
-            "invoiced": "Sales",
-            "paid": "Paid",
-            "payable": "Payable",
-            "receivable": "Receivable"
+            "invoiced": "Sales"
           },
           "no_currency": "No currency",
           "partial": "Partial: {{amount}}",
@@ -3909,8 +3905,6 @@
       "overdue_count_other": "{{count}} overdue",
       "overdue_included_one": "Includes {{count}} overdue",
       "overdue_included_other": "Includes {{count}} overdue",
-      "record_collection": "Record collection",
-      "record_payment": "Record payment",
       "checklist_required": "Needed to close the month",
       "filing_ready": "You already have everything for the 606 and the 607.",
       "nothing_open": "All settled",
@@ -3953,6 +3947,11 @@
       "itbis_cobrado": "ITBIS collected",
       "itbis_credit_label": "ITBIS balance in your favor",
       "itbis_label": "ITBIS to pay",
+      "approved_figures": {
+        "copy_review": "pending_lucas",
+        "itbis_sales": "ITBIS on sales",
+        "net_detail": "Approved income minus expenses"
+      },
       "receipts_failed": "We couldn't load the receipt count. The month cannot be closed yet.",
       "receipts_loading": "Loading the receipt count. The month cannot be closed yet.",
       "receipts_unknown": "The receipt count is unavailable. The month cannot be closed yet.",
