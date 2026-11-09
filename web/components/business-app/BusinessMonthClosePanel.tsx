@@ -1051,10 +1051,10 @@ function BusinessMonthCloseContent({
     return (
       <div data-testid={testId} data-layout="summary" data-state={state} data-amount={known ? value : undefined} className={`min-w-0 ${className}`}>
         <p className="text-[14px] text-[#56635e] dark:text-white/70">{label}</p>
-        <p className={`mt-1 font-display text-[22px] font-medium leading-tight tracking-tight text-black dark:text-white ${known ? "cuadrao-amount tabular-nums" : ""}`}>
+        <p className={`mt-2 font-display text-[22px] font-medium leading-tight tracking-tight text-black dark:text-white ${known ? "cuadrao-amount tabular-nums" : ""}`}>
           {known && shownCurrency ? formatMoney(value, shownCurrency, locale, { decimals: 0 }) : <><span aria-hidden="true">{UNKNOWN_VALUE}</span><span className="sr-only">{t("business.dossier.unknown_amount", "Amount unknown")}</span></>}
         </p>
-        {why ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{why}</p> : null}
+        {why ? <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/70">{why}</p> : null}
       </div>
     );
   }
