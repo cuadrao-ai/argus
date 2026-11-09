@@ -56,6 +56,23 @@ describe("column amounts", () => {
   });
 });
 
+describe("whole units", () => {
+  test("an overview total rounds half up from the decimal text to whole units", () => {
+    expect(formatMoney("1444210.49", "DOP", "es-419", { decimals: 0 })).toBe("RD$ 1,444,210");
+    expect(formatMoney("41829.50", "DOP", "es-419", { decimals: 0 })).toBe("RD$ 41,830");
+    expect(formatMoney("999999.50", "DOP", "es-419", { decimals: 0 })).toBe("RD$ 1,000,000");
+    expect(formatMoney("-41829.50", "DOP", "es-419", { decimals: 0 })).toBe("-RD$ 41,830");
+    expect(formatMoney("-0.40", "DOP", "es-419", { decimals: 0 })).toBe("RD$ 0");
+    expect(formatMoney("12345678901234567.50", "DOP", "es-419", { decimals: 0 })).toBe("RD$ 12,345,678,901,234,568", "beyond a float's exact range");
+  });
+
+  test("without decimals an amount keeps its exact cents", () => {
+    expect(formatMoney("41829.50", "DOP", "es-419")).toBe("RD$ 41,829.50");
+    expect(formatAmount("1.2345", "USD", "en")).toBe("1.2345");
+    expect(formatAmount("41829.5", "DOP", "es-419", { decimals: 2 })).toBe("41,829.50");
+  });
+});
+
 describe("relative time", () => {
   test("under seven days it is relative", () => {
     expect(formatRelativeTime(ago(15 * MINUTE), "es-419", now)).toBe("hace 15 minutos");

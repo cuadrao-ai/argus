@@ -35,18 +35,33 @@ function groupDigits(whole: string, group: string): string {
 }
 
 /**
- * The number alone, for a row under a header that already names the currency:
- * padded to the currency's digits and never rounded or passed through a float.
+ * Without `decimals` an amount is exact: padded to the currency's digits and never rounded. With it, the
+ * amount rounds to that many places, half up on its size, from the decimal text and never through a float.
+ * Overview totals pass `decimals: 0`; detail screens pass nothing.
  */
-export function formatAmount(amount: string | null, currency: string | null, locale: string): string {
+export type AmountOptions = { decimals?: number };
+
+/** An unsigned decimal at `digits` places, rounded half up, the carry moving into the whole part. */
+function roundHalfUp(whole: string, fraction: string, digits: number): { whole: string; fraction: string } {
+  if (fraction.length <= digits) return { whole, fraction: fraction.padEnd(digits, "0") };
+  const kept = BigInt(`${whole}${fraction.slice(0, digits)}`) + (fraction[digits] >= "5" ? BigInt(1) : BigInt(0));
+  const text = kept.toString().padStart(digits + 1, "0");
+  return { whole: text.slice(0, text.length - digits), fraction: text.slice(text.length - digits) };
+}
+
+/** The number alone, for a row under a header that already names the currency. */
+export function formatAmount(amount: string | null, currency: string | null, locale: string, options: AmountOptions = {}): string {
   if (amount === null || currency === null) return "";
   const match = DECIMAL_AMOUNT.exec(amount.trim());
   if (!match) return amount;
-  const [, sign, whole, fraction = ""] = match;
+  const [, sign, rawWhole, rawFraction = ""] = match;
+  const digits = options.decimals ?? Math.max(currencyDigits(currency), rawFraction.length);
+  const { whole, fraction } = roundHalfUp(rawWhole, rawFraction, digits);
   const { group, decimal } = separators(locale);
-  const digits = Math.max(currencyDigits(currency), fraction.length);
   const grouped = groupDigits(whole, group);
-  return `${sign}${digits > 0 ? `${grouped}${decimal}${fraction.padEnd(digits, "0")}` : grouped}`;
+  // A rounded amount that reads zero carries no minus sign.
+  const signed = options.decimals !== undefined && !/[1-9]/.test(whole + fraction) ? "" : sign;
+  return `${signed}${digits > 0 ? `${grouped}${decimal}${fraction}` : grouped}`;
 }
 
 /** The saved amount with its currency symbol, which names which dollar it is. */
@@ -54,11 +69,12 @@ export function formatMoney(
   amount: string | null,
   currency: string | null,
   locale: string,
+  options: AmountOptions = {},
 ): string {
   if (amount === null || currency === null) return "";
   const match = DECIMAL_AMOUNT.exec(amount.trim());
   if (!match) return `${currency} ${amount}`;
-  const number = formatAmount(amount, currency, locale);
+  const number = formatAmount(amount, currency, locale, options);
   const negative = number.startsWith("-");
   return `${negative ? "-" : ""}${currencySymbol(currency)} ${negative ? number.slice(1) : number}`;
 }

@@ -53,11 +53,6 @@ class BusinessSpaceInfo(_Wire):
 
 class BusinessNamingState(BusinessSpaceInfo):
     name_required: bool
-    name_prompt_seen: bool
-
-
-class BusinessNamePrompt(BusinessNamingState):
-    show_prompt: bool
 
 
 class BusinessNameTarget(_Wire):

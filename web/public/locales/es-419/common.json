@@ -3239,6 +3239,42 @@
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",
       "title": "¿Qué hacemos hoy por tu negocio?"
     },
+    "home_setup": {
+      "copy_review": "pending_lucas",
+      "lead": "Completa estos pasos para empezar a recibir y revisar documentos.",
+      "optional": "Opcional",
+      "progress": "{{done}} de {{total}} listos",
+      "remaining_one": "Falta 1 paso",
+      "remaining_other": "Faltan {{count}} pasos",
+      "see_all": "Ver todos los pasos",
+      "steps": {
+        "created": {
+          "body": "Nombre y país de operación.",
+          "title": "Crear el negocio"
+        },
+        "fiscal_identity": {
+          "body": "Identifica a este negocio en sus registros y reportes.",
+          "title": "Agrega el RNC o la cédula"
+        },
+        "receipt_reading": {
+          "body": "Cuadrao prepara los datos para que tú los revises.",
+          "title": "Activa la lectura de recibos"
+        },
+        "receiving_address": {
+          "body": "Reenvía facturas y recibos a una dirección propia.",
+          "title": "Activa el correo de recepción"
+        },
+        "team": {
+          "body": "Da acceso al contador o al equipo.",
+          "title": "Invita al equipo"
+        },
+        "whatsapp": {
+          "body": "Envía documentos desde tu teléfono.",
+          "title": "Conecta WhatsApp"
+        }
+      },
+      "title": "Configurar negocio"
+    },
     "add_menu": {
       "more": "Más acciones"
     },

@@ -52,7 +52,6 @@ try {
       if (path === "closed-spaces") return route.fulfill({ json: { spaces: state === "owner-closed" ? [closed] : [] } });
       if (path === "spaces") return route.fulfill({ json: { spaces: state === "owner-closed" || state === "member-closed" ? [] : state === "closed-banner" || state === "deletion-closed" ? [client] : [owner, client], closed_spaces: state === "member-closed" ? [{ ...closed, role: "accountant" }] : state === "owner-closed" || state === "closed-banner" || state === "switcher" || state === "deletion-closed" ? [closed] : [] } });
       if (path === "consent") return fulfillAcceptedBusinessConsent(route);
-      if (path === "space/name-prompt") return route.fulfill({ json: { id: owner.space_id, name: owner.name, name_required: false, name_prompt_seen: true, show_prompt: false } });
       if (path === "space") return route.fulfill({ json: { id: owner.space_id, name: owner.name } });
       if (path === "workspace") return route.fulfill({ json: await source.workspace() });
       if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });

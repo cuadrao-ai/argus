@@ -53,7 +53,6 @@ try {
           }
           if (path === "workspace") return route.fulfill({ json: await source.workspace() });
           if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba" } });
-          if (path === "space/name-prompt") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba", name_required: false, name_prompt_seen: true, show_prompt: false } });
           if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
           if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
           if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });

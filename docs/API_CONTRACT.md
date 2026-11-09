@@ -10384,16 +10384,30 @@ person starts their space, every route below except POST `/space` answers 404
   or 404 `business_space_missing` before the space is started.
 - Business naming is owner-only and uses the currently open Business.
   GET `/api/v1/business/space/name` returns `{id, name, country, currency,
-  name_required, name_prompt_seen}`. `name_required` means the persisted name is a default.
-  POST `/api/v1/business/space/name-prompt` takes `{space_id}` and returns the
-  same state plus `show_prompt`. Its atomic server claim allows one first-visit
-  prompt per Business. A different or closed Business returns 404.
+  name_required}`. `name_required` means the persisted name is a default.
   PATCH `/api/v1/business/space/name` takes `{space_id, name}` and returns that
-  naming state after an owner-scoped write. Names use the existing 1–80 limit.
+  naming state after an owner-scoped write. A different or closed Business
+  returns 404. Names use the existing 1–80 limit.
   Owners must save a nondefault name before inviting an accountant or exporting.
   Both routes return 409 `business_name_required` while the name is default.
   Accountant exports retain their existing permission checks and never prompt.
-  Dismissing the optional prompt does not affect the required action check.
+  There is no first-visit name prompt: a new Business names itself through the
+  setup guide's fiscal identity step (GET `/api/v1/business/setup`).
+- GET `/api/v1/business/setup` returns `{steps: [{key, required, done}]}` for
+  the selected Business, in display order. Only someone with `manage` on the
+  Business reads it; anyone else gets 403. `key` is one of `created`,
+  `fiscal_identity`, `receiving_address`, `receipt_reading`, `team` and
+  `whatsapp`; the first four are required, `team` and `whatsapp` are optional.
+  `created` is always done. `fiscal_identity` is done when the RNC or cédula is
+  saved and the name is not a default. `receiving_address` is done when the
+  receiving address can receive, as GET `/api/v1/business/email` says.
+  `receipt_reading` is done when the owner turned reading on, as GET
+  `/api/v1/business/receipt-reading` says. `team` is done once someone was
+  invited or holds access besides the owner. `whatsapp` is done when a number is
+  linked. A step whose feature is off on this server is absent: email receiving,
+  receipt reading (no reading route), invitations, WhatsApp. Setup is complete
+  when every required step sent is done; the web then shows no guide. The route
+  needs the Postgres store and answers 503 without it, like the fiscal profile.
 - GET `/api/v1/business/consent?version=<16 hex>` answers `{version,
   accepted_at}`: when the caller accepted that wording of the Business consent
   screen, or null. It needs no space, and a chosen grant does not change the
@@ -10688,7 +10702,7 @@ accept path recorded.
   no Facturación entry point (sidebar, Inicio, search, Negocio, the top bar's
   heading) and a `?view=invoicing` link lands on Inicio. The web keeps no
   switch of its own.
-- Logo. `logo_url` on `/space`, `/space/name`, `/space/name-prompt`, `/spaces`
+- Logo. `logo_url` on `/space`, `/space/name`, `/spaces`
   and `/workspace` is a signed URL to the Business's 256 px logo, valid for
   about an hour, or null. PUT `/api/v1/business/logo` replaces it with the
   raw picture in the body (`image/jpeg`, `image/png` or `image/webp`, at most

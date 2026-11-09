@@ -3932,6 +3932,42 @@
       "title": "What can we do for your business?",
       "body": "Add a receipt, record an expense, or ask about what you've saved."
     },
+    "home_setup": {
+      "copy_review": "pending_lucas",
+      "lead": "Finish these steps to start receiving and reviewing documents.",
+      "optional": "Optional",
+      "progress": "{{done}} of {{total}} done",
+      "remaining_one": "1 step left",
+      "remaining_other": "{{count}} steps left",
+      "see_all": "See all steps",
+      "steps": {
+        "created": {
+          "body": "Name and country of operation.",
+          "title": "Create the business"
+        },
+        "fiscal_identity": {
+          "body": "Identifies this business in its records and reports.",
+          "title": "Add the RNC or cédula"
+        },
+        "receipt_reading": {
+          "body": "Cuadrao prepares the details for you to review.",
+          "title": "Turn on receipt reading"
+        },
+        "receiving_address": {
+          "body": "Forward invoices and receipts to its own address.",
+          "title": "Turn on the receiving email"
+        },
+        "team": {
+          "body": "Give the accountant or team access.",
+          "title": "Invite the team"
+        },
+        "whatsapp": {
+          "body": "Send documents from your phone.",
+          "title": "Connect WhatsApp"
+        }
+      },
+      "title": "Set up business"
+    },
     "receipt": {
       "untitled": "Receipt"
     },

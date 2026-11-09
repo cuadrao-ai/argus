@@ -58,7 +58,6 @@ try {
         if (state === "bandeja-refused" && path === "email/deliveries") return refuse(503, "email_capture_unavailable");
         if (state === "bandeja-mixed" && path === "email/deliveries") { calls.emails += 1; return emailsDown ? refuse(500, "internal_error") : route.fulfill({ json: { items: [] } }); }
         if (path === "workspace") return route.fulfill({ json: await source.workspace() });
-        if (path === "space/name-prompt") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba", name_required: false, name_prompt_seen: true, show_prompt: false } });
         if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba" } });
         if (path === "spaces") return route.fulfill({ json: { spaces } });
         if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });

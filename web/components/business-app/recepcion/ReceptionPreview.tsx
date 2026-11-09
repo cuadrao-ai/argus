@@ -69,7 +69,8 @@ function ReceptionWorkspace() {
   useEffect(() => { if (panel.kind === "inbox") dossierReturns.delete(source); }, [source, panel.kind]);
   const [loaded, setLoaded] = useState<ArrivalLoad | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [view, setView] = useState<ReceptionView>(returnPosition?.view ?? "all");
+  // A count elsewhere opens its own tab; coming back from a record keeps the tab it left.
+  const [view, setView] = useState<ReceptionView>(() => (panel.kind === "inbox" ? panel.view : undefined) ?? returnPosition?.view ?? "all");
   const [filters, setFilters] = useState(() => returnPosition?.filters ?? emptyReceptionFilters());
   const [page, setPage] = useState(returnPosition?.page ?? 1);
   const [pageSize, setPageSize] = useState<PaginationState["pageSize"]>(returnPosition?.pageSize ?? INITIAL_PAGINATION.pageSize);

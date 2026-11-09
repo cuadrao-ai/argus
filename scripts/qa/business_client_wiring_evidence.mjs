@@ -18,7 +18,6 @@ const sourceDirty=execFileSync("git",["status","--porcelain","--untracked-files=
 if(sourceDirty&&!process.argv.includes("--allow-dirty"))throw new Error("Commit the source before capturing exact-head evidence");
 const unexpectedWrites=[];
 const allowedWrite=(method,path)=>[
- /^POST \/business\/space\/name-prompt$/,
  /^POST \/business\/spaces$/,
  /^PATCH \/business\/spaces\/[^/]+\/profile$/,
  /^POST \/business\/spaces\/[^/]+\/appearance\/assets$/,
@@ -133,7 +132,7 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: fixturePort, async fetch
   if (path === "/business/space")
     return json({ id: current.space_id, name: current.name, country: current.country, currency: current.currency, logo_url: null });
   if (path.includes("/business/space/name"))
-    return json({ id: current.space_id, name: current.name, name_required: false, name_prompt_seen: true, show_prompt: false });
+    return json({ id: current.space_id, name: current.name, name_required: false });
   if (path === "/business/fiscal-profile")
     return json({ name: current.name, tax_id: { type: "rnc", value: "131245678" }, can_edit: config.role !== "viewer" });
   if (path === "/business/workspace")

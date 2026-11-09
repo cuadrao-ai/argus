@@ -2,6 +2,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/brows
 import * as api from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
 import { getChosenGrant } from "@/lib/business-grant";
+import { getBusinessSetup } from "@/lib/business-setup-api";
 import * as searchApi from "@/lib/business-search-api";
 import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
 import type { ArgusLanguage } from "@/lib/language-features";
@@ -43,6 +44,8 @@ export type BusinessDataSource = Readonly<{
   receiptPage?: typeof api.getBusinessReceiptPage;
   receiptReading?: typeof api.getReceiptReading;
   setReceiptReading?: typeof api.setReceiptReading;
+  /** The selected Business's setup steps, for whoever may manage it. */
+  setup?: typeof getBusinessSetup;
   markReceiptRead?: typeof api.markReceiptRead;
   overview: (from: string, to: string | null) => Promise<BusinessOverview>;
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
@@ -106,6 +109,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receiptPage: api.getBusinessReceiptPage,
   receiptReading: api.getReceiptReading,
   setReceiptReading: api.setReceiptReading,
+  setup: getBusinessSetup,
   markReceiptRead: api.markReceiptRead,
   overview: api.getBusinessOverview,
   receipts: api.listBusinessReceipts,
@@ -219,6 +223,7 @@ export function withBusinessSpace(
     receiptActivity: source.receiptActivity ? after(source.receiptActivity) : undefined,
     receiptPage: source.receiptPage ? after(source.receiptPage) : undefined,
     receiptReading: source.receiptReading ? after(source.receiptReading) : undefined,
+    setup: source.setup ? after(source.setup) : undefined,
     setReceiptReading: source.setReceiptReading,
     markReceiptRead: source.markReceiptRead,
     overview: after(source.overview),
