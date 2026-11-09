@@ -178,19 +178,22 @@ test("before the server counts, the button names no number and cannot start", as
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 63 registros");
 });
 
-test("Revisar from the DGII notice leaves only tab, period and Faltan datos, so the list holds the notice's count", async () => {
+test("Revisar from the DGII notice leaves only tab, period, the form's currency and Faltan datos, so the list holds the notice's count", async () => {
   const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["purchase"], currencies: ["DOP"], counterparties: ["101001577"], q: "proveedor", has_document: true } });
   const page = await mount({ edit: fiscalBooks, initial });
+  // The server names the form's currency; a non-default one proves Revisar uses it, not the screen's default.
+  page.fixture.controls.dgiiCurrency = "EUR";
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   await page.settle(() => page.button("Revisar") !== undefined);
-  const notice = Number(/(\d+) compras tienen datos fiscales pendientes/.exec(dialogText())![1]);
+  const notice = Number(/(\d+) compras? tienen? datos fiscales pendientes/.exec(dialogText())![1]);
   await page.click(page.button("Revisar"));
   await page.settle(() => panel() === null && document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "true" && document.querySelector('[data-testid="records-count"]') !== null);
   const last = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as ReportRequest;
-  assert.deepEqual(last.filters, reportFiltersSchema.parse({ period: initial.filters.period, record_families: ["purchase"], currencies: ["DOP"], fiscal_data: "missing" }));
+  assert.deepEqual(last.filters, reportFiltersSchema.parse({ period: initial.filters.period, record_families: ["purchase"], currencies: ["EUR"], fiscal_data: "missing" }));
+  assert.ok(document.querySelector('button[aria-label="Moneda: EUR"]'), "the screen switches to the form's currency");
   assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, new RegExp(`de ${notice} registros?`));
-  assert.equal(notice, 3);
+  assert.equal(notice, 1);
 });
 
 test("no records disables the export and sends no request", async () => {
