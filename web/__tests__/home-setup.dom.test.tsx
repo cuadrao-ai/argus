@@ -11,99 +11,124 @@ beforeAll(() => {
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 const step = (key: BusinessSetupStep["key"], done: boolean, required = true): BusinessSetupStep => ({ key, required, done });
-const NEW: BusinessSetupStep[] = [step("created", true), step("fiscal_identity", false), step("team", false, false)];
-const UNDER_WAY: BusinessSetupStep[] = [step("created", true), step("fiscal_identity", true), step("receipt_reading", false)];
+const UNDER_WAY: BusinessSetupStep[] = [step("created", true), step("fiscal_identity", false), step("receipt_reading", true), step("first_document", true, false), step("team", false, false)];
 const DONE: BusinessSetupStep[] = [step("created", true), step("fiscal_identity", true), step("team", false, false)];
 
-/** Inicio's two setup places, fed once from the server as BusinessOverviewPanel feeds them. */
-async function mount(answer: BusinessSetupStep[] | Error, permissions: string[] = ["read", "manage"], role = "owner") {
+/** The sidebar's setup card, fed from the server once, as the rail's footer mounts it. */
+async function mount(answer: BusinessSetupStep[] | Error, { permissions = ["read", "manage"], collapsed = false, role = "owner" } = {}) {
   const { act, createElement } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-  const { HomeSetupLead, HomeWork } = await import("@/components/business-app/inicio/HomeOverviewDraft");
-  const { useBusinessSetup } = await import("@/components/business-app/inicio/useBusinessSetup");
+  const { SidebarSetup } = await import("@/components/business-app/inicio/HomeSetup");
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   let reads = 0;
   let uploads = 0;
+  let steps = answer;
   const opened: unknown[] = [];
-  const value = {
-    source: { mode: "live", setup: async () => { reads += 1; if (answer instanceof Error) throw answer; return { steps: answer }; } },
-    records: { inbox: [], notes: [], emails: [], error: false, receiptActivity: { pending_review_count: 0 } },
+  const source = { mode: "live", setup: async () => { reads += 1; if (steps instanceof Error) throw steps; return { steps }; } };
+  const context = (revision: number) => ({
+    source,
     openPanel: (panel: unknown) => { opened.push(panel); },
     actions: { create: role === "accountant" ? [] : [{ id: "upload_receipt", label: "Subir", run: () => { uploads += 1; } }] },
-    reload: () => undefined,
     chosen: { space_id: "space-setup", name: "Taller Nuevo", grant_id: "g", role, capabilities: ["read"], permissions },
-    userId: "person",
-    revision: 0,
-    invoicing: "unavailable",
-    panel: { kind: "overview" },
-  } as unknown as BusinessContextValue;
-  function Inicio() {
-    const setup = useBusinessSetup();
-    return createElement("div", null, createElement(HomeSetupLead, { steps: setup }), createElement(HomeWork, { setup }));
-  }
+    revision,
+  }) as unknown as BusinessContextValue;
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  await act(async () => { root.render(createElement(I18nextProvider, { i18n }, createElement(BusinessContext.Provider, { value }, createElement(Inicio)))); });
-  await act(async () => { await Promise.resolve(); });
-  return { act, host, opened, reads: () => reads, uploads: () => uploads, close: async () => { await act(async () => root.unmount()); host.remove(); } };
+  const render = async (revision: number) => {
+    await act(async () => { root.render(createElement(I18nextProvider, { i18n }, createElement(BusinessContext.Provider, { value: context(revision) }, createElement(SidebarSetup, { collapsed })))); });
+    await act(async () => { await Promise.resolve(); });
+  };
+  await render(0);
+  return {
+    act, host, opened, reads: () => reads, uploads: () => uploads,
+    /** The server answers again (a reload after a step is finished). */
+    answer: async (next: BusinessSetupStep[]) => { steps = next; await render(1); },
+    close: async () => { await act(async () => root.unmount()); host.remove(); },
+  };
 }
 
-describe("Inicio's setup guide is the server's", () => {
-  test("a brand-new Business leads with its open required steps, counted from what the server sent", async () => {
-    const page = await mount(NEW);
-    try {
-      const lead = page.host.querySelector('[data-testid="home-setup-new"]');
-      assert.ok(lead);
-      assert.equal(lead.querySelector('[role="img"]')?.getAttribute("aria-label"), "1 de 2 listos", "optional steps never count");
-      assert.deepEqual([...lead.querySelectorAll('[data-testid^="home-setup-step-"]')].map((item) => item.getAttribute("data-testid")), ["home-setup-step-fiscal_identity"]);
-      assert.equal(page.host.querySelector('[data-testid="home-setup-entry"]'), null);
-      await page.act(async () => (lead.querySelector('[data-testid="home-setup-step-fiscal_identity"]') as HTMLButtonElement).click());
-      assert.deepEqual(page.opened, [{ kind: "business", tab: "datos" }]);
-    } finally { await page.close(); }
-  });
+const dossierSteps = () => [...document.querySelectorAll('[data-testid="home-setup-panel"] [data-testid^="home-setup-step-"]')].map((item) => item.getAttribute("data-testid")!.replace("home-setup-step-", ""));
 
-  test("a Business under way keeps a compact entry beside the work, and only the steps the server sent", async () => {
+describe("Configurar negocio lives in the sidebar, from the server's steps", () => {
+  test("the card counts only required steps, names what is left, and opens the dossier highlighted", async () => {
     const page = await mount(UNDER_WAY);
     try {
-      const entry = page.host.querySelector('[data-testid="home-setup-entry"]');
-      assert.ok(entry);
-      assert.match(entry.textContent ?? "", /Falta 1 paso/);
-      assert.equal(page.host.querySelector('[data-testid="home-setup-new"]'), null);
-      await page.act(async () => (entry as HTMLButtonElement).click());
-      const steps = [...document.querySelectorAll('[data-testid="home-setup-panel"] [data-testid^="home-setup-step-"]')].map((item) => item.getAttribute("data-testid"));
-      assert.deepEqual(steps, ["home-setup-step-created", "home-setup-step-fiscal_identity", "home-setup-step-receipt_reading"], "a step whose feature is off is not sent, so it is not shown");
-      assert.match(document.querySelector('[data-testid="home-setup-step-receipt_reading"]')?.textContent ?? "", /Activar lectura de documentos/);
+      const card = page.host.querySelector('[data-testid="sidebar-setup"]') as HTMLButtonElement;
+      assert.ok(card);
+      assert.equal(card.getAttribute("aria-label"), "Configurar negocio, 2 de 3 pasos listos", "optional steps never count");
+      assert.match(card.textContent ?? "", /2\/3/);
+      assert.match(card.textContent ?? "", /Configurar negocio/);
+      assert.match(card.textContent ?? "", /Falta 1 paso/);
+      assert.equal(card.dataset.open, undefined);
+      await page.act(async () => card.click());
+      assert.equal(card.dataset.open, "true", "the card stays highlighted while its dossier is open");
+      assert.ok(document.querySelector('[data-testid="home-setup-panel"]'));
     } finally { await page.close(); }
   });
 
-  test("when every required step is done the guide is gone, with no gap and no all-done card", async () => {
-    const page = await mount(DONE);
+  test("the dossier lists open required steps, then the optional ones, and every finished step last", async () => {
+    const page = await mount(UNDER_WAY);
     try {
-      assert.equal(page.reads(), 1);
-      assert.equal(page.host.querySelector('[data-testid^="home-setup"]'), null);
-      assert.equal(page.host.querySelector('[data-testid="home-work"]')?.className, "", "Resumen del negocio is one column again");
-      assert.doesNotMatch(page.host.textContent ?? "", /Configurar negocio|listos/);
+      await page.act(async () => (page.host.querySelector('[data-testid="sidebar-setup"]') as HTMLButtonElement).click());
+      assert.deepEqual(dossierSteps(), ["fiscal_identity", "team", "created", "receipt_reading", "first_document"]);
+      const panel = document.querySelector('[data-testid="home-setup-panel"]')!;
+      assert.match(panel.textContent ?? "", /Opcional/);
+      assert.match(panel.textContent ?? "", /Completa estos pasos para empezar a recibir y revisar documentos\./);
+      assert.equal(panel.querySelector('[role="img"]')?.getAttribute("aria-label"), "Configurar negocio, 2 de 3 pasos listos");
+      assert.equal(panel.querySelectorAll('[data-testid="home-setup-finished"] [data-done]').length, 3, "finished steps are muted cards with a check");
+      await page.act(async () => (document.querySelector('[data-testid="home-setup-step-fiscal_identity"]') as HTMLButtonElement).click());
+      assert.deepEqual(page.opened, [{ kind: "business", tab: "datos" }]);
+      assert.equal(document.querySelector('[data-testid="home-setup-panel"]'), null);
     } finally { await page.close(); }
   });
 
-  test("an unreadable answer shows no guide: progress is never guessed", async () => {
+  test("the first document step starts the upload Agregar already offers", async () => {
+    const page = await mount([step("created", true), step("fiscal_identity", false), step("first_document", false, false)]);
+    try {
+      await page.act(async () => (page.host.querySelector('[data-testid="sidebar-setup"]') as HTMLButtonElement).click());
+      await page.act(async () => (document.querySelector('[data-testid="home-setup-step-first_document"]') as HTMLButtonElement).click());
+      assert.equal(page.uploads(), 1);
+      assert.deepEqual(page.opened, []);
+    } finally { await page.close(); }
+  });
+
+  test("on the closed rail the ring alone carries the name and progress", async () => {
+    const page = await mount(UNDER_WAY, { collapsed: true });
+    try {
+      const card = page.host.querySelector('[data-testid="sidebar-setup"]')!;
+      assert.equal(card.getAttribute("aria-label"), "Configurar negocio, 2 de 3 pasos listos");
+      assert.doesNotMatch(card.textContent ?? "", /Configurar negocio|Falta/);
+    } finally { await page.close(); }
+  });
+
+  test("the card leaves when the last required step is done, with no all-done card", async () => {
+    const page = await mount(UNDER_WAY);
+    try {
+      assert.ok(page.host.querySelector('[data-testid="sidebar-setup"]'));
+      await page.answer(DONE);
+      assert.equal(page.reads(), 2);
+      assert.equal(page.host.innerHTML, "");
+    } finally { await page.close(); }
+  });
+
+  test("an unreadable answer shows no card: progress is never guessed", async () => {
     const page = await mount(new Error("setup unavailable"));
     try {
-      assert.equal(page.host.querySelector('[data-testid^="home-setup"]'), null);
+      assert.equal(page.host.innerHTML, "");
     } finally { await page.close(); }
   });
 
-  test("someone who may not configure the Business is never asked and sees no guide", async () => {
-    const page = await mount(NEW, ["read", "prepare"]);
+  test("someone who may not manage the Business is never asked and sees no card", async () => {
+    const page = await mount(UNDER_WAY, { permissions: ["read", "prepare"] });
     try {
       assert.equal(page.reads(), 0);
-      assert.equal(page.host.querySelector('[data-testid^="home-setup"]'), null);
+      assert.equal(page.host.innerHTML, "");
     } finally { await page.close(); }
   });
 });

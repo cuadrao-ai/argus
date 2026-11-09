@@ -145,7 +145,7 @@ describe("Inicio's month when a read fails", () => {
     assert.match(error()!.textContent ?? "", /hola@cuadrao\.ai/);
     assert.match(error()!.textContent ?? "", REF, "and the reference to quote");
     assert.equal(host.querySelector('[data-testid="month-close-receivable"]'), null, "no Todo cobrado beside a refusal");
-    assert.ok(host.querySelector('[data-testid="month-close-checklist"]'), "the month's own read still shows");
+    assert.ok(host.querySelector('[data-testid="month-close-cards"]'), "the month's own read still shows");
   });
 
   test("a 500 on Por cobrar and Por pagar keeps Reintentar", async () => {
@@ -171,7 +171,7 @@ describe("Inicio's month when a read fails", () => {
 });
 
 describe("Inicio when the Business itself does not load", () => {
-  async function mountInicio(overrides: Partial<BusinessDataSource>, ready = (host: HTMLElement) => host.querySelector('[data-testid="inicio-error"]') !== null) {
+  async function mountInicio(overrides: Partial<BusinessDataSource>, ready = (host: HTMLElement) => host.querySelector('[data-testid="home-attention-error"]') !== null) {
     const { act, useEffect } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -208,7 +208,7 @@ describe("Inicio when the Business itself does not load", () => {
       );
     });
     unmounts.push(() => act(async () => root.unmount()));
-    const error = () => host.querySelector('[data-testid="inicio-error"]');
+    const error = () => host.querySelector('[data-testid="home-attention-error"]');
     const settle = async (done: () => boolean) => {
       for (let i = 0; i < 80 && !done(); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
       assert.ok(done(), "Inicio reached the expected state");
@@ -222,57 +222,54 @@ describe("Inicio when the Business itself does not load", () => {
     const error = view.error()!;
     assert.deepEqual(buttons(error), []);
     assert.doesNotMatch(error.textContent ?? "", CONNECTION_BLAME);
-    assert.match(error.textContent ?? "", /Cuadrao Business aún no está disponible para tu cuenta\./);
+    assert.match(error.textContent ?? "", /No pudimos cargar lo pendiente\./);
     assert.match(error.textContent ?? "", /hola@cuadrao\.ai/);
   });
 
-  test("the provider distinguishes a pending receipt read from a settled legacy response without counts", async () => {
-    const loading = await mountInicio({ receiptPage: () => new Promise<never>(() => {}) }, (host) => host.querySelector('[data-testid="month-close-receipts-status"]') !== null);
-    assert.match(loading.host.querySelector('[data-testid="month-close-receipts-status"]')?.textContent ?? "", /Cargando el conteo de recibos/);
-    assert.equal(loading.host.querySelector('[data-testid="month-close-receipts-status"] button'), null);
-    const unknown = await mountInicio({ receiptPage: undefined, receipts: async () => [] }, (host) => /El conteo de recibos no está disponible/.test(host.textContent ?? ""));
-    assert.equal(unknown.api().records.inbox?.length, 0, "the read settled successfully");
-    assert.equal(unknown.host.querySelector('[data-testid="month-close-receipts-status"] button'), null);
+  test("a pending receipt read shows row shapes and no count, never Todo al día", async () => {
+    const loading = await mountInicio({ receiptPage: () => new Promise<never>(() => {}) }, (host) => host.querySelector('[data-testid="home-attention-loading"]') !== null);
+    assert.equal(loading.host.querySelector('[data-testid="home-attention-count"]'), null);
+    assert.doesNotMatch(loading.host.querySelector('[data-testid="home-attention"]')?.textContent ?? "", /Todo al día/);
   });
 
-  test("a failed refresh cannot reuse an earlier known-zero count, and adjacent retry reloads", async () => {
+  test("a failed refresh cannot reuse an earlier known-zero count, and its Reintentar reloads", async () => {
     let failed = false;
     let reads = 0;
     const view = await mountInicio({ receiptPage: async () => {
       reads += 1;
       if (failed) throw NETWORK();
       return { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0 } };
-    } }, (host) => host.querySelector('[data-testid="month-close-checklist"]') !== null);
+    } }, (host) => host.querySelector('[data-testid="home-attention"]') !== null);
     await view.settle(() => view.api().records.receiptActivity?.ready_to_review_count === 0);
     failed = true;
     await view.act(async () => view.api().reload());
     await view.settle(() => view.api().records.error);
     assert.equal(view.api().records.receiptActivity?.ready_to_review_count, 0, "the workspace retains its earlier answer");
-    assert.match(view.host.querySelector('[data-testid="month-close-receipts-status"]')?.textContent ?? "", /No pudimos cargar el conteo de recibos/);
-    assert.equal(Boolean(view.host.querySelector('[data-testid="month-close-close"]')), false);
-    assert.equal(view.host.querySelectorAll('[data-testid="inicio-error"]').length, 1, "the failure appears once");
+    assert.ok(view.error(), "the card says the read failed");
+    assert.doesNotMatch(view.host.querySelector('[data-testid="home-attention"]')?.textContent ?? "", /Todo al día/);
+    assert.equal(view.host.querySelectorAll('[data-testid="home-attention-error"]').length, 1, "the failure appears once");
     const before = reads;
     failed = false;
-    const retry = view.host.querySelector<HTMLButtonElement>('[data-testid="month-close-receipts-status"] button');
+    const retry = [...view.error()!.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Reintentar");
     assert.ok(retry);
     await view.act(async () => retry.click());
     await view.settle(() => !view.api().records.error);
     assert.ok(reads > before);
-    assert.equal(view.host.querySelector('[data-testid="month-close-receipts-status"]'), null);
+    assert.equal(view.error(), null);
   });
 
   test("the receipt count's failure shows a Ref. beside the way out: the server's request id, else a generated one, and on a refusal beside the contact line", async () => {
-    const status = (host: HTMLElement) => host.querySelector('[data-testid="month-close-receipts-status"]');
+    const status = (host: HTMLElement) => host.querySelector('[data-testid="home-attention-error"]');
     const reference = (host: HTMLElement) => status(host)?.querySelector('[data-testid="error-reference"]');
-    const conflict = await mountInicio({ receiptPage: async () => { throw refusal(409, "conflict"); } }, (host) => status(host) !== null && /No pudimos cargar/.test(status(host)!.textContent ?? ""));
+    const conflict = await mountInicio({ receiptPage: async () => { throw refusal(409, "conflict"); } });
     assert.equal(reference(conflict.host)?.getAttribute("title"), "4ea79978-ce17-4853-b232-b2a72f4c9ce7");
-    assert.deepEqual(buttons(status(conflict.host)), ["Reintentar"]);
-    const dropped = await mountInicio({ receiptPage: async () => { throw NETWORK(); } }, (host) => status(host) !== null && /No pudimos cargar/.test(status(host)!.textContent ?? ""));
+    assert.deepEqual(buttons(status(conflict.host)).filter((label) => label === "Reintentar"), ["Reintentar"]);
+    const dropped = await mountInicio({ receiptPage: async () => { throw NETWORK(); } });
     assert.match(reference(dropped.host)?.getAttribute("title") ?? "", /^c[0-9a-f]{8}$/);
-    assert.deepEqual(buttons(status(dropped.host)), ["Reintentar"]);
+    assert.deepEqual(buttons(status(dropped.host)).filter((label) => label === "Reintentar"), ["Reintentar"]);
     const refused = await mountInicio({ receiptPage: async () => { throw BUSINESS_OFF(); } }, (host) => status(host) !== null && /hola@cuadrao\.ai/.test(status(host)!.textContent ?? ""));
     assert.equal(reference(refused.host)?.getAttribute("title"), "4ea79978-ce17-4853-b232-b2a72f4c9ce7");
-    assert.deepEqual(buttons(status(refused.host)), []);
+    assert.equal(buttons(status(refused.host)).includes("Reintentar"), false);
   });
 
   test("a dropped request keeps Reintentar", async () => {

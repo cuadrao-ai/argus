@@ -83,17 +83,14 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
   const updateButton = () => [...host.querySelectorAll("button")].find((button) => button.textContent === "Actualizar lista") ?? null;
   const noteRows = () => receptionRows(host).filter((row) => row.dataset.kind === "note").length;
   const text = (selector: string) => host.querySelector(selector)?.textContent ?? null;
-  // Inicio's Necesita atención counts everything waiting in the Bandeja, the sidebar's one server count; Para cerrar
-  // carries no Bandeja count of its own.
-  const reviewCount = () => host.querySelector('[data-testid="resumen"] [data-testid="home-needs-attention-count"]')?.textContent ?? null;
-  const attentionTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-attention"]');
-  const readingStatus = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-reading"]');
+  // Inicio's Necesita atención counts everything waiting in the Bandeja, the sidebar's one server count.
+  const reviewCount = () => host.querySelector('[data-testid="resumen"] [data-testid="home-attention-count"]')?.textContent ?? null;
   const rows = () => receptionRows(host).length;
   const segment = (key: "attention" | "listos" | "all") => receptionTab(host, key);
   const choose = (key: "attention" | "listos" | "all") => act(async () => segment(key)!.click());
-  await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && host.querySelector('[data-testid="month-close-checklist"]') !== null);
+  await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && host.querySelector('[data-testid="home-month-body"][data-state="ready"]') !== null);
   await settle(() => reviewCount() !== null);
-  return { act, root, host, settle, text, rows, noteRows, updateButton, segment, choose, reviewCount, attentionTask, readingStatus, api: () => api!, source };
+  return { act, root, host, settle, text, rows, noteRows, updateButton, segment, choose, reviewCount, api: () => api!, source };
 }
 
 describe("the Bandeja and the Resumen on one saved state", () => {
@@ -133,15 +130,6 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     assert.equal(page.noteRows(), 2, "the sample's own note and this one");
     assert.equal(page.rows(), SAMPLE.attention + 1);
     await page.act(async () => page.root.unmount());
-  });
-
-  test("Para cerrar shows no Bandeja count, only what is still being read", async () => {
-    const page = await mount();
-    try {
-      assert.equal(page.attentionTask(), null);
-      assert.equal(page.host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-review"]'), null);
-      assert.match(page.readingStatus()?.textContent ?? "", new RegExp(`${SAMPLE.reading} todavía leyendo`));
-    } finally { await page.act(async () => page.root.unmount()); }
   });
 
   test("an approval leaves the Bandeja and the Resumen together", async () => {

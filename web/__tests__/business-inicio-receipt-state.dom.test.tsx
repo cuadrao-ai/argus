@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { ReactNode } from "react";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import type { ReceiptSummary } from "@/lib/business-api";
-import { useReceiptStateWord } from "@/components/business-app/receipt-state-word";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
@@ -45,45 +43,22 @@ const receipt = (over: Partial<ReceiptSummary> & Pick<ReceiptSummary, "id" | "me
     ...over,
   }) as unknown as ReceiptSummary;
 
-const WORDS = {
-  ready: "Listo para revisar",
-  reading: "Leyendo…",
-  saved: "Guardado, sin leer",
-  confirmed: "Aprobado",
-} as const;
-
-const STATES = [
-  { id: "ready", merchant: "Ferretería Lista", status: "review_ready" },
-  { id: "reading", merchant: "Colmado Leyendo", status: "queued", activity: { state: "reading", unread: false, completion_cursor: null }, bandeja: { por_revisar: true, con_problema: false, leyendo: true } },
-  { id: "saved", merchant: "Papelería Guardada", status: "saved", activity: { state: "saved_unread", unread: true, completion_cursor: null } },
-  { id: "confirmed", merchant: "Hosting Aprobado", status: "confirmed", activity: { state: "inactive", unread: false, completion_cursor: null } },
-] as const;
-
-function StateWords({ receipts }: { receipts: ReceiptSummary[] }) {
-  const stateWord = useReceiptStateWord();
-  return (
-    <ul data-testid="hook-words">
-      {receipts.map((item) => <li key={item.id} data-receipt={item.id}>{stateWord(item)}</li>)}
-    </ul>
-  );
-}
-
-function tag(host: HTMLElement, merchant: string): HTMLElement {
-  const card = host.querySelector('[data-testid="home-needs-attention"]');
-  const button = [...(card?.querySelectorAll("button") ?? [])].find((item) => item.textContent?.includes(merchant));
+function tag(host: HTMLElement, title: string): HTMLElement {
+  const card = host.querySelector('[data-testid="home-attention"]');
+  const button = [...(card?.querySelectorAll("button") ?? [])].find((item) => item.textContent?.includes(title));
   const mark = [...(button?.querySelectorAll("span") ?? [])].find((span) => span.className.includes("rounded-mark") && span.className.includes("font-medium"));
-  assert.ok(mark, merchant);
+  assert.ok(mark, title);
   return mark;
 }
 
-async function mount(inbox: ReceiptSummary[], extra?: ReactNode, capabilities: string[] = ["read"]) {
+async function mount(inbox: ReceiptSummary[], capabilities: string[] = ["read"]) {
   const { act, createElement } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-  const { HomeWork } = await import("@/components/business-app/inicio/HomeOverviewDraft");
+  const { HomeAttention } = await import("@/components/business-app/inicio/HomeAttention");
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const value = {
@@ -100,7 +75,7 @@ async function mount(inbox: ReceiptSummary[], extra?: ReactNode, capabilities: s
   document.body.appendChild(host);
   const root = createRoot(host);
   await act(async () => {
-    root.render(createElement(I18nextProvider, { i18n }, createElement(BusinessContext.Provider, { value }, createElement(HomeWork), extra ?? null)));
+    root.render(createElement(I18nextProvider, { i18n }, createElement(BusinessContext.Provider, { value }, createElement(HomeAttention, { firstDay: false }))));
   });
   return {
     host,
@@ -108,65 +83,53 @@ async function mount(inbox: ReceiptSummary[], extra?: ReactNode, capabilities: s
   };
 }
 
-describe("Inicio names a receipt with the Bandeja's word", () => {
-  test("ready, reading, saved-unread and confirmed rows show the shared state word", async () => {
-    const inbox = STATES.map((item) => receipt(item));
-    const page = await mount(inbox, <StateWords receipts={inbox} />);
+describe("Inicio names a row with the Bandeja's word", () => {
+  test("a ready or still-reading row is neutral; a problem is red, with the Bandeja's reason and its dot", async () => {
+    const listo = receipt({ id: "listo", merchant: "Suplidora Lista", status: "review_ready", bandeja_group: { group: "listo", reason: null, draft_id: "draft", version: 1 } });
+    const reading = receipt({ id: "reading", merchant: "Colmado Leyendo", status: "queued", bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } });
+    const missing = receipt({ id: "missing", merchant: "Taller Sin NCF" });
+    const unreadable = receipt({ id: "unreadable", merchant: null, filename: "borroso.jpg", status: "needs_attention", attention: "unreadable", bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } });
+    const bare = receipt({ id: "bare", merchant: "Recibo Sin Motivo", status: "needs_attention", bandeja_group: { group: "attention", reason: null, draft_id: null, version: null } });
+    const page = await mount([listo, reading, missing, unreadable, bare]);
     try {
-      for (const item of STATES) {
-        const shown = tag(page.host, item.merchant).textContent;
-        const shared = page.host.querySelector(`[data-receipt="${item.id}"]`)?.textContent;
-        assert.equal(shown, WORDS[item.id]);
-        assert.equal(shown, shared, item.id);
-        assert.match(tag(page.host, item.merchant).className, /bg-black\/5/);
-        assert.equal(tag(page.host, item.merchant).className.includes("bg-[#f6dfe0]"), false);
+      for (const [title, word] of [["Suplidora Lista", "Listo para revisar"], ["Colmado Leyendo", "Leyendo…"]]) {
+        assert.equal(tag(page.host, title).textContent, word);
+        assert.match(tag(page.host, title).className, /bg-black\/5/);
+      }
+      for (const [title, word] of [["Taller Sin NCF", "Falta el NCF"], ["borroso.jpg", "No se pudo leer"], ["Recibo Sin Motivo", "Necesita atención"]]) {
+        assert.equal(tag(page.host, title).textContent, word, title);
+        assert.match(tag(page.host, title).className, /bg-\[#f6dfe0\]/);
       }
     } finally {
       await page.unmount();
     }
   });
 
-  test("the card lists everything waiting in the Bandeja, Listos and still-reading rows included, problems first", async () => {
-    const listo = receipt({ id: "listo", merchant: "Suplidora Lista", bandeja_group: { group: "listo", reason: null, draft_id: "draft", version: 1 } });
-    const waiting = receipt({ id: "waiting", merchant: "Taller Sin NCF" });
-    const reading = receipt({ id: "reading", merchant: "Colmado Leyendo", status: "queued", bandeja: { por_revisar: false, con_problema: false, leyendo: true }, bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } });
-    const problem = receipt({ id: "problem", merchant: "Recibo Borroso", filename: "borroso.jpg", status: "needs_attention", attention: "unreadable", received_at: "2026-10-01T10:00:00Z", bandeja: { por_revisar: false, con_problema: true, leyendo: false } });
-    const page = await mount([listo, waiting, reading, problem]);
+  test("the card lists everything waiting in the Bandeja, problems first", async () => {
+    const listo = receipt({ id: "listo", merchant: "Suplidora Lista", received_at: "2026-10-13T18:00:00Z", bandeja_group: { group: "listo", reason: null, draft_id: "draft", version: 1 } });
+    const reading = receipt({ id: "reading", merchant: "Colmado Leyendo", status: "queued", bandeja_group: { group: "reading", reason: "reading", draft_id: null, version: null } });
+    const problem = receipt({ id: "problem", merchant: "Recibo Borroso", filename: "borroso.jpg", status: "needs_attention", attention: "unreadable", received_at: "2026-10-01T10:00:00Z", bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } });
+    const page = await mount([listo, reading, problem]);
     try {
-      const section = page.host.querySelector('[data-testid="home-needs-attention"]')!;
-      const titles = [...section.querySelectorAll("li button")].map((item) => item.textContent ?? "");
-      assert.equal(titles.length, 4);
+      const titles = [...page.host.querySelectorAll('[data-testid="home-attention"] li button')].map((item) => item.textContent ?? "");
+      assert.equal(titles.length, 3);
       assert.match(titles[0], /borroso\.jpg/, "a problem leads, even the oldest; an unreadable receipt is named by its file, as the Bandeja names it");
-      for (const merchant of ["Suplidora Lista", "Taller Sin NCF", "Colmado Leyendo"]) assert.ok(titles.some((title) => title.includes(merchant)), merchant);
-    } finally {
-      await page.unmount();
-    }
-  });
-
-  test("a problem row keeps the red attention word, including when attention is absent", async () => {
-    const named = receipt({ id: "problem", merchant: "Recibo Borroso", filename: "borroso.jpg", status: "needs_attention", attention: "unreadable", bandeja: { por_revisar: false, con_problema: true, leyendo: false } });
-    const bare = receipt({ id: "problem-bare", merchant: "Recibo Sin Motivo", status: "needs_attention", attention: null, bandeja: { por_revisar: false, con_problema: true, leyendo: false } });
-    const page = await mount([named, bare]);
-    try {
-      assert.equal(tag(page.host, "borroso.jpg").textContent, "No se pudo leer");
-      assert.match(tag(page.host, "borroso.jpg").className, /bg-\[#f6dfe0\]/);
-      assert.equal(tag(page.host, bare.merchant!).textContent, "Necesita atención");
-      assert.match(tag(page.host, bare.merchant!).className, /bg-\[#f6dfe0\]/);
+      for (const merchant of ["Suplidora Lista", "Colmado Leyendo"]) assert.ok(titles.some((title) => title.includes(merchant)), merchant);
     } finally {
       await page.unmount();
     }
   });
 
   test("Resolver and Revisar show only for someone who may prepare; a read-only person sees the rows without a verb", async () => {
-    const problem = receipt({ id: "problem", merchant: "Recibo Sin Motivo", status: "needs_attention", bandeja: { por_revisar: false, con_problema: true, leyendo: false } });
-    const ready = receipt({ id: "ready", merchant: "Ferretería Lista", status: "review_ready" });
+    const problem = receipt({ id: "problem", merchant: "Recibo Sin Motivo", status: "needs_attention" });
+    const ready = receipt({ id: "ready", merchant: "Ferretería Lista", status: "review_ready", bandeja_group: { group: "listo", reason: null, draft_id: "d", version: 1 } });
     const reader = await mount([problem, ready]);
     try {
-      assert.doesNotMatch(reader.host.querySelector('[data-testid="home-needs-attention"]')?.textContent ?? "", /Resolver|Revisar/);
+      assert.doesNotMatch(reader.host.querySelector('[data-testid="home-attention"]')?.textContent ?? "", /Resolver|Revisar/);
     } finally { await reader.unmount(); }
-    const preparer = await mount([problem, ready], undefined, ["read", "prepare"]);
+    const preparer = await mount([problem, ready], ["read", "prepare"]);
     try {
-      const text = preparer.host.querySelector('[data-testid="home-needs-attention"]')?.textContent ?? "";
+      const text = preparer.host.querySelector('[data-testid="home-attention"]')?.textContent ?? "";
       assert.match(text, /Resolver/);
       assert.match(text, /Revisar/);
     } finally { await preparer.unmount(); }

@@ -988,7 +988,9 @@ function BusinessMonthCloseContent({
       />
     );
     const moneyPart = settlement ? <div className="@container">{moneySection()}</div> : null;
-    const firstDay = snapshot ? snapshot.earliest_month === null : null;
+    // A month that could not load cannot say whether any document ever arrived: the card then says only what the
+    // Bandeja holds.
+    const firstDay = snapshot ? snapshot.earliest_month === null : phase === "error" ? false : null;
     return arrange ? <>{arrange({ month: monthPart, money: moneyPart, receiptStatus: receiptStatusInLead ? receiptStatus : null, firstDay })}</> : <div className="space-y-6">{monthPart}{moneyPart}</div>;
   }
 

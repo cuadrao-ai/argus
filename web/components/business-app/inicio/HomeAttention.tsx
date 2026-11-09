@@ -86,16 +86,20 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
     return card(
       <div role="alert" data-testid="home-attention-error" className="flex flex-col items-center gap-3 px-5 py-6 text-center">
         <p className="text-[16px] text-[#172b26] dark:text-white">{t("business.inicio.attention.error")}</p>
+        {/* A refusal for good offers no Reintentar, which cannot help, and says whom to write instead. */}
+        {records.refused ? <p className={`text-[14px] ${HOME_MUTED}`}>{t("auth.business_unavailable.body")}</p> : null}
         {reference ? <ReferenceCode reference={reference} /> : null}
         {records.refused ? null : <button type="button" className={secondaryButtonClass} onClick={reload}>{t("common.retry")}</button>}
       </div>,
     );
   }
-  // Rows show once their lists are in; a settled card waits for the server's count and, with nothing waiting, for
-  // whether any document ever arrived.
-  if (!listsIn || total === null || (total === 0 && waiting.length === 0 && firstDay === null)) return card(<SkeletonRows />);
+  // Rows show once their lists are in, with a count only once the server has counted; an empty card waits for that
+  // count and for whether any document ever arrived.
+  // The server's count decides an empty card: zero is empty whatever rows another list still holds.
+  const empty = total === 0 || (total === null && waiting.length === 0);
+  if (!listsIn || (empty && (total === null || firstDay === null))) return card(<SkeletonRows />);
 
-  if (total === 0 && waiting.length === 0) {
+  if (empty) {
     if (firstDay) {
       const add = prepares ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
       return card(
@@ -115,7 +119,8 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
   }
 
   const title = (row: ReceptionRow) => {
-    if (row.kind === "receipt" && row.source === "whatsapp" && !(row.receipt.merchant?.trim() && row.receipt.attention !== "unreadable")) return t("business.inicio.attention.whatsapp_photo");
+    // The supplier once read; before that, the source: a WhatsApp photo has no file name of its own.
+    if (row.kind === "receipt" && row.source === "whatsapp" && !row.receipt.filename?.trim() && !(row.receipt.merchant?.trim() && row.receipt.attention !== "unreadable")) return t("business.inicio.attention.whatsapp_photo");
     return receptionDocumentTitle(row, { untitled: t("business.inicio.attention.untitled"), pending: t("business.reception_preview.intake_pending"), exception: t("business.reception_preview.intake_exception"), text: t("business.reception_preview.text_intake") });
   };
   // The Bandeja's own words for each row: its reason for a problem, its state otherwise.

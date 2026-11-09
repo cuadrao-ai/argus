@@ -6,7 +6,7 @@ import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import BusinessSidebarNav from "@/components/business-app/BusinessSidebarNav";
-import { HomeWork } from "@/components/business-app/inicio/HomeOverviewDraft";
+import { HomeAttention } from "@/components/business-app/inicio/HomeAttention";
 import { ConnectedBusinessReports } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
@@ -62,7 +62,7 @@ async function mount(waiting: number | null, showReports = true) {
   const root = createRoot(host);
   const render = () => act(async () => root.render(
     <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>
-      <BusinessSidebarNav shell={shell} /><HomeWork />
+      <BusinessSidebarNav shell={shell} /><HomeAttention firstDay={false} />
       {showReports ? <ConnectedBusinessReports defaultCurrency={context.records.workspace!.records_default_currency} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: null }} /> : null}
     </BusinessContext.Provider></I18nextProvider>,
   ));
@@ -80,9 +80,8 @@ async function mount(waiting: number | null, showReports = true) {
 function counts(host: HTMLElement, expected: number) {
   assert.equal(host.querySelector('[data-testid="business-inbox-count"]')?.textContent, String(expected));
   assert.equal(host.querySelector('[data-testid="records-bandeja-waiting"]')?.textContent, expected === 1 ? "1 recibo espera en la Bandeja" : `${expected} recibos esperan en la Bandeja`);
-  // Necesita atención is everything waiting in the Bandeja: the sidebar's one count, and no footer row repeating it.
-  assert.equal(host.querySelector('[data-testid="home-needs-attention-count"]')?.textContent, String(expected));
-  assert.equal(host.querySelector('[data-testid="home-records-to-review"]'), null);
+  // Necesita atención is everything waiting in the Bandeja: the sidebar's one count.
+  assert.equal(host.querySelector('[data-testid="home-attention-count"]')?.textContent, String(expected));
 }
 
 test("Inicio, Bandeja and Registros use the same server count and follow its updates", async () => {
@@ -92,26 +91,25 @@ test("Inicio, Bandeja and Registros use the same server count and follow its upd
   await page.update(1);
   counts(page.host, 1);
   await page.update(0);
-  for (const id of ["home-needs-attention-count", "business-inbox-count", "records-bandeja-waiting"]) {
+  for (const id of ["home-attention-count", "business-inbox-count", "records-bandeja-waiting"]) {
     assert.equal(page.host.querySelector(`[data-testid="${id}"]`), null, id);
   }
-  assert.match(page.host.querySelector('[data-testid="home-needs-attention"]')?.textContent ?? "", /Todo al día/);
+  assert.match(page.host.querySelector('[data-testid="home-attention"]')?.textContent ?? "", /Todo al día/);
   assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length, reportRequests, "receipt activity updates do not request another report");
 });
 
 test("Inicio does not request a report while its shared receipt count is unknown", async () => {
   const page = await mount(null, false);
-  assert.equal(page.host.querySelector('[data-testid="home-records-to-review"]'), null);
-  assert.ok(page.host.querySelector('[data-testid="home-needs-attention"] [aria-busy="true"]'));
+  assert.ok(page.host.querySelector('[data-testid="home-attention"] [aria-busy="true"]'));
   assert.equal(page.fixture.calls.length, 0);
   await page.update(28);
-  assert.equal(page.host.querySelector('[data-testid="home-needs-attention-count"]')?.textContent, "28");
+  assert.equal(page.host.querySelector('[data-testid="home-attention-count"]')?.textContent, "28");
 });
 
 test("a failed shared receipt load keeps its reference and retries that load", async () => {
   const page = await mount(null, false);
   await page.update(null, { error: true, failureReference: "receipt-count-test" });
-  const section = page.host.querySelector('[data-testid="home-needs-attention"]')!;
+  const section = page.host.querySelector('[data-testid="home-attention"]')!;
   assert.ok(section.textContent?.includes("receipt-count-test"));
   const retry = [...section.querySelectorAll("button")].find((button) => button.textContent === "Reintentar");
   assert.ok(retry);
@@ -124,10 +122,10 @@ test("a failed shared receipt load keeps its reference and retries that load", a
 test("an unavailable shared receipt count shows its reference instead of an endless skeleton", async () => {
   const page = await mount(null, false);
   await page.update(null, { inbox: null, serverReference: "receipt-service-test" });
-  const failure = page.host.querySelector('[data-testid="home-needs-attention"]');
+  const failure = page.host.querySelector('[data-testid="home-attention"]');
   assert.ok(failure);
   assert.ok(failure.textContent?.includes("receipt-service-test"));
-  assert.equal(page.host.querySelector('[data-testid="home-needs-attention"] [aria-busy="true"]'), null);
+  assert.equal(page.host.querySelector('[data-testid="home-attention"] [aria-busy="true"]'), null);
   const retry = [...failure.querySelectorAll("button")].find((button) => button.textContent === "Reintentar");
   assert.ok(retry);
   await act(async () => retry.click());
@@ -138,7 +136,7 @@ test("an unavailable shared receipt count shows its reference instead of an endl
 
 test("Ver todo opens the Bandeja in its normal view: no tab, no filter", async () => {
   const page = await mount(28, false);
-  const seeAll = page.host.querySelector<HTMLButtonElement>('[data-testid="home-needs-see-all"]');
+  const seeAll = page.host.querySelector<HTMLButtonElement>('[data-testid="home-attention-see-all"]');
   assert.ok(seeAll);
   await act(async () => seeAll.click());
   assert.deepEqual(page.opened, [{ kind: "inbox" }]);

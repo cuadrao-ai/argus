@@ -166,16 +166,16 @@ describe("Inicio on a live Business", () => {
   test("a Business that fails to load says so, never an endless skeleton", async () => {
     const page = await mount("view=overview", { overview: async () => { throw Object.assign(new Error("Not found"), { status: 404, code: "business_unavailable" }); } });
     try {
-      await page.settle(() => page.host.querySelector('[data-testid="home-needs-attention"] [role="status"]') === null && page.host.textContent?.includes("No pudimos cargar lo que necesita atención") === true);
-      const card = page.host.querySelector('[data-testid="home-needs-attention"]');
+      await page.settle(() => page.host.querySelector('[data-testid="home-attention"] [role="status"]') === null && page.host.textContent?.includes("No pudimos cargar lo pendiente.") === true);
+      const card = page.host.querySelector('[data-testid="home-attention"]');
       assert.equal(card?.querySelector('[aria-busy="true"]'), null);
-      assert.ok(card?.textContent?.includes("No pudimos cargar lo que necesita atención"));
+      assert.ok(card?.textContent?.includes("No pudimos cargar lo pendiente."));
       assert.equal(card?.textContent?.includes("Reintentar"), false, "a refused Business offers no retry that cannot help");
     } finally { await page.close(); }
   });
 
-  const failedCard = (page: { host: HTMLElement }) => page.host.querySelector('[data-testid="home-needs-attention"] [role="status"]') === null && page.host.textContent?.includes("No pudimos cargar lo que necesita atención") === true;
-  const cardReference = (page: { host: HTMLElement }) => page.host.querySelector('[data-testid="home-needs-attention"] [data-testid="error-reference"]')?.getAttribute("title") ?? "";
+  const failedCard = (page: { host: HTMLElement }) => page.host.querySelector('[data-testid="home-attention"] [role="status"]') === null && page.host.textContent?.includes("No pudimos cargar lo pendiente.") === true;
+  const cardReference = (page: { host: HTMLElement }) => page.host.querySelector('[data-testid="home-attention"] [data-testid="error-reference"]')?.getAttribute("title") ?? "";
 
   test("a refused Business's failed card shows the server's request id", async () => {
     const page = await mount("view=overview", { overview: async () => { throw Object.assign(new Error("Not found"), { status: 404, code: "business_unavailable", requestId: "4ea79978-ce17-4853-b232-b2a72f4c9ce7" }); } });
@@ -190,7 +190,7 @@ describe("Inicio on a live Business", () => {
     try {
       await page.settle(() => failedCard(page));
       assert.match(cardReference(page), /^c[0-9a-f]{8}$/);
-      assert.ok(page.host.querySelector('[data-testid="home-needs-attention"]')?.textContent?.includes("Reintentar"));
+      assert.ok(page.host.querySelector('[data-testid="home-attention"]')?.textContent?.includes("Reintentar"));
     } finally { await page.close(); }
   });
 
@@ -202,7 +202,7 @@ describe("Inicio on a live Business", () => {
       return { items: [], activity: { ...page.activity, pending_review_count: count, bandeja_attention_count: 0, bandeja_listo_count: count } };
     } };
   };
-  const card = (page: { host: HTMLElement }) => page.host.querySelector('[data-testid="home-needs-attention"]');
+  const card = (page: { host: HTMLElement }) => page.host.querySelector('[data-testid="home-attention"]');
 
   test("shows a skeleton while the review count loads, never Todo al día", async () => {
     const page = await mount("view=overview", { receiptPage: () => new Promise(() => undefined) }, "u-1");
@@ -231,8 +231,8 @@ describe("Inicio on a live Business", () => {
       const retry = [...failed.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Intentar de nuevo");
       assert.ok(retry);
       await page.click(retry);
-      await page.settle(() => page.host.querySelector('[data-testid="home-needs-attention-count"]') !== null);
-      assert.equal(page.host.querySelector('[data-testid="home-needs-attention-count"]')?.textContent, page.host.querySelector('[data-testid="business-inbox-count"]')?.textContent ?? "3", "the sidebar's one count");
+      await page.settle(() => page.host.querySelector('[data-testid="home-attention-count"]') !== null);
+      assert.equal(page.host.querySelector('[data-testid="home-attention-count"]')?.textContent, page.host.querySelector('[data-testid="business-inbox-count"]')?.textContent ?? "3", "the sidebar's one count");
       assert.equal(page.host.querySelector('[data-testid="server-error-screen"]'), null);
     } finally { await page.close(); }
   });
@@ -242,7 +242,7 @@ describe("Inicio on a live Business", () => {
     try {
       await page.settle(() => (card(page)?.querySelectorAll("li[data-kind]").length ?? 0) > 0);
       assert.ok((card(page)?.querySelectorAll("li[data-kind]").length ?? 0) > 0, "the rows the server sent");
-      assert.equal(card(page)?.querySelector('[data-testid="home-needs-attention-count"]'), null, "no count it could not read");
+      assert.equal(card(page)?.querySelector('[data-testid="home-attention-count"]'), null, "no count it could not read");
     } finally { await page.close(); }
   });
 
@@ -260,7 +260,7 @@ describe("Inicio on a live Business", () => {
     try {
       await page.settle(() => card(page)?.textContent?.includes("Todo al día") === true);
       assert.ok(card(page)?.textContent?.includes("Todo al día"));
-      assert.equal(page.host.querySelector('[data-testid="home-needs-attention-count"]'), null);
+      assert.equal(page.host.querySelector('[data-testid="home-attention-count"]'), null);
     } finally { await page.close(); }
   });
 

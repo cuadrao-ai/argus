@@ -85,7 +85,7 @@ describe("Inicio figures in every currency the month holds", () => {
     assert.ok(button instanceof HTMLButtonElement);
     assert.equal(button.getAttribute("aria-haspopup"), "listbox");
     assert.equal(button.getAttribute("aria-label"), "Moneda: DOP");
-    assert.equal(view.text("month-close-currency-others"), "También hay movimientos en US$.");
+    assert.equal(view.host.querySelector('[data-testid="month-close-currency-others"]'), null, "no line names the other currencies");
     await view.act(async () => button.click());
     const options = [...document.querySelectorAll('[data-testid="month-close-currency-picker"] [role="option"]')];
     assert.deepEqual(options.map((option) => option.getAttribute("data-currency")), ["DOP", "USD"]);
@@ -98,7 +98,6 @@ describe("Inicio figures in every currency the month holds", () => {
     assert.match(view.text("month-close-itbis-sales"), /US\$ 216(?![.\d])/);
     assert.doesNotMatch(view.text("month-close-cards-month"), /RD\$/);
     assert.equal(view.host.querySelector('[data-testid="month-close-currency"]')?.getAttribute("aria-label"), "Moneda: USD");
-    assert.equal(view.text("month-close-currency-others"), "También hay movimientos en RD$.");
     assert.match(view.text("month-close-currency-announce"), /USD/);
     await view.unmount();
 
@@ -116,7 +115,7 @@ describe("Inicio figures in every currency the month holds", () => {
     await view.act(async () => (view.host.querySelector('[data-testid="month-close-currency"]') as HTMLButtonElement).click());
     const options = [...document.querySelectorAll('[data-testid="month-close-currency-picker"] [role="option"]')];
     assert.deepEqual(options.map((option) => option.getAttribute("data-currency")), ["USD", "DOP"], "the Business currency leads the list");
-    assert.match(options[0]?.textContent ?? "", /Moneda del negocio/);
+    assert.equal(options[0]?.textContent, "USD · Dólar estadounidense", "each currency by its code and name");
     await view.unmount();
   });
 

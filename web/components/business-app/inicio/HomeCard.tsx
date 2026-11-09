@@ -14,7 +14,7 @@ export function HomeCard({ testId, title, heading, count = null, action, childre
   return (
     <section data-testid={testId} aria-label={label} className="min-w-0 self-start overflow-hidden rounded-surface border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-[#1f2225]">
       <header data-testid={`${testId}-band`} className="flex h-[57px] items-center gap-2 border-b border-[color:var(--surface-divider)] bg-[color:var(--surface-header)] px-5">
-        {heading ?? <h2 className="min-w-0 truncate font-display text-[17px] font-medium text-[#172b26] dark:text-white">{title}</h2>}
+        {heading ? <>{label ? <h2 className="sr-only">{label}</h2> : null}{heading}</> : <h2 className="min-w-0 truncate font-display text-[17px] font-medium text-[#172b26] dark:text-white">{title}</h2>}
         {count !== null && count > 0 ? <span data-testid={`${testId}-count`} className="rounded-full border border-[color:var(--surface-divider)] bg-white px-2 text-[13px] tabular-nums text-[#56635e] dark:bg-white/[0.06] dark:text-white/70">{count}</span> : null}
         {action ? <span className="ml-auto flex shrink-0 items-center">{action}</span> : null}
       </header>

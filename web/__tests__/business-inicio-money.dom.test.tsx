@@ -507,12 +507,11 @@ describe("Inicio in two columns", () => {
   const document_ = (over: Partial<MonthCloseDocument>): MonthCloseDocument => ({ id: "inv-1", kind: "invoice", currency: "DOP", counterparty: "Colmado Don Luis", occurred_on: "2026-10-04", due_on: null, amount: "1180.00", itbis: "180.00", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "cobrado", ...over });
   const clientOf = (documents: MonthCloseDocument[]): MonthCloseClient => ({
     mode: "mock",
-    async load() { return { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed_at: null, unreviewed_movements: 0, earliest_month: null, payment_methods: ["otro"], dgii_forms: null, documents, figures: monthCloseFiguresFrom(documents), fiscal_rows: monthCloseFiscalRowsFrom(documents) }; },
+    async load() { return { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", unreviewed_movements: 0, earliest_month: null, payment_methods: ["otro"], dgii_forms: null, documents, figures: monthCloseFiguresFrom(documents), fiscal_rows: monthCloseFiscalRowsFrom(documents) }; },
     async openItems() { return openItemsFrom(documents, "2026-10-18"); },
     async markCobrado() { throw new Error("no mark"); },
     async markPagado() { throw new Error("no mark"); },
     async markPendiente() { throw new Error("no undo"); },
-    async closeMonth() { throw new Error("no close"); },
   });
   async function renderView(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"], headingAction = false) {
     const { act } = await import("react");
@@ -552,7 +551,7 @@ describe("Inicio in two columns", () => {
     } finally { await view.close(); }
   });
 
-  test("38fr and 62fr, 24px apart: greeting beside Pendiente hoy, the checklist beside Por cobrar and Por pagar, then the month's figures as two cards on the same columns", async () => {
+  test("38fr and 62fr, 24px apart: greeting beside Pendiente hoy, then the month's figures as two cards on the same columns", async () => {
     const view = await renderView(createMockMonthCloseClient({ now }));
     try {
       const grid = view.host.querySelector<HTMLElement>('[data-testid="month-close"]')!;
@@ -566,7 +565,6 @@ describe("Inicio in two columns", () => {
       assert.match(money, /@min-\[56rem\]:col-start-2/);
       assert.match(money, /@min-\[56rem\]:row-span-2 @min-\[56rem\]:row-start-1 @min-\[56rem\]:grid @min-\[56rem\]:grid-rows-subgrid/, "its heading shares row 1, its cards row 2");
       assert.match(classes("#month-close-money-title"), /@min-\[56rem\]:text-\[26px\]/, "Pendiente hoy at the greeting's size");
-      assert.match(classes('[data-testid="month-close-checklist"]'), /@min-\[56rem\]:col-start-1 @min-\[56rem\]:row-start-2/);
       const cards = view.host.querySelector<HTMLElement>('[data-testid="month-close-cards"]')!;
       assert.match(cards.className, /@min-\[56rem\]:col-span-2 @min-\[56rem\]:grid-cols-subgrid/);
       const month = cards.querySelector('[data-testid="month-close-cards-month"]')!;
@@ -576,27 +574,8 @@ describe("Inicio in two columns", () => {
       // Twice the card's 20px padding plus the 24px between Por cobrar and Por pagar puts the two ITBIS totals on their columns.
       assert.match(result.className, /p-5/);
       assert.match(result.className, /@min-\[56rem\]:gap-x-16/);
-      const order = [...view.host.querySelectorAll('[data-testid="month-close-head"], [data-testid="month-close-checklist"], [data-testid="month-close-cards"], [data-testid="month-close-money"]')].map((node) => node.getAttribute("data-testid"));
-      assert.deepEqual(order, ["month-close-head", "month-close-checklist", "month-close-cards", "month-close-money"], "one column keeps today's order");
-    } finally { await view.close(); }
-  });
-
-  test("while steps remain, nothing promises that finishing them closes the month", async () => {
-    const view = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" }), document_({ id: "inv-2", rnc: null, ncf: null, missing: ["rnc_missing", "ncf_missing"] })]), { count: 0, detail: null, open: () => {} });
-    try {
-      assert.equal(view.host.querySelector('[data-testid="month-close-checklist-left"]')?.textContent, "faltan 2");
-      assert.equal(view.host.querySelector('[data-testid="month-close-close"]'), null);
-      assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]'), null);
-      assert.doesNotMatch(view.host.textContent ?? "", /podrás cerrar/);
-    } finally { await view.close(); }
-  });
-
-  test("when nothing remains and the export has not spoken, the card says all is settled and offers no close", async () => {
-    const view = await renderView(clientOf([document_({ id: "inv-1" }), document_({ id: "rcpt-1", kind: "receipt", counterparty: "Edenorte", status: "pagado" })]), { count: 0, detail: null, open: () => {} });
-    try {
-      assert.equal(view.host.querySelector('[data-testid="month-close-checklist-ready"]')?.textContent, "Todo al día");
-      assert.equal(view.host.querySelector('[data-testid="month-close-filing"]'), null, "no verdict from the export, no claim about the 606");
-      assert.equal(view.host.querySelector('[data-testid="month-close-close"]'), null);
+      const order = [...view.host.querySelectorAll('[data-testid="month-close-head"], [data-testid="month-close-cards"], [data-testid="month-close-money"]')].map((node) => node.getAttribute("data-testid"));
+      assert.deepEqual(order, ["month-close-head", "month-close-cards", "month-close-money"], "one column keeps today's order");
     } finally { await view.close(); }
   });
 });
