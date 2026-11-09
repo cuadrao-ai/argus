@@ -9558,7 +9558,8 @@ history read is an error, never an empty successful history.
 A recorded `approval_result` carries `activity_id`, the approving `actor`,
 `reviewed_version` (the draft version the approval named, which also counts
 approvals and settlements), `approved_revision` (the latest `history` version
-at or below `reviewed_version`: the facts revision the person approved) and
+at or below `reviewed_version`: the facts revision the person approved, the
+same revision the DGII export reads its facts and evidence from) and
 `approved_at` (when the approval receipt was written). Marks and 606 answers
 after approval add `history` revisions without changing either field. So does
 an expense approval whose draft holds no 606 declaration, or whose saved
@@ -9792,6 +9793,13 @@ validation issues. Prepared candidates use `606|RNC|AAAAMM|count` or
 as amended by NG 05-2019 and the current DGII templates. The review workbook
 uses the same detail column order. All candidates explicitly state that official
 prevalidation is `NOT RUN` and no tax return has been submitted.
+A record's fiscal facts are those of its approved revision (the one
+`approved_revision` names), and its evidence (`source_ids` in the manifest
+`reconciliation` and the `Conciliación` sheet) is every source those facts
+name. A note edit, a reopen, the approval's own 606 revision and its undo after
+a failed money write attach no document and change no fact, so none of them
+removes evidence. A record with no approval, or whose approved facts name no
+source, is held with `fiscal_approval_evidence_missing`.
 
 Human `PATCH /business/drafts/{id}/review` accepts `dgii: FiscalReview` alongside
 or instead of `facts`. It holds explicitly entered fiscal identity and ITBIS plus
