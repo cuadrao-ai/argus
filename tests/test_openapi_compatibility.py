@@ -74,7 +74,7 @@ def test_search_declares_bounded_visible_conversation_recall(
     }
 
 
-def test_business_guide_openapi_describes_person_scope_and_both_outages(
+def test_business_guide_openapi_is_person_scoped_with_the_shared_outage(
     generated: dict,
 ) -> None:
     base = "/api/v1/business/guide-cards/{card_id}"
@@ -83,11 +83,8 @@ def test_business_guide_openapi_describes_person_scope_and_both_outages(
         assert {parameter["name"] for parameter in operation["parameters"]} == {
             "card_id"
         }
-        unavailable = operation["responses"]["503"]
-        assert "business_guide_unavailable" in unavailable["description"]
-        assert "auth_session_verification_unavailable" in unavailable["description"]
-        assert unavailable["content"]["application/json"]["schema"] == {
-            "$ref": "#/components/schemas/Error"
+        assert operation["responses"]["503"] == {
+            "$ref": "#/components/responses/AuthSessionVerificationUnavailable"
         }
 
 

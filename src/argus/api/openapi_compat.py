@@ -210,13 +210,7 @@ def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
                     for parameter in operation.get("parameters", [])
                     if parameter["name"] != "X-Business-Grant"
                 ]
-                guide_error = responses["503"]["description"]
-                responses["503"] = _error_response(
-                    f"{guide_error} "
-                    "`auth_session_verification_unavailable`: the session could not be verified."
-                )
-            else:
-                responses["503"] = copy.deepcopy(_AUTH_SESSION_UNAVAILABLE_RESPONSE_REF)
+            responses["503"] = copy.deepcopy(_AUTH_SESSION_UNAVAILABLE_RESPONSE_REF)
             responses["500"] = _error_response("An unexpected server error occurred.")
 
     profile_op = spec.get("paths", {}).get(f"{API_PREFIX}/me", {}).get("get")

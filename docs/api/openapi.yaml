@@ -4222,19 +4222,14 @@ paths:
                 $ref: '#/components/schemas/BusinessGuideState'
         '403':
           description: A registered account is required.
-        '503':
-          description: '`business_guide_unavailable`: guide state could not be read or saved.
-            `auth_session_verification_unavailable`: the session could not be verified.'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
           description: An unexpected server error occurred.
           content:
@@ -4263,19 +4258,14 @@ paths:
                 $ref: '#/components/schemas/BusinessGuideState'
         '403':
           description: A registered account is required.
-        '503':
-          description: '`business_guide_unavailable`: guide state could not be read or saved.
-            `auth_session_verification_unavailable`: the session could not be verified.'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
           description: An unexpected server error occurred.
           content:

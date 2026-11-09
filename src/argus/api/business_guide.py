@@ -40,12 +40,7 @@ class GuideRoute(MembershipRoute):
 
 router = APIRouter(
     route_class=GuideRoute,
-    responses={
-        403: {"description": "A registered account is required."},
-        503: {
-            "description": "`business_guide_unavailable`: guide state could not be read or saved."
-        },
-    },
+    responses={403: {"description": "A registered account is required."}},
 )
 
 CardId = Literal["bandeja-intro"]
