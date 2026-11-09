@@ -14,6 +14,7 @@ from datetime import timedelta
 from uuid import uuid4
 from zipfile import ZipFile
 
+import pytest
 from argus.domain.business import ledger
 from argus.domain.business.actions import approval
 from psycopg import Connection
@@ -31,6 +32,13 @@ from tests.test_business_open_items_postgres import (  # noqa: F401
 from tests.test_business_open_items_postgres import pytestmark as _local_supabase
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 OWN_RNC = "199990013"
 METHODS = ["efectivo", "transferencia", "tarjeta", "credito", "otro"]
 FORMS = ("606", "607")

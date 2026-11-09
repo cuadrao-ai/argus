@@ -400,29 +400,36 @@ export type HomeSectionKey = "work" | "month" | "money";
 export const HOME_DEFAULT_ORDER: readonly HomeSectionKey[] = ["work", "month", "money"];
 
 /**
+ * The sections Inicio shows, in the person's saved order: a saved section that is not shown (Cobros y pagos while
+ * settlement is off) drops out, and a shown one the saved order lacks follows in its default place at the end.
+ */
+export function homeSectionOrder(saved: unknown, shown: readonly HomeSectionKey[]): HomeSectionKey[] {
+  const kept = Array.isArray(saved) ? HOME_DEFAULT_ORDER.filter((key) => shown.includes(key) && saved.includes(key)).sort((a, b) => saved.indexOf(a) - saved.indexOf(b)) : [];
+  return [...kept, ...HOME_DEFAULT_ORDER.filter((key) => shown.includes(key) && !kept.includes(key))];
+}
+
+/**
  * The person's own section order for this Business. MISSING on the server: a per-person, per-Business
  * `home_section_order` preference (like `table_density` on /me). Until then the preview keeps it in this browser.
  */
-export function useHomeOrder(userId: string | null | undefined, businessId: string | null | undefined) {
+export function useHomeOrder(userId: string | null | undefined, businessId: string | null | undefined, shown: readonly HomeSectionKey[] = HOME_DEFAULT_ORDER) {
   const key = `${userId ?? "anon"}:${businessId ?? "none"}`;
+  const defaults = homeSectionOrder(undefined, shown);
   const all = (): Record<string, HomeSectionKey[]> => {
     try { return JSON.parse(readStored("cuadrao:home_section_order:v1") ?? "{}") ?? {}; } catch { return {}; }
   };
-  const read = (): HomeSectionKey[] => {
-    const saved = all()[key];
-    return Array.isArray(saved) && saved.length === HOME_DEFAULT_ORDER.length && HOME_DEFAULT_ORDER.every((k) => saved.includes(k)) ? saved : [...HOME_DEFAULT_ORDER];
-  };
+  const read = (): HomeSectionKey[] => homeSectionOrder(all()[key], shown);
   const [state, setState] = useState<{ key: string; order: HomeSectionKey[] }>(() => ({ key, order: typeof window === "undefined" ? [...HOME_DEFAULT_ORDER] : read() }));
-  const order = state.key === key ? state.order : read();
+  const order = state.key === key ? homeSectionOrder(state.order, shown) : read();
   const save = (next: HomeSectionKey[]) => {
     setState({ key, order: next });
     writeStored("cuadrao:home_section_order:v1", JSON.stringify({ ...all(), [key]: next }));
   };
-  return { order, save, isDefault: order.join() === HOME_DEFAULT_ORDER.join() };
+  return { order, save, defaults, isDefault: order.join() === defaults.join() };
 }
 
 /** Reorders whole sections only: move up or down, or drag; the greeting and Business context stay first. */
-export function HomeCustomize({ order, onChange, isDefault }: { order: HomeSectionKey[]; onChange: (next: HomeSectionKey[]) => void; isDefault: boolean }) {
+export function HomeCustomize({ order, defaults, onChange, isDefault }: { order: HomeSectionKey[]; defaults: readonly HomeSectionKey[]; onChange: (next: HomeSectionKey[]) => void; isDefault: boolean }) {
   const c = useCopy();
   const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState<HomeSectionKey | null>(null);
@@ -452,7 +459,7 @@ export function HomeCustomize({ order, onChange, isDefault }: { order: HomeSecti
                 );
               })}
             </ol>
-            <button type="button" disabled={isDefault} onClick={() => onChange([...HOME_DEFAULT_ORDER])} className={`${quietButtonClass} text-[14px]`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{c.restore}</button>
+            <button type="button" disabled={isDefault} onClick={() => onChange([...defaults])} className={`${quietButtonClass} text-[14px]`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{c.restore}</button>
             <p className={`text-[14px] ${MUTED}`}>{c.savedLocal}</p>
           </div>
         </AdaptivePanel>

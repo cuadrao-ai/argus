@@ -120,6 +120,8 @@ services:
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_SETTLEMENT_ENABLED
+        value: "false"
       - key: CUADRAO_BUSINESS_READS_PER_DAY
         value: "300"
       - key: CUADRAO_BUSINESS_READS_PER_MONTH
@@ -200,6 +202,8 @@ services:
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_SETTLEMENT_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_READS_PER_DAY
         value: "300"

@@ -2690,12 +2690,8 @@
           "currencies_other": "Amounts in {{count}} currencies",
           "exclusions": "Excluded amounts",
           "metrics": {
-            "collected": "Collected",
             "expenses": "Purchases",
-            "invoiced": "Sales",
-            "paid": "Paid",
-            "payable": "Payable",
-            "receivable": "Receivable"
+            "invoiced": "Sales"
           },
           "no_currency": "No currency",
           "partial": "Partial: {{amount}}",
@@ -3821,8 +3817,6 @@
       "overdue_count_other": "{{count}} overdue",
       "overdue_included_one": "Includes {{count}} overdue",
       "overdue_included_other": "Includes {{count}} overdue",
-      "record_collection": "Record collection",
-      "record_payment": "Record payment",
       "checklist_required": "Needed to close the month",
       "filing_ready": "You already have everything for the 606 and the 607.",
       "nothing_open": "All settled",

@@ -18,6 +18,17 @@ Set that document's settlement. The caller needs the prepare capability. A repea
 
 Read every invoice and receipt that is still `pendiente`, from any month. Scope and grants are the same as the month read. The caller needs the read capability, so the owner and an accountant can both call it.
 
+## While settlement is off
+
+Por cobrar and Por pagar sit behind one server switch, `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`, off by default (`argus.domain.business.config.business_settlement_enabled`). `GET /api/v1/business/workspace` says the same as `settlement_available`. While it is off:
+
+- `GET /api/v1/business/open-items` and `PATCH /api/v1/business/month-close/documents/{activity_id}` answer `404` `business_settlement_unavailable` before anything else.
+- The month read omits `payment_methods`, `cuentas_por_cobrar` and `cuentas_por_pagar`; each currency block omits `cuentas_por_cobrar_minor`, `cuentas_por_cobrar`, `cuentas_por_pagar_minor` and `cuentas_por_pagar`; and no list item carries `status`. The keys are absent, not null. `by_status`, `itbis_cobrado` and `net_result_final` keep their meaning.
+- `filing_ready` no longer needs the month's receivables and payables empty. Every fiscal requirement of `filing_ready` stays.
+- The dossier's `bill_mark` is null. The draft keeps the mark the read gave it.
+
+Stored settlements are kept and still read by the export and by bank matching. Every field below is the month read while the switch is on.
+
 ## Authorization and errors
 
 A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live grant without the capability is `403` `business_permission_denied`. An activity that is not in this Business is `404` `business_record_not_found`. The body does not say whether the activity exists in another Business.
@@ -31,6 +42,7 @@ A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live 
 | 422 | `business_settlement_incomplete` | A settled document lacks a date or method, or a pending document sends either |
 | 422 | `activity_kind_unsupported` | The activity is not income or an expense |
 | 404 | `business_record_not_found` | The activity is not in this Business |
+| 404 | `business_settlement_unavailable` | Settlement is off: the open items read and the PATCH |
 | 403 | `business_permission_denied` | The grant cannot prepare, or cannot read |
 | 403 | `business_grant_not_live` | The grant header does not name a live grant |
 | 409 | `business_document_settlement_conflict` | Two first settlements of the same document collided again after one fresh retry |
@@ -111,7 +123,7 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
 | `missing_payment_form` | Purchases the 606 holds until a person sets Forma de Pago, marked paid or not, each with `payment_form` null. Forma de Pago is never defaulted. This list adds no `reasons` code, so it does not read into `closed`; `dgii_forms` carries the 606 status. |
 | `missing_fiscal_data` | Every document the 606 or 607 holds this month, as a document line plus `missing`: what the export still needs from it, first fix first, in the export's own words (`expense_type_missing`, `rnc_missing`, `rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`, `payment_method_missing`, else `detail_missing`), the same words Registros shows as `export_missing`. Empty when both forms carry every document, when nothing is reportable, and when the Business has no RNC. `closed` is month completion and never says the forms are ready. |
-| `filing_ready` | The one fact "ready for the 606 and 607". True only when both `dgii_forms` stand by the export's verdict (`prepared_candidate`, `no_operations` or `summary_only`) and no step of this month remains: `unreviewed_movements_count` is zero (a receipt waiting for review or unreadable is not in the export yet), no read is in flight with no date (a receipt being read for the first time, or an email being read, could still land in any month, so every month answers false until it lands), `missing_fiscal_data` is empty, and `cuentas_por_cobrar` and `cuentas_por_pagar` are empty. The web shows "Ya tienes todo para el 606 y el 607" from this field alone. |
+| `filing_ready` | The one fact "ready for the 606 and 607". True only when both `dgii_forms` stand by the export's verdict (`prepared_candidate`, `no_operations` or `summary_only`) and no step of this month remains: `unreviewed_movements_count` is zero (a receipt waiting for review or unreadable is not in the export yet), no read is in flight with no date (a receipt being read for the first time, or an email being read, could still land in any month, so every month answers false until it lands), `missing_fiscal_data` is empty, and `cuentas_por_cobrar` and `cuentas_por_pagar` are empty (absent while settlement is off, so they never hold it). The web shows "Ya tienes todo para el 606 y el 607" from this field alone. |
 | `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. Every document counts in its own currency's block. Only the 606 and 607 files and `dgii_forms` are DOP-only (`argus.domain.business.dgii_validation.declarable`, the one gate the export and month close share). The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
 | `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS, plus sin comprobante purchases at their whole total. |
 | `itbis_cobrado_minor` | The part of `itbis_charged_minor` that belongs to sales already marked `cobrado`. A credit note marked cobrado subtracts. |

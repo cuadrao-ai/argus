@@ -4878,6 +4878,13 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_settlement_unavailable`: Por cobrar and Por pagar are off
+            on this server (`CUADRAO_BUSINESS_SETTLEMENT_ENABLED`).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: '`business_document_settlement_conflict`: another first settlement
             of this document landed, and a fresh retry still collided.'
@@ -5091,6 +5098,13 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_settlement_unavailable`: Por cobrar and Por pagar are off
+            on this server (`CUADRAO_BUSINESS_SETTLEMENT_ENABLED`).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -19005,6 +19019,8 @@ components:
           type: boolean
         notifications_available:
           type: boolean
+        settlement_available:
+          type: boolean
         receiving_channels:
           $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
@@ -19030,6 +19046,7 @@ components:
       - chat_available
       - invoicing_available
       - notifications_available
+      - settlement_available
       - receiving_channels
       - receipt_limits
       - records_default_currency
@@ -20353,13 +20370,25 @@ components:
         itbis_owed:
           type: string
         cuentas_por_cobrar_minor:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_cobrar:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_pagar_minor:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_pagar:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         itbis_cobrado_minor:
           type: integer
         itbis_cobrado:
@@ -20384,10 +20413,6 @@ components:
       - itbis_paid
       - itbis_owed_minor
       - itbis_owed
-      - cuentas_por_cobrar_minor
-      - cuentas_por_cobrar
-      - cuentas_por_pagar_minor
-      - cuentas_por_pagar
       - itbis_cobrado_minor
       - itbis_cobrado
       - by_status
@@ -21516,7 +21541,10 @@ components:
           - type: string
           - type: 'null'
         status:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         sin_comprobante:
           type: boolean
           default: false
@@ -21546,7 +21574,6 @@ components:
       - rnc
       - ncf
       - ecf
-      - status
       - due_on
     DocumentResponse:
       properties:
@@ -24086,7 +24113,10 @@ components:
           - type: string
           - type: 'null'
         status:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         sin_comprobante:
           type: boolean
           default: false
@@ -24120,7 +24150,6 @@ components:
       - rnc
       - ncf
       - ecf
-      - status
       - due_on
       - missing
     HistoryItem:
@@ -27289,9 +27318,12 @@ components:
           - type: string
           - type: 'null'
         payment_methods:
-          items:
-            type: string
-          type: array
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         dgii_forms:
           $ref: '#/components/schemas/DgiiForms'
         dgii_foreign_currency:
@@ -27321,13 +27353,19 @@ components:
             $ref: '#/components/schemas/HeldLine'
           type: array
         cuentas_por_cobrar:
-          items:
-            $ref: '#/components/schemas/DocumentLine'
-          type: array
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/DocumentLine'
+            type: array
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_pagar:
-          items:
-            $ref: '#/components/schemas/DocumentLine'
-          type: array
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/DocumentLine'
+            type: array
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         unreviewed_movements_count:
           type: integer
           default: 0
@@ -27344,13 +27382,10 @@ components:
       - closed
       - reasons
       - earliest_month
-      - payment_methods
       - dgii_forms
       - currencies
       - missing_rnc
       - missing_ncf
-      - cuentas_por_cobrar
-      - cuentas_por_pagar
     MovementAccount:
       properties:
         account_id:

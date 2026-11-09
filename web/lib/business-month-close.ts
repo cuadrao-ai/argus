@@ -45,6 +45,12 @@ import { currencyDigits, minorToDecimal } from "./money-entry";
  * `missing_fiscal_data`, which Inicio and Exportar both read. No screen
  * derives it from `closed`.
  *
+ * Por cobrar and Por pagar sit behind the server's one switch, the workspace's
+ * `settlement_available`. While it is off the month read carries no
+ * `cuentas_por_cobrar`, `cuentas_por_pagar`, `payment_methods`, receivable or
+ * payable total, or line status, both settlement routes refuse, and no screen
+ * asks for them; a document's `status` is null.
+ *
  * A currency's net shows only when its block says `net_result_final`.
  * Overdue counts and totals are the server's; a row's lateness chip reads its
  * `due_on` against the server's `today`. A field an older server does not
@@ -75,7 +81,8 @@ export type MonthCloseDocument = {
   ncf: string | null;
   /** e-CF / e-NCF as printed. Null when absent. Distinct from `ncf`. */
   ecf: string | null;
-  status: MonthCloseStatus;
+  /** Null while settlement is off: the server sends no status then. */
+  status: MonthCloseStatus | null;
   /**
    * False when this row does not carry RNC or fiscal-number text.
    * Absent means those fields are the record.
@@ -868,7 +875,8 @@ type WireLine = {
   occurred_on: string;
   total_minor: number;
   itbis_minor: number | null;
-  status: string;
+  /** Absent while settlement is off. */
+  status: string | null;
   currency: string | null;
   counterparty: string | null;
   due_on: string | null;
@@ -893,14 +901,14 @@ function readWireLine(value: unknown): WireLine {
   if (typeof value.occurred_on !== "string" || !DAY.test(value.occurred_on)) throw new MonthCloseError("unavailable", "month close document date is unknown");
   if (typeof value.total_minor !== "number") throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
   if (!(value.itbis_minor === null || typeof value.itbis_minor === "number")) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
-  if (typeof value.status !== "string" || !statusFits(value.document_kind, value.status)) throw new MonthCloseError("unavailable", "month close status does not fit the document");
+  if (value.status !== undefined && (typeof value.status !== "string" || !statusFits(value.document_kind, value.status))) throw new MonthCloseError("unavailable", "month close status does not fit the document");
   return {
     activity_id: value.activity_id,
     document_kind: value.document_kind,
     occurred_on: value.occurred_on,
     total_minor: value.total_minor,
     itbis_minor: value.itbis_minor,
-    status: value.status,
+    status: typeof value.status === "string" ? value.status : null,
     currency: lineCurrency(value.currency),
     counterparty: readNullableText(value.counterparty),
     due_on: readDay(value.due_on),
@@ -930,7 +938,7 @@ function wireDocument(line: WireLine, ncfMalformed = false): MonthCloseDocument 
     rnc: line.fiscal?.rnc ?? null,
     ncf: line.fiscal?.ncf ?? null,
     ecf: line.fiscal?.ecf ?? null,
-    status: line.status as MonthCloseStatus,
+    status: line.status as MonthCloseStatus | null,
     fiscal_known: Boolean(line.fiscal),
     ...(line.fiscal ? { sin_comprobante: line.fiscal.sin_comprobante } : {}),
     ...(ncfMalformed ? { ncf_malformed: true } : {}),
@@ -998,9 +1006,12 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
   if (typeof value.closed !== "boolean") throw new MonthCloseError("unavailable", "month close timestamp is unknown");
   if (!Array.isArray(value.reasons)) throw new MonthCloseError("unavailable", "month close documents are missing");
   const lists = ["missing_rnc", "missing_ncf", "cuentas_por_cobrar", "cuentas_por_pagar"] as const;
+  // Settlement off: the server sends no receivables or payables at all.
+  const settlementLists: readonly string[] = ["cuentas_por_cobrar", "cuentas_por_pagar"];
   const lines: WireLine[] = [];
   const seen = new Set<string>();
   for (const key of lists) {
+    if (value[key] === undefined && settlementLists.includes(key)) continue;
     if (!Array.isArray(value[key])) throw new MonthCloseError("unavailable", "month close documents are missing");
     for (const item of value[key]) {
       const line = readWireLine(item);

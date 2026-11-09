@@ -258,6 +258,14 @@
           }
         },
         {
+          "name": "CUADRAO_BUSINESS_SETTLEMENT_ENABLED",
+          "kind": "plain",
+          "value": "false",
+          "production": {
+            "value": "false"
+          }
+        },
+        {
           "name": "CUADRAO_BUSINESS_READS_PER_DAY",
           "kind": "plain",
           "value": "300",

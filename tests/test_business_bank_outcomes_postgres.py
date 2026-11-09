@@ -12,6 +12,7 @@ import threading
 from uuid import uuid4
 
 import psycopg
+import pytest
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
@@ -35,6 +36,11 @@ from tests.test_business_scope_switch_routes_postgres import (
 )
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
 
 
 def _post(world, path: str, headers: dict, body: dict | None = None, key=None):  # noqa: ANN001, ANN202

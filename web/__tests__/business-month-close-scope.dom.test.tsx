@@ -34,7 +34,7 @@ async function renderScopes(client: MonthCloseClient) {
   const render = async (scopeKey: "A" | "B") => {
     await act(async () => root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessMonthCloseView client={client} now={now} scopeKey={scopeKey} businessCurrency="DOP" review={{ count: 0, detail: null, open() {} }} />
+        <BusinessMonthCloseView settlement client={client} now={now} scopeKey={scopeKey} businessCurrency="DOP" review={{ count: 0, detail: null, open() {} }} />
         <ToastProbe />
       </I18nextProvider>,
     ));
