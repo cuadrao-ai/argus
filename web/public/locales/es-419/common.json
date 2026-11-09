@@ -4020,7 +4020,6 @@
       "closed_status": "Cerrado",
       "deadline": "Puedes reabrirlo antes del {{purgeDate}} a las {{purgeTime}} (hora de RD).",
       "deletion": {
-        "blocked": "Primero transfiere o cierra tus negocios.",
         "closed_warning": "{{businessName}} está cerrado. Si borras tu cuenta, nadie podrá reabrirlo y sus datos y comprobantes se borrarán el {{purgeDate}} a las {{purgeTime}} (hora de RD).",
         "failed": "No pudimos revisar tus negocios. Intenta otra vez.",
         "warning": "Eres el único dueño de {{businessName}}. Transfiérelo o ciérralo antes de borrar tu cuenta."

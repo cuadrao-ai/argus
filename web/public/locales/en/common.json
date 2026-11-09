@@ -3774,7 +3774,6 @@
       "closed_status": "Closed",
       "deadline": "You can reopen it before {{purgeDate}} at {{purgeTime}} (Dominican Republic time).",
       "deletion": {
-        "blocked": "Transfer or close your businesses first.",
         "closed_warning": "{{businessName}} is closed. If you delete your account, nobody can reopen it, and its data and receipts will be deleted on {{purgeDate}} at {{purgeTime}} (Dominican Republic time).",
         "failed": "We couldn't check your businesses. Try again.",
         "warning": "You are the sole owner of {{businessName}}. Transfer it or close it before deleting your account."
