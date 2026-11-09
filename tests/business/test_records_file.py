@@ -361,6 +361,16 @@ def test_amounts_keep_their_currency_precision_in_both_formats(fake):
     assert written.splitlines()[1].split(",")[1:] == ["1.234", "0.185"]
 
 
+def test_an_amount_past_excel_precision_stays_exact_text(fake):
+    record = row(fake, gross_amount="123456789012345.67", itbis_amount="18.00")
+    choice = table(
+        report(currencies=["DOP"]), ("gross_amount", "itbis_amount"), currencies="current"
+    )
+    cells = xlsx(build_file(source(record), choice).content)
+    assert cells[1][1][:2] == ("s", "123456789012345.67")
+    assert cells[1][2] == ("n", Decimal("18"), "#,##0.00")
+
+
 def test_formula_like_cells_are_escaped_in_both_formats(fake):
     record = row(
         fake, counterparty='=HYPERLINK("x")', note="+1 llamada", fiscal_number="@B01"

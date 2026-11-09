@@ -391,7 +391,13 @@ def _xlsx(
             for column, value in enumerate(row):
                 if value is None:
                     continue
-                if isinstance(value, Decimal):
+                if (
+                    isinstance(value, Decimal)
+                    and len(value.normalize().as_tuple().digits) > 15
+                ):
+                    # Excel keeps 15 significant digits; past them the exact text stays.
+                    sheet.write_string(index, column, str(value))
+                elif isinstance(value, Decimal):
                     places = min(max(2, -value.as_tuple().exponent), 4)
                     sheet.write_number(index, column, float(value), money[places])
                 elif isinstance(value, date):
