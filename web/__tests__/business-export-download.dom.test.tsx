@@ -23,6 +23,7 @@ const original = { fetch: globalThis.fetch, create: URL.createObjectURL, revoke:
 let calls: { url: URL; init?: RequestInit }[] = [];
 let downloads: { filename: string; blob: Blob }[] = [];
 let respond: (init?: RequestInit) => Promise<Response>;
+let anchorClick: HTMLAnchorElement["click"];
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz?view=expenses" });
@@ -30,6 +31,7 @@ beforeAll(() => {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   URL.createObjectURL = (blob) => { downloads.push({ filename: "", blob: blob as Blob }); return "blob:export"; };
   URL.revokeObjectURL = () => undefined;
+  anchorClick = HTMLAnchorElement.prototype.click;
   HTMLAnchorElement.prototype.click = function () { downloads.at(-1)!.filename = this.download; };
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
@@ -38,6 +40,8 @@ beforeAll(() => {
   };
 });
 afterAll(async () => {
+  // Later files share these DOM classes; leave their own click in place.
+  HTMLAnchorElement.prototype.click = anchorClick;
   globalThis.fetch = original.fetch;
   URL.createObjectURL = original.create;
   URL.revokeObjectURL = original.revoke;

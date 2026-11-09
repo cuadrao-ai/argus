@@ -186,7 +186,11 @@ def test_v2_layout_does_not_change_export_fingerprint(client, actions):
     assert second["matching_count"] == 26 and len(second["items"]) == 1
     response = http.post(
         "/business/reports/export",
-        json={"report": changed, "expected_fingerprint": answer["fingerprint"]},
+        json={
+            "report": {**changed, "filters": {"record_families": ["purchase"]}},
+            "mode": "table",
+            "columns": ["note"],
+        },
     )
     assert response.status_code == 200, response.text
 

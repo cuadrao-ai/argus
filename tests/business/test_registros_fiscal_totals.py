@@ -210,7 +210,7 @@ def test_fiscal_changes_change_fingerprint_without_changing_gross_total():
 def test_projection_reads_export_itbis_and_keeps_hand_entered_purchase_amounts():
     from argus.domain.business.contracts.dgii import PurchaseReview
     from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
-    from argus.domain.business.dgii_export import _row
+    from argus.domain.business.dgii_export import line_values
     from argus.domain.business.purchase_review import apply_purchase
     from argus.domain.business.reporting_projection import project
 
@@ -227,7 +227,7 @@ def test_projection_reads_export_itbis_and_keeps_hand_entered_purchase_amounts()
     )
     row = project(recorded("Synthetic receipt", approved), None, {}, None)
     exported = dict(
-        zip((name for name, _ in PURCHASE_COLUMNS), _row(approved), strict=True)
+        zip((name for name, _ in PURCHASE_COLUMNS), line_values(approved), strict=True)
     )
     assert Decimal(row.itbis_amount) == Decimal(exported["itbis"])
     assert row.goods_amount == exported["goods_amount"] == "12.34"
@@ -276,7 +276,7 @@ def test_projection_missing_declaration_is_applicable_but_sin_comprobante_is_not
 
 def test_projection_sales_take_export_tax_without_inventing_goods_or_services():
     from argus.domain.business.dgii_columns import SALES_COLUMNS
-    from argus.domain.business.dgii_export import _row
+    from argus.domain.business.dgii_export import line_values
     from argus.domain.business.reporting_projection import project
 
     from tests.business.test_registros_notes import recorded
@@ -284,7 +284,9 @@ def test_projection_sales_take_export_tax_without_inventing_goods_or_services():
 
     sale = next(item for item in practice_records() if item.declaration.form == "607")
     row = project(recorded("Synthetic sale", sale), None, {}, None)
-    exported = dict(zip((name for name, _ in SALES_COLUMNS), _row(sale), strict=True))
+    exported = dict(
+        zip((name for name, _ in SALES_COLUMNS), line_values(sale), strict=True)
+    )
     assert Decimal(row.itbis_amount) == Decimal(exported["itbis"])
     assert row.dgii_606 is row.goods_amount is row.services_amount is None
     assert {item.basis for item in run([row]).fiscal_totals} == {"itbis"}
