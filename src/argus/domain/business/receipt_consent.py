@@ -1,4 +1,4 @@
-"""Versioned owner permission for email, WhatsApp and uploaded receipt reads."""
+"""Versioned owner permission for email, WhatsApp and uploaded document reads."""
 
 from __future__ import annotations
 
@@ -13,12 +13,14 @@ from psycopg.types.json import Jsonb
 
 from argus.domain.business.authority import ActionError
 
-# A new wording is a new scope version: an owner who agreed to an earlier one
-# reads as off until they accept this one.
-SCOPE_VERSION = 2
+# Bump the scope only when what we do with the documents changes: an owner who
+# agreed to an earlier scope reads as off until they accept this one. A consent
+# stores the exact words shown as its record, and new words for the same scope
+# keep it on.
+SCOPE_VERSION = 3
 DISCLOSURES = {
-    "en": "We use artificial intelligence to read the receipts that come in by email or WhatsApp, or that you upload to Cuadrao, and prepare a draft of each one. You review it and approve it. If you turn it off, they are saved unread.",
-    "es-419": "Leemos con inteligencia artificial los recibos que llegan por correo, por WhatsApp o que subes en Cuadrao, y preparamos un borrador de cada uno. Tú lo revisas y lo apruebas. Si lo apagas, se guardan sin leer.",
+    "en": "PENDING: consent sentence from Iris",
+    "es-419": "PENDIENTE: frase de consentimiento de Iris",
 }
 _COLUMNS = ("id", "scope_version", "consented_at", "revoked_at", "route", "disclosure")
 
@@ -55,7 +57,6 @@ def _view(row, space_id, owner_id, route, language):
             and row["scope_version"] == SCOPE_VERSION
             and row["revoked_at"] is None
             and row["route"] == route
-            and row["disclosure"] in DISCLOSURES.values()
         ),
         "consent_id": row["id"] if row else None,
         "consented_at": row["consented_at"] if row else None,

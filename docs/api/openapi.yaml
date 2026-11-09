@@ -30957,7 +30957,7 @@ components:
           type: boolean
         scope_version:
           type: integer
-          maximum: 2.0
+          maximum: 3.0
           minimum: 1.0
         disclosure_token:
           anyOf:

@@ -36,8 +36,8 @@ test("the reading card shows its title and the one sentence the owner agrees to"
   const english = (await import("@/public/locales/en/common.json")).default;
   const { InlineReading } = await import("@/components/business-app/ReceiptReadingControl");
   for (const [language, words, title, sentence] of [
-    ["es-419", spanish, "Leer mis recibos automáticamente", "Leemos con inteligencia artificial los recibos que llegan por correo, por WhatsApp o que subes en Cuadrao, y preparamos un borrador de cada uno. Tú lo revisas y lo apruebas. Si lo apagas, se guardan sin leer."],
-    ["en", english, "Read my receipts automatically", "We use artificial intelligence to read the receipts that come in by email or WhatsApp, or that you upload to Cuadrao, and prepare a draft of each one. You review it and approve it. If you turn it off, they are saved unread."],
+    ["es-419", spanish, "Leer mis documentos automáticamente", "PENDIENTE: frase de consentimiento de Iris"],
+    ["en", english, "Read my documents automatically", "PENDING: consent sentence from Iris"],
   ] as const) {
     const reading = { enabled: false, can_change: true, available: true, disclosure: sentence };
     const i18n = i18next.createInstance();
