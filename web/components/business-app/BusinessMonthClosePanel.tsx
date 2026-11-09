@@ -384,7 +384,8 @@ type BusinessMonthCloseViewProps = {
   receiptStatusPlacement?: "lead" | "default";
   /**
    * The server's `settlement_available`. Off, there is no Por cobrar, Por pagar, mark, settle step or "left to mark"
-   * line, and the open items are never read. The month's figures keep the server's meaning.
+   * line, and the open items are never read; the net says it is approved income minus approved expenses, and ITBIS en
+   * ventas stands where ITBIS cobrado was.
    */
   settlement: boolean;
   /** The Business's own currency: the figures' default and the first in its menu. Null while unknown. */
@@ -519,7 +520,8 @@ function BusinessMonthCloseContent({
 
   const unreviewed = snapshot?.unreviewed_movements ?? 0;
   // The cards show one currency's block at a time; the others stay one choice away, never added in.
-  const blocks = snapshot?.figures ?? [];
+  // Settlement off: no document is left to mark, so a block the server does not call final waits on a rate.
+  const blocks = (snapshot?.figures ?? []).map((block) => (settlement ? block : { ...block, pending_count: 0 }));
   const currencies = currenciesInOrder(blocks.map((block) => block.currency), businessCurrency);
   const chosenCurrency = useCurrencyView(scopeKey);
   const shownCurrency = currencyShown(currencies, businessCurrency, chosenCurrency);
@@ -1172,12 +1174,15 @@ function BusinessMonthCloseContent({
     itbis.state !== "pending" ? itbis.value : null,
   ].filter((value): value is string => Boolean(value));
   const manyCurrencies = currencies.length > 1 && shownCurrency !== null;
-  const itbisCobrado = <>{t("business.month_close.itbis_cobrado", "ITBIS collected")} <span data-testid="month-close-itbis-cobrado" className="cuadrao-amount tabular-nums">{shown?.itbis_cobrado && shownCurrency ? formatMoney(shown.itbis_cobrado, shownCurrency, locale) : UNKNOWN_VALUE}</span></>;
+  // ITBIS cobrado needs marks; while settlement is off the server's ITBIS on the approved sales stands in its place.
+  const itbisCobrado = settlement
+    ? <>{t("business.month_close.itbis_cobrado", "ITBIS collected")} <span data-testid="month-close-itbis-cobrado" className="cuadrao-amount tabular-nums">{shown?.itbis_cobrado && shownCurrency ? formatMoney(shown.itbis_cobrado, shownCurrency, locale) : UNKNOWN_VALUE}</span></>
+    : <>{t("business.month_close.approved_figures.itbis_sales", "ITBIS on sales")} <span data-testid="month-close-itbis-sales" className="cuadrao-amount tabular-nums">{shown?.itbis_charged && shownCurrency ? formatMoney(shown.itbis_charged, shownCurrency, locale) : UNKNOWN_VALUE}</span></>;
   function netDetail(): ReactNode | undefined {
+    // While settlement is off the server's final net is the approved income minus the approved expenses.
+    if (net.state === "final") return settlement ? undefined : t("business.month_close.approved_figures.net_detail", "Approved income minus expenses");
     if (net.state !== "pending") return undefined;
     if (net.reason === "documents") {
-      // "Left to mark" asks for a mark; while settlement is off there is none to make.
-      if (!settlement) return undefined;
       return manyCurrencies && shownCurrency
         ? t("business.month_close.net_waits_in", { count: net.pending_count, currency: currencySymbol(shownCurrency), defaultValue: "{{count}} documents in {{currency}} left to mark" })
         : t("business.month_close.net_waits", { count: net.pending_count, defaultValue: "{{count}} documents left to mark" });

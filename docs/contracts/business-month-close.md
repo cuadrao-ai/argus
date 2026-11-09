@@ -23,7 +23,8 @@ Read every invoice and receipt that is still `pendiente`, from any month. Scope 
 Por cobrar and Por pagar sit behind one server switch, `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`, off by default (`argus.domain.business.config.business_settlement_enabled`). `GET /api/v1/business/workspace` says the same as `settlement_available`. While it is off:
 
 - `GET /api/v1/business/open-items` and `PATCH /api/v1/business/month-close/documents/{activity_id}` answer `404` `business_settlement_unavailable` before anything else.
-- The month read omits `payment_methods`, `cuentas_por_cobrar` and `cuentas_por_pagar`; each currency block omits `cuentas_por_cobrar_minor`, `cuentas_por_cobrar`, `cuentas_por_pagar_minor` and `cuentas_por_pagar`; and no list item carries `status`. The keys are absent, not null. `by_status`, `itbis_cobrado` and `net_result_final` keep their meaning.
+- The month read omits `payment_methods`, `cuentas_por_cobrar` and `cuentas_por_pagar`; each currency block omits `cuentas_por_cobrar_minor`, `cuentas_por_cobrar`, `cuentas_por_pagar_minor`, `cuentas_por_pagar`, `itbis_cobrado_minor`, `itbis_cobrado` and `by_status`; and no list item carries `status`. The keys are absent, not null.
+- `net_result_final` waits only on a rate: the month's net (`net_result_minor`, income minus expenses of the approved records, the same figures as `income_before_itbis_minor` and `expense_before_itbis_minor`) is final unless the currency has a document waiting for an exchange rate. The web labels it "Ingresos menos gastos aprobados" and shows a negative month with a plain minus sign. Where ITBIS cobrado stood, the web shows `itbis_charged_minor` as "ITBIS en ventas" (Lucas, 2026-11-08).
 - `filing_ready` no longer needs the month's receivables and payables empty. Every fiscal requirement of `filing_ready` stays.
 - The dossier's `bill_mark` is null. The draft keeps the mark the read gave it.
 
@@ -127,7 +128,7 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. Every document counts in its own currency's block. Only the 606 and 607 files and `dgii_forms` are DOP-only (`argus.domain.business.dgii_validation.declarable`, the one gate the export and month close share). The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
 | `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS, plus sin comprobante purchases at their whole total. |
 | `itbis_cobrado_minor` | The part of `itbis_charged_minor` that belongs to sales already marked `cobrado`. A credit note marked cobrado subtracts. |
-| `net_result_final` | True when no document of this currency in the month is still `pendiente`. A pending document in another currency does not hold it back. |
+| `net_result_final` | True when no document of this currency in the month is still `pendiente` (only while settlement is on) and the currency has no document waiting for a rate. A pending document in another currency does not hold it back. |
 | `net_result_minor` | Income before ITBIS minus expenses before ITBIS. Negative when expenses are larger. |
 | `itbis_charged_minor` | ITBIS on the 607 lines, plus ITBIS stated on a sin comprobante sale. A credit note subtracts. |
 | `itbis_paid_minor` | ITBIS on the 606 lines. A sin comprobante purchase adds none. |

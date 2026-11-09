@@ -20390,11 +20390,20 @@ components:
           - type: 'null'
           description: 'Settlement only: absent while settlement is off.'
         itbis_cobrado_minor:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         itbis_cobrado:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         by_status:
-          $ref: '#/components/schemas/StatusTotals'
+          anyOf:
+          - $ref: '#/components/schemas/StatusTotals'
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         net_result_final:
           type: boolean
       additionalProperties: false
@@ -20413,9 +20422,6 @@ components:
       - itbis_paid
       - itbis_owed_minor
       - itbis_owed
-      - itbis_cobrado_minor
-      - itbis_cobrado
-      - by_status
       - net_result_final
     CurrencySummaryResponse:
       properties:

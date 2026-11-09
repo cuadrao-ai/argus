@@ -47,9 +47,11 @@ import { currencyDigits, minorToDecimal } from "./money-entry";
  *
  * Por cobrar and Por pagar sit behind the server's one switch, the workspace's
  * `settlement_available`. While it is off the month read carries no
- * `cuentas_por_cobrar`, `cuentas_por_pagar`, `payment_methods`, receivable or
- * payable total, or line status, both settlement routes refuse, and no screen
- * asks for them; a document's `status` is null.
+ * `cuentas_por_cobrar`, `cuentas_por_pagar`, `payment_methods`, settlement
+ * figure (receivable and payable totals, `by_status`, ITBIS cobrado) or line
+ * status, both settlement routes refuse, and no screen asks for them; a
+ * document's `status` is null. The server's net then waits only on a rate, and
+ * ITBIS charged on the approved sales stands where ITBIS cobrado was.
  *
  * A currency's net shows only when its block says `net_result_final`.
  * Overdue counts and totals are the server's; a row's lateness chip reads its
@@ -144,8 +146,10 @@ export type MonthCloseFigures = {
   net_before_itbis: string | null;
   /** Invoice ITBIS minus receipt ITBIS. */
   itbis_owed: string | null;
-  /** ITBIS charged on the sales already marked cobrado. */
+  /** ITBIS charged on the sales already marked cobrado. Null while settlement is off. */
   itbis_cobrado: string | null;
+  /** ITBIS charged on the month's approved sales: "ITBIS en ventas", shown in ITBIS cobrado's place while settlement is off. */
+  itbis_charged: string | null;
   /** True once no document of this currency in the month is pendiente. Null from an older server. */
   net_result_final: boolean | null;
   /** This currency's pendiente invoices and receipts, from `by_status`. */
@@ -323,6 +327,7 @@ export function monthCloseFiguresFrom(documents: readonly MonthCloseDocument[]):
     net_before_itbis: minorToDecimal(book.invoiceBase - book.receiptBase, currency),
     itbis_owed: minorToDecimal(book.invoiceItbis - book.receiptItbis, currency),
     itbis_cobrado: minorToDecimal(book.collectedItbis, currency),
+    itbis_charged: minorToDecimal(book.invoiceItbis, currency),
     net_result_final: book.pending === 0,
     pending_count: book.pending,
   }));
@@ -965,6 +970,7 @@ function readFigures(value: unknown): MonthCloseFigures[] {
       net_before_itbis: figure("net_result"),
       itbis_owed: figure("itbis_owed"),
       itbis_cobrado: figure("itbis_cobrado"),
+      itbis_charged: figure("itbis_charged"),
       net_result_final: typeof block.net_result_final === "boolean" ? block.net_result_final : null,
       pending_count: pendingCount(block.by_status),
     };

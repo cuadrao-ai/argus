@@ -15,8 +15,11 @@ afterAll(async () => {
 
 const now = new Date(2026, 9, 18);
 
-/** The month read while settlement is off: no receivables, payables, line statuses or methods. The figures keep their meaning. */
-function offWire() {
+/**
+ * The month read while settlement is off: no receivables, payables, line statuses, methods, counts by status or ITBIS
+ * cobrado. The net is final unless a rate is pending, and here it is negative: income 1,000.00 minus expenses 1,600.00.
+ */
+function offWire(currencies: Record<string, unknown>[] = [{ currency: "DOP", income_before_itbis_minor: 100000, expense_before_itbis_minor: 160000, net_result_minor: -60000, itbis_charged_minor: 18000, itbis_owed_minor: 1800, net_result_final: true }]) {
   const line = { activity_id: "sale-1", document_kind: "invoice", currency: "DOP", occurred_on: "2026-10-05", total_minor: 11800, total: "118.00", before_itbis_minor: 10000, before_itbis: "100.00", itbis_minor: 1800, itbis: "18.00", counterparty: "Colmado Ana", rnc: null, ncf: "B0100000001", ecf: null, sin_comprobante: false, due_on: null };
   return {
     month: "2026-10",
@@ -27,13 +30,19 @@ function offWire() {
     reasons: [{ code: "missing_rnc", activity_id: "sale-1", document_kind: "invoice" }],
     earliest_month: "2026-10",
     dgii_forms: { "606": "no_operations", "607": "needs_review" },
-    currencies: [{ currency: "DOP", income_before_itbis_minor: 10000, expense_before_itbis_minor: 0, net_result_minor: 10000, itbis_owed_minor: 1800, itbis_cobrado_minor: 0, net_result_final: false, by_status: { invoices: { pendiente: { count: 1, before_itbis_minor: 10000 }, cobrado: { count: 0, before_itbis_minor: 0 } }, receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } } }],
+    currencies,
     missing_rnc: [line],
     missing_ncf: [],
     missing_fiscal_data: [{ ...line, missing: ["rnc_missing"] }],
     unreviewed_movements_count: 0,
     filing_ready: false,
   };
+}
+
+/** A server with settlement off: the month reads; anything settlement would ask for fails the test. */
+function offClient(wire = offWire()): MonthCloseClient {
+  const refused = async () => { throw new Error("settlement is off"); };
+  return { mode: "http", async load() { return readMonthCloseWire(wire); }, openItems: refused, markCobrado: refused, markPagado: refused, markPendiente: refused, closeMonth: refused };
 }
 
 /** Counts every call, so a test can say the open items were never read. */
@@ -85,12 +94,12 @@ describe("Por cobrar and Por pagar while settlement is off", () => {
     const snapshot = readMonthCloseWire(offWire());
     assert.deepEqual(snapshot.documents.map((document) => [document.id, document.status, document.missing]), [["sale-1", null, ["rnc_missing"]]]);
     assert.equal(snapshot.payment_methods, null);
-    assert.deepEqual(snapshot.figures.map((block) => [block.itbis_cobrado, block.pending_count, block.net_result_final]), [["0.00", 1, false]]);
+    assert.deepEqual(snapshot.figures.map((block) => [block.net_before_itbis, block.itbis_charged, block.itbis_cobrado, block.pending_count, block.net_result_final]), [["-600.00", "180.00", null, null, true]]);
   });
 
   for (const layout of ["finance", "inicio"] as const) {
     test(`${layout}: no Por cobrar, Por pagar, mark, settle row or "left to mark" line, and the open items are never read`, async () => {
-      const { calls, client } = counted(createMockMonthCloseClient({ now }));
+      const { calls, client } = counted(offClient());
       const { act, host, root } = await render(client, false, layout);
       try {
         assert.ok(host.querySelector('[data-testid="month-close-cards"]'), "the month's figures still show");
@@ -101,8 +110,41 @@ describe("Por cobrar and Por pagar while settlement is off", () => {
           assert.equal(host.textContent?.includes(words), false, words);
         }
         assert.deepEqual([...new Set(calls)], ["load"]);
-        // The net and ITBIS cobrado keep the server's meaning; only the line asking for a mark goes.
-        assert.ok(host.querySelector('[data-testid="month-close-itbis-cobrado"]'));
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    });
+
+    test(`${layout}: the net is the server's income minus approved expenses, a plain negative, and ITBIS en ventas replaces ITBIS cobrado`, async () => {
+      const { act, host, root } = await render(offClient(), false, layout);
+      try {
+        const net = host.querySelector<HTMLElement>('[data-testid="month-close-net"]')!;
+        assert.equal(net.getAttribute("data-state"), "final");
+        assert.equal(net.getAttribute("data-amount"), "-600.00");
+        assert.match(net.textContent ?? "", /-RD\$ 600\.00/);
+        assert.match(net.textContent ?? "", /Ingresos menos gastos aprobados/);
+        assert.equal(/pérdida/i.test(host.textContent ?? ""), false);
+        assert.equal([net, ...net.querySelectorAll("*")].some((element) => /9e2f39|d66d75|ec9aa0|red/.test(element.getAttribute("class") ?? "")), false, "no red on a negative month");
+        const sales = host.querySelector('[data-testid="month-close-itbis-sales"]');
+        assert.ok(sales);
+        assert.match(host.querySelector('[data-testid="month-close-itbis"]')?.textContent ?? "", /ITBIS en ventas RD\$ 180\.00/);
+        assert.equal(host.querySelector('[data-testid="month-close-itbis-cobrado"]'), null);
+        assert.equal(host.textContent?.includes("ITBIS cobrado"), false);
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    });
+
+    test(`${layout}: a pending rate still holds the net while settlement is off`, async () => {
+      const usd = { currency: "USD", income_before_itbis_minor: 5000, expense_before_itbis_minor: 0, net_result_minor: 5000, itbis_charged_minor: 0, itbis_owed_minor: 0, net_result_final: false };
+      const { act, host, root } = await render(offClient(offWire([usd])), false, layout);
+      try {
+        const net = host.querySelector('[data-testid="month-close-net"]')!;
+        assert.equal(net.getAttribute("data-state"), "pending");
+        assert.match(net.textContent ?? "", /pendiente de tasa/);
+        assert.equal(net.textContent?.includes("Ingresos menos gastos aprobados"), false);
       } finally {
         await act(async () => root.unmount());
         host.remove();
@@ -118,6 +160,9 @@ describe("Por cobrar and Por pagar while settlement is off", () => {
         assert.ok(host.querySelector('[data-testid="month-close-task-settle"]'));
         assert.ok(calls.includes("openItems"));
         assert.match(host.querySelector('[data-testid="month-close-net"]')?.textContent ?? "", /Falta marcar/);
+        assert.ok(host.querySelector('[data-testid="month-close-itbis-cobrado"]'));
+        assert.equal(host.querySelector('[data-testid="month-close-itbis-sales"]'), null);
+        assert.equal(host.textContent?.includes("Ingresos menos gastos aprobados"), false);
       } finally {
         await act(async () => root.unmount());
         host.remove();

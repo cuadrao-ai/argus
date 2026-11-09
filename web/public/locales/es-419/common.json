@@ -4105,6 +4105,11 @@
       "itbis_cobrado": "ITBIS cobrado",
       "itbis_credit_label": "Saldo a favor de ITBIS",
       "itbis_label": "ITBIS a pagar",
+      "approved_figures": {
+        "copy_review": "approved",
+        "itbis_sales": "ITBIS en ventas",
+        "net_detail": "Ingresos menos gastos aprobados"
+      },
       "receipts_failed": "No pudimos cargar el conteo de recibos. Aún no se puede cerrar el mes.",
       "receipts_loading": "Cargando el conteo de recibos. Aún no se puede cerrar el mes.",
       "receipts_unknown": "El conteo de recibos no está disponible. Aún no se puede cerrar el mes.",

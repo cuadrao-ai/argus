@@ -99,6 +99,12 @@ def test_an_unpaid_purchase_holds_filing_ready_only_while_settlement_is_on(
     assert ready["dgii_forms"] == held["dgii_forms"]
     assert ready["missing_fiscal_data"] == held["missing_fiscal_data"] == []
     assert ready["filing_ready"] is True
+    [held_pesos], [pesos] = held["currencies"], ready["currencies"]
+    assert held_pesos["net_result_final"] is False
+    assert pesos["net_result_final"] is True
+    assert pesos["net_result"] == held_pesos["net_result"]
+    assert pesos["itbis_charged"] == held_pesos["itbis_charged"]
+    assert {"itbis_cobrado", "by_status"}.isdisjoint(pesos)
     refused = web.client.get(f"{API}/business/open-items", headers=web.alice.headers)
     assert (refused.status_code, refused.json()["code"]) == (
         404,

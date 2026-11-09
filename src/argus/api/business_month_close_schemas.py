@@ -72,16 +72,18 @@ class CurrencyBlock(_Wire):
     itbis_paid: str
     itbis_owed_minor: int
     itbis_owed: str
-    # What is still to collect and pay; absent while settlement is off.
+    # Settlement only, absent while it is off: what is still to collect and pay,
+    # the ITBIS charged on the sales already marked cobrado, and the counts by
+    # status. While it is off the web shows itbis_charged in ITBIS cobrado's place.
     cuentas_por_cobrar_minor: int | None = _settlement()
     cuentas_por_cobrar: str | None = _settlement()
     cuentas_por_pagar_minor: int | None = _settlement()
     cuentas_por_pagar: str | None = _settlement()
-    # ITBIS charged on the sales already marked cobrado.
-    itbis_cobrado_minor: int
-    itbis_cobrado: str
-    by_status: StatusTotals
-    # False while a document in this currency is still pendiente.
+    itbis_cobrado_minor: int | None = _settlement()
+    itbis_cobrado: str | None = _settlement()
+    by_status: StatusTotals | None = _settlement()
+    # False while a foreign line waits for a rate and, while settlement is on,
+    # while a document in this currency is still pendiente.
     net_result_final: bool
 
 

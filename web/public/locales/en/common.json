@@ -3859,6 +3859,11 @@
       "itbis_cobrado": "ITBIS collected",
       "itbis_credit_label": "ITBIS balance in your favor",
       "itbis_label": "ITBIS to pay",
+      "approved_figures": {
+        "copy_review": "pending_lucas",
+        "itbis_sales": "ITBIS on sales",
+        "net_detail": "Approved income minus expenses"
+      },
       "receipts_failed": "We couldn't load the receipt count. The month cannot be closed yet.",
       "receipts_loading": "Loading the receipt count. The month cannot be closed yet.",
       "receipts_unknown": "The receipt count is unavailable. The month cannot be closed yet.",

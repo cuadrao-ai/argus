@@ -10666,9 +10666,11 @@ accept path recorded.
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
   settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
-  is on (default off). While it is false the month close carries no settlement state, the open items read
-  and the settlement PATCH answer 404 `business_settlement_unavailable`, and the web shows no Por cobrar,
-  Por pagar or mark (see the [month-close contract](contracts/business-month-close.md)). `country` and `currency` are the Business's own,
+  is on (default off). While it is false the month close carries no settlement state, its net result
+  waits only on a rate, the open items read and the settlement PATCH answer 404
+  `business_settlement_unavailable`, and the web shows no Por cobrar, Por pagar or mark, and shows
+  ITBIS charged ("ITBIS en ventas") where ITBIS cobrado stood (see the
+  [month-close contract](contracts/business-month-close.md)). `country` and `currency` are the Business's own,
   the same values `GET /business/space` returns. `records_default_currency` is the
   server-owned initial Registros selection, currently DOP, independent of the
   Business currency. Its supported values are DOP, USD and EUR. The web waits for

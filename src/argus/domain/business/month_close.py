@@ -320,13 +320,16 @@ def _line(document: MonthDocument, settlement: bool = True) -> dict:
     return line
 
 
-#: A currency block's receivable and payable totals: Por cobrar and Por pagar.
+#: A currency block's figures that only cobrado, pagado or pendiente give.
 BLOCK_SETTLEMENT_FIELDS = frozenset(
     {
         "cuentas_por_cobrar_minor",
         "cuentas_por_cobrar",
         "cuentas_por_pagar_minor",
         "cuentas_por_pagar",
+        "itbis_cobrado_minor",
+        "itbis_cobrado",
+        "by_status",
     }
 )
 
@@ -347,10 +350,10 @@ def summarize(
     606 holds for a missing Forma de Pago, and ``missing`` what the 606 or 607
     still needs from each activity it holds, in the export's own words; the
     export owns both rules. ``closed`` is month completion alone. Without
-    ``settlement`` there are no receivables or payables and no status on a
-    line. ``by_status``, ``itbis_cobrado`` and ``net_result_final`` keep their
-    meaning either way: what they show while nobody can mark is the owner's
-    call, not this switch's."""
+    ``settlement`` nothing here says cobrado, pagado or pendiente: no
+    receivables or payables, no status on a line, no counts by status and no
+    ITBIS cobrado, and the net result (income minus expenses of the approved
+    records) waits only on a rate (Lucas, 2026-11-08)."""
 
     def line(document: MonthDocument) -> dict:
         return _line(document, settlement)
@@ -486,7 +489,8 @@ def summarize(
             "cuentas_por_pagar_minor": shown["cuentas_por_pagar"]["minor"],
             "cuentas_por_pagar": shown["cuentas_por_pagar"]["amount"],
             "by_status": status,
-            "net_result_final": pending_count == 0 and not pending_rate,
+            "net_result_final": (pending_count == 0 or not settlement)
+            and not pending_rate,
         }
         if not settlement:
             block = {

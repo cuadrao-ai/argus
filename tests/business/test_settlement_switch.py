@@ -1,11 +1,11 @@
 """Por cobrar and Por pagar behind one server switch, off by default.
 
-Off, the month close carries no receivables, payables or line status, the
-routes that only serve settlement refuse, the workspace says so, and an open
-receivable or payable never keeps a month from being ready for the 606 and
-607. The fiscal requirements still do. The net result, ITBIS cobrado and the
-counts by status keep their meaning: what they show while nobody can mark is
-the owner's call. On, the month close is what it was."""
+Off, the month close carries no receivables, payables, line status, counts by
+status or ITBIS cobrado, the routes that only serve settlement refuse, the
+workspace says so, and an open receivable or payable never keeps a month from
+being ready for the 606 and 607. The fiscal requirements still do. The net
+result is final unless a rate is pending, and ITBIS charged stands where ITBIS
+cobrado was (Lucas, 2026-11-08). On, the month close is what it was."""
 
 from __future__ import annotations
 
@@ -38,6 +38,9 @@ BLOCK_SETTLEMENT_KEYS = {
     "cuentas_por_cobrar_minor",
     "cuentas_por_pagar",
     "cuentas_por_pagar_minor",
+    "itbis_cobrado",
+    "itbis_cobrado_minor",
+    "by_status",
 }
 STANDING = {"606": "prepared_candidate", "607": "prepared_candidate"}
 
@@ -80,7 +83,12 @@ def _october(documents, settlement: bool, forms=STANDING) -> dict:  # noqa: ANN0
 def _lines(close: dict) -> list[dict]:
     return [
         line
-        for key in ("missing_rnc", "missing_ncf", "missing_payment_form", "missing_fiscal_data")
+        for key in (
+            "missing_rnc",
+            "missing_ncf",
+            "missing_payment_form",
+            "missing_fiscal_data",
+        )
         for line in close[key]
     ]
 
@@ -92,13 +100,19 @@ def _stripped(close: dict) -> dict:
         return {key: value for key, value in item.items() if key != "status"}
 
     shown = {key: value for key, value in close.items() if key not in SETTLEMENT_KEYS}
-    for key in ("missing_rnc", "ncf_malformed", "missing_ncf", "missing_payment_form", "missing_fiscal_data"):
+    for key in (
+        "missing_rnc",
+        "ncf_malformed",
+        "missing_ncf",
+        "missing_payment_form",
+        "missing_fiscal_data",
+    ):
         shown[key] = [line(item) for item in close[key]]
     shown["currencies"] = [
         {
             key: value
             for key, value in block.items()
-            if key not in BLOCK_SETTLEMENT_KEYS
+            if key not in BLOCK_SETTLEMENT_KEYS | {"net_result_final"}
         }
         for block in close["currencies"]
     ]
@@ -118,12 +132,49 @@ def test_off_the_month_close_carries_no_settlement_state() -> None:
     MonthClose.model_validate(with_unreviewed(close, 0))
 
 
-def test_off_the_net_result_and_itbis_cobrado_keep_their_meaning() -> None:
+def test_off_the_net_result_is_income_minus_expenses_without_waiting_on_marks() -> None:
+    [off] = _october(_open_month(), settlement=False)["currencies"]
+    assert off["net_result_final"] is True
+    assert off["net_result_minor"] == (
+        off["income_before_itbis_minor"] - off["expense_before_itbis_minor"]
+    )
+    assert (off["income_before_itbis_minor"], off["expense_before_itbis_minor"]) == (
+        10000,
+        2000,
+    )
+    loss = [
+        *_open_month(),
+        document(
+            activity_id="big",
+            role="receipt",
+            total_minor=118000,
+            itbis_minor=18000,
+            status="pendiente",
+        ),
+    ]
+    [negative] = _october(loss, settlement=False)["currencies"]
+    assert (negative["net_result_minor"], negative["net_result"]) == (-92000, "-920.00")
+    assert negative["net_result_final"] is True
+
+
+def test_off_a_pending_rate_still_holds_the_net() -> None:
+    dollars = [document(activity_id="usd", currency="USD", status="cobrado")]
+    [usd] = _october(dollars, settlement=False)["currencies"]
+    assert usd["net_result_final"] is False
+
+
+def test_off_itbis_charged_stands_and_itbis_cobrado_is_gone() -> None:
     [off] = _october(_open_month(), settlement=False)["currencies"]
     [on] = _october(_open_month(), settlement=True)["currencies"]
-    names = ("net_result_final", "itbis_cobrado_minor", "by_status")
-    assert {name: off[name] for name in names} == {name: on[name] for name in names}
-    assert off["net_result_final"] is False
+    assert (off["itbis_charged_minor"], off["itbis_charged"]) == (1800, "18.00")
+    assert off["itbis_charged_minor"] == on["itbis_charged_minor"]
+    assert {"itbis_cobrado", "itbis_cobrado_minor"}.isdisjoint(off)
+
+
+def test_on_the_net_result_still_waits_on_every_mark() -> None:
+    [on] = _october(_open_month(), settlement=True)["currencies"]
+    assert on["net_result_final"] is False
+    assert on["itbis_cobrado_minor"] == 0
 
 
 def test_off_open_receivables_and_payables_never_hold_filing_ready() -> None:
@@ -193,7 +244,11 @@ def test_off_the_api_hides_and_refuses_settlement(alice: Owner, settlement_off) 
     )
     mark = alice.client.patch(
         f"{BASE}/month-close/documents/{uuid4()}",
-        json={"status": "pagado", "settled_on": "2026-10-05", "payment_method": "efectivo"},
+        json={
+            "status": "pagado",
+            "settled_on": "2026-10-05",
+            "payment_method": "efectivo",
+        },
         headers={**alice.auth, "Idempotency-Key": str(uuid4())},
     )
     assert (mark.status_code, mark.json()["code"]) == (
