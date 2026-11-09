@@ -13,6 +13,7 @@ from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_av
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
 from argus.domain.business.annotations import annotation_available, current_note
+from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_settlement_enabled
 from argus.domain.business.contracts.actions import APPROVAL_ACTION
@@ -106,10 +107,11 @@ def _fiscal_records(tx: ActionTransaction, activities: list[dict[str, Any]]):  #
 def approval_of(
     receipt: Mapping[str, Any] | None,
     activity_id: UUID | None,
-    history: tuple[DraftRevision, ...],
+    approved_revision: Callable[[int], int],
 ) -> ApprovalResult | None:
     """What the latest approval receipt says: recorded once the draft holds its
-    activity, else the unsettled outcome it left, else nothing to show."""
+    activity, else the unsettled outcome it left, else nothing to show.
+    ``approved_revision`` reads the revision approved at a reviewed version."""
 
     if receipt is None:
         return None
@@ -119,10 +121,7 @@ def approval_of(
         return RecordedApproval(
             activity_id=activity_id,
             reviewed_version=version,
-            approved_revision=max(
-                (item.version for item in history if item.version <= version),
-                default=version,
-            ),
+            approved_revision=approved_revision(version),
             approved_at=receipt["created_at"],
             actor=receipt["actor"],
         )
@@ -273,10 +272,18 @@ def dossier(
         (tx.context.actor.space_id, str(draft_id), *approval_params),
     )
     revisions = tuple(DraftRevision.model_validate(row) for row in history)
+
+    def approved_revision(reviewed: int) -> int:
+        [row] = tx.rows(
+            approved_revision_sql("%s", "%s", "%s"),
+            (draft_id, tx.context.actor.space_id, reviewed),
+        )
+        return row["version"]
+
     approval = approval_of(
         approvals[0] if approvals else None,
         event.activity_id if event.accept_key else None,
-        revisions,
+        approved_revision,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
     approvable = not blocked and "approve" in tx.authorization.capabilities
