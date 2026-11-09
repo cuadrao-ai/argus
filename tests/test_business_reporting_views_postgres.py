@@ -138,3 +138,53 @@ def test_a_legacy_view_naming_the_removed_stage_lists_and_opens(actions):
             service.authority, context, ReportRequest(filters=view.recipe.filters)
         )
         assert answer.items == ()
+
+
+def test_saved_v2_layout_drops_removed_columns_and_keeps_review_stages(actions):
+    from argus.domain.business.reporting_preferences import ReportRequestV2
+    from argus.domain.business.reporting_store import read_report
+
+    service, context, _ = actions
+    old_order = [
+        "counterparty",
+        "date",
+        "gross_amount",
+        "currency",
+        "family",
+        "expense_type",
+        "payment_form",
+        "stage",
+        "note",
+        "attachment",
+        "funding",
+        "fiscal_number",
+        "itbis_amount",
+    ]
+    recipe = {
+        "schema_version": 2,
+        "filters": {"review_stages": ["ready_for_export", "exported"]},
+        "presentation": {"order": old_order, "hidden": ["family", "note"], "density": 56},
+    }
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into argus_private.business_saved_report_views (space_id,actor_id,name,recipe) values (%s,%s,%s,%s)",
+            (
+                context.actor.space_id,
+                context.actor.actor_id,
+                "Legacy layout",
+                Jsonb(recipe),
+            ),
+        )
+    [view] = list_views(service.authority, context)
+    assert view.recipe.presentation.order == tuple(
+        key for key in old_order if key not in {"currency", "family"}
+    )
+    assert view.recipe.presentation.hidden == ("note",)
+    assert view.recipe.presentation.density == 56
+    assert view.recipe.filters.review_stages == ("ready_for_export", "exported")
+    answer = read_report(
+        service.authority,
+        context,
+        ReportRequestV2.model_validate(view.recipe.model_dump()),
+    )
+    assert answer.presentation == view.recipe.presentation

@@ -123,7 +123,7 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
     <ToolbarPicker label={t("business.transactions.layout.filters.currency")} value={previewFilters.amount.currency}>
       {(close) => <div>{recordsCurrencySchema.options.map((currency) => <button key={currency} type="button" className={optionClass} onClick={() => { if (currency !== previewFilters.amount.currency) applyFilters({ ...previewFilters, amount: { currency, min: "", max: "" } }); close(); }}>{currency}{previewFilters.amount.currency === currency ? <Check className="h-4 w-4" aria-hidden="true" /> : null}</button>)}</div>}
     </ToolbarPicker>
-    {datePreview ? <RecordsFiltersPreview catalogues={connected?.catalogues} options={options} value={previewFilters} onChange={applyFilters} /> : <div className="ml-auto flex items-center gap-3">{options}</div>}
+    {datePreview ? <RecordsFiltersPreview purchase={filter.kind === "gasto"} catalogues={connected?.catalogues} options={options} value={previewFilters} onChange={applyFilters} /> : <div className="ml-auto flex items-center gap-3">{options}</div>}
     {filter.query && !searchInBar ? <div className="flex w-full items-center gap-2 pt-1">
       <button type="button" onClick={() => onChange({ ...filter, query: "" })} className="flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[13px] text-[#56635e] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white/65 dark:hover:bg-white/5"><X className="h-3.5 w-3.5" aria-hidden="true" />{t(datePreview ? "business.transactions.layout.clear_search" : "business.transactions.layout.clear")}</button>
     </div> : null}

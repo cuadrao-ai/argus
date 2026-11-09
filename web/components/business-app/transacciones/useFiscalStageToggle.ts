@@ -1,19 +1,21 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import type { ReviewFilter } from "./records-filter-preview-model";
+import type { PreviewFilters } from "./records-filter-preview-model";
 
-export function useFiscalStageToggle(selected: readonly ReviewFilter[], apply: (review: ReviewFilter[]) => void) {
-  const previous = useRef<ReviewFilter[] | null>(null);
+type FiscalSelection = Pick<PreviewFilters, "fiscal_data" | "review">;
+
+export function useFiscalStageToggle(selected: FiscalSelection, apply: (selection: FiscalSelection) => void) {
+  const previous = useRef<FiscalSelection | null>(null);
   const clear = useCallback(() => { previous.current = null; }, []);
   const toggle = () => {
-    if (selected.length === 1 && selected[0] === "fiscal") {
-      const restore = previous.current ?? [];
+    if (selected.fiscal_data === "missing" && selected.review.length === 0) {
+      const restore = previous.current ?? { fiscal_data: null, review: [] };
       clear();
       apply(restore);
     } else {
-      previous.current = [...selected];
-      apply(["fiscal"]);
+      previous.current = { fiscal_data: selected.fiscal_data, review: [...selected.review] };
+      apply({ fiscal_data: "missing", review: [] });
     }
   };
   return { toggle, clear };

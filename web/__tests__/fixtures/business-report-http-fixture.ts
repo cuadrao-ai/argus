@@ -60,6 +60,8 @@ export function createBusinessReportHttpFixture() {
       const report = reportRequestSchema.parse(body);
       let matching = records.filter((row) => !report.filters.q || text(`${row.counterparty} ${row.note} ${row.attachment_sources?.map((source) => source.filename).join(" ")}`).includes(text(report.filters.q)));
       matching = matching.filter((row) => row.family === report.filters.record_families[0]);
+      if (report.filters.fiscal_data !== null) matching = matching.filter((row) => row.fiscal_data === report.filters.fiscal_data);
+      if (report.filters.counterparties.length) matching = matching.filter((row) => row.counterparty_key && report.filters.counterparties.includes(row.counterparty_key));
       if (report.filters.review_stages.length) matching = matching.filter((row) => row.stage && report.filters.review_stages.includes(row.stage));
       if (report.filters.currencies.length) matching = matching.filter((row) => row.currency && report.filters.currencies.includes(row.currency));
       if (report.filters.expense_types.length) matching = matching.filter((row) => row.dgii_606 && report.filters.expense_types.includes(row.dgii_606.expense_type?.code ?? "missing"));
@@ -73,7 +75,7 @@ export function createBusinessReportHttpFixture() {
         totals: documentFamilyTotals(matching),
         fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: report.filters.period.kind === "latest_month" ? latestMonth(records) : { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
         counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: [{ code: "02", label: "Gastos por trabajos, suministros y servicios" }], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
-        ...controls.legacy ? {} : { overview: { ...controls.overview, ...("needs_fiscal_data" in controls.overview ? { needs_fiscal_data: matching.filter((row) => row.stage === "needs_fiscal_data").length } : {}) }, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
+        ...controls.legacy ? {} : { overview: { ...controls.overview, ...("needs_fiscal_data" in controls.overview ? { needs_fiscal_data: matching.filter((row) => row.fiscal_data === "missing").length } : {}) }, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
     }
     if (path.endsWith("/reports/export")) return controls.exportChanged ? problem(409, "business_report_changed") : new Response(new Uint8Array([80, 75, 3, 4]), { headers: { "Content-Type": "application/zip" } });
     if (path.endsWith("/report-views") && method === "GET") return Response.json(views);

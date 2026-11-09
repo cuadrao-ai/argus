@@ -3,7 +3,11 @@ from datetime import date
 import pytest
 from argus.domain.business.reporting_query import ReportFilters
 
-from tests.business.test_business_reporting_query import record, run
+from tests.business.test_business_reporting_query import (
+    FISCAL_DATA_BY_STAGE,
+    record,
+    run,
+)
 
 
 @pytest.mark.parametrize(
@@ -48,7 +52,15 @@ def test_fiscal_count_uses_each_table_filter_before_pagination(filters, excluded
     )
     rows = [matching.model_copy(update={"row_id": f"match-{i}"}) for i in range(30)]
     rows += [matching.model_copy(update={"row_id": "excluded", **excluded})]
-    rows += [matching.model_copy(update={"row_id": "ready", "stage": "ready_for_export"})]
+    rows += [
+        matching.model_copy(
+            update={
+                "row_id": "ready",
+                "stage": "ready_for_export",
+                "fiscal_data": FISCAL_DATA_BY_STAGE["ready_for_export"],
+            }
+        )
+    ]
     request_filters = ReportFilters(**filters)
     answer = run(rows, request_filters, page=2)
     assert answer.overview.needs_fiscal_data == 30

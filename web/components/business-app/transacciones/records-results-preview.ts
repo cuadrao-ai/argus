@@ -129,3 +129,10 @@ export function matchesPreviewPeriod(row: RecordRow, period: Period): boolean {
   if (period.key === "all") return true;
   return customPeriod(row.occurredOn, row.occurredOn) !== null && row.occurredOn >= period.from && row.occurredOn <= (period.to ?? todayIso());
 }
+
+export function matchesPreviewFiscalData(row: RecordRow, businessId: string | null, choice: "complete" | "missing" | null): boolean {
+  if (choice === null) return true;
+  const metadata = previewRecordMetadata(row, businessId);
+  if (!metadata || row.marks.personal || metadata.financialEligibility !== "confirmed") return false;
+  return choice === "missing" ? metadata.workflow === "fiscal" : metadata.workflow === "ready" || metadata.workflow === "exported";
+}

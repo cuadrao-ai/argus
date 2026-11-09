@@ -21,11 +21,10 @@ export const REPORT_DOCUMENT_KINDS = ["credit_note", "unknown"] as const satisfi
 const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
-export const REPORT_PRESENTATION_KEYS = ["counterparty", "date", "gross_amount", "currency", "family", "expense_type", "payment_form", "stage", "note", "attachment", "funding", "fiscal_number", "itbis_amount"] as const;
-const presentationKey = z.enum(REPORT_PRESENTATION_KEYS);
+export const REPORT_PRESENTATION_KEYS = ["counterparty", "fiscal_number", "date", "gross_amount", "itbis_amount", "stage", "note", "attachment", "expense_type", "payment_form", "funding"] as const;
 export const reportPresentationSchema = z.strictObject({
-  order: z.array(presentationKey).refine((values) => values[0] === "counterparty" && new Set(values).size === values.length && REPORT_PRESENTATION_KEYS.every((key) => key === "fiscal_number" || key === "itbis_amount" || values.includes(key))),
-  hidden: z.array(presentationKey).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount", "currency"].includes(key))),
+  order: z.array(z.enum([...REPORT_PRESENTATION_KEYS, "currency", "family"])).transform((values) => values.filter((key): key is typeof REPORT_PRESENTATION_KEYS[number] => key !== "currency" && key !== "family")).refine((values) => values[0] === "counterparty" && new Set(values).size === values.length && REPORT_PRESENTATION_KEYS.every((key) => key === "fiscal_number" || key === "itbis_amount" || values.includes(key))),
+  hidden: z.array(z.enum([...REPORT_PRESENTATION_KEYS, "currency", "family"])).transform((values) => values.filter((key): key is typeof REPORT_PRESENTATION_KEYS[number] => key !== "currency" && key !== "family")).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount"].includes(key))),
   density: z.union([z.literal(40), z.literal(48), z.literal(56)]),
 });
 const pageSize = z.union([z.literal(25), z.literal(50), z.literal(100)]);
@@ -39,6 +38,7 @@ export const reportFiltersSchema = z.strictObject({
   record_families: z.preprocess((value) => Array.isArray(value) && (value.length === 0 || value.length === 2 && value.includes("sale") && value.includes("purchase")) ? ["purchase"] : value, z.tuple([family]).default(["purchase"])),
   // A saved view or address bar may still name a stage the server dropped when drafts left Registros; it reads as no stage filter, never as a 422.
   review_stages: z.array(z.string()).default([]).transform((values): ReportStage[] => values.filter((value): value is ReportStage => stage.safeParse(value).success)),
+  fiscal_data: z.enum(["complete", "missing"]).nullable().default(null),
   has_document: z.boolean().nullable().default(null), currencies: z.array(z.string().regex(/^[A-Z]{3}$/)).max(200).default([]),
   amount_min: decimal.nullable().default(null), amount_max: decimal.nullable().default(null),
   counterparties: z.array(z.string().min(1).max(128)).max(200).default([]),
@@ -47,7 +47,7 @@ export const reportFiltersSchema = z.strictObject({
   expense_types: z.array(z.string().min(1).max(16)).max(20).default([]),
   funding_sources: z.array(z.string().min(1).max(128)).max(200).default([]), document_kinds: z.array(documentKind).default([]),
   fiscal_classifications: z.array(z.string().min(1).max(128)).max(100).default([]),
-});
+}).transform((filters) => filters.record_families[0] === "sale" ? { ...filters, expense_types: [] } : filters);
 const reportRecipeV1Schema = z.strictObject({
   schema_version: z.literal(1).default(1), filters: reportFiltersSchema.default(() => reportFiltersSchema.parse({})),
   columns: z.array(column).min(1).refine((values) => new Set(values).size === values.length).default(["date", "family", "stage", "counterparty", "currency", "gross_amount"]),
@@ -71,7 +71,7 @@ export const dgiiChoiceSchema = z.object({ code: z.string().min(1), label: z.str
 export const purchase606Schema = z.object({ expense_type: dgiiChoiceSchema.nullable(), payment_form: dgiiChoiceSchema.nullable() });
 export const reportRecordSchema = z.object({
   row_id: z.string().min(1), draft_id: z.string().nullable(), linked_activity_ids: z.array(z.string()), revision: count,
-  report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), export_missing: z.string().nullable().optional(), export_missing_several: z.boolean().optional(), export_line: z.boolean().optional(),
+  report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), fiscal_data: z.enum(["complete", "missing"]).nullable().optional(), export_missing: z.string().nullable().optional(), export_missing_several: z.boolean().optional(), export_line: z.boolean().optional(),
   technical_state: z.string().nullable(), workflow_blockers: z.array(z.string()), currency: z.string().nullable(), gross_amount: decimal.nullable(),
   itbis_amount: decimal.nullable().optional(), goods_amount: decimal.nullable().optional(), services_amount: decimal.nullable().optional(),
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),

@@ -2593,6 +2593,8 @@
             "other": "Other",
             "transport": "Transport"
           },
+          "counterparty_short_one": "Counterparty · {{count}}",
+          "counterparty_short_other": "Counterparty · {{count}}",
           "currency": "Currency",
           "date": {
             "from": "From",
@@ -2610,6 +2612,11 @@
             "e31": "E31 · Electronic tax credit",
             "e32": "E32 · Electronic consumer"
           },
+          "fiscal_data": {
+            "all": "All",
+            "complete": "Complete",
+            "missing": "Missing data"
+          },
           "groups": {
             "account": "Account",
             "amount": "Amount",
@@ -2618,6 +2625,7 @@
             "counterparty": "Counterparty",
             "document": "Document type",
             "fiscal": "Fiscal type",
+            "fiscal_data": "Fiscal data",
             "review": "Review"
           },
           "no_matches": "No options match this search.",
@@ -2713,6 +2721,8 @@
           "height": "Row height",
           "instructions": "Drag to reorder. With a keyboard, focus the six-dot handle and press Space, then ↑ or ↓. Space places it; Esc cancels.",
           "move": "Move {{name}}",
+          "move_down": "Move {{name}} down",
+          "move_up": "Move {{name}} up",
           "position_one": "{{name}}, position {{position}} of {{count}}",
           "position_other": "{{name}}, position {{position}} of {{count}}",
           "required": "Always visible",
