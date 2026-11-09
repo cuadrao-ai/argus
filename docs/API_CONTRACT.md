@@ -10667,8 +10667,9 @@ accept path recorded.
   settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
-  waits only on a rate, the open items read and the settlement PATCH answer 404
-  `business_settlement_unavailable`, and the web shows no Por cobrar, Por pagar or mark, and shows
+  waits only on a rate, the open items read and the settlement PATCH are refused with 404
+  `business_settlement_unavailable` before authentication (a malformed PATCH body can answer 422
+  first, as it does while the switch is on), and the web shows no Por cobrar, Por pagar or mark, and shows
   ITBIS charged ("ITBIS en ventas") where ITBIS cobrado stood (see the
   [month-close contract](contracts/business-month-close.md)). `country` and `currency` are the Business's own,
   the same values `GET /business/space` returns. `records_default_currency` is the

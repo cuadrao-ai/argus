@@ -56,7 +56,7 @@ function counted(client: MonthCloseClient) {
   return { calls, client: spy };
 }
 
-async function render(client: MonthCloseClient, settlement: boolean, layout: "finance" | "inicio") {
+async function render(client: MonthCloseClient, settlement: boolean, layout: "finance" | "inicio", headingAction?: import("react").ReactNode) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -71,7 +71,7 @@ async function render(client: MonthCloseClient, settlement: boolean, layout: "fi
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessMonthCloseView client={client} now={now} businessCurrency="DOP" settlement={settlement} layout={layout} review={{ count: 0, detail: null, open() {} }} />
+        <BusinessMonthCloseView client={client} now={now} businessCurrency="DOP" settlement={settlement} layout={layout} headingAction={headingAction} review={{ count: 0, detail: null, open() {} }} />
       </I18nextProvider>,
     );
   });
@@ -183,6 +183,30 @@ describe("Por cobrar and Por pagar while settlement is off", () => {
       }
     });
   }
+
+  test("inicio layout: the money section never renders while off, in a month with documents, an empty month, or under a heading action", async () => {
+    const empty = { ...offWire([]), reasons: [], missing_rnc: [], missing_fiscal_data: [] };
+    const cases: [string, MonthCloseClient, import("react").ReactNode][] = [
+      ["documents", offClient(), undefined],
+      ["empty month", offClient(empty), undefined],
+      ["heading action", offClient(), <button key="action" type="button">Exportar</button>],
+      ["empty month with a heading action", offClient(empty), <button key="action" type="button">Exportar</button>],
+    ];
+    for (const [name, client, headingAction] of cases) {
+      const { act, host, root } = await render(client, false, "inicio", headingAction);
+      try {
+        assert.equal(host.querySelector('[data-testid="month-close"]')?.getAttribute("data-layout"), "two-columns", name);
+        for (const id of ["month-close-money", "month-close-money-loading", "month-close-money-error", "month-close-receivable", "month-close-payable", "month-close-nothing-open"]) {
+          assert.equal(host.querySelector(`[data-testid="${id}"]`), null, `${name}: ${id}`);
+        }
+        assert.equal(host.querySelector("#month-close-money"), null, name);
+        assert.equal(/Pendiente hoy|Por cobrar|Por pagar/.test(host.textContent ?? ""), false, name);
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    }
+  });
 
   test("Inicio's sections leave out Cobros y pagos while it is off, and keep the person's order of the rest", () => {
     assert.deepEqual(homeSectionOrder(undefined, ["work", "month"]), ["work", "month"]);
