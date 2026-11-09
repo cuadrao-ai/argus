@@ -682,21 +682,10 @@ def answers_606(
     store = context.service.imports.store
     if not isinstance(store, GrantImportStore) or not activity_ids:
         return {}
-    repository = context.service.imports.money.repository
-    scope = context.scope
-    activities = [
-        activity
-        for identifier in dict.fromkeys(activity_ids)
-        if (
-            activity := repository.get_activity(
-                user_id=scope.person_id, activity_id=identifier, scope=scope.owner
-            )
-        )
-    ]
     return {
         identifier: answer.model_dump(mode="json") if answer else None
         for identifier, answer in read_606(
-            store.authority, store.context, activities
+            store.authority, store.context, activity_ids
         ).items()
     }
 

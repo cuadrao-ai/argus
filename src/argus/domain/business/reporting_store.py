@@ -448,19 +448,36 @@ def _projected(
 def read_606(
     authority: BusinessAuthority,
     context: ActionContext,
-    activities: Sequence[dict[str, Any]],
+    activity_ids: Sequence[str],
 ) -> dict[str, Purchase606 | None]:
-    """The 606 answers Registros shows for these money rows, by activity id,
-    reading only their approvals and drafts. A row Registros does not list
-    yet, while its approval settles, is left out."""
+    """The 606 answers Registros shows for these activities, by id, reading
+    only their money rows, approvals and drafts in one snapshot. An activity
+    outside this Business, or one whose approval is still settling, has none."""
 
     from argus.domain.business.contracts.facts import BusinessResolution
     from argus.domain.business.reporting_projection import current_marks, purchase_606
     from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+    from argus.domain.recording.activity_lookup import load as load_activity
 
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         live = _authorized(connection, context)
+        repository = PostgresFinancialAccountRepository(authority.pool)
+        activities = [
+            activity
+            for identifier in dict.fromkeys(activity_ids)
+            if (
+                activity := load_activity(
+                    repository,
+                    connection,
+                    live.context.owner_id,
+                    identifier,
+                    live.context.scope,
+                )
+            )
+        ]
+        if not activities:
+            return {}
         with connection.cursor(row_factory=dict_row) as cursor:
             approved, _, _ = fiscal_snapshot(
                 cursor, live.context, activities, only_these=True

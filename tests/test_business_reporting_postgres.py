@@ -8,6 +8,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import ApproveExpense, MarkPersonal
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.reporting import summarize
+from argus.domain.business.reporting_query import Purchase606
 from argus.domain.business.reporting_store import read_recorded
 
 from tests import test_business_actions_postgres as shared
@@ -822,6 +823,89 @@ def test_expense_detail_and_search_carry_the_606_answers_registros_shows(
     found = {**hits("PRÁCTICA"), **hits("850")}
     for activity in (*purchases, sold):
         assert found[activity]["dgii_606"] == registros[activity], activity
+
+
+def test_606_answers_of_one_record_read_only_its_approval_and_draft(actions, monkeypatch):
+    """Among several approved records, the answers of one read that record's
+    approval and draft and no other row."""
+
+    from argus.domain.business import reporting_store
+    from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+
+    service, context, _ = actions
+    asked, *_others = [record_expense(service, context)[1] for _ in range(3)]
+    read: list[str] = []
+
+    class Spy:
+        def __init__(self, cursor):  # noqa: ANN001
+            self._cursor = cursor
+
+        def __getattr__(self, name: str):  # noqa: ANN204
+            return getattr(self._cursor, name)
+
+        def fetchall(self) -> list:
+            rows = self._cursor.fetchall()
+            read.extend(str(row["activity_id"]) for row in rows)
+            return rows
+
+    snapshot = reporting_store.fiscal_snapshot
+    monkeypatch.setattr(
+        reporting_store,
+        "fiscal_snapshot",
+        lambda cursor, *args, **kwargs: snapshot(Spy(cursor), *args, **kwargs),
+    )
+    rows = _PostgresTx._rows
+
+    def drafts(self, statement, params):  # noqa: ANN001, ANN202
+        found = rows(self, statement, params)
+        read.extend(row["activity_id"] for row in found)
+        return found
+
+    monkeypatch.setattr(_PostgresTx, "_rows", drafts)
+    answers = reporting_store.read_606(service.authority, context, [asked])
+    assert answers == {asked: Purchase606(expense_type=None, payment_form=None)}
+    # One approval row and one draft row, both of the record asked for.
+    assert read == [asked, asked]
+
+
+def test_606_answers_never_reach_another_business_of_the_same_owner(actions):
+    """An activity of the owner's other Business has no answers here, and
+    each read below the activity lookup holds its own space condition."""
+
+    from argus.domain.business.dgii_snapshot import fiscal_snapshot
+    from argus.domain.business.reporting_store import _RECORDED_DRAFT_STATES, read_606
+    from argus.domain.business.spaces import PostgresSpaceStore
+    from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+    from argus.domain.recording.postgres_repository import (
+        PostgresFinancialAccountRepository,
+    )
+    from psycopg.rows import dict_row
+
+    service, context, _ = actions
+    _, here = record_expense(service, context)
+    second, _ = PostgresSpaceStore(service.authority.pool).create_additional(
+        context.owner_id, "Segunda", "DO", str(uuid4())
+    )
+    elsewhere = service.resolve_actor(
+        TrustedActor(actor_id=context.owner_id, actor_kind="member", space_id=second.id)
+    )
+    draft, there = record_expense(service, elsewhere)
+    assert elsewhere.owner_id == context.owner_id
+
+    assert read_606(service.authority, context, [here, there]).keys() == {here}
+    assert read_606(service.authority, elsewhere, [there]).keys() == {there}
+
+    foreign = PostgresFinancialAccountRepository(service.authority.pool).get_activity(
+        user_id=elsewhere.owner_id, activity_id=there, scope=elsewhere.scope
+    )
+    with service.authority.pool.connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            [record], _, _ = fiscal_snapshot(cursor, context, [foreign], only_these=True)
+        assert record.draft_id == ""
+        events = _PostgresTx(connection, context.owner_id, context.scope).events_of(
+            _RECORDED_DRAFT_STATES, [str(draft)], [there]
+        )
+        assert events == []
 
 
 def test_each_offered_document_kind_filter_matches_a_record_of_that_kind(actions):
