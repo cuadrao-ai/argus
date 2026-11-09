@@ -37,13 +37,9 @@ import { currencyDigits, minorToDecimal } from "./money-entry";
  * An e-CF is `E` plus 12 digits and satisfies the comprobante requirement on
  * its own.
  *
- * `canCloseMonth` and `monthCloseBlockers` are the pure month-completion gate
- * the sample books use: one calendar month, not already closed, every document
- * with an RNC and either an NCF or an e-CF, no draft still unreviewed. They
- * never say the 606 or 607 is ready. That verdict is the export's own:
- * `dgii_forms` (`dgiiFormsReady`) and each document's `missing`, the server's
- * `missing_fiscal_data`, which Inicio and Exportar both read. No screen
- * derives it from `closed`.
+ * Whether the 606 or 607 is ready is the export's own verdict: `dgii_forms`
+ * and each document's `missing`, the server's `missing_fiscal_data`, which
+ * Inicio and Exportar both read. No screen derives it from `closed`.
  *
  * Por cobrar and Por pagar sit behind the server's one switch, the workspace's
  * `settlement_available`. While it is off the month read carries no
@@ -113,7 +109,6 @@ export type MonthCloseSnapshot = {
   month: string | null;
   from: string;
   to: string;
-  closed_at: string | null;
   /** The server's day, `YYYY-MM-DD`. Null from an older server. */
   today: string | null;
   /** The first month with a document the close shows. Null when there is none yet, or from an older server. */
@@ -123,14 +118,10 @@ export type MonthCloseSnapshot = {
   /** Each form's status word from the export packet for this calendar month. Null from an older server. */
   dgii_forms: DgiiForms | null;
   documents: MonthCloseDocument[];
-  /** Server-derived close. The mock still records `closed_at` when the sample month is locked. */
+  /** Server-derived month completion. */
   closed?: boolean;
-  /** Present means these blockers, including none. Absent means derive them from the documents. */
-  blockers?: MonthCloseBlocker[];
   /** Drafts still in the Bandeja for this month. Zero when the server omits the count. */
   unreviewed_movements: number;
-  /** The server's one fact "ready for the 606 and 607": both forms stand and no step of the month remains. Null or absent (an older server) is never ready. */
-  filing_ready?: boolean | null;
   /** One block per currency the month holds, in the server's order. A month with no documents has none. */
   figures: MonthCloseFigures[];
   /** Para cerrar's "Faltan datos fiscales" rows as the server counts them, Compras first. Null from an older server: unknown, never none. */
@@ -162,6 +153,12 @@ export type MonthCloseFigures = {
   net_result_final: boolean | null;
   /** This currency's pendiente invoices and receipts, from `by_status`. */
   pending_count: number | null;
+  /** How many of the month's documents in this currency the figures count. Null from an older server. */
+  documents_counted: number | null;
+  /** The month's documents in this currency, the Bandeja's included. Null from an older server. */
+  documents_total: number | null;
+  /** The month's documents in this currency the Bandeja still holds. Null from an older server. */
+  documents_in_bandeja: number | null;
 };
 
 /** The export packet's own status words. Only `prepared_candidate` means the ZIP carries the form's TXT. */
@@ -169,41 +166,6 @@ export const DGII_FORM_STATUSES = ["no_aplica", "needs_review", "summary_only", 
 export type DgiiFormStatus = (typeof DGII_FORM_STATUSES)[number];
 /** A word this web does not know yet is null for that form: unknown. */
 export type DgiiForms = { "606": DgiiFormStatus | null; "607": DgiiFormStatus | null };
-
-/** The export says both forms stand: nothing to review on either, and the Business files (`no_aplica` means it has no RNC). Unknown is never ready. */
-export function dgiiFormsReady(forms: DgiiForms | null): boolean {
-  if (!forms) return false;
-  return ([forms["606"], forms["607"]] as const).every((status) => status !== null && status !== "needs_review" && status !== "no_aplica");
-}
-
-/**
- * Close blockers. Fiscal gaps lock the month. The two statement kinds are
- * part of the same union so a later count can be added without a new gate.
- * This screen does not render them.
- */
-export type MonthCloseBlocker =
-  | { kind: "missing_rnc"; id: string; documentId: string }
-  | { kind: "missing_ncf"; id: string; documentId: string }
-  | { kind: "statement_missing" }
-  | { kind: "unmatched_charges"; count: number };
-
-export const statementMissingBlocker: MonthCloseBlocker = { kind: "statement_missing" };
-
-/** A count of charges with no receipt. Zero is not a state. */
-export function unmatchedCharges(count: number): MonthCloseBlocker {
-  if (!Number.isInteger(count) || count < 1) throw new MonthCloseError("unavailable", "unmatched charges need a count");
-  return { kind: "unmatched_charges", count };
-}
-
-export function isFiscalBlocker(
-  blocker: MonthCloseBlocker,
-): blocker is Extract<MonthCloseBlocker, { kind: "missing_rnc" | "missing_ncf" }> {
-  return blocker.kind === "missing_rnc" || blocker.kind === "missing_ncf";
-}
-
-export type MonthCloseGate =
-  | { ok: true; month: string }
-  | { ok: false; reason: "not_calendar_month" | "closed" | "blockers" };
 
 /** A pending or unknown month has no money string. A final month has the net and nothing else that could be read as a second total. */
 export type MonthCloseNetDisplay =
@@ -255,8 +217,6 @@ export type MonthCloseClient = {
   markPagado(documentId: string, scope?: string, settlement?: MonthCloseSettlement): Promise<MonthCloseDocument>;
   /** Back to `pendiente`, which returns the document to the open items: Deshacer after a mark. */
   markPendiente(documentId: string, scope?: string): Promise<void>;
-  /** The sample client locks the month locally. The HTTP client has no close request. */
-  closeMonth(month: string, scope?: string): Promise<MonthCloseSnapshot>;
 };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -300,10 +260,10 @@ export function fiscalNumberPresent(document: Pick<MonthCloseDocument, "ncf" | "
  * Base is the total minus a stated ITBIS (a missing ITBIS counts as zero).
  */
 export function monthCloseFiguresFrom(documents: readonly MonthCloseDocument[]): MonthCloseFigures[] {
-  const books = new Map<string, { invoiceBase: bigint; receiptBase: bigint; invoiceItbis: bigint; receiptItbis: bigint; collectedItbis: bigint; pending: number }>();
+  const books = new Map<string, { invoiceBase: bigint; receiptBase: bigint; invoiceItbis: bigint; receiptItbis: bigint; collectedItbis: bigint; pending: number; documents: number }>();
   for (const document of documents) {
     if (document.currency === null || document.amount === null) continue;
-    const book = books.get(document.currency) ?? { invoiceBase: ZERO, receiptBase: ZERO, invoiceItbis: ZERO, receiptItbis: ZERO, collectedItbis: ZERO, pending: 0 };
+    const book = books.get(document.currency) ?? { invoiceBase: ZERO, receiptBase: ZERO, invoiceItbis: ZERO, receiptItbis: ZERO, collectedItbis: ZERO, pending: 0, documents: 0 };
     const itbis = toMinor(document.itbis ?? "0", document.currency);
     const base = toMinor(document.amount, document.currency) - itbis;
     if (document.kind === "invoice") {
@@ -315,6 +275,7 @@ export function monthCloseFiguresFrom(documents: readonly MonthCloseDocument[]):
       book.receiptItbis += itbis;
     }
     if (document.status === "pendiente") book.pending += 1;
+    book.documents += 1;
     books.set(document.currency, book);
   }
   return [...books].sort(([left], [right]) => left.localeCompare(right)).map(([currency, book]) => ({
@@ -327,6 +288,9 @@ export function monthCloseFiguresFrom(documents: readonly MonthCloseDocument[]):
     itbis_charged: minorToDecimal(book.invoiceItbis, currency),
     net_result_final: book.pending === 0,
     pending_count: book.pending,
+    documents_counted: book.documents,
+    documents_total: book.documents,
+    documents_in_bandeja: 0,
   }));
 }
 
@@ -465,16 +429,6 @@ export function calendarDay(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-/** Documents that cannot go into 606/607 yet: missing RNC, or missing both NCF and e-CF. */
-export function monthCloseBlockers(documents: readonly MonthCloseDocument[]): MonthCloseBlocker[] {
-  const blockers: MonthCloseBlocker[] = [];
-  for (const document of sortDocuments(documents, "oldest")) {
-    if (!rncPresent(document.rnc)) blockers.push({ id: `${document.id}:missing_rnc`, documentId: document.id, kind: "missing_rnc" });
-    if (!fiscalNumberPresent(document)) blockers.push({ id: `${document.id}:missing_ncf`, documentId: document.id, kind: "missing_ncf" });
-  }
-  return blockers;
-}
-
 function lastDayOfMonth(year: number, month: number): string {
   const date = new Date(year, month, 0);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -553,34 +507,6 @@ export function monthCloseRequestPath(month: string): string {
   if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
   return `/business/month-close?${new URLSearchParams({ month }).toString()}`;
 }
-
-/**
- * Pure close gate. The month-close button and the Exportar 606/607 checklist
- * both call this. Pending collection or payment is not an input.
- */
-export function canCloseMonth(snapshot: Pick<MonthCloseSnapshot, "month" | "closed_at" | "documents" | "blockers" | "closed" | "unreviewed_movements">): MonthCloseGate {
-  if (!snapshot.month) return { ok: false, reason: "not_calendar_month" };
-  if (snapshot.unreviewed_movements > 0) return { ok: false, reason: "blockers" };
-  if (snapshot.closed_at || snapshot.closed) return { ok: false, reason: "closed" };
-  const blockers = snapshot.blockers ?? monthCloseBlockers(snapshot.documents);
-  if (blockers.some(isFiscalBlocker)) return { ok: false, reason: "blockers" };
-  return { ok: true, month: snapshot.month };
-}
-
-export function monthFilingNotice(
-  snapshot: Pick<MonthCloseSnapshot, "closed" | "closed_at" | "blockers" | "documents" | "unreviewed_movements">,
-): boolean {
-  if (snapshot.unreviewed_movements > 0) return false;
-  if (snapshot.closed_at) return false;
-  if (snapshot.closed === true) return true;
-  if (snapshot.closed === false) return false;
-  if (snapshot.documents.length === 0) return false;
-  const blockers = snapshot.blockers ?? monthCloseBlockers(snapshot.documents);
-  return !blockers.some(isFiscalBlocker);
-}
-
-/** Same function as `canCloseMonth`. */
-export const closeGate = canCloseMonth;
 
 export function sortDocuments(documents: readonly MonthCloseDocument[], order: "newest" | "oldest"): MonthCloseDocument[] {
   return [...documents].sort((left, right) => {
@@ -690,21 +616,19 @@ export function windowForMonth(month: string): MonthCloseWindow {
 
 /**
  * The sample books' month as the server sends it. With `settlement` off, as the server with the switch off: no
- * statuses, methods, counts by status or ITBIS cobrado, a net that waits on nothing to mark, and no open document
- * holding filing.
+ * statuses, methods, counts by status or ITBIS cobrado, and a net that waits on nothing to mark.
  */
-function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthCloseWindow, today: string, closedAt: Map<string, string>, settlement = true): MonthCloseSnapshot {
+function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthCloseWindow, today: string, settlement = true): MonthCloseSnapshot {
   const to = window.to ?? today;
   const month = calendarMonthOf(window.from, window.to, today);
   const inWindow = documentsInWindow(documents, window.from, to);
   if (!settlement) {
     const shown = inWindow.map((document) => ({ ...document, status: null }));
     return {
-      ...snapshotFor(documents, window, today, closedAt),
+      ...snapshotFor(documents, window, today),
       payment_methods: null,
       documents: shown,
       figures: monthCloseFiguresFrom(inWindow).map((block) => ({ ...block, itbis_cobrado: null, pending_count: null, net_result_final: true })),
-      filing_ready: dgiiFormsReady(sampleForms(inWindow, to, today)) && inWindow.every((document) => !document.missing),
     };
   }
   return {
@@ -712,7 +636,6 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
     today,
     from: window.from,
     to,
-    closed_at: month ? closedAt.get(month) ?? null : null,
     earliest_month: earliestMonthOf(documents),
     payment_methods: SAMPLE_PAYMENT_METHODS,
     dgii_forms: sampleForms(inWindow, to, today),
@@ -720,7 +643,6 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
     figures: monthCloseFiguresFrom(inWindow),
     fiscal_rows: monthCloseFiscalRowsFrom(inWindow),
     unreviewed_movements: 0,
-    filing_ready: dgiiFormsReady(sampleForms(inWindow, to, today)) && inWindow.every((document) => document.status !== "pendiente" && !document.missing),
   };
 }
 
@@ -766,19 +688,14 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
   const now = options.now ?? new Date();
   const today = calendarDay(now);
   const failIds = new Set(options.failIds ?? []);
-  const books = new Map<string, { documents: MonthCloseDocument[]; closedAt: Map<string, string> }>();
+  const books = new Map<string, { documents: MonthCloseDocument[] }>();
 
   function book(scope = "default") {
     const existing = books.get(scope);
     if (existing) return existing;
-    const created = { documents: options.empty ? [] : monthCloseSampleDocuments(now, options.dollars), closedAt: new Map<string, string>() };
+    const created = { documents: options.empty ? [] : monthCloseSampleDocuments(now, options.dollars) };
     books.set(scope, created);
     return created;
-  }
-
-  function requireOpen(scope: string, document: MonthCloseDocument): void {
-    const month = document.occurred_on.slice(0, 7);
-    if (book(scope).closedAt.has(month)) throw new MonthCloseError("closed", "month is closed");
   }
 
   function mark(scope: string, documentId: string, kind: MonthCloseKind, status: MonthCloseStatus): MonthCloseDocument {
@@ -787,7 +704,6 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
     if (!document) throw new MonthCloseError("not_found", "document not found");
     if (failIds.has(documentId)) throw new MonthCloseError("unavailable", "mark failed");
     if (document.kind !== kind) throw new MonthCloseError("invalid_status", "status does not fit the document");
-    requireOpen(scope, document);
     const next = { ...document, status };
     current.documents = current.documents.map((item) => (item.id === documentId ? next : item));
     return next;
@@ -797,7 +713,7 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
     mode: "mock",
     async load(month, scope = "default") {
       const current = book(scope);
-      return snapshotFor(current.documents, windowForMonth(month), today, current.closedAt, options.settlement ?? true);
+      return snapshotFor(current.documents, windowForMonth(month), today, options.settlement ?? true);
     },
     async openItems(scope = "default") {
       return openItemsFrom(book(scope).documents, today);
@@ -812,18 +728,6 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
       const document = book(scope).documents.find((item) => item.id === documentId);
       if (!document) throw new MonthCloseError("not_found", "document not found");
       mark(scope, documentId, document.kind, "pendiente");
-    },
-    async closeMonth(month, scope = "default") {
-      if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
-      const current = book(scope);
-      const [year, monthNumber] = month.split("-").map(Number);
-      const from = `${month}-01`;
-      const to = lastDayOfMonth(year, monthNumber);
-      const included = documentsInWindow(current.documents, from, to);
-      const gate = canCloseMonth({ month, closed_at: current.closedAt.get(month) ?? null, documents: included, unreviewed_movements: 0 });
-      if (!gate.ok && gate.reason === "blockers") throw new MonthCloseError("blockers", "month still has blockers");
-      if (!current.closedAt.has(month)) current.closedAt.set(month, new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0).toISOString());
-      return snapshotFor(current.documents, { from, to }, today, current.closedAt, options.settlement ?? true);
     },
   };
 }
@@ -988,8 +892,18 @@ function readFigures(value: unknown): MonthCloseFigures[] {
       itbis_charged: figure("itbis_charged"),
       net_result_final: typeof block.net_result_final === "boolean" ? block.net_result_final : null,
       pending_count: pendingCount(block.by_status),
+      documents_counted: documentCount(block.documents_counted),
+      documents_total: documentCount(block.documents_total),
+      documents_in_bandeja: documentCount(block.documents_in_bandeja),
     };
   });
+}
+
+/** One of a block's document counts; an older server sends none, which is unknown. */
+function documentCount(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) throw new MonthCloseError("unavailable", "month close document count is unknown");
+  return value;
 }
 
 /** Pendiente invoices plus pendiente receipts in one block's `by_status`; null when the block does not send them. */
@@ -1055,7 +969,6 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
   const malformedLines = value.ncf_malformed ?? [];
   if (!Array.isArray(malformedLines)) throw new MonthCloseError("unavailable", "month close documents are missing");
   const malformed = new Set(malformedLines.map((item) => readWireLine(item).activity_id));
-  const blockers: MonthCloseBlocker[] = [];
   let unreviewedFromReason: number | undefined;
   for (const reason of value.reasons) {
     if (!isRecord(reason) || typeof reason.code !== "string") throw new MonthCloseError("unavailable", "month close document was not an object");
@@ -1066,8 +979,6 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     }
     if (reason.code !== "missing_rnc" && reason.code !== "missing_ncf") throw new MonthCloseError("unavailable", "month close document was not an object");
     if (typeof reason.activity_id !== "string") throw new MonthCloseError("unavailable", "month close document was not an object");
-    const code = reason.code === "missing_rnc" ? "missing_rnc" : "missing_ncf";
-    blockers.push({ kind: code, id: `${reason.activity_id}:${code}`, documentId: reason.activity_id });
   }
   const unreviewedFromField = value.unreviewed_movements_count === undefined ? undefined : readWholeCount(value.unreviewed_movements_count);
   if (unreviewedFromReason !== undefined && unreviewedFromField !== undefined && unreviewedFromReason !== unreviewedFromField) {
@@ -1082,17 +993,14 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     today: readDay(value.today),
     from: value.from,
     to: value.to,
-    closed_at: null,
     closed: value.closed,
     earliest_month: value.earliest_month ?? null,
     payment_methods: readPaymentMethods(value.payment_methods),
     dgii_forms: readDgiiForms(value.dgii_forms),
     documents: lines.map((line) => wireDocument(line, malformed.has(line.activity_id))),
-    blockers,
     figures: readFigures(value.currencies),
     fiscal_rows: readFiscalRows(value.missing_fiscal_rows),
     unreviewed_movements,
-    filing_ready: typeof value.filing_ready === "boolean" ? value.filing_ready : null,
   };
 }
 
@@ -1225,9 +1133,6 @@ export function createHttpMonthCloseClient(transport: MonthCloseTransport = (pat
     async markPendiente(documentId) {
       const saved = await readTransport(transport, monthCloseReopenRequest(documentId));
       if (!isRecord(saved) || saved.status !== "pendiente") throw new MonthCloseError("unavailable", "month close status does not fit the document");
-    },
-    async closeMonth() {
-      throw new MonthCloseError("unavailable", "the month closes from the recorded documents");
     },
   };
 }

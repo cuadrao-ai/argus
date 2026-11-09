@@ -6,7 +6,6 @@ import { Check, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { resolveLanguage } from "@/lib/language-features";
-import { currencySymbol } from "@/lib/money-entry";
 
 function currencyName(code: string, locale: string): string {
   try {
@@ -17,32 +16,25 @@ function currencyName(code: string, locale: string): string {
   }
 }
 
-function listOf(items: readonly string[], locale: string): string {
-  try {
-    return new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(items);
-  } catch {
-    return items.join(", ");
-  }
-}
-
 /**
- * Moneda: which currency the month's figures show, when the month holds more
- * than one. The code is the button; the line beside it names the others, so no
- * currency hides. Nothing converts: each choice shows that currency's own block.
+ * Moneda: which currency the figures show, when there is more than one. The ISO code is the button ("DOP"); the
+ * list names each currency ("DOP · Peso dominicano") with its document count when the screen has one. Nothing
+ * converts: each choice shows that currency's own figures.
  */
 export function MonthCurrencyMenu({
   currencies,
   value,
-  businessCurrency,
   onChoose,
+  counts,
   note,
 }: {
-  /** The month's currencies, the Business currency first. */
+  /** The currencies, the Business currency first. */
   currencies: readonly string[];
   value: string;
-  businessCurrency: string | null;
   onChoose: (currency: string) => void;
-  /** Replaces the line that names the other currencies, for a screen that says more about them. */
+  /** Each currency's document count, from the server, beside its name. */
+  counts?: Readonly<Record<string, number>>;
+  /** A screen's own line beside the button (Registros names what each other currency holds). */
   note?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
@@ -54,7 +46,6 @@ export function MonthCurrencyMenu({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
-  const others = currencies.filter((currency) => currency !== value).map(currencySymbol);
 
   function close() {
     setOpen(false);
@@ -131,11 +122,7 @@ export function MonthCurrencyMenu({
         {value}
         <ChevronDown className="h-4 w-4 text-black/60 dark:text-white/60" aria-hidden="true" />
       </button>
-      {note !== undefined ? note : others.length > 0 ? (
-        <p data-testid="month-close-currency-others" className="text-[13px] text-[#56635e] dark:text-white/70">
-          {t("business.month_close.currency_others", { currencies: listOf(others, locale) })}
-        </p>
-      ) : null}
+      {note ?? null}
       <p role="status" data-testid="month-close-currency-announce" className="sr-only">
         {announced ? t("business.month_close.currency_announce", { currency: announced }) : ""}
       </p>
@@ -168,12 +155,9 @@ export function MonthCurrencyMenu({
                 onClick={() => choose(currency)}
                 className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-item px-3 py-1.5 text-black dark:text-white ${index === active ? "bg-black/5 dark:bg-white/5" : ""}`}
               >
-                <span className="w-9 shrink-0 text-[13px] font-medium tabular-nums text-[#56635e] dark:text-white/70">{currency}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px]">{currencyName(currency, locale)}</span>
-                  {currency === businessCurrency ? <span className="block text-[12px] text-[#56635e] dark:text-white/70">{t("business.month_close.currency_business")}</span> : null}
-                </span>
-                {selected ? <Check className="h-4 w-4 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" /> : null}
+                <span className="min-w-0 flex-1 text-[15px]"><span className="font-medium tabular-nums">{currency}</span>{` · ${currencyName(currency, locale)}`}</span>
+                {counts?.[currency] !== undefined ? <span data-testid="month-close-currency-count" className="shrink-0 text-[13px] tabular-nums text-[#56635e] dark:text-white/70">{counts[currency]}</span> : null}
+                <Check className={`h-4 w-4 shrink-0 text-[var(--cuadrao-green)] ${selected ? "" : "invisible"}`} aria-hidden="true" />
               </li>
             );
           })}

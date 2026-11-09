@@ -79,6 +79,17 @@ export function formatMoney(
   return `${negative ? "-" : ""}${currencySymbol(currency)} ${negative ? number.slice(1) : number}`;
 }
 
+/**
+ * A non-zero amount that whole units would show as 0, rounding half up from the decimal text: an overview total says
+ * "menos de RD$ 1" instead, never "RD$ 0".
+ */
+export function belowOneUnit(amount: string | null): boolean {
+  const match = DECIMAL_AMOUNT.exec(amount?.trim() ?? "");
+  if (!match) return false;
+  const [, , whole, fraction = ""] = match;
+  return !/[1-9]/.test(whole) && /[1-9]/.test(fraction) && fraction[0] < "5";
+}
+
 export function formatDay(day: string | null, locale: string): string {
   if (!day) return "";
   const date = new Date(`${day.slice(0, 10)}T12:00:00`);

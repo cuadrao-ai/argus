@@ -4023,10 +4023,9 @@
       "copy_review": "pending_lucas",
       "lead": "Finish these steps to start receiving and reviewing documents.",
       "optional": "Optional",
-      "progress": "{{done}} of {{total}} done",
       "remaining_one": "1 step left",
       "remaining_other": "{{count}} steps left",
-      "see_all": "See all steps",
+      "ring_label": "Set up business, {{done}} of {{total}} steps done",
       "steps": {
         "created": {
           "body": "Name and country of operation.",
@@ -4058,6 +4057,55 @@
         }
       },
       "title": "Set up business"
+    },
+    "inicio": {
+      "attention": {
+        "clear_body": "Nothing is waiting for your review.",
+        "clear_title": "All caught up",
+        "error": "We couldn't load what's pending.",
+        "first_day_add": "Add a document",
+        "first_day_channels": {
+          "web": "Every invoice or receipt you upload shows up here ready to review.",
+          "web_email": "Every invoice or receipt you upload or forward by email shows up here ready to review.",
+          "web_email_whatsapp": "Every invoice or receipt you upload, forward by email or send by WhatsApp shows up here ready to review.",
+          "web_whatsapp": "Every invoice or receipt you upload or send by WhatsApp shows up here ready to review."
+        },
+        "first_day_title": "Here you'll see what's waiting for your review.",
+        "loading": "Loading the Inbox",
+        "resolve": "Resolve",
+        "review": "Review",
+        "see_all": "See all",
+        "title": "Needs attention",
+        "untitled": "Untitled document",
+        "whatsapp_photo": "WhatsApp photo"
+      },
+      "copy_review": "pending_lucas",
+      "month": {
+        "expenses": "Expenses",
+        "first_day": "The figures fill in when you approve your first documents.",
+        "fiscal_one": "Missing tax details in 1 record",
+        "fiscal_other": "Missing tax details in {{count}} records",
+        "in_bandeja": "{{count}} in the Inbox",
+        "included_all_one": "Includes the only document",
+        "included_all_other": "Includes all {{count}} documents",
+        "included_some_one": "Includes {{counted}} of 1 document",
+        "included_some_other": "Includes {{counted}} of {{count}} documents",
+        "income": "Income",
+        "itbis_purchases": "ITBIS on purchases",
+        "itbis_sales": "ITBIS on sales",
+        "net": "Net result",
+        "review": "Review",
+        "see": "See",
+        "terms": {
+          "expenses": "Approved purchases and expenses for the month, before ITBIS.",
+          "fiscal": "The RNC or NCF the 606 or 607 needs.",
+          "income": "Approved sales for the month, before ITBIS.",
+          "itbis_purchases": "ITBIS paid on your approved purchases.",
+          "itbis_sales": "ITBIS charged on your approved sales.",
+          "net": "Approved income minus expenses for the month, before ITBIS."
+        },
+        "under_one": "less than {{amount}}"
+      }
     },
     "receipt": {
       "untitled": "Receipt"

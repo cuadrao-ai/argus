@@ -3327,10 +3327,9 @@
       "copy_review": "pending_lucas",
       "lead": "Completa estos pasos para empezar a recibir y revisar documentos.",
       "optional": "Opcional",
-      "progress": "{{done}} de {{total}} listos",
       "remaining_one": "Falta 1 paso",
       "remaining_other": "Faltan {{count}} pasos",
-      "see_all": "Ver todos los pasos",
+      "ring_label": "Configurar negocio, {{done}} de {{total}} pasos listos",
       "steps": {
         "created": {
           "body": "Nombre y país de operación.",
@@ -3362,6 +3361,55 @@
         }
       },
       "title": "Configurar negocio"
+    },
+    "inicio": {
+      "attention": {
+        "clear_body": "Nada espera tu revisión.",
+        "clear_title": "Todo al día",
+        "error": "No pudimos cargar lo pendiente.",
+        "first_day_add": "Agregar un documento",
+        "first_day_channels": {
+          "web": "Cada factura o recibo que subas aparece aquí listo para revisar.",
+          "web_email": "[PENDIENTE COPY] Cada factura o recibo que subas o reenvíes por correo aparece aquí listo para revisar.",
+          "web_email_whatsapp": "[PENDIENTE COPY] Cada factura o recibo que subas, reenvíes por correo o mandes por WhatsApp aparece aquí listo para revisar.",
+          "web_whatsapp": "[PENDIENTE COPY] Cada factura o recibo que subas o mandes por WhatsApp aparece aquí listo para revisar."
+        },
+        "first_day_title": "Aquí verás lo que espera tu revisión.",
+        "loading": "Cargando la Bandeja",
+        "resolve": "Resolver",
+        "review": "Revisar",
+        "see_all": "Ver todo",
+        "title": "Necesita atención",
+        "untitled": "Documento sin nombre",
+        "whatsapp_photo": "Foto por WhatsApp"
+      },
+      "copy_review": "pending_lucas",
+      "month": {
+        "expenses": "Gastos",
+        "first_day": "Las cifras se llenan cuando apruebes tus primeros documentos.",
+        "fiscal_one": "[PENDIENTE COPY] Faltan datos fiscales en 1 registro",
+        "fiscal_other": "Faltan datos fiscales en {{count}} registros",
+        "in_bandeja": "{{count}} en la Bandeja",
+        "included_all_one": "[PENDIENTE COPY] Incluye el único documento",
+        "included_all_other": "Incluye los {{count}} documentos",
+        "included_some_one": "[PENDIENTE COPY] Incluye {{counted}} de 1 documento",
+        "included_some_other": "Incluye {{counted}} de {{count}} documentos",
+        "income": "Ingresos",
+        "itbis_purchases": "ITBIS en compras",
+        "itbis_sales": "ITBIS en ventas",
+        "net": "Resultado neto",
+        "review": "Revisar",
+        "see": "Ver",
+        "terms": {
+          "expenses": "Compras y gastos aprobados del mes, sin ITBIS.",
+          "fiscal": "El RNC o el NCF que el 606 o el 607 necesita.",
+          "income": "Ventas aprobadas del mes, sin ITBIS.",
+          "itbis_purchases": "ITBIS pagado en tus compras aprobadas.",
+          "itbis_sales": "ITBIS cobrado en tus ventas aprobadas.",
+          "net": "Ingresos menos gastos aprobados del mes, sin ITBIS."
+        },
+        "under_one": "menos de {{amount}}"
+      }
     },
     "add_menu": {
       "more": "Más acciones"
