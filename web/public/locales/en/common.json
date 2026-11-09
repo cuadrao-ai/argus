@@ -3146,6 +3146,29 @@
       "retry": "Try again",
       "account_unknown": "Unknown"
     },
+    "guide_cards": {
+      "bandeja_intro": {
+        "copy_review": "pending_lucas",
+        "pending": {
+          "body": "Return to documents that still need review.",
+          "label": "Return to pending documents"
+        },
+        "review": {
+          "body": "Review the details and correct what you need to. Once approved, the document moves to Records.",
+          "label": "Review and approve"
+        },
+        "title": "From document to record",
+        "upload": {
+          "body": "Add photos or PDFs of invoices and receipts. If reading is on, Cuadrao extracts their details.",
+          "label": "Upload your documents"
+        }
+      },
+      "placeholder": {
+        "dismiss": "Hide guide",
+        "read_failed": "We couldn't load the guide.",
+        "save_failed": "We couldn't hide the guide."
+      }
+    },
     "history": {
       "am": "AM",
       "approved": "Approved",

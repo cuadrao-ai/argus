@@ -55,6 +55,7 @@ from argus.api.business_drafts import (
     updates_with_drafts,
     upload_recorder,
 )
+from argus.api.business_guide import router as business_guide_router
 from argus.api.business_invoicing import invoicing_available
 from argus.api.business_naming import require_business_name
 from argus.api.business_reports import router as business_reports_router
@@ -182,6 +183,7 @@ router.include_router(business_workspace_router)
 router.include_router(business_workspace_images_router)
 router.include_router(business_bank_router)
 router.include_router(business_bank_movements_router)
+router.include_router(business_guide_router)
 router.include_router(business_logo_router)
 router.include_router(business_search_router)
 router.include_router(business_notifications_router)

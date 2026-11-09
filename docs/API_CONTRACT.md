@@ -9272,6 +9272,19 @@ HTTP request already sent. Model/composition/send unknown outcomes retain the
 existing no-blind-retry rule. Business checkpoint persistence remains disabled
 pending proof of its authorization and deletion lifecycle.
 
+### Business guide cards
+
+`GET /api/v1/business/guide-cards/{card_id}` returns `{dismissed: boolean}`
+for the signed-in person. `POST /api/v1/business/guide-cards/{card_id}/dismiss`
+takes no body. After a dismissal commits, it returns `{dismissed: true}`.
+Repeating the request keeps the first dismissal time.
+
+The only card ID is `bandeja-intro`. An unknown ID returns 422. The preference
+follows the registered person across Businesses and sessions. The server takes
+the person ID from the session and ignores `X-Business-Grant` for these routes.
+Both responses use `Cache-Control: no-store`. If storage is unavailable, both
+routes return 503 `business_guide_unavailable` with a request reference.
+
 ### Business receipt automatic reading and attention
 
 A Business owner explicitly enables scope version 2 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.

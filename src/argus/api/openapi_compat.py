@@ -204,6 +204,12 @@ def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
             if method not in HTTP_METHODS or not isinstance(operation, dict):
                 continue
             responses = operation.setdefault("responses", {})
+            if path.startswith(f"{API_PREFIX}/business/guide-cards/"):
+                operation["parameters"] = [
+                    parameter
+                    for parameter in operation.get("parameters", [])
+                    if parameter["name"] != "X-Business-Grant"
+                ]
             responses["503"] = copy.deepcopy(_AUTH_SESSION_UNAVAILABLE_RESPONSE_REF)
             responses["500"] = _error_response("An unexpected server error occurred.")
 

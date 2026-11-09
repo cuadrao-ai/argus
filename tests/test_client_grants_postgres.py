@@ -58,6 +58,7 @@ CLIENT_SCHEMA_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
 CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
     "public.backtest_jobs": {"authenticated": frozenset({"SELECT"})},
     "public.business_consent_acceptances": {"authenticated": frozenset({"SELECT"})},
+    "public.business_guide_dismissals": {"authenticated": frozenset({"SELECT"})},
     "public.chat_turn_lifecycles": {"authenticated": frozenset({"SELECT"})},
     "public.conversation_read_states": {"authenticated": frozenset({"SELECT"})},
     "public.financial_accounts": {"authenticated": frozenset({"SELECT"})},
@@ -86,6 +87,9 @@ CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
 CLIENT_COLUMN_PRIVILEGES: dict[str, dict[str, dict[str, frozenset[str]]]] = {
     "public.business_consent_acceptances": {
         "authenticated": {"INSERT": frozenset({"copy_version", "space_id", "user_id"})},
+    },
+    "public.business_guide_dismissals": {
+        "authenticated": {"INSERT": frozenset({"card_id", "user_id"})},
     },
     "public.financial_source_connections": {
         "authenticated": {
