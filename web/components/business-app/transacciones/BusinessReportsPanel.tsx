@@ -16,6 +16,7 @@ import BusinessAddMenu from "../BusinessAddMenu";
 import { inboxCount } from "../inbox-count";
 import { RecordsExportButton } from "./RecordsExportButton";
 import RecordsExportPanel from "./RecordsExportPanel";
+import { clearRecordsExportRequest, useRecordsExportRequested } from "./records-export-request";
 import { useRecordsPeriodLabel } from "./RecordsDatePreview";
 import { periodRange, todayIso, type Period } from "../business-format";
 import { cardClass, quietButtonClass } from "../business-ui";
@@ -170,6 +171,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const periodLabel = useRecordsPeriodLabel();
   // The export works on the table's request as it stood when Exportar was pressed.
   const [exporting, setExporting] = useState<{ request: ReportRequest; scope: ReportScope; periodLabel: string; filterCount: number } | null>(null);
+  const exportRequested = useRecordsExportRequested();
   const openExport = () => { if (presentation) setExporting({ scope: { userId, businessId, grantId }, request: reportRequestSchema.parse({ ...state.request, schema_version: 2, presentation }), periodLabel: periodLabel(selectedPeriod, state.request.filters.period), filterCount: activeFilterGroups(filters).length + (filter.query.trim() ? 1 : 0) }); };
   const views = state.views.kind === "ready" ? state.views.items : [];
   const viewProblem = state.viewOperation.kind === "failed" ? state.viewOperation.problem : state.views.kind === "failed" ? state.views.problem : null;
@@ -249,6 +251,12 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     <EmptyState kind="no_results" mark="receipt" illustration="/brand/records-document.webp" compact testId="transacciones-records-empty"
       title={t(`${EMPTY_COPY}.${filter.kind}.title`)} body={t(`${EMPTY_COPY}.selection.body`)} />
   )}</div>;
+  // Exportar registros from search lands here and opens the dialog once the table is ready.
+  useEffect(() => {
+    if (!exportRequested || state.load.kind !== "ready" || !presentation) return;
+    clearRecordsExportRequest();
+    openExport();
+  }, [exportRequested, state.load.kind, presentation]); // eslint-disable-line react-hooks/exhaustive-deps
   const add = <BusinessAddMenu placement="header" />;
   // Agregar lives in the top bar; the toolbar keeps Export as its own button, same gate. A phone keeps Agregar here.
   const toolbarAction = <RecordsExportButton onExport={openExport} enabled={state.load.kind === "ready"} />;

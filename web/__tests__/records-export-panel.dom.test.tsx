@@ -3,7 +3,9 @@ import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { I18nextProvider } from "react-i18next";
+import { readFileSync } from "node:fs";
 import type { ReportRecord, ReportRequest } from "@/lib/business-reports-api";
+import { openRecordsExport, useRecordsExportRequested } from "@/components/business-app/transacciones/records-export-request";
 import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 import { translate } from "./support/i18n-instance";
@@ -58,6 +60,52 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty", "date", "gross_amount", "stage", "note", "attachment"], currencies: "all", format: "csv" });
   assert.equal(body.report.filters.q, "proveedor");
   assert.equal(panel(), null, "the panel closes once the file is saved");
+});
+
+test("on desktop Exportar is a centered dialog with only the agreed pieces, never the side drawer", async () => {
+  const page = await mount();
+  await open(page);
+  const dialog = document.querySelector('[data-testid="records-export-dialog"]')!;
+  assert.equal(dialog.getAttribute("role"), "dialog");
+  assert.equal(dialog.getAttribute("aria-modal"), "true");
+  assert.equal(document.querySelector('[data-testid="side-drawer"]'), null);
+  const text = dialog.textContent!;
+  for (const gone of ["Qué exportar", "Monedas", "Revisando"]) assert.equal(text.includes(gone), false, gone);
+  assert.equal(dialog.querySelectorAll("h3").length, 0, "no section labels");
+  assert.equal(document.querySelectorAll('[data-testid="records-export-summary"]').length, 1);
+  await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
+  assert.equal(document.querySelectorAll('[role="dialog"]').length, 1, "the column choice stays in the same dialog");
+  assert.match(document.querySelector('[data-testid="records-export-back"]')!.textContent!, /Exportar compras/);
+  await page.click(document.querySelector('[data-testid="records-export-back"]'));
+  assert.ok(document.querySelector('[data-testid="records-export-mode-table"]'));
+});
+
+test("on a phone Exportar is the shared bottom sheet", async () => {
+  const page = await mount({ width: 390 });
+  await open(page);
+  assert.equal(document.querySelector('[data-testid="records-export-dialog"]'), null);
+  assert.equal(document.querySelector('[data-testid="side-drawer"]'), null);
+  assert.ok(document.querySelector('[role="dialog"][data-snap]')?.querySelector('[data-testid="records-export-panel"]'));
+});
+
+test("Exportar registros from search opens Registros and its export dialog, not the period ZIP", async () => {
+  const opened: unknown[] = [];
+  let requested = false;
+  const { createRoot } = await import("react-dom/client");
+  const probe = createRoot(document.body.appendChild(document.createElement("div")));
+  function Probe() { requested = useRecordsExportRequested(); return null; }
+  await act(async () => probe.render(<Probe />));
+  const page = await mount();
+  await act(async () => openRecordsExport((panel) => opened.push(panel)));
+  assert.deepEqual(opened, [{ kind: "transactions" }]);
+  await page.settle(() => /^Exportar \d+ registros?$/.test(downloadButton()?.textContent?.trim() ?? ""));
+  assert.ok(document.querySelector('[data-testid="records-export-dialog"]'));
+  assert.equal(requested, false, "the request is used once");
+  await act(async () => probe.unmount());
+  // The workspace hands search this action, never the period ZIP panel.
+  const workspace = readFileSync(new URL("../components/business-app/BusinessWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(workspace, /useBusinessSearch\(\{[\s\S]*?openExport: exportRegistros,/);
+  assert.match(workspace, /const exportRegistros = useCallback\(\(\) => openRecordsExport\(openPanel\)/);
 });
 
 test("Editar chooses columns in the table's order inside the same panel, with Contraparte and Moneda locked", async () => {
