@@ -1,12 +1,18 @@
 import csv
 import io
-from types import SimpleNamespace
+import re
+from urllib.parse import unquote
 from uuid import uuid4
 
 import pytest
-from argus.api.business import require_business_person, require_business_surface
+from argus.api.business import (
+    BusinessPerson,
+    require_business_person,
+    require_business_surface,
+)
 from argus.api.business_drafts import DraftContext, require_drafts
 from argus.api.business_reports import router
+from argus.domain.business.spaces import PostgresSpaceStore
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -37,8 +43,9 @@ def client(actions):
         str(selected[0].actor.space_id),
         selected[0].grant_id,
     )
-    app.dependency_overrides[require_business_person] = lambda: SimpleNamespace(
-        spaces=None
+    spaces = PostgresSpaceStore(service.authority.pool)
+    app.dependency_overrides[require_business_person] = lambda: BusinessPerson(
+        str(selected[0].actor.actor_id), spaces
     )
     app.dependency_overrides[require_business_surface] = lambda: None
     with TestClient(app) as http:
@@ -68,7 +75,7 @@ PURCHASES = {"record_families": ["purchase"], "currencies": ["DOP"]}
 SEPTEMBER = {"kind": "custom", "from_date": "2026-09-01", "to_date": "2026-09-30"}
 
 
-def export(http, filters=None, **choice):
+def export(http, filters=None, *, headers=None, **choice):
     body = {
         "report": {"schema_version": 2, "filters": filters or PURCHASES},
         "mode": "table",
@@ -76,7 +83,7 @@ def export(http, filters=None, **choice):
         "format": "csv",
         **choice,
     }
-    return http.post("/business/reports/export", json=body)
+    return http.post("/business/reports/export", json=body, headers=headers)
 
 
 def preview(http, filters=None):
@@ -106,8 +113,12 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
     assert summary["table"]["all"]["record_count"] == 26
     response = export(http)
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
-    assert response.headers["content-disposition"] == 'attachment; filename="Compras.csv"'
     written = lines(response)
+    assert re.fullmatch(
+        r'attachment; filename="Colmado - Compras [^"]+ - Registros - \d{4}-\d{2}-\d{2} \d{4}\.csv"; filename\*=UTF-8'
+        "[^;]+",
+        response.headers["content-disposition"],
+    )
     assert written[0] == ["Contraparte", "Fecha", "Monto", "Moneda"]
     assert len(written) == 27
     assert {line[3] for line in written[1:]} == {"DOP"}
@@ -119,12 +130,13 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
     assert excel.content.startswith(b"PK")
 
 
-def test_dgii_export_holds_the_606_txt_lines_and_ignores_other_filters(client, actions):
+def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
+    client, actions
+):
     from zipfile import ZipFile
 
     from argus.domain.business.export import export_package
     from argus.domain.business.fiscal_profile import set_profile
-    from argus.domain.business.spaces import PostgresSpaceStore
     from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 
     from tests.test_business_declaration_after_approval_postgres import (
@@ -167,13 +179,26 @@ def test_dgii_export_holds_the_606_txt_lines_and_ignores_other_filters(client, a
         "pending_rate_currencies": [],
     }
     assert card == 1
-    response = export(http, unrelated, mode="dgii", columns=[])
-    assert response.headers["content-disposition"] == (
-        'attachment; filename="606_septiembre-2026.csv"'
+    response = export(
+        http, unrelated, mode="dgii", columns=[], headers={"Accept-Language": "en"}
     )
     written = lines(response)
+    header = response.headers["content-disposition"]
+    fallback, encoded = header.split("; filename*=UTF-8''")
+    assert re.fullmatch(
+        r'attachment; filename="PRACTICA Jose - Purchases 2026-09 - DGII - \d{4}-\d{2}-\d{2} \d{4}\.csv"',
+        fallback,
+    )
+    assert unquote(encoded) == fallback.removeprefix('attachment; filename="')[
+        :-1
+    ].replace("PRACTICA Jose", PRACTICE_NAME)
     assert written[0][:2] == ["RNC o Cédula", "Tipo Id"]
-    assert written[1:] == [line.split("|") for line in txt if line]
+    (official,) = [line.split("|") for line in txt if line]
+    assert (official[2], official[11], official[17], official[22]) == ("02", "", "", "01")
+    official[2] = "02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS "
+    official[11] = official[17] = "0"
+    official[22] = "01 - EFECTIVO"
+    assert written[1:] == [official]
 
 
 def test_viewer_can_read_but_not_export_and_revocation_stops_reads(

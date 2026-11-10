@@ -7,6 +7,7 @@ import io
 from dataclasses import replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from urllib.parse import unquote
 from uuid import UUID
 from xml.etree import ElementTree
 from zipfile import ZipFile
@@ -31,6 +32,7 @@ from argus.domain.business.reporting_query import (
 from argus.domain.business.reporting_store import ExportSource
 from faker import Faker
 from pydantic import ValidationError
+from xlsxwriter.utility import xl_cell_to_rowcol
 
 from scripts import generate_records_file_words
 from tests.dgii.test_packet import practice_records
@@ -39,6 +41,28 @@ NOW = datetime(2026, 10, 18, 15, tzinfo=timezone.utc)
 SEPTEMBER = {"kind": "custom", "from_date": "2026-09-01", "to_date": "2026-09-30"}
 FILER = "199990013"
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+TOOL_CATEGORIES = (
+    "01-GASTOS DE PERSONAL ",
+    "02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS ",
+    "03-ARRENDAMIENTOS ",
+    "04-GASTOS DE ACTIVOS FIJO ",
+    "05 -GASTOS DE REPRESENTACIÓN ",
+    "06 -OTRAS DEDUCCIONES ADMITIDAS ",
+    "07 -GASTOS FINANCIEROS ",
+    "08 -GASTOS EXTRAORDINARIOS ",
+    "09 -COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA ",
+    "10 -ADQUISICIONES DE ACTIVOS ",
+    "11- GASTOS DE SEGUROS",
+)
+TOOL_PAYMENTS = (
+    "01 - EFECTIVO",
+    "02 - CHEQUES/TRANSFERENCIAS/DEPÓSITO",
+    "03 - TARJETA CRÉDITO/DÉBITO",
+    "04 - COMPRA A CREDITO",
+    "05 -\u00a0 PERMUTA",
+    "06 - NOTA DE CREDITO",
+    "07 - MIXTO",
+)
 
 
 @pytest.fixture
@@ -158,6 +182,8 @@ def xlsx(content: bytes) -> list[list[tuple[str, object, str | None]]]:
     for line in sheet.findall("m:sheetData/m:row", NS):
         cells = []
         for cell in line.findall("m:c", NS):
+            _, column = xl_cell_to_rowcol(cell.attrib["r"])
+            cells.extend([("blank", None, None)] * (column - len(cells)))
             style = xfs[int(cell.attrib.get("s", 0))]
             code = formats.get(style.attrib.get("numFmtId"))
             quoted = style.attrib.get("quotePrefix") == "1"
@@ -296,10 +322,8 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         has_document=True,
         funding_label="Cuenta de operaciones",
         dgii_606=Purchase606(
-            expense_type=DgiiChoice(
-                code="02", label="Gastos por trabajos, suministros y servicios"
-            ),
-            payment_form=None,
+            expense_type=DgiiChoice(code="02", label="Old category label"),
+            payment_form=DgiiChoice(code="03", label="Old payment label"),
         ),
     )
     columns = (
@@ -326,8 +350,8 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     assert [value for _, value, _ in cells[1][4:]] == [
         "Falta el NCF",
         "Sí",
-        "Gastos por trabajos, suministros y servicios",
-        "Falta",
+        "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS",
+        "03 - TARJETA CRÉDITO/DÉBITO",
         "Cuenta de operaciones",
     ]
     csv_line = list(
@@ -349,6 +373,18 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         record.report_date.strftime("%d/%m/%Y"),
         record.gross_amount,
         "18.00",
+    ]
+
+    english = build_file(
+        source(record),
+        table(report(currencies=["DOP"]), columns, currencies="current", format="csv"),
+        locale="en",
+    )
+    header, line = csv.reader(io.StringIO(english.content.decode("utf-8-sig")))
+    assert header[-3:-1] == ["Expense type", "Payment method"]
+    assert line[-3:-1] == [
+        "02 - WORK, SUPPLIES AND SERVICES",
+        "03 - CREDIT OR DEBIT CARD",
     ]
 
 
@@ -427,40 +463,48 @@ def test_csv_has_a_bom_and_keeps_accents(fake):
             "purchase",
             "table",
             "xlsx",
-            "Compras_noviembre-2026.xlsx",
+            "Mi negocio - Compras 2026-11 - Registros - 2026-10-18 1100.xlsx",
         ),
         (
             {"kind": "custom", "from_date": "2026-11-01", "to_date": "2026-11-30"},
             "sale",
             "table",
             "csv",
-            "Ventas_noviembre-2026.csv",
+            "Mi negocio - Ventas 2026-11 - Registros - 2026-10-18 1100.csv",
         ),
         (
             {"kind": "custom", "from_date": "2026-11-01", "to_date": "2026-11-30"},
             "purchase",
             "dgii",
             "xlsx",
-            "606_noviembre-2026.xlsx",
+            "Mi negocio - Compras 2026-11 - DGII - 2026-10-18 1100.xlsx",
         ),
         (
             {"kind": "custom", "from_date": "2026-01-01", "to_date": "2026-12-31"},
             "sale",
             "dgii",
             "csv",
-            "607_2026.csv",
+            "Mi negocio - Ventas 2026-01 a 2026-12 - DGII - 2026-10-18 1100.csv",
         ),
         (
             {"kind": "custom", "from_date": "2026-11-03", "to_date": "2026-11-09"},
             "purchase",
             "table",
             "xlsx",
-            "Compras_2026-11-03_2026-11-09.xlsx",
+            "Mi negocio - Compras 2026-11-03 a 2026-11-09 - Registros - 2026-10-18 1100.xlsx",
         ),
-        ({"kind": "all"}, "purchase", "table", "xlsx", "Compras.xlsx"),
+        (
+            {"kind": "all"},
+            "purchase",
+            "table",
+            "xlsx",
+            "Mi negocio - Compras - Registros - 2026-10-18 1100.xlsx",
+        ),
     ],
 )
-def test_file_names_are_readable_and_plain(period, family, mode, fmt, name):
+def test_default_file_names_include_the_period_family_mode_and_local_time(
+    period, family, mode, fmt, name
+):
     request = ReportRequestV2(
         filters={"period": period, "record_families": [family], "currencies": ["DOP"]}
     )
@@ -470,6 +514,62 @@ def test_file_names_are_readable_and_plain(period, family, mode, fmt, name):
         else table(request, currencies="current", format=fmt)
     )
     assert build_file(source(), choice).filename == name
+
+
+def test_unbounded_filename_uses_only_exported_dates_and_sanitizes_the_business_name(
+    fake,
+):
+    wanted = row(fake, report_date=date(2026, 9, 7), currency="DOP")
+    not_exported = row(fake, report_date=date(2026, 4, 1), currency="USD")
+    built = build_file(
+        source(wanted, not_exported),
+        table(report(period={"kind": "all"}, currencies=["DOP"]), currencies="current"),
+        business_name='  Café/La\\ Unión:*?"<>|\x00 \t  Norte  ',
+    )
+    assert built.filename == (
+        "Café La Unión Norte - Compras 2026-09-07 a 2026-09-07"
+        " - Registros - 2026-10-18 1100.xlsx"
+    )
+
+
+def test_english_default_name_uses_the_dominican_day_at_midnight():
+    observed_at = datetime(2026, 10, 18, 2, 7, tzinfo=timezone.utc)
+    request = report(record_families=["sale"], period={"kind": "all"})
+    built = build_file(
+        replace(source(), observed_at=observed_at),
+        table(request, format="csv"),
+        business_name="Mi negocio",
+        locale="en",
+    )
+    assert built.filename == "My business - Sales - Records - 2026-10-17 2207.csv"
+
+
+def test_mixed_filename_label_and_ascii_fallback():
+    from argus.domain.business.reporting_filename import (
+        content_disposition,
+        records_filename,
+    )
+
+    filename = records_filename(
+        business_name="Café 漢/Éxito",
+        families=("sale", "purchase"),
+        start=date(2026, 8, 1),
+        end=date(2026, 9, 30),
+        mode="table",
+        extension="csv",
+        observed_at=NOW,
+        locale="en",
+    )
+    assert filename == (
+        "Café 漢 Éxito - Purchases and sales 2026-08 to 2026-09"
+        " - Records - 2026-10-18 1100.csv"
+    )
+    fallback, encoded = content_disposition(filename).split("; filename*=UTF-8''")
+    assert fallback == (
+        'attachment; filename="Cafe Exito - Purchases and sales 2026-08 to 2026-09'
+        ' - Records - 2026-10-18 1100.csv"'
+    )
+    assert unquote(encoded) == filename
 
 
 def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
@@ -511,7 +611,16 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
         "Tipo Id",
         "Tipo Bienes y Servicios Comprados",
     ]
-    assert sorted(map(tuple, written[1:])) == sorted(lines["606"])
+    assert [line[5] for line in written[1:]] == sorted(line[5] for line in lines["606"])
+    expected = []
+    for original in lines["606"]:
+        line = list(original)
+        line[2] = TOOL_CATEGORIES[int(line[2]) - 1]
+        line[22] = TOOL_PAYMENTS[int(line[22]) - 1]
+        for column in (11, 17):
+            line[column] = line[column] or "0"
+        expected.append(line)
+    assert sorted(written[1:]) == sorted(expected)
     sales = summarize_export(
         month,
         report().model_copy(
@@ -542,12 +651,72 @@ def test_dgii_excel_amounts_are_numbers_and_codes_stay_text():
     month = books()
     cells = xlsx(build_file(month, RecordsExport(report=report(), mode="dgii")).content)
     header = [value for _, value, _ in cells[0]]
-    line = dict(zip(header, cells[1], strict=False))
+    line = dict(zip(header, cells[1], strict=True))
     assert line["Tipo Bienes y Servicios Comprados"][0] == "s"
-    assert len(line["Tipo Bienes y Servicios Comprados"][1]) == 2
+    assert line["Tipo Bienes y Servicios Comprados"][1] in TOOL_CATEGORIES
     assert line["Fecha Comprobante"][0] == "s"
     assert line["Total Monto Facturado"][:1] == ("n",)
     assert line["Total Monto Facturado"][2] == "#,##0.00"
+
+
+@pytest.mark.parametrize("format", ("xlsx", "csv"))
+def test_606_tool_values_exact_for_every_choice_and_withholding(fake, format):
+    purchase = practice_records()[0]
+    assert purchase.declaration is not None
+    rows, approved = [], {}
+    for index, category in enumerate(TOOL_CATEGORIES, 1):
+        payment = TOOL_PAYMENTS[(index - 1) % len(TOOL_PAYMENTS)]
+        fiscal_date = date(2026, 9, index)
+        withholding = (None, "0.00", "12.34")[(index - 1) % 3]
+        projected = row(
+            fake, report_date=date(2026, 9, 30 - index), fiscal_data="complete"
+        )
+        rows.append(projected)
+        approved[projected.linked_activity_ids[0]] = replace(
+            purchase,
+            occurred_on=fiscal_date,
+            declaration=purchase.declaration.model_copy(
+                update={
+                    "category": category[:2],
+                    "payment_method": payment[:2],
+                    "itbis_withheld": withholding,
+                    "income_withheld": withholding,
+                }
+            ),
+        )
+    built = build_file(
+        source(*rows, approved=approved),
+        RecordsExport(report=report(), mode="dgii", format=format),
+    )
+    if format == "xlsx":
+        header, *lines = xlsx(built.content)
+        headers = [value for _, value, _ in header]
+    else:
+        headers, *lines = csv.reader(io.StringIO(built.content.decode("utf-8-sig")))
+    for index, line in enumerate(lines, 1):
+        result = dict(zip(headers, line, strict=True))
+        category = TOOL_CATEGORIES[index - 1]
+        payment = TOOL_PAYMENTS[(index - 1) % len(TOOL_PAYMENTS)]
+        day = f"202609{index:02d}"
+        withholding = ("0", "0", "12.34")[(index - 1) % 3]
+        expected = {
+            "Tipo Bienes y Servicios Comprados": category,
+            "Fecha Comprobante": day,
+            "Forma de Pago": payment,
+            "ITBIS Retenido": withholding,
+            "Monto Retención Renta": withholding,
+            "Monto Propina Legal": "",
+        }
+        for label, value in expected.items():
+            if format == "csv":
+                assert result[label] == value
+            elif label in ("ITBIS Retenido", "Monto Retención Renta"):
+                assert result[label] == ("n", Decimal(value), "#,##0.00")
+            elif value:
+                assert result[label] == ("s", value, None)
+            else:
+                assert result[label] == ("blank", None, None)
+    assert len(lines) == len(TOOL_CATEGORIES)
 
 
 def test_zero_records_is_a_file_with_only_headers(fake):
