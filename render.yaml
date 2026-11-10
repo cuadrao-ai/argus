@@ -169,6 +169,8 @@ services:
     envVars:
       - key: APP_ENV
         sync: false
+      - key: CUADRAO_ANALYTICS_DELETION_ENABLED
+        sync: false
       - key: CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD
         sync: false
       - key: CUADRAO_CHECKPOINTER_MODE
@@ -251,6 +253,12 @@ services:
         value: "true"
       - key: CUADRAO_INGESTION_ENABLED
         value: "true"
+      - key: CUADRAO_POSTHOG_DELETION_API_KEY
+        sync: false
+      - key: CUADRAO_POSTHOG_DELETION_HOST
+        sync: false
+      - key: CUADRAO_POSTHOG_DELETION_PROJECT_ID
+        sync: false
       - key: CUADRAO_VISION_MODEL
         sync: false
       - key: CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
@@ -263,6 +271,10 @@ services:
         value: "true"
       - key: DATABASE_URL
         sync: false
+      - key: POSTHOG_PROJECT_TOKEN
+        sync: false
+      - key: POSTHOG_REGION
+        value: us
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY

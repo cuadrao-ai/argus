@@ -3521,7 +3521,7 @@ once, on the result; closing the confirmation only clears local state.
 { "status": "in_progress", "pending": ["plaid"] }
 ```
 
-The default-off `ARGUS_ANALYTICS_DELETION_ENABLED` adapter submits a project-scoped
+The default-off `CUADRAO_ANALYTICS_DELETION_ENABLED` adapter submits a project-scoped
 personless event deletion request using the durable run UUID as its submission
 UUID. Acceptance keeps `analytics` pending. Only a separate provider read with
 matching request and submission UUIDs and status `completed` completes that step.
