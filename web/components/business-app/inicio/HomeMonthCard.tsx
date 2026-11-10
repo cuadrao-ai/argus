@@ -104,7 +104,8 @@ export function HomeMonthCard({ switcher, currencyMenu, state, error, block, cur
         const open = openFiscal?.(fiscal) ?? null;
         return (
           <p key={fiscal.family} data-testid="home-month-fiscal" data-family={fiscal.family}>
-            <Term label={t("business.inicio.month.fiscal", { count: fiscal.count })} definition={t("business.inicio.month.terms.fiscal")} />
+            {/* With both tabs held, each line names its tab, so two lines never read alike. */}
+            <Term label={t(fiscalRows.length > 1 ? `business.inicio.month.fiscal_${fiscal.family === "purchase" ? "purchases" : "sales"}` : "business.inicio.month.fiscal", { count: fiscal.count })} definition={t("business.inicio.month.terms.fiscal")} />
             {open ? <>{" · "}<button type="button" data-testid="home-month-fiscal-open" className={LINK} onClick={open}>{t("business.inicio.month.see")}</button></> : null}
           </p>
         );

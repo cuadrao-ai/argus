@@ -963,9 +963,14 @@ function BusinessMonthCloseContent({
         heading
       />
     );
+    // The choice stays in view whenever the Business holds a second currency in some month (the server's fact); its
+    // list is this month's currencies, and a month without the chosen one shows the Business's currency.
+    const choosable = snapshot?.more_than_one_currency ?? currencies.length > 1;
+    const listed = currencies.length > 0 ? currencies : businessCurrency ? [businessCurrency] : [];
     const counts = Object.fromEntries(blocks.flatMap((block) => (block.documents_total === null ? [] : [[block.currency, block.documents_total] as const])));
-    const currencyMenu = manyCurrencies && !loadingMonth ? (
-      <MonthCurrencyMenu currencies={currencies} value={shownCurrency} counts={counts} onChoose={(next) => { if (currencyKey !== null) setCurrencyView(currencyKey, next); }} />
+    const pillCurrency = shownCurrency ?? businessCurrency;
+    const currencyMenu = choosable && pillCurrency && listed.length > 0 && !loadingMonth ? (
+      <MonthCurrencyMenu currencies={listed} value={pillCurrency} counts={counts} onChoose={(next) => { if (currencyKey !== null) setCurrencyView(currencyKey, next); }} />
     ) : null;
     const range = snapshot ? { from: snapshot.from, to: snapshot.to } : null;
     const cardCurrency = shownCurrency ?? businessCurrency;

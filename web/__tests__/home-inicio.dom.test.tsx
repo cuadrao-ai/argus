@@ -334,7 +334,7 @@ describe("the chosen currency across months", () => {
     return createHttpMonthCloseClient(async (path) => {
       const month = new URLSearchParams(path.split("?")[1]).get("month")!;
       const usd = dop({ currency: "USD", income_before_itbis_minor: month === "2026-09" ? 50000 : 120000, documents_counted: 1, documents_total: 1, documents_in_bandeja: 0 });
-      return { month, today: "2026-11-09", from: `${month}-01`, to: `${month}-30`, closed: false, reasons: [], earliest_month: "2026-09", dgii_forms: { "606": "no_operations", "607": "no_operations" }, currencies: month === "2026-10" ? [dop()] : [dop(), usd], missing_rnc: [], missing_ncf: [], missing_fiscal_rows: [] };
+      return { month, today: "2026-11-09", from: `${month}-01`, to: `${month}-30`, closed: false, reasons: [], earliest_month: "2026-09", more_than_one_currency: true, dgii_forms: { "606": "no_operations", "607": "no_operations" }, currencies: month === "2026-10" ? [dop()] : [dop(), usd], missing_rnc: [], missing_ncf: [], missing_fiscal_rows: [] };
     });
   }
 
@@ -353,7 +353,10 @@ describe("the chosen currency across months", () => {
       await step("prev");
       assert.equal(page.find("month-close-month")?.textContent, "Octubre 2026");
       assert.equal(shown(), "DOP", "October holds no dollars: the Business's own currency");
-      assert.equal(page.find("month-close-currency"), null);
+      assert.equal(page.find("month-close-currency")?.textContent, "DOP", "the pill stays in view, on the Business's currency");
+      await page.act(async () => page.find("month-close-currency")!.click());
+      assert.deepEqual([...document.querySelectorAll('[data-testid="month-close-currency-picker"] [role="option"]')].map((option) => option.getAttribute("data-currency")), ["DOP"], "the list is this month's currencies");
+      await page.act(async () => page.find("month-close-currency")!.click());
       await step("prev");
       assert.equal(shown(), "USD", "September holds dollars again: the choice comes back");
       assert.equal(page.find("home-month-income")?.textContent, "US$ 500");
@@ -366,6 +369,44 @@ describe("the chosen currency across months", () => {
     try {
       assert.equal(other.find("home-month-body")?.dataset.currency, "DOP", "each Business keeps its own choice");
     } finally { await other.close(); }
+  });
+});
+
+describe("the month card's second round (Lucas, 2026-11-09)", () => {
+  test("a net in its own currency shows, as the server says it is final", async () => {
+    const usd = dop({ currency: "USD", income_before_itbis_minor: 150500, expense_before_itbis_minor: 7600, net_result_minor: 142900, net_result_final: true });
+    const page = await monthCard(server({ currencies: [usd], missing_fiscal_rows: [] }));
+    try {
+      assert.equal(page.find("home-month-income")?.textContent, "US$ 1,505");
+      assert.equal(page.find("home-month-net")?.textContent, "US$ 1,429");
+    } finally { await page.close(); }
+  });
+
+  test("with both tabs held, each fiscal line names its tab and opens it", async () => {
+    const rows = [{ family: "purchase", currency: "DOP", count: 1, by_currency: false }, { family: "sale", currency: "DOP", count: 2, by_currency: false }];
+    const page = await monthCard(server({ missing_fiscal_rows: rows }));
+    try {
+      const lines = [...page.host.querySelectorAll<HTMLElement>('[data-testid="home-month-fiscal"]')];
+      assert.deepEqual(lines.map((line) => line.textContent), ["Faltan datos fiscales en 1 compra · Ver", "Faltan datos fiscales en 2 ventas · Ver"]);
+      assert.ok(lines.every((line) => line.querySelector('[tabindex="0"]')?.className.includes("decoration-dotted")), "the term keeps its dotted tooltip");
+      for (const line of lines) await page.act(async () => line.querySelector<HTMLButtonElement>('[data-testid="home-month-fiscal-open"]')!.click());
+      assert.deepEqual(page.opened.map((focus) => (typeof focus === "string" ? focus : focus.family)), ["purchase", "sale"]);
+    } finally { await page.close(); }
+    const single = await monthCard(server({ missing_fiscal_rows: [{ family: "purchase", currency: "DOP", count: 1, by_currency: false }] }));
+    try {
+      assert.equal(single.find("home-month-fiscal")?.textContent, "Faltan datos fiscales en 1 registro · Ver", "one tab needs no name");
+    } finally { await single.close(); }
+  });
+
+  test("the pill shows whenever the Business holds a second currency in some month, and never otherwise", async () => {
+    const held = await monthCard(server({ more_than_one_currency: true }));
+    try {
+      assert.equal(held.find("month-close-currency")?.textContent, "DOP");
+    } finally { await held.close(); }
+    const never = await monthCard(server({ more_than_one_currency: false }));
+    try {
+      assert.equal(never.find("month-close-currency"), null);
+    } finally { await never.close(); }
   });
 });
 

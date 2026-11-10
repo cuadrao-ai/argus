@@ -113,6 +113,8 @@ export type MonthCloseSnapshot = {
   today: string | null;
   /** The first month with a document the close shows. Null when there is none yet, or from an older server. */
   earliest_month: string | null;
+  /** The Business holds documents in more than one currency in some month. Null from an older server. */
+  more_than_one_currency?: boolean | null;
   /** The methods a settlement may carry, in the server's order. Null from an older server. */
   payment_methods: readonly string[] | null;
   /** Each form's status word from the export packet for this calendar month. Null from an older server. */
@@ -637,6 +639,7 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
     from: window.from,
     to,
     earliest_month: earliestMonthOf(documents),
+    more_than_one_currency: new Set(documents.map((document) => document.currency)).size > 1,
     payment_methods: SAMPLE_PAYMENT_METHODS,
     dgii_forms: sampleForms(inWindow, to, today),
     documents: inWindow,
@@ -995,6 +998,7 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     to: value.to,
     closed: value.closed,
     earliest_month: value.earliest_month ?? null,
+    more_than_one_currency: typeof value.more_than_one_currency === "boolean" ? value.more_than_one_currency : null,
     payment_methods: readPaymentMethods(value.payment_methods),
     dgii_forms: readDgiiForms(value.dgii_forms),
     documents: lines.map((line) => wireDocument(line, malformed.has(line.activity_id))),

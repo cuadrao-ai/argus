@@ -3387,8 +3387,12 @@
       "month": {
         "expenses": "Gastos",
         "first_day": "Las cifras se llenan cuando apruebes tus primeros documentos.",
-        "fiscal_one": "[PENDIENTE COPY] Faltan datos fiscales en 1 registro",
+        "fiscal_one": "Faltan datos fiscales en 1 registro",
         "fiscal_other": "Faltan datos fiscales en {{count}} registros",
+      "fiscal_purchases_one": "Faltan datos fiscales en 1 compra",
+      "fiscal_purchases_other": "Faltan datos fiscales en {{count}} compras",
+      "fiscal_sales_one": "Faltan datos fiscales en 1 venta",
+      "fiscal_sales_other": "Faltan datos fiscales en {{count}} ventas",
         "in_bandeja_one": "1 en la Bandeja",
       "in_bandeja_other": "{{count}} en la Bandeja",
         "included_all_one": "[PENDIENTE COPY] Incluye el único documento",
