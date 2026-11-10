@@ -1,4 +1,4 @@
-/** A queue Agregar sends through. It says whether anything of its own is still in flight or waits for a retry. */
+/** A queue Agregar sends through. It says whether anything of its own is unsaved, in flight or waiting for a retry. */
 export type IntakeQueue = { subscribe: (listener: () => void) => () => void; readonly unfinished: boolean };
 
 /**
