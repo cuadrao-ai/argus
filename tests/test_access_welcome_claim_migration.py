@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _normalized_sql(glob: str) -> str:
-    migrations = sorted((ROOT / "supabase" / "migrations").glob(glob))
+    migrations = sorted((ROOT / "supabase" / "migrations_archive").glob(glob))
     assert len(migrations) == 1
     return re.sub(r"\s+", " ", migrations[0].read_text()).strip().lower()
 

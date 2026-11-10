@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (
     ROOT
     / "supabase"
-    / "migrations"
+    / "migrations_archive"
     / "20260731080154_add_requested_private_alpha_access.sql"
 )
 

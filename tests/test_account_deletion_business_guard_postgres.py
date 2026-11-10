@@ -29,7 +29,7 @@ from tests.test_account_deletion_postgres import (
 
 pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required")
 
-MIGRATIONS = Path(__file__).resolve().parents[1] / "supabase/migrations"
+MIGRATIONS = Path(__file__).resolve().parents[1] / "supabase/migrations_archive"
 
 # Every table deletion_place_unit and deletion_rekey_binding write.
 PLACED_TABLES = (

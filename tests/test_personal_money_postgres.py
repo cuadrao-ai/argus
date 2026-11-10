@@ -443,7 +443,7 @@ def test_legacy_backfill_preserves_ids_coverage_hash_and_response_loss_receipt(
                 "20260929120000_personal_money_activities.sql",
                 "20260929130000_personal_money_revision_integrity.sql",
             ):
-                for statement in Path("supabase/migrations", name).read_text().split(";"):
+                for statement in Path("supabase/migrations_archive", name).read_text().split(";"):
                     if statement.strip().startswith(
                         "insert into public.financial_activity_"
                     ):

@@ -506,7 +506,7 @@ def test_api_contract_documents_recovery_transport_rejections() -> None:
 
 
 def test_supabase_migration_matches_alpha_data_model() -> None:
-    migration = ROOT / "supabase" / "migrations" / "20260424000001_alpha_core.sql"
+    migration = ROOT / "supabase" / "migrations_archive" / "20260424000001_alpha_core.sql"
 
     text = migration.read_text(encoding="utf-8").lower()
 
@@ -533,7 +533,7 @@ def test_supabase_migration_matches_alpha_data_model() -> None:
 def test_p1_evidence_spine_migration_freezes_immutable_fields_only() -> None:
     text = "\n".join(
         path.read_text(encoding="utf-8").lower()
-        for path in sorted((ROOT / "supabase" / "migrations").glob("*.sql"))
+        for path in sorted((ROOT / "supabase").glob("migrations*/*.sql"), key=lambda path: path.name)
     )
 
     assert (
@@ -585,7 +585,7 @@ def test_p1_evidence_spine_migration_freezes_immutable_fields_only() -> None:
 def test_usage_counter_resource_constraint_covers_quota_callers() -> None:
     migration_sql = "\n".join(
         path.read_text(encoding="utf-8").lower()
-        for path in sorted((ROOT / "supabase" / "migrations").glob("*.sql"))
+        for path in sorted((ROOT / "supabase").glob("migrations*/*.sql"), key=lambda path: path.name)
     )
     constraint_index = migration_sql.rfind("usage_counters_resource_check")
     assert constraint_index >= 0

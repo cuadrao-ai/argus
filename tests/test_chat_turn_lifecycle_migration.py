@@ -6,26 +6,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TABLE_MIGRATION = (
     ROOT
-    / "supabase/migrations/20260723000001_add_chat_turn_lifecycles.sql"
+    / "supabase/migrations_archive/20260723000001_add_chat_turn_lifecycles.sql"
 )
 ACCEPTANCE_MIGRATION = (
     ROOT
     / (
-        "supabase/migrations/"
+        "supabase/migrations_archive/"
         "20260723000002_chat_turn_acceptance_and_reconciliation.sql"
     )
 )
 LIFECYCLE_RPC_MIGRATION = (
     ROOT
     / (
-        "supabase/migrations/"
+        "supabase/migrations_archive/"
         "20260723000003_chat_turn_option_acceptance_and_finalization.sql"
     )
 )
 IDEMPOTENT_FINALIZATION_MIGRATION = (
     ROOT
     / (
-        "supabase/migrations/"
+        "supabase/migrations_archive/"
         "20260724214312_idempotent_chat_turn_finalization.sql"
     )
 )

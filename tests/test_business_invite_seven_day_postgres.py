@@ -17,7 +17,7 @@ users = shared.users
 pytestmark = pytest.mark.skipif(not shared.DSN, reason="Disposable database required")
 MIGRATION = (
     Path(__file__).parents[1]
-    / "supabase/migrations/20261018040438_business_invite_seven_day_expiry.sql"
+    / "supabase/migrations_archive/20261018040438_business_invite_seven_day_expiry.sql"
 )
 
 

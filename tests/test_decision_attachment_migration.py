@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / (
-    "supabase/migrations/20260908120000_decision_notes_attach_to_computations.sql"
+    "supabase/migrations_archive/20260908120000_decision_notes_attach_to_computations.sql"
 )
 
 

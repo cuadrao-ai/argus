@@ -26,7 +26,7 @@ from argus.domain.usage_limits import GUEST_RESEARCH_ALLOWANCE
 DSN = os.getenv("ARGUS_DISPOSABLE_DATABASE_URL", "").strip()
 LOCAL_URL = os.getenv("ARGUS_LOCAL_SUPABASE_URL", "").strip()
 LOCAL_SERVICE_KEY = os.getenv("ARGUS_LOCAL_SUPABASE_SERVICE_ROLE_KEY", "").strip()
-MIGRATIONS = Path(__file__).parents[1] / "supabase/migrations"
+MIGRATIONS = Path(__file__).parents[1] / "supabase/migrations_archive"
 
 psycopg = pytest.importorskip("psycopg")
 
