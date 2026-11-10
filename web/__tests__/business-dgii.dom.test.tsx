@@ -185,6 +185,17 @@ test("an absent Business RNC shows No aplica and a read-only accountant cannot e
   } finally { await act(async () => root.unmount()); host.remove(); await release(); }
 });
 
+test("a read-only member reads an unnamed Business by the name every screen gives it", async () => {
+  const release = registerDom();
+  globalThis.fetch = async () => Response.json({ name: null, tax_id: null, can_edit: false });
+  const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  try {
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessFiscalProfile /></I18nextProvider>));
+    assert.match(host.textContent ?? "", /^Mi negocio · /);
+  } finally { await act(async () => root.unmount()); host.remove(); await release(); }
+});
+
 test("the owner can save an eleven-digit filer cedula without losing leading zeros", async () => {
   const release = registerDom();
   const writes: unknown[] = [];
