@@ -398,6 +398,22 @@ describe("the month card's second round (Lucas, 2026-11-09)", () => {
     } finally { await single.close(); }
   });
 
+  test("a fiscal line counts and opens only the shown currency's records", async () => {
+    const usd = dop({ currency: "USD", documents_counted: 1, documents_total: 2, documents_in_bandeja: 0 });
+    const rows = [{ family: "purchase", currency: "DOP", count: 3, by_currency: true }, { family: "purchase", currency: "USD", count: 1, by_currency: true }];
+    const page = await monthCard(server({ currencies: [dop(), usd], more_than_one_currency: true, missing_fiscal_rows: rows }), true, "business-fiscal-currency");
+    const lines = () => [...page.host.querySelectorAll<HTMLElement>('[data-testid="home-month-fiscal"]')].map((line) => line.textContent);
+    try {
+      assert.deepEqual(lines(), ["Faltan datos fiscales en 3 registros · Ver"], "pesos shown: only the pesos row");
+      await page.act(async () => page.find("month-close-currency")!.click());
+      await page.act(async () => document.querySelector<HTMLElement>('[data-testid="month-close-currency-picker"] [data-currency="USD"]')!.click());
+      assert.equal(page.find("home-month-body")?.dataset.currency, "USD");
+      assert.deepEqual(lines(), ["Faltan datos fiscales en 1 registro · Ver"], "dollars shown: only the dollars row");
+      await page.act(async () => page.find("home-month-fiscal-open")!.click());
+      assert.deepEqual(page.opened, [{ family: "purchase", currency: "USD", from: "2026-11-01", to: "2026-11-30", fiscal_data: "missing" }], "Ver opens Registros in the row's currency");
+    } finally { await page.close(); }
+  });
+
   test("the pill shows whenever the Business holds a second currency in some month, and never otherwise", async () => {
     const held = await monthCard(server({ more_than_one_currency: true }));
     try {
