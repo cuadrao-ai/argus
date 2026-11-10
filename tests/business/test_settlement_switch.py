@@ -157,10 +157,16 @@ def test_off_the_net_result_is_income_minus_expenses_without_waiting_on_marks() 
     assert negative["net_result_final"] is True
 
 
-def test_off_a_pending_rate_still_holds_the_net() -> None:
+def test_off_a_dollar_net_shown_in_dollars_is_final() -> None:
     dollars = [document(activity_id="usd", currency="USD", status="cobrado")]
     [usd] = _october(dollars, settlement=False)["currencies"]
-    assert usd["net_result_final"] is False
+    assert usd["net_result_final"] is True
+
+
+def test_on_a_dollar_net_waits_only_on_its_own_marks() -> None:
+    settled = [document(activity_id="usd", currency="USD", status="cobrado")]
+    [usd] = _october(settled, settlement=True)["currencies"]
+    assert usd["net_result_final"] is True
 
 
 def test_off_itbis_charged_stands_and_itbis_cobrado_is_gone() -> None:
