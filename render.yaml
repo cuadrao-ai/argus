@@ -56,6 +56,14 @@ services:
         sync: false
       - key: POSTHOG_REGION
         value: us
+      - key: CUADRAO_ANALYTICS_DELETION_ENABLED
+        value: "true"
+      - key: CUADRAO_POSTHOG_DELETION_HOST
+        sync: false
+      - key: CUADRAO_POSTHOG_DELETION_PROJECT_ID
+        sync: false
+      - key: CUADRAO_POSTHOG_DELETION_API_KEY
+        sync: false
       - key: CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING
         value: "100"
       - key: CUADRAO_REGISTERED_DAILY_TURN_CEILING

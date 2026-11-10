@@ -639,7 +639,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "not_set": true
+            "value": "true"
           }
         },
         {
@@ -795,7 +795,7 @@
           "kind": "secret",
           "keep_current": true,
           "production": {
-            "not_set": true
+            "enter": "the production analytics project personal API key that can delete events"
           }
         },
         {
@@ -803,7 +803,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "not_set": true
+            "enter": "the production analytics deletion API host"
           }
         },
         {
@@ -811,7 +811,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "not_set": true
+            "enter": "the production analytics project id"
           }
         },
         {
