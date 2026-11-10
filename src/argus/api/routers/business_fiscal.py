@@ -9,12 +9,22 @@ from argus.api.documents import NO_STORE
 from argus.api.routers.business_drafts import _key
 from argus.api.routers.business_export import ExportRoute
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.dgii import FiscalField, FiscalProfile
+from argus.domain.business.contracts.dgii import (
+    FiscalField,
+    FiscalProfile,
+    RegistryAnswer,
+)
 from argus.domain.business.dgii_form import input_fields
 from argus.domain.business.fiscal_profile import (
     FiscalProfileInput,
+    LegalNameInput,
+    RegistryLookupInput,
     accepted_change,
+    accepted_legal_name,
+    accepted_query,
+    lookup_registry,
     read_profile,
+    set_legal_name,
     set_profile,
 )
 
@@ -66,6 +76,46 @@ def change_fiscal_profile(
             context.service.authority,
             actor,
             accepted_change(body),
+            _key(request, idempotency_key),
+        )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
+
+
+@router.post("/registry", response_model=RegistryAnswer)
+def registry_lookup(
+    request: Request,
+    response: Response,
+    body: RegistryLookupInput,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    person: Annotated[BusinessPerson, Depends(require_business_person)],
+):
+    response.headers.update(NO_STORE)
+    try:
+        actor = context.for_space(request, person.spaces)
+        return lookup_registry(
+            context.service.authority, actor, accepted_query(body)
+        )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
+
+
+@router.put("/legal-name", response_model=FiscalProfile)
+def change_legal_name(
+    request: Request,
+    response: Response,
+    body: LegalNameInput,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    person: Annotated[BusinessPerson, Depends(require_business_person)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    response.headers.update(NO_STORE)
+    try:
+        actor = context.for_space(request, person.spaces)
+        return set_legal_name(
+            context.service.authority,
+            actor,
+            accepted_legal_name(body),
             _key(request, idempotency_key),
         )
     except ActionError as error:

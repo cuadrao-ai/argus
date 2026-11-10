@@ -38,7 +38,7 @@ from argus.domain.business.contracts.activity import (
     ActivityFilters,
     Area,
 )
-from argus.domain.business.fiscal_profile import FiscalProfileChange
+from argus.domain.business.fiscal_profile import FiscalProfileChange, LegalNameChange
 from argus.domain.business.roles import BusinessRole
 from argus.domain.business.supporting_files import SupportingCommand
 from argus.domain.business.transactions import LegacyAction
@@ -140,7 +140,7 @@ def test_a_filtered_manager_page_names_only_catalog_actions_so_other_never_match
     member = visibility(manager=False, filters=ActivityFilters(groups=("access",)))
     assert member.only == ()
     settings = visibility(manager=False, filters=ActivityFilters(groups=("settings",)))
-    assert settings.only == ("set_business_rnc",)
+    assert settings.only == ("set_business_legal_name", "set_business_rnc")
 
 
 def _action_names(annotation: object) -> set[str]:
@@ -158,6 +158,7 @@ TYPED_LEDGER_ACTIONS = (
     _action_names(Command)
     | _action_names(AccessAction)
     | _action_names(FiscalProfileChange)
+    | _action_names(LegalNameChange)
     | _action_names(NoteCommand)
     | _action_names(SupportingCommand)
     | _action_names(LegacyAction)

@@ -2469,6 +2469,7 @@
         "review_draft": "revisó un registro",
         "revoke_grant": "quitó un acceso",
         "revoke_invite": "canceló una invitación",
+        "set_business_legal_name": "[placeholder] business.activity_feed.actions.set_business_legal_name",
         "set_business_rnc": "actualizó el RNC del negocio",
         "settle_remainder": "saldó el resto de un registro"
       }

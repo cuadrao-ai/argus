@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import string
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
@@ -178,11 +178,42 @@ class TaxId(BaseModel):
     value: str
 
 
+class LegalName(BaseModel):
+    """The Business's razón social, as a person who manages it confirmed it
+    against the registry row for the stored tax id."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    value: str
+    confirmed_at: datetime
+
+
 class FiscalProfile(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     name: str
     tax_id: TaxId | None
+    legal_name: LegalName | None
     can_edit: bool
+
+
+class RegistryRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    rnc: str
+    name: str
+    trade_name: str | None
+    #: The registry's own status text, as published.
+    status: str
+    file_date: date | None
+
+
+class RegistryAnswer(BaseModel):
+    """What the registry says of one tax id: the same verification words a
+    counterparty's RNC gets."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    tax_id: TaxId
+    verification: Literal["verificado", "no_activo", "sin_verificar"]
+    record: RegistryRecord | None
+    checked_at: datetime
 
 
 class FiscalField(BaseModel):

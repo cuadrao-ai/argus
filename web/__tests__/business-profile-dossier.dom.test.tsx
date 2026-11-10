@@ -138,3 +138,28 @@ test.each([["es-419","Ubicación y contacto","Guardar cambios"],["en","Location 
     expect(page.button(section).textContent).toContain("team@example.com");expect(footer.querySelector('[role="status"]')).toBe(live);expect(live?.textContent).not.toBe("");expect(save.disabled).toBe(true);
   }finally{await page.close();}
 });
+
+test("live Datos shows the server's confirmed legal name and its checklist item, and never one from browser storage",async()=>{
+ const previousFetch=globalThis.fetch,previousAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;
+ process.env.NEXT_PUBLIC_MOCK_AUTH="true";
+ let legalName:{value:string;confirmed_at:string}|null=null;
+ globalThis.fetch=async(url)=>{
+  if(String(url).endsWith("/profile"))return Response.json({space_id:"55555555-5555-4555-8555-555555555555",name:"La Palma",country:"DO",currency:"DOP",revision:1,details:{},appearance:{kind:"default"},image:null});
+  return Response.json({name:"La Palma",tax_id:{type:"rnc",value:"131245678"},legal_name:legalName,can_edit:true});
+ };
+ const {invitationStorageKeys}=await import("../app/design-workspace/businessAccessPreviewState");
+ window.localStorage.setItem(invitationStorageKeys("55555555-5555-4555-8555-555555555555").guide,JSON.stringify({registryResult:{status:"match",confirmedAt:"2026-10-24",queriedRnc:"131245678",record:{rnc:"131245678",legalName:"Nombre del navegador"}}}));
+ const unconfirmed=await mount("es-419",true);
+ try{
+  expect(unconfirmed.host.textContent).not.toContain("Nombre del navegador");
+  expect(unconfirmed.host.querySelector('[data-profile-checklist="legalName"] [aria-hidden="true"] svg')).toBeNull();
+ }finally{await unconfirmed.close();}
+ legalName={value:"Taller Palma de Ejemplo SRL",confirmed_at:"2026-11-09T12:00:00Z"};
+ const confirmed=await mount("es-419",true);
+ try{
+  expect(confirmed.button("Identidad y datos fiscales").textContent).toContain("Taller Palma de Ejemplo SRL");
+  expect(confirmed.host.querySelector('[data-profile-checklist="legalName"] [aria-hidden="true"] svg')).not.toBeNull();
+  await confirmed.click(confirmed.button("Identidad y datos fiscales"));
+  expect(document.querySelector("#profile-section-dossier")?.textContent).toContain("Taller Palma de Ejemplo SRL");
+ }finally{await confirmed.close();globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;}
+});

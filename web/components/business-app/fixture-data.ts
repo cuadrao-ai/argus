@@ -404,7 +404,7 @@ export function createFixtureBusinessDataSource(
   let expenses = seedExpenses();
   let counter = 0;
   // A synthetic name and RNC for the sample; the RNC is a made-up number.
-  let fiscalProfile: FiscalProfile = { name: "Mi negocio", tax_id: { type: "rnc", value: "131245678" }, can_edit: true };
+  let fiscalProfile: FiscalProfile = { name: "Mi negocio", tax_id: { type: "rnc", value: "131245678" }, legal_name: null, can_edit: true };
   const uploads = new Map<string, ReceiptDetail>();
 
   const find = (id: string) => {

@@ -12,7 +12,9 @@ export type DgiiFields = Record<"606" | "607", DgiiField[]>;
 export type PurchaseChoice = { category?: string | null; payment_method?: string | null };
 export type TaxIdType = "rnc" | "cedula";
 export type TaxId = { type: TaxIdType; value: string };
-export type FiscalProfile = { name: string; tax_id: TaxId | null; can_edit: boolean };
+/** The razón social a person who manages the Business confirmed against the registry row for its tax id. */
+export type LegalName = { value: string; confirmed_at: string };
+export type FiscalProfile = { name: string; tax_id: TaxId | null; legal_name: LegalName | null; can_edit: boolean };
 export type FiscalProfileInput = {
   name: string;
   previous_name: string;

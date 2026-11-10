@@ -2469,6 +2469,7 @@
         "review_draft": "reviewed a record",
         "revoke_grant": "removed access",
         "revoke_invite": "cancelled an invitation",
+        "set_business_legal_name": "confirmed the business legal name",
         "set_business_rnc": "updated the business RNC",
         "settle_remainder": "settled a record's remainder"
       }

@@ -104,18 +104,20 @@ function BusinessProfileContent() {
   const snapshot = useCallback(()=>live?"":storage().getItem(invitationStorageKeys(businessId).guide) ?? "",[businessId,live]);
   const raw = useSyncExternalStore(subscribe,snapshot,()=>"");
   const previewProfile = useMemo(()=>{void raw;return readBusinessProfilePreview(live?emptyStorage:storage(),businessId,name,country);},[raw,businessId,name,country,live]);
-  const profile = live && server.profile ? {...previewProfile,name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName:null,providedDetails:server.profile.details,checklist:profileChecklist({name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName:null},server.profile.details)} : previewProfile;
+  // The legal name has one owner, the server's fiscal profile; the local preview has none.
+  const legalName = fiscal?.legal_name?.value ?? null;
+  const profile = live && server.profile ? {...previewProfile,name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName,providedDetails:server.profile.details,checklist:profileChecklist({name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName},server.profile.details)} : previewProfile;
   const taxType = profile.taxId?.type;
   const taxValue = profile.taxId?.value;
   const localSource = useMemo(()=>({...workspace.source,
-    fiscalProfile:async()=>live ? fetchFiscal() : ({name:profile.name,tax_id:taxType && taxValue ? {type:taxType,value:taxValue} : null,can_edit:canEdit}),
+    fiscalProfile:async()=>live ? fetchFiscal() : ({name:profile.name,tax_id:taxType && taxValue ? {type:taxType,value:taxValue} : null,legal_name:null,can_edit:canEdit}),
     saveFiscalProfile:async(input:Parameters<typeof saveBusinessProfilePreview>[2],key:string)=>{
       if(!canEdit) throw new Error("permission_denied");
       if(live){const next=await fetchFiscal({method:"PATCH",headers:{"Idempotency-Key":key},body:JSON.stringify(input)});reloadWorkspace();retryProfile();return next;}
       saveBusinessProfilePreview(storage(),businessId,input);
       renamePreviewBusiness?.(input.name);
       refresh();
-      return {name:input.name,tax_id:input.tax_id,can_edit:canEdit};
+      return {name:input.name,tax_id:input.tax_id,legal_name:null,can_edit:canEdit};
     },
   }),[workspace.source,reloadWorkspace,retryProfile,profile.name,taxType,taxValue,canEdit,businessId,renamePreviewBusiness,refresh,live,fetchFiscal]);
   const formContext = useMemo(()=>({...workspace,source:localSource,reload:()=>{}}),[workspace,localSource]);
