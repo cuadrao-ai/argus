@@ -165,23 +165,27 @@ test("Entendido hides the access line after a reload, and only for that person a
   const { setChosenGrant } = await import("@/lib/business-grant");
   const seen = new Map<string, Set<string>>();
   const fixture = createFixtureBusinessDataSource();
-  const sourceFor = (owner: string) => ({
-    ...fixture,
-    spaces: async () => ["one", "two"].map((business): GrantedSpace => ({
+  const sourceFor = (owner: string) => {
+    const spaces = async () => ["one", "two"].map((business): GrantedSpace => ({
       space_id: business,
       name: business === "one" ? "Colmado Peña" : "Taller Brito",
       grant_id: `${owner}-${business}`,
       role: "accountant",
       capabilities: ["read", "prepare"],
       access_seen: seen.get(owner)?.has(business) ?? false,
-    })),
-    markAccessSeen: async (grant: string) => {
-      const business = grant.slice(owner.length + 1);
-      const items = seen.get(owner) ?? new Set<string>();
-      items.add(business);
-      seen.set(owner, items);
-    },
-  });
+    }));
+    return {
+      ...fixture,
+      spaces,
+      spaceDirectory: async () => ({ spaces: await spaces(), closed_spaces: [], invitations_available: true }),
+      markAccessSeen: async (grant: string) => {
+        const business = grant.slice(owner.length + 1);
+        const items = seen.get(owner) ?? new Set<string>();
+        items.add(business);
+        seen.set(owner, items);
+      },
+    };
+  };
   const sources = { a: sourceFor("a"), b: sourceFor("b") };
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
@@ -244,9 +248,11 @@ async function mountCueThatFails() {
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   const fixture = createFixtureBusinessDataSource();
+  const spaces = async () => [{ space_id: "one", name: "Colmado Peña", grant_id: "a-one", role: "accountant" as const, capabilities: ["read" as const, "prepare" as const], access_seen: false }];
   const source = {
     ...fixture,
-    spaces: async () => [{ space_id: "one", name: "Colmado Peña", grant_id: "a-one", role: "accountant" as const, capabilities: ["read" as const, "prepare" as const], access_seen: false }],
+    spaces,
+    spaceDirectory: async () => ({ spaces: await spaces(), closed_spaces: [], invitations_available: true }),
     markAccessSeen: async () => { throw new Error("synthetic failure"); },
   };
   const i18n = i18next.createInstance();

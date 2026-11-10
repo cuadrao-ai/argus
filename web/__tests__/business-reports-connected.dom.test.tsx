@@ -85,23 +85,11 @@ test("a server without the fiscal count leaves the action unknown", async () => 
   assert.equal(document.querySelector('[data-overview-filter="exported"]'), null);
 });
 
-test("the Bandeja line shows the receipt activity count the sidebar shows, opens the Bandeja, and hides at zero or unknown", async () => {
+test("Registros leaves the Bandeja count to the sidebar", async () => {
   const { inboxCount } = await import("@/components/business-app/inbox-count");
   const page = await mount({ waiting: 4 });
-  const line = document.querySelector('[data-testid="records-bandeja-waiting"]')!;
-  assert.equal(line.textContent, "4 recibos esperan en la Bandeja");
   assert.equal(inboxCount(page.context.records), 4);
-  await page.click(line.querySelector("button"));
-  assert.deepEqual(page.opened, [{ kind: "inbox" }]);
-  await cleanup();
-  await mount({ waiting: 1 });
-  assert.equal(document.querySelector('[data-testid="records-bandeja-waiting"]')!.textContent, "1 recibo espera en la Bandeja");
-  await cleanup();
-  await mount({ waiting: 0 });
-  assert.equal(document.querySelector('[data-testid="records-bandeja-waiting"]'), null);
-  await cleanup();
-  await mount({ waiting: null });
-  assert.equal(document.querySelector('[data-testid="records-bandeja-waiting"]'), null);
+  assert.doesNotMatch(document.body.textContent ?? "", /en la Bandeja/);
 });
 
 test("Filtros offers one current fiscal choice without export history", async () => {
@@ -118,6 +106,23 @@ test("a saved view or address bar naming a stage the server no longer has reads 
   assert.ok(sentFilters(page).every((filters) => !filters.review_stages.includes("awaiting_approval" as never)), "no request carries the stale stage");
   assert.deepEqual(sentFilters(page)[0].review_stages, ["exported"]);
   assert.deepEqual(addressFilters().review_stages, ["exported"]);
+});
+
+test("a page the records no longer have opens the last available page without a notice", async () => {
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?report=${encodeURIComponent(JSON.stringify({ page: 99 }))}&report_scope=synthetic-person:${fixtureId(3000)}`);
+  const page = await mount();
+  await page.settle(() => document.querySelectorAll("tbody tr").length > 0);
+  const pages = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).map((call) => (call.body as ReportRequest).page);
+  assert.equal(pages[0], 99);
+  assert.ok(pages.at(-1)! < 99, "the last request asks for a page that exists");
+  assert.doesNotMatch(document.body.textContent ?? "", /Los registros cambiaron/);
+});
+
+test("an address from another Business opens Registros without a notice", async () => {
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(`http://localhost/biz?report=${encodeURIComponent(JSON.stringify({ page: 2 }))}&report_scope=synthetic-person:${fixtureId(4000)}`);
+  await mount();
+  assert.ok(document.querySelectorAll("tbody tr").length > 0);
+  assert.doesNotMatch(document.body.textContent ?? "", /Los registros cambiaron/);
 });
 
 test("saved notes stay on the row and the note editor is not offered", async () => {

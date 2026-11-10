@@ -178,7 +178,7 @@ test("old saved presentations reach the server unchanged and retain current choi
   const request = reportRequestSchema.parse({ schema_version: 2, presentation: { order, hidden: ["date"], density: 40 } });
   expect(request.schema_version === 2 && request.presentation).toEqual({ order, hidden: ["date"], density: 40 });
   const restored = restoreReportLocation(new URLSearchParams(reportLocation(request, "synthetic-row")));
-  expect(restored).toEqual({ request, anchor: "synthetic-row", invalid: false });
+  expect(restored).toEqual({ request, anchor: "synthetic-row" });
   const selected = { ...current, hidden: [] };
   const selectedRequest = reportRequestSchema.parse({ schema_version: 2, presentation: selected });
   expect(selectedRequest.schema_version === 2 && selectedRequest.presentation).toEqual(selected);

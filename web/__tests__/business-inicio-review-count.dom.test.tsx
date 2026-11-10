@@ -79,19 +79,18 @@ async function mount(waiting: number | null, showReports = true) {
 
 function counts(host: HTMLElement, expected: number) {
   assert.equal(host.querySelector('[data-testid="business-inbox-count"]')?.textContent, String(expected));
-  assert.equal(host.querySelector('[data-testid="records-bandeja-waiting"]')?.textContent, expected === 1 ? "1 recibo espera en la Bandeja" : `${expected} recibos esperan en la Bandeja`);
   // Necesita atención is everything waiting in the Bandeja: the sidebar's one count.
   assert.equal(host.querySelector('[data-testid="home-attention-count"]')?.textContent, String(expected));
 }
 
-test("Inicio, Bandeja and Registros use the same server count and follow its updates", async () => {
+test("Inicio and the Bandeja use the same server count and follow its updates", async () => {
   const page = await mount(28);
   counts(page.host, 28);
   const reportRequests = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length;
   await page.update(1);
   counts(page.host, 1);
   await page.update(0);
-  for (const id of ["home-attention-count", "business-inbox-count", "records-bandeja-waiting"]) {
+  for (const id of ["home-attention-count", "business-inbox-count"]) {
     assert.equal(page.host.querySelector(`[data-testid="${id}"]`), null, id);
   }
   assert.match(page.host.querySelector('[data-testid="home-attention"]')?.textContent ?? "", /Todo al día/);
