@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-11-10-batch",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "22872f4ebe090e33c44376bff163c69b6f7014de",
+  "versions_sha256": "0aa82a2e83e36c8d3cc9221159018548b3e0538b09c5e46fa3c0f714c7c8517c",
+  "issued_at": "2026-11-10T08:34:13Z",
+  "expires_at": "2026-11-12T08:34:13Z",
+  "approved_by": "founder",
+  "approval_reference": "Standing rule from Lucas, 2026-10-21: any migration whose PR got Eval SHIP may be applied to staging skedzwocnmrhfigiwyzi only, with a committed approval record and a dry run first. Never prod. Lucas authorized the staging deploy of 2026-11-10 including these migrations: PR 1886 (business_guide_dismissals, 20261108204256), PR 1904 (business_receipt_reading_scope_3, 20261109070949) and PR 1913 (business_legal_name, 20261110000127), each merged into candidate 22872f4ebe090e33c44376bff163c69b6f7014de. This record covers staging only and does not authorize production changes."
+}
