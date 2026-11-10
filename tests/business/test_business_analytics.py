@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
@@ -23,7 +24,7 @@ from argus.api.documents import documents_service
 from argus.domain.business import analytics as business_analytics
 from argus.domain.business.analytics_events import business_hash_for_id
 from argus.domain.business.authority import ActionError
-from argus.domain.business.contracts.actions import Applied
+from argus.domain.business.contracts.actions import Applied, ApproveExpense
 from argus.domain.business.reporting_file import RecordsFile
 from argus.domain.ingestion.documents.jobs import PreparationJobs
 from argus.domain.ingestion.documents.models import ExtractionBatch
@@ -532,3 +533,64 @@ def test_an_export_reports_its_format_scope_and_row_count(
     assert set(export) == _keys("format", "scope", "row_count")
     assert (export["format"], export["scope"], export["row_count"]) == ("csv", "dgii", 7)
     assert sent[0]["distinct_id"] == actor_hash_for_user(str(actor.actor.actor_id))
+
+
+class _SettlementPool:
+    """A pool whose only statement is the approval's settlement update, which
+    finds ``rows`` receipts to settle."""
+
+    def __init__(self, rows: int) -> None:
+        self.rows = rows
+
+    @contextmanager
+    def connection(self):  # noqa: ANN202
+        yield SimpleNamespace(
+            transaction=lambda: nullcontext(),
+            execute=lambda *args: SimpleNamespace(rowcount=self.rows),
+        )
+
+
+@pytest.mark.parametrize(
+    ("settled_rows", "approvals"), [(1, 1), (0, 0)], ids=["settled", "lost_the_race"]
+)
+def test_approval_events_go_only_to_the_request_that_settles_the_receipt(
+    monkeypatch: pytest.MonkeyPatch, settled_rows: int, approvals: int
+) -> None:
+    """Two requests under one key can both see the receipt unsettled and both
+    finish the idempotent write; the receipt settles for exactly one of them,
+    and only that one reports the approval."""
+
+    from argus.domain.business.actions import approval, plans
+
+    key, draft_id = "k" * 32, uuid4()
+    actor = SimpleNamespace(actor_id=uuid4(), space_id=uuid4(), actor_kind="member")
+    context = SimpleNamespace(actor=actor, owner_id="owner", scope=None)
+    event = SimpleNamespace(
+        resolution={"approval_receipt": {"actor_id": str(actor.actor_id), "key": key}}
+    )
+    tx = SimpleNamespace(
+        authorization=SimpleNamespace(require=lambda name: None),
+        imports=SimpleNamespace(event=lambda draft: event),
+    )
+    monkeypatch.setattr(approval, "transaction", lambda *args: nullcontext(tx))
+    monkeypatch.setattr(
+        plans, "receipt", lambda *args: {"outcome": {"outcome": "outcome_unknown"}}
+    )
+    service = SimpleNamespace(
+        imports=SimpleNamespace(
+            _write=lambda *args, **kwargs: {"activity": {"activity_id": uuid4()}},
+            clock=lambda: datetime.now(timezone.utc),
+        ),
+        authority=SimpleNamespace(pool=_SettlementPool(settled_rows)),
+    )
+    reported: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        business_analytics, "record_approved", lambda *args: reported.append(args)
+    )
+
+    outcome = approval.approve(
+        service, context, draft_id, ApproveExpense(version=3, action="record_expense"), key
+    )
+
+    assert outcome.outcome == "applied", outcome
+    assert len(reported) == approvals

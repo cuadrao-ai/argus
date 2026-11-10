@@ -309,7 +309,8 @@ def record_approved(
     version: int,
     approved_at: datetime,
 ) -> None:
-    """A person's approval recorded the draft; called once, after it committed."""
+    """A person's approval recorded the draft; called after it committed, by
+    the one request that settled its receipt."""
 
     business_id = str(context.actor.space_id)
 

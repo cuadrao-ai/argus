@@ -256,3 +256,39 @@ def test_a_typed_note_is_received_once(actions, sent):  # noqa: ANN001
     leaked = json.dumps(sent)
     for value in ("3450", "ferreter", "101010101", str(context.actor.space_id)):
         assert value not in leaked
+
+
+def test_two_approvals_under_one_key_report_the_approval_once(
+    actions,
+    sent,
+    monkeypatch,  # noqa: ANN001
+):
+    """The second request claimed the receipt while it was still unsettled,
+    then arrived after the first settled it. It finishes the idempotent write
+    but settles nothing, so it reports nothing."""
+
+    service, context = actions
+    draft, version = fiscal.receipt_draft(service, context, fiscal.colmado(), "DOP")
+    approved = fiscal.reviewed(service, context, draft, version)
+    key = str(uuid4())
+    request = ApproveExpense(version=approved, action="record_expense")
+
+    first = service.approve(context, draft, request, key)
+    assert first.outcome == "applied", first
+    assert len(_events(sent, "business_record_approved")) == 1
+
+    rows = ActionTransaction.rows
+
+    def unsettled(self: ActionTransaction, sql: str, params: Any = None) -> Any:
+        found = rows(self, sql, params)
+        if sql.startswith("select * from public.business_action_receipts"):
+            found = [{**row, "outcome": {"outcome": "outcome_unknown"}} for row in found]
+        return found
+
+    monkeypatch.setattr(ActionTransaction, "rows", unsettled)
+    second = service.approve(context, draft, request, key)
+
+    assert second.outcome == "applied", second
+    assert _receipt_outcome(service, context, key) == "applied"
+    assert len(_events(sent, "business_record_approved")) == 1
+    assert len(_events(sent, "business_record_recorded")) == 1
