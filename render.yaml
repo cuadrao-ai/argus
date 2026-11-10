@@ -188,6 +188,10 @@ services:
         value: "210"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
+      - key: POSTHOG_PROJECT_TOKEN
+        sync: false
+      - key: POSTHOG_REGION
+        value: us
 
   - type: web
     name: cuadrao-api-staging
@@ -204,6 +208,8 @@ services:
     envVars:
       - key: APP_ENV
         sync: false
+      - key: CUADRAO_ACCOUNT_DELETION_ENABLED
+        value: "true"
       - key: CUADRAO_ANALYTICS_DELETION_ENABLED
         sync: false
       - key: CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD
@@ -407,6 +413,10 @@ services:
         value: "210"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
+      - key: POSTHOG_PROJECT_TOKEN
+        sync: false
+      - key: POSTHOG_REGION
+        value: us
 
   - type: web
     name: cuadrao-marketing-staging

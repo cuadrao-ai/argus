@@ -629,7 +629,7 @@
         {
           "name": "CUADRAO_ACCOUNT_DELETION_ENABLED",
           "kind": "plain",
-          "production_only": true,
+          "value": "true",
           "production": {
             "value": "false"
           }
@@ -1227,6 +1227,22 @@
           "kind": "plain",
           "production": {
             "value": "3"
+          }
+        },
+        {
+          "name": "POSTHOG_PROJECT_TOKEN",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "enter": "the production analytics project token"
+          }
+        },
+        {
+          "name": "POSTHOG_REGION",
+          "kind": "plain",
+          "value": "us",
+          "production": {
+            "value": "us"
           }
         }
       ]
