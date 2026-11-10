@@ -10,6 +10,9 @@ import type { DocumentType } from "./receipt-upload-queue";
 export type TypedNote = { key: string; grant: string | null; text: string; documentType: DocumentType; status: "saving" | "saved" | "uncertain" | "refused" };
 type Capture = (input: { text: string; document_type: DocumentType }, key: string, grant: string | null) => Promise<unknown>;
 
+/** A note still saving, or one whose save is unconfirmed and so waits for its retry, is lost if the page goes. */
+export const isUnfinishedNote = (note: TypedNote) => note.status === "saving" || note.status === "uncertain";
+
 /**
  * Owned by one mounted business workspace, like the upload queue, so closing Agregar never drops a note whose
  * save is running or unconfirmed. A retry repeats the note's one key, so it is never saved twice.
@@ -25,6 +28,7 @@ export class TypedNoteQueue {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
   };
+  get unfinished() { return this.items.some(isUnfinishedNote); }
 
   add(note: Pick<TypedNote, "grant" | "text" | "documentType">, capture: Capture) {
     const entry: TypedNote = { ...note, key: randomId(), status: "saving" };
@@ -40,7 +44,7 @@ export class TypedNoteQueue {
   /** Closing Agregar forgets what that Business finished; a note still saving or unconfirmed stays for its retry. */
   clearSettled(grant: string | null) {
     const entered = enteredIn(grant);
-    this.publish(this.items.filter((item) => !entered(item) || item.status === "saving" || item.status === "uncertain"));
+    this.publish(this.items.filter((item) => !entered(item) || isUnfinishedNote(item)));
   }
 
   private async send(entry: TypedNote, capture: Capture) {

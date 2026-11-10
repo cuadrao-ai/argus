@@ -60,6 +60,7 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
+import { intakeWork } from "./intake-work";
 import { TypedNoteQueue } from "./typed-note-queue";
 import ExportRecordsPanel from "./ExportRecordsPanel";
 import { openRecordsExport } from "./transacciones/records-export-request";
@@ -513,12 +514,15 @@ function BusinessWorkspaceContent({
   const [typedNotes] = useState(() => new TypedNoteQueue(reload));
   // Every way Agregar closes forgets finished typed notes; one still saving or unconfirmed waits for its retry.
   useEffect(() => { if (!intakeTarget) typedNotes.clearSettled(chosenGrant); }, [intakeTarget, typedNotes, chosenGrant]);
+  // Leaving the page asks first while anything Agregar took is still being sent, a file or a typed note alike.
+  const [inFlight] = useState(() => intakeWork([uploadQueue, typedNotes]));
+  const unfinishedIntake = useSyncExternalStore(inFlight.subscribe, inFlight.unfinished, () => false);
   useEffect(() => {
-    if (!uploadQueue.unfinished) return;
+    if (!unfinishedIntake) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [uploadQueue, uploads]);
+  }, [unfinishedIntake]);
   const openIntake = useCallback((target: IntakeTarget) => {
     // A new composer upload starts clean unless one of this Business's is still in flight.
     if (target === "composer" && !uploadQueue.snapshot().filter(enteredIn(chosenGrant)).some((item) => item.target === target && item.status !== "saved" && item.status !== "rejected")) uploadQueue.clear(target, chosenGrant);

@@ -22,7 +22,7 @@ import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyBut
 import { EmptyState } from "./foundation/EmptyState";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { validCaptureText } from "./ManualCaptureDialog";
-import type { TypedNote, TypedNoteQueue } from "./typed-note-queue";
+import { isUnfinishedNote, type TypedNote, type TypedNoteQueue } from "./typed-note-queue";
 import { enteredIn, getChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
 import { useForwardAddress } from "./useForwardAddress";
 import { useInputCapabilities } from "./useInputCapabilities";
@@ -102,13 +102,16 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   const grant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
   // Only this Business's uploads and notes show; a save or retry carries the Business the item was entered in.
   const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target).filter(enteredIn(grant));
+  const typed = useSyncExternalStore(notes.subscribe, notes.snapshot, notes.snapshot).filter(enteredIn(grant));
   const consent = false;
   const [drag, setDrag] = useState<DragState>({ kind: "idle" });
   const [copyFailed, setCopyFailed] = useState(false);
   const addressRef = useRef<HTMLParagraphElement>(null);
   const copyLabels = useCopyLabels(forwardAddress ?? "");
   const uploading = queue.uploading;
-  const unfinished = entries.some(isUnfinishedUpload);
+  const unfinishedUploads = entries.some(isUnfinishedUpload);
+  // The next step waits while anything of this Business still sends or waits for a retry, a note as much as a file.
+  const unfinished = unfinishedUploads || typed.some(isUnfinishedNote);
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
   const batch = uploadBatchView(entries, queue.retryWaiting);
   const renderRow = (item: ReceiptUpload) => (
@@ -153,7 +156,6 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   const [writeType, setWriteType] = useState<DocumentType | null>(null);
   const [draftText, setDraftText] = useState("");
   const writeReady = writeType !== null && validCaptureText(draftText);
-  const typed = useSyncExternalStore(notes.subscribe, notes.snapshot, notes.snapshot).filter(enteredIn(grant));
   const writeRef = useRef<HTMLTextAreaElement>(null);
   useGrowingNoteBox(writeRef, writing ? draftText : "");
   useEffect(() => {
@@ -494,7 +496,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
 
         {/* Nothing reads a typed note, so the reading line belongs to file uploads only. */}
         {writing ? null : <ReceiptReadingControl showWhenOn />}
-        {unfinished ? (
+        {unfinishedUploads ? (
           <p className={`text-[13px] ${MUTED}`}>
             {t("business.intake.keep_open", "You can close this panel and come back to your uploads. Keep this page open until every file is saved.")}
           </p>

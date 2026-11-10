@@ -2,7 +2,8 @@ import type { GrantedSpace, ReceiptSummary } from "../../lib/business-api";
 
 export type Capture = { input: { text: string; document_type?: string }; key: string; grant: string | null | undefined };
 export type Upload = { key: string; grant: string | null | undefined };
-type Answer = "lost" | "refused" | "ok";
+/** "hold" keeps the save in flight until `releaseHeld` answers it. */
+type Answer = "lost" | "refused" | "ok" | "hold";
 
 const permissions = ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"];
 export const ownSpace = { space_id: "own-space", name: "Negocio propio sintético", grant_id: "grant-own", role: "owner", business_role: "owner", permissions, capabilities: ["read", "prepare", "approve"], access_seen: true } satisfies GrantedSpace;
@@ -36,6 +37,7 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const captures: Capture[] = [];
   const uploads: Upload[] = [];
+  const held: (() => void)[] = [];
   const source = {
     ...fixture,
     ...(spaces ? { spaces: async () => spaces } : {}),
@@ -51,6 +53,7 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
       const answer = answers.shift() ?? "ok";
       if (answer === "lost") throw new TypeError("Failed to fetch");
       if (answer === "refused") throw Object.assign(new Error("refused"), { status: 422, code: "validation_failed" });
+      if (answer === "hold") return new Promise((resolve) => held.push(() => resolve(fixture.captureNote(input, key))));
       return fixture.captureNote(input, key);
     },
   };
@@ -110,6 +113,13 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
     for (let i = 0; i < 40 && uploadRows().some((status) => status === "queued" || status === "uploading"); i += 1) await settle();
   };
   const reviewSaved = () => act(async () => button("Revisar los recibos guardados")!.click());
+  /** Answers every held save as confirmed. */
+  const releaseHeld = async () => {
+    await act(async () => { held.splice(0).forEach((release) => release()); });
+    await settle();
+  };
+  /** Whether leaving the page now would ask first, the way the browser asks on refresh. */
+  const leavingAsks = () => !window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
   const choose = (grant: string) => act(async () => { setChosenGrant(grant); await new Promise((resolve) => setTimeout(resolve, 50)); });
   /** Picks a file, and waits for its one upload attempt to answer. */
   const pickFile = async (name: string, lastModified = Date.now()) => {
@@ -120,5 +130,5 @@ export async function mountIntakeWorkspace(answers: Answer[], spaces?: GrantedSp
     await act(async () => { input.files = transfer.files; input.dispatchEvent(new Event("change", { bubbles: true })); });
     for (let i = 0; i < 40 && (uploads.length === before || uploadRows().some((status) => status === "queued" || status === "uploading")); i += 1) await settle();
   };
-  return { captures, uploads, dialog, button, openAgregar, closeAgregar, composer, openComposer, closeComposer, writeNote, rows, uploadRows, retry, retryFile, reviewSaved, settle, choose, pickFile, unmount };
+  return { captures, uploads, dialog, button, openAgregar, closeAgregar, composer, openComposer, closeComposer, writeNote, rows, uploadRows, retry, retryFile, reviewSaved, releaseHeld, leavingAsks, settle, choose, pickFile, unmount };
 }
