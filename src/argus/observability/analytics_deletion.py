@@ -11,7 +11,7 @@ from argus.observability.posthog_deletion import EventDeletionResult, PostHogEve
 AnalyticsDeletionOutcome = Literal[
     "deleted", "recorded_by_fake", "not_applicable", "failed"
 ]
-FLAG = "ARGUS_ANALYTICS_DELETION_ENABLED"
+FLAG = "CUADRAO_ANALYTICS_DELETION_ENABLED"
 # Kept in the run record beside not_applicable, so an audit shows why.
 NOT_APPLICABLE_REASON = "posthog_not_configured"
 
@@ -66,9 +66,9 @@ def analytics_deletion_from_env() -> AnalyticsDeletion | EventAnalyticsDeletion:
     sent before the token was removed are still owed a deletion."""
     if os.getenv(FLAG, "").strip().lower() in {"1", "true", "yes", "on"}:
         names = (
-            "ARGUS_POSTHOG_DELETION_HOST",
-            "ARGUS_POSTHOG_DELETION_PROJECT_ID",
-            "ARGUS_POSTHOG_DELETION_API_KEY",
+            "CUADRAO_POSTHOG_DELETION_HOST",
+            "CUADRAO_POSTHOG_DELETION_PROJECT_ID",
+            "CUADRAO_POSTHOG_DELETION_API_KEY",
         )
         values = [os.getenv(name, "").strip() for name in names]
         if not all(values):

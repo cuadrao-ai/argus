@@ -1,7 +1,8 @@
 """The closed analytics registry (SPEC 0, package 0C-1, acceptance check A4).
 
-PostHog receives only Iris's wave 1 events, each under its own name, each with
-exactly its listed properties. Nothing else reaches PostHog.
+PostHog receives only Iris's wave 1 events and the Business pilot's events,
+each under its own name, each with exactly its listed properties. Nothing else
+reaches PostHog.
 """
 
 from __future__ import annotations
@@ -18,9 +19,19 @@ from argus.api import state as api_state
 from argus.api.guest_access import guest_account_context
 from argus.api.guest_observability import emit_verified_guest_funnel_event
 from argus.api.main import app
+from argus.domain.business.analytics_events import (
+    BUSINESS_EVENT_MODELS,
+    BUSINESS_HASH_PATTERN,
+    BusinessHash,
+    FileType,
+    RecordField,
+    business_hash_for_id,
+)
+from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts
 from argus.domain.calculations import get_calculation_declarations
 from argus.domain.guest_cleanup import cleanup_expired_guest_workspaces
 from argus.domain.guest_workspaces import GuestWorkspace
+from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
 from argus.observability.analytics_events import (
     ANALYTICS_EVENT_MODELS,
     INVITE_COHORT_PATTERN,
@@ -35,8 +46,10 @@ from argus.observability.analytics_events import (
     registered_calculation_names,
 )
 from argus.observability.envelope import (
+    SERVER_DISTINCT_ID,
     build_event_envelope,
     capture_event,
+    exception_payload,
     posthog_event_payload,
 )
 from argus.observability.guest_funnel import (
@@ -52,6 +65,15 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from pydantic.fields import FieldInfo
 
+BUSINESS_HASH = business_hash_for_id("business-raw-id")
+BUSINESS_EVENT_NAMES = {
+    "business_document_received",
+    "business_document_read",
+    "business_document_needs_review",
+    "business_record_approved",
+    "business_record_recorded",
+    "business_records_exported",
+}
 IRIS_EVENT_NAMES = {
     "first_answer_shown",
     "signed_in",
@@ -84,7 +106,46 @@ VALID_PROPERTIES: dict[str, dict[str, Any]] = {
     "installed_app_opened": {},
     "landing_viewed": {"language": "en", "cohort": "piloto-7kq2"},
     "receipt_shared": {"calculator": "multiple"},
+    "business_document_received": {
+        "business_hash": BUSINESS_HASH,
+        "channel": "whatsapp",
+        "file_type": "jpg",
+        "page_count": 1,
+        "size_bucket": "100kb_to_1mb",
+    },
+    "business_document_read": {
+        "business_hash": BUSINESS_HASH,
+        "result": "unsure",
+        "failure_reason": "check_details",
+        "latency_ms": 4200,
+        "model_tier": "vision",
+        "input_tokens": 1800,
+        "output_tokens": 350,
+        "cost_micro_usd": 223,
+    },
+    "business_document_needs_review": {
+        "business_hash": BUSINESS_HASH,
+        "reason_codes": ("missing_rnc", "missing_itbis"),
+    },
+    "business_record_approved": {
+        "business_hash": BUSINESS_HASH,
+        "changed_fields": ("amount", "rnc"),
+        "changed_count": 2,
+        "seconds_to_approve": 5400,
+    },
+    "business_record_recorded": {
+        "business_hash": BUSINESS_HASH,
+        "direction": "compra",
+        "document_type": "recibo",
+    },
+    "business_records_exported": {
+        "business_hash": BUSINESS_HASH,
+        "format": "excel",
+        "scope": "dgii",
+        "row_count": 42,
+    },
 }
+REGISTERED_EVENT_NAMES = IRIS_EVENT_NAMES | BUSINESS_EVENT_NAMES
 
 MONEY_FORMATTED_VALUES = ("RD$5,000", "US$5,000.00", "5000.00", "$5,000", 5000.0)
 
@@ -111,9 +172,9 @@ def posthog_posts(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     return posts
 
 
-def test_registry_is_exactly_irises_events() -> None:
-    assert set(ANALYTICS_EVENT_MODELS) == IRIS_EVENT_NAMES
-    assert set(VALID_PROPERTIES) == IRIS_EVENT_NAMES
+def test_registry_is_exactly_irises_and_the_business_events() -> None:
+    assert set(ANALYTICS_EVENT_MODELS) == REGISTERED_EVENT_NAMES
+    assert set(VALID_PROPERTIES) == REGISTERED_EVENT_NAMES
     for name, model in ANALYTICS_EVENT_MODELS.items():
         assert model.event_name == name
 
@@ -133,10 +194,32 @@ def _literal_values(annotation: Any) -> list[Any] | None:
     return values
 
 
-def _has_bounds(field: FieldInfo) -> bool:
-    lower = any(hasattr(item, "ge") or hasattr(item, "gt") for item in field.metadata)
-    upper = any(hasattr(item, "le") or hasattr(item, "lt") for item in field.metadata)
+def _unwrapped(field: FieldInfo) -> tuple[list[Any], list[Any]]:
+    """The field's types without ``None`` or ``Annotated``, and every
+    constraint, whether pydantic hoisted it or left it inside an optional."""
+    parts, metadata = [], list(field.metadata)
+    for part in _optional_parts(field.annotation):
+        if get_origin(part) is Annotated:
+            part, *extra = get_args(part)
+            for item in extra:
+                metadata.extend(item.metadata if isinstance(item, FieldInfo) else [item])
+        parts.append(part)
+    return parts, metadata
+
+
+def _has_bounds(metadata: list[Any]) -> bool:
+    lower = any(hasattr(item, "ge") or hasattr(item, "gt") for item in metadata)
+    upper = any(hasattr(item, "le") or hasattr(item, "lt") for item in metadata)
     return lower and upper
+
+
+def _literal_tuple(parts: list[Any], metadata: list[Any]) -> bool:
+    """``tuple[Literal[...], ...]`` with a length bound."""
+    if len(parts) != 1 or get_origin(parts[0]) is not tuple:
+        return False
+    item, ellipsis = get_args(parts[0])
+    has_bound = any(getattr(meta, "max_length", None) for meta in metadata)
+    return ellipsis is Ellipsis and _literal_values(item) is not None and has_bound
 
 
 def test_every_property_is_literal_bool_or_bounded_int() -> None:
@@ -157,9 +240,10 @@ def test_every_property_is_literal_bool_or_bounded_int() -> None:
                     offenders.append(where)
                 continue
             parts = _optional_parts(field.annotation)
+            bare, metadata = _unwrapped(field)
             if parts == [bool]:
                 continue
-            if parts == [int] and _has_bounds(field):
+            if bare == [int] and _has_bounds(metadata):
                 continue
             # A string checked against a list another owner keeps (the
             # calculation catalog) is as closed as a literal.
@@ -167,11 +251,27 @@ def test_every_property_is_literal_bool_or_bounded_int() -> None:
                 isinstance(item, ClosedVocabulary) for item in field.metadata
             ):
                 continue
-            # The one constrained string: the invite cohort, pattern-anchored.
+            # The constrained strings: the invite cohort and the hashed
+            # Business id, each pattern-anchored.
             if field_name == "cohort" and parts == cohort_parts:
+                continue
+            if field_name == "business_hash" and bare == [str] and [
+                getattr(item, "pattern", None) for item in metadata
+            ] == [BUSINESS_HASH_PATTERN]:
+                continue
+            # A closed set of names, never their values.
+            if _literal_tuple(bare, metadata):
                 continue
             offenders.append(where)
     assert offenders == []
+    for model in BUSINESS_EVENT_MODELS:
+        assert ANALYTICS_EVENT_MODELS[model.event_name] is model
+        assert model.model_fields["business_hash"].is_required()
+    base, *constraints = get_args(BusinessHash)
+    assert base is str
+    assert [getattr(item, "pattern", None) for item in constraints] == [
+        BUSINESS_HASH_PATTERN
+    ]
     assert get_origin(InviteCohort) is Annotated
     base, *constraints = get_args(InviteCohort)
     assert base is str
@@ -194,9 +294,11 @@ def test_money_formatted_value_is_rejected() -> None:
 
 
 def test_free_text_and_personal_data_are_rejected_in_every_field() -> None:
+    personal = ("person@example.com", "Iris", "hola", True, "1", 1.0)
+    business = ("101010101", "B0100000001", "RD$3,450.00", ("101010101",), [])
     for name, model in ANALYTICS_EVENT_MODELS.items():
         for field_name in model.model_fields:
-            for value in ("person@example.com", "Iris", "hola", True, "1", 1.0):
+            for value in personal + business:
                 if VALID_PROPERTIES[name].get(field_name) == value:
                     continue
                 with pytest.raises(ValidationError):
@@ -275,7 +377,7 @@ def test_a_new_catalog_calculation_is_accepted_without_editing_the_registry(
 def test_payload_has_only_technical_and_event_properties(
     posthog_posts: list[dict[str, Any]],
 ) -> None:
-    for name in sorted(IRIS_EVENT_NAMES):
+    for name in sorted(REGISTERED_EVENT_NAMES):
         posthog_posts.clear()
         event = _event(name)
 
@@ -297,7 +399,7 @@ def test_payload_has_only_technical_and_event_properties(
         assert properties["environment"] == "private-alpha"
         assert properties["schema_version"] == "argus_analytics_event/v1"
         for key, value in VALID_PROPERTIES[name].items():
-            assert properties[key] == value
+            assert properties[key] == (list(value) if isinstance(value, tuple) else value)
         assert "account-raw-id" not in json.dumps(body)
 
 
@@ -327,7 +429,7 @@ def test_only_signed_in_carries_the_guest_id_hash(
     [body] = posthog_posts
     assert body["properties"]["guest_id_hash"] == actor_hash_for_user("guest-raw-id")
     assert "guest-raw-id" not in json.dumps(body)
-    for name in sorted(IRIS_EVENT_NAMES - {"signed_in"}):
+    for name in sorted(REGISTERED_EVENT_NAMES - {"signed_in"}):
         with pytest.raises(ValueError):
             capture_analytics_event(
                 _event(name),
@@ -629,3 +731,74 @@ def test_shared_cohort_fixture_matches_when_present() -> None:
     for code in codes["rejected"]:
         with pytest.raises(ValidationError):
             _event("landing_viewed", cohort=code)
+
+
+def test_business_vocabularies_come_from_their_owners() -> None:
+    """One owner each: the record fields are the facts' own fields, and the
+    file types are the extensions the document intake accepts."""
+    record_fields = set(get_args(RecordField))
+    assert record_fields == (set(BusinessFacts.model_fields) - {"fiscal"}) | set(
+        FiscalFacts.model_fields
+    )
+    assert set(get_args(FileType)) == set(SOURCE_MEDIA_TYPES.values())
+
+
+def test_the_business_hash_is_stable_one_way_and_distinct_from_the_actor_hash() -> None:
+    assert business_hash_for_id("space-1") == business_hash_for_id("space-1")
+    assert business_hash_for_id("space-1") != business_hash_for_id("space-2")
+    assert "space-1" not in business_hash_for_id("space-1")
+    assert business_hash_for_id("space-1") != actor_hash_for_user("space-1")
+
+
+EXCEPTION_PAYLOAD_KEYS = {"api_key", "event", "distinct_id", "properties"}
+EXCEPTION_FRAME_KEYS = {"module", "function", "lineno"}
+
+
+def _raise_with_a_customer_value() -> None:
+    rnc = "101010101"  # a local variable holding a customer value
+    raise ValueError(f"RNC {rnc}")
+
+
+@pytest.mark.parametrize(
+    ("where", "named"), [({"route": "/business/receipts"}, "route"), ({"job": "document_preparation"}, "job")]
+)
+def test_the_exception_payload_carries_only_its_allowed_fields(
+    where: dict[str, str], named: str
+) -> None:
+    try:
+        _raise_with_a_customer_value()
+    except ValueError as error:
+        payload = exception_payload(
+            error,
+            api_key="ph_project_token",
+            actor_hash=actor_hash_for_user("account-raw-id"),
+            **where,
+        )
+
+    assert set(payload) == EXCEPTION_PAYLOAD_KEYS
+    assert payload["event"] == "$exception"
+    assert payload["distinct_id"] == actor_hash_for_user("account-raw-id")
+    properties = payload["properties"]
+    assert set(properties) == {"$exception_list", named, "$process_person_profile"}
+    assert properties[named] == where[named]
+    assert properties["$process_person_profile"] is False
+    [entry] = properties["$exception_list"]
+    assert set(entry) == {"type", "stacktrace"}
+    assert entry["type"] == "ValueError"
+    assert set(entry["stacktrace"]) == {"type", "frames"}
+    frames = entry["stacktrace"]["frames"]
+    assert frames and all(set(frame) == EXCEPTION_FRAME_KEYS for frame in frames)
+    assert frames[-1]["function"] == "_raise_with_a_customer_value"
+    assert frames[-1]["module"] == __name__
+    sent = json.dumps(payload)
+    assert "101010101" not in sent
+    assert "RNC" not in sent
+    assert "account-raw-id" not in sent
+
+
+def test_an_exception_with_no_actor_is_the_server_s() -> None:
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError as error:
+        payload = exception_payload(error, api_key="k", job="document_read_pull")
+    assert payload["distinct_id"] == SERVER_DISTINCT_ID

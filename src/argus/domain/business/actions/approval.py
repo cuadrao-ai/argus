@@ -13,6 +13,7 @@ from psycopg.errors import UniqueViolation
 from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter
 
+from argus.domain.business import analytics as business_analytics
 from argus.domain.business.actions import dossier, mutations, plans
 from argus.domain.business.actions.facts import facts_of, validate_facts
 from argus.domain.business.actions.fiscal import (
@@ -453,8 +454,10 @@ def approve(
                 version=request.version,
                 activity_id=recorded["activity"]["activity_id"],
             )
+        # Requests racing under one key all finish the idempotent write; the
+        # receipt settles for one of them, and only that one reports it.
         with service.authority.pool.connection() as connection, connection.transaction():
-            connection.execute(
+            settled = connection.execute(
                 "update public.business_action_receipts set outcome=%s"
                 " where space_id=%s and actor_id=%s and idempotency_key=%s"
                 " and (outcome is null or outcome->>'outcome'='outcome_unknown')",
@@ -464,6 +467,10 @@ def approve(
                     context.actor.actor_id,
                     key,
                 ),
+            ).rowcount
+        if settled and isinstance(result, Applied):
+            business_analytics.record_approved(
+                service, context, draft_id, request.version, datetime.now(timezone.utc)
             )
         return result
     except ActionError as error:

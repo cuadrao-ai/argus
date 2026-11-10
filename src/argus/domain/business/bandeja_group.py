@@ -142,6 +142,12 @@ def listo_reason(draft: DraftStanding) -> BandejaReason | None:
     return next((reason for reason, gap in RULE if gap(draft)), None)
 
 
+def listo_gaps(draft: DraftStanding) -> tuple[BandejaReason, ...]:
+    """Every gap between this draft and Listos, in the rule's order."""
+
+    return tuple(reason for reason, gap in RULE if gap(draft))
+
+
 def _row_reason(
     view: Mapping[str, Any], draft: DraftStanding | None
 ) -> BandejaReason | None:

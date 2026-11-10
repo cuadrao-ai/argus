@@ -24,6 +24,7 @@ from argus.api.business_spaces import business_spaces, space_missing_problem
 from argus.api.dependencies import problem
 from argus.api.documents import documents_service
 from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingestion_context
+from argus.domain.business import analytics as business_analytics
 from argus.domain.business.config import business_pilot_enabled
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
@@ -139,6 +140,14 @@ class DocumentsDestination:
             ) from None
         except DocumentServiceError:
             raise CaptureFailed("whatsapp_capture_failed") from None
+        if not outcome.replayed:
+            business_analytics.document_received(
+                channel="whatsapp",
+                business_id=scope.owner.space_id,
+                user_id=owner_id,
+                media_type=media_type,
+                size_bytes=len(content),
+            )
         # Queued by ``upload`` and read by a puller while ``read`` waits: the
         # follow-up carries the link. A replay is a duplicate and gets the
         # duplicate reply.

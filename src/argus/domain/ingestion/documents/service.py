@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import time
 import unicodedata
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from typing import TYPE_CHECKING, Protocol
 
 from loguru import logger
@@ -617,12 +619,16 @@ class DocumentsService:
                 repo.release(connection_id=connection_id, holder=holder)
                 raise DocumentServiceError("document_attempt_superseded")
         replayed = batch is not None
+        from argus.domain.business import analytics as business_analytics
         from argus.domain.business.actions.mutations import _read_refusal
 
         if batch is not None and _read_refusal(batch) == "receipt_requires_review":
             # The same saved batch refuses again. Only a new read can finish it.
             batch = None
             replayed = False
+        # Set once a provider call is admitted: only such a read is reported.
+        provider_called = False
+        read_started = read_ms = None
         try:
             business = self._canonical_business(connection_id, scope)
             if business:
@@ -677,6 +683,7 @@ class DocumentsService:
                 )
 
                 async def before_request() -> None:
+                    nonlocal provider_called
                     if not self._reading_allowed(user_id, connection_id):
                         raise DocumentServiceError("document_reading_not_allowed")
                     if business:
@@ -702,7 +709,9 @@ class DocumentsService:
                         )
                         if refused is not None:
                             raise DocumentServiceError(refused)
+                    provider_called = True
 
+                read_started = time.monotonic()
                 batch = await self.extractor.extract(
                     content=content,
                     filename=draft.filename,
@@ -712,6 +721,7 @@ class DocumentsService:
                     prepared=prepared,
                     before_request=before_request,
                 )
+                read_ms = _elapsed_ms(read_started)
                 batch = clean_extracted_text(batch)
                 self._validate(batch, connection_id)
                 if not self.store.save(
@@ -731,10 +741,11 @@ class DocumentsService:
                 connection_id=connection_id, holder=holder, now=self.hub.clock()
             ):
                 raise DocumentServiceError("document_lease_lost", retryable=True)
+            attached = None
             if business:
                 from argus.domain.business.contracts.actions import canonical_input_hash
 
-                self.business_actions.prepare_attachment(
+                attached = self.business_actions.prepare_attachment(
                     expected_batch_sha256=canonical_input_hash(batch),
                     user_id=user_id,
                     connection_id=connection_id,
@@ -762,6 +773,28 @@ class DocumentsService:
                 now=self.hub.clock(),
             ):
                 raise DocumentServiceError("document_lease_lost", retryable=True)
+            business_id = space_id(scope)
+            if provider_called and business_id is not None:
+                business_analytics.document_read(
+                    business_id=business_id,
+                    user_id=user_id,
+                    metadata=batch.metadata,
+                    latency_ms=read_ms or 0,
+                    issue_code=batch.issues[0].code if batch.issues else None,
+                )
+                draft_id = getattr(attached, "draft_id", None)
+                if draft_id is not None:
+                    business_analytics.document_needs_review(
+                        business_id=business_id,
+                        user_id=user_id,
+                        reasons=partial(
+                            self.business_actions.review_gaps,
+                            user_id=user_id,
+                            connection_id=connection_id,
+                            scope=scope,
+                            draft_id=draft_id,
+                        ),
+                    )
             return DocumentOutcome(
                 connection_id, replayed, len(batch.candidates), draft.status
             )
@@ -810,6 +843,16 @@ class DocumentsService:
                 )
             except (ConnectionNotFound, DocumentServiceError):
                 pass
+            business_id = space_id(scope)
+            if provider_called and business_id is not None:
+                business_analytics.document_read(
+                    business_id=business_id,
+                    user_id=user_id,
+                    metadata=getattr(error, "metadata", None)
+                    or (batch.metadata if batch is not None else {}),
+                    latency_ms=read_ms if read_ms is not None else _elapsed_ms(read_started),
+                    code=code,
+                )
             raise
         finally:
             repo.release(connection_id=connection_id, holder=holder)
@@ -888,3 +931,7 @@ class DocumentsService:
             ):
                 raise DocumentServiceError("document_invalid_extraction")
             keys.add(candidate.key)
+
+
+def _elapsed_ms(started: float | None) -> int:
+    return 0 if started is None else int((time.monotonic() - started) * 1000)

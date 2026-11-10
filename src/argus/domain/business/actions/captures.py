@@ -5,11 +5,13 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from argus.domain.business import analytics as business_analytics
 from argus.domain.business.actions import mutations, plans, sources
 from argus.domain.business.actions.facts import facts_of, patched_facts
 from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
+    Applied,
     CaptureCommand,
     CaptureNote,
 )
@@ -110,9 +112,16 @@ def capture(
                     )
             except ActionError as error:
                 result = error.result
-            return plans.finish_receipt(tx, key, result)
+            outcome = plans.finish_receipt(tx, key, result)
     except ActionError as error:
         return error.result
+    if request.draft is None and isinstance(outcome, Applied) and outcome.outcome == "applied":
+        business_analytics.document_received(
+            channel="note",
+            business_id=str(context.actor.space_id),
+            user_id=str(context.actor.actor_id),
+        )
+    return outcome
 
 
 # A saved note: the message source of a capture_note action's own revision.
