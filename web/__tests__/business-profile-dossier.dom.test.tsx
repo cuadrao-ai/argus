@@ -159,7 +159,5 @@ test("live Datos shows the server's confirmed legal name and its checklist item,
  try{
   expect(confirmed.button("Identidad y datos fiscales").textContent).toContain("Taller Palma de Ejemplo SRL");
   expect(confirmed.host.querySelector('[data-profile-checklist="legalName"] [aria-hidden="true"] svg')).not.toBeNull();
-  await confirmed.click(confirmed.button("Identidad y datos fiscales"));
-  expect(document.querySelector("#profile-section-dossier")?.textContent).toContain("Taller Palma de Ejemplo SRL");
  }finally{await confirmed.close();globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;}
 });

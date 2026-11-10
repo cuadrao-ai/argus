@@ -99,7 +99,7 @@ describe("Negocio, Datos", () => {
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
       }
       const alert = form.host.querySelector('[role="alert"]');
-      const retry = alert?.querySelector("button");
+      const retry = [...(alert?.querySelectorAll("button") ?? [])].find((button) => button.textContent === "Reintentar");
       assert.equal(retry?.textContent, "Reintentar");
       assert.equal(retry?.parentElement, alert?.querySelector("p")?.parentElement, "the retry sits in the text's column");
       assert.equal(form.field("tax-id-value").value, value);

@@ -2,15 +2,18 @@
 
 import { type FormEvent, type ReactNode, useContext, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   getFiscalProfile,
   setFiscalProfile,
   type FiscalProfile,
+  type RegistryAnswer,
   type TaxIdType,
 } from "@/lib/business-dgii";
 import { randomId } from "@/lib/random-id";
+import { referenceCode } from "@/lib/failure-screen";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { ErrorSummary, FormField, SelectField, useFieldChecks, type FieldRules } from "@/components/ui/FormField";
 import { BusinessContext } from "./BusinessWorkspace";
 import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
@@ -25,7 +28,33 @@ function digitsOf(raw: string): string {
 type Field = "name" | "number";
 export type FiscalProfileDraft = {name:string;kind:TaxIdType;value:string};
 /** A refusal the server explains; retrying the same values cannot help. */
-type Problem = { text: string; retry: boolean };
+type Problem = { text: string; retry: boolean; reference?: string };
+/** The registry check of one typed number, keyed by type and digits. */
+type Lookup = { key: string } & ({ status: "checking" } | { status: "failed"; reference: string } | { status: "done"; answer: RegistryAnswer });
+/** What the Razón social block shows for the typed number. */
+type LegalNameState =
+  | { status: "checking" }
+  | { status: "failed"; reference: string }
+  | { status: "verified"; name: string }
+  | { status: "pending"; name: string }
+  | { status: "inactive"; name: string; registryStatus: string }
+  | { status: "unverified" };
+
+/** The stored legal name wins for the number it was confirmed for; otherwise the registry's answer decides. */
+function legalNameState(profile: FiscalProfile, kind: TaxIdType, digits: string, lookup: Lookup | null): LegalNameState {
+  if (profile.legal_name && profile.tax_id?.type === kind && profile.tax_id.value === digits) return { status: "verified", name: profile.legal_name.value };
+  if (!lookup || lookup.key !== `${kind}:${digits}` || lookup.status === "checking") return { status: "checking" };
+  if (lookup.status === "failed") return { status: "failed", reference: lookup.reference };
+  const { verification, record } = lookup.answer;
+  if (!record || verification === "sin_verificar") return { status: "unverified" };
+  return verification === "verificado" ? { status: "pending", name: record.name } : { status: "inactive", name: record.name, registryStatus: record.status };
+}
+
+const TAGS = {
+  verified: "bg-[#E3EFE8] text-[#2f5a49] dark:bg-[#8fcbb0]/15 dark:text-[#8fcbb0]",
+  neutral: "bg-[#EDECE6] text-[#56635e] dark:bg-white/10 dark:text-white/80",
+  inactive: "bg-[#F6EBD4] text-[#7a5512] dark:bg-[#f6e7c1]/15 dark:text-[#f6e7c1]",
+} as const;
 
 export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onDirtyChange, initialDraft, onDraftChange, footerTarget }: { draftId?: string; footerTarget?: HTMLElement | null; initialDraft?: FiscalProfileDraft | null; onDraftChange?: (draft:FiscalProfileDraft) => void; onDirtyChange?: (dirty: boolean) => void; renderTaxIdControl?: (props: {value: TaxIdType; label: string; disabled: boolean; onChange: (value: TaxIdType) => void}) => ReactNode }) {
   const { t, i18n } = useTranslation();
@@ -41,9 +70,16 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const [problem, setProblem] = useState<Problem | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [lookup, setLookup] = useState<Lookup | null>(null);
+  const [lookupAttempt, setLookupAttempt] = useState(0);
+  // One key per number being confirmed, so a retry after a failed second step replays instead of writing twice.
+  const confirmKey = useRef<{ key: string; id: string } | null>(null);
   // The workspace's source owns the read, so the sample business answers with its own name and RNC.
   const read = workspace?.source.fiscalProfile ?? getFiscalProfile;
   const write = workspace?.source.saveFiscalProfile ?? setFiscalProfile;
+  // Only a source with the registry (the live one) shows the Razón social block; the local preview and the sample have none.
+  const lookupSource = workspace?.source.lookupRegistry;
+  const writeLegalName = workspace?.source.saveLegalName;
   useEffect(() => {
     let live = true;
     setLoadFailed(false);
@@ -81,6 +117,22 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
     },
   };
   const checks = useFieldChecks(rules, { name, number: value });
+  const digits = digitsOf(value);
+  const numberValid = Boolean(value.trim()) && rules.number({ name, number: value }) === null;
+  const lookupKey = `${kind}:${digits}`;
+  const storedApplies = Boolean(profile?.legal_name) && profile?.tax_id?.type === kind && profile?.tax_id?.value === digits;
+  const registryShown = Boolean(profile?.can_edit && lookupSource && writeLegalName && numberValid);
+  useEffect(() => {
+    if (!registryShown || storedApplies || !lookupSource) return;
+    const controller = new AbortController();
+    setLookup({ key: lookupKey, status: "checking" });
+    lookupSource({ type: kind, value: digits }, controller.signal)
+      .then((answer) => { if (!controller.signal.aborted) setLookup({ key: lookupKey, status: "done", answer }); })
+      .catch((error: unknown) => { if (!controller.signal.aborted) setLookup({ key: lookupKey, status: "failed", reference: referenceCode(error) }); });
+    return () => controller.abort();
+  }, [registryShown, storedApplies, lookupSource, lookupKey, kind, digits, lookupAttempt]);
+  const legal = profile && registryShown ? legalNameState(profile, kind, digits, lookup) : null;
+  const confirming = legal?.status === "pending" || legal?.status === "inactive";
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -88,29 +140,44 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
     setBusy(true);
     setSaved(false);
     setProblem(null);
+    // Saving is the confirmation: the number first, then the registry's name for it.
+    const confirmed = confirming && legal ? { name: legal.name, taxId: { type: kind, value: digits } } : null;
+    if (confirmed && confirmKey.current?.id !== lookupKey) confirmKey.current = { key: randomId(), id: lookupKey };
     try {
-      const next = await write(
-        {
-          name: name.trim(),
-          previous_name: profile.name,
-          tax_id: value.trim() ? { type: kind, value: value.trim() } : null,
-          previous_tax_id: profile.tax_id,
-        },
-        randomId(),
-      );
-      setProfile(next);
-      setName(next.name);
-      setKind(next.tax_id?.type ?? kind);
-      setValue(next.tax_id?.value ?? "");
+      let next = profile;
+      if (!unchanged) {
+        next = await write(
+          {
+            name: name.trim(),
+            previous_name: profile.name,
+            tax_id: value.trim() ? { type: kind, value: value.trim() } : null,
+            previous_tax_id: profile.tax_id,
+          },
+          randomId(),
+        );
+        setProfile(next);
+        setName(next.name);
+        setKind(next.tax_id?.type ?? kind);
+        setValue(next.tax_id?.value ?? "");
+        if (next.name !== profile.name) workspace?.reload();
+      }
+      if (confirmed && writeLegalName && confirmKey.current) {
+        next = await writeLegalName(
+          { legal_name: confirmed.name, previous_legal_name: next.legal_name?.value ?? null, tax_id: confirmed.taxId, confirmed: true },
+          confirmKey.current.key,
+        );
+        setProfile(next);
+        confirmKey.current = null;
+      }
       checks.reset();
       setSaved(true);
-      if (next.name !== profile.name) workspace?.reload();
     } catch (error) {
       const code = (error as { code?: string }).code;
       const known = Boolean(code) && i18n.exists(`business.dgii.error.${code}`);
       setProblem({
         text: known ? t(`business.dgii.error.${code}`) : t("business.dgii.profile_failed"),
         retry: !known,
+        reference: known ? undefined : referenceCode(error),
       });
     } finally {
       setBusy(false);
@@ -123,6 +190,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
     (value.trim() ? kind : profile.tax_id?.type ?? kind) === (profile.tax_id?.type ?? kind);
   useEffect(() => { if(profile)onDraftChange?.({name,kind,value}); }, [profile,name,kind,value,onDraftChange]);
   useEffect(() => { onDirtyChange?.(profile !== null && !unchanged); }, [profile, unchanged, onDirtyChange]);
+  const businessName = name.trim() || profile?.name || "";
   const ids: Record<Field, string> = { name: `${base}-name`, number: `${base}-number` };
   const labels: Record<Field, string> = {
     name: t("business.dgii.business_name", "Business name"),
@@ -131,9 +199,10 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const changeKind = (next:TaxIdType)=>{setKind(next);setSaved(false);};
   const numberHint = t(kind === "rnc" ? "business.dgii.tax_id_hint_rnc" : "business.dgii.tax_id_hint_cedula");
   const taxIdTitle = profile?.tax_id?.type === "cedula" ? t("business.dgii.tax_id_cedula", "Cédula") : t("business.dgii.tax_id_rnc", "RNC");
-  const saveButton = <button type="submit" form={`${base}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full rounded-item`} disabled={busy || unchanged}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
+  const saveButton = <button type="submit" form={`${base}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full rounded-item`} disabled={busy || (unchanged && !confirming)}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
   const status = <p role="status" className={`${saved ? "" : "sr-only"} text-[14px] text-[#56635e] dark:text-white/70`}>{saved ? t("business.settings.profile_details_saved") : ""}</p>;
-  const actions = footerTarget === undefined ? <div className="flex min-h-11 flex-wrap items-center gap-3 pt-2">{saveButton}{status}</div> : <div className="flex flex-col gap-2">{status}{saveButton}</div>;
+  const confirmLine = confirming ? <p data-testid="legal-name-confirm" className="text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.dgii.legal_name.confirm_on_save", { business: businessName })}</p> : null;
+  const actions = footerTarget === undefined ? <div className="flex flex-col gap-2 pt-2">{confirmLine}<div className="flex min-h-11 flex-wrap items-center gap-3">{saveButton}{status}</div></div> : <div className="flex flex-col gap-2">{status}{confirmLine}{saveButton}</div>;
   return (
     <div className="mt-[21px]" data-testid="business-fiscal-profile">
       {profile === null && !loadFailed ? <Settle pending layout="form" /> : null}
@@ -196,12 +265,13 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
               onChange={(event) => {setValue(event.target.value);setSaved(false);}}
             />
           </div>
+          {legal ? <LegalNameBlock state={legal} onRetry={() => setLookupAttempt((count) => count + 1)} /> : null}
           {footerTarget === undefined ? actions : footerTarget ? createPortal(actions,footerTarget) : null}
           {problem ? (
             <div role="alert" className="flex items-start gap-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
               <AlertCircle className="mt-[3px] h-4 w-4 shrink-0" aria-hidden="true" />
               <div className="min-w-0">
-                <p>{problem.text}</p>
+                <p>{problem.text}{problem.reference ? <> <ReferenceCode reference={problem.reference} /></> : null}</p>
                 {problem.retry ? (
                   <button type="submit" disabled={busy} className={`${quietButtonClass} -ml-1`}>
                     {t("common.retry", "Retry")}
@@ -225,4 +295,32 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
       ) : null}
     </div>
   );
+}
+
+function LegalNameBlock({ state, onRetry }: { state: LegalNameState; onRetry: () => void }) {
+  const { t } = useTranslation();
+  const labelId = useId();
+  const label = <span id={labelId} className="text-[15px] font-medium">{t("business.dgii.legal_name.label")}</span>;
+  if (state.status === "checking") {
+    return <div data-testid="legal-name" data-legal-name-status="checking" aria-busy="true" aria-labelledby={labelId} className="space-y-1">{label}<div aria-hidden="true" className="h-5 w-2/3 animate-pulse rounded-item bg-black/5 dark:bg-white/10" /></div>;
+  }
+  if (state.status === "failed") {
+    return <div data-testid="legal-name" data-legal-name-status="failed" className="space-y-1">{label}
+      <div role="alert" className="flex items-start gap-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
+        <AlertCircle className="mt-[3px] h-4 w-4 shrink-0" aria-hidden="true" />
+        <div className="min-w-0"><p>{t("common.error_occurred")} <ReferenceCode reference={state.reference} /></p><button type="button" onClick={onRetry} className={`${quietButtonClass} -ml-1`}>{t("common.retry")}</button></div>
+      </div>
+    </div>;
+  }
+  const tag = state.status === "verified"
+    ? <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.verified}`}><Check className="h-3 w-3" aria-hidden="true" />{t("business.dgii.legal_name.tag_verified")}</span>
+    : state.status === "inactive"
+      ? <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.inactive}`}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{t("business.dgii.legal_name.tag_inactive")}</span>
+      : <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.neutral}`}>{t(state.status === "pending" ? "business.dgii.legal_name.tag_pending" : "business.dgii.legal_name.tag_unverified")}</span>;
+  const source = state.status === "unverified" ? t("business.dgii.legal_name.source_missing") : state.status === "inactive" ? t("business.dgii.legal_name.source_status", { status: state.registryStatus }) : t("business.dgii.legal_name.source");
+  return <div data-testid="legal-name" data-legal-name-status={state.status} aria-live="polite" className="min-w-0 space-y-1">
+    <div className="flex flex-wrap items-center gap-2">{label}{tag}</div>
+    {state.status === "unverified" ? <p className="text-[16px] text-[#56635e] dark:text-white/70">-</p> : <p data-testid="legal-name-value" className="text-[16px] [overflow-wrap:anywhere]">{state.name}</p>}
+    <p className="text-[14px] text-[#56635e] dark:text-white/70">{source}</p>
+  </div>;
 }

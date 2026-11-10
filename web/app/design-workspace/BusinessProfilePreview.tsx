@@ -109,6 +109,7 @@ function BusinessProfileContent() {
   const profile = live && server.profile ? {...previewProfile,name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName,providedDetails:server.profile.details,checklist:profileChecklist({name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName},server.profile.details)} : previewProfile;
   const taxType = profile.taxId?.type;
   const taxValue = profile.taxId?.value;
+  const {lookupRegistry,saveLegalName}=workspace.source;
   const localSource = useMemo(()=>({...workspace.source,
     fiscalProfile:async()=>live ? fetchFiscal() : ({name:profile.name,tax_id:taxType && taxValue ? {type:taxType,value:taxValue} : null,legal_name:null,can_edit:canEdit}),
     saveFiscalProfile:async(input:Parameters<typeof saveBusinessProfilePreview>[2],key:string)=>{
@@ -119,7 +120,10 @@ function BusinessProfileContent() {
       refresh();
       return {name:input.name,tax_id:input.tax_id,legal_name:null,can_edit:canEdit};
     },
-  }),[workspace.source,reloadWorkspace,retryProfile,profile.name,taxType,taxValue,canEdit,businessId,renamePreviewBusiness,refresh,live,fetchFiscal]);
+    // The registry check and the confirmed legal name are the server's; the local preview has neither.
+    lookupRegistry:live ? lookupRegistry : undefined,
+    saveLegalName:live && saveLegalName ? async(input:Parameters<typeof saveLegalName>[0],key:string)=>{const next=await saveLegalName(input,key);setFiscal(next);return next;} : undefined,
+  }),[workspace.source,lookupRegistry,saveLegalName,reloadWorkspace,retryProfile,profile.name,taxType,taxValue,canEdit,businessId,renamePreviewBusiness,refresh,live,fetchFiscal]);
   const formContext = useMemo(()=>({...workspace,source:localSource,reload:()=>{}}),[workspace,localSource]);
   const countryLabel = profile.country ? t(`workspace_setup_preview.country_${profile.country.toLowerCase()}`,{defaultValue:profile.country}) : null;
   const labels: Record<ProfileChecklistKey,string> = {
@@ -159,7 +163,7 @@ function BusinessProfileContent() {
     {selected === "appearance" ? <IdentityEditor saved={appearance} name={name} business onSave={async next=>{if(live)await server.saveAppearance(next);else{saveAppearance(storage(),`business:${businessId}`,next);window.dispatchEvent(new Event(IDENTITY_EVENT));}applySelection({section:null});}}/> : selected === "identity" ? <>
       <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile footerTarget={footerTarget} initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
       <dl className="mt-5 space-y-5 text-[16px]">
-        <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.legal_name")}</dt><dd>{profile.legalName || t("business.settings.profile_unverified")}</dd></div>
+        {live && canEdit ? null : <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.legal_name")}</dt><dd>{profile.legalName || t("business.settings.profile_unverified")}</dd></div>}
         {countryLabel ? <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.operating_country")}</dt><dd>{countryLabel}</dd></div> : null}
       </dl>
     </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails footerTarget={footerTarget} initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={async next=>{if(live){const fields=selected==="presence"?["website","description"] as const:["address","province","municipality","email","phone"] as const;const saved=await server.save({details:Object.fromEntries(fields.map(field=>[field,next[field]]))});return saved.details;}const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" && !live ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
