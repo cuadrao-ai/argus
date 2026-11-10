@@ -22,6 +22,7 @@ from psycopg.types.json import Jsonb
 
 from argus.domain import resend_email
 from argus.domain.business.lifecycle import REOPEN_WINDOW
+from argus.domain.business.space_name import spanish_name
 from argus.domain.business.transfer_mail import _origin
 from argus.settings_names import setting_value
 
@@ -168,7 +169,7 @@ def _context(db, space_id: str, owner_id: str, name: str, closed_at: datetime) -
         (owner_id,),
     ).fetchone()
     return {
-        "businessName": name,
+        "businessName": spanish_name(name),
         "ownerName": owner[0] if owner else "Member",
         "closedAt": closed_at.isoformat(),
         "purgeAt": (closed_at + REOPEN_WINDOW).isoformat(),

@@ -16,6 +16,7 @@ import { referenceCode } from "@/lib/failure-screen";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { ErrorSummary, FormField, SelectField, useFieldChecks, type FieldRules } from "@/components/ui/FormField";
 import { BusinessContext } from "./BusinessWorkspace";
+import { formatBusinessName } from "./business-format";
 import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 
@@ -192,7 +193,8 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
     (value.trim() ? kind : profile.tax_id?.type ?? kind) === (profile.tax_id?.type ?? kind);
   useEffect(() => { if(profile)onDraftChange?.({name,kind,value}); }, [profile,name,kind,value,onDraftChange]);
   useEffect(() => { onDirtyChange?.(profile !== null && !unchanged); }, [profile, unchanged, onDirtyChange]);
-  const businessName = name.trim() || profile?.name || "";
+  const savedName = formatBusinessName(profile?.name, t("business.overview.title", "My business"));
+  const businessName = name.trim() || savedName;
   const ids: Record<Field, string> = { name: `${base}-name`, number: `${base}-number` };
   const labels: Record<Field, string> = {
     name: t("business.dgii.business_name", "Business name"),
@@ -211,7 +213,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
       {/* The editable fields already show the name and number; the summary line is for those who can only read. */}
       {profile && !profile.can_edit ? (
         <p className="text-[14px] text-[#56635e] dark:text-white/70">
-          {profile.name || "-"} · {profile.tax_id ? `${taxIdTitle} ${profile.tax_id.value}` : t("business.dgii.tax_id_none", "606 / 607 · Not applicable")}
+          {savedName} · {profile.tax_id ? `${taxIdTitle} ${profile.tax_id.value}` : t("business.dgii.tax_id_none", "606 / 607 · Not applicable")}
         </p>
       ) : null}
       {profile?.can_edit ? (

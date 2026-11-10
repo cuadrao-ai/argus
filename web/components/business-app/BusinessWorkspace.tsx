@@ -385,8 +385,8 @@ function BusinessWorkspaceContent({
       return next;
     });
   }, [chosen, localPreview]);
-  const closedAccessName = closedAccess ? closedSpaces.find(space => space.grant_id === chosenGrant)?.name ?? chosen?.name ?? t("business.overview.title") : null;
   const businessTitle = formatBusinessName(chosen?.name, t("business.overview.title", "My business"));
+  const closedAccessName = closedAccess ? formatBusinessName(closedSpaces.find(space => space.grant_id === chosenGrant)?.name, businessTitle) : null;
   // The listing is the server's; a remembered choice it no longer holds falls back to the own Business.
   useEffect(() => {
     let cancelled = false;
