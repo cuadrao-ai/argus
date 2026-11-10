@@ -189,7 +189,7 @@ test("the owner can save an eleven-digit filer cedula without losing leading zer
   const release = registerDom();
   const writes: unknown[] = [];
   globalThis.fetch = async (_url, init) => {
-    if (!init?.body) return Response.json({ name: "Mi negocio", tax_id: null, can_edit: true });
+    if (!init?.body) return Response.json({ name: null, tax_id: null, can_edit: true });
     writes.push(JSON.parse(String(init.body)));
     return Response.json({ name: "Taller Norte", tax_id: { type: "cedula", value: "00100000001" }, can_edit: true });
   };
@@ -203,6 +203,7 @@ test("the owner can save an eleven-digit filer cedula without losing leading zer
     const button = host.querySelector("button");
     assert.ok(name && kind && value && button);
     assert.equal(value.maxLength, 13);
+    assert.equal(name.value, "", "an unnamed Business starts with an empty name field");
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       assert.ok(setter);
@@ -217,12 +218,23 @@ test("the owner can save an eleven-digit filer cedula without losing leading zer
     await act(async () => button.click());
     assert.deepEqual(writes, [{
       name: "Taller Norte",
-      previous_name: "Mi negocio",
+      previous_name: null,
       tax_id: { type: "cedula", value: "001-0000000-1" },
       previous_tax_id: null,
     }]);
     assert.equal(value.value, "00100000001", "the saved number keeps its leading zeros");
     assert.equal(kind.value, "cedula");
+  } finally { await act(async () => root.unmount()); host.remove(); await release(); }
+});
+
+test("the Negocio card fills the name field with a real name as saved", async () => {
+  const release = registerDom();
+  globalThis.fetch = async () => Response.json({ name: "My business supplies", tax_id: null, can_edit: true });
+  const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  try {
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessFiscalProfile /></I18nextProvider>));
+    assert.equal(host.querySelector<HTMLInputElement>('input[name="business-name"]')?.value, "My business supplies");
   } finally { await act(async () => root.unmount()); host.remove(); await release(); }
 });
 

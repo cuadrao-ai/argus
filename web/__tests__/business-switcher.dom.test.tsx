@@ -71,8 +71,8 @@ describe("the Business mark menu", () => {
     await client.act(async () => client.root.unmount());
   });
 
-  test("the English default is Spanish in the collapsed label and open options", async () => {
-    const unnamed = { ...CLIENT, name: "My business" };
+  test("an unnamed Business is Mi negocio in the collapsed label and open options", async () => {
+    const unnamed = { ...CLIENT, name: null };
     const page = await mountSwitcher([OWN, unnamed], unnamed, true);
     const button = page.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement;
     assert.equal(page.host.querySelector('[data-testid="business-current-name"]')?.textContent, "Mi negocio");
@@ -84,7 +84,6 @@ describe("the Business mark menu", () => {
     await page.settle();
     assert.ok([...document.querySelectorAll('[role="option"]')][1].textContent?.includes("Mi negocio"));
     assert.ok(!document.body.textContent?.includes("My business"));
-    assert.equal(unnamed.name, "My business");
     await page.act(async () => page.root.unmount());
   });
 
@@ -266,8 +265,8 @@ describe("the one-time access line belongs to invitations", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("the access banner localizes the saved English default", async () => {
-    const page = await mountCue({ ...CLIENT, name: "My business" });
+  test("the access banner names an unnamed Business Mi negocio", async () => {
+    const page = await mountCue({ ...CLIENT, name: null });
     assert.ok(page.host.querySelector('[data-testid="business-access-line"]')?.textContent?.includes("Ahora tienes acceso a Mi negocio"));
     assert.ok(!page.host.textContent?.includes("My business"));
     await page.act(async () => page.root.unmount());
