@@ -49,3 +49,12 @@ test("two notes typed one after the other never share a key", async () => {
   const keys = queue.snapshot().map((note) => note.key);
   assert.equal(new Set(keys).size, 2);
 });
+
+test("forgetting one Business's finished notes keeps another Business's finished notes", async () => {
+  const queue = new TypedNoteQueue(() => undefined);
+  const capture = async () => undefined;
+  await queue.add({ grant: "grant-a", text: "Compré gasoil", documentType: "recibo" }, capture);
+  await queue.add({ grant: "grant-b", text: "Vendí cemento", documentType: "venta" }, capture);
+  queue.clearSettled("grant-b");
+  assert.deepEqual(queue.snapshot().map((note) => [note.grant, note.status]), [["grant-a", "saved"]]);
+});

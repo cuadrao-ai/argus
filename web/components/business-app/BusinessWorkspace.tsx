@@ -34,7 +34,7 @@ import {
   type ReceiptSummary,
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
-import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
+import { enteredIn, getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
 import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
@@ -512,7 +512,7 @@ function BusinessWorkspaceContent({
   const uploads = useSyncExternalStore(uploadQueue.subscribe, uploadQueue.snapshot, uploadQueue.snapshot);
   const [typedNotes] = useState(() => new TypedNoteQueue(reload));
   // Every way Agregar closes forgets finished typed notes; one still saving or unconfirmed waits for its retry.
-  useEffect(() => { if (!intakeTarget) typedNotes.clearSettled(); }, [intakeTarget, typedNotes]);
+  useEffect(() => { if (!intakeTarget) typedNotes.clearSettled(chosenGrant); }, [intakeTarget, typedNotes, chosenGrant]);
   useEffect(() => {
     if (!uploadQueue.unfinished) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -520,10 +520,10 @@ function BusinessWorkspaceContent({
     return () => window.removeEventListener("beforeunload", warn);
   }, [uploadQueue, uploads]);
   const openIntake = useCallback((target: IntakeTarget) => {
-    // A new composer upload starts clean unless one is still in flight.
-    if (target === "composer" && !uploadQueue.snapshot().some((item) => item.target === target && item.status !== "saved" && item.status !== "rejected")) uploadQueue.clear(target);
+    // A new composer upload starts clean unless one of this Business's is still in flight.
+    if (target === "composer" && !uploadQueue.snapshot().filter(enteredIn(chosenGrant)).some((item) => item.target === target && item.status !== "saved" && item.status !== "rejected")) uploadQueue.clear(target, chosenGrant);
     setIntakeTarget(target);
-  }, [uploadQueue]);
+  }, [uploadQueue, chosenGrant]);
 
   useEffect(() => {
     let cancelled = false;
@@ -805,7 +805,7 @@ function BusinessWorkspaceContent({
           queue={uploadQueue}
           notes={typedNotes}
           onClose={() => {
-            if (intakeTarget) uploadQueue.clearSettled(intakeTarget);
+            if (intakeTarget) uploadQueue.clearSettled(intakeTarget, chosenGrant);
             setIntakeTarget(null);
           }}
           onReview={(saved) => {

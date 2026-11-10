@@ -264,7 +264,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
       // The X closes; the footer holds only the next step, once there is one.
       footer={saved.length > 0 && !unfinished && !uploading ? (
         <div className="flex justify-end" data-testid="receipt-intake-footer">
-          <button type="button" className={`${primaryButtonClass} w-full tablet:w-auto`} onClick={() => { queue.clear(target); onReview(saved); }}>
+          <button type="button" className={`${primaryButtonClass} w-full tablet:w-auto`} onClick={() => { queue.clear(target, grant); onReview(saved); }}>
             {t("business.intake.review_saved", "Review saved receipts")}
           </button>
         </div>

@@ -1,4 +1,5 @@
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
+import { enteredIn } from "@/lib/business-grant";
 import { classifyFailure, type FailureClass } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import { receiptFileWithType } from "./receipt-file";
@@ -119,13 +120,20 @@ export class ReceiptUploadQueue {
     this.publish(this.items.map((item) => item.key === next.key ? next : item));
   }
 
-  /** A file already in this target's list (same name, size and last change) is not added twice.
+  /** One Business's files for one target: the queue holds every Business's files, and an action in one touches only its own. */
+  private within(target: IntakeTarget, grant: string | null) {
+    const entered = enteredIn(grant);
+    return (item: ReceiptUpload) => item.target === target && entered(item);
+  }
+
+  /** A file already in this Business's list for the target (same name, size and last change) is not added twice.
    *  A file added while a save is running joins the tail instead of being dropped. */
   add(files: readonly File[], limits: ReceiptLimits, target: IntakeTarget, conversationId: string | null = null, documentType: DocumentType | null = null, grant: string | null = null): boolean {
     const selected = target === "composer" ? files.slice(0, 1) : files;
     if (!selected.length) return true;
     const identity = (file: File) => `${file.name}\u0000${file.size}\u0000${file.lastModified}`;
-    const known = new Set(this.items.filter((item) => item.target === target).map((item) => identity(item.file)));
+    const own = this.within(target, grant);
+    const known = new Set(this.items.filter(own).map((item) => identity(item.file)));
     const fresh = selected.filter((candidate) => {
       if (known.has(identity(candidate))) return false;
       known.add(identity(candidate));
@@ -140,21 +148,23 @@ export class ReceiptUploadQueue {
       return reason ? { ...base, status: "rejected", reason } : { ...base, status: "queued" };
     });
     const idleComposer = target === "composer" && !this.running;
-    this.publish([...(idleComposer ? this.items.filter((item) => item.target !== target) : this.items), ...incoming]);
+    this.publish([...(idleComposer ? this.items.filter((item) => !own(item)) : this.items), ...incoming]);
     return true;
   }
 
   /** Closing the dialog forgets what is finished; queued, running and failed files stay. */
-  clearSettled(target: IntakeTarget) {
-    if (!this.running) this.publish(this.items.filter((item) => item.target !== target || isUnfinishedUpload(item)));
+  clearSettled(target: IntakeTarget, grant: string | null) {
+    const own = this.within(target, grant);
+    if (!this.running) this.publish(this.items.filter((item) => !own(item) || isUnfinishedUpload(item)));
   }
 
   remove(key: string) {
     if (!this.running) this.publish(this.items.filter((item) => item.key !== key));
   }
 
-  clear(target: IntakeTarget) {
-    if (!this.running) this.publish(this.items.filter((item) => item.target !== target));
+  clear(target: IntakeTarget, grant: string | null) {
+    const own = this.within(target, grant);
+    if (!this.running) this.publish(this.items.filter((item) => !own(item)));
   }
 
   /** Uploads every queued file, and the failed files of `target` that `only` names (all of them when it is omitted). */

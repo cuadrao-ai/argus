@@ -1,3 +1,4 @@
+import { enteredIn } from "@/lib/business-grant";
 import { randomId } from "@/lib/random-id";
 import { captureOutcomeUnknown } from "./ManualCaptureDialog";
 import type { DocumentType } from "./receipt-upload-queue";
@@ -36,9 +37,10 @@ export class TypedNoteQueue {
     return entry?.status === "uncertain" ? this.send(entry, capture) : Promise.resolve();
   }
 
-  /** Closing Agregar forgets what is finished; a note still saving or unconfirmed stays for its retry. */
-  clearSettled() {
-    this.publish(this.items.filter((item) => item.status === "saving" || item.status === "uncertain"));
+  /** Closing Agregar forgets what that Business finished; a note still saving or unconfirmed stays for its retry. */
+  clearSettled(grant: string | null) {
+    const entered = enteredIn(grant);
+    this.publish(this.items.filter((item) => !entered(item) || item.status === "saving" || item.status === "uncertain"));
   }
 
   private async send(entry: TypedNote, capture: Capture) {
