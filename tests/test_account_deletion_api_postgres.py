@@ -379,7 +379,7 @@ def _deployed(monkeypatch, *, posthog_token: str | None) -> None:
     for name in ("ARGUS_ENV", "ARGUS_APP_ENV", "ENVIRONMENT"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("APP_ENV", "staging")
-    monkeypatch.delenv("ARGUS_ANALYTICS_DELETION_ENABLED", raising=False)
+    monkeypatch.delenv("CUADRAO_ANALYTICS_DELETION_ENABLED", raising=False)
     if posthog_token is None:
         monkeypatch.delenv("POSTHOG_PROJECT_TOKEN", raising=False)
     else:

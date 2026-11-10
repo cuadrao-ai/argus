@@ -21,6 +21,7 @@ from argus.api.business_reporting_schemas import DeleteReportView
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.routers.business_export import ExportRoute
+from argus.domain.business import analytics as business_analytics
 from argus.domain.business.authority import ActionError
 from argus.domain.business.reporting_file import (
     ExportPreview,
@@ -137,14 +138,17 @@ def download_report(
     context: Context,
     person: Person,
 ) -> Response:
-    built = _run(
-        request,
-        response,
-        lambda: export_file(
-            context.service.authority,
-            context.for_space(request, person.spaces),
-            body,
-        ),
+    def build():  # noqa: ANN202
+        actor = context.for_space(request, person.spaces)
+        return actor, export_file(context.service.authority, actor, body)
+
+    actor, built = _run(request, response, build)
+    business_analytics.records_exported(
+        business_id=str(actor.actor.space_id),
+        user_id=str(actor.actor.actor_id),
+        file_format=body.format,
+        mode=body.mode,
+        row_count=built.row_count,
     )
     return Response(
         built.content,

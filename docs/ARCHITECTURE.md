@@ -545,11 +545,17 @@ Provider ownership:
 
 **Use for:**
 
-- Measurement-only product analytics for the closed wave 1 event registry
-  (`src/argus/observability/analytics_events.py`, listed in `docs/DATA_MODEL.md`
-  section 12.1.1). The sink re-validates each event against the registry and
-  refuses anything else.
-- Aggregate funnels, retention, and loop-health questions.
+- Measurement-only product analytics for the closed event registry
+  (`src/argus/observability/analytics_events.py`): the wave 1 events and the
+  Business pilot's six events (`src/argus/domain/business/analytics_events.py`,
+  sent by `src/argus/domain/business/analytics.py`). `docs/DATA_MODEL.md`
+  section 12.1.1 lists every event and property. The sink re-validates each
+  event against the registry and refuses anything else.
+- Aggregate funnels, retention, and loop-health questions, and per-Business
+  document volume, read cost and correction rates for pricing.
+- Unhandled API and document read exceptions, as class name, route or job,
+  hashed actor and stack frames only (`capture_exception` in
+  `src/argus/observability/envelope.py`).
 
 **Do not use for:**
 
