@@ -12,7 +12,9 @@ export type DgiiFields = Record<"606" | "607", DgiiField[]>;
 export type PurchaseChoice = { category?: string | null; payment_method?: string | null };
 export type TaxIdType = "rnc" | "cedula";
 export type TaxId = { type: TaxIdType; value: string };
-export type FiscalProfile = { name: string; tax_id: TaxId | null; can_edit: boolean };
+/** The razón social a person who manages the Business confirmed against the registry row for its tax id. */
+export type LegalName = { value: string; confirmed_at: string };
+export type FiscalProfile = { name: string; tax_id: TaxId | null; legal_name: LegalName | null; can_edit: boolean };
 export type FiscalProfileInput = {
   name: string;
   previous_name: string;
@@ -20,8 +22,15 @@ export type FiscalProfileInput = {
   previous_tax_id: TaxId | null;
 };
 
+/** What the DGII registry says of one tax id, in the words a counterparty's RNC gets. */
+export type RegistryRecord = { rnc: string; name: string; trade_name: string | null; status: string; file_date: string | null };
+export type RegistryAnswer = { tax_id: TaxId; verification: "verificado" | "no_activo" | "sin_verificar"; record: RegistryRecord | null; checked_at: string };
+export type LegalNameInput = { legal_name: string | null; previous_legal_name: string | null; tax_id: TaxId; confirmed: boolean };
+
 export const getDgiiFields = (): Promise<DgiiFields> => apiFetch("/business/fiscal-profile/fields");
 export const getFiscalProfile = (draftId?: string): Promise<FiscalProfile> => apiFetch(`/business/fiscal-profile${draftId ? `?draft_id=${encodeURIComponent(draftId)}` : ""}`);
 export const setFiscalProfile = (input: FiscalProfileInput, key: string): Promise<FiscalProfile> => apiFetch("/business/fiscal-profile", { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify(input) });
+export const lookupRegistry = (taxId: TaxId, signal?: AbortSignal): Promise<RegistryAnswer> => apiFetch("/business/fiscal-profile/registry", { method: "POST", body: JSON.stringify({ tax_id: taxId }), signal });
+export const setLegalName = (input: LegalNameInput, key: string): Promise<FiscalProfile> => apiFetch("/business/fiscal-profile/legal-name", { method: "PUT", headers: { "Idempotency-Key": key }, body: JSON.stringify(input) });
 export const reviewDgii = (draftId: string, version: number, dgii: DgiiReview, key: string): Promise<BusinessDossier> => apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, dgii }) }).then(readBusinessDossier);
 export const reviewPurchase = (draftId: string, version: number, purchase: PurchaseChoice, key: string): Promise<BusinessDossier> => apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, purchase }) }).then(readBusinessDossier);

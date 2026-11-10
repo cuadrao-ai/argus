@@ -31,7 +31,7 @@ type LedgerAction =
   | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "reopen_draft" | "capture_note" | "prepare_attachment"
   | "rebind_attachment" | "settle_remainder" | "mark_personal" | "decide_606" | "resolve_duplicate" | "edit_current_note"
   | "append_supporting_file" | "receipt_upload" | "receipt_review" | "receipt_confirm" | "business_ask"
-  | "set_business_rnc" | "business_propose_activity" | "business_attach_source" | "business_propose_allocation"
+  | "set_business_rnc" | "set_business_legal_name" | "business_propose_activity" | "business_attach_source" | "business_propose_allocation"
   | "owner_grant" | "grant_access" | "invite_access" | "accept_invite" | "revoke_grant" | "revoke_invite" | "change_role" | "other";
 type ActivityItem = {
   id: string;
@@ -84,6 +84,7 @@ const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   invoice_draft_created: { area: "invoicing", group: "invoices" },
   invoice_revision_saved: { area: "invoicing", group: "invoices" },
   set_business_rnc: { area: "business", group: "settings" },
+  set_business_legal_name: { area: "business", group: "settings" },
   receipt_reading_enabled: { area: "business", group: "settings" },
   receipt_reading_disabled: { area: "business", group: "settings" },
   ownership_transferred: { area: "business", group: "access" },

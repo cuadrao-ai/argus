@@ -33,6 +33,7 @@ ActivityAction = Literal[
     "receipt_review",
     "receipt_confirm",
     "set_business_rnc",
+    "set_business_legal_name",
     "business_propose_activity",
     "business_attach_source",
     "business_propose_allocation",

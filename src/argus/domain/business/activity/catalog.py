@@ -85,6 +85,7 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "receipt_review": ActionSpec("records", "reviews"),
         "receipt_confirm": ActionSpec("records", "approvals"),
         "set_business_rnc": ActionSpec("business", "settings"),
+        "set_business_legal_name": ActionSpec("business", "settings"),
         "business_propose_activity": ActionSpec(
             "records", "edits", object=_PLANNED_DRAFT
         ),
