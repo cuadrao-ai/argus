@@ -9,7 +9,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import type { MonthCloseFigures, MonthCloseFiscalRow, MonthCloseNetDisplay } from "@/lib/business-month-close";
 import { belowOneUnit, formatMoney, UNKNOWN_VALUE } from "../business-format";
 import { FOCUS_RING } from "../foundation/presentation";
-import { HomeCard, HOME_MUTED, HOME_SKELETON } from "./HomeCard";
+import { HomeCard, HOME_MUTED, HOME_SKELETON, HOME_TYPE } from "./HomeCard";
 
 const TERM = `cursor-help rounded-mark underline decoration-[#7d8a84] decoration-dotted underline-offset-4 ${FOCUS_RING}`;
 const LINK = `rounded-mark font-medium text-[var(--cuadrao-green)] underline-offset-4 hover:underline ${FOCUS_RING}`;
@@ -73,12 +73,12 @@ export function HomeMonthCard({ switcher, currencyMenu, state, error, block, cur
   // A month with no document in this currency is a real zero; only the first day reads muted.
   const zero = (value: string | null | undefined) => (block ? value ?? null : "0");
   const figure = (testId: string, value: string | null, className: string) => loading
-    ? <span aria-hidden="true" className={`inline-block rounded-mark ${HOME_SKELETON} ${className.includes("28px") ? "h-8 w-44" : "h-4 w-24"}`} />
+    ? <span aria-hidden="true" className={`inline-block rounded-mark ${HOME_SKELETON} ${className.includes(HOME_TYPE.net) ? "h-10 w-56" : "h-5 w-32"}`} />
     : <Amount testId={testId} value={value} currency={currency} locale={locale} muted={firstDay} className={className} />;
   const row = (testId: string, term: ReactNode, value: string | null, small = false) => (
-    <div className={`flex items-baseline justify-between gap-4 ${small ? "py-1.5 text-[14px]" : "py-2 text-[16px]"}`}>
-      <span className={HOME_MUTED}>{term}</span>
-      {figure(testId, value, `text-right ${small ? "text-[15px]" : "text-[16px]"} font-medium`)}
+    <div className={`flex items-baseline justify-between gap-4 ${HOME_TYPE.label} ${small ? "py-1.5" : "py-2"}`}>
+      <span className={`shrink-0 ${HOME_MUTED}`}>{term}</span>
+      {figure(testId, value, `text-right ${small ? HOME_TYPE.itbisFigure : HOME_TYPE.figure} font-medium leading-tight`)}
     </div>
   );
   const netValue = net.state === "final" ? net.net_before_itbis : block ? null : "0";
@@ -92,8 +92,8 @@ export function HomeMonthCard({ switcher, currencyMenu, state, error, block, cur
     </div>
   ) : (
     <>
-      {firstDay ? <p data-testid="home-month-first-day">{t("business.inicio.month.first_day")}</p>
-        : counted !== null && total !== null && total > 0 ? <p data-testid="home-month-included">{counted === total ? t("business.inicio.month.included_all", { count: total }) : t("business.inicio.month.included_some", { counted, count: total })}</p> : null}
+      {firstDay ? <p data-testid="home-month-first-day" className={HOME_TYPE.included}>{t("business.inicio.month.first_day")}</p>
+        : counted !== null && total !== null && total > 0 ? <p data-testid="home-month-included" className={HOME_TYPE.included}>{counted === total ? t("business.inicio.month.included_all", { count: total }) : t("business.inicio.month.included_some", { counted, count: total })}</p> : null}
       {inBandeja !== null && inBandeja > 0 ? (
         <p data-testid="home-month-bandeja">
           {t("business.inicio.month.in_bandeja", { count: inBandeja })}
@@ -121,14 +121,14 @@ export function HomeMonthCard({ switcher, currencyMenu, state, error, block, cur
             {row("home-month-income", term("income"), zero(block?.income_before_itbis))}
             {row("home-month-expenses", term("expenses"), zero(block?.expense_before_itbis))}
             <div className="mt-1 border-t border-black/20 pt-3 dark:border-white/25">
-              <p className={`text-[16px] ${HOME_MUTED}`}>{term("net")}</p>
-              <p className="mt-1 text-right">{figure("home-month-net", netValue, "font-display text-[28px] font-medium leading-tight tracking-tight")}</p>
+              <p className={`${HOME_TYPE.label} ${HOME_MUTED}`}>{term("net")}</p>
+              <p className="mt-1 text-right">{figure("home-month-net", netValue, `font-display ${HOME_TYPE.net} font-medium leading-tight tracking-tight`)}</p>
             </div>
             <div className="mt-3 border-t border-[color:var(--surface-divider)] pt-1.5">
               {row("home-month-itbis-sales", term("itbis_sales"), zero(block?.itbis_charged), true)}
               {row("home-month-itbis-purchases", term("itbis_purchases"), zero(block?.itbis_paid), true)}
             </div>
-            <div data-testid="home-month-footer" className={`mt-3 space-y-1 border-t border-[color:var(--surface-divider)] pt-3 text-[13px] empty:hidden ${HOME_MUTED}`}>{footer}</div>
+            <div data-testid="home-month-footer" className={`mt-3 space-y-1 border-t border-[color:var(--surface-divider)] pt-3 ${HOME_TYPE.footer} empty:hidden ${HOME_MUTED}`}>{footer}</div>
           </>
         )}
       </div>

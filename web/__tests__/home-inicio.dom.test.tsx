@@ -180,7 +180,7 @@ function server(month: Record<string, unknown> = {}): MonthCloseClient {
   });
 }
 
-async function monthCard(client: MonthCloseClient, prepares = true) {
+async function monthCard(client: MonthCloseClient, prepares = true, businessId?: string) {
   const { act, createElement } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -190,7 +190,7 @@ async function monthCard(client: MonthCloseClient, prepares = true) {
   document.body.appendChild(host);
   const root = createRoot(host);
   const translation = await i18n();
-  await act(async () => { root.render(createElement(I18nextProvider, { i18n: translation }, createElement(BusinessMonthCloseView, { client, now: new Date(2026, 10, 9, 12), scopeKey: `own-${Math.random()}`, businessCurrency: "DOP", settlement: false, layout: "finance", openRecords: prepares ? (focus: RecordsFocus) => { opened.push(focus); } : undefined, openBandeja: prepares ? () => { opened.push("bandeja"); } : undefined }))); });
+  await act(async () => { root.render(createElement(I18nextProvider, { i18n: translation }, createElement(BusinessMonthCloseView, { client, now: new Date(2026, 10, 9, 12), scopeKey: `own-${Math.random()}`, businessId, businessCurrency: "DOP", settlement: false, layout: "finance", openRecords: prepares ? (focus: RecordsFocus) => { opened.push(focus); } : undefined, openBandeja: prepares ? () => { opened.push("bandeja"); } : undefined }))); });
   for (let index = 0; index < 10; index += 1) await act(async () => { await Promise.resolve(); });
   const find = (id: string) => host.querySelector<HTMLElement>(`[data-testid="${id}"]`);
   return { act, host, find, opened, close: async () => { await act(async () => root.unmount()); host.remove(); } };
@@ -204,7 +204,7 @@ describe("The month card", () => {
       assert.equal(page.find("home-month-expenses")?.textContent, "RD$ 315,805");
       assert.equal(page.find("home-month-net")?.textContent, "-RD$ 47,762", "a plain minus, no color");
       assert.equal(page.find("home-month-net")?.closest("p")?.className.includes("text-right"), true);
-      assert.ok(page.find("home-month-net")?.className.includes("text-[28px]"));
+      assert.ok(page.find("home-month-net")?.className.includes("text-[34px]"));
       assert.equal(page.find("home-month-itbis-sales")?.textContent, "RD$ 48,248");
       assert.equal(page.find("home-month-itbis-purchases")?.textContent, "RD$ 56,845");
       assert.doesNotMatch(page.find("home-month")?.textContent ?? "", /Ingresos menos gastos aprobados|por marcar|Ya tienes todo|Para cerrar|Cerrar mes|Mes cerrado/);
@@ -295,6 +295,77 @@ describe("The month card", () => {
       assert.doesNotMatch(card.textContent ?? "", /RD\$|Incluye/);
       assert.equal(page.find("month-close-currency"), null, "nothing reserves room for a pill that may not appear");
     } finally { await page.close(); }
+  });
+});
+
+describe("Inicio reads at a glance", () => {
+  test("both cards take the type one step up, from one set of sizes", async () => {
+    const { HOME_TYPE } = await import("@/components/business-app/inicio/HomeCard");
+    assert.deepEqual({ ...HOME_TYPE }, { title: "text-[18px]", label: "text-[16px]", rowTitle: "text-[16px]", tag: "text-[13px]", secondary: "text-[14px]", action: "text-[15px]", figure: "text-[22px]", itbisFigure: "text-[19px]", net: "text-[34px]", footer: "text-[15px]", included: "text-[14px]" });
+    const page = await monthCard(server());
+    try {
+      const has = (id: string, size: string) => assert.ok(page.find(id)?.className.split(" ").includes(size), `${id} at ${size}`);
+      has("home-month-income", HOME_TYPE.figure);
+      has("home-month-expenses", HOME_TYPE.figure);
+      has("home-month-itbis-sales", HOME_TYPE.itbisFigure);
+      has("home-month-itbis-purchases", HOME_TYPE.itbisFigure);
+      has("home-month-net", HOME_TYPE.net);
+      has("home-month-footer", HOME_TYPE.footer);
+      has("home-month-included", HOME_TYPE.included);
+      for (const row of page.host.querySelectorAll<HTMLElement>('[data-testid="home-month-body"] .justify-between')) assert.ok(row.className.includes(HOME_TYPE.label), "labels at 16px");
+    } finally { await page.close(); }
+    const card = await attention();
+    try {
+      const first = card.card().querySelector('[data-testid="home-attention-rows"] > li')!;
+      assert.ok(first.querySelector('[data-testid="home-attention-title"]')!.className.includes(HOME_TYPE.rowTitle));
+      assert.ok(first.querySelector('[data-testid="home-attention-time"]')!.className.includes(HOME_TYPE.secondary));
+      assert.ok(first.querySelector('[data-tone="attention"]')!.className.includes(HOME_TYPE.tag));
+      assert.ok(first.querySelector("button")!.className.includes("min-h-[62px]"), "rows stay about 60 to 64px");
+    } finally { await card.close(); }
+    const { readFileSync } = await import("node:fs");
+    const panel = readFileSync(new URL("../components/business-app/BusinessOverviewPanel.tsx", import.meta.url).pathname, "utf8");
+    assert.match(panel, /grid-cols-\[minmax\(0,1fr\)_440px\]/, "the month card's column is 440px; Necesita atención takes the rest");
+  });
+});
+
+describe("the chosen currency across months", () => {
+  /** November and September hold pesos and dollars; October only pesos. */
+  function months(): MonthCloseClient {
+    return createHttpMonthCloseClient(async (path) => {
+      const month = new URLSearchParams(path.split("?")[1]).get("month")!;
+      const usd = dop({ currency: "USD", income_before_itbis_minor: month === "2026-09" ? 50000 : 120000, documents_counted: 1, documents_total: 1, documents_in_bandeja: 0 });
+      return { month, today: "2026-11-09", from: `${month}-01`, to: `${month}-30`, closed: false, reasons: [], earliest_month: "2026-09", dgii_forms: { "606": "no_operations", "607": "no_operations" }, currencies: month === "2026-10" ? [dop()] : [dop(), usd], missing_rnc: [], missing_ncf: [], missing_fiscal_rows: [] };
+    });
+  }
+
+  test("it stays chosen while the person moves between months, falls back where a month lacks it, and comes back", async () => {
+    const page = await monthCard(months(), true, "business-flip");
+    const shown = () => page.find("home-month-body")?.dataset.currency;
+    const step = async (direction: "prev" | "next") => {
+      await page.act(async () => page.find(`month-close-month-${direction}`)!.click());
+      for (let index = 0; index < 10; index += 1) await page.act(async () => { await Promise.resolve(); });
+    };
+    try {
+      assert.equal(shown(), "DOP");
+      await page.act(async () => page.find("month-close-currency")!.click());
+      await page.act(async () => document.querySelector<HTMLElement>('[data-testid="month-close-currency-picker"] [data-currency="USD"]')!.click());
+      assert.equal(shown(), "USD");
+      await step("prev");
+      assert.equal(page.find("month-close-month")?.textContent, "Octubre 2026");
+      assert.equal(shown(), "DOP", "October holds no dollars: the Business's own currency");
+      assert.equal(page.find("month-close-currency"), null);
+      await step("prev");
+      assert.equal(shown(), "USD", "September holds dollars again: the choice comes back");
+      assert.equal(page.find("home-month-income")?.textContent, "US$ 500");
+      await step("next");
+      await step("next");
+      assert.equal(page.find("month-close-month")?.textContent, "Noviembre 2026");
+      assert.equal(shown(), "USD");
+    } finally { await page.close(); }
+    const other = await monthCard(months(), true, "another-business");
+    try {
+      assert.equal(other.find("home-month-body")?.dataset.currency, "DOP", "each Business keeps its own choice");
+    } finally { await other.close(); }
   });
 });
 

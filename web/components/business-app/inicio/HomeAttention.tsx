@@ -17,7 +17,7 @@ import { CHANNEL_ICON } from "../foundation/channel-icons";
 import { FOCUS_RING } from "../foundation/presentation";
 import { receptionDocumentTitle, receptionRows, receptionTarget, type ReceptionRow } from "../recepcion/reception-model";
 import { BANDEJA_REASON_KEY, receptionTag } from "../recepcion/reception-status";
-import { HomeCard, HOME_MUTED, HOME_SKELETON } from "./HomeCard";
+import { HomeCard, HOME_MUTED, HOME_SKELETON, HOME_TYPE } from "./HomeCard";
 
 /** Rows the card shows; "Ver todo" opens the rest in the Bandeja. */
 export const ATTENTION_ROWS = 6;
@@ -30,7 +30,7 @@ export function attentionRows(rows: readonly ReceptionRow[]): ReceptionRow[] {
   return [...rows.filter(attentionProblem), ...rows.filter((row) => !attentionProblem(row))].slice(0, ATTENTION_ROWS);
 }
 
-const TAG = "inline-flex items-center gap-1 rounded-mark px-1.5 py-0.5 text-[13px] font-medium";
+const TAG = `inline-flex items-center gap-1 rounded-mark px-1.5 py-0.5 ${HOME_TYPE.tag} font-medium`;
 const NEUTRAL = `${TAG} bg-black/5 text-[#56635e] dark:bg-white/10 dark:text-white/70`;
 const ALERT = `${TAG} bg-[#f6dfe0] text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]`;
 
@@ -45,7 +45,7 @@ function SkeletonRows() {
     <ul role="status" aria-busy="true" data-testid="home-attention-loading">
       <li className="sr-only">{t("business.inicio.attention.loading")}</li>
       {Array.from({ length: ATTENTION_ROWS }, (_, index) => (
-        <li key={index} aria-hidden="true" className="flex h-[60px] items-center gap-3 border-b border-[color:var(--surface-divider)] px-5 last:border-b-0">
+        <li key={index} aria-hidden="true" className="flex h-[62px] items-center gap-3 border-b border-[color:var(--surface-divider)] px-5 last:border-b-0">
           <span className={`h-8 w-8 shrink-0 rounded-full ${HOME_SKELETON}`} />
           <span className="min-w-0 flex-1 space-y-2"><span className={`block h-4 w-2/5 rounded-mark ${HOME_SKELETON}`} /><span className={`block h-3.5 w-1/3 rounded-mark ${HOME_SKELETON}`} /></span>
           <span className={`h-4 w-16 shrink-0 rounded-mark ${HOME_SKELETON}`} />
@@ -73,7 +73,7 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
   const listsIn = records.inbox !== null && (records.notes !== null || Boolean(records.notesFailure)) && (records.emails !== null || Boolean(records.emailsFailure));
   const failed = records.error || (total === null && Boolean(records.serverReference));
   const seeAll = (
-    <button type="button" data-testid="home-attention-see-all" className={`${quietButtonClass} text-[14px]`} onClick={() => openPanel({ kind: "inbox" })}>
+    <button type="button" data-testid="home-attention-see-all" className={`${quietButtonClass} ${HOME_TYPE.action}`} onClick={() => openPanel({ kind: "inbox" })}>
       {t("business.inicio.attention.see_all")}
     </button>
   );
@@ -87,7 +87,7 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
       <div role="alert" data-testid="home-attention-error" className="flex flex-col items-center gap-3 px-5 py-6 text-center">
         <p className="text-[16px] text-[#172b26] dark:text-white">{t("business.inicio.attention.error")}</p>
         {/* A refusal for good offers no Reintentar, which cannot help, and says whom to write instead. */}
-        {records.refused ? <p className={`text-[14px] ${HOME_MUTED}`}>{t("auth.business_unavailable.body")}</p> : null}
+        {records.refused ? <p className={`${HOME_TYPE.secondary} ${HOME_MUTED}`}>{t("auth.business_unavailable.body")}</p> : null}
         {reference ? <ReferenceCode reference={reference} /> : null}
         {records.refused ? null : <button type="button" className={secondaryButtonClass} onClick={reload}>{t("common.retry")}</button>}
       </div>,
@@ -105,7 +105,7 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
       return card(
         <div data-testid="home-attention-first-day" className="flex flex-col items-center gap-2 px-5 py-6 text-center">
           <p className="text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.inicio.attention.first_day_title")}</p>
-          <p className={`max-w-sm text-[14px] ${HOME_MUTED}`}>{t(`business.inicio.attention.first_day_channels.${channelKey(channels.email.available, channels.whatsapp.available)}`)}</p>
+          <p className={`max-w-sm ${HOME_TYPE.secondary} ${HOME_MUTED}`}>{t(`business.inicio.attention.first_day_channels.${channelKey(channels.email.available, channels.whatsapp.available)}`)}</p>
           {add ? <button type="button" data-testid="home-attention-add" className={`mt-2 ${secondaryButtonClass}`} onClick={add.run}>{t("business.inicio.attention.first_day_add")}</button> : null}
         </div>,
       );
@@ -113,7 +113,7 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
     return card(
       <div data-testid="home-attention-clear" className="flex flex-col items-center gap-1 px-5 py-5 text-center">
         <p className="flex items-center gap-2 text-[16px] font-medium text-[#172b26] dark:text-white"><CircleCheck className="h-5 w-5 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" />{t("business.inicio.attention.clear_title")}</p>
-        <p className={`text-[14px] ${HOME_MUTED}`}>{t("business.inicio.attention.clear_body")}</p>
+        <p className={`${HOME_TYPE.secondary} ${HOME_MUTED}`}>{t("business.inicio.attention.clear_body")}</p>
       </div>,
     );
   }
@@ -141,16 +141,16 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
         const verb = prepares ? t(attentionProblem(row) ? "business.inicio.attention.resolve" : "business.inicio.attention.review") : null;
         return (
           <li key={`${row.kind}:${row.id}`} data-kind={row.kind} data-problem={attentionProblem(row) ? "true" : undefined} className="border-b border-[color:var(--surface-divider)] last:border-b-0">
-            <button type="button" onClick={() => openPanel(receptionTarget(row))} className={`flex min-h-[60px] w-full items-center gap-3 px-5 py-2 text-left transition-colors duration-[80ms] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] ${FOCUS_RING}`}>
+            <button type="button" onClick={() => openPanel(receptionTarget(row))} className={`flex min-h-[62px] w-full items-center gap-3 px-5 py-1.5 text-left transition-colors duration-[80ms] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] ${FOCUS_RING}`}>
               <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--surface-divider)] bg-[var(--cuadrao-cream)] text-[#56635e] dark:bg-white/[0.06] dark:text-white/70"><Icon size={16} /></span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[16px] font-medium text-[#172b26] dark:text-white">{title(row)}</span>
+                <span data-testid="home-attention-title" className={`block truncate ${HOME_TYPE.rowTitle} font-medium text-[#172b26] dark:text-white`}>{title(row)}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                   {tag(row)}
-                  <span className={`text-[13px] ${HOME_MUTED}`}>{formatRelativeTime(row.receivedAt, locale)}</span>
+                  <span data-testid="home-attention-time" className={`${HOME_TYPE.secondary} ${HOME_MUTED}`}>{formatRelativeTime(row.receivedAt, locale)}</span>
                 </span>
               </span>
-              {verb ? <span data-testid="home-attention-verb" className="shrink-0 text-[14px] font-medium text-[var(--cuadrao-green)]">{verb}</span> : null}
+              {verb ? <span data-testid="home-attention-verb" className={`shrink-0 ${HOME_TYPE.action} font-medium text-[var(--cuadrao-green)]`}>{verb}</span> : null}
             </button>
           </li>
         );

@@ -1,35 +1,18 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { readStored, writeStored } from "@/lib/browser-storage";
 
 /**
- * The currency a person chose for a Business's Inicio figures and its
- * Transacciones table, per Business: one choice drives both.
- * It lives in this browser until the server keeps `currency_view` per person
- * per Business; only this file changes then.
+ * The currency a person chose for a Business's figures: Inicio's month card and the Registros table read and set this
+ * one choice, per Business, for the session (a reload starts from the Business's own currency again). A screen shows
+ * the choice whenever its month or period holds that currency and the Business's own currency otherwise
+ * (`currencyShown`); moving to another month never changes the choice, so it comes back once a month holds it again.
  */
-const KEY = "cuadrao:business_currency_view:v1";
-const CURRENCY = /^[A-Z]{3}$/;
 const listeners = new Set<() => void>();
-let views: Readonly<Record<string, string>> | null = null;
-
-function read(): Readonly<Record<string, string>> {
-  if (views !== null) return views;
-  try {
-    const parsed: unknown = JSON.parse(readStored(KEY) ?? "{}");
-    views = parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === "string" && CURRENCY.test(entry[1])))
-      : {};
-  } catch {
-    views = {};
-  }
-  return views;
-}
+let views: Readonly<Record<string, string>> = {};
 
 export function setCurrencyView(business: string, currency: string) {
-  views = { ...read(), [business]: currency };
-  writeStored(KEY, JSON.stringify(views));
+  views = { ...views, [business]: currency };
   listeners.forEach((listener) => listener());
 }
 
@@ -39,14 +22,14 @@ export function resetCurrencyViews() {
   listeners.forEach((listener) => listener());
 }
 
-/** The remembered currency for this Business, or null when the person has not chosen one. */
+/** The chosen currency for this Business, or null when the person has not chosen one this session. */
 export function useCurrencyView(business: string | null): string | null {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    () => (business === null ? null : read()[business] ?? null),
+    () => (business === null ? null : views[business] ?? null),
     () => null,
   );
 }

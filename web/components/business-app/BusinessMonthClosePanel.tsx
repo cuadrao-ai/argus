@@ -221,7 +221,7 @@ export function MonthSwitcher({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
-        className={`inline-flex min-h-11 min-w-0 items-center rounded-full px-2 font-medium tabular-nums hover:bg-black/5 ${heading ? "font-display text-[17px] text-[#172b26]" : "text-[16px] text-black"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 dark:text-white dark:hover:bg-white/5`}
+        className={`inline-flex min-h-11 min-w-0 items-center rounded-full px-2 font-medium tabular-nums hover:bg-black/5 ${heading ? "font-display text-[18px] text-[#172b26]" : "text-[16px] text-black"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 dark:text-white dark:hover:bg-white/5`}
         onClick={() => {
           if (open) {
             close();
@@ -337,6 +337,8 @@ type BusinessMonthCloseViewProps = {
   settlement: boolean;
   /** The Business's own currency: the figures' default and the first in its menu. Null while unknown. */
   businessCurrency?: string | null;
+  /** Whose currency choice the figures follow: the selected Business. Defaults to `scopeKey`. */
+  businessId?: string | null;
   /**
    * `inicio` is the approved Home block. `finance` is the design-lane draft for the new Inicio: one Finanzas
    * section where the month switcher heads only what it controls (a compact close summary and the month's
@@ -367,6 +369,7 @@ function BusinessMonthCloseContent({
   arrange,
   receiptStatusPlacement = "default",
   businessCurrency = null,
+  businessId,
   layout = "inicio",
   settlement,
 }: BusinessMonthCloseViewProps) {
@@ -469,7 +472,9 @@ function BusinessMonthCloseContent({
   // Settlement off: no document is left to mark, so a block the server does not call final waits on a rate.
   const blocks = (snapshot?.figures ?? []).map((block) => (settlement ? block : { ...block, pending_count: 0 }));
   const currencies = currenciesInOrder(blocks.map((block) => block.currency), businessCurrency);
-  const chosenCurrency = useCurrencyView(scopeKey);
+  // One choice per Business, kept while the person moves between its months.
+  const currencyKey = businessId ?? scopeKey;
+  const chosenCurrency = useCurrencyView(currencyKey);
   const shownCurrency = currencyShown(currencies, businessCurrency, chosenCurrency);
   const shown = blocks.find((block) => block.currency === shownCurrency) ?? null;
   const net = shown ? monthCloseNetDisplay(shown) : { state: "pending" as const, pending_count: 0, reason: "unknown" as const };
@@ -960,7 +965,7 @@ function BusinessMonthCloseContent({
     );
     const counts = Object.fromEntries(blocks.flatMap((block) => (block.documents_total === null ? [] : [[block.currency, block.documents_total] as const])));
     const currencyMenu = manyCurrencies && !loadingMonth ? (
-      <MonthCurrencyMenu currencies={currencies} value={shownCurrency} counts={counts} onChoose={(next) => { if (scopeKey !== null) setCurrencyView(scopeKey, next); }} />
+      <MonthCurrencyMenu currencies={currencies} value={shownCurrency} counts={counts} onChoose={(next) => { if (currencyKey !== null) setCurrencyView(currencyKey, next); }} />
     ) : null;
     const range = snapshot ? { from: snapshot.from, to: snapshot.to } : null;
     const cardCurrency = shownCurrency ?? businessCurrency;
@@ -1055,7 +1060,7 @@ function BusinessMonthCloseContent({
           <section aria-label={shownCurrency ? t("business.month_close.subtitle_in", { currency: currencySymbol(shownCurrency), defaultValue: "Income, expenses, and ITBIS for the month in {{currency}}." }) : t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")} data-testid="month-close-cards" data-currency={shownCurrency ?? undefined} data-loading={phase === "loading" ? "true" : undefined} className={`grid gap-4 tablet:gap-6 ${WIDE.cards}`}>
             {manyCurrencies ? (
               <div className={WIDE.full}>
-                <MonthCurrencyMenu currencies={currencies} value={shownCurrency} onChoose={(next) => { if (scopeKey !== null) setCurrencyView(scopeKey, next); }} />
+                <MonthCurrencyMenu currencies={currencies} value={shownCurrency} onChoose={(next) => { if (currencyKey !== null) setCurrencyView(currencyKey, next); }} />
               </div>
             ) : null}
             <div data-testid="month-close-cards-month" className={`${cardClass} grid grid-cols-2 gap-x-4 gap-y-5`}>
@@ -1128,6 +1133,7 @@ export default function BusinessMonthClosePanel({ monthClose, onMonthChange, rev
       openRecords={openRecords}
       openBandeja={openBandeja}
       businessCurrency={businessWorkspaceCurrency(records?.workspace)}
+      businessId={chosen?.space_id ?? null}
       settlement={businessSettlementAvailable(records?.workspace)}
       layout={layout}
       arrange={arrange}

@@ -728,7 +728,7 @@ describe("Transacciones currency", () => {
     assert.equal(menu()?.textContent, "USD");
     assert.match(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"]')?.textContent ?? "", /US\$\s?24\.00/);
     assert.doesNotMatch(document.querySelector('[data-testid="transacciones-summary"]')?.textContent ?? "", /RD\$/, "the totals follow the table");
-    assert.match(localStorage.getItem("cuadrao:business_currency_view:v1") ?? "", /"own":"USD"/, "one kept choice drives Inicio and Transacciones");
+    assert.equal(localStorage.getItem("cuadrao:business_currency_view:v1"), null, "the choice lives for the session, never in the browser's storage");
     await page.click(page.segment("igualadas"));
     await page.settle(() => movementsCalls(calls).at(-1)?.get("segment") === "igualadas", "Igualadas");
     assert.equal(movementsCalls(calls).at(-1)?.get("cursor"), null, "a new segment starts from the top");

@@ -11,7 +11,7 @@ import { HomeAttention } from "./inicio/HomeAttention";
 
 /**
  * Inicio: the greeting (in the top bar from the tablet up, here on a phone), then two cards side by side: what needs
- * attention on the left, flexible, and the month on the right at a fixed 400px. A phone stacks them in that order.
+ * attention on the left, flexible, and the month on the right at a fixed 440px. A phone stacks them in that order.
  * Cobros y pagos follows only while settlement is on. Agregar lives in the top bar; a phone keeps its page button.
  */
 export default function BusinessOverviewPanel() {
@@ -24,7 +24,7 @@ export default function BusinessOverviewPanel() {
     <div data-testid="home-overview" className="w-full space-y-6 pb-6">
       {isBelowTablet ? <HomeHeading name={bridge?.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} /> : null}
       <div className="@container">
-        <div data-testid="home-columns" className="flex flex-col gap-6 @min-[52rem]:grid @min-[52rem]:grid-cols-[minmax(0,1fr)_400px] @min-[52rem]:items-start">
+        <div data-testid="home-columns" className="flex flex-col gap-6 @min-[56rem]:grid @min-[56rem]:grid-cols-[minmax(0,1fr)_440px] @min-[56rem]:items-start">
           <HomeAttention firstDay={parts.firstDay} />
           {parts.month}
         </div>
