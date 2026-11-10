@@ -525,14 +525,18 @@ def archived_versions(root: Path, candidate_sha: str) -> list[str]:
 def check_ledger_table(connection: object) -> None:
     """A reset database (#1789) brings the empty ledger back before anything is recorded."""
 
+    # Two reads: has_table_privilege raises on a missing schema where to_regclass returns null.
     row = connection.execute(  # type: ignore[attr-defined]
-        "select to_regclass(%s), has_table_privilege(%s, 'insert')", (_LEDGER_TABLE, _LEDGER_TABLE)
+        "select to_regclass(%s)", (_LEDGER_TABLE,)
     ).fetchone()
     if not row or row[0] is None:
         raise ApplyError(
             f"the migration ledger table {_LEDGER_TABLE} is missing; create it first: {_LEDGER_DDL}"
         )
-    if not row[1]:
+    row = connection.execute(  # type: ignore[attr-defined]
+        "select has_table_privilege(%s, 'insert')", (_LEDGER_TABLE,)
+    ).fetchone()
+    if not row or not row[0]:
         raise ApplyError(
             f"the connected user cannot insert into {_LEDGER_TABLE}; create the ledger table as"
             " the user this tool connects with, or grant it insert"

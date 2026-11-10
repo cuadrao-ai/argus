@@ -25,8 +25,11 @@ class _Connection:
         self.ledger_table, self.can_insert = ledger_table, can_insert
 
     def execute(self, sql: str, params: object = None) -> _Cursor:
-        assert "to_regclass" in sql and params == (applier._LEDGER_TABLE,) * 2
-        return _Cursor((self.ledger_table, self.can_insert))
+        assert params == (applier._LEDGER_TABLE,)
+        if "to_regclass" in sql:
+            return _Cursor((self.ledger_table,))
+        assert "has_table_privilege" in sql and self.ledger_table is not None
+        return _Cursor((self.can_insert,))
 
 
 def test_a_missing_ledger_table_is_named_with_the_statement_that_creates_it() -> None:
