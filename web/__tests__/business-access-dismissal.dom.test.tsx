@@ -10,7 +10,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 function deferred() { let resolve!: () => void; const promise = new Promise<void>((done) => { resolve = done; }); return { promise, resolve }; }
-async function mount() {
+async function mount(invitations = true) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -24,22 +24,28 @@ async function mount() {
   let hold: ReturnType<typeof deferred> | null = null;
   let listHold: ReturnType<typeof deferred> | null = null;
   let fail = false;
+  let acknowledgements = 0;
   let api!: BusinessContextValue;
   const fixture = createFixtureBusinessDataSource();
-  const sourceFor = (owner: string) => ({
-    ...fixture,
-    spaces: async () => {
+  const sourceFor = (owner: string) => {
+    const spaces = async () => {
       const result: GrantedSpace[] = ["one", "two"].map((business) => ({ space_id: business, name: business, grant_id: `${owner}-${business}`, role: "accountant", capabilities: ["read", "prepare"], access_seen: seen.get(owner)?.has(business) ?? false }));
       const wait = listHold; listHold = null; if (wait) await wait.promise;
       return result;
-    },
-    markAccessSeen: async (grant: string) => {
-      const wait = hold; hold = null; if (wait) await wait.promise;
-      if (fail) throw new Error("synthetic failure");
-      const business = grant.slice(owner.length + 1);
-      const items = seen.get(owner) ?? new Set<string>(); items.add(business); seen.set(owner, items);
-    },
-  });
+    };
+    return {
+      ...fixture,
+      spaces,
+      spaceDirectory: async () => ({ spaces: await spaces(), closed_spaces: [], invitations_available: invitations }),
+      markAccessSeen: async (grant: string) => {
+        acknowledgements += 1;
+        const wait = hold; hold = null; if (wait) await wait.promise;
+        if (fail) throw new Error("synthetic failure");
+        const business = grant.slice(owner.length + 1);
+        const items = seen.get(owner) ?? new Set<string>(); items.add(business); seen.set(owner, items);
+      },
+    };
+  };
   const sources = { a: sourceFor("a"), b: sourceFor("b") };
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
@@ -55,8 +61,20 @@ async function mount() {
   const dismiss = () => act(async () => { (banner()?.querySelector("button") as HTMLButtonElement).click(); });
   const close = async () => { await act(async () => root.unmount()); host.remove(); setChosenGrant(null); };
   await render("a"); await settle();
-  return { act, render, settle, banner, dismiss, close, api: () => api, seen, delay: () => (hold = deferred()), delayList: () => (listHold = deferred()), fail: () => { fail = true; } };
+  return { act, render, settle, banner, dismiss, close, api: () => api, seen, acknowledgements: () => acknowledgements, text: () => host.textContent ?? "", delay: () => (hold = deferred()), delayList: () => (listHold = deferred()), fail: () => { fail = true; } };
 }
+test("with invitations off the access line never shows for a client Business and nothing is acknowledged", async () => {
+  const page = await mount(false);
+  try {
+    assert.equal(page.api().chosen?.grant_id, "a-one");
+    assert.equal(page.api().chosen?.access_seen, false);
+    assert.equal(page.banner(), null);
+    assert.doesNotMatch(page.text(), /Ahora tienes acceso/);
+    await page.render("a", "two"); await page.settle();
+    assert.equal(page.banner(), null);
+    assert.equal(page.acknowledgements(), 0);
+  } finally { await page.close(); }
+});
 test("dismissal survives remount and remains separate for each account and Business", async () => {
   const page = await mount();
   try {

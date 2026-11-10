@@ -83,7 +83,7 @@ function CountCard({ icon, title, value, helper, loading, children }: { icon: Lu
   return <><Heading icon={icon} title={title} /><span className={`${styles.count} font-display`}>{value !== null ? new Intl.NumberFormat(locale).format(value) : loading ? <span aria-hidden="true" style={{ visibility: showSkeleton ? "visible" : "hidden" }}><RecordsLoadingBar overview /></span> : <Unknown />}</span><span className={styles.footer}><span className={styles.helper}>{helper}</span>{children}</span></>;
 }
 
-export default function RecordsOverviewPreview({ family, answer, fiscalCount, selected, onChoose, loading = false, waiting, onOpenBandeja }: { family: "sale" | "purchase"; answer?: ShelfAnswer; fiscalCount: number | null; loading?: boolean; selected: readonly ReviewFilter[]; onChoose: (value: CardFilter) => void; waiting: number | null; onOpenBandeja: () => void }) {
+export default function RecordsOverviewPreview({ family, answer, fiscalCount, selected, onChoose, loading = false }: { family: "sale" | "purchase"; answer?: ShelfAnswer; fiscalCount: number | null; loading?: boolean; selected: readonly ReviewFilter[]; onChoose: (value: CardFilter) => void }) {
   const { t } = useTransaccionesWords();
   const current = loading ? undefined : answer;
   const fiscalActive = selected.length === 1 && selected[0] === "fiscal";
@@ -94,6 +94,5 @@ export default function RecordsOverviewPreview({ family, answer, fiscalCount, se
       {METRICS.slice(2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} family={family} icon={metric.icon} answer={current} loading={loading} />)}
       <button type="button" data-overview-card="fiscal" data-overview-filter="fiscal" aria-pressed={fiscalActive} disabled={fiscalCount === null || loading || fiscalCount === 0 && !fiscalActive} onClick={() => onChoose("fiscal")} className={`${styles.card} ${styles.fiscal} ${styles.action}`}><CountCard icon={FileSearch} title={t(`${PREFIX}fiscal.title`)} value={loading ? null : fiscalCount} loading={loading} helper={t(`${PREFIX}fiscal.description_${family}`)}><Filter size={19} fill={fiscalActive ? "currentColor" : "none"} aria-hidden="true" /></CountCard></button>
     </div>
-    {waiting ? <p className={styles.waiting} data-testid="records-bandeja-waiting"><button type="button" className={styles.waitingLink} onClick={onOpenBandeja}>{t(`${PREFIX}bandeja_waiting`, { count: waiting })}</button></p> : null}
   </div>;
 }

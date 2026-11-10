@@ -38,6 +38,7 @@ test("actual BusinessApp owner boundary rejects delayed prior-owner dismissal an
   const spaces = (actor: string): GrantedSpace[] => [{ space_id: "same-business", name: actor, grant_id: `${actor}-grant`, role: "accountant", capabilities: ["read", "prepare"], access_seen: seen.has(actor) }];
   Object.assign(liveBusinessDataSource, createFixtureBusinessDataSource(), {
     spaces: async () => { const result = spaces(owner); if (holdListing) { holdListing = false; await new Promise<void>((done) => { releaseListing = done; }); } return result; },
+    spaceDirectory: async () => ({ spaces: await liveBusinessDataSource.spaces(), closed_spaces: [], invitations_available: true }),
     markAccessSeen: async () => { const actor = owner; await new Promise<void>((done) => { releaseDismissal = done; }); seen.add(actor); },
   });
   let api!: BusinessContextValue;

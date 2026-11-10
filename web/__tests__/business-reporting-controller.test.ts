@@ -103,13 +103,16 @@ describe("Business report controller", () => {
     expect(other.getSnapshot().load.kind).toBe("failed");
     expect(other.getSnapshot().views.kind).toBe("failed");
   });
-  test("a removed last page has explicit current-page recovery and missing anchor state", async () => {
-    const controller = createBusinessReportController(scope, { ...defaultReportRequest(), page: 8 }, transport({ query: async (_scope, request) => answer(request, 30) }));
+  test("a removed page quietly opens the last available page and keeps missing anchor state", async () => {
+    const pages: number[] = [];
+    const controller = createBusinessReportController(scope, { ...defaultReportRequest(), page: 8 }, transport({ query: async (_scope, request) => { pages.push(request.page); return answer(request, 30); } }));
     controller.rememberAnchor("draft:removed"); await controller.load();
-    expect(controller.getSnapshot().load.kind).toBe("invalid-page");
-    expect(controller.getSnapshot().missingAnchor).toBe(true);
-    await controller.recoverPage();
+    const load = controller.getSnapshot().load;
+    expect(load.kind).toBe("ready");
+    expect(load.kind === "ready" && load.answer.page).toBe(2);
     expect(controller.getSnapshot().request.page).toBe(2);
+    expect(controller.getSnapshot().missingAnchor).toBe(true);
+    expect(pages).toEqual([8, 2]);
   });
   test("an uncertain view write replays the frozen command/key, while stale versions require reconciliation", async () => {
     const commands: ReportViewCommand[] = [];
@@ -129,17 +132,16 @@ describe("Business report controller", () => {
     await controller.load(); await controller.listViews(); forbidden = true; await controller.refresh();
     expect(controller.getSnapshot().load.kind).toBe("failed"); expect(controller.getSnapshot().views.kind).toBe("failed");
   });
-  test("URL restores later numbered page and stable row; malformed or unsupported state reports recovery", () => {
+  test("URL restores later numbered page and stable row; malformed or unsupported state falls back to the default", () => {
     const request = { ...defaultReportRequest(), page: 4, page_size: 50 as const };
-    expect(restoreReportLocation(new URLSearchParams(reportLocation(request, "draft:one")))).toEqual({ request, anchor: "draft:one", invalid: false });
-    expect(restoreReportLocation(new URLSearchParams({ report: JSON.stringify({ ...request, sort: "amount_desc" }) })).invalid).toBe(true);
+    expect(restoreReportLocation(new URLSearchParams(reportLocation(request, "draft:one")))).toEqual({ request, anchor: "draft:one" });
+    expect(restoreReportLocation(new URLSearchParams({ report: JSON.stringify({ ...request, sort: "amount_desc" }), report_row: "draft:one" }))).toEqual({ request: defaultReportRequest(), anchor: null });
   });
 });
 
 for (const record_families of [[], ["sale", "purchase"], ["purchase", "sale"]]) test(`legacy URL and saved view ${JSON.stringify(record_families)} restore one purchase type`, async () => {
   const legacy = { schema_version: 2, filters: { record_families, currencies: ["USD"] } };
   const restored = restoreReportLocation(new URLSearchParams({ report: JSON.stringify(legacy) }));
-  expect(restored.invalid).toBe(false);
   expect(restored.request.filters.record_families).toEqual(["purchase"]);
   const { reportRecipeSchema } = await import("@/lib/business-reports-api");
   const controller = createBusinessReportController(scope, defaultReportRequest(), transport());

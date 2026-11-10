@@ -205,8 +205,8 @@ describe("the Business mark menu", () => {
   });
 });
 
-describe("inside a client's Business every screen says so", () => {
-  async function mountCue(chosen: GrantedSpace | null, lostAccess = false) {
+describe("the one-time access line belongs to invitations", () => {
+  async function mountCue(chosen: GrantedSpace | null, lostAccess = false, invitationsAvailable = true) {
     const env = await setup();
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { BusinessContextCue } = await import("@/components/business-app/BusinessPanel");
@@ -219,6 +219,7 @@ describe("inside a client's Business every screen says so", () => {
       const value = {
         chosen: current,
         lostAccess,
+        invitationsAvailable,
         clearLostAccess: () => undefined,
         markAccessSeen: async () => { seen.push(current?.grant_id ?? ""); setCurrent(current ? { ...current, access_seen: true } : current); },
       } as unknown as BusinessContextValue;
@@ -235,9 +236,9 @@ describe("inside a client's Business every screen says so", () => {
     return { ...env, seen, setChosen: (next: GrantedSpace | null) => env.act(async () => setChosenOutside(next)) };
   }
 
-  test("the client cue and the one-time line show on first landing; Entendido records it once and it never returns; the owner sees neither", async () => {
+  test("the one-time line shows on first landing; Entendido records it once and it never returns; the owner never sees it", async () => {
     const page = await mountCue(CLIENT);
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]')?.textContent, "Cliente: Colmado Peña");
+    assert.doesNotMatch(page.host.textContent ?? "", /Cliente:/, "the switcher already names the Business");
     const line = page.host.querySelector('[data-testid="business-access-line"]')!;
     assert.equal(line.getAttribute("role"), "status");
     assert.ok(line.textContent?.includes("Ahora tienes acceso a Colmado Peña · Ver y preparar"));
@@ -247,21 +248,26 @@ describe("inside a client's Business every screen says so", () => {
     await page.settle();
     assert.deepEqual(page.seen, ["g-client"]);
     assert.equal(page.host.querySelector('[data-testid="business-access-line"]'), null, "dismissed");
-    assert.ok(page.host.querySelector('[data-testid="business-client-cue"]'), "the cue stays");
-    // Another client whose line was already seen: cue only.
+    // Another client whose line was already seen.
     await page.setChosen(OTHER);
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]')?.textContent, "Cliente: Taller Brito");
     assert.equal(page.host.querySelector('[data-testid="business-access-line"]'), null);
-    // The own Business: nothing at all.
+    // The own Business.
     await page.setChosen(OWN);
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]'), null);
     assert.equal(page.host.querySelector('[data-testid="business-access-line"]'), null);
+    assert.equal(page.host.textContent, "");
     await page.act(async () => page.root.unmount());
   });
 
-  test("the client cue and access banner localize the saved English default", async () => {
+  test("with invitations off a new client Business shows no access line", async () => {
+    const page = await mountCue(CLIENT, false, false);
+    assert.equal(page.host.querySelector('[data-testid="business-access-line"]'), null);
+    assert.equal(page.host.textContent, "");
+    assert.deepEqual(page.seen, []);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("the access banner localizes the saved English default", async () => {
     const page = await mountCue({ ...CLIENT, name: "My business" });
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]')?.textContent, "Cliente: Mi negocio");
     assert.ok(page.host.querySelector('[data-testid="business-access-line"]')?.textContent?.includes("Ahora tienes acceso a Mi negocio"));
     assert.ok(!page.host.textContent?.includes("My business"));
     await page.act(async () => page.root.unmount());
@@ -271,7 +277,6 @@ describe("inside a client's Business every screen says so", () => {
     const page = await mountCue(OWN, true);
     assert.equal(page.host.querySelector("h1")?.textContent, "No tienes acceso a este negocio.");
     assert.equal(page.host.querySelector("button")?.textContent, "Ir a mis negocios");
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]'), null);
     await page.act(async () => page.root.unmount());
   });
 });

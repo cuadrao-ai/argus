@@ -72,7 +72,6 @@ export function reportFailure(error: unknown, mutation = false): ReportFailure {
 export type ReportLoad =
   | { kind: "idle" | "loading" }
   | { kind: "ready"; answer: ReportAnswer }
-  | { kind: "invalid-page"; answer: ReportAnswer; recoveryPage: number }
   | { kind: "failed"; problem: ReportFailure };
 export type ViewLoad = { kind: "idle" | "loading" } | { kind: "ready"; items: SavedReportView[] } | { kind: "failed"; problem: ReportFailure };
 export type ReportOperation = { kind: "idle" | "busy" } | { kind: "failed"; problem: ReportFailure } | { kind: "done" };
@@ -105,7 +104,7 @@ export function createBusinessReportController(scope: ReportScope, initial = def
     subscribe: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); },
     dispose: () => { generation += 1; abortOperations(); },
     revoke: () => revoke({ kind: "access", code: "business_report_scope_changed" }),
-    async load(request = state.request) {
+    async load(request = state.request): Promise<void> {
       const report = reportRequestSchema.parse(request);
       queryAbort?.abort();
       const abort = new AbortController();
@@ -117,14 +116,16 @@ export function createBusinessReportController(scope: ReportScope, initial = def
         const answer = await transport.query(scope, report, abort.signal);
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
         if (answer.page !== report.page || answer.page_size !== report.page_size || answer.items.length > report.page_size) throw new Error("Invalid report page response");
-        const invalid = report.page > Math.max(1, answer.page_count);
+        // A page the records no longer have opens the last one that exists.
+        const lastPage = Math.max(1, answer.page_count);
+        if (report.page > lastPage) return controller.load({ ...state.request, page: lastPage });
         let request = state.request;
         if (request.schema_version === 2 && request.presentation) {
           const presentation = request.presentation;
           const missing = answer.presentation.order.filter((key) => !presentation.order.includes(key));
           if (missing.length) request = { ...request, presentation: { ...presentation, order: presentation.order.concat(missing), hidden: Array.from(new Set(presentation.hidden.concat(missing))) } };
         }
-        publish({ request, load: invalid ? { kind: "invalid-page", answer, recoveryPage: Math.max(1, answer.page_count) } : { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
+        publish({ request, load: { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
       } catch (error) {
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
         const problem = reportFailure(error);
@@ -146,7 +147,6 @@ export function createBusinessReportController(scope: ReportScope, initial = def
       return controller.load(request);
     },
     refresh: () => controller.load(),
-    recoverPage: () => state.load.kind === "invalid-page" ? controller.setPage(state.load.recoveryPage) : Promise.resolve(),
     rememberAnchor: (rowId: string | null) => publish({ anchor: rowId, missingAnchor: false }),
     async listViews() {
       const currentGeneration = generation;
@@ -208,9 +208,9 @@ export function writeReportLocation(request: ReportRequest, anchor: string | nul
   const step = push && !consumeOverlayEntriesForNavigation();
   window.history[step ? "pushState" : "replaceState"](null, "", `${url.pathname}${url.search}`);
 }
-export function restoreReportLocation(params: URLSearchParams): { request: ReportRequest; anchor: string | null; invalid: boolean } {
+export function restoreReportLocation(params: URLSearchParams): { request: ReportRequest; anchor: string | null } {
   try {
     const encoded = params.get("report");
-    return { request: encoded ? reportRequestSchema.parse(JSON.parse(encoded)) : defaultReportRequest(), anchor: params.get("report_row"), invalid: false };
-  } catch { return { request: defaultReportRequest(), anchor: null, invalid: true }; }
+    return { request: encoded ? reportRequestSchema.parse(JSON.parse(encoded)) : defaultReportRequest(), anchor: params.get("report_row") };
+  } catch { return { request: defaultReportRequest(), anchor: null }; }
 }

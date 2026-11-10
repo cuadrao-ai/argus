@@ -23,7 +23,7 @@ async function mount(props: Partial<Parameters<typeof RecordsOverviewPreview>[0]
   const { createRoot } = await import("react-dom/client");
   const i18n = i18next.createInstance(); await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host); const chosen: string[] = [];
-  const render = async (extra: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}) => act(async () => root.render(<I18nextProvider i18n={i18n}><RecordsOverviewPreview family="purchase" answer={answer} fiscalCount={71} selected={[]} onChoose={(key) => chosen.push(key)} waiting={null} onOpenBandeja={() => {}} {...props} {...extra} /></I18nextProvider>));
+  const render = async (extra: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}) => act(async () => root.render(<I18nextProvider i18n={i18n}><RecordsOverviewPreview family="purchase" answer={answer} fiscalCount={71} selected={[]} onChoose={(key) => chosen.push(key)} {...props} {...extra} /></I18nextProvider>));
   await render(); cleanup = async () => act(async () => root.unmount()); return { chosen, render };
 }
 const card = (key: string) => document.querySelector<HTMLElement>(`[data-overview-card="${key}"]`)!;

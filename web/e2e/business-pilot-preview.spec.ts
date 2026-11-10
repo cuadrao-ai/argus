@@ -72,10 +72,8 @@ test.describe("Business preview", () => {
       await switchTo("Colmado Peña");
       await expect(page).not.toHaveURL(/receipt=|expense=|draft=/);
       await expect(tray(page)).toHaveCount(0);
-      await expect(page.getByTestId("business-client-cue")).toHaveText("Cliente: Colmado Peña");
       await expect(page.getByTestId("chat-input")).toHaveCount(0);
       await switchTo("Mi negocio");
-      await expect(page.getByTestId("business-client-cue")).toHaveCount(0);
       await expect(page.getByTestId("chat-input")).toHaveCount(0);
     }
   });
