@@ -24,11 +24,15 @@ async function mount() {
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const ReceiptIntakeDialog = (await import("@/components/business-app/ReceiptIntakeDialog")).default;
   const { ReceiptUploadQueue } = await import("@/components/business-app/receipt-upload-queue");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const notes: { text: string; document_type?: string }[] = [];
   const context = {
-    source: { captureNote: async (body: { text: string; document_type?: string }) => { notes.push(body); return {}; } },
+    source: {
+      captureNote: async (body: { text: string; document_type?: string }) => { notes.push(body); return {}; },
+      receiptReading: async () => ({ enabled: true, can_change: true, available: true, disclosure: "" }),
+    },
     records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, receipt_limits: { max_bytes: 1024, media_types: ["image/jpeg"] } }, overview: null, inbox: [], notes: [], notesTruncated: false, error: false },
     bridge: null,
     reload: () => undefined,
@@ -38,7 +42,7 @@ async function mount() {
   document.body.appendChild(host);
   const root = createRoot(host);
   await act(async () => {
-    root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} /></BusinessContext.Provider></I18nextProvider>);
+    root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={context}><ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>);
   });
   const typeControl = () => document.querySelector('[data-testid="intake-document-type"]')!;
   const segments = () => [...typeControl().querySelectorAll<HTMLElement>('[role="radio"], button')].map((item) => ({ label: item.textContent, checked: item.getAttribute("aria-checked") === "true" || item.getAttribute("aria-pressed") === "true" }));
@@ -77,5 +81,19 @@ test("a typed note offers only Compra and Venta, none chosen, and saves only aft
   assert.deepEqual(page.notes, [{ text: "Vendí 3 sacos de cemento a RD$1,500", document_type: "venta" }]);
   await page.click('[data-testid="intake-write-open"]');
   assert.equal(page.segments().some((segment) => segment.checked), false, "the next note starts unchosen again");
+  await page.act(async () => page.root.unmount());
+});
+
+test("the reading line shows for file uploads and not for a typed note, which nothing reads", async () => {
+  const page = await mount();
+  const reading = () => (document.body.textContent ?? "").includes("La lectura de documentos está activada");
+  await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+  assert.equal(reading(), true, "uploads say reading is on");
+  await page.click('[data-testid="intake-write-open"]');
+  await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+  assert.equal(reading(), false, "a typed note is never read, so the line does not apply");
+  await page.click('[data-testid="intake-write"] button');
+  await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+  assert.equal(reading(), true, "back to files, the line returns");
   await page.act(async () => page.root.unmount());
 });
