@@ -2453,32 +2453,13 @@ subject on `research_searches`.
   thorough-job replays never call the claim. Claim failures degrade to the honest
   research-capacity response and do not enter the provider path.
 
-### Guest compute policy
-- A guest's ordinary chat turns claim one `guest_compute_turns` unit against
-  the visitor digest and one unit against `session:<guest user id>` in the
-  same transaction, at turn start. The guest hits whichever daily ceiling
-  is lower. The visitor ceiling is 300. The session ceiling defaults to 100
-  (`CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING`) so one workspace cannot reset
-  the cap by changing IP. A claim that is admitted stands if the turn later
-  errors; there is no release. A claim RPC error is not treated as
-  exhaustion; the guest sees a short retry, not the daily-cap 429.
-  Migration
-  `20260925120000_claim_guest_compute_usage.sql` added the claim;
-  `20261110160100_drop_unowned_objects.sql` dropped it with its caller. The visitor
-  identity is the trusted client IP header (`CF-Connecting-IP` by default,
-  `ARGUS_TRUSTED_CLIENT_IP_HEADER`), never the first `X-Forwarded-For` hop.
-  IPv6 visitor keys group by `/64`.
-
-### Signed-in compute policy
-- A signed-in account's ordinary chat turns claim one
-  `account_compute_turns` unit against `user:<account id>` at turn start.
-  The daily ceiling defaults to 200 (`CUADRAO_REGISTERED_DAILY_TURN_CEILING`).
-  A claim that is admitted stands if the turn later errors; there is no
-  release. A claim RPC error is not treated as exhaustion; the user sees a
-  short retry, not the daily-cap 429. Migration
-  `20260925140000_claim_registered_compute_usage.sql` added the claim;
-  `20261110160100_drop_unowned_objects.sql` dropped it with its caller.
-  `GET /me/usage` never projects this counter.
+### Compute ceilings (retired)
+- Nothing claims a `guest_compute_turns` or `account_compute_turns` unit.
+  The guest and signed-in claims
+  (`20260925120000_claim_guest_compute_usage.sql`,
+  `20260925140000_claim_registered_compute_usage.sql`) lost their callers with
+  the chat routes (#1625), and `20261110160100_drop_unowned_objects.sql`
+  dropped both functions (#1890). No row with either resource is written.
 
 ---
 

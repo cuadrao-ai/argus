@@ -379,9 +379,10 @@ def test_a_baseline_is_recorded_without_running_and_only_when_approved() -> None
     first, second = "20260925120000", "20260928200000"
     steps = applier.plan_steps(CANDIDATES, APPLIED, [first, second], record_only=[first])
     connection = _Connection()
-    applier.apply_steps(connection, steps)
+    applier.apply_steps(connection, steps, lock_timeout="500ms")
     assert connection.log == [
-        "begin", "ledger", "commit", "begin", "timeout=5s", "create table t (id int)", "ledger", "commit",
+        "begin", "timeout=500ms", "ledger", "commit",
+        "begin", "timeout=500ms", "create table t (id int)", "ledger", "commit",
     ]  # fmt: skip
     with pytest.raises(applier.ApplyError, match="must be in the approved list"):
         applier.plan_steps(CANDIDATES, APPLIED, [first], record_only=[second])

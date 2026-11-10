@@ -28,7 +28,8 @@ import re
 import subprocess
 import sys
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -558,6 +559,17 @@ def check_lock_timeout(value: str) -> str:
     return value
 
 
+@contextmanager
+def _transaction(connection: object, lock_timeout: str) -> Iterator[None]:
+    """Every transaction this tool opens waits for a lock at most ``lock_timeout``."""
+
+    with connection.transaction():  # type: ignore[attr-defined]
+        connection.execute(  # type: ignore[attr-defined]
+            "select set_config('lock_timeout', %s, true)", (lock_timeout,)
+        )
+        yield
+
+
 def apply_steps(
     connection: object,
     steps: Sequence[Step],
@@ -576,15 +588,12 @@ def apply_steps(
     done: list[str] = []
     for step in steps:
         if not step.segments:
-            with connection.transaction():  # type: ignore[attr-defined]
+            with _transaction(connection, lock_timeout):
                 connection.execute(  # type: ignore[attr-defined]
                     _LEDGER_INSERT, (step.version, list(step.statements), step.name)
                 )
         for index, segment in enumerate(step.segments):
-            with connection.transaction():  # type: ignore[attr-defined]
-                connection.execute(  # type: ignore[attr-defined]
-                    "select set_config('lock_timeout', %s, true)", (lock_timeout,)
-                )
+            with _transaction(connection, lock_timeout):
                 for statement in segment:
                     connection.execute(statement)  # type: ignore[attr-defined]
                 if step.record and index == len(step.segments) - 1:
