@@ -13,7 +13,8 @@ argus_load_root_env >/dev/null || true
 
 API_SERVICE_ID="${ARGUS_RENDER_API_SERVICE_ID:-$ARGUS_PRIVATE_LAUNCH_API_SERVICE_ID}"
 WEB_SERVICE_ID="${ARGUS_RENDER_WEB_SERVICE_ID:-$ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID}"
-WORKFLOW_SERVICE_ID="${ARGUS_RENDER_WORKFLOW_SERVICE_ID:-$ARGUS_RENDER_BACKTESTS_WORKFLOW_ID}"
+APP_SERVICE_ID="$CUADRAO_PRIVATE_LAUNCH_APP_SERVICE_ID"
+DOCUMENTS_WORKER_SERVICE_ID="$CUADRAO_PRIVATE_LAUNCH_DOCUMENTS_WORKER_SERVICE_ID"
 
 usage() {
   cat <<'USAGE'
@@ -25,25 +26,17 @@ Usage:
   .github/render-env-sync.sh api-proof-shadow-on
   .github/render-env-sync.sh api-real-workflow-on
   .github/render-env-sync.sh api-runtime
-  .github/render-env-sync.sh release-config-audit --expect-mode <safe-off|proof-shadow|real-workflow>
-  .github/render-env-sync.sh workflow-proof
-  .github/render-env-sync.sh workflow-release [commit]
-  .github/render-env-sync.sh workflow-runtime
-  .github/render-env-sync.sh workflow-version-status
+  .github/render-env-sync.sh release-config-audit --expect-mode <safe-off|proof-shadow>
 
 Commands:
-  api-status              Print redacted API workflow env status for argus-api.
-  api-deploy-status       Print latest argus-api deploy status and commit.
-  web-deploy-status       Print latest cuadrao-web deploy status and commit.
+  api-status              Print redacted API workflow env status for cuadrao-api.
+  api-deploy-status       Print latest cuadrao-api deploy status and commit.
+  web-deploy-status       Print latest cuadrao-marketing deploy status and commit.
   api-safe-off            Retired; exits without changing hosted settings.
   api-proof-shadow-on     Retired; exits without changing hosted settings.
   api-real-workflow-on    Retired; exits without changing hosted settings.
-  api-runtime             Sync argus-api build/start commands.
+  api-runtime             Sync cuadrao-api build/start commands.
   release-config-audit    Read-only production audit against the settings manifest, with redacted fingerprints.
-  workflow-proof          Sync only the workflow settings in the settings manifest.
-  workflow-release        Release argus-backtests so env/build changes reach new runs.
-  workflow-runtime        Sync workflow build/start commands on argus-backtests.
-  workflow-version-status Print latest argus-backtests workflow version and release proof.
 
 Compatibility aliases:
   api-dispatch-on   Alias for api-proof-shadow-on.
@@ -51,10 +44,6 @@ Compatibility aliases:
 
 Required local env:
   RENDER_API_KEY
-
-Additional local env for workflow-proof:
-  Supply the required secret values the settings manifest names for the workflow.
-  Plain values come from scripts/ops/staging_env_manifest.json.
 USAGE
 }
 
@@ -71,15 +60,6 @@ release_profile_hash() {
 manifest_env_pairs() {
   local surface="$1"
   python3 "$ARGUS_SETTINGS_TOOL" print production "$surface"
-}
-
-manifest_env_value() {
-  local surface="$1"
-  local key="$2"
-  manifest_env_pairs "$surface" | awk -v key="$key" '
-    index($0, key "=") == 1 { print substr($0, length(key) + 2); found = 1 }
-    END { if (!found) { print "settings manifest does not define " key > "/dev/stderr"; exit 1 } }
-  '
 }
 
 release_profile_auto_deploy_trigger() {
@@ -99,8 +79,6 @@ manifest_allowed_keys() {
 
 AUDIT_FAILURES=0
 AUDIT_FINGERPRINT_ROWS=()
-WORKFLOW_AUDIT_FAILURES=0
-WORKFLOW_AUDIT_FINGERPRINT_ROWS=()
 AUTODEPLOY_AUDIT_FAILURES=0
 AUTODEPLOY_AUDIT_FINGERPRINT_ROWS=()
 
@@ -174,14 +152,6 @@ render_service_json() {
     --header "Accept: application/json"
 }
 
-render_workflow_json() {
-  curl -fsS \
-    --request GET \
-    --url "https://api.render.com/v1/workflows/${WORKFLOW_SERVICE_ID}" \
-    --header "Authorization: Bearer ${RENDER_API_KEY}" \
-    --header "Accept: application/json"
-}
-
 render_service_deploy_json() {
   local service_id="$1"
 
@@ -246,49 +216,12 @@ print_deploy_status() {
 
 print_api_deploy_status() {
   require_local_env RENDER_API_KEY
-  print_deploy_status "$API_SERVICE_ID" "argus-api"
+  print_deploy_status "$API_SERVICE_ID" "cuadrao-api"
 }
 
 print_web_deploy_status() {
   require_local_env RENDER_API_KEY
-  print_deploy_status "$WEB_SERVICE_ID" "cuadrao-web"
-}
-
-latest_workflow_version_json() {
-  render workflows versions list "$WORKFLOW_SERVICE_ID" -o json |
-    jq '
-      if type == "array" then
-        (sort_by(.createdAt // .created_at // "") | reverse) as $versions
-        | ($versions | map(select((.status // "") == "ready")) | .[0])
-          // $versions[0]
-          // {}
-      elif type == "object" and (.items | type) == "array" then
-        (.items | sort_by(.createdAt // .created_at // "") | reverse) as $versions
-        | ($versions | map(select((.status // "") == "ready")) | .[0])
-          // $versions[0]
-          // {}
-      else
-        {}
-      end
-    '
-}
-
-print_workflow_version_status() {
-  require_local_env RENDER_API_KEY
-  local version_json
-
-  version_json="$(latest_workflow_version_json)"
-
-  jq -r \
-    --arg workflow_id "$WORKFLOW_SERVICE_ID" \
-    '
-      "service=argus-backtests",
-      "workflow_id=\($workflow_id)",
-      "workflow_version_id=\(.id // "<missing>")",
-      "status=\(.status // "<missing>")",
-      "commit=\(.name // "<missing>")",
-      "created_at=\(.createdAt // .created_at // "<missing>")"
-    ' <<< "$version_json"
+  print_deploy_status "$WEB_SERVICE_ID" "cuadrao-marketing"
 }
 
 is_secret_render_env_key() {
@@ -349,20 +282,11 @@ record_audit_row() {
   local service="$1"
   local row="$2"
 
-  if [ "$service" = "argus-backtests" ]; then
-    WORKFLOW_AUDIT_FINGERPRINT_ROWS+=("${service}:${row}")
-    return
-  fi
   AUDIT_FINGERPRINT_ROWS+=("${service}:${row}")
 }
 
 record_audit_failure() {
-  local service="$1"
-
   AUDIT_FAILURES=$((AUDIT_FAILURES + 1))
-  if [ "$service" = "argus-backtests" ]; then
-    WORKFLOW_AUDIT_FAILURES=$((WORKFLOW_AUDIT_FAILURES + 1))
-  fi
 }
 
 render_env_status_value() {
@@ -426,63 +350,6 @@ audit_render_service_config() {
     key="${pair%%=*}"
     expected="${pair#*=}"
     audit_expected_value "$env_json" "$service" "$key" "$expected"
-  done
-}
-
-workflow_render_env_value() {
-  local key="$1"
-  local workflow_database_url="${ARGUS_WORKFLOW_DATABASE_URL:-${SUPABASE_POSTGRES_TRANSACTION_POOLER_URL:-}}"
-  local profile_value=""
-
-  if profile_value="$(manifest_env_value workflow "$key" 2>/dev/null)"; then
-    echo "$profile_value"
-    return
-  fi
-
-  case "$key" in
-    ARGUS_WORKFLOW_DATABASE_URL)
-      echo "$workflow_database_url"
-      ;;
-    ALPACA_API_KEY)
-      echo "${ALPACA_API_KEY:-}"
-      ;;
-    ALPACA_SECRET_KEY)
-      echo "${ALPACA_SECRET_KEY:-}"
-      ;;
-    CUADRAO_PROD_OPENROUTER_API_KEY)
-      echo "${CUADRAO_PROD_OPENROUTER_API_KEY:-}"
-      ;;
-    CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY)
-      echo "${CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY:-}"
-      ;;
-    *)
-      echo "Unsupported workflow env key: $key" >&2
-      return 2
-      ;;
-  esac
-}
-
-workflow_render_env_expected_status() {
-  local key="$1"
-  local value
-  # The read-only audit intentionally does not need workflow secrets in its
-  # local environment: Render is the source of the presence signal.
-  if is_secret_render_env_key "$key"; then
-    echo "<redacted-present>"
-    return
-  fi
-  value="$(workflow_render_env_value "$key")"
-  if [ -z "$value" ]; then
-    echo "<missing>"
-    return
-  fi
-  echo "$value"
-}
-
-workflow_expected_env_pairs() {
-  local key
-  for key in "${ARGUS_RENDER_WORKFLOW_PROOF_ENV[@]}"; do
-    echo "${key}=$(workflow_render_env_expected_status "$key")"
   done
 }
 
@@ -551,10 +418,6 @@ render_env_fingerprint() {
   fingerprint_rows "${AUDIT_FINGERPRINT_ROWS[@]}"
 }
 
-workflow_env_fingerprint() {
-  fingerprint_rows "${WORKFLOW_AUDIT_FINGERPRINT_ROWS[@]}"
-}
-
 autodeploy_fingerprint() {
   fingerprint_rows "${AUTODEPLOY_AUDIT_FINGERPRINT_ROWS[@]}"
 }
@@ -601,11 +464,11 @@ audit_release_config() {
     esac
   done
   if [ -z "$expected_mode" ]; then
-    echo "release-config-audit requires --expect-mode <safe-off|proof-shadow|real-workflow>."
+    echo "release-config-audit requires --expect-mode <safe-off|proof-shadow>."
     return 2
   fi
   case "$expected_mode" in
-    safe-off|proof-shadow|real-workflow)
+    safe-off|proof-shadow)
       ;;
     *)
       echo "Unknown expected API mode: $expected_mode"
@@ -623,23 +486,18 @@ audit_release_config() {
   RELEASE_PROFILE_HASH="$(release_profile_hash)"
   AUDIT_FAILURES=0
   AUDIT_FINGERPRINT_ROWS=()
-  WORKFLOW_AUDIT_FAILURES=0
-  WORKFLOW_AUDIT_FINGERPRINT_ROWS=()
   AUTODEPLOY_AUDIT_FAILURES=0
   AUTODEPLOY_AUDIT_FINGERPRINT_ROWS=()
 
-  local api_env_json web_env_json workflow_env_json workflow_task real_workflow_task fingerprint workflow_fingerprint
-  local api_service_json web_service_json workflow_service_json autodeploy_fingerprint_value
-  local api_autodeploy_trigger web_autodeploy_trigger workflow_autodeploy_trigger
+  local api_env_json web_env_json fingerprint
+  local api_service_json web_service_json autodeploy_fingerprint_value
+  local app_service_json worker_service_json
+  local api_autodeploy_trigger web_autodeploy_trigger
   local mode_pair
-  local workflow_pairs=()
   local api_profile_pairs=()
   local web_profile_pairs=()
-  local workflow_profile_pairs=()
   local api_allowed_keys=()
   local web_allowed_keys=()
-  local workflow_allowed_keys=()
-  local audit_workflow_env=false
   while IFS= read -r mode_pair; do
     api_profile_pairs+=("$mode_pair")
   done < <(manifest_expected_pairs api "$expected_mode")
@@ -652,83 +510,44 @@ audit_release_config() {
   while IFS= read -r mode_pair; do
     web_allowed_keys+=("$mode_pair")
   done < <(manifest_allowed_keys marketing)
-  if [ "$expected_mode" = "real-workflow" ]; then
-    audit_workflow_env=true
-    while IFS= read -r mode_pair; do
-      workflow_pairs+=("$mode_pair")
-    done < <(workflow_expected_env_pairs)
-    while IFS= read -r mode_pair; do
-      workflow_profile_pairs+=("$mode_pair")
-    done < <(manifest_expected_pairs workflow "$expected_mode")
-    while IFS= read -r mode_pair; do
-      workflow_allowed_keys+=("$mode_pair")
-    done < <(manifest_allowed_keys workflow)
-  fi
   api_env_json="$(render_env_json "$API_SERVICE_ID")"
   web_env_json="$(render_env_json "$WEB_SERVICE_ID")"
   api_service_json="$(render_service_json "$API_SERVICE_ID")"
   web_service_json="$(render_service_json "$WEB_SERVICE_ID")"
-  workflow_service_json="$(render_workflow_json)"
+  app_service_json="$(render_service_json "$APP_SERVICE_ID")"
+  worker_service_json="$(render_service_json "$DOCUMENTS_WORKER_SERVICE_ID")"
   api_autodeploy_trigger="$(release_profile_auto_deploy_trigger api)"
   web_autodeploy_trigger="$(release_profile_auto_deploy_trigger marketing)"
-  workflow_autodeploy_trigger="$(release_profile_auto_deploy_trigger workflow)"
-  if [ "$audit_workflow_env" = "true" ]; then
-    workflow_env_json="$(render_env_json "$WORKFLOW_SERVICE_ID")"
-  else
-    workflow_env_json="[]"
-  fi
   echo "Argus release config audit"
   echo "expected_mode=$expected_mode"
   echo "release_profile_status=ready"
   echo "release_profile_hash=$RELEASE_PROFILE_HASH"
-  audit_forbidden_render_env_keys "$api_env_json" "argus-api" "${ARGUS_FORBIDDEN_LEGACY_ENV[@]}"
-  audit_forbidden_render_env_keys "$web_env_json" "cuadrao-web" "${ARGUS_FORBIDDEN_LEGACY_ENV[@]}"
-  audit_unexpected_render_env_keys "$api_env_json" "argus-api" "${api_allowed_keys[@]}"
-  audit_unexpected_render_env_keys "$web_env_json" "cuadrao-web" "${web_allowed_keys[@]}"
-  audit_render_service_config "$api_env_json" "argus-api" "${api_profile_pairs[@]}"
-  audit_render_service_config "$web_env_json" "cuadrao-web" "${web_profile_pairs[@]}"
+  audit_forbidden_render_env_keys "$api_env_json" "cuadrao-api" "${ARGUS_FORBIDDEN_LEGACY_ENV[@]}"
+  audit_forbidden_render_env_keys "$web_env_json" "cuadrao-marketing" "${ARGUS_FORBIDDEN_LEGACY_ENV[@]}"
+  audit_unexpected_render_env_keys "$api_env_json" "cuadrao-api" "${api_allowed_keys[@]}"
+  audit_unexpected_render_env_keys "$web_env_json" "cuadrao-marketing" "${web_allowed_keys[@]}"
+  audit_render_service_config "$api_env_json" "cuadrao-api" "${api_profile_pairs[@]}"
+  audit_render_service_config "$web_env_json" "cuadrao-marketing" "${web_profile_pairs[@]}"
   audit_render_auto_deploy_trigger \
     "$api_service_json" \
-    "argus-api" \
+    "cuadrao-api" \
     "$api_autodeploy_trigger"
   audit_render_auto_deploy_trigger \
     "$web_service_json" \
-    "cuadrao-web" \
+    "cuadrao-marketing" \
     "$web_autodeploy_trigger"
   audit_render_auto_deploy_trigger \
-    "$workflow_service_json" \
-    "argus-backtests" \
-    "$workflow_autodeploy_trigger"
-  if [ "$audit_workflow_env" = "true" ]; then
-    audit_forbidden_render_env_keys "$workflow_env_json" "argus-backtests" "${ARGUS_FORBIDDEN_LEGACY_ENV[@]}"
-    audit_unexpected_render_env_keys \
-      "$workflow_env_json" \
-      "argus-backtests" \
-      "${workflow_allowed_keys[@]}"
-    audit_render_service_config "$workflow_env_json" "argus-backtests" "${workflow_profile_pairs[@]}"
-    audit_render_service_config "$workflow_env_json" "argus-backtests" "${workflow_pairs[@]}"
-  fi
-  workflow_task="$(render_env_status_value "$api_env_json" ARGUS_BACKTEST_WORKFLOW_TASK)"
-  real_workflow_task="$(render_env_status_value "$api_env_json" ARGUS_BACKTEST_REAL_WORKFLOW_TASK)"
+    "$app_service_json" \
+    "cuadrao-app" \
+    "$(release_profile_auto_deploy_trigger web)"
+  audit_render_auto_deploy_trigger \
+    "$worker_service_json" \
+    "cuadrao-documents-worker" \
+    "$(release_profile_auto_deploy_trigger documents_worker)"
   fingerprint="$(render_env_fingerprint)"
-  if [ "$audit_workflow_env" = "true" ]; then
-    workflow_fingerprint="$(workflow_env_fingerprint)"
-  else
-    workflow_fingerprint="<skipped>"
-  fi
   autodeploy_fingerprint_value="$(autodeploy_fingerprint)"
-  echo "workflow_task=$workflow_task"
-  echo "real_workflow_task=$real_workflow_task"
   echo "env_fingerprint=$fingerprint"
-  echo "workflow_env_fingerprint=$workflow_fingerprint"
   echo "autodeploy_fingerprint=$autodeploy_fingerprint_value"
-  if [ "$audit_workflow_env" != "true" ]; then
-    echo "workflow_env_status=skipped"
-  elif [ "$WORKFLOW_AUDIT_FAILURES" -eq 0 ]; then
-    echo "workflow_env_status=ready"
-  else
-    echo "workflow_env_status=drift"
-  fi
   if [ "$AUTODEPLOY_AUDIT_FAILURES" -eq 0 ]; then
     echo "autodeploy_status=ready"
   else
@@ -787,74 +606,6 @@ sync_api_runtime() {
   echo "synced ${API_SERVICE_ID}:api-runtime"
 }
 
-sync_workflow_proof() {
-  require_local_env RENDER_API_KEY
-  local key
-  while IFS= read -r key; do
-    require_local_env "$key"
-  done < <(manifest_required_present workflow)
-  for key in "${ARGUS_RENDER_WORKFLOW_PROOF_ENV[@]}"; do
-    put_render_env "$WORKFLOW_SERVICE_ID" "$key" "$(workflow_render_env_value "$key")"
-  done
-}
-
-sync_workflow_runtime() {
-  require_local_env RENDER_API_KEY
-  local current_workflow
-  local update_payload
-  local auto_deploy_trigger
-
-  current_workflow="$(render_workflow_json)"
-  auto_deploy_trigger="$(release_profile_auto_deploy_trigger workflow)"
-  update_payload="$(
-    jq -nc \
-      --argjson workflow "$current_workflow" \
-      --arg build_command "$ARGUS_RENDER_WORKFLOW_BUILD_COMMAND" \
-      --arg run_command "$ARGUS_RENDER_WORKFLOW_START_COMMAND" \
-      --arg auto_deploy_trigger "$auto_deploy_trigger" \
-      '{
-        buildConfig: ($workflow.buildConfig + {buildCommand: $build_command}),
-        runCommand: $run_command,
-        autoDeployTrigger: $auto_deploy_trigger
-      }'
-  )"
-
-  curl -fsS \
-    --request PATCH \
-    --url "https://api.render.com/v1/workflows/${WORKFLOW_SERVICE_ID}" \
-    --header "Authorization: Bearer ${RENDER_API_KEY}" \
-    --header "Accept: application/json" \
-    --header "Content-Type: application/json" \
-    --data "$update_payload" \
-    >/dev/null
-
-  echo "synced ${WORKFLOW_SERVICE_ID}:workflow-runtime"
-}
-
-sync_workflow_release() {
-  require_local_env RENDER_API_KEY
-  local commit="${1:-}"
-  local version_id
-  if [ -z "$commit" ]; then
-    commit="$(git rev-parse HEAD)"
-  fi
-
-  render workflows versions release "$WORKFLOW_SERVICE_ID" \
-    --commit "$commit" \
-    --wait \
-    --confirm
-  version_id="$(latest_workflow_version_json | jq -r '.id // empty')"
-  if [ -z "$version_id" ]; then
-    echo "Unable to determine released workflow version id for ${WORKFLOW_SERVICE_ID}."
-    return 1
-  fi
-  # Render names a Git-backed Workflow version with the deployed commit prefix.
-  # workflow-version-status reads that version-owned proof for both manual and
-  # checks-passing releases, so no mutable env marker can go stale.
-  echo "workflow_release_commit=$commit"
-  echo "workflow_release_version_id=$version_id"
-}
-
 command="${1:-}"
 case "$command" in
   api-status)
@@ -889,18 +640,6 @@ case "$command" in
   api-dispatch-off)
     echo "api-dispatch-off is an alias for api-safe-off"
     sync_api_safe_off
-    ;;
-  workflow-proof)
-    sync_workflow_proof
-    ;;
-  workflow-release)
-    sync_workflow_release "${2:-}"
-    ;;
-  workflow-runtime)
-    sync_workflow_runtime
-    ;;
-  workflow-version-status)
-    print_workflow_version_status
     ;;
   help|-h|--help)
     usage

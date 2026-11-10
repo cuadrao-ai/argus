@@ -227,7 +227,7 @@ def test_model_or_flag_mismatch_fails_promotion(
         ("api", "CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS"),
         ("api", "ARGUS_RESEARCH_GLOBAL_DAILY_CEILING"),
         ("web", "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED"),
-        ("workflow", "ENABLE_MARKET_DATA_CACHE"),
+        ("documents_worker", "CUADRAO_DOCUMENT_JOBS_MAX_READS"),
     ],
 )
 def test_other_settings_keep_evidence(tmp_path: Path, service: str, key: str) -> None:

@@ -45,6 +45,9 @@ SECRETISH_NAME = re.compile(
     r"SECRET|TOKEN|PASSWORD|API_KEY|SERVICE_ROLE|DATABASE_URL|PRIVATE|SENDER_KEY", re.I
 )
 SECRETISH_VALUE = re.compile(r"://[^/\s]*:[^@\s]*@|^sk-|^eyJ|BEGIN [A-Z ]*PRIVATE KEY")
+# Surfaces that list only some of the names their service reads: a delete list
+# from them would name live settings the service still needs.
+PARTIAL_SURFACES = frozenset({"documents_worker"})
 
 
 class ManifestError(Exception):
@@ -377,6 +380,11 @@ def names_to_delete(
     it until then.
     """
 
+    if label in PARTIAL_SURFACES:
+        raise ManifestError(
+            f"{label} lists only some of its live settings until its live readback "
+            "is done; it gives no names to delete"
+        )
     service = _offline_service(manifest, environment, label)
     kept = set(names(manifest, environment, label, "allowed"))
     if environment == "staging":

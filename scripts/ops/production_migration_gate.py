@@ -1231,11 +1231,11 @@ def _project_ref_from_supabase_url(supabase_url: str) -> str:
         host = (parsed.hostname or "").lower()
         _ = parsed.port
     except ValueError as exc:
-        raise MigrationGateError("candidate argus-api SUPABASE_URL is malformed") from exc
+        raise MigrationGateError("candidate cuadrao-api SUPABASE_URL is malformed") from exc
     host_match = re.fullmatch(r"([a-z0-9]{20})\.supabase\.co", host)
     if parsed.scheme.lower() != "https" or host_match is None:
         raise MigrationGateError(
-            "candidate argus-api SUPABASE_URL must identify one Supabase project"
+            "candidate cuadrao-api SUPABASE_URL must identify one Supabase project"
         )
     return host_match.group(1)
 

@@ -161,7 +161,7 @@ def prod_values_other_than_false(
         render_values = [
             item.get("value")
             for service in render_config.get("services", [])
-            if service.get("name") not in ("cuadrao-api-staging", "cuadrao-web-staging")
+            if service.get("name") not in ("cuadrao-api-staging", "cuadrao-app-staging")
             for item in service.get("envVars", [])
             if item.get("key") == name
         ]
@@ -240,7 +240,7 @@ def test_staging_exception_cannot_hide_other_true_values(surface: str) -> None:
         production = next(
             service
             for service in render_config["services"]
-            if service["name"] == "cuadrao-web"
+            if service["name"] == "cuadrao-app"
         )
         production.setdefault("envVars", []).append({"key": name, "value": "true"})
     else:
@@ -281,7 +281,7 @@ def test_staging_web_flags_match_the_20261029_decision(
     stage = next(
         service
         for service in render_config["services"]
-        if service["name"] == "cuadrao-web-staging"
+        if service["name"] == "cuadrao-app-staging"
     )
     assert next(entry for entry in stage["envVars"] if entry["key"] == name)[
         "value"

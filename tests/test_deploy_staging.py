@@ -211,9 +211,14 @@ def test_path_rules_follow_render_build_and_poetry_packages() -> None:
     blueprint = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
     services = {item["name"]: item for item in blueprint["services"]}
     api = services["cuadrao-api-staging"]
-    web_blocks = [item for item in blueprint["services"] if item.get("rootDir") == "web"]
+    web_blocks = [
+        item
+        for item in blueprint["services"]
+        if item.get("rootDir") == "web" and item["branch"] == "codex/private-alpha-next"
+    ]
     assert len(web_blocks) == 1
     web = web_blocks[0]
+    assert web["name"] == "cuadrao-app-staging"
     assert api["rootDir"] == "."
     assert api["autoDeployTrigger"] == "off"
     assert "poetry install" in api["buildCommand"]
