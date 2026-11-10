@@ -83,20 +83,14 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
   const updateButton = () => [...host.querySelectorAll("button")].find((button) => button.textContent === "Actualizar lista") ?? null;
   const noteRows = () => receptionRows(host).filter((row) => row.dataset.kind === "note").length;
   const text = (selector: string) => host.querySelector(selector)?.textContent ?? null;
-  // Inicio's Finanzas por mes keeps the close steps behind "Ver cuáles"; its review step shows the same server
-  // count as the Bandeja.
-  const tasksToggle = () => host.querySelector<HTMLButtonElement>('[data-testid="resumen"] [data-testid="month-close-tasks-toggle"]');
-  const reviewTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-review"]');
-  const reviewCount = () => reviewTask()?.querySelector("p")?.textContent?.match(/^(\d+) por revisar en la Bandeja/)?.[1] ?? null;
-  const attentionTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-attention"]');
-  const readingStatus = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-reading"]');
+  // Inicio's Necesita atención counts everything waiting in the Bandeja, the sidebar's one server count.
+  const reviewCount = () => host.querySelector('[data-testid="resumen"] [data-testid="home-attention-count"]')?.textContent ?? null;
   const rows = () => receptionRows(host).length;
   const segment = (key: "attention" | "listos" | "all") => receptionTab(host, key);
   const choose = (key: "attention" | "listos" | "all") => act(async () => segment(key)!.click());
-  await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && tasksToggle() !== null);
-  if (tasksToggle()?.getAttribute("aria-expanded") === "false") await act(async () => tasksToggle()!.click());
+  await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && host.querySelector('[data-testid="home-month-body"][data-state="ready"]') !== null);
   await settle(() => reviewCount() !== null);
-  return { act, root, host, settle, text, rows, noteRows, updateButton, segment, choose, reviewCount, attentionTask, readingStatus, api: () => api!, source };
+  return { act, root, host, settle, text, rows, noteRows, updateButton, segment, choose, reviewCount, api: () => api!, source };
 }
 
 describe("the Bandeja and the Resumen on one saved state", () => {
@@ -136,16 +130,6 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     assert.equal(page.noteRows(), 2, "the sample's own note and this one");
     assert.equal(page.rows(), SAMPLE.attention + 1);
     await page.act(async () => page.root.unmount());
-  });
-
-  test("the Resumen keeps its own con problema and reading lines", async () => {
-    const page = await mount();
-    const { problemCount } = await import("@/components/business-app/inbox-count");
-    try {
-      assert.equal(problemCount(page.api().records), SAMPLE.problems);
-      assert.match(page.attentionTask()?.textContent ?? "", new RegExp(`${SAMPLE.problems} con problema`));
-      assert.match(page.readingStatus()?.textContent ?? "", new RegExp(`${SAMPLE.reading} todavía leyendo`));
-    } finally { await page.act(async () => page.root.unmount()); }
   });
 
   test("an approval leaves the Bandeja and the Resumen together", async () => {

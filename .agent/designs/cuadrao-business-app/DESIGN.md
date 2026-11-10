@@ -70,14 +70,14 @@ the code, named after it, and every screen uses that owner.
   header lists one total per currency, the header's currency first. Owner:
   `openItemsHeaderCurrency` in `business-month-close.ts`. A single amount with
   no header, such as a Bandeja row, keeps its symbol.
-- **Short headline figures.** Only the big summary figures (Ingresos, Gastos,
-  Resultado neto, ITBIS a pagar) shorten, and only from 10,000 up: "RD$ 58.4 mil",
-  "RD$ 1.3 M". Spanish uses "mil" and "M", never "k". One decimal, rounded half
-  up. The exact amount shows in a tooltip on hover and on keyboard focus, and
-  is what a screen reader reads. The row shortens together: when its largest
-  figure is 10,000 or more, every figure in it uses that unit ("RD$ 9.6 mil"
-  beside "RD$ 58.4 mil"), and below that every figure is exact. Owner:
-  `formatHeadlineMoney`.
+- **Whole units on Inicio.** Inicio's overview totals (Ingresos, Gastos,
+  Resultado neto, ITBIS en ventas, ITBIS en compras) show whole currency units:
+  "RD$ 1,444,210", "RD$ 41,830". No cents and no compact "mil" or "M" form.
+  Rounding is half up from the decimal text, never through a float. Detail
+  screens (Registros, Bandeja, invoices, a record) keep exact cents. A negative
+  Resultado neto is a plain minus sign in the normal text color. ITBIS shows as
+  those two totals, never a balance between them (Lucas, 2026-11-09). Owner:
+  `formatMoney` with `{ decimals: 0 }` in `business-format.ts`.
 - **Relative time when recent.** Under 7 days a time reads relative: "hace 15
   minutos", "ayer", "hace 3 días". From 7 days on it reads as a short date,
   "12 oct", with the year only when it is not this year: "24 dic 2025". Owner:
@@ -271,27 +271,29 @@ The preview demonstrates them; this section does not certify backend wiring.
 
 ### Guide readiness and progress
 
-- After creation or joining, the header says the workspace is ready. Its supporting
-  line states that the remaining actions are optional. Readiness never depends on
-  finishing invoicing, uploading a document or inviting another person.
+- Setup lives in a small card at the foot of the sidebar, just above the Cuadrao
+  mark: the ring, "Configurar negocio" and the steps left. Only someone who may
+  manage the Business sees it, only while a required step remains, for the selected
+  Business; it leaves when the last required step is done, with no dismiss. It opens
+  the setup dossier and stays highlighted while the dossier is open. Phones have no
+  setup entry in the pilot. Readiness never depends on finishing invoicing,
+  uploading a document or inviting another person.
 - A compact neutral progress ring shows `n / n` in its center. It counts confirmed
   guide outcomes, including workspace creation; it does not measure readiness.
   Keep it visible when collapsed. Give screen readers a translated description
   of completed guide actions. Do not add another progress bar or percentage.
-- Each unfinished optional row retains its Optional label beside any current status.
-  For later and awaiting review remain unfinished. Neither earns a completion check.
+- Optional steps sit under one "Opcional" label, after the open required steps.
   An invitation that was created counts as complete even while acceptance is pending;
   the owner has finished the guide action.
-- The completed creation row becomes Your workspace. It remains expandable for
-  review and name correction. Its completion check remains visible while editing.
-- Every row puts its chevron in the same trailing column. On narrow screens, status
-  wraps below the title while the chevron stays at the far edge. Keep normal type.
-- A ready workspace starts with the guide collapsed unless the person explicitly
-  expanded it. Keep that choice through refresh. The phone's existing Add action
-  stays above the optional guide. Guide state belongs to the selected Business;
-  local preview state must never leak to another Business.
-- Use the header to collapse or expand the guide. Remove the duplicate Done for now
-  footer. Deferring a specific task still preserves its draft and optional status.
+- Finished steps sit last in the dossier as muted cards with a check.
+- Each step is a card: its icon and title on one line, its description below.
+- The dossier is the side panel, a full sheet on a phone, with no header bar: a
+  close X at the top right, a large centered ring with `done/total`, the centered
+  title "Configurar negocio" and one lead line, then the step cards. On the closed
+  rail the sidebar card is the ring alone, named "Configurar negocio, n de n pasos
+  listos" for screen readers.
+- The steps, which are required and whether each is done come only from
+  `GET /business/setup`. A step whose feature is off is not sent and not shown.
 
 ### Workspace forms and recovery
 
@@ -863,7 +865,7 @@ top right is who you are.
   that fixed edge within the viewport. Without the field, it uses the same header
   region as its anchor. Personal search and phone search keep their own layouts.
   **Agregar** belongs beside each content heading on desktop. On Inicio it sits
-  beside Pendiente hoy; in Transacciones it keeps Igualar sugerencias beside it.
+  in the top bar; in Transacciones it keeps Igualar sugerencias beside it.
   Phones keep Agregar at the top of each screen instead. Its dropdown segment
   exists only when it has an available secondary action. Copiar dirección de
   reenvío requires the owner's address and the server-owned
@@ -1244,15 +1246,15 @@ frame, such as readable names, tax numbers or amounts.
 
 ### Inicio
 
-Local Home checkpoint, October 24, 2026: preserve the current implementation and the month bounds below. The proposed separation of invoicing and collaboration remains unapplied. Pending navigation, progress and color decisions, verification limits and evidence are recorded in `docs/reports/home-checkpoint-20261024.md`. This is a local design baseline, not backend or release acceptance.
+Inicio redesign, approved by Lucas on November 9, 2026. The header stays: date, greeting and Business name, with no "Resumen del negocio" heading.
 
-The month is a 16px control above the checklist, not a second title. On desktop the greeting lives only in the top bar. A phone keeps the month beside its content greeting and wraps it underneath when needed. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
+The month is a control in the month card's header band, "‹ Mes Año ›" at the card-title size. On desktop the greeting lives only in the top bar; a phone shows it above the cards. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
 
-Order: the month control, with the content greeting on phones only; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
+Order: Necesita atención, then the month card. While settlement is on, Cobros y pagos (Por cobrar and Por pagar) follows below the two cards; those cover every month, so they sit apart from the month card.
 
-Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the month control on the left, "Pendiente hoy" and Agregar on the right, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together, including empty states. Keep the label at the shared top edge and center a compact empty-state group in the available body height. Do not shorten one card in isolation or leave a hole above the figures row. Narrower, one column in the order above.
+Two columns once the canvas is 56rem or wider: Necesita atención on the left, flexible, and the month card on the right at a fixed 440px, 24px apart. Both cards have a 57px header band in the same tint over one divider, so their tops and dividers line up; their bottoms keep their natural heights. Narrower, one column in the order above.
 
-"Cerrar <mes>" shows only when the month can close. While steps remain, one quiet line takes its place: "Cuando termines los 3 pasos, podrás cerrar octubre."
+Necesita atención shows the server's Bandeja count (the sidebar's), "Ver todo", and up to six rows of about 62px, problems first: the source's icon, the supplier or the source, the Bandeja's reason as a tag with when it arrived, and Resolver or Revisar for someone who may prepare. A row never shows an amount. The month card shows Ingresos and Gastos, then Resultado neto (the largest figure, right-aligned), then ITBIS en ventas and ITBIS en compras, and a footer: "Incluye n de total documentos", "n en la Bandeja · Revisar" and "Faltan datos fiscales en n registros · Ver", which names compras or ventas when both tabs hold documents. Each label has a dotted-underline definition on hover and focus. The currency pill shows the ISO code whenever the Business holds documents in more than one currency in some month; its list holds this month's currencies, and the choice holds per Business for the session. There is no month close on Inicio.
 
 - A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
 - A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
@@ -1267,7 +1269,7 @@ Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr an
   as the review-ready count or imply the groups are its breakdown.
 - Floating preview diagnostics are opt-in through `?devtools=1`. They must not
   cover Home actions in the normal review URL.
-- The phone Add action stays above the optional guide and below the header fade.
+- The phone Add action stays below the header fade.
   At rest, the fade must not tint or blur the action.
 - Both money cards keep the same label and total header in populated and empty
   states. A confirmed empty list with a known Business currency shows a formatted
@@ -1281,11 +1283,10 @@ Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr an
   flow. Keep its outer card aligned with the row and its content grouped,
   without a large illustration. When both balances are settled, keep the shared passive summary.
   First-run empty states retain their useful next action.
-- Home uses the shared 16px body/control, 14px secondary and 21px section roles.
-  Its summary figures keep the explicit 22px exception. A known reading state
-  blocks a ready-to-close claim without displaying an unknown-value placeholder.
-  While reading continues, omit the promise that completing the listed tasks is
-  enough to close. Render the checklist footer only when it has a status or action.
+- Inicio's two cards use one type set, a step above the dense screens: labels and
+  row titles 16px, tags 13px, times and secondary lines 14px, figures 22px, ITBIS
+  figures 19px, Resultado neto 34px, footer lines 15px and the "Incluye" line 14px.
+  Owner: `HOME_TYPE` in `components/business-app/inicio/HomeCard.tsx`.
 
 **Behavior rules (pending from Product).**
 

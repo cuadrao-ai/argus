@@ -11,6 +11,7 @@ import { activityShown, invoicingShown, useBusiness, type BusinessPanelState } f
 import { inboxCount as countInbox, porIgualarCount } from "./inbox-count";
 import { useIgualarEnabled } from "./transacciones/transacciones-gate";
 import { recordList } from "./record-tray";
+import { SidebarSetup } from "./inicio/HomeSetup";
 
 export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();
@@ -89,10 +90,14 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
 /** The foot of the rail: the product's own mark, quiet, so the business above stays the one name that reads first. */
 export function BusinessSidebarFooter({ shell }: { shell: ChatShellBridge }) {
   return (
-    // The mark keeps one place, centred on the closed rail; the word fades and the rail's width clips it.
-    <div data-testid="sidebar-brand" className="flex items-center gap-2 overflow-hidden pb-3 pl-3 pt-2">
-      <CuadraoMark size={20} className="h-5 w-5 shrink-0 opacity-70" />
-      <span aria-hidden={shell.sidebarCollapsed || undefined} className={`whitespace-nowrap font-display text-[15px] font-medium tracking-tight text-[#56635e] transition-opacity duration-150 ease-out motion-reduce:transition-none dark:text-white/60 ${shell.sidebarCollapsed ? "opacity-0" : "opacity-100"}`}>cuadrao</span>
-    </div>
+    <>
+      {/* Configurar negocio, while the server says a required step is open, just above the mark. */}
+      <SidebarSetup collapsed={shell.sidebarCollapsed} />
+      {/* The mark keeps one place, centred on the closed rail; the word fades and the rail's width clips it. */}
+      <div data-testid="sidebar-brand" className="flex items-center gap-2 overflow-hidden pb-3 pl-3 pt-2">
+        <CuadraoMark size={20} className="h-5 w-5 shrink-0 opacity-70" />
+        <span aria-hidden={shell.sidebarCollapsed || undefined} className={`whitespace-nowrap font-display text-[15px] font-medium tracking-tight text-[#56635e] transition-opacity duration-150 ease-out motion-reduce:transition-none dark:text-white/60 ${shell.sidebarCollapsed ? "opacity-0" : "opacity-100"}`}>cuadrao</span>
+      </div>
+    </>
   );
 }

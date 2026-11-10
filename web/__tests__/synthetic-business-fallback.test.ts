@@ -96,16 +96,6 @@ describe("synthetic Business fallback", () => {
     expect(route.responses[0]).toMatchObject({ month: "2026-10", from: "2026-10-01" });
   });
 
-  test("accepts name-prompt only as POST", async () => {
-    const valid = syntheticRoute("space/name-prompt", "POST");
-    await fulfillSyntheticBusinessFallback(valid);
-    expect(valid.responses).toEqual([{ id: expect.any(String), name: expect.any(String), name_required: false, name_prompt_seen: true, show_prompt: false }]);
-
-    const invalid = syntheticRoute("space/name-prompt", "GET");
-    await expect(fulfillSyntheticBusinessFallback(invalid)).rejects.toThrow("requires POST");
-    expect(invalid.responses).toEqual([]);
-  });
-
   test("uses the provided accepted-consent fixture and requires it", async () => {
     const route = syntheticRoute("consent?version=consent-v1", "GET");
     let consentCalls = 0;

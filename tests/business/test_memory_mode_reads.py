@@ -70,6 +70,7 @@ def test_each_read_answers_its_empty_shape_once_the_business_exists(alice: Owner
             "closed": True,
             "reasons": [],
             "earliest_month": None,
+            "more_than_one_currency": False,
             "payment_methods": [
                 "efectivo",
                 "transferencia",
@@ -88,10 +89,10 @@ def test_each_read_answers_its_empty_shape_once_the_business_exists(alice: Owner
             "missing_ncf": [],
             "missing_payment_form": [],
             "missing_fiscal_data": [],
+            "missing_fiscal_rows": [],
             "cuentas_por_cobrar": [],
             "cuentas_por_pagar": [],
             "unreviewed_movements_count": 0,
-            "filing_ready": True,
         },
     )
     assert _code(alice.get("/month-close", month="2026-13")) == (422, "month_invalid")

@@ -96,8 +96,15 @@ class _Race(Exception):
 
 
 def read_month(
-    authority, context: ActionContext, month: str, settlement: bool = True
+    authority,
+    context: ActionContext,
+    month: str,
+    settlement: bool = True,
+    bandeja: Mapping[str, int] | None = None,
 ) -> dict:
+    """The month close; ``bandeja`` is the month's drafts still in the Bandeja
+    by currency, as ``summarize`` counts them."""
+
     start, end = month_period(month)
     today = ledger.today()
     with _session(authority, context, "read") as (connection, auth):
@@ -106,7 +113,15 @@ def read_month(
             connection, auth.context, tuple(by_id.values()), start, end, today
         )
     return month_close(
-        month, today, documents, forms, foreign, no_payment_form, missing, settlement
+        month,
+        today,
+        documents,
+        forms,
+        foreign,
+        no_payment_form,
+        missing,
+        settlement,
+        bandeja,
     )
 
 
@@ -125,9 +140,11 @@ def foreign_currency(manifest_forms: dict) -> dict:
     return result
 
 
-def empty_month(month: str, settlement: bool = True) -> dict:
-    """The month as it reads with no documents and no store: the whole shape,
-    nothing in it, and the forms with no operations."""
+def empty_month(
+    month: str, settlement: bool = True, bandeja: Mapping[str, int] | None = None
+) -> dict:
+    """The month as it reads with no recorded documents and no store: the whole
+    shape, only what the Bandeja holds, and the forms with no operations."""
 
     return month_close(
         month,
@@ -135,6 +152,7 @@ def empty_month(month: str, settlement: bool = True) -> dict:
         (),
         dict.fromkeys(COLUMNS, "no_operations"),
         settlement=settlement,
+        bandeja=bandeja,
     )
 
 
@@ -147,6 +165,7 @@ def month_close(  # noqa: ANN001
     no_payment_form: frozenset[str] = frozenset(),
     missing: Mapping[str, Sequence[str]] | None = None,
     settlement: bool = True,
+    bandeja: Mapping[str, int] | None = None,
 ) -> dict:
     """The month-close answer. Without ``settlement`` it names no payment
     method either: a method is only what a cobrado or pagado mark carries."""
@@ -158,7 +177,9 @@ def month_close(  # noqa: ANN001
         **({"payment_methods": list(PAYMENT_METHODS)} if settlement else {}),
         "dgii_forms": forms,
         "dgii_foreign_currency": foreign or foreign_currency({}),
-        **summarize(documents, start, end, no_payment_form, missing or {}, settlement),
+        **summarize(
+            documents, start, end, no_payment_form, missing or {}, settlement, bandeja
+        ),
     }
 
 

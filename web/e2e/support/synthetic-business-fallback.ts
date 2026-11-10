@@ -71,10 +71,6 @@ export async function fulfillSyntheticBusinessFallback(
   const source = context.source ?? createFixtureBusinessDataSource({ chatAvailable: false });
   const owner = context.owner ?? (await source.spaces())[0];
 
-  if (path === "space/name-prompt") {
-    if (method !== "POST") throw new Error("Synthetic space/name-prompt requires POST");
-    return route.fulfill({ json: { id: owner.space_id, name: owner.name, name_required: false, name_prompt_seen: true, show_prompt: false } });
-  }
   if (path === "spaces") {
     if (method !== "GET") throw new Error("Synthetic spaces requires GET");
     return route.fulfill({ json: { spaces: [owner], closed_spaces: [] } });
@@ -135,6 +131,10 @@ export async function fulfillSyntheticBusinessFallback(
   if (path === "invitations") {
     if (method !== "GET") throw new Error("Synthetic invitations requires GET");
     return route.fulfill({ json: [] });
+  }
+  if (path === "setup") {
+    if (method !== "GET") throw new Error("Synthetic setup requires GET");
+    return route.fulfill({ json: await source.setup!() });
   }
 
   throw new Error(`Unmapped synthetic endpoint ${path ?? url.pathname}`);

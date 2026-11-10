@@ -191,6 +191,16 @@ def _readiness(runtime: EmailCapture, space_id: str) -> dict[str, Any]:
     }
 
 
+def receiving_address_ready(space_id: str) -> bool | None:
+    """Whether this Business's receiving address can receive, as ``GET`` says
+    it; None while email receiving is off on this server."""
+
+    runtime = email_intake()
+    if runtime is None or not email_receiving_available():
+        return None
+    return _readiness(runtime, space_id)["enabled"]
+
+
 @router.get("", dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def receiving(
     request: Request,

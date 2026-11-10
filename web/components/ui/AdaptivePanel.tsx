@@ -67,9 +67,15 @@ export default function AdaptivePanel({
   titleId: titleIdProp,
   titleClassName,
   headerActions,
+  bare = false,
   children,
 }: {
   title: string;
+  /**
+   * No header bar: only a close X at the top right, and the title kept for assistive technology. The content
+   * carries its own visible heading (the setup guide's centered ring and title).
+   */
+  bare?: boolean;
   /** The title's element id, for a record whose own page labels itself by it. */
   titleId?: string;
   titleClassName?: string;
@@ -137,7 +143,8 @@ export default function AdaptivePanel({
         dismissible={dismissible}
         title={title}
         titleIcon={titleIcon}
-        description={summary}
+        titleHidden={bare}
+        description={bare ? undefined : summary}
         headerSize={headerSize}
         closeLabel={closeLabel}
         backLabel={stackBackLabel}
@@ -152,7 +159,7 @@ export default function AdaptivePanel({
     );
   }
 
-  return <SideDrawer {...{ title, titleIcon, summary, headerSize, titleId, titleClassName, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, expansion, headerActions, children }} />;
+  return <SideDrawer {...{ title, titleIcon, summary, headerSize, titleId, titleClassName, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, expansion, headerActions, bare, children }} />;
 }
 
 const EXPANDED_WIDTH: DrawerBounds = { preferred: 1200, min: 720, maxVw: 88 };
@@ -178,6 +185,7 @@ type DrawerProps = {
   returnFocusRef?: React.RefObject<HTMLElement | null>;
   initialFocusRef?: React.RefObject<HTMLElement | null>;
   back: ReactNode;
+  bare?: boolean;
   children: ReactNode;
 };
 
@@ -266,6 +274,7 @@ function DrawerPanel({
   headerActions,
   footer,
   back,
+  bare,
   children,
   hasBelow,
   className,
@@ -295,7 +304,7 @@ function DrawerPanel({
       style={{ width: `min(${bounds.preferred}px, ${bounds.maxVw}vw)`, minWidth: `${bounds.min}px` }}
       className={`${className} ${styles.dossier} flex flex-col border-l border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1b1d20] ${hasBelow ? "" : "cuadrao-side-drawer-enter"}`}
     >
-      <div className="flex shrink-0 items-start gap-2 border-b border-[#DCE0DA] px-5 py-4 dark:border-white/10">
+      <div className={bare ? "absolute right-3 top-3 z-10 flex" : "flex shrink-0 items-start gap-2 border-b border-[#DCE0DA] px-5 py-4 dark:border-white/10"}>
         {hasBelow && dismissible ? (
           <button
             type="button"
@@ -306,7 +315,7 @@ function DrawerPanel({
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
         ) : null}
-        <div className="min-w-0 flex-1 pt-2.5">
+        <div className={bare ? "sr-only" : "min-w-0 flex-1 pt-2.5"}>
           <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={`${titleClassName ?? ""} rounded-mark font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white ${titleIcon ? "flex items-center gap-2" : ""}`}>{titleIcon ? <span aria-hidden="true" className="flex shrink-0">{titleIcon}</span> : null}{title}</h2>
           {/* A summary slot another component portals into takes no room while it is empty. */}
           {summary ? <div className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} text-[#56635e] has-[>[data-header-slot]:empty]:hidden dark:text-white/70`}>{summary}</div> : null}

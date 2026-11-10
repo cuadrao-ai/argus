@@ -3464,14 +3464,13 @@ Proven by `tests/test_whatsapp_intake_postgres.py`.
 
 ### Business name prompt
 
-`spaces.business_name_prompt_seen_at` stores the first owner visit that claimed
-its optional naming prompt. Migration `20261016142927_business_name_prompt.sql`
-adds the nullable timestamp without changing existing names, grants or RLS.
-The conditional update requires the authenticated owner, the currently open
-Business, its expected ID, a default name and a null timestamp. Concurrent
-claims produce one winner. Renaming preserves the timestamp. Client roles have
-no direct write grant on this state. Required naming for owner invites and
-exports derives from the current name, independently of this timestamp.
+`spaces.business_name_prompt_seen_at` recorded the first owner visit that
+claimed the optional naming prompt, added by migration
+`20261016142927_business_name_prompt.sql` without changing existing names,
+grants or RLS. The prompt and its claim are gone (#1817): nothing reads or
+writes the column now, and existing values stay. Client roles have no direct
+read or write grant on it. Required naming for owner invites and exports derives
+from the current name.
 
 ### Business saved report views
 

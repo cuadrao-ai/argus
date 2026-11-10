@@ -70,8 +70,6 @@ class CurrencyBlock(_Wire):
     itbis_charged: str
     itbis_paid_minor: int
     itbis_paid: str
-    itbis_owed_minor: int
-    itbis_owed: str
     # Settlement only, absent while it is off: what is still to collect and pay,
     # the ITBIS charged on the sales already marked cobrado, and the counts by
     # status. While it is off the web shows itbis_charged in ITBIS cobrado's place.
@@ -82,9 +80,16 @@ class CurrencyBlock(_Wire):
     itbis_cobrado_minor: int | None = _settlement()
     itbis_cobrado: str | None = _settlement()
     by_status: StatusTotals | None = _settlement()
-    # False while a foreign line waits for a rate and, while settlement is on,
-    # while a document in this currency is still pendiente.
+    # False only while settlement is on and a document in this currency is
+    # still pendiente. The net is in its own currency: no rate holds it.
     net_result_final: bool
+    # The month's documents in this currency, from the same list as the
+    # figures: how many the figures count, how many there are in all (the
+    # Bandeja's included), and how many the Bandeja still holds. A Bandeja
+    # draft that names no currency yet counts in the Business's own.
+    documents_counted: int = 0
+    documents_total: int = 0
+    documents_in_bandeja: int = 0
 
 
 FormStatus = Literal[
@@ -147,6 +152,16 @@ class HeldLine(DocumentLine):
     missing: list[str]
 
 
+class FiscalDataRow(_Wire):
+    # One "Faltan datos fiscales" row: the held documents of one Registros tab
+    # in one currency. `by_currency` is true when that tab's held documents
+    # this month span more than one currency, so the row names its currency.
+    family: Literal["purchase", "sale"]
+    currency: str
+    count: int
+    by_currency: bool
+
+
 class ForeignCurrencyForm(_Wire):
     # Foreign-currency lines left out of this form until a rate exists.
     pending_rate_count: int = 0
@@ -177,6 +192,10 @@ class MonthClose(_Wire):
     reasons: list[CloseReason | UnreviewedReason]
     # The first month with a document this close would show; null while none.
     earliest_month: str | None
+    # The Business holds documents in more than one currency in some month
+    # (approved ones in any month, or this month's Bandeja drafts), so Inicio
+    # keeps its currency choice in view even in a month of one currency.
+    more_than_one_currency: bool = False
     # The methods a cobrado or pagado mark may carry; absent while settlement is off.
     payment_methods: list[str] | None = _settlement()
     dgii_forms: DgiiForms
@@ -193,16 +212,15 @@ class MonthClose(_Wire):
     # Every document the 606 or 607 holds this month, with what it needs. The
     # export's verdict, not month completion: `closed` never reads into it.
     missing_fiscal_data: list[HeldLine] = Field(default_factory=list)
+    # The same documents counted per Registros tab and currency, in order:
+    # Compras, then Ventas.
+    missing_fiscal_rows: list[FiscalDataRow] = Field(default_factory=list)
     # The month's documents still pendiente; absent while settlement is off.
     cuentas_por_cobrar: list[DocumentLine] | None = _settlement()
     cuentas_por_pagar: list[DocumentLine] | None = _settlement()
-    # Receipt and note drafts the Bandeja still lists in this month.
+    # Receipt and note drafts the Bandeja still lists in this month: the sum of
+    # the currency blocks' documents_in_bandeja.
     unreviewed_movements_count: int = 0
-    # "Ready for the 606 and 607": both forms stand by the export's verdict and
-    # no step of this month remains (nothing in the Bandeja, nothing held,
-    # nothing left to mark while settlement is on, no read in flight with no
-    # date). The one fact the web shows that sentence from.
-    filing_ready: bool = False
 
 
 class OpenTotal(_Wire):

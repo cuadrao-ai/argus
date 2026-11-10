@@ -9722,20 +9722,32 @@ month, as a document line plus `missing`, the export's own words for what it
 still needs, first fix first: `expense_type_missing`, `rnc_missing`,
 `rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`,
 `payment_method_missing` or `detail_missing`, the same words Registros shows as
-`export_missing`) and `filing_ready` (bool: the one fact "ready for the 606 and
-607", true only when both `dgii_forms` stand by the export's verdict
-(`prepared_candidate`, `no_operations` or `summary_only`) and no step of the
-month remains: `unreviewed_movements_count` zero, no read in flight with no
-date (a receipt being read for the first time, or an email being read, holds
-every month until it lands), `missing_fiscal_data` empty, `cuentas_por_cobrar`
-and `cuentas_por_pagar` empty while settlement is on; the web shows that sentence
-from this field alone, never from `closed`, which stays month completion). Each
-currency block adds `itbis_cobrado_minor` and
+`export_missing`) and `missing_fiscal_rows` (those documents counted for
+Inicio's "Faltan datos fiscales" rows as `{family, currency, count,
+by_currency}`, Compras then Ventas: one row per family, split by currency only
+when that family's held documents span more than one, so each row opens exactly
+the Registros list it counts). `filing_ready` is removed. Each currency block
+carries `documents_counted`, `documents_total` and `documents_in_bandeja`
+(ints): of the month's documents in that currency, from the same list as the
+figures, how many the figures count, how many there are in all (approved ones
+the close admits, so not those marked personal and left out, plus the drafts
+the Bandeja still holds in the month), and how many the Bandeja still holds. A
+Bandeja draft counts in the currency its read or review named; one that names
+none yet (a note nobody reviewed, a read in flight) counts in the Business's own. A currency only the Bandeja holds gets its
+own block, with zero figures. `unreviewed_movements_count` is the sum of the
+blocks' `documents_in_bandeja`. `more_than_one_currency` (bool) says the
+Business holds documents in more than one currency in some month (approved ones
+it admits in any month, or this month's Bandeja drafts), so Inicio keeps the
+currency choice in view in a month of one currency. Each currency block carries `itbis_charged`
+(ITBIS on the month's approved sales)
+and `itbis_paid` (ITBIS on its approved purchases, the 606 lines) as two plain
+totals, with no balance between them: the real ITBIS position needs facts the
+server does not hold. It adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
-`pendiente` and, for a currency other than DOP, while that currency has no
-document waiting for an exchange rate; a non-DOP block with any document that
-is not sin comprobante is never final, because no rate exists yet). Each open-items list adds `overdue: {count, totals}` over every
+`pendiente`, and always while settlement is off; a block's net is in its own
+currency, so no exchange rate holds it: a rate matters only where the 606 and
+607 convert to pesos, as `dgii_foreign_currency` says). Each open-items list adds `overdue: {count, totals}` over every
 pending document in it, not only the page: pending with `due_on` before
 `today`; no due date is never overdue. Every document counts in its own
 currency's block; only the DGII files and `dgii_forms` are DOP-only.
@@ -10392,16 +10404,33 @@ person starts their space, every route below except POST `/space` answers 404
   or 404 `business_space_missing` before the space is started.
 - Business naming is owner-only and uses the currently open Business.
   GET `/api/v1/business/space/name` returns `{id, name, country, currency,
-  name_required, name_prompt_seen}`. `name_required` means the persisted name is a default.
-  POST `/api/v1/business/space/name-prompt` takes `{space_id}` and returns the
-  same state plus `show_prompt`. Its atomic server claim allows one first-visit
-  prompt per Business. A different or closed Business returns 404.
+  name_required}`. `name_required` means the persisted name is a default.
   PATCH `/api/v1/business/space/name` takes `{space_id, name}` and returns that
-  naming state after an owner-scoped write. Names use the existing 1–80 limit.
+  naming state after an owner-scoped write. A different or closed Business
+  returns 404. Names use the existing 1–80 limit.
   Owners must save a nondefault name before inviting an accountant or exporting.
   Both routes return 409 `business_name_required` while the name is default.
   Accountant exports retain their existing permission checks and never prompt.
-  Dismissing the optional prompt does not affect the required action check.
+  There is no first-visit name prompt: a new Business names itself through the
+  setup guide's fiscal identity step (GET `/api/v1/business/setup`).
+- GET `/api/v1/business/setup` returns `{steps: [{key, required, done}]}` for
+  the selected Business, in display order. Only someone with `manage` on the
+  Business reads it; anyone else gets 403. `key` is one of `created`,
+  `fiscal_identity`, `receiving_address`, `receipt_reading`, `first_document`,
+  `team` and `whatsapp`; the first four are required, `first_document`, `team`
+  and `whatsapp` are optional.
+  `created` is always done. `fiscal_identity` is done when the RNC or cédula is
+  saved and the name is not a default. `receiving_address` is done when the
+  receiving address can receive, as GET `/api/v1/business/email` says.
+  `receipt_reading` is done when the owner turned reading on, as GET
+  `/api/v1/business/receipt-reading` says. `first_document` is done once the
+  Business received a document by any channel; opening upload, copying the
+  address or linking a phone does not complete it. `team` is done once someone was
+  invited or holds access besides the owner. `whatsapp` is done when a number is
+  linked. A step whose feature is off on this server is absent: email receiving,
+  receipt reading (no reading route), invitations, WhatsApp. Setup is complete
+  when every required step sent is done; the web then shows no guide. The route
+  needs the Postgres store and answers 503 without it, like the fiscal profile.
 - GET `/api/v1/business/consent?version=<16 hex>` answers `{version,
   accepted_at}`: when the caller accepted that wording of the Business consent
   screen, or null. It needs no space, and a chosen grant does not change the
@@ -10675,7 +10704,7 @@ accept path recorded.
   settlement_available, activity_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
-  waits only on a rate, the open items read and the settlement PATCH are refused with 404
+  is final, the open items read and the settlement PATCH are refused with 404
   `business_settlement_unavailable` before authentication (a malformed PATCH body can answer 422
   first, as it does while the switch is on), and the web shows no Por cobrar, Por pagar or mark, and shows
   ITBIS charged ("ITBIS en ventas") where ITBIS cobrado stood (see the
@@ -10703,7 +10732,7 @@ accept path recorded.
   no Facturación entry point (sidebar, Inicio, search, Negocio, the top bar's
   heading) and a `?view=invoicing` link lands on Inicio. The web keeps no
   switch of its own.
-- Logo. `logo_url` on `/space`, `/space/name`, `/space/name-prompt`, `/spaces`
+- Logo. `logo_url` on `/space`, `/space/name`, `/spaces`
   and `/workspace` is a signed URL to the Business's 256 px logo, valid for
   about an hour, or null. PUT `/api/v1/business/logo` replaces it with the
   raw picture in the body (`image/jpeg`, `image/png` or `image/webp`, at most

@@ -24,6 +24,7 @@ function liveMonth(month: string) {
     currencies: [{ currency: "DOP", by_status: { invoices: { pendiente: pendingInvoice, cobrado: cell }, receipts: { pendiente: cell, pagado: cell } } }],
     missing_rnc: [],
     missing_ncf: [],
+    missing_fiscal_rows: [],
     cuentas_por_cobrar: [],
     cuentas_por_pagar: [],
   };

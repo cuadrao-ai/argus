@@ -184,7 +184,7 @@ function LegacyTransaccionesPanel() {
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
-            <MonthCurrencyMenu currencies={controller.currencyMenu.choices} value={controller.currencyMenu.value} businessCurrency={controller.businessCurrency} onChoose={controller.chooseCurrency} note={<OtherCurrencies others={bank?.otherCurrencies ?? []} onChoose={controller.chooseCurrency} />} />
+            <MonthCurrencyMenu currencies={controller.currencyMenu.choices} value={controller.currencyMenu.value} onChoose={controller.chooseCurrency} note={<OtherCurrencies others={bank?.otherCurrencies ?? []} onChoose={controller.chooseCurrency} />} />
           </div>
         ) : null}
         {!igualar && !localPaging ? <p className="mb-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.period_summary", { period: subtitle })}</p> : null}

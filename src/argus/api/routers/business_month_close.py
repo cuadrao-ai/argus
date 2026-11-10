@@ -103,18 +103,21 @@ def _unavailable(request: Request):
     )
 
 
-def _bandeja(business: BusinessContext, month: str) -> tuple[int, bool]:
-    """What the Bandeja holds against this month: the drafts dated in it, and
-    whether a read in flight could still land in any month."""
+def _bandeja(business: BusinessContext, month: str) -> dict[str, int]:
+    """The month's drafts the Bandeja still holds, by currency. A draft that
+    names no currency yet (a note nobody reviewed, a read in flight) counts in
+    the Business's own currency."""
 
     from argus.api.business_drafts import receipt_read_dates, receipt_summaries
-    from argus.api.business_receipt_activity import month_unknown, unreviewed_days
+    from argus.api.business_receipt_activity import unreviewed_days
 
     start, end = month_period(month)
     views = receipt_summaries(business, "all")
-    dates = receipt_read_dates(business)
-    days = unreviewed_days(business, views, dates)
-    return unreviewed_in_month(days, start, end), month_unknown(business, views, dates)
+    days = unreviewed_days(business, views, receipt_read_dates(business))
+    own = business.scope.currency
+    return unreviewed_in_month(
+        ((day, currency or own) for day, currency in days), start, end
+    )
 
 
 @router.get("", response_model=MonthClose)
@@ -141,17 +144,19 @@ def month_summary(
         )
     settlement = business_settlement_enabled()
     try:
+        bandeja = _bandeja(business, month)
         summary = (
-            empty_month(month, settlement)
+            empty_month(month, settlement, bandeja)
             if context is None
             else read_month(
                 context.service.authority,
                 _owner(request, context, person),
                 month,
                 settlement,
+                bandeja,
             )
         )
-        return with_unreviewed(summary, *_bandeja(business, month))
+        return with_unreviewed(summary)
     except ValueError as error:
         if str(error) != "month_invalid":
             raise

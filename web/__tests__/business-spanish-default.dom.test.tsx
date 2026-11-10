@@ -126,8 +126,8 @@ describe("Business stays in Spanish for an en-US browser", () => {
     return visible;
   }
 
-  const spanishCopy = ["Mi negocio", "Resumen del negocio", "Necesita atención", "Ingresos", "Agregar", "Se guardan como", "Compra", "Contraparte", "Fecha"];
-  const englishCopy = ["Business overview", "Needs attention", "Income", "Add", "Saved as", "Purchase", "Counterparty", "Receipt date"];
+  const spanishCopy = ["Mi negocio", "Resultado neto", "Necesita atención", "Ingresos", "Agregar", "Se guardan como", "Compra", "Contraparte", "Fecha"];
+  const englishCopy = ["Net result", "Needs attention", "Income", "Add", "Saved as", "Purchase", "Counterparty", "Receipt date"];
   const retiredEnglishCopy = ["Upload receipts", "Record expense", "Open inbox", "Actual expenses", "to review"];
 
   test("an en-US browser with a Spanish account sees overview, the Agregar sheet, and receipt review in Spanish", async () => {
