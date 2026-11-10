@@ -319,15 +319,22 @@ def test_a_listo_draft_sends_no_review_event(
     assert _events(sent, "business_document_needs_review") == []
 
 
-def test_a_blank_token_reads_nothing_for_an_approval(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("token", "region"),
+    [("", "us"), ("ph_project_token", "")],
+    ids=["blank_token", "blank_region"],
+)
+def test_a_half_configured_project_reads_nothing_for_an_approval(
+    monkeypatch: pytest.MonkeyPatch, token: str, region: str
 ) -> None:
     """Off means no database read either: the approval's facts are read only
-    when there is a project to send them to."""
+    when there is a project to send them to, which takes a token and a region."""
 
-    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "")
-    monkeypatch.setenv("POSTHOG_REGION", "us")
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", token)
+    monkeypatch.setenv("POSTHOG_REGION", region)
     monkeypatch.setattr(envelope, "_SENDER", Inline())
+    posts: list[object] = []
+    monkeypatch.setattr(envelope.httpx, "post", lambda *a, **k: posts.append(a))
     reads: list[object] = []
     monkeypatch.setattr(
         business_analytics, "read_approval", lambda *args: reads.append(args)
@@ -339,6 +346,7 @@ def test_a_blank_token_reads_nothing_for_an_approval(
     )
 
     assert reads == []
+    assert posts == []
 
 
 def test_a_saved_read_replayed_by_the_worker_reports_no_read(

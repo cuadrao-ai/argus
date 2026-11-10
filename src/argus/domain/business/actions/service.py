@@ -876,7 +876,8 @@ class BusinessActions:
         self, *, user_id: str, connection_id: str, scope: OwnerScope, draft_id: UUID
     ) -> tuple[BandejaReason, ...]:
         """Why the draft a read prepared is not Listos yet, read after the read
-        settled; empty when it is Listos or no longer open."""
+        settled; empty when it is Listos. The draft's standing is read as it is,
+        so a recorded draft still reports its gaps; no caller asks after that."""
 
         from argus.domain.business.actions.listos import draft_standings
         from argus.domain.business.bandeja_group import listo_gaps

@@ -1,7 +1,8 @@
 """Send the Business pilot's analytics events, after the work they describe.
 
-Every sender returns at once. Without a project token it does nothing; with
-one, the event is built and sent off the caller's thread, and any failure is
+Every sender returns at once. Unless the envelope says capture is on (a project
+token and a region), it does nothing, not even a database read; with capture
+on, the event is built and sent off the caller's thread, and any failure is
 logged once and dropped, so analytics never delays or fails a request or a read.
 """
 
@@ -32,7 +33,7 @@ from argus.domain.business.document_type import DocumentType, direction
 from argus.domain.business.receipts import READ_REFUSAL_ATTENTION, failure_attention
 from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
 from argus.observability.analytics_events import capture_analytics_event
-from argus.observability.envelope import posthog_project_token_configured, send_later
+from argus.observability.envelope import live_analytics_sink_enabled, send_later
 
 if TYPE_CHECKING:
     from argus.domain.business.actions.service import BusinessActions
@@ -52,7 +53,7 @@ _MICRO = Decimal(1_000_000)
 
 
 def _emit(user_id: str, build: Callable[[], Iterable[BusinessEvent]]) -> None:
-    if not posthog_project_token_configured():
+    if not live_analytics_sink_enabled():
         return
 
     def send() -> None:
