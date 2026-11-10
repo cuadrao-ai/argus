@@ -140,7 +140,7 @@ async function mount(element: () => ReactElement, source: Partial<BusinessContex
 }
 const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === text || item.getAttribute("aria-label") === text);
 
-test("the Agregar picker hands the queue the Business it is open in, and a retry keeps it after a switch", async () => {
+test("Agregar hands the queue the Business it is open in, lists only that Business's uploads, and a retry keeps the Business the file was picked in", async () => {
   const uploads: (string | null)[] = [];
   let lose = true;
   const queue = new ReceiptUploadQueue(async (_file, _consent, _key, _type, _onProgress, grant) => {
@@ -154,7 +154,10 @@ test("the Agregar picker hands the queue the Business it is open in, and a retry
   transfer.items.add(file());
   await act(async () => { input.files = transfer.files; input.dispatchEvent(new Event("change", { bubbles: true })); });
   await until(() => queue.snapshot()[0]?.status === "failed");
+  assert.ok(button("Reintentar recibo.txt"), "A's upload shows while A is open");
   await act(async () => { setChosenGrant(B); });
+  assert.equal(button("Reintentar recibo.txt"), undefined, "A's upload is not listed in B");
+  await act(async () => { setChosenGrant(A); });
   await act(async () => { button("Reintentar recibo.txt")!.click(); });
   await until(() => queue.snapshot()[0]?.status === "saved");
   assert.deepEqual(uploads, [A, A]);

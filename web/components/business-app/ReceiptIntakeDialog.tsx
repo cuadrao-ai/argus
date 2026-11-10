@@ -23,7 +23,7 @@ import { EmptyState } from "./foundation/EmptyState";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { validCaptureText } from "./ManualCaptureDialog";
 import type { TypedNote, TypedNoteQueue } from "./typed-note-queue";
-import { getChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
+import { enteredIn, getChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
 import { useForwardAddress } from "./useForwardAddress";
 import { useInputCapabilities } from "./useInputCapabilities";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -99,7 +99,9 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   const replacingRef = useRef<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
-  const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target);
+  const grant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
+  // Only this Business's uploads and notes show; a save or retry carries the Business the item was entered in.
+  const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target).filter(enteredIn(grant));
   const consent = false;
   const [drag, setDrag] = useState<DragState>({ kind: "idle" });
   const [copyFailed, setCopyFailed] = useState(false);
@@ -151,9 +153,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   const [writeType, setWriteType] = useState<DocumentType | null>(null);
   const [draftText, setDraftText] = useState("");
   const writeReady = writeType !== null && validCaptureText(draftText);
-  const grant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
-  // Only this Business's notes show; a save or retry carries the Business the note was typed in.
-  const typed = useSyncExternalStore(notes.subscribe, notes.snapshot, notes.snapshot).filter((entry) => entry.grant === grant);
+  const typed = useSyncExternalStore(notes.subscribe, notes.snapshot, notes.snapshot).filter(enteredIn(grant));
   const writeRef = useRef<HTMLTextAreaElement>(null);
   useGrowingNoteBox(writeRef, writing ? draftText : "");
   useEffect(() => {

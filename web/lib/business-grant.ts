@@ -72,6 +72,11 @@ export function subscribeChosenGrant(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/** Whether a queued note or upload belongs to one Business: each keeps the grant it was entered in. */
+export function enteredIn(grant: string | null): (item: { grant: string | null }) => boolean {
+  return (item) => item.grant === grant;
+}
+
 /** The header every Business call carries while a grant is chosen. */
 export const GRANT_HEADER = "X-Business-Grant";
 
