@@ -45,3 +45,6 @@ tests/dgii/fixtures/period-202609-607.txt -text -eol
 # would change the bytes the layout check compares.
 fixtures/dgii/*.txt -text -eol
 fixtures/dgii/*.TXT -text -eol
+
+# The generated baseline carries raw control bytes inside string literals (#1890); git must not touch them.
+supabase/migrations/20261110160000_cuadrao_baseline.sql -text

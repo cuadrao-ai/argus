@@ -16,7 +16,7 @@ from argus.observability.route_receipt_tiers import (
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (
-    ROOT / "supabase/migrations/20261003120001_admit_vision_route_receipt_tier.sql"
+    ROOT / "supabase/migrations_archive/20261003120001_admit_vision_route_receipt_tier.sql"
 )
 
 

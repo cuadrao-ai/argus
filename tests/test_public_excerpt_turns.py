@@ -705,7 +705,7 @@ def test_guest_pending_sql_is_derived_from_the_same_closed_contract():
     )
 
     migration = Path(
-        "supabase/migrations/20260909183646_share_answer_receipt_selections.sql"
+        "supabase/migrations_archive/20260909183646_share_answer_receipt_selections.sql"
     ).read_text()
     assert render_guest_pending_action_validator() in migration
 

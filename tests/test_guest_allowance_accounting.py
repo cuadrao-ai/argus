@@ -225,7 +225,7 @@ def test_guest_summary_policy_matches_python_openapi_typescript_and_sql() -> Non
     migration = (
         root
         / "supabase"
-        / "migrations"
+        / "migrations_archive"
         / "20260802090000_raise_guest_simulation_allowance.sql"
     ).read_text(encoding="utf-8")
     # The immutable migration still names chat_messages; that row is retired

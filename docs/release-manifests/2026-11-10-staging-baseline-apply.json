@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-1890-baseline",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "0000000000000000000000000000000000000000",
+  "versions_sha256": "ae463d391aa0aaa2ad17f6cf5601f5e9b051e62eb308f60a839a05236ff693ea",
+  "issued_at": "2026-11-10T00:00:00Z",
+  "expires_at": "2026-11-10T00:00:01Z",
+  "approved_by": "not yet approved",
+  "approval_reference": "NOT APPROVED. Draft for #1890 only; nothing may run from it. After the baseline PR merges and Lucas approves, replace candidate_sha with the merged integration commit, set issued_at and expires_at to a window of at most three days, and fill approved_by and this reference. The digest covers 20261110160000 (cuadrao_baseline, recorded without running, --record-only) and 20261110160100 (drop_unowned_objects, run and recorded). Staging skedzwocnmrhfigiwyzi only; never production."
+}

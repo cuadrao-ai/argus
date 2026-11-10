@@ -27,7 +27,7 @@ space = migration.space
 pytestmark = pytest.mark.skipif(not shared.DSN, reason="Disposable database required")
 MIGRATION = (
     Path(__file__).resolve().parents[1]
-    / "supabase/migrations/20261101000200_business_purchase_comprobante_once.sql"
+    / "supabase/migrations_archive/20261101000200_business_purchase_comprobante_once.sql"
 )
 SUPPLIER = "131000002"
 NCF = "B0100000001"

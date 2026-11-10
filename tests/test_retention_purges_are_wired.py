@@ -24,7 +24,7 @@ from argus.domain.guest_cleanup import (
 )
 
 REPO_ROOT = Path(__file__).parents[1]
-MIGRATIONS = REPO_ROOT / "supabase" / "migrations"
+MIGRATIONS = REPO_ROOT / "supabase"
 
 _PURGE_DEFINITION = re.compile(
     r"create\s+or\s+replace\s+function\s+public\.(purge_[a-z0-9_]+)\s*\(",
@@ -34,7 +34,7 @@ _PURGE_DEFINITION = re.compile(
 
 def _declared_purges() -> set[str]:
     names: set[str] = set()
-    for migration in MIGRATIONS.glob("*.sql"):
+    for migration in MIGRATIONS.glob("migrations*/*.sql"):
         names.update(_PURGE_DEFINITION.findall(migration.read_text(encoding="utf-8")))
     return names
 

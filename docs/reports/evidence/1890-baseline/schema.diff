@@ -1,0 +1,65 @@
+--- a (history + drops)
++++ b (baseline)
+@@ -7181,7 +7181,7 @@
+     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+     secret_key_fingerprint text,
+     apple_subject text,
+-    CONSTRAINT apple_sign_in_credentials_apple_subject_check CHECK (((apple_subject IS NULL) OR (((length(apple_subject) >= 1) AND (length(apple_subject) <= 512)) AND (apple_subject !~ '[[:space:][:cntrl:]]'::text)))),
++    CONSTRAINT apple_sign_in_credentials_apple_subject_check CHECK (((apple_subject IS NULL) OR ((length(apple_subject) >= 1) AND (length(apple_subject) <= 512) AND (apple_subject !~ '[[:space:][:cntrl:]]'::text)))),
+     CONSTRAINT apple_sign_in_credentials_client_id_check CHECK ((client_id ~ '^[A-Za-z0-9][A-Za-z0-9.-]{0,154}$'::text)),
+     CONSTRAINT apple_sign_in_credentials_secret_ciphertext_check CHECK (((octet_length(secret_ciphertext) >= 29) AND (octet_length(secret_ciphertext) <= 8192))),
+     CONSTRAINT apple_sign_in_credentials_secret_key_fingerprint_check CHECK ((secret_key_fingerprint ~ '^[0-9a-f]{32}$'::text))
+@@ -12218,7 +12218,7 @@
+     created_at timestamp with time zone DEFAULT now() NOT NULL,
+     CONSTRAINT business_lifecycle_action_check CHECK ((((action = 'close'::text) AND (confirmation IS NOT NULL) AND (confirmation = result_name) AND (result_closed_at IS NOT NULL)) OR ((action = 'reopen'::text) AND (confirmation IS NULL) AND (result_closed_at IS NULL)))),
+     CONSTRAINT business_lifecycle_commands_result_name_check CHECK (((char_length(result_name) >= 1) AND (char_length(result_name) <= 80))),
+-    CONSTRAINT business_lifecycle_key_check CHECK ((((char_length(idempotency_key) >= 1) AND (char_length(idempotency_key) <= 200)) AND (char_length(btrim(idempotency_key)) > 0)))
++    CONSTRAINT business_lifecycle_key_check CHECK (((char_length(idempotency_key) >= 1) AND (char_length(idempotency_key) <= 200) AND (char_length(btrim(idempotency_key)) > 0)))
+ );
+ 
+ 
+@@ -12462,7 +12462,7 @@
+     CONSTRAINT business_ownership_transfers_check CHECK ((owner_id <> target_id)),
+     CONSTRAINT business_ownership_transfers_check1 CHECK (((status = 'pending'::text) = (resolved_at IS NULL))),
+     CONSTRAINT business_ownership_transfers_confirmation_check CHECK (((char_length(confirmation) >= 1) AND (char_length(confirmation) <= 80))),
+-    CONSTRAINT business_ownership_transfers_idempotency_key_check CHECK ((((char_length(idempotency_key) >= 1) AND (char_length(idempotency_key) <= 200)) AND (char_length(btrim(idempotency_key)) > 0))),
++    CONSTRAINT business_ownership_transfers_idempotency_key_check CHECK (((char_length(idempotency_key) >= 1) AND (char_length(idempotency_key) <= 200) AND (char_length(btrim(idempotency_key)) > 0))),
+     CONSTRAINT business_ownership_transfers_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'cancelled'::text, 'declined'::text, 'expired'::text]))),
+     CONSTRAINT business_transfer_seven_days CHECK ((expires_at = (created_at + '168:00:00'::interval)))
+ );
+@@ -12985,7 +12985,7 @@
+     result jsonb NOT NULL,
+     created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+     CONSTRAINT business_report_view_commands_command_check CHECK ((jsonb_typeof(command) = 'object'::text)),
+-    CONSTRAINT business_report_view_commands_command_key_check CHECK ((((char_length(command_key) >= 1) AND (char_length(command_key) <= 200)) AND (char_length(btrim(command_key)) > 0))),
++    CONSTRAINT business_report_view_commands_command_key_check CHECK (((char_length(command_key) >= 1) AND (char_length(command_key) <= 200) AND (char_length(btrim(command_key)) > 0))),
+     CONSTRAINT business_report_view_commands_result_check CHECK ((jsonb_typeof(result) = 'object'::text))
+ );
+ 
+@@ -13077,7 +13077,7 @@
+     version bigint DEFAULT 1 NOT NULL,
+     created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+     updated_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+-    CONSTRAINT business_saved_report_views_name_check CHECK ((((char_length(name) >= 1) AND (char_length(name) <= 120)) AND (char_length(btrim(name)) > 0))),
++    CONSTRAINT business_saved_report_views_name_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120) AND (char_length(btrim(name)) > 0))),
+     CONSTRAINT business_saved_report_views_recipe_check CHECK (((jsonb_typeof(recipe) = 'object'::text) AND ((recipe ->> 'schema_version'::text) = ANY (ARRAY['1'::text, '2'::text])))),
+     CONSTRAINT business_saved_report_views_version_check CHECK ((version > 0))
+ );
+@@ -13864,7 +13864,7 @@
+     payload jsonb NOT NULL,
+     space_id uuid NOT NULL,
+     created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+-    CONSTRAINT business_workspace_commands_command_key_check CHECK ((((char_length(command_key) >= 1) AND (char_length(command_key) <= 200)) AND (char_length(btrim(command_key)) > 0))),
++    CONSTRAINT business_workspace_commands_command_key_check CHECK (((char_length(command_key) >= 1) AND (char_length(command_key) <= 200) AND (char_length(btrim(command_key)) > 0))),
+     CONSTRAINT business_workspace_commands_operation_check CHECK ((operation = ANY (ARRAY['create'::text, 'save'::text, 'upload'::text]))),
+     CONSTRAINT business_workspace_commands_payload_check CHECK ((jsonb_typeof(payload) = 'object'::text))
+ );
+@@ -21126,7 +21126,7 @@
+     sender text NOT NULL,
+     created_at timestamp with time zone DEFAULT now() NOT NULL,
+     backfilled_at timestamp with time zone,
+-    CONSTRAINT financial_source_gmail_senders_sender_check CHECK ((((char_length(sender) >= 3) AND (char_length(sender) <= 254)) AND (sender = lower(sender)) AND (sender !~ '[[:space:]()":,<>]'::text)))
++    CONSTRAINT financial_source_gmail_senders_sender_check CHECK (((char_length(sender) >= 3) AND (char_length(sender) <= 254) AND (sender = lower(sender)) AND (sender !~ '[[:space:]()":,<>]'::text)))
+ );
+ 
+ 

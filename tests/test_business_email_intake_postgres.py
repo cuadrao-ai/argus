@@ -920,7 +920,7 @@ def test_an_upload_still_approves_after_a_forged_email_with_the_same_bytes(recei
 
 MIGRATION = (
     Path(__file__).parents[1]
-    / "supabase/migrations/20261019040000_business_receipt_address.sql"
+    / "supabase/migrations_archive/20261019040000_business_receipt_address.sql"
 )
 
 
