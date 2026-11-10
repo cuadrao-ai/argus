@@ -8,7 +8,6 @@ import { useTranslation } from "react-i18next";
 import { resolveLanguage } from "@/lib/language-features";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useBusiness } from "../BusinessWorkspace";
-import { useReceivingChannels } from "../business-context";
 import { formatRelativeTime } from "../business-format";
 import { canAddRecords, quietButtonClass, secondaryButtonClass } from "../business-ui";
 import { useEmailWords } from "../BusinessEmailDeliveries";
@@ -34,11 +33,6 @@ const TAG = `inline-flex items-center gap-1 rounded-mark px-1.5 py-0.5 ${HOME_TY
 const NEUTRAL = `${TAG} bg-black/5 text-[#56635e] dark:bg-white/10 dark:text-white/70`;
 const ALERT = `${TAG} bg-[#f6dfe0] text-[#9e2f39] dark:bg-[#4a2a2f] dark:text-[#ec9aa0]`;
 
-/** Which ways in are on, in the server's words, for the first-day sentence. Upload is always one of them. */
-function channelKey(email: boolean, whatsapp: boolean): string {
-  return email && whatsapp ? "web_email_whatsapp" : email ? "web_email" : whatsapp ? "web_whatsapp" : "web";
-}
-
 function SkeletonRows() {
   const { t } = useTranslation();
   return (
@@ -63,7 +57,6 @@ function SkeletonRows() {
  */
 export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
   const { records, openPanel, reload, chosen, actions } = useBusiness();
-  const channels = useReceivingChannels();
   const emailWords = useEmailWords();
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -105,7 +98,7 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
       return card(
         <div data-testid="home-attention-first-day" className="flex flex-col items-center gap-2 px-5 py-6 text-center">
           <p className="text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.inicio.attention.first_day_title")}</p>
-          <p className={`max-w-sm ${HOME_TYPE.secondary} ${HOME_MUTED}`}>{t(`business.inicio.attention.first_day_channels.${channelKey(channels.email.available, channels.whatsapp.available)}`)}</p>
+          <p className={`max-w-sm ${HOME_TYPE.secondary} ${HOME_MUTED}`}>{t("business.inicio.attention.first_day_body")}</p>
           {add ? <button type="button" data-testid="home-attention-add" className={`mt-2 ${secondaryButtonClass}`} onClick={add.run}>{t("business.inicio.attention.first_day_add")}</button> : null}
         </div>,
       );

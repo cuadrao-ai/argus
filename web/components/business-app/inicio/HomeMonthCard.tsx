@@ -93,7 +93,7 @@ export function HomeMonthCard({ switcher, currencyMenu, state, error, block, cur
   ) : (
     <>
       {firstDay ? <p data-testid="home-month-first-day" className={HOME_TYPE.included}>{t("business.inicio.month.first_day")}</p>
-        : counted !== null && total !== null && total > 0 ? <p data-testid="home-month-included" className={HOME_TYPE.included}>{counted === total ? t("business.inicio.month.included_all", { count: total }) : t("business.inicio.month.included_some", { counted, count: total })}</p> : null}
+        : counted !== null && total !== null && total > 0 ? <p data-testid="home-month-included" className={HOME_TYPE.included}>{t("business.inicio.month.included", { counted, total })}</p> : null}
       {inBandeja !== null && inBandeja > 0 ? (
         <p data-testid="home-month-bandeja">
           {t("business.inicio.month.in_bandeja", { count: inBandeja })}

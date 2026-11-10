@@ -145,12 +145,12 @@ describe("Necesita atención", () => {
     } finally { await page.close(); }
   });
 
-  test("the first day names the channels that are on and starts the existing upload", async () => {
+  test("the first day says what the card is for, in one sentence for every channel, and starts the existing upload", async () => {
     const page = await attention({ waiting: 0, rows: [], notes: [], firstDay: true });
     try {
       const first = page.card().querySelector('[data-testid="home-attention-first-day"]')!;
       assert.match(first.textContent ?? "", /Aquí verás lo que espera tu revisión\./);
-      assert.match(first.textContent ?? "", /Cada factura o recibo que subas aparece aquí listo para revisar\./);
+      assert.match(first.textContent ?? "", /Cada factura o recibo nuevo aparece aquí listo para revisar\./);
       await page.act(async () => page.card().querySelector<HTMLButtonElement>('[data-testid="home-attention-add"]')!.click());
       assert.equal(page.uploads(), 1);
     } finally { await page.close(); }
@@ -225,7 +225,7 @@ describe("The month card", () => {
   test("each footer count opens exactly what it counts", async () => {
     const page = await monthCard(server());
     try {
-      assert.equal(page.find("home-month-included")?.textContent, "Incluye 21 de 28 documentos");
+      assert.equal(page.find("home-month-included")?.textContent, "Documentos incluidos: 21 de 28");
       assert.match(page.find("home-month-bandeja")?.textContent ?? "", /^6 en la Bandeja · Revisar$/);
       const [fiscal] = [...page.host.querySelectorAll<HTMLElement>('[data-testid="home-month-fiscal"]')];
       assert.match(fiscal.textContent ?? "", /^Faltan datos fiscales en 3 registros · Ver$/);
@@ -235,10 +235,10 @@ describe("The month card", () => {
     } finally { await page.close(); }
   });
 
-  test("every document counted reads as all of them; nothing in the Bandeja or held shows no line", async () => {
+  test("every document counted reads in the same shape; nothing in the Bandeja or held shows no line", async () => {
     const page = await monthCard(server({ currencies: [dop({ documents_counted: 28, documents_total: 28, documents_in_bandeja: 0 })], missing_fiscal_rows: [], unreviewed_movements_count: 0 }));
     try {
-      assert.equal(page.find("home-month-included")?.textContent, "Incluye los 28 documentos");
+      assert.equal(page.find("home-month-included")?.textContent, "Documentos incluidos: 28 de 28");
       assert.equal(page.find("home-month-bandeja"), null);
       assert.equal(page.find("home-month-fiscal"), null);
     } finally { await page.close(); }
@@ -292,7 +292,7 @@ describe("The month card", () => {
       assert.equal(page.find("home-month-body")?.dataset.state, "loading");
       assert.match(card.textContent ?? "", /Noviembre 2026/);
       assert.match(card.textContent ?? "", /Ingresos.*Gastos.*Resultado neto.*ITBIS en ventas.*ITBIS en compras/);
-      assert.doesNotMatch(card.textContent ?? "", /RD\$|Incluye/);
+      assert.doesNotMatch(card.textContent ?? "", /RD\$|Documentos incluidos/);
       assert.equal(page.find("month-close-currency"), null, "nothing reserves room for a pill that may not appear");
     } finally { await page.close(); }
   });
@@ -439,6 +439,10 @@ describe("what Inicio no longer has", () => {
     for (const gone of ["checklistCard", "month-close-checklist", "filing_ready", "closed_at", "month-close-closed"]) assert.equal(panel.includes(gone), false, gone);
     const spanish = (await import("@/public/locales/es-419/common.json")).default as { business: { month_close: Record<string, unknown> } };
     for (const key of ["filing_ready", "checklist_title", "closed", "closed_on", "currency_others"]) assert.equal(key in spanish.business.month_close, false, key);
+    const inicio = (spanish as unknown as { business: { inicio: { attention: Record<string, unknown>; month: Record<string, unknown> } } }).business.inicio;
+    assert.equal("first_day_channels" in inicio.attention, false, "one first-day sentence for every channel");
+    assert.deepEqual(Object.keys(inicio.month).filter((key) => key.startsWith("included")), ["included"], "one coverage line shape");
+    assert.doesNotMatch(JSON.stringify(inicio), /PENDIENTE COPY/);
     const sample = (await import("@/lib/business-month-close")).createMockMonthCloseClient();
     assert.equal("closeMonth" in sample, false);
   });
