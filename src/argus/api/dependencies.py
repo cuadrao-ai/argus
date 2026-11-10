@@ -24,6 +24,8 @@ from argus.api.guest_access import (
     visitor_key_for_request,
 )
 from argus.api.schemas import User
+from argus.observability.envelope import capture_exception
+from argus.observability.product_events import actor_hash_for_user
 
 
 def validate_startup_configuration() -> None:
@@ -105,7 +107,14 @@ async def request_id_middleware(request: Request, call_next):  # type: ignore[no
     request.state.request_id = request_id
     try:
         response = await call_next(request)
-    except Exception:
+    except Exception as error:
+        route = request.scope.get("route")
+        account = getattr(request.state, "account_context", None)
+        capture_exception(
+            error,
+            route=getattr(route, "path", None) or "unmatched",
+            actor_hash=actor_hash_for_user(getattr(account, "user_id", None)),
+        )
         logger.exception(
             "Unexpected API failure",
             request_id=request_id,

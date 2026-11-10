@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from psycopg.types.json import Jsonb
@@ -64,6 +65,9 @@ from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBat
 from argus.domain.ingestion.email_intake.store import email_connection_standing
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.owner_scope import OwnerScope, space_id
+
+if TYPE_CHECKING:
+    from argus.domain.business.bandeja_group import BandejaReason
 
 
 class BusinessActions:
@@ -867,6 +871,22 @@ class BusinessActions:
         binding, context = self._attachment_context(user_id, connection_id, scope)
         with transaction(self.authority, context, "prepare") as tx:
             self._checked_attachment(tx, binding, holder, attempt_id)
+
+    def review_gaps(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope, draft_id: UUID
+    ) -> tuple[BandejaReason, ...]:
+        """Why the draft a read prepared is not Listos yet, read after the read
+        settled; empty when it is Listos. The draft's standing is read as it is,
+        so a recorded draft still reports its gaps; no caller asks after that."""
+
+        from argus.domain.business.actions.listos import draft_standings
+        from argus.domain.business.bandeja_group import listo_gaps
+
+        _, context = self._attachment_context(user_id, connection_id, scope)
+        with transaction(self.authority, context) as tx:
+            event = tx.imports.event(str(draft_id))
+            standing = draft_standings(tx, [event]).get(event.id)
+        return listo_gaps(standing) if standing is not None else ()
 
     def prepare_attachment(
         self,

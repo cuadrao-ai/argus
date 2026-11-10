@@ -15,6 +15,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from argus.domain import financial_search
+from argus.domain.business import analytics as business_analytics
 from argus.domain.business import ledger
 from argus.domain.business import search as business_search
 from argus.domain.business.authority import ActionError
@@ -196,6 +197,14 @@ class BusinessService:
             on_capture=on_capture,
             document_type=document_type,
         )
+        if not outcome.replayed:
+            business_analytics.document_received(
+                channel="upload",
+                business_id=scope.owner.space_id,
+                user_id=scope.acting_person_id,
+                media_type=media_type,
+                size_bytes=len(content),
+            )
         # The same bytes saved before come back as that receipt, said so.
         return replace(
             self.receipt(scope, outcome.connection_id), replayed=outcome.replayed

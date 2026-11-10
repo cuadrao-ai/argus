@@ -635,6 +635,14 @@
           }
         },
         {
+          "name": "CUADRAO_ANALYTICS_DELETION_ENABLED",
+          "kind": "plain",
+          "keep_current": true,
+          "production": {
+            "not_set": true
+          }
+        },
+        {
           "name": "CUADRAO_APPLE_BUNDLE_ID",
           "kind": "plain",
           "production_only": true,
@@ -783,6 +791,30 @@
           }
         },
         {
+          "name": "CUADRAO_POSTHOG_DELETION_API_KEY",
+          "kind": "secret",
+          "keep_current": true,
+          "production": {
+            "not_set": true
+          }
+        },
+        {
+          "name": "CUADRAO_POSTHOG_DELETION_HOST",
+          "kind": "plain",
+          "keep_current": true,
+          "production": {
+            "not_set": true
+          }
+        },
+        {
+          "name": "CUADRAO_POSTHOG_DELETION_PROJECT_ID",
+          "kind": "plain",
+          "keep_current": true,
+          "production": {
+            "not_set": true
+          }
+        },
+        {
           "name": "CUADRAO_READOUT_FALLBACK_MODEL",
           "kind": "plain",
           "production_only": true,
@@ -873,7 +905,7 @@
         {
           "name": "POSTHOG_PROJECT_TOKEN",
           "kind": "secret",
-          "production_only": true,
+          "keep_current": true,
           "production": {
             "enter": "the production analytics project token"
           }
@@ -881,7 +913,7 @@
         {
           "name": "POSTHOG_REGION",
           "kind": "plain",
-          "production_only": true,
+          "value": "us",
           "production": {
             "value": "us"
           }

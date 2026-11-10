@@ -81,7 +81,7 @@ The flag names below are proposals, and the captain confirms the final name in t
 | Code gate and waitlist | The cuadrao.ai waitlist page | Code check and the redirect to the waitlist | `CUADRAO_BETA_INVITE_GATE_ENABLED` and `CUADRAO_WAITLIST_URL` |
 | Push | APNs key | Device registration, a push sender interface, and a recording fake that keeps payloads for tests | `[removed obsolete setting]`. Off uses the fake and sends nothing |
 | Email | A cuadrao.ai sending domain in Resend | Nothing. Household email delivery and update email are out of scope for this pass | None |
-| PostHog person deletion | A PostHog personal API key that can delete persons. The project token the server sends events with cannot | A deletion adapter and a recording fake that keeps each request for tests | `ARGUS_ANALYTICS_DELETION_ENABLED`. Off uses the fake and sends nothing |
+| PostHog person deletion | A PostHog personal API key that can delete persons. The project token the server sends events with cannot | A deletion adapter and a recording fake that keeps each request for tests | `CUADRAO_ANALYTICS_DELETION_ENABLED`. Off uses the fake and sends nothing |
 | Sign in with Apple | Sign in with Apple enabled on the app ID, a Services ID, and a .p8 key | Apple sign-in, the encrypted refresh-token store, and an Apple revocation adapter for Lane 6 | `ARGUS_APPLE_SIGN_IN_ENABLED` (confirmed). Off hides the button. The deletion step has no fake: without the Apple configuration a stored token's revoke stays pending (`apple_unconfigured`), as [Lane 6 step 2](#steps-in-order) says. An external TestFlight build with Apple or Google sign-in turned on requires `CUADRAO_ACCOUNT_DELETION_ENABLED` on. TODO: name the Apple key settings and the backend token-capture switch as #793 and #795 land them. At their current heads these are `CUADRAO_APPLE_TEAM_ID`, `CUADRAO_APPLE_SIGN_IN_KEY_ID`, `CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY`, `CUADRAO_APPLE_BUNDLE_ID`, and `CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` |
 | Google sign-in | A Google sign-in client, with its own names. It is separate from `GOOGLE_OAUTH_CLIENT_ID` in `render.yaml`, which belongs to the Gmail source connection | Google sign-in behind its own flag | `ARGUS_GOOGLE_SIGN_IN_ENABLED` (confirmed). Off hides the button. Client settings: `GOOGLE_SIGN_IN_IOS_CLIENT_ID`, `GOOGLE_SIGN_IN_WEB_CLIENT_ID`, and `GOOGLE_SIGN_IN_IOS_URL_SCHEME` (#795). An external TestFlight build with Apple or Google sign-in turned on requires `CUADRAO_ACCOUNT_DELETION_ENABLED` on. |
 
@@ -184,7 +184,7 @@ These are the pieces only Lucas can hand over. Each lane lands without them, wit
 3. **APNs key** for push. Until then `[removed obsolete setting]` stays off and the recording fake is used.
 4. **The TestFlight public link.** Until then `CUADRAO_TESTFLIGHT_PUBLIC_URL` stays unset and no install link is shown.
 5. **Schedule Apple's first external beta review.** Apple must approve the first build for external testing before the TestFlight public link works for outside testers. Put that review on the calendar before the first distribution.
-6. **A PostHog personal API key that can delete persons.** Until then `ARGUS_ANALYTICS_DELETION_ENABLED` stays off, the recording fake is used, and account deletion reports the PostHog step as not done.
+6. **A PostHog personal API key that can delete persons.** Until then `CUADRAO_ANALYTICS_DELETION_ENABLED` stays off, the recording fake is used, and account deletion reports the PostHog step as not done.
 7. **Sign in with Apple keys.** Sign in with Apple enabled on the app ID, a Services ID, and a .p8 key. Until then Apple sign-in and token capture stay off, and Lane 6 keeps any stored token's revoke pending (`apple_unconfigured`), as [Lane 6 step 2](#steps-in-order) says.
 8. **A Google sign-in client.** It has its own settings, separate from the Gmail source's `GOOGLE_OAUTH_CLIENT_ID`. Its settings are `GOOGLE_SIGN_IN_IOS_CLIENT_ID`, `GOOGLE_SIGN_IN_WEB_CLIENT_ID`, and `GOOGLE_SIGN_IN_IOS_URL_SCHEME` (#795). Until then Google sign-in stays off.
 
@@ -574,7 +574,7 @@ The Lane 6 PR opens with a real-Postgres test that deletes a user who has a row 
 - The read-only archive of a shared debt plan with its banner.
 - The former-member placeholder, the frozen balance line with its settle event, the reassign Update for the plan owner, and plan ownership transfer, with the migration they need.
 - The admin handoff on deletion, inside the Household owner.
-- A PostHog deletion adapter with a recording fake, behind `ARGUS_ANALYTICS_DELETION_ENABLED`. See [Outside services](#outside-services-fakes-behind-default-off-flags).
+- A PostHog deletion adapter with a recording fake, behind `CUADRAO_ANALYTICS_DELETION_ENABLED`. See [Outside services](#outside-services-fakes-behind-default-off-flags).
 - The note the other members see, and the admin handoff and closure entries, written through the inbox model.
 - Moving web onto the deletion command, with `account_deletion_request` kept as its flag-off fallback. The paragraph after [the steps](#steps-in-order) says when that fallback is retired.
 

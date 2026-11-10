@@ -1300,7 +1300,7 @@ What the logs and run record tell you:
   force run or a later retry never marks the step `not_applicable`, whatever
   its own environment holds. A step left pending stays pending and keeps its
   `analytics_evidence`.
-  - `ARGUS_ANALYTICS_DELETION_ENABLED` on: the PostHog deletion adapter (#806)
+  - `CUADRAO_ANALYTICS_DELETION_ENABLED` on: the PostHog deletion adapter (#806)
     runs, whether or not `POSTHOG_PROJECT_TOKEN` is set.
   - Flag off and no `POSTHOG_PROJECT_TOKEN` on the API service: the server
     sends no PostHog events, so the run opens with
