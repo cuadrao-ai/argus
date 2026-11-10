@@ -10331,7 +10331,7 @@ person starts their space, every route below except POST `/space` answers 404
   data or restore revoked access. The legacy POST above remains first bootstrap.
   Creation and creator Owner membership commit together. Response is the existing
   `{id, name, country, currency, logo_url}` shape, 201 on first commit and 200 on
-  replay. Reuse of a key with different normalized input is `409 idempotency_conflict`.
+  replay. `name` is null when the name sent is a default name. Reuse of a key with different normalized input is `409 idempotency_conflict`.
   Distinct keys may create more Businesses. Replay checks current access to the
   returned Business and never restores grants. To select the returned ID, refresh GET `/spaces`, match `space_id`, and send
   that row's `grant_id` as `X-Business-Grant`, including for Owner rows. An Owner
@@ -10743,7 +10743,7 @@ accept path recorded.
   raw picture in the body (`image/jpeg`, `image/png` or `image/webp`, at most
   5 MiB, re-encoded to a 256 px WebP square with its metadata dropped;
   transparency is kept) and answers `{id, name, logo_url}` for the Business in
-  scope; DELETE `/api/v1/business/logo` removes it (204, also when absent).
+  scope, `name` null while it keeps a default name; DELETE `/api/v1/business/logo` removes it (204, also when absent).
   Both take the grant header like every Business route and are allowed to the
   owner and to a member whose live grant holds `prepare` (Editar); otherwise
   403 `business_permission_denied`. Picture errors are those of `PUT /me/photo`.

@@ -127,7 +127,7 @@ export function appearanceCommand(id: string, value: IdentityAppearance, saved?:
     catch(error){if(error&&typeof error==="object"&&"status" in error&&error.status===409){state.revision=undefined;state.save=crypto.randomUUID();onProgress?.();}throw error;}
   };
 }
-const createdSpace = z.object({ id: z.string(), name: z.string(), country: z.enum(["DO", "US", "CA"]), currency: z.string(), logo_url: z.string().nullable() });
+const createdSpace = z.object({ id: z.string(), name: z.string().nullable(), country: z.enum(["DO", "US", "CA"]), currency: z.string(), logo_url: z.string().nullable() });
 export const businessCreationState = z.object({key:z.string().min(1),upload:z.string().min(1),save:z.string().min(1),asset_id:z.string().optional(),crop:crop.optional(),revision:z.number().int().nonnegative().optional(),created:z.object({id:z.string()}).optional()});
 export type BusinessCreationState = z.infer<typeof businessCreationState>;
 export function createBusinessCommand(input: { name: string; country: "DO" | "US" | "CA"; appearance: IdentityAppearance;userId?:string }, restored?: BusinessCreationState, onProgress?: (state:BusinessCreationState)=>void) {
