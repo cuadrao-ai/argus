@@ -29,6 +29,7 @@ from argus.domain.business.analytics_events import (
     business_hash_for_id,
 )
 from argus.domain.business.bandeja_group import BandejaReason
+from argus.domain.business.contracts.facts import Amount, BusinessFacts, FiscalFacts
 from argus.domain.business.document_type import DocumentType, direction
 from argus.domain.business.receipts import READ_REFUSAL_ATTENTION, failure_attention
 from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
@@ -43,6 +44,14 @@ if TYPE_CHECKING:
 INTERNAL_ACCOUNT = False
 RECORD_FIELDS: tuple[RecordField, ...] = get_args(RecordField)
 FISCAL_FIELDS: frozenset[str] = frozenset(get_args(FiscalField))
+#: The record fields the facts model types as an ``Amount``: the only ones
+#: whose written form may differ while the value is the same.
+MONEY_FIELDS: frozenset[str] = frozenset(
+    name
+    for model in (BusinessFacts, FiscalFacts)
+    for name, field in model.model_fields.items()
+    if get_args(field.annotation) == (Amount,)
+)
 _SINGLE_PAGE = frozenset({"image/png", "image/jpeg"})
 _SIZE_BUCKETS = (
     (100_000, "under_100kb"),
@@ -199,11 +208,11 @@ def document_needs_review(
     _emit(user_id, build)
 
 
-def _fact(raw: object) -> tuple[object, object]:
+def _fact(name: str, raw: object) -> tuple[object, object]:
     if not isinstance(raw, Mapping):
         return ("unknown", None)
     value = raw.get("value")
-    if isinstance(value, str):
+    if name in MONEY_FIELDS and isinstance(value, str):
         try:
             number = Decimal(value)
         except InvalidOperation:
@@ -221,7 +230,7 @@ def changed_fields(
 
     def fact(facts: Mapping[str, Any], name: str) -> tuple[object, object]:
         holder = (facts.get("fiscal") or {}) if name in FISCAL_FIELDS else facts
-        return _fact(holder.get(name))
+        return _fact(name, holder.get(name))
 
     return tuple(
         name for name in RECORD_FIELDS if fact(read, name) != fact(approved, name)

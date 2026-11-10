@@ -419,6 +419,38 @@ def _facts(**values: object) -> dict[str, Any]:
     }
 
 
+@pytest.mark.parametrize(
+    ("name", "read_value", "approved_value"),
+    [
+        ("rnc", "00131000002", "131000002"),
+        ("ncf", "00100000001", "100000001"),
+        ("ecf", "00100000001", "100000001"),
+        ("counterparty", "00123", "123"),
+        ("category_id", "007", "7"),
+    ],
+)
+def test_an_identifier_changed_only_by_leading_zeros_counts_as_changed(
+    name: str, read_value: str, approved_value: str
+) -> None:
+    read = _facts(**{name: read_value})
+    approved = _facts(**{name: approved_value})
+    if name in business_analytics.FISCAL_FIELDS:
+        read = _facts(fiscal={name: read_value})
+        approved = _facts(fiscal={name: approved_value})
+
+    assert business_analytics.changed_fields(read, approved) == (name,)
+
+
+@pytest.mark.parametrize("name", ["amount", "itbis"])
+def test_a_money_field_written_with_other_decimals_is_unchanged(name: str) -> None:
+    read = _facts(**{name: "3450.00"})
+    approved = _facts(**{name: "3450"})
+    if name in business_analytics.FISCAL_FIELDS:
+        read = _facts(fiscal={name: "3450.00"})
+        approved = _facts(fiscal={name: "3450"})
+
+    assert business_analytics.changed_fields(read, approved) == ()
+
 def test_approval_names_the_fields_a_person_changed_never_their_values(
     sent: Sent,
     monkeypatch: pytest.MonkeyPatch,
