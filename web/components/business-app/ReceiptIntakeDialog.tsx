@@ -22,7 +22,7 @@ import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyBut
 import { EmptyState } from "./foundation/EmptyState";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { validCaptureText } from "./ManualCaptureDialog";
-import { isUnfinishedNote, type TypedNote, type TypedNoteQueue } from "./typed-note-queue";
+import { hasDraftText, isUnfinishedNote, type TypedNote, type TypedNoteQueue } from "./typed-note-queue";
 import { enteredIn, getChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
 import { useForwardAddress } from "./useForwardAddress";
 import { useInputCapabilities } from "./useInputCapabilities";
@@ -151,10 +151,10 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   }, [failure]);
 
   const [documentType, setDocumentType] = useState<DocumentType | null>(null);
-  const [writing, setWriting] = useState(false);
+  // The workspace keeps this Business's unsaved note, so Agregar opens on it again until it is saved.
   // A typed note prints no RNC, so Automático would always read it as a purchase: the person names its type.
-  const [writeType, setWriteType] = useState<DocumentType | null>(null);
-  const [draftText, setDraftText] = useState("");
+  const { text: draftText, documentType: writeType } = useSyncExternalStore(notes.subscribe, () => notes.draft(grant), () => notes.draft(grant));
+  const [writing, setWriting] = useState(() => hasDraftText(notes.draft(grant)));
   const writeReady = writeType !== null && validCaptureText(draftText);
   const writeRef = useRef<HTMLTextAreaElement>(null);
   useGrowingNoteBox(writeRef, writing ? draftText : "");
@@ -164,8 +164,6 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   const saveWriting = () => {
     if (!writeType || !validCaptureText(draftText)) return;
     void notes.add({ grant, text: draftText.trim(), documentType: writeType }, (input, key, noteGrant) => source.captureNote(input, key, noteGrant));
-    setDraftText("");
-    setWriteType(null);
     setWriting(false);
   };
   /** Files start uploading as soon as they arrive; a running drain takes them at its tail. */
@@ -283,7 +281,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
               rows={6}
               aria-describedby="intake-write-help intake-write-text-count"
               placeholder={t("business.intake.write_placeholder", "For example: I paid RD$500 for gas today at Isla, in cash.")}
-              onChange={(event) => setDraftText(withinNoteLimit(event.target.value))}
+              onChange={(event) => notes.editDraft(grant, { text: withinNoteLimit(event.target.value) })}
               className="mt-2 block w-full resize-none rounded-item border border-[#7d8a84] bg-white p-3 text-[16px] leading-relaxed text-[#172b26] placeholder:text-[#687A72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#1f2225] dark:text-white"
             />
             <NoteCount id="intake-write-text-count" count={noteLength(draftText)} />
@@ -298,7 +296,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
                   { key: "venta" as const, label: t("business.intake.type_venta", "Sale") },
                 ]}
                 value={writeType}
-                onChange={setWriteType}
+                onChange={(type) => notes.editDraft(grant, { documentType: type })}
               />
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
@@ -347,7 +345,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
         {NOTES_ENTRY_ENABLED && many && !writing ? (
           <p className={`-mt-2 text-center text-[13px] ${MUTED}`}>
             {t("business.intake.no_paper", "No paper?")}
-            <button type="button" data-testid="intake-write-open" className={`${smallAction} ml-1`} onClick={() => { setWriteType(null); setWriting(true); }}>
+            <button type="button" data-testid="intake-write-open" className={`${smallAction} ml-1`} onClick={() => setWriting(true)}>
               <PenLine className="h-4 w-4" aria-hidden="true" />
               {t("business.intake.write", "Write it")}
             </button>
