@@ -149,6 +149,12 @@ describe("Necesita atención", () => {
     const page = await attention({ waiting: 0, rows: [], notes: [], firstDay: true });
     try {
       const first = page.card().querySelector('[data-testid="home-attention-first-day"]')!;
+      // The Bandeja's own empty state and tray art, at its in-card size.
+      const shared = first.querySelector('[data-testid="reception-empty"]')!;
+      assert.ok(shared, "the first day reuses the Bandeja's empty state");
+      assert.equal(shared.getAttribute("data-empty-kind"), "first_run");
+      assert.equal(shared.getAttribute("data-compact"), "true", "inside a card it takes the compact spacing");
+      assert.match(shared.querySelector("img")?.getAttribute("src") ?? "", /inbox-empty/);
       assert.match(first.textContent ?? "", /Aquí verás lo que espera tu revisión\./);
       assert.match(first.textContent ?? "", /Cada factura o recibo nuevo aparece aquí listo para revisar\./);
       await page.act(async () => page.card().querySelector<HTMLButtonElement>('[data-testid="home-attention-add"]')!.click());
@@ -161,6 +167,7 @@ describe("Necesita atención", () => {
     try {
       const clear = page.card().querySelector('[data-testid="home-attention-clear"]')!;
       assert.match(clear.textContent ?? "", /Todo al día.*Nada espera tu revisión\./);
+      assert.equal(page.card().querySelector("img"), null, "only the first day gets art");
       assert.equal(page.card().querySelector("[data-testid='home-attention-clear'] button"), null);
     } finally { await page.close(); }
   });
