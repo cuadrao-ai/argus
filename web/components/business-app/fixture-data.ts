@@ -12,6 +12,7 @@ import { normalizeSearchText } from "@/lib/search-text";
 import { projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
 import type { BusinessDataSource } from "./business-data";
 import { createFixtureSearch, SAMPLE_VENTAS } from "./search-fixtures";
+import { sampleSetup } from "./inicio/setup-fixture";
 
 /**
  * Synthetic records for the local design preview only. Every merchant and
@@ -498,6 +499,8 @@ export function createFixtureBusinessDataSource(
         invoicing_available: false,
         // The server's default: Por cobrar and Por pagar are off.
         settlement_available: false,
+        // The design fixture shows Actividad's sample; a real server decides.
+        activity_available: true,
         receiving_channels: { email: { available: true }, whatsapp: { available: true } },
         receipt_limits: {
           max_bytes: 10 * 1024 * 1024,
@@ -700,6 +703,10 @@ export function createFixtureBusinessDataSource(
       return served(replace({ ...current, status: "confirmed", expense_id: expenseId }));
     },
     ...search,
+    setup: async () => {
+      await delay();
+      return sampleSetup();
+    },
     emailIntake: async () => {
       await delay();
       return { enabled: true, receiving_address: "recibos-7f3a9c21@recibos.cuadrao.example" };

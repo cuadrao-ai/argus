@@ -122,6 +122,7 @@ def _txt_lines(files: dict[str, str]) -> list[str]:
     return files["606"].strip().split("\r\n")[1:] if "606" in files else []
 
 
+@pytest.mark.usefixtures("activity_on")
 def test_approve_export_reopen_fix_reapprove_export_counts_once(world) -> None:  # noqa: ANN001, F811
     """The full cycle on one purchase whose supplier RNC was wrong: the first
     TXT carries the wrong RNC, the reopened record leaves every read while it

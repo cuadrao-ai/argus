@@ -51,6 +51,10 @@ async function mountRail(options: { storedMode?: string; panel?: BusinessPanelSt
   const business = {
     panel: { kind: options.panel ?? "overview" },
     openPanel: (panel: BusinessPanelState) => opened.push(panel.kind),
+    // The rail's foot asks the server for setup only for someone who may manage; this person may not.
+    source: { mode: "live" },
+    chosen: null,
+    activity: "available",
     records: { inbox: [{ status: "needs_review" }, { status: "needs_review" }, { status: "needs_review" }], receiptActivity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 3, needs_attention_count: 0, ready_to_review_count: 3 } },
   } as unknown as BusinessContextValue;
   const rail: { closeRailForDialog?: () => void } = {};

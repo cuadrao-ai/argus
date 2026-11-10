@@ -273,3 +273,30 @@ test("preview settlement survives switching businesses without leaking to anothe
     Object.assign(process.env, previousEnv);
   }
 });
+
+test("two Businesses the same person owns keep their own month: the month close is keyed by the selected Business", async () => {
+  const previousEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  const { currentMonthKey } = await import("@/lib/business-month-close");
+  const second: GrantedSpace = { ...OWN, space_id: "s-own-2", name: "Taller Propio", grant_id: "g-own-2" };
+  const page = await mount([OWN, second, A], true);
+  const month = currentMonthKey();
+  try {
+    await page.act(async () => page.api().chooseBusiness(OWN.grant_id));
+    await page.settle();
+    const first = page.monthClose();
+    const book = await first.client.load(month, first.scopeKey!);
+    const pending = book.documents.find(item => item.kind === "receipt" && item.status === "pendiente")!;
+    await first.client.markPagado(pending.id, first.scopeKey!);
+    await page.act(async () => page.api().chooseBusiness(second.grant_id));
+    await page.settle();
+    const other = page.monthClose();
+    assert.notEqual(other.scopeKey, first.scopeKey, "another owned Business is another month close");
+    const otherBook = await other.client.load(month, other.scopeKey!);
+    assert.equal(otherBook.documents.find(item => item.id === pending.id)?.status, "pendiente", "a mark in one owned Business never shows in the other");
+  } finally {
+    await page.act(async () => page.root.unmount());
+    page.host.remove();
+    Object.assign(process.env, previousEnv);
+  }
+});

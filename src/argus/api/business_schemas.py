@@ -54,11 +54,6 @@ class BusinessSpaceInfo(_Wire):
 
 class BusinessNamingState(BusinessSpaceInfo):
     name_required: bool
-    name_prompt_seen: bool
-
-
-class BusinessNamePrompt(BusinessNamingState):
-    show_prompt: bool
 
 
 class BusinessNameTarget(_Wire):
@@ -149,6 +144,8 @@ class BusinessWorkspace(_Wire):
     notifications_available: bool
     #: The server's one answer on Por cobrar and Por pagar; the client shows none of it while false.
     settlement_available: bool
+    #: The server's one answer on Actividad; the client shows no entry point while false.
+    activity_available: bool
     receiving_channels: ReceivingChannels
     receipt_limits: ReceiptLimits
     records_default_currency: Literal["DOP", "USD", "EUR"]

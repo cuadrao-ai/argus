@@ -1,15 +1,14 @@
 """Drafts still in the Bandeja keep their month from closing: one
 movimientos_sin_revisar reason and a count, dated by receipt date and
-otherwise by arrival."""
+otherwise by arrival, counted in their read's currency."""
 
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
-import pytest
 from argus.api.business_month_close_schemas import MonthClose
-from argus.api.business_receipt_activity import month_unknown, unreviewed_days
+from argus.api.business_receipt_activity import unreviewed_days
 from argus.domain.business import ledger
 from argus.domain.business.month_close import (
     draft_close_day,
@@ -32,29 +31,30 @@ def _view(status: str, occurred_on: str | None = None, **extra) -> dict:  # noqa
 
 def _october(views: list[dict]) -> int:
     start, end = month_period("2026-10")
-    return unreviewed_in_month(unreviewed_days(NO_STORE, views), start, end)
+    days = [(day, currency or "DOP") for day, currency in unreviewed_days(NO_STORE, views)]
+    return sum(unreviewed_in_month(days, start, end).values())
 
 
 def test_a_month_without_drafts_closes_as_before():
     plain = empty_month("2026-10")
-    shown = with_unreviewed(plain, 0)
-    assert shown == {**plain, "unreviewed_movements_count": 0, "filing_ready": True}
+    shown = with_unreviewed(plain)
+    assert shown == {**plain, "unreviewed_movements_count": 0}
     assert shown["closed"] is True
 
 
 def test_an_unapproved_draft_in_the_month_blocks_the_close():
     count = _october([_view("review_ready", "2026-10-12")])
-    shown = with_unreviewed(empty_month("2026-10"), count)
+    shown = with_unreviewed(empty_month("2026-10", bandeja={"DOP": count}))
     assert shown["closed"] is False
     assert shown["unreviewed_movements_count"] == 1
     assert shown["reasons"] == [{"code": "movimientos_sin_revisar", "count": 1}]
-    assert shown["filing_ready"] is False
 
 
 def test_the_reason_carries_every_unreviewed_draft_and_keeps_earlier_reasons():
     earlier = {"code": "missing_rnc", "activity_id": "a1", "document_kind": "receipt"}
-    month = {**empty_month("2026-09"), "closed": False, "reasons": [earlier]}
-    shown = with_unreviewed(month, 5)
+    waiting = empty_month("2026-09", bandeja={"DOP": 3, "USD": 2})
+    month = {**waiting, "closed": False, "reasons": [earlier]}
+    shown = with_unreviewed(month)
     assert (shown["closed"], shown["unreviewed_movements_count"]) == (False, 5)
     assert shown["reasons"] == [earlier, {"code": "movimientos_sin_revisar", "count": 5}]
 
@@ -108,9 +108,9 @@ def test_a_receipt_without_a_proposal_date_counts_by_its_read_date():
     late["received_at"] = "2026-11-02T15:00:00Z"
     start, end = month_period("2026-10")
     days = unreviewed_days(NO_STORE, [late], {"r1": "2026-10-31"})
-    assert days == [date(2026, 10, 31)]
-    assert unreviewed_in_month(days, start, end) == 1
-    assert unreviewed_days(NO_STORE, [late]) == [date(2026, 11, 2)]
+    assert days == [(date(2026, 10, 31), None)]
+    assert unreviewed_in_month(((day, "DOP") for day, _ in days), start, end) == {"DOP": 1}
+    assert unreviewed_days(NO_STORE, [late]) == [(date(2026, 11, 2), None)]
 
 
 def test_an_ambiguous_receipt_from_last_month_keeps_that_month_open(
@@ -134,30 +134,3 @@ def test_an_ambiguous_receipt_from_last_month_keeps_that_month_open(
     assert (previous["closed"], previous["unreviewed_movements_count"]) == (False, 1)
     current = alice.get("/month-close", month=this_month.strftime("%Y-%m")).json()
     assert current["unreviewed_movements_count"] == 0
-
-
-def test_a_read_in_flight_with_no_date_holds_every_month_and_adds_no_count():
-    month = empty_month("2026-10")
-    held = with_unreviewed(month, 0, True)
-    assert held["filing_ready"] is False
-    assert (held["closed"], held["reasons"]) == (True, [])
-    assert held["unreviewed_movements_count"] == 0
-    assert {**held, "filing_ready": True} == with_unreviewed(month, 0)
-
-
-@pytest.mark.parametrize(
-    ("view", "retained", "unknown"),
-    [
-        (_view("saved", read_pending=True), {}, True),
-        (_view("saved", "2026-08-12", read_pending=True), {}, False),
-        (_view("saved", read_pending=True, id="r1"), {"r1": "2026-08-12"}, False),
-        (_view("review_ready"), {}, False),
-        (_view("saved", read_pending=True, email_original=True), {}, False),
-        (_view("confirmed", read_pending=True), {}, False),
-    ],
-)
-def test_only_a_receipt_being_read_with_no_date_known_leaves_the_month_unknown(
-    view, retained, unknown
-):
-    business = SimpleNamespace(scope=SimpleNamespace(owner=SimpleNamespace(space_id="s")))
-    assert month_unknown(business, [view], retained) is unknown

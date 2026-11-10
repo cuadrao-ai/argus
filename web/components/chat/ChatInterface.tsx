@@ -2203,7 +2203,7 @@ function ChatInterfaceContent() {
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
         {/* Content scrolls under the bar through a soft fade, on every screen the bar is on. */}
         {currentView === "workspace" || (currentView === "chat" && !showEmptyChatSurface) ? (
-          <div data-testid="header-fade" className={`workspace-bar-fade pointer-events-none absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[40] h-32 tablet:h-[calc(var(--workspace-bar,5rem)*1.6)] backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
+          <div data-testid="header-fade" className={`workspace-bar-fade pointer-events-none absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[40] h-32 tablet:h-[calc(var(--workspace-bar,5rem)+2rem)] backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
         ) : null}
         {currentView !== "settings" && (
           // A workspace with a search field in its bar spans its one canvas, so search and avatar sit on the canvas's edges on every screen.

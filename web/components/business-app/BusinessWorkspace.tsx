@@ -25,6 +25,7 @@ import {
   businessChatAvailable,
   businessReceivingChannels,
   type ReceivingChannels,
+  businessActivityAvailable,
   businessInvoicingAvailable,
   type BusinessCapture,
   type BusinessOverview,
@@ -71,6 +72,7 @@ import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
 import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
+import type { RecordsFocus } from "./transacciones/records-focus";
 import { useEmailDeliveries } from "./useEmailDeliveries";
 import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
@@ -87,7 +89,8 @@ export type BusinessPanelState =
   // Actividad: the history of changes in this Business, live from the server.
   | { kind: "activity" }
   // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
-  | { kind: "transactions"; expenseId?: string }
+  // `focus` opens Registros on one list, as a count elsewhere counted it.
+  | { kind: "transactions"; expenseId?: string; focus?: RecordsFocus }
   | { kind: "expense"; expenseId: string }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
@@ -138,12 +141,22 @@ export function invoicingShown(state: InvoicingState | undefined): boolean {
   return state === "available" || state === "sample";
 }
 
+/** What Actividad is here. The server's workspace answer decides; `null` until it answers, when no entry point shows. */
+export type ActivityState = "available" | "unavailable" | null;
+
+/** Whether any Actividad entry point shows: the screen, its sidebar item and the phone menu's row. */
+export function activityShown(state: ActivityState | undefined): boolean {
+  return state === "available";
+}
+
 export type BusinessContextValue = Readonly<{
   userId?: string|null;
   source: BusinessDataSource;
   records: Records;
   /** Absent means the server has not answered, so nothing shows. */
   invoicing?: InvoicingState;
+  /** Absent means the server has not answered, so nothing shows. */
+  activity?: ActivityState;
   receivingChannels?: ReceivingChannels;
   directoryStatus?: BusinessDirectoryStatus;
   /** Every Business the person may enter, the server's list; null until read. */
@@ -633,8 +646,15 @@ function BusinessWorkspaceContent({
   );
 
   const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
-  // The top bar's heading follows the screen, except Facturación's waits for the server's answer like its screen does.
-  const headerScreen = panel.kind === "invoicing" && !invoicingShown(invoicing) ? undefined : panel.kind;
+  const activity: ActivityState = records.workspace ? (businessActivityAvailable(records.workspace) ? "available" : "unavailable") : null;
+  // The top bar's heading follows the screen, except Facturación's and Actividad's wait for the server's answer like their screens do.
+  const headerScreen = (panel.kind === "invoicing" && !invoicingShown(invoicing)) || (panel.kind === "activity" && !activityShown(activity)) ? undefined : panel.kind;
+  // A deep link to Actividad the server does not offer lands on Inicio, never on a refusal.
+  useEffect(() => {
+    if (panel.kind !== "activity" || activity !== "unavailable") return;
+    setPanel({ kind: "overview" });
+    writePanelToUrl("workspace", { kind: "overview" });
+  }, [activity, panel.kind]);
   // A deep link to Facturación the server does not offer lands on Inicio, never on a refusal.
   useEffect(() => {
     if (panel.kind !== "invoicing" || invoicing !== "unavailable") return;
@@ -660,6 +680,7 @@ function BusinessWorkspaceContent({
       source,
       records: workspaceRecords,
       invoicing,
+      activity,
       receivingChannels,
       spaces,
       closedSpaces,
@@ -685,7 +706,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, activity, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
@@ -728,7 +749,7 @@ function BusinessWorkspaceContent({
       sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
       sidebarMark: () => <BusinessMark businessId={chosen?.space_id} name={chosen?.name} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={activityShown(activity) ? () => openPanel({ kind: "activity" }) : undefined} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
         {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
@@ -766,13 +787,13 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
+  }, [activity, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>
       <ChatWorkspaceProvider value={workspace}>
         {children}
-        {creatingBusiness?<CreateBusinessPreview accountKey={source.mode==="live"?userId??"":"preview"} live={source.mode==="live"} onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.grant_id??business.id);reload();openPanel({kind:"business",tab:"datos"});showToast({kind:"success",text:t("identity.business_created",{name:business.name})});}}/>:null}
+        {creatingBusiness?<CreateBusinessPreview accountKey={source.mode==="live"?userId??"":"preview"} live={source.mode==="live"} onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.grant_id??business.id);reload();openPanel({kind:"overview"});showToast({kind:"success",text:t("identity.business_created",{name:business.name})});}}/>:null}
         {canInvite && invitationBusiness === chosen?.space_id ? <BusinessInvitationForm onClose={() => setInvitationBusiness(null)} /> : null}
         <ReceiptIntakeDialog
           target={intakeTarget}

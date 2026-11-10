@@ -83,15 +83,16 @@ export function useTransacciones() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const source = useTransaccionesSource();
-  const { period, revision, records } = useBusiness();
+  const { period, revision, records, chosen: business } = useBusiness();
   const [chosen, setChosen] = useState<Segment | null>(null);
   // With nothing to igualar in the period, the screen opens on Todas.
   const [fallback, setFallback] = useState<Segment>("por_igualar");
   const segment = chosen ?? fallback;
   // One choice per Business drives Inicio and this table; until the person chooses, the Business currency. Unknown reads every currency.
   const { scopeKey } = useMonthCloseSource();
+  const currencyKey = business?.space_id ?? scopeKey;
   const businessCurrency = businessWorkspaceCurrency(records.workspace);
-  const storedCurrency = useCurrencyView(scopeKey);
+  const storedCurrency = useCurrencyView(currencyKey);
   const currency = storedCurrency ?? businessCurrency;
   // The first read waits for the Business currency, so its first page is already in it.
   const currencyKnown = storedCurrency !== null || records.workspace !== null || records.error || Boolean(records.closed) || Boolean(records.serverReference);
@@ -277,11 +278,11 @@ export function useTransacciones() {
 
   /** The table follows one currency; the choice is kept per Business, so Inicio shows it too. */
   const chooseCurrency = useCallback((next: string) => {
-    if (scopeKey === null) return;
+    if (currencyKey === null) return;
     setTray(null);
     setFailure(null);
-    setCurrencyView(scopeKey, next);
-  }, [scopeKey]);
+    setCurrencyView(currencyKey, next);
+  }, [currencyKey]);
 
   // The run walks the Por igualar segment, where the server lists suggestions most confident first.
   useEffect(() => {

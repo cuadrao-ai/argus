@@ -67,8 +67,6 @@ from argus.api.business_schemas import (
     BusinessExpense,
     BusinessInvitationAcceptance,
     BusinessInvitationBatchResult,
-    BusinessNamePrompt,
-    BusinessNameTarget,
     BusinessNamingState,
     BusinessOverview,
     BusinessRecipientInvitation,
@@ -128,11 +126,15 @@ from argus.api.routers.business_notifications import (
     router as business_notifications_router,
 )
 from argus.api.routers.business_search import router as business_search_router
+from argus.api.routers.business_setup import router as business_setup_router
 from argus.api.whatsapp import whatsapp_receiving_available
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
-from argus.domain.business.config import business_settlement_enabled
+from argus.domain.business.config import (
+    business_activity_enabled,
+    business_settlement_enabled,
+)
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
@@ -188,6 +190,7 @@ router.include_router(business_guide_router)
 router.include_router(business_logo_router)
 router.include_router(business_search_router)
 router.include_router(business_notifications_router)
+router.include_router(business_setup_router)
 _CONFLICTS = frozenset(
     {
         "receipt_not_prepared",
@@ -297,7 +300,6 @@ def _naming(space: Space) -> dict[str, Any]:
     return {
         **space_payload(space),
         "name_required": space.name_required,
-        "name_prompt_seen": space.name_prompt_seen,
     }
 
 
@@ -310,25 +312,6 @@ def get_business_name(
     if space is None:
         raise space_missing_problem(request)
     return _naming(space)
-
-
-@router.post("/space/name-prompt", response_model=BusinessNamePrompt)
-def claim_business_name_prompt(
-    request: Request,
-    body: BusinessNameTarget,
-    person: Annotated[BusinessPerson, Depends(require_business_person)],
-) -> dict[str, Any]:
-    scope = working_scope(request, person.spaces, person.person_id)
-    space = person.spaces.get(scope.owner.space_id) if scope else None
-    if space is None or space.id != str(body.space_id):
-        raise space_missing_problem(request)
-    if "manage" not in scope.permissions:
-        raise owner_required_problem(request)
-    show = person.spaces.claim_naming_visit(person.person_id, str(body.space_id))
-    current = person.spaces.get(str(body.space_id))
-    if current is None or current.id != str(body.space_id):
-        raise space_missing_problem(request)
-    return {**_naming(current), "show_prompt": show and current.name_required}
 
 
 @router.patch("/space/name", response_model=BusinessNamingState)
@@ -850,6 +833,7 @@ def get_workspace(
         "invoicing_available": invoicing_available(request),
         "notifications_available": notifications_available(),
         "settlement_available": business_settlement_enabled(),
+        "activity_available": business_activity_enabled(),
         "receiving_channels": {
             "email": {"available": email_receiving_available()},
             "whatsapp": {"available": whatsapp_receiving_available(context.scope)},

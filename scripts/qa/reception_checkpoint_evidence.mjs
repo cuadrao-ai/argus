@@ -86,7 +86,6 @@ try {
         if (method !== "GET") writes.push({ path, method });
         if (path.endsWith("/spaces")) return json({ spaces: [{ space_id: fixtureId(3000), grant_id: fixtureId(3001), name: "Negocio sintético", role: "owner", business_role: "owner", capabilities: ["read", "prepare", "approve"], permissions: ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"], access_seen: true }], closed_spaces: [] });
         if (path.endsWith("/space")) return json({ id: fixtureId(3000), name: "Negocio sintético" });
-        if (path.endsWith("/space/name-prompt")) return json({ id: fixtureId(3000), name: "Negocio sintético", name_required: false, name_prompt_seen: true, show_prompt: false });
         if (path === `/api/v1/business/spaces/${fixtureId(3000)}/profile`) return json({ space_id: fixtureId(3000), name: "Negocio sintético", country: "DO", currency: "DOP", revision: 1, details: {}, appearance: { kind: "default" }, image: null });
         if (path.endsWith("/workspace")) return json(await source.workspace());
         if (path.endsWith("/receipt-activity")) return json((await source.receiptPage("all")).activity);
@@ -156,7 +155,7 @@ try {
       await page.locator("#reception-tab-review span").filter({ hasText: /^4$/ }).waitFor();
       assert.deepEqual(await counts(), ["4", "1", "5", "0"]);
       await page.locator("#reception-tab-all").click();
-      if (countsOnly) { await capture("count-after-restore"); assert.ok(writes.every(request => request.path.endsWith("/name-prompt") || request.path.endsWith("/read")), "count organization stays local"); results.push({ width, language, theme, countArchiveRestore: true, requests, writes }); continue; }
+      if (countsOnly) { await capture("count-after-restore"); assert.ok(writes.every(request => request.path.endsWith("/read")), "count organization stays local"); results.push({ width, language, theme, countArchiveRestore: true, requests, writes }); continue; }
       stage = "receipt original denial and retry";
       await receiptRow.getByRole("button").first().click();
       const detail = page.getByTestId("reception-dossier");
@@ -205,7 +204,7 @@ try {
         await capture("connected-editor");
       }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-      assert.ok(writes.every(request => request.path.endsWith("/name-prompt") || request.path.endsWith("/reports/query") || request.path.endsWith("/read")), "preview organization never writes a new backend contract");
+      assert.ok(writes.every(request => request.path.endsWith("/reports/query") || request.path.endsWith("/read")), "preview organization never writes a new backend contract");
       results.push({ width, language, theme, startupSha: head, shape, actual, sourceDeniedThenRecovered: true, emailDeniedThenRecovered: true, requests, writes });
     } catch (error) {
       const failure = { width, language, theme, stage, message: safe(error), pathname: pathname(page.url()), requests };

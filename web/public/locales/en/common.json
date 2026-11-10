@@ -3896,42 +3896,19 @@
       }
     },
     "month_close": {
-      "checklist_title": "To close {{month}}",
-      "checklist_left_one": "{{count}} left",
-      "checklist_left_other": "{{count}} left",
-      "checklist_review_one": "{{count}} to review in the Inbox",
-      "checklist_review_other": "{{count}} to review in the Inbox",
-      "checklist_fiscal_one": "Add the RNC or NCF to {{count}} document",
-      "checklist_fiscal_other": "Add the RNC or NCF to {{count}} documents",
       "placeholder": {
-        "checklist_fiscal_data_one": "Complete the 606 or 607 data for {{count}} document",
-        "checklist_fiscal_data_other": "Complete the 606 or 607 data for {{count}} documents"
+        "copy_review": "pending_lucas",
+        "itbis_purchases_label": "ITBIS on purchases",
+        "itbis_sales_label": "ITBIS on sales"
       },
-      "checklist_settle_one": "Mark {{count}} document as collected or paid",
-      "checklist_settle_other": "Mark {{count}} documents as collected or paid",
-      "checklist_overdue_one": "{{count}} overdue",
-      "checklist_overdue_other": "{{count}} overdue",
       "collections_title": "Collections and payments",
-      "finance_title": "Finances",
       "overdue_count_one": "{{count}} overdue",
       "overdue_count_other": "{{count}} overdue",
       "overdue_included_one": "Includes {{count}} overdue",
       "overdue_included_other": "Includes {{count}} overdue",
-      "checklist_required": "Needed to close the month",
-      "filing_ready": "You already have everything for the 606 and the 607.",
       "nothing_open": "All settled",
       "nothing_open_body": "No one owes you and you owe no one.",
-      "checklist_ready": "Everything is ready to close {{month}}.",
-      "checklist_can_close": "You can close {{month}}.",
-      "checklist_rate": "Amounts in {{codes}} pending a rate are not included in the 606/607.",
-      "checklist_rate_plain": "Foreign-currency amounts pending a rate are not included in the 606/607.",
       "action_review": "Review",
-      "action_see": "See",
-      "action_which": "Which ones",
-      "action_hide": "Hide",
-      "close_after_steps_one": "When you finish the last step, you can close {{month}}.",
-      "close_after_steps_other": "When you finish the {{count}} steps, you can close {{month}}.",
-      "close_named": "Close {{month}}",
       "figure_unknown": "Can't be calculated yet.",
       "net_waits_one": "{{count}} document left to mark",
       "net_waits_other": "{{count}} documents left to mark",
@@ -3957,11 +3934,8 @@
       "next_month": "Next month",
       "previous_month": "Previous month",
       "itbis_cobrado": "ITBIS collected",
-      "itbis_credit_label": "ITBIS balance in your favor",
-      "itbis_label": "ITBIS to pay",
       "approved_figures": {
         "copy_review": "pending_lucas",
-        "itbis_sales": "ITBIS on sales",
         "net_detail": "Approved income minus expenses"
       },
       "receipts_failed": "We couldn't load the receipt count. The month cannot be closed yet.",
@@ -3974,11 +3948,6 @@
       "payable_empty": "All paid",
       "payable_empty_body": "You have no bills waiting.",
       "pending_today": "Pending today",
-      "locked_title": "Documents in this month",
-      "status_pendiente": "Pending",
-      "status_cobrado": "Collected",
-      "status_pagado": "Paid",
-      "status_vencida": "Overdue",
       "kind_invoice": "Invoice",
       "kind_receipt": "Expense",
       "marked_cobrado": "{{name}} invoice collected.",
@@ -3990,23 +3959,9 @@
       "undo_failed": "We couldn't undo that change. Try again.",
       "mark_cobrado_named": "Mark {{name}} collected",
       "mark_pagado_named": "Mark {{name}} paid",
-      "close_confirm_title": "Close this month?",
-      "close_confirm_body": "The month becomes read-only. Statuses cannot be changed.",
-      "close_confirm_action": "Yes, close the month",
-      "close_back": "Back",
-      "closed": "Month closed",
-      "closed_on": "Closed on {{date}}.",
-      "reason_permission": "Marking collection, marking payment, and closing the month requires approval permission.",
-      "reason_not_month": "Choose a calendar month to close it.",
-      "blocker_rnc": "{{name}} has no RNC",
-      "blocker_ncf": "{{name}} has no NCF or e-CF",
-      "unreviewed_movements_one": "You have 1 unreviewed item in {{month}}. Review it in the Bandeja before closing the month.",
-      "unreviewed_movements_other": "You have {{count}} unreviewed items in {{month}}. Review them in the Bandeja before closing the month.",
       "choose_month": "Choose month",
       "currency_menu": "Currency",
       "currency_menu_named": "Currency: {{currency}}",
-      "currency_business": "Business currency",
-      "currency_others": "There are also transactions in {{currencies}}.",
       "currency_announce": "Showing figures in {{currency}}",
       "empty": "No invoices or expenses in this month.",
       "empty_title": "This month has no documents",
@@ -4015,12 +3970,6 @@
       "mark_failed": "We couldn't save that change. The status is back to what it was.",
       "matched_cobrado": "This sale is already matched with a bank deposit, so it counts as collected. To change that, unmatch it in Transactions.",
       "matched_pagado": "This expense is already matched with a bank charge, so it counts as paid. To change that, unmatch it in Transactions.",
-      "close_failed": "We couldn't close the month. Try again.",
-      "rnc": "RNC {{value}}",
-      "ncf": "NCF {{value}}",
-      "ecf": "e-CF {{value}}",
-      "missing_rnc": "No RNC",
-      "missing_ncf": "No NCF or e-CF",
       "ncf_malformed": "NCF has an error",
       "loading": "Loading the month",
       "open_items_beyond_one": "And {{count}} more not shown here.",
@@ -4030,6 +3979,91 @@
     "home": {
       "title": "What can we do for your business?",
       "body": "Add a receipt, record an expense, or ask about what you've saved."
+    },
+    "home_setup": {
+      "copy_review": "pending_lucas",
+      "lead": "Finish these steps to start receiving and reviewing documents.",
+      "optional": "Optional",
+      "remaining_one": "1 step left",
+      "remaining_other": "{{count}} steps left",
+      "ring_label": "Set up business, {{done}} of {{total}} steps done",
+      "steps": {
+        "created": {
+          "body": "Name and country of operation.",
+          "title": "Create the business"
+        },
+        "first_document": {
+          "body": "Upload a file from this device.",
+          "title": "Add your first document"
+        },
+        "fiscal_identity": {
+          "body": "Identifies this business in its records and reports.",
+          "title": "Add the RNC or cédula"
+        },
+        "receipt_reading": {
+          "body": "Cuadrao reads your invoices, receipts and PDFs and pulls out their details. Includes email, WhatsApp and uploaded files.",
+          "title": "Turn on document reading"
+        },
+        "receiving_address": {
+          "body": "Forward invoices and receipts to its own address.",
+          "title": "Turn on the receiving email"
+        },
+        "team": {
+          "body": "Give the accountant or team access.",
+          "title": "Invite the team"
+        },
+        "whatsapp": {
+          "body": "Send documents from your phone.",
+          "title": "Connect WhatsApp"
+        }
+      },
+      "title": "Set up business"
+    },
+    "inicio": {
+      "attention": {
+        "clear_body": "Nothing is waiting for your review.",
+        "clear_title": "All caught up",
+        "error": "We couldn't load what's pending.",
+        "first_day_add": "Add a document",
+        "first_day_body": "Every new invoice or receipt shows up here, ready to review.",
+        "first_day_title": "Here you'll see what's waiting for your review.",
+        "loading": "Loading the Inbox",
+        "resolve": "Resolve",
+        "review": "Review",
+        "see_all": "See all",
+        "title": "Needs attention",
+        "untitled": "Untitled document",
+        "whatsapp_photo": "WhatsApp photo"
+      },
+      "copy_review": "pending_lucas",
+      "month": {
+        "expenses": "Expenses",
+        "first_day": "The figures fill in when you approve your first documents.",
+        "fiscal_one": "Fiscal data missing on 1 record",
+        "fiscal_other": "Fiscal data missing on {{count}} records",
+      "fiscal_purchases_one": "Fiscal data missing on 1 purchase",
+      "fiscal_purchases_other": "Fiscal data missing on {{count}} purchases",
+      "fiscal_sales_one": "Fiscal data missing on 1 sale",
+      "fiscal_sales_other": "Fiscal data missing on {{count}} sales",
+        "in_bandeja_one": "1 in the Inbox",
+      "in_bandeja_other": "{{count}} in the Inbox",
+        "included": "Documents included: {{counted}} of {{total}}",
+        "income": "Income",
+        "itbis_purchases": "ITBIS on purchases",
+        "itbis_sales": "ITBIS on sales",
+        "net": "Net result",
+        "review": "Review",
+        "see": "See",
+        "terms": {
+          "expenses": "Approved purchases and expenses for the month, before ITBIS.",
+          "fiscal": "The RNC or NCF the 606 or 607 needs.",
+          "income": "Approved sales for the month, before ITBIS.",
+          "itbis_purchases": "ITBIS paid on your approved purchases.",
+          "itbis_sales": "ITBIS charged on your approved sales.",
+          "net": "Approved income minus expenses for the month, before ITBIS."
+        },
+        "under_one": "less than {{amount}}"
+      }
     },
     "receipt": {
       "untitled": "Receipt"
@@ -4479,11 +4513,7 @@
         "late_night": "Late-night session",
         "morning": "Good morning"
       },
-      "title": "My business",
-      "problem_one": "{{count}} with a problem",
-      "problem_other": "{{count}} with a problem",
-      "reading_one": "{{count}} still reading",
-      "reading_other": "{{count}} still reading"
+      "title": "My business"
     },
     "page_intro": {
       "business": "Set up this business's profile, access and reception."

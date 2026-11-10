@@ -37,6 +37,7 @@ export function monthCloseWire(month: string) {
     dgii_forms: { "606": "needs_review", "607": "needs_review" },
     missing_rnc: [],
     missing_ncf: [],
+    missing_fiscal_rows: [],
     cuentas_por_cobrar: [{ ...PENDING_INVOICE, occurred_on: `${month}-05` }],
     cuentas_por_pagar: [],
     currencies: [{
@@ -44,7 +45,7 @@ export function monthCloseWire(month: string) {
       income_before_itbis_minor: 4850000, income_before_itbis: "48500.00",
       expense_before_itbis_minor: 1230000, expense_before_itbis: "12300.00",
       net_result_minor: 3620000, net_result: "36200.00",
-      itbis_owed_minor: 651600, itbis_owed: "6516.00",
+      itbis_paid_minor: 651600, itbis_paid: "6516.00",
       itbis_cobrado_minor: 0, itbis_cobrado: "0.00",
       by_status: BY_STATUS,
       net_result_final: false,

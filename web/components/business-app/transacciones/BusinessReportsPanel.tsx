@@ -34,6 +34,7 @@ import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { RecordsRefreshButton } from "./RecordsRefreshButton";
 import { RecordsAnnotationsPreview } from "./RecordsAnnotationsPreview";
 import { RecordEvidenceContext, RecordGlanceContext } from "./RecordGlanceContext";
+import { focusKey, focusRequest } from "./records-focus";
 import { recordRowKey } from "./records-row-preview";
 import type { RecordRow } from "./transacciones-model";
 import { useFiscalStageToggle } from "./useFiscalStageToggle";
@@ -77,7 +78,8 @@ export function RecordsWorkspaceUnavailable() {
 }
 
 export default function BusinessReportsPanel() {
-  const { chosen, records } = useBusiness();
+  const { chosen, records, panel } = useBusiness();
+  const focus = panel.kind === "transactions" ? panel.focus : undefined;
   const [person, setPerson] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -93,7 +95,8 @@ export default function BusinessReportsPanel() {
   if ((!defaultCurrency.success || records.workspaceGrant !== getChosenGrant()) && (records.error || records.workspaceGrant === getChosenGrant() && records.workspace)) return <RecordsWorkspaceUnavailable />;
   if (!person || !chosen || records.workspaceGrant !== getChosenGrant() || !defaultCurrency.success) return <FullscreenLoading />;
   const scope = { userId: person, businessId: chosen.space_id, grantId: getChosenGrant() };
-  return <ConnectedBusinessReports key={`${person}:${chosen.space_id}:${scope.grantId}`} scope={scope} defaultCurrency={defaultCurrency.data} />;
+  // A focus another screen opened starts Registros on exactly that list.
+  return <ConnectedBusinessReports key={`${person}:${chosen.space_id}:${scope.grantId}:${focusKey(focus)}`} scope={scope} defaultCurrency={defaultCurrency.data} initial={focus ? focusRequest(focus) : undefined} />;
 }
 
 export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest }) {
