@@ -30,7 +30,8 @@ async function openIntake(page: Page) {
     if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Negocio de prueba" } });
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
     if (path === "receipts" || path === "captures") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
-    if (path === "spaces") return route.fulfill({ json: { spaces: [] } });
+    // The server lists the own Business first, and Agregar is its prepare capability; an empty directory shows no Agregar.
+    if (path === "spaces") return route.fulfill({ json: { spaces: (await source.spaces()).slice(0, 1) } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });

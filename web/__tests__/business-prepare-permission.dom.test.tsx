@@ -33,7 +33,8 @@ const GRANTS = {
 } satisfies Record<string, GrantedSpace>;
 const OWN = { space_id: "own-space", name: "Negocio propio sintético", grant_id: "grant-own", role: "owner", business_role: "owner", permissions: ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"], capabilities: ["read", "prepare", "approve"], access_seen: true } satisfies GrantedSpace;
 
-async function mount(grant: GrantedSpace, spaces: GrantedSpace[] = [grant]) {
+/** `grant` null mounts over a directory that lists no Business, as before the server has answered or after it failed. */
+async function mount(grant: GrantedSpace | null, spaces: GrantedSpace[] = grant ? [grant] : []) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -49,7 +50,7 @@ async function mount(grant: GrantedSpace, spaces: GrantedSpace[] = [grant]) {
   const { useRowCommands } = await import("@/components/business-app/transacciones/transacciones-commands");
   const { useState } = await import("react");
   const { setChosenGrant } = await import("@/lib/business-grant");
-  setChosenGrant(spaces.length > 1 ? grant.grant_id : null);
+  setChosenGrant(grant && spaces.length > 1 ? grant.grant_id : null);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
@@ -58,10 +59,12 @@ async function mount(grant: GrantedSpace, spaces: GrantedSpace[] = [grant]) {
   let rowCommands: string[] | null = null;
   let chosen: GrantedSpace | null = null;
   let waitingForReview: number | null = null;
+  let directoryStatus: string | undefined;
   function Probe() {
     const business = useBusiness();
     const [setupOpen, setSetupOpen] = useState(true);
     chosen = business.chosen;
+    directoryStatus = business.directoryStatus;
     waitingForReview = business.records.inbox?.filter((receipt) => receipt.bandeja?.por_revisar).length ?? null;
     searchActions = useChatWorkspace()?.search?.shortcuts?.find((group) => group.id === "actions")?.hits.map((hit) => hit.id) ?? null;
     const commands = useRowCommands({} as never);
@@ -90,13 +93,16 @@ async function mount(grant: GrantedSpace, spaces: GrantedSpace[] = [grant]) {
     );
   });
   // The sample Bandeja loads after the Business is chosen; until it does, nothing waits for review and no check can fail.
-  for (let i = 0; i < 60 && ((chosen as GrantedSpace | null)?.grant_id !== grant.grant_id || waitingForReview === null); i += 1) {
+  // With no Business to choose, the directory's answer is what settles the page.
+  const settled = () => grant ? (chosen as GrantedSpace | null)?.grant_id === grant.grant_id && waitingForReview !== null : directoryStatus === "ready";
+  for (let i = 0; i < 60 && !settled(); i += 1) {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
   }
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
   unmount = () => act(async () => root.unmount());
   const adds = (area: string) => host.querySelectorAll(`[data-testid="${area}"] [data-testid="business-primary-upload"]`).length;
-  assert.ok(waitingForReview, "the Bandeja holds receipts waiting for review");
+  if (grant) assert.ok(waitingForReview, "the Bandeja holds receipts waiting for review");
+  else assert.equal(directoryStatus, "ready", "the directory answered");
   return { act, host, adds, searchActions: () => searchActions, rowCommands: () => rowCommands, chosen: () => chosen as GrantedSpace | null };
 }
 
@@ -140,5 +146,12 @@ describe("adding records follows the server's prepare capability", () => {
     assert.equal(page.searchActions()?.includes("add"), false, "search offers no Agregar");
     assert.equal(page.searchActions()?.includes("copy_forward"), false, "search hands out no forwarding address");
     assert.deepEqual(page.rowCommands(), ["sin_comprobante"], "bank matching offers no Agregar");
+  });
+
+  test("a directory that lists no Business names no one who may add, so no Agregar shows", async () => {
+    const page = await mount(null);
+    assert.equal(page.chosen(), null, "no Business is chosen");
+    for (const area of ["top-bar", "registros-bar", "bandeja"]) assert.equal(page.adds(area), 0, `${area} has no Agregar`);
+    assert.equal(page.searchActions()?.includes("add"), false, "search offers no Agregar");
   });
 });
