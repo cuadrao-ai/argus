@@ -86,6 +86,24 @@ def business_settlement_enabled() -> bool:
         return False
 
 
+class BusinessActivitySettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias="CUADRAO_BUSINESS_ACTIVITY_ENABLED"
+    )
+
+
+def business_activity_enabled() -> bool:
+    """Actividad: the feed of who changed what. Off, the default: the feed
+    route refuses and the workspace says so. Actions keep recording their
+    entries either way, so turning it on later shows the whole history."""
+
+    try:
+        return BusinessActivitySettings().enabled
+    except ValidationError:
+        return False
+
+
 class BusinessInviteAdmissionSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
     enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(

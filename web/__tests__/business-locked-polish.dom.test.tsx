@@ -239,6 +239,8 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
     for (const sidebarCollapsed of [false, true]) {
       const page = await mount(() => <BusinessSidebarNav shell={shell({ sidebarCollapsed })} />);
+      // Actividad shows once the server's workspace answer says it is on.
+      await page.settle(() => page.business().activity === "available");
       const nav = page.host.querySelector('[data-testid="business-sidebar-nav"]');
       assert.equal(nav?.getAttribute("aria-label"), "Negocio");
       const items = [...(nav?.querySelectorAll("button") ?? [])];

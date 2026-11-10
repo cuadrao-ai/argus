@@ -9870,6 +9870,14 @@ Spanish copy for these codes is `dgii_line.COPY`.
 
 ### Business activity feed
 
+Actividad sits behind one server switch, `CUADRAO_BUSINESS_ACTIVITY_ENABLED`
+(`argus.domain.business.config.business_activity_enabled`), off by default; staging
+sets it true and the production pilot false. `GET /api/v1/business/workspace` says
+the same as `activity_available`. While it is off, `GET /business/activity` is refused
+with `404` `business_activity_disabled` before authentication, and the web shows no
+Actividad entry, sends no request, and sends a direct link to Inicio. Actions keep
+recording their entries either way, so turning it on later shows the whole history.
+
 `GET /business/activity?limit=25|50|100&cursor=<opaque>` lists who changed what
 and when in the working Business (the chosen `X-Business-Grant`'s Business, else
 the caller's own), newest first. It is read-only and additive: no existing route
@@ -10693,7 +10701,7 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  settlement_available, activity_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
   is final, the open items read and the settlement PATCH are refused with 404

@@ -25,6 +25,10 @@ APPROVED_STAGING_OVERRIDES: dict[str, str] = {
         "The Consumer staging proof uses households ahead of the iOS beta "
         "build. Prod stays false."
     ),
+    "CUADRAO_BUSINESS_ACTIVITY_ENABLED": (
+        "Lucas decided 2026-11-09: Actividad is on in staging and off for the "
+        "production pilot."
+    ),
     "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": (
         "Lucas approved bank matching on staging 2026-10-28 (demo loop approval "
         "2). Prod stays false."
