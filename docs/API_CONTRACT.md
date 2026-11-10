@@ -10112,7 +10112,7 @@ false. The route does not take a space id, so another Business is not addressabl
 `PATCH /business/fiscal-profile` requires the space owner, approve permission, and
 `Idempotency-Key`. The body is `{name, previous_name, tax_id, previous_tax_id}`.
 `name` is 1 to 80 characters after trimming. `previous_name` and `previous_tax_id` must
-match the stored profile. `previous_name` is null for a Business that keeps a default name. A mismatch is 409 `stale_version`. Spaces and hyphens in
+match the stored profile. `previous_name` is null for a Business that keeps a default name, and a default name sent there is read as null. A mismatch is 409 `stale_version`. Spaces and hyphens in
 `value` are removed before storage. `tax_id: null` clears the filer id. The 606 and 607
 header and file name use the stored digits. The switcher reads the stored name on the
 next space list.

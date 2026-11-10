@@ -62,6 +62,13 @@ class FiscalProfileChange(BaseModel):
             raise ValueError("business_name_invalid")
         return cleaned
 
+    @field_validator("previous_name")
+    @classmethod
+    def unnamed_previous_name(cls, value: str | None) -> str | None:
+        """A reader that sends a starting name saw an unnamed Business."""
+
+        return given_name(value)
+
     @field_validator("tax_id", "previous_tax_id", mode="before")
     @classmethod
     def filer_tax_id(cls, value):

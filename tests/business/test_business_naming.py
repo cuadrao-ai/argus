@@ -247,3 +247,22 @@ def test_a_spanish_message_names_an_unnamed_business_mi_negocio(stored, spoken):
     from argus.domain.business.space_name import spanish_name
 
     assert spanish_name(stored) == spoken
+
+
+@pytest.mark.parametrize(
+    "sent,read",
+    [
+        (None, None),
+        ("Mi negocio", None),
+        (" My business ", None),
+        ("Colmado", "Colmado"),
+        ("My business supplies", "My business supplies"),
+    ],
+)
+def test_a_profile_save_reads_a_starting_previous_name_as_unnamed(sent, read):
+    from argus.domain.business.fiscal_profile import FiscalProfileChange
+
+    change = FiscalProfileChange(
+        name="Taller Norte", previous_name=sent, tax_id=None, previous_tax_id=None
+    )
+    assert change.previous_name == read

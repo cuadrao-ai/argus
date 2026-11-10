@@ -187,7 +187,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   };
   const unchanged =
     profile !== null &&
-    name.trim() === profile.name &&
+    name.trim() === (profile.name ?? "") &&
     (value.trim() ? digitsOf(value) : "") === (profile.tax_id?.value ?? "") &&
     (value.trim() ? kind : profile.tax_id?.type ?? kind) === (profile.tax_id?.type ?? kind);
   useEffect(() => { if(profile)onDraftChange?.({name,kind,value}); }, [profile,name,kind,value,onDraftChange]);
