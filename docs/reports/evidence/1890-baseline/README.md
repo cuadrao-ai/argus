@@ -89,7 +89,8 @@ function body in the history was checked for `net.http` and `cron.`, and
 migration removes both where the history installed them. With no `net` schema,
 no client role can reach pg_net, so #1227 is resolved by removal. The strict
 probe `supabase/tests/net-client-grants.sql` now passes when the `net` schema is
-absent and still fails if a database has it with client grants.
+absent. Its grant check is unchanged, so a database that has `net` with client
+grants still fails.
 
 ## Proof
 

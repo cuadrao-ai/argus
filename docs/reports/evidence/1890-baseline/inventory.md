@@ -158,7 +158,7 @@ Event triggers: ensure_rls.
 | kept | table | `public.business_dgii_export_lines` | 20261101010000 | src/argus/domain/business/export.py:837 |  |
 | kept | table | `public.business_document_settlement_revisions` | 20261018230000 | src/argus/domain/business/month_close_store.py:87 |  |
 | kept | table | `public.business_document_settlements` | 20261018230000 | src/argus/domain/business/custody_graph.py:74 |  |
-| kept | table | `public.business_draft_revisions` | 20261010223000 | src/argus/domain/business/actions/approval.py:215 |  |
+| kept | table | `public.business_draft_revisions` | 20261010223000 | src/argus/domain/business/actions/approval.py:216 |  |
 | kept | table | `public.business_draft_sources` | 20261010223000 | src/argus/api/business_drafts.py:381 |  |
 | kept | table | `public.business_email_address_events` | 20261019040000 | src/argus/domain/ingestion/email_intake/addressing.py:161 |  |
 | kept | table | `public.business_email_daily_usage` | 20261014133457 | src/argus/domain/ingestion/email_intake/store.py:366 |  |
@@ -182,7 +182,7 @@ Event triggers: ensure_rls.
 | kept | table | `public.business_receipt_activity_baseline` | 20261014130000 | src/argus/api/business_receipt_activity.py:57 |  |
 | kept | table | `public.business_receipt_consent_commands` | 20261014130000 | src/argus/domain/business/custody_graph.py:68 |  |
 | kept | table | `public.business_receipt_read_states` | 20261014130000 | src/argus/api/business_receipt_activity.py:46 |  |
-| kept | table | `public.business_receipt_reading_consents` | 20261014130000 | src/argus/domain/business/actions/service.py:812 |  |
+| kept | table | `public.business_receipt_reading_consents` | 20261014130000 | src/argus/domain/business/actions/service.py:816 |  |
 | kept | table | `public.business_search_opens` | 20261020200000 | src/argus/domain/business/search_memory.py:112 |  |
 | kept | table | `public.business_search_recents` | 20261020200000 | src/argus/domain/business/search_memory.py:66 |  |
 | kept | table | `public.business_sender_leases` | 20261010223000 | src/argus/domain/business/custody_graph.py:644 |  |
@@ -223,7 +223,7 @@ Event triggers: ensure_rls.
 | kept | table | `public.profile_photos` | 20261021040000 | src/argus/domain/profile_images/store.py:16 |  |
 | kept | table | `public.profiles` | 20260424000001 | src/argus/domain/business/access.py:262 | src/argus/domain/apple_sign_in/name.py:40, src/argus/domain/apple_sign_in/name.py:48, src/argus/domain/business/custody_graph.py:289 ... |
 | kept | table | `public.public_excerpt_snapshots` | 20260807190000 | needed by `public.revoke_public_excerpts_for_deleted_source()` (function body) | scripts/ops/research_spine_census.sql:8, src/argus/api/public_excerpts.py:163, src/argus/api/public_excerpts.py:171 ... |
-| kept | table | `public.route_receipts` | 20260519000001 | src/argus/domain/ingestion/documents/extractor.py:678 | scripts/documents/benchmark.py:103, scripts/documents/scoped_measurement.py:181, scripts/ops/research_spine_census.sql:7 ... |
+| kept | table | `public.route_receipts` | 20260519000001 | src/argus/domain/business/analytics.py:113 | scripts/documents/benchmark.py:103, scripts/documents/scoped_measurement.py:181, scripts/ops/research_spine_census.sql:7 ... |
 | kept | table | `public.spaces` | 20261008140000 | src/argus/domain/business/access.py:254 | scripts/ops/business_space_rows.sql:12, scripts/ops/business_spaces_precheck.sql:9, scripts/ops/business_spaces_precheck.sql:12 ... |
 | kept | table | `public.strategies` | 20260424000001 | needed by `public.backtest_runs` (foreign key) | scripts/ops/apply_approved_migrations.py:473, src/argus/domain/postgres_history_reader.py:68, src/argus/domain/postgres_history_reader.py:337 ... |
 | kept | table | `public.usage_counters` | 20260424000001 | needed by `public.create_feedback_settling_usage(p_feedback_id uuid, p_user_id uuid, p_feedback_type text, p_message text, p_context jsonb, p_usage_resource text, p_usage_limits jsonb)` (function body) | src/argus/api/chat/discovery_evidence.py:31, src/argus/api/chat/discovery_evidence.py:79, src/argus/api/chat/discovery_evidence.py:156 ... |
