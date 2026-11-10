@@ -18,6 +18,7 @@ from argus.domain.business.lifecycle import (
     PostgresBusinessLifecycle,
 )
 from argus.domain.business.notifications.events import invitation_changed
+from argus.domain.business.space_name import typed_name
 from argus.domain.business.transfer_mail import (
     deliver_transfer_mail,
     enqueue_transfer_mail,
@@ -96,6 +97,7 @@ class PostgresBusinessTransfer:
             name, closed_at = PostgresBusinessLifecycle._owned_space(
                 db, owner_id, space_id
             )
+            confirmation = typed_name(name, confirmation)
             if closed_at is not None:
                 raise BusinessLifecycleError("business_record_not_found")
             _lock(db, space_id)

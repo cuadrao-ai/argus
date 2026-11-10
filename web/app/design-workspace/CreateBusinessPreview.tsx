@@ -33,6 +33,8 @@ function clearDraft(account:string){
   const records=storedDrafts();delete records[account];
   if(Object.keys(records).length)writeStored(DRAFT_KEY,JSON.stringify(records));else removeStored(DRAFT_KEY);
 }
+/** The server sends a null name when the person typed a starting name such as Mi negocio. */
+type CreatedBusiness=Omit<LocalBusiness,"name">&{name:string|null;grant_id?:string};
 type CreationDraft={name:string;country:string;appearance:IdentityAppearance;operation:BusinessCreationState|undefined;needsAppearance:boolean};
 const emptyDraft=():CreationDraft=>({name:"",country:"",appearance:DEFAULT_APPEARANCE,operation:undefined,needsAppearance:false});
 function readDraft(account:string):CreationDraft {
@@ -58,7 +60,7 @@ function CreateBusinessPreviewSurface({
   accountKey="preview",
 }: {
   onClose: () => void;
-  onCreated: (business: LocalBusiness & {grant_id?:string}) => void;
+  onCreated: (business: CreatedBusiness) => void;
   live?:boolean;
   accountKey?:string;
 }) {
@@ -136,7 +138,7 @@ function CreateBusinessPreviewSurface({
     submitting.current = true;
     setBusy(true);
     try {
-      let business:LocalBusiness & {grant_id?:string};
+      let business:CreatedBusiness;
       if(live){
         if(!["DO","US","CA"].includes(draft.country))throw new Error("invalid_country");
         const country=draft.country as "DO"|"US"|"CA";

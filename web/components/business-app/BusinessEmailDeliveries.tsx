@@ -11,7 +11,7 @@ import { useReceivingChannels } from "./business-context";
 import { useBusiness } from "./BusinessWorkspace";
 import { useRecordTray } from "./record-tray";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
-import { formatRelativeTime } from "./business-format";
+import { formatBusinessName, formatRelativeTime } from "./business-format";
 import { Settle } from "./business-skeletons";
 import { canManageBusiness, cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { CopyButton, useCopyLabels, WrappingAddress } from "./foundation/CopyButton";
@@ -353,7 +353,7 @@ export function EmailHistory({ onClose }: { onClose?: () => void } = {}) {
       ) : null}
     </section>
   );
-  return onClose ? <AdaptivePanel title={openDelivery?.subject || t("business.reception.history_title")} summary={openDelivery ? openDelivery.sender ?? undefined : chosen?.name} closeLabel={t("common.close")} onClose={onClose} modal={false} width="lg" snaps={["full"]} initialSnap="full">
+  return onClose ? <AdaptivePanel title={openDelivery?.subject || t("business.reception.history_title")} summary={openDelivery ? openDelivery.sender ?? undefined : chosen ? formatBusinessName(chosen.name, t("business.overview.title", "My business")) : undefined} closeLabel={t("common.close")} onClose={onClose} modal={false} width="lg" snaps={["full"]} initialSnap="full">
     <div className="desktop:px-5">{openDelivery ? <><button type="button" className={quietButtonClass} onClick={() => setOpened(null)}><ArrowLeft className="h-4 w-4" aria-hidden="true" />{t("business.reception.history_title")}</button>{detail}</> : history}</div>
   </AdaptivePanel> : history;
 }

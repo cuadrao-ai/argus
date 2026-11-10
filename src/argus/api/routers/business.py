@@ -143,7 +143,8 @@ from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
-from argus.domain.business.spaces import Space, default_space_name
+from argus.domain.business.space_name import GivenName, default_space_name
+from argus.domain.business.spaces import Space
 from argus.domain.business.transactions import GrantImportStore
 from argus.domain.financial_search import InvalidCursor, StaleCursor
 from argus.domain.ingestion.connections import ConnectionNotFound
@@ -337,7 +338,7 @@ class ClosedSpaceInfo(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     space_id: str
-    name: str
+    name: GivenName
     grant_id: str
     role: Literal["owner", "accountant"]
     closed_at: datetime

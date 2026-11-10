@@ -18,6 +18,7 @@ import AccessRolePicker from "./AccessRolePicker";
 import { invitationStorageKeys } from "./businessAccessPreviewState";
 import { profileChecklist, readBusinessProfilePreview, saveBusinessProfilePreview, saveBusinessProvidedDetails, seedProfilePreview, type ProfileChecklistKey, type BusinessProvidedDetails } from "./businessProfilePreviewState";
 import {canManageBusiness, quietButtonClass} from "@/components/business-app/business-ui";
+import { formatBusinessName } from "@/components/business-app/business-format";
 import BusinessProfileDetails from "./BusinessProfileDetails";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
 import { useBusinessProfile } from "@/components/business-app/useBusinessProfile";
@@ -106,7 +107,8 @@ function BusinessProfileContent() {
   const previewProfile = useMemo(()=>{void raw;return readBusinessProfilePreview(live?emptyStorage:storage(),businessId,name,country);},[raw,businessId,name,country,live]);
   // The legal name has one owner, the server's fiscal profile; the local preview has none.
   const legalName = fiscal?.legal_name?.value ?? null;
-  const profile = live && server.profile ? {...previewProfile,name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName,providedDetails:server.profile.details,checklist:profileChecklist({name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName},server.profile.details)} : previewProfile;
+  const profile = live && server.profile ? {...previewProfile,name:server.profile.name??"",country:server.profile.country,taxId:fiscal?.tax_id??null,legalName,providedDetails:server.profile.details,checklist:profileChecklist({name:server.profile.name??"",country:server.profile.country,taxId:fiscal?.tax_id??null,legalName},server.profile.details)} : previewProfile;
+  const title = formatBusinessName(profile.name,t("business.overview.title","My business"));
   const taxType = profile.taxId?.type;
   const taxValue = profile.taxId?.value;
   const {lookupRegistry,saveLegalName}=workspace.source;
@@ -152,7 +154,7 @@ function BusinessProfileContent() {
   };
   const close = ()=>select({section:null});
   const hasEditableForm = canEdit && (selected === "identity" || selected === "contact" || selected === "presence");
-  const businessContext = selected !== "invoicing" ? <>{t("workspace_setup_preview.for_business")} <strong className="font-semibold text-[#152d26] dark:text-white">{profile.name}</strong></> : undefined;
+  const businessContext = selected !== "invoicing" ? <>{t("workspace_setup_preview.for_business")} <strong className="font-semibold text-[#152d26] dark:text-white">{title}</strong></> : undefined;
   const selectedTitle = selected === "appearance" ? t("identity.change_image") : sections.find(section=>section.key === selected)?.title ?? "";
   const showChecklist = !selected && !profile.checklist.every(item=>item.complete);
   const checklistRows = (section:"basic"|"additional")=><ul className="mt-3">{profile.checklist.filter(item=>item.section===section).map(item=><li key={item.key}><button type="button" data-profile-checklist={item.key} onClick={event=>select({section:checklistSection[item.key],trigger:event.currentTarget})} className="flex min-h-11 w-full items-center gap-3 rounded-item text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2">
@@ -160,7 +162,7 @@ function BusinessProfileContent() {
     <span className={item.complete ? "text-[#56635e] dark:text-white/60" : ""}>{labels[item.key]}<span className="sr-only"> · {t(item.complete ? "business.settings.profile_saved" : "business.settings.profile_pending")}</span></span>
   </button></li>)}</ul>;
   const dossier = <div key={`${businessId}:${selected}`} data-profile-dossier-content className="min-w-0">
-    {selected === "appearance" ? <IdentityEditor saved={appearance} name={name} business onSave={async next=>{if(live)await server.saveAppearance(next);else{saveAppearance(storage(),`business:${businessId}`,next);window.dispatchEvent(new Event(IDENTITY_EVENT));}applySelection({section:null});}}/> : selected === "identity" ? <>
+    {selected === "appearance" ? <IdentityEditor saved={appearance} name={title} business onSave={async next=>{if(live)await server.saveAppearance(next);else{saveAppearance(storage(),`business:${businessId}`,next);window.dispatchEvent(new Event(IDENTITY_EVENT));}applySelection({section:null});}}/> : selected === "identity" ? <>
       <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile footerTarget={footerTarget} initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
       <dl className="mt-5 space-y-5 text-[16px]">
         {live && canEdit ? null : <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.legal_name")}</dt><dd>{profile.legalName || t("business.settings.profile_unverified")}</dd></div>}
@@ -177,7 +179,7 @@ function BusinessProfileContent() {
       <SettingsColumns
         main={<>
         <section className={SURFACE_CARD} aria-label={t("business.settings.profile_overview")}>
-          <div className="mb-3 flex flex-col items-start gap-3"><BusinessMark businessId={businessId} name={name}/><div className="min-w-0"><h2 className="font-display break-words text-[21px] font-medium">{profile.name}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}{canEdit?<><button type="button" className={`${quietButtonClass} -ml-1`} disabled={imagePending&&appearanceState!=="failed"} aria-busy={imagePending&&appearanceState!=="failed"?true:undefined} onClick={event=>{if(imagePending)retryProfile();else select({section:"appearance",trigger:event.currentTarget});}}>{t(imagePending&&appearanceState==="failed"?"common.retry":"identity.change_image")}</button>{imagePending?<p role={appearanceState==="failed"?"alert":"status"} className="text-[14px] text-[#56635e] dark:text-white/70">{t(appearanceState==="failed"?"common.error_occurred":"common.loading")}</p>:null}</>:null}</div></div>
+          <div className="mb-3 flex flex-col items-start gap-3"><BusinessMark businessId={businessId} name={title}/><div className="min-w-0"><h2 className="font-display break-words text-[21px] font-medium">{title}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}{canEdit?<><button type="button" className={`${quietButtonClass} -ml-1`} disabled={imagePending&&appearanceState!=="failed"} aria-busy={imagePending&&appearanceState!=="failed"?true:undefined} onClick={event=>{if(imagePending)retryProfile();else select({section:"appearance",trigger:event.currentTarget});}}>{t(imagePending&&appearanceState==="failed"?"common.retry":"identity.change_image")}</button>{imagePending?<p role={appearanceState==="failed"?"alert":"status"} className="text-[14px] text-[#56635e] dark:text-white/70">{t(appearanceState==="failed"?"common.error_occurred":"common.loading")}</p>:null}</>:null}</div></div>
           <div className="-mx-3 divide-y divide-black/10 dark:divide-white/10">{sections.map(section=><button key={section.key} type="button" className="profile-section-row group focus-visible:outline-2 focus-visible:outline-offset-2" aria-expanded={selected === section.key} aria-controls={selected === section.key ? "profile-section-dossier" : undefined} onClick={event=>select({section:section.key,trigger:event.currentTarget})}>
             <span className="profile-section-copy"><span className="text-[16px] font-medium">{section.title}</span><span className="profile-section-summary text-[14px] text-[#56635e] dark:text-white/70">{section.summary}</span></span><RowActionLabel>{t("business.reception_preview.placeholder.open")}</RowActionLabel>
           </button>)}</div>

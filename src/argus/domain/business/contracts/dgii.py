@@ -16,6 +16,8 @@ from pydantic import (
     field_validator,
 )
 
+from argus.domain.business.space_name import GivenName
+
 Money = Annotated[str, StringConstraints(pattern=r"^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$")]
 #: The first amount the Money shape cannot hold.
 MONEY_LIMIT = Decimal("1000000000")
@@ -189,7 +191,7 @@ class LegalName(BaseModel):
 
 class FiscalProfile(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    name: str
+    name: GivenName
     tax_id: TaxId | None
     legal_name: LegalName | None
     can_edit: bool

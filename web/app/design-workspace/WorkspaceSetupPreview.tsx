@@ -45,7 +45,7 @@ export default function WorkspaceSetupPreview({ invitation, profileInvoicing, re
   const memberEmail = bridge?.memberEmail;
   const context = useMemo(() => chosen ? {
     businessId: chosen.space_id,
-    name: chosen.name,
+    name: chosen.name ?? "",
     country: records?.workspace?.country ?? null,
     shared: chosen.role !== "owner",
     documentReceived: Boolean(records?.inbox?.length),

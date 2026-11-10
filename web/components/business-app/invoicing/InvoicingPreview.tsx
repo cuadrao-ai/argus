@@ -2,13 +2,14 @@
 
 import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowDown, BriefcaseBusiness, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FilePenLine, Plus, Search, SlidersHorizontal, UserPlus, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { currencySymbol } from "@/lib/money-entry";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useBusiness } from "../BusinessWorkspace";
 import { useLendListSearch, useSearchInBar } from "../foundation/list-search";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
-import { periodRange, todayIso, type Period } from "../business-format";
+import { formatBusinessName, periodRange, todayIso, type Period } from "../business-format";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
 import RecordsDatePreview from "../transacciones/RecordsDatePreview";
 import { pageLinks } from "../transacciones/records-pagination";
@@ -34,10 +35,11 @@ const locationSnapshot = () => new URLSearchParams(window.location.search).get("
 const serverLocation = () => "";
 
 export default function InvoicingPreview() {
+  const { t } = useTranslation();
   const { chosen } = useBusiness();
   const variant = useSyncExternalStore(subscribeLocation, locationSnapshot, serverLocation);
   const scope = `${chosen?.space_id ?? "own"}:${variant}`;
-  return <InvoiceWorkspace key={scope} scope={scope} variant={variant} business={chosen?.name ?? ""} />;
+  return <InvoiceWorkspace key={scope} scope={scope} variant={variant} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} />;
 }
 
 function InvoiceWorkspace({ scope, business, variant }: { scope: string; business: string; variant: string }) {

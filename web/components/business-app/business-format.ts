@@ -9,8 +9,9 @@ export const UNKNOWN_VALUE = "-";
 
 const DECIMAL_AMOUNT = /^(-?)(\d+)(?:\.(\d+))?$/;
 
+/** The server sends null for a Business that keeps its starting name; the reader shows `fallback` in its own language. */
 export function formatBusinessName(name: string | null | undefined, fallback: string): string {
-  return !name?.trim() || name === "My business" ? fallback : name;
+  return name?.trim() ? name : fallback;
 }
 
 function separators(locale: string): { group: string; decimal: string } {

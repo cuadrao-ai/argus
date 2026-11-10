@@ -20,6 +20,7 @@ from argus.domain.business.lifecycle import (
     LifecycleResult,
     PostgresBusinessLifecycle,
 )
+from argus.domain.business.space_name import GivenName
 from argus.domain.business.transfer import TransferIneligible
 
 
@@ -31,7 +32,7 @@ class CloseBusinessBody(BaseModel):
 class BusinessLifecycleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     space_id: str
-    name: str
+    name: GivenName
     closed_at: datetime | None
     reopen_until: datetime | None
 
@@ -56,7 +57,7 @@ class ExportWindow(BaseModel):
 
 class OwnedBusiness(BaseModel):
     space_id: str
-    name: str
+    name: GivenName
     grant_id: str
     #: Live members who lose access when the Business closes.
     member_count: int

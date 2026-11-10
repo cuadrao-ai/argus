@@ -2,7 +2,7 @@ import { apiFetch } from "./argus-api-transport";
 
 export type BusinessNamingState = {
   id: string;
-  name: string;
+  name: string | null;
   name_required: boolean;
 };
 export const getBusinessName = () => apiFetch<BusinessNamingState>("/business/space/name");

@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from argus.domain.business.document_type import DocumentType
+from argus.domain.business.space_name import GivenName
 
 from .actions import ApprovalAction
 from .authority import ActorProvenance, Capability
@@ -147,7 +148,7 @@ class AccountChoice(Contract):
 
 class RecordContext(Contract):
     space_id: UUID
-    space_name: str
+    space_name: GivenName
     accounts: tuple[AccountChoice, ...]
     capabilities: frozenset[Capability]
 

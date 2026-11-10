@@ -12,6 +12,7 @@ import { resolveLanguage } from "@/lib/language-features";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useBusinessOwnershipCopy } from "./BusinessOwnershipDeletionBlock";
 import { primaryButtonClass, secondaryButtonClass, dangerButtonClass } from "./business-ui";
+import { formatBusinessName } from "./business-format";
 import { SURFACE_CARD } from "./foundation/surfaces";
 
 type Listing = { kind: "loading" } | { kind: "hidden" } | { kind: "failed"; reference: string | null } | { kind: "ready"; open: OwnedBusiness[]; closed: BusinessLifecycleResult[] };
@@ -66,12 +67,12 @@ export default function BusinessLifecycleControls({ spaceId }: { spaceId?: strin
     {open.length ? <div className={SURFACE_CARD}>
       <h2 className="font-display text-[17px] font-medium">{t("business.lifecycle.owner_title")}</h2>
       {open.map(business => <div key={business.space_id} className="mt-5 space-y-3">
-        {!spaceId ? <p className="break-words text-[15px] font-medium">{business.name}</p> : null}
+        {!spaceId ? <p className="break-words text-[15px] font-medium">{formatBusinessName(business.name, t("business.overview.title", "My business"))}</p> : null}
         <div className="flex flex-wrap gap-3"><a className={secondaryButtonClass} href={businessLifecycleHref(business.space_id, "transfer")}>{copy.transfer}</a><a className={dangerButtonClass} href={businessLifecycleHref(business.space_id, "close")}>{copy.close}</a></div>
       </div>)}
     </div> : null}
     {closed.map(business => <article key={business.space_id} className={`${SURFACE_CARD} space-y-4`}>
-      <h2 className="break-words font-display text-[24px] font-medium">{business.name}</h2>
+      <h2 className="break-words font-display text-[24px] font-medium">{formatBusinessName(business.name, t("business.overview.title", "My business"))}</h2>
       <p className="flex items-center gap-2 text-[14px] font-medium text-[#9e2f39] dark:text-[#ec9aa0]"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-current" />{t("business.lifecycle.closed_status")}</p>
       <p>{business.reopen_until ? t("business.lifecycle.deadline", businessDeadlineParts(business.reopen_until, locale)) : null}</p>
       <p className="text-[14px] leading-relaxed">{t("business.lifecycle.purge_consequence")}</p>
@@ -101,7 +102,7 @@ export function BusinessClosedOwnerBanner({ businesses }: { businesses: ClosedGr
   return <aside data-testid="business-closed-owner-banner" className="border-b border-[#dce0da] bg-[#f5f0e4] px-5 py-4 text-[#172b26] dark:border-white/10 dark:bg-[#20372f] dark:text-white">
     {held.map(business => <div key={business.space_id} className="mx-auto flex max-w-4xl items-start gap-3">
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="break-words text-[14px] font-medium">{business.name} · {t("business.lifecycle.closed_status")}</p>
+        <p className="break-words text-[14px] font-medium">{formatBusinessName(business.name, t("business.overview.title", "My business"))} · {t("business.lifecycle.closed_status")}</p>
         <p className="text-[13px]">{t("business.lifecycle.deadline", businessDeadlineParts(business.reopen_until, i18n.resolvedLanguage ?? resolveLanguage({})))}</p>
         <a className="inline-flex min-h-11 items-center text-[14px] underline" href={`/biz?lifecycle=manage&business=${encodeURIComponent(business.space_id)}`}>{t("business.lifecycle.reopen.action")}</a>
       </div>

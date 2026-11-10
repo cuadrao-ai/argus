@@ -90,7 +90,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
       .then((next) => {
         if (!live) return;
         setProfile(next);
-        setName(restoredDraft.current?.name ?? next.name);
+        setName(restoredDraft.current?.name ?? next.name ?? "");
         setKind(restoredDraft.current?.kind ?? next.tax_id?.type ?? "rnc");
         setValue(restoredDraft.current?.value ?? next.tax_id?.value ?? "");
         restoredDraft.current = null;
@@ -158,7 +158,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
           randomId(),
         );
         setProfile(next);
-        setName(next.name);
+        setName(next.name ?? "");
         setKind(next.tax_id?.type ?? kind);
         setValue(next.tax_id?.value ?? "");
         if (next.name !== profile.name) workspace?.reload();

@@ -25,7 +25,7 @@ from argus.api.whatsapp import whatsapp_receiving_available, whatsapp_runtime
 from argus.domain.business.authority import ActionError
 from argus.domain.business.fiscal_profile import read_profile
 from argus.domain.business.setup import SetupFacts, SetupStepKey, setup_steps
-from argus.domain.business.spaces import DEFAULT_SPACE_NAMES
+from argus.domain.business.space_name import given_name
 
 router = APIRouter()
 
@@ -53,7 +53,7 @@ def _fiscal_identity(request: Request, drafts: DraftContext, person: BusinessPer
         )
     except ActionError as error:
         raise action_problem(request, error.result) from None
-    return profile["tax_id"] is not None and profile["name"] not in DEFAULT_SPACE_NAMES.values()
+    return profile["tax_id"] is not None and given_name(profile["name"]) is not None
 
 
 def _receipt_reading(context: BusinessContext) -> bool | None:

@@ -9,6 +9,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { quietButtonClass } from "../business-ui";
+import { formatBusinessName } from "../business-format";
 import styles from "./business-notifications.module.css";
 import { acceptBusinessInvitation, getBusinessInvitations, type RecipientInvitation } from "@/lib/business-api";
 import { listEmailSenders, pendingSenderCount } from "@/lib/business-email";
@@ -170,7 +171,7 @@ export default function BusinessNotifications({ businessId, businessName, previe
       {!preview&&invitationError?<div className={styles.empty}><p role="alert">{t("business_access.error")}</p><button type="button" className={quietButtonClass} onClick={()=>setInvitationAttempt(value=>value+1)}>{t("common.retry")}</button></div>:!preview&&invitations===null?<div className="m-5 h-24 animate-pulse rounded-item bg-black/5" aria-busy="true"/>:null}
       {!preview&&!invitationError&&invitations?.length?<ul aria-label={t("business_access.invitations_title")}>
         {invitations.map(invitation=><li key={invitation.id} className={styles.row}>
-          <div className={styles.rowHeading}><h3 className={styles.unreadTitle}>{invitation.name}</h3></div>
+          <div className={styles.rowHeading}><h3 className={styles.unreadTitle}>{formatBusinessName(invitation.name, t("business.overview.title", "My business"))}</h3></div>
           <p className={styles.description}>{t(`workspace_setup_preview.permission_${invitation.requested_role}`)} · {t("workspace_setup_preview.invite_pending")}</p>
           <div className={styles.rowActions}><button type="button" className={`${quietButtonClass} ${styles.rowAction}`} disabled={Boolean(accepting)||acceptRefused.has(invitation.id)} onClick={()=>void acceptInvitation(invitation)}>{t("business_access.accept_invitation")}</button></div>
         </li>)}

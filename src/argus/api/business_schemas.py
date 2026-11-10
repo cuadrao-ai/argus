@@ -24,6 +24,7 @@ from argus.domain.business.receipts import Attention
 from argus.domain.business.reporting_query import Purchase606
 from argus.domain.business.roles import BusinessRole, Permission
 from argus.domain.business.search import SearchKind
+from argus.domain.business.space_name import GivenName
 from argus.domain.business.spaces import MAX_NAME_LENGTH
 from argus.domain.financial_search import query_text
 from argus.domain.ingestion.receipt_review import ReceiptStatus
@@ -43,7 +44,7 @@ SpaceName = Annotated[
 
 class BusinessSpaceInfo(_Wire):
     id: str
-    name: str
+    name: GivenName
     country: str
     currency: str
     logo_url: str | None = Field(
@@ -68,7 +69,7 @@ class GrantedSpaceInfo(_Wire):
     """One Business the caller may enter through one live grant of theirs."""
 
     space_id: str
-    name: str
+    name: GivenName
     logo_url: str | None = None
     grant_id: str
     role: Literal["owner", "accountant"]
@@ -189,7 +190,7 @@ class BusinessAccess(_Wire):
 class BusinessRecipientInvitation(_Wire):
     id: str
     space_id: str
-    name: str
+    name: GivenName
     requested_role: BusinessRole
     expires_at: datetime
 

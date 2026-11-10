@@ -203,6 +203,8 @@ def test_an_unnamed_business_has_no_name_on_the_wire(biz, language):
     assert biz.get(base + "/space", headers=headers).json()["name"] is None
     assert (naming["name"], naming["name_required"]) == (None, True)
     assert [space["name"] for space in listed] == [None]
+    profile = biz.get(f"{base}/spaces/{started.json()['id']}/profile", headers=headers)
+    assert profile.json()["name"] is None
 
 
 @pytest.mark.parametrize("name", ["My business supplies", "Colmado Mi negocio"])

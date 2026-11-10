@@ -144,6 +144,15 @@ def test_delayed_close_and_reopen_replays_never_reverse_a_later_command(world): 
     assert PostgresSpaceStore(pool).open_space(users["owner"]) is None
 
 
+@pytest.mark.parametrize("typed", ["Mi negocio", "My business"])
+def test_an_unnamed_business_closes_with_the_name_its_reader_shows(world, typed):  # noqa: ANN001
+    pool, space, users, _, _ = world
+    PostgresSpaceStore(pool).rename(users["owner"], "My business", space.id)
+    closed = _close(world, confirmation=typed)
+    assert (closed.name, closed.closed_at is not None) == ("My business", True)
+    assert _close(world, confirmation=typed) == closed
+
+
 def test_reusing_a_key_with_a_different_action_or_name_conflicts(world):  # noqa: ANN001
     _close(world)
     for operation in [

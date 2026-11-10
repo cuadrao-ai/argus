@@ -7,6 +7,7 @@ import { dangerConfirmButtonClass, quietButtonClass, secondaryButtonClass } from
 import { previewLifecycleControls } from "@/lib/account-deletion-preview";
 import type { AccountDeletionCheck } from "@/lib/use-account-deletion-eligibility";
 import { businessDeadlineParts, businessLifecycleHref } from "@/lib/business-lifecycle-api";
+import { formatBusinessName } from "@/components/business-app/business-format";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { businessLifecycleControlsEnabled } from "@/lib/private-alpha-flags";
 import { useTranslation } from "react-i18next";
@@ -185,7 +186,7 @@ function ProfileDeleteRequestDialogSurface({
                 <ul className="mt-[13px] divide-y divide-[#DCE0DA] rounded-item border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">
                   {ownedBusinesses.map(business => (
                     <li key={business.business_id} className="flex flex-wrap items-center justify-between gap-x-3 px-3 py-1">
-                      <span className="py-2 text-[16px] font-medium">{business.business_name}</span>
+                      <span className="py-2 text-[16px] font-medium">{formatBusinessName(business.business_name, t("business.overview.title", "My business"))}</span>
                       {lifecycleControls ? (
                         <span className="flex gap-3">
                           <a className={`${quietButtonClass} text-[14px]`} href={businessLifecycleHref(business.business_id, "transfer")}>{t("business.lifecycle.transfer.title")}</a>
@@ -213,7 +214,7 @@ function ProfileDeleteRequestDialogSurface({
                 {/* The server names the date; the web only formats it for the reader. */}
                 {notices.map(notice => (
                   <p key={notice.business_id} className={`mt-[13px] ${bodyText}`} data-testid="delete-account-closed-business">
-                    {t("business.lifecycle.deletion.closed_warning", { businessName: notice.business_name, ...businessDeadlineParts(notice.purge_at, i18n.resolvedLanguage ?? "es-419") })}
+                    {t("business.lifecycle.deletion.closed_warning", { businessName: formatBusinessName(notice.business_name, t("business.overview.title", "My business")), ...businessDeadlineParts(notice.purge_at, i18n.resolvedLanguage ?? "es-419") })}
                   </p>
                 ))}
               </>

@@ -10,6 +10,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import Applied
 from argus.domain.business.contracts.dgii import TaxId
 from argus.domain.business.fiscal_identity import normalized_filer_tax_id
+from argus.domain.business.space_name import given_name
 from argus.domain.business.spaces import MAX_NAME_LENGTH
 from argus.domain.business.transactions import transaction
 
@@ -37,7 +38,7 @@ class FiscalProfileInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
-    previous_name: str
+    previous_name: str | None
     tax_id: TaxIdDraft | None
     previous_tax_id: TaxIdDraft | None
 
@@ -47,13 +48,15 @@ class FiscalProfileChange(BaseModel):
 
     action: Literal["set_business_rnc"] = "set_business_rnc"
     name: str
-    previous_name: str
+    previous_name: str | None
     tax_id: TaxId | None
     previous_tax_id: TaxId | None
 
     @field_validator("name", "previous_name")
     @classmethod
-    def business_name(cls, value: str) -> str:
+    def business_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         cleaned = value.strip()
         if not cleaned or len(cleaned) > MAX_NAME_LENGTH:
             raise ValueError("business_name_invalid")
@@ -303,7 +306,7 @@ def set_profile(authority, context, command: FiscalProfileChange, key: str):
         if not _replayed(tx, key, command):
             row = tx.rows(_PROFILE + " for update", (context.actor.space_id,))[0]
             if (
-                row["name"] != command.previous_name
+                given_name(row["name"]) != command.previous_name
                 or _stored_tax_id(row) != command.previous_tax_id
             ):
                 raise ActionError("stale_version", "stale_version")
