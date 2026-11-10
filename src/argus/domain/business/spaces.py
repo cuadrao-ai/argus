@@ -21,6 +21,7 @@ from argus.domain.business.lifecycle import (
     BusinessLifecycleError,
     require_ownership_admission,
 )
+from argus.domain.business.space_name import given_name
 from argus.domain.business.workspace import (
     BusinessDetails,
     SaveWorkspace,
@@ -41,8 +42,6 @@ from argus.domain.profile_images.objects import (
     ProfileImageStorageUnavailable,
 )
 
-# Founder-approved October 8: the name a space starts with until renamed.
-DEFAULT_SPACE_NAMES = {"es": "Mi negocio", "en": "My business"}
 MAX_NAME_LENGTH = 80
 
 
@@ -56,13 +55,7 @@ class Space:
 
     @property
     def name_required(self) -> bool:
-        return self.name in DEFAULT_SPACE_NAMES.values()
-
-
-def default_space_name(language: str | None) -> str:
-    """English when the person's language is English, else Spanish."""
-
-    return DEFAULT_SPACE_NAMES["en" if language == "en" else "es"]
+        return given_name(self.name) is None
 
 
 class SpaceStore(Protocol):

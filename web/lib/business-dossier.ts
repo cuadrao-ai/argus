@@ -63,7 +63,7 @@ export type BusinessDraftRevision = {
 
 export type BusinessRecordContext = {
   space_id: string;
-  space_name: string;
+  space_name: string | null;
   accounts: BusinessAccount[];
   capabilities: ("read" | "prepare" | "approve")[];
 };

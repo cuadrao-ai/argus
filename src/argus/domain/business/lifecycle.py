@@ -9,6 +9,8 @@ from typing import Any, Literal
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.space_name import typed_name
+
 REOPEN_WINDOW = timedelta(days=30)
 LifecycleAction = Literal["close", "reopen"]
 
@@ -207,6 +209,7 @@ class PostgresBusinessLifecycle:
             raise BusinessLifecycleError("invalid_idempotency_key")
         with self._pool.connection() as connection, connection.transaction():
             name, closed_at = self._owned_space(connection, owner_id, space_id)
+            confirmation = typed_name(name, confirmation)
             if action == "reopen":
                 require_ownership_admission(connection, owner_id)
             previous = connection.execute(

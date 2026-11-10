@@ -10100,7 +10100,8 @@ Probe JSON is exactly `{message:"Test message"}` and creates no fiscal observati
 
 `GET /business/fiscal-profile` returns `{name, tax_id, legal_name, can_edit}` under the same live read
 grant. Optional `draft_id` supplies the existing canonical Business anchor.
-`name` is the Business name the switcher lists. `tax_id` is null until the owner sets one.
+`name` is the Business name the switcher lists, null while the Business keeps a default name.
+`tax_id` is null until the owner sets one.
 A set tax id is `{type, value}` where `type` is `rnc` or `cedula` and `value` is digits only.
 An RNC is 9 digits. A cédula is 11 digits. Leading zeros stay. `legal_name` is null until a
 person who manages the Business confirms one, else `{value, confirmed_at}`: the razón social
@@ -10111,7 +10112,7 @@ false. The route does not take a space id, so another Business is not addressabl
 `PATCH /business/fiscal-profile` requires the space owner, approve permission, and
 `Idempotency-Key`. The body is `{name, previous_name, tax_id, previous_tax_id}`.
 `name` is 1 to 80 characters after trimming. `previous_name` and `previous_tax_id` must
-match the stored profile. A mismatch is 409 `stale_version`. Spaces and hyphens in
+match the stored profile. `previous_name` is null for a Business that keeps a default name, and a default name sent there is read as null. A mismatch is 409 `stale_version`. Spaces and hyphens in
 `value` are removed before storage. `tax_id: null` clears the filer id. The 606 and 607
 header and file name use the stored digits. The switcher reads the stored name on the
 next space list.
@@ -10312,7 +10313,12 @@ person starts their space, every route below except POST `/space` answers 404
   unavailable or revoked default Business returns `404 business_record_not_found`;
   replay neither restores membership nor creates a second Business.
   Without `name` the space is named "Mi negocio", or "My business" when
-  `language` is `en`. Concurrent calls create one space. A name is 1 to 80
+  `language` is `en`. Either one is a default name. Every response that names a
+  Business sends `null` in place of a default name: the space and its naming
+  state, the space list and closed spaces, the Business profile, the fiscal profile, the record
+  context `space_name`, recipient invitations, transfers, owned and closed
+  lifecycle spaces and account deletion. Each client shows its own localized
+  title for an unnamed Business. Concurrent calls create one space. A name is 1 to 80
   characters after trimming, else 422.
   `country` is `DO`, `US` or `CA`, default `DO`, else 422. It is set once: a
   later call with another country returns the existing space unchanged. The
@@ -10325,7 +10331,7 @@ person starts their space, every route below except POST `/space` answers 404
   data or restore revoked access. The legacy POST above remains first bootstrap.
   Creation and creator Owner membership commit together. Response is the existing
   `{id, name, country, currency, logo_url}` shape, 201 on first commit and 200 on
-  replay. Reuse of a key with different normalized input is `409 idempotency_conflict`.
+  replay. `name` is null when the name sent is a default name. Reuse of a key with different normalized input is `409 idempotency_conflict`.
   Distinct keys may create more Businesses. Replay checks current access to the
   returned Business and never restores grants. To select the returned ID, refresh GET `/spaces`, match `space_id`, and send
   that row's `grant_id` as `X-Business-Grant`, including for Owner rows. An Owner
@@ -10737,7 +10743,7 @@ accept path recorded.
   raw picture in the body (`image/jpeg`, `image/png` or `image/webp`, at most
   5 MiB, re-encoded to a 256 px WebP square with its metadata dropped;
   transparency is kept) and answers `{id, name, logo_url}` for the Business in
-  scope; DELETE `/api/v1/business/logo` removes it (204, also when absent).
+  scope, `name` null while it keeps a default name; DELETE `/api/v1/business/logo` removes it (204, also when absent).
   Both take the grant header like every Business route and are allowed to the
   owner and to a member whose live grant holds `prepare` (Editar); otherwise
   403 `business_permission_denied`. Picture errors are those of `PUT /me/photo`.
@@ -11740,7 +11746,9 @@ custody, account-deletion retention and full-purge work plus root acceptance.
   person, independently of the selected Business grant.
 - `POST /business/spaces/{space_id}/close` requires `Idempotency-Key` and
   `{confirmation: string}`. The body rejects extra fields and preserves exact
-  whitespace and case for the domain's current-name comparison.
+  whitespace and case for the domain's current-name comparison. A Business that
+  keeps a default name also accepts either default name, since its name is null
+  on the wire. A transfer request confirms the name by the same rule.
 - `POST /business/spaces/{space_id}/reopen` requires `Idempotency-Key`.
 - Each result contains `space_id`, `name`, `closed_at` and `reopen_until`. The
   server owns the dates. Responses and domain refusals use `Cache-Control: no-store`.

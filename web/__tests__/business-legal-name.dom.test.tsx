@@ -184,6 +184,16 @@ test("a cédula's confirm line names the cédula",async()=>{
   }finally{await page.close();}
 });
 
+test("the confirm line names an unnamed Business with an empty name field Mi negocio",async()=>{
+  server({...empty,name:null},value=>Response.json(answer(value,"verificado")));
+  const page=await mount();
+  try{
+    await page.type("131-00001-4");
+    expect(document.querySelector<HTMLInputElement>('[name="business-name"]')?.value).toBe("");
+    expect(document.querySelector('[data-testid="legal-name-confirm"]')?.textContent).toBe("Al guardar, confirmas que este RNC corresponde a Mi negocio.");
+  }finally{await page.close();}
+});
+
 test("a failed lookup shows Ref. and Reintentar, the number still saves, and Reintentar checks again",async()=>{
   let fail=true;
   const calls=server(empty,value=>fail?failure():Response.json(answer(value,"verificado")));

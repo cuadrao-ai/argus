@@ -16,6 +16,7 @@ from argus.domain.business.access import AccessInvite, AccessList
 from argus.domain.business.config import business_invite_admission_enabled
 from argus.domain.business.invite_email import send_invite_email
 from argus.domain.business.memberships import DeliveryState
+from argus.domain.business.space_name import spanish_name
 from argus.settings_names import setting_value
 
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
@@ -65,7 +66,7 @@ def _send_invite(
         send_invite_email(
             invite=invite,
             owner_name=owner.display_name,
-            business_name=space.name,
+            business_name=spanish_name(space.name),
             sign_in_origin=origin,
         )
     except Exception as error:

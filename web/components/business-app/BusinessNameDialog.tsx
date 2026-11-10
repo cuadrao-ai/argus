@@ -16,7 +16,7 @@ export default function BusinessNameDialog({ business, required, onSaved, onClos
 }) {
   const { t } = useTranslation();
   const id = useId();
-  const [name, setName] = useState(business.name_required ? "" : business.name);
+  const [name, setName] = useState(business.name ?? "");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const input = useRef<HTMLInputElement>(null);

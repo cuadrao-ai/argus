@@ -115,7 +115,7 @@ def test_wrong_business_id_cannot_rename_current_business(biz):
         json={"space_id": str(uuid4()), "name": "Changed"},
     )
     assert response.status_code == 404
-    assert biz.get(base + "/space/name", headers=headers).json()["name"] == "Mi negocio"
+    assert biz.get(base + "/space/name", headers=headers).json()["name"] is None
 
 
 @pytest.mark.parametrize(
@@ -188,3 +188,81 @@ def test_invite_rechecks_name_after_client_read(biz, identities):
     assert response.status_code == 409
     assert response.json()["code"] == "business_name_required"
     assert biz.get(base + "/access", headers=headers).json()["invites"] == []
+
+
+@pytest.mark.parametrize("language", ["en", "es-419"])
+def test_an_unnamed_business_has_no_name_on_the_wire(biz, language):
+    from tests.business.conftest import ALICE
+
+    headers = {"Authorization": f"Bearer {ALICE}"}
+    base = "/api/v1/business"
+    started = biz.post(base + "/space", headers=headers, json={"language": language})
+    naming = biz.get(base + "/space/name", headers=headers).json()
+    listed = biz.get(base + "/spaces", headers=headers).json()["spaces"]
+    assert started.json()["name"] is None
+    assert biz.get(base + "/space", headers=headers).json()["name"] is None
+    assert (naming["name"], naming["name_required"]) == (None, True)
+    assert [space["name"] for space in listed] == [None]
+    profile = biz.get(f"{base}/spaces/{started.json()['id']}/profile", headers=headers)
+    assert profile.json()["name"] is None
+
+
+@pytest.mark.parametrize("name", ["My business supplies", "Colmado Mi negocio"])
+def test_a_real_name_is_untouched_on_the_wire(biz, name):
+    from tests.business.conftest import ALICE
+
+    headers = {"Authorization": f"Bearer {ALICE}"}
+    base = "/api/v1/business"
+    biz.post(base + "/space", headers=headers, json={"language": "en"})
+    biz.patch(base + "/space", headers=headers, json={"name": name})
+    listed = biz.get(base + "/spaces", headers=headers).json()["spaces"]
+    assert biz.get(base + "/space", headers=headers).json()["name"] == name
+    assert [space["name"] for space in listed] == [name]
+
+
+@pytest.mark.parametrize(
+    "stored,typed,confirmed",
+    [
+        ("My business", "Mi negocio", "My business"),
+        ("Mi negocio", "My business", "Mi negocio"),
+        ("Mi negocio", "Mi negocio", "Mi negocio"),
+        ("My business", "Colmado", "Colmado"),
+        ("Colmado", "Mi negocio", "Mi negocio"),
+        ("Colmado", "Colmado", "Colmado"),
+    ],
+)
+def test_an_unnamed_business_confirms_with_the_name_its_reader_shows(
+    stored, typed, confirmed
+):
+    from argus.domain.business.space_name import typed_name
+
+    assert typed_name(stored, typed) == confirmed
+
+
+@pytest.mark.parametrize(
+    "stored,spoken",
+    [("My business", "Mi negocio"), ("Mi negocio", "Mi negocio"), ("Colmado", "Colmado")],
+)
+def test_a_spanish_message_names_an_unnamed_business_mi_negocio(stored, spoken):
+    from argus.domain.business.space_name import spanish_name
+
+    assert spanish_name(stored) == spoken
+
+
+@pytest.mark.parametrize(
+    "sent,read",
+    [
+        (None, None),
+        ("Mi negocio", None),
+        (" My business ", None),
+        ("Colmado", "Colmado"),
+        ("My business supplies", "My business supplies"),
+    ],
+)
+def test_a_profile_save_reads_a_starting_previous_name_as_unnamed(sent, read):
+    from argus.domain.business.fiscal_profile import FiscalProfileChange
+
+    change = FiscalProfileChange(
+        name="Taller Norte", previous_name=sent, tax_id=None, previous_tax_id=None
+    )
+    assert change.previous_name == read

@@ -8,7 +8,7 @@ const transferResult = z.object({
   expires_at: z.iso.datetime({ offset: true }).nullable().optional(),
 });
 export type BusinessTransferResult = z.infer<typeof transferResult>;
-const transferDetails = transferResult.extend({ business_name: z.string(), owner_name: z.string(), target_name: z.string(), role: z.enum(["owner", "target"]), grant_id: z.uuid() });
+const transferDetails = transferResult.extend({ business_name: z.string().nullable(), owner_name: z.string(), target_name: z.string(), role: z.enum(["owner", "target"]), grant_id: z.uuid() });
 export type BusinessTransferDetails = z.infer<typeof transferDetails>;
 
 export async function discoverBusinessTransfers(signal?: AbortSignal): Promise<BusinessTransferDetails[]> {

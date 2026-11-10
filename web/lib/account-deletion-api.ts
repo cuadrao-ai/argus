@@ -22,12 +22,12 @@ export async function deleteAccount() {
 /** Why the server refuses to delete this account right now. An open Business
  * the person owns is named, one entry each; any other reason is not_allowed. */
 export type AccountDeletionBlocker =
-  | { kind: "business_owner"; business_id: string; business_name: string }
+  | { kind: "business_owner"; business_id: string; business_name: string | null }
   | { kind: "not_allowed" };
 
 /** Something the person should know before deleting, which never blocks it:
  * a closed Business still inside its reopen window, purged at purge_at. */
-export type AccountDeletionNotice = { kind: "closed_business"; business_id: string; business_name: string; purge_at: string };
+export type AccountDeletionNotice = { kind: "closed_business"; business_id: string; business_name: string | null; purge_at: string };
 
 /** The server's delete rule, read before the alert offers Eliminar. off: the
  * read is switched off here (404), so the alert keeps the support-ticket path. */
@@ -36,9 +36,12 @@ export type AccountDeletionEligibility =
   | { allowed: false; blockers: AccountDeletionBlocker[]; notices: AccountDeletionNotice[] }
   | { off: true };
 
+/** The server sends null for a Business that keeps its starting name. */
+const businessName = (value: unknown): value is string | null => typeof value === "string" || value === null;
+
 function blockerFrom(raw: unknown): AccountDeletionBlocker {
   const value = raw as { kind?: unknown; business_id?: unknown; business_name?: unknown } | null;
-  if (value?.kind === "business_owner" && typeof value.business_id === "string" && typeof value.business_name === "string") {
+  if (value?.kind === "business_owner" && typeof value.business_id === "string" && businessName(value.business_name)) {
     return { kind: "business_owner", business_id: value.business_id, business_name: value.business_name };
   }
   // An unknown reason still refuses; the alert never offers what the server did not allow.
@@ -48,7 +51,7 @@ function blockerFrom(raw: unknown): AccountDeletionBlocker {
 function noticesFrom(raw: unknown): AccountDeletionNotice[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((value: { kind?: unknown; business_id?: unknown; business_name?: unknown; purge_at?: unknown } | null) =>
-    value?.kind === "closed_business" && typeof value.business_id === "string" && typeof value.business_name === "string" && typeof value.purge_at === "string"
+    value?.kind === "closed_business" && typeof value.business_id === "string" && businessName(value.business_name) && typeof value.purge_at === "string"
       ? [{ kind: "closed_business" as const, business_id: value.business_id, business_name: value.business_name, purge_at: value.purge_at }]
       : [],
   );

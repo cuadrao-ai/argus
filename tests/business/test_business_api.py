@@ -261,7 +261,7 @@ def test_every_route_waits_for_the_space_and_starting_it_is_idempotent(
     ] * 9
     first = alice.start()
     assert first.status_code == 201
-    assert first.json()["name"] == "Mi negocio"
+    assert first.json()["name"] is None
     again = alice.start({"name": "Otro nombre"})
     assert (again.status_code, again.json()) == (200, first.json())
     renamed = biz.patch(
@@ -278,7 +278,7 @@ def test_every_route_waits_for_the_space_and_starting_it_is_idempotent(
     assert alice.get("/workspace").status_code == 200
     bob = Owner(biz, BOB)
     english = bob.start({"language": "en"})
-    assert (english.status_code, english.json()["name"]) == (201, "My business")
+    assert (english.status_code, english.json()["name"]) == (201, None)
     assert english.json()["id"] != first.json()["id"]
     assert alice.get("/space").json()["name"] == "Taller Gómez"
     refused = [

@@ -14,10 +14,10 @@ export type TaxIdType = "rnc" | "cedula";
 export type TaxId = { type: TaxIdType; value: string };
 /** The razón social a person who manages the Business confirmed against the registry row for its tax id. */
 export type LegalName = { value: string; confirmed_at: string };
-export type FiscalProfile = { name: string; tax_id: TaxId | null; legal_name: LegalName | null; can_edit: boolean };
+export type FiscalProfile = { name: string | null; tax_id: TaxId | null; legal_name: LegalName | null; can_edit: boolean };
 export type FiscalProfileInput = {
   name: string;
-  previous_name: string;
+  previous_name: string | null;
   tax_id: TaxId | null;
   previous_tax_id: TaxId | null;
 };

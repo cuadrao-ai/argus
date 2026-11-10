@@ -18,6 +18,7 @@ from argus.api.routers.business_lifecycle import (
     no_store,
 )
 from argus.domain.business.lifecycle import BusinessLifecycleError
+from argus.domain.business.space_name import GivenName
 from argus.domain.business.transfer import PostgresBusinessTransfer, TransferResult
 
 
@@ -40,7 +41,7 @@ class TransferListResponse(BaseModel):
 
 
 class TransferDetailsResponse(TransferResponse):
-    business_name: str
+    business_name: GivenName
     owner_name: str
     target_name: str
     role: Literal["owner", "target"]

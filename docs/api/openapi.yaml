@@ -18271,7 +18271,9 @@ components:
           type: string
           format: uuid
         space_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         accounts:
           items:
             $ref: '#/components/schemas/AccountChoice'
@@ -18744,7 +18746,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         closed_at:
           anyOf:
           - type: string
@@ -18766,7 +18770,9 @@ components:
         id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         country:
           type: string
         currency:
@@ -18889,7 +18895,9 @@ components:
         business_id:
           type: string
         business_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
       type: object
       required:
       - kind
@@ -18900,7 +18908,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         country:
           type: string
         currency:
@@ -18942,7 +18952,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         requested_role:
           $ref: '#/components/schemas/BusinessRole'
         expires_at:
@@ -19039,7 +19051,9 @@ components:
         id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         country:
           type: string
         currency:
@@ -19483,7 +19497,9 @@ components:
         business_id:
           type: string
         business_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         purge_at:
           type: string
           format: date-time
@@ -19507,7 +19523,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         grant_id:
           type: string
         role:
@@ -23272,7 +23290,9 @@ components:
     FiscalProfile:
       properties:
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         tax_id:
           anyOf:
           - $ref: '#/components/schemas/TaxId'
@@ -23295,7 +23315,9 @@ components:
         name:
           type: string
         previous_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         tax_id:
           anyOf:
           - $ref: '#/components/schemas/TaxIdDraft'
@@ -24035,7 +24057,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         logo_url:
           anyOf:
           - type: string
@@ -28514,7 +28538,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         grant_id:
           type: string
         member_count:
@@ -31956,7 +31982,9 @@ components:
           type: string
           format: uuid
         space_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         accounts:
           items:
             $ref: '#/components/schemas/AccountChoice'
@@ -35299,7 +35327,9 @@ components:
             format: date-time
           - type: 'null'
         business_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         owner_name:
           type: string
         target_name:

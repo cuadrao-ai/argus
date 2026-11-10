@@ -98,10 +98,10 @@ const overviewTitle = (page: Mounted) => page.host.querySelector("#business-over
 const markName = (page: Mounted) => page.host.querySelector('[data-testid="business-current-name"]')?.textContent ?? null;
 
 describe("§1.8 line 100: the Business is named by its name, and Argus is not named", () => {
-  const ownSpace = (name: string): Partial<BusinessDataSource> => ({
+  const ownSpace = (name: string | null): Partial<BusinessDataSource> => ({
     spaces: async () => [{ space_id: "own", name, grant_id: "own-grant", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true }],
   });
-  const mountMark = async (name: string) => {
+  const mountMark = async (name: string | null) => {
     const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
     function Mark() {
       const workspace = useChatWorkspace();
@@ -137,8 +137,8 @@ describe("§1.8 line 100: the Business is named by its name, and Argus is not na
     await page.close();
   });
 
-  test("a saved English default uses the Spanish fallback without changing a custom name", async () => {
-    for (const [saved, displayed] of [["My business", "Mi negocio"], ["My business supplies", "My business supplies"]]) {
+  test("an unnamed Business from the server reads Mi negocio and a custom name stays as saved", async () => {
+    for (const [saved, displayed] of [[null, "Mi negocio"], ["My business supplies", "My business supplies"]] as const) {
       const page = await mountMark(saved);
       assert.equal(markName(page), displayed);
       assert.equal(page.business().chosen?.name, saved, "the saved name remains unchanged");

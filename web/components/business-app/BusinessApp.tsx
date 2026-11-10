@@ -24,6 +24,7 @@ import BusinessLifecycleControls, { BusinessClosedAccess } from "./BusinessLifec
 import BusinessLifecycleEntry from "./BusinessLifecycleEntry";
 import BusinessTransferEntry from "./BusinessTransferEntry";
 import { primaryButtonClass } from "./business-ui";
+import { formatBusinessName } from "./business-format";
 
 type BusinessAppProps = { sample?: FixtureOptions; transferId?: string; lifecycle?: { action: "close" | "transfer"; spaceId: string }; manageLifecycle?: boolean };
 type LifecycleHome = "workspace" | "closed" | "member_closed" | "unavailable";
@@ -79,7 +80,7 @@ function BusinessAppContent({ sample, transferId, lifecycle, manageLifecycle }: 
   if (lifecycle) return <BusinessLifecycleEntry key={`${scopeKey}/${lifecycle.action}/${lifecycle.spaceId}`} {...lifecycle} />;
   const currentDirectory = directory?.scope === session && directory.attempt === attempt ? directory : null;
   const lifecycleHome = discoverDirectory ? currentDirectory?.home ?? "loading" : "workspace";
-  if (currentDirectory?.home === "member_closed") return <BusinessClosedAccess returnHome businessName={currentDirectory.closed[0].name} onReturn={() => window.location.assign("/")} />;
+  if (currentDirectory?.home === "member_closed") return <BusinessClosedAccess returnHome businessName={formatBusinessName(currentDirectory.closed[0].name, t("business.overview.title", "My business"))} onReturn={() => window.location.assign("/")} />;
   if (manageLifecycle || lifecycleHome === "closed") return <main className="mx-auto max-w-xl p-6"><h1 className="font-display text-xl">{t("business.overview.title", "My business")}</h1><BusinessLifecycleControls key={scopeKey} /></main>;
   if (lifecycleHome === "loading") return <FullscreenLoading />;
   if (lifecycleHome === "unavailable") return <main className="space-y-4 p-6"><p role="alert">{t("business.lifecycle.errors.discovery")}</p><button type="button" className={primaryButtonClass} onClick={() => setAttempt(value => value + 1)}>{t("common.retry")}</button></main>;

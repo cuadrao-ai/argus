@@ -16,6 +16,7 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from argus.domain import resend_email
+from argus.domain.business.space_name import spanish_name
 from argus.settings_names import setting_value
 
 _TIME_ZONE = "America/Santo_Domingo"
@@ -105,7 +106,7 @@ def enqueue_transfer_mail(db: Connection, transfer_id: str, status: str) -> None
         (transfer_id,),
     ).fetchone()
     context = dict(
-        businessName=row[3],
+        businessName=spanish_name(row[3]),
         ownerName=row[4],
         targetName=row[5],
         occurredAt=row[6].isoformat(),

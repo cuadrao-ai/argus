@@ -37,6 +37,7 @@ from argus.domain.account_deletion.service import (
     AccountDeletionService,
 )
 from argus.domain.apple_sign_in.client import MAX_CODE_LENGTH
+from argus.domain.business.space_name import GivenName
 
 FLAG = "CUADRAO_ACCOUNT_DELETION_ENABLED"
 
@@ -198,7 +199,7 @@ _RESPONSES: dict = {  # type: ignore[type-arg]
 class BusinessOwnerBlocker(BaseModel):
     kind: Literal["business_owner"]
     business_id: str
-    business_name: str
+    business_name: GivenName
 
 
 class NotAllowedBlocker(BaseModel):
@@ -210,7 +211,7 @@ class ClosedBusinessNotice(BaseModel):
     # reopen window ends and the Business and its records are removed.
     kind: Literal["closed_business"]
     business_id: str
-    business_name: str
+    business_name: GivenName
     purge_at: datetime
 
 

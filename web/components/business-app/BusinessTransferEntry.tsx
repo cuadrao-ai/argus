@@ -13,6 +13,7 @@ import { ReferenceCode } from "@/components/status/ReferenceCode";
 import BusinessTransferDialog, { useBusinessTransferCopy, type BusinessTransferView } from "./BusinessTransferDialog";
 import type { BusinessCloseState } from "./BusinessCloseDialog";
 import { secondaryButtonClass } from "./business-ui";
+import { formatBusinessName } from "./business-format";
 
 type Entry = { kind: "loading" | "unavailable" } | { kind: "failed"; reference: string | null } | { kind: "loaded"; transfer: BusinessTransferDetails };
 
@@ -74,5 +75,5 @@ export default function BusinessTransferEntry({ transferId }: { transferId: stri
   else if (transfer.status === "declined" && transfer.role === "target") view = { kind: "declinedRecipient" };
   else if (transfer.status === "expired" || transfer.status === "declined") view = { kind: transfer.status, targetName: transfer.target_name };
   else view = { kind: transfer.status };
-  return <BusinessTransferDialog businessName={transfer.business_name} copy={copy} view={view} state={command} onDismiss={dismiss} />;
+  return <BusinessTransferDialog businessName={formatBusinessName(transfer.business_name, t("business.overview.title", "My business"))} copy={copy} view={view} state={command} onDismiss={dismiss} />;
 }
