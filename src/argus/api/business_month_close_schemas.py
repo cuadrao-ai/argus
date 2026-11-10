@@ -80,8 +80,8 @@ class CurrencyBlock(_Wire):
     itbis_cobrado_minor: int | None = _settlement()
     itbis_cobrado: str | None = _settlement()
     by_status: StatusTotals | None = _settlement()
-    # False while a foreign line waits for a rate and, while settlement is on,
-    # while a document in this currency is still pendiente.
+    # False only while settlement is on and a document in this currency is
+    # still pendiente. The net is in its own currency: no rate holds it.
     net_result_final: bool
     # The month's documents in this currency, from the same list as the
     # figures: how many the figures count, how many there are in all (the

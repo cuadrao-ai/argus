@@ -9742,9 +9742,9 @@ totals, with no balance between them: the real ITBIS position needs facts the
 server does not hold. It adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
-`pendiente` and, for a currency other than DOP, while that currency has no
-document waiting for an exchange rate; a non-DOP block with any document that
-is not sin comprobante is never final, because no rate exists yet). Each open-items list adds `overdue: {count, totals}` over every
+`pendiente`, and always while settlement is off; a block's net is in its own
+currency, so no exchange rate holds it: a rate matters only where the 606 and
+607 convert to pesos, as `dgii_foreign_currency` says). Each open-items list adds `overdue: {count, totals}` over every
 pending document in it, not only the page: pending with `due_on` before
 `today`; no due date is never overdue. Every document counts in its own
 currency's block; only the DGII files and `dgii_forms` are DOP-only.
@@ -10693,7 +10693,7 @@ accept path recorded.
   settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
-  waits only on a rate, the open items read and the settlement PATCH are refused with 404
+  is final, the open items read and the settlement PATCH are refused with 404
   `business_settlement_unavailable` before authentication (a malformed PATCH body can answer 422
   first, as it does while the switch is on), and the web shows no Por cobrar, Por pagar or mark, and shows
   ITBIS charged ("ITBIS en ventas") where ITBIS cobrado stood (see the

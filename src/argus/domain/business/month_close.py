@@ -25,7 +25,7 @@ from argus.domain.business.contracts.facts import (
     is_sin_comprobante,
     personal_mark_admits,
 )
-from argus.domain.business.dgii_validation import credit_note, declarable, reportable_607
+from argus.domain.business.dgii_validation import credit_note, reportable_607
 from argus.domain.business.document_type import (
     SALE,
     DocumentType,
@@ -364,7 +364,7 @@ def summarize(
     ``settlement`` nothing here says cobrado, pagado or pendiente: no
     receivables or payables, no status on a line, no counts by status and no
     ITBIS cobrado, and the net result (income minus expenses of the approved
-    records) waits only on a rate (Lucas, 2026-11-08)."""
+    records) is final: it is shown in its own currency, so no rate holds it."""
 
     def line(document: MonthDocument) -> dict:
         return _line(document, settlement)
@@ -441,11 +441,6 @@ def summarize(
                 "pagado": {"count": 0, "before_itbis_minor": 0},
             },
         }
-        # A foreign line has no rate yet, so its currency's net is not final.
-        pending_rate = not declarable(currency) and any(
-            document.currency == currency and not document.sin_comprobante
-            for document in chosen
-        )
         for document in chosen:
             if document.currency != currency:
                 continue
@@ -501,8 +496,10 @@ def summarize(
             "cuentas_por_pagar_minor": shown["cuentas_por_pagar"]["minor"],
             "cuentas_por_pagar": shown["cuentas_por_pagar"]["amount"],
             "by_status": status,
-            "net_result_final": (pending_count == 0 or not settlement)
-            and not pending_rate,
+            # The net is shown in its own currency, so no rate holds it: only
+            # this currency's documents still to mark, while settlement is on.
+            # A rate matters only where the 606 and 607 convert to pesos.
+            "net_result_final": pending_count == 0 or not settlement,
             "documents_counted": sum(in_figures(document) for document in mine),
             "documents_total": len(mine) + waiting.get(currency, 0),
             "documents_in_bandeja": waiting.get(currency, 0),
