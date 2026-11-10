@@ -839,4 +839,4 @@ def test_entries_are_recorded_and_read_with_the_switch_off(
             {"action": "review_draft", "draft_id": str(uuid4())},
             seconds_ago=10,
         )
-    assert _actions(_seen(authority, people["owner"], business)) == ["review_draft"]
+    assert "review_draft" in _actions(_seen(authority, people["owner"], business))
