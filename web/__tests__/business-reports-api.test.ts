@@ -111,6 +111,18 @@ describe("Business report transport", () => {
     const error = await downloadRecordsExport(scope, report, { mode: "dgii", format: "xlsx" }).catch((error) => error);
     expect([error.code, error.requestId]).toEqual(["business_report_too_large", "synthetic-request"]);
   });
+  test("downloads the UTF-8 server filename and sends the app language", async () => {
+    const calls: Call[] = [];
+    const name = "Ferretería Peña - Compras 2026-10 - DGII - 2026-11-11 1015.xlsx";
+    globalThis.fetch = (async (path, options) => {
+      calls.push({ path: String(path), options: options ?? {} });
+      return new Response("xlsx", { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="Ferreteria Pena.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}` } });
+    }) as typeof fetch;
+    const report = reportRequestSchema.parse({});
+    const file = await downloadRecordsExport(scope, report, { mode: "dgii", format: "xlsx" });
+    expect(file.filename).toBe(name);
+    expect(new Headers(calls[0].options.headers).get("Accept-Language")).toMatch(/^(es-419|en)$/);
+  });
   test("private view CRUD preserves preset, expected version and replay key, including an empty DELETE", async () => {
     const recipe = reportRequestSchema.parse({ filters: { period: { kind: "this_month", from_date: null, to_date: null } } });
     if (recipe.schema_version !== 1) throw new Error("Expected v1 recipe");
