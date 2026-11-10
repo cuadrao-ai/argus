@@ -120,10 +120,14 @@ def test_upload_sends_received_then_read_after_each_commits(
     seen: dict[str, str | None] = {}
 
     def committed(body: dict[str, Any]) -> None:
-        [connection] = documents_service().hub.connections.list(
+        connections = documents_service().hub.connections.list(
             user_id=alice.person, scope=alice.scope().owner
         )
-        draft = store.draft(user_id=alice.person, connection_id=connection.id)
+        draft = (
+            store.draft(user_id=alice.person, connection_id=connections[0].id)
+            if connections
+            else None
+        )
         seen[body["event"]] = draft.status if draft else None
 
     sent.on_post(committed)
@@ -167,7 +171,9 @@ def test_the_same_bytes_again_are_not_received_twice(
     assert alice.upload().status_code == 200
     assert alice.upload().status_code == 200
 
+    # The second upload replays the saved read: nothing reached the model.
     assert len(_events(sent, "business_document_received")) == 1
+    assert len(_events(sent, "business_document_read")) == 1
 
 
 def test_a_read_with_recorded_usage_reports_its_exact_cost(
@@ -175,7 +181,7 @@ def test_a_read_with_recorded_usage_reports_its_exact_cost(
     sent: Sent,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    receipts = [_receipt(0.000123456), _receipt(0.0001, prompt=800, completion=100)]
+    receipts = [_receipt(0.0000581), _receipt(0.0004434, prompt=800, completion=100)]
     monkeypatch.setattr(documents_service(), "extractor", MeteredStub(receipts))
 
     assert alice.upload().status_code == 200
@@ -194,8 +200,9 @@ def test_a_read_with_recorded_usage_reports_its_exact_cost(
         2000,
         400,
     )
-    # 0.000123456 + 0.0001 = 0.000223456 USD, 223.456 micro-USD, to the nearest.
-    assert read["cost_micro_usd"] == 223
+    # 0.0000581 + 0.0004434 = 0.0005015 USD, 501.5 micro-USD, half to even.
+    # Summed in floats it is 0.00050149999... and would round to 501.
+    assert read["cost_micro_usd"] == 502
 
 
 def test_a_read_with_an_unpriced_call_sends_no_cost() -> None:
@@ -310,6 +317,54 @@ def test_a_listo_draft_sends_no_review_event(
     _read_through(alice, sent, bridge, monkeypatch)
 
     assert _events(sent, "business_document_needs_review") == []
+
+
+def test_a_blank_token_reads_nothing_for_an_approval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Off means no database read either: the approval's facts are read only
+    when there is a project to send them to."""
+
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "")
+    monkeypatch.setenv("POSTHOG_REGION", "us")
+    monkeypatch.setattr(envelope, "_SENDER", Inline())
+    reads: list[object] = []
+    monkeypatch.setattr(
+        business_analytics, "read_approval", lambda *args: reads.append(args)
+    )
+    context = SimpleNamespace(actor=SimpleNamespace(space_id=uuid4(), actor_id=uuid4()))
+
+    business_analytics.record_approved(
+        None, context, uuid4(), 1, datetime.now(timezone.utc)
+    )
+
+    assert reads == []
+
+
+def test_a_saved_read_replayed_by_the_worker_reports_no_read(
+    alice: Owner,  # noqa: F811
+    sent: Sent,
+) -> None:
+    """Reading a receipt whose batch is already saved replays it: no provider
+    call, so no read to report."""
+
+    service = documents_service()
+    receipt = alice.upload().json()["id"]
+    assert [body["event"] for body in sent] == [
+        "business_document_received",
+        "business_document_read",
+    ]
+    sent.clear()
+    service.queue(
+        user_id=alice.person,
+        connection_id=receipt,
+        consent=True,
+        scope=alice.scope().owner,
+    )
+    PreparationJobs(service).start(user_id=alice.person, connection_id=receipt)
+    asyncio.run(read_receipt(service, alice.person, receipt))
+
+    assert _events(sent, "business_document_read") == []
 
 
 def test_a_blank_token_sends_nothing_and_raises_nothing(

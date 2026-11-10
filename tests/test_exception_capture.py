@@ -43,8 +43,8 @@ def _app() -> FastAPI:
 
     @app.post("/business/receipts/{receipt_id}")
     def explode(receipt_id: str) -> None:
-        rnc = "101010101"
-        raise ValueError(f"RNC {rnc} for receipt {receipt_id}")
+        rnc, email, amount = "101010101", "jose@example.com", "RD$3,450.00"
+        raise ValueError(f"RNC {rnc} {email} {amount} for receipt {receipt_id}")
 
     return app
 
@@ -70,7 +70,15 @@ def test_an_unhandled_api_error_sends_its_class_route_and_frames_only(
     assert entry["stacktrace"]["frames"][-1]["function"] == "explode"
     assert body["distinct_id"] == envelope.SERVER_DISTINCT_ID
     sent = json.dumps(body)
-    for value in ("101010101", "RNC", "7f0d", "note"):
+    for value in (
+        "101010101",
+        "jose@example.com",
+        "3,450",
+        "3450",
+        "RNC",
+        "7f0d",
+        "note",
+    ):
         assert value not in sent
 
 
@@ -120,7 +128,7 @@ def test_an_unhandled_read_error_sends_the_job_and_the_hashed_owner(
         )
 
         async def resume(self, **_: object) -> None:
-            raise RuntimeError("RNC 101010101")
+            raise RuntimeError("RNC 101010101 jose@example.com RD$3,450.00")
 
     outcome = asyncio.run(jobs.run_attempt(Service(), "connection-1", "attempt-1"))
 
@@ -129,4 +137,5 @@ def test_an_unhandled_read_error_sends_the_job_and_the_hashed_owner(
     assert body["properties"]["job"] == "document_preparation"
     assert body["distinct_id"] == actor_hash_for_user("owner-raw-id")
     sent = json.dumps(body)
-    assert "101010101" not in sent and "owner-raw-id" not in sent
+    for value in ("101010101", "jose@example.com", "3,450", "3450", "owner-raw-id"):
+        assert value not in sent
