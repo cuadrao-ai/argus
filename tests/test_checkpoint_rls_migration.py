@@ -4,7 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MIGRATION_PATH = (
-    REPO_ROOT / "supabase/migrations/20260608041032_secure_checkpoint_rls.sql"
+    REPO_ROOT / "supabase/migrations_archive/20260608041032_secure_checkpoint_rls.sql"
 )
 CHECKPOINT_TABLES = (
     "checkpoint_blobs",

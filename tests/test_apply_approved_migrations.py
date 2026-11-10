@@ -375,6 +375,27 @@ def test_a_file_with_nothing_to_run_cannot_be_recorded() -> None:
         applier.plan_steps(candidates, APPLIED, ["20260925120000"])
 
 
+def test_a_baseline_is_recorded_without_running_and_only_when_approved() -> None:
+    first, second = "20260925120000", "20260928200000"
+    steps = applier.plan_steps(CANDIDATES, APPLIED, [first, second], record_only=[first])
+    connection = _Connection()
+    applier.apply_steps(connection, steps)
+    assert connection.log == [
+        "begin", "ledger", "commit", "begin", "timeout=5s", "create table t (id int)", "ledger", "commit",
+    ]  # fmt: skip
+    with pytest.raises(applier.ApplyError, match="must be in the approved list"):
+        applier.plan_steps(CANDIDATES, APPLIED, [first], record_only=[second])
+
+
+def test_recording_without_running_needs_every_archived_version_and_its_own_digest() -> None:
+    applier.check_history_recorded(APPLIED, APPLIED[:1])
+    for archived in ([*APPLIED, "20260505000001"], []):
+        with pytest.raises(applier.ApplyError, match="every archived version"):
+            applier.check_history_recorded(APPLIED, archived)
+    assert applier.versions_digest(VERSIONS) == applier.versions_digest(VERSIONS, record_only=[])
+    assert applier.versions_digest(VERSIONS) != applier.versions_digest(VERSIONS, record_only=VERSIONS[:1])
+
+
 def test_each_committed_transaction_is_reported() -> None:
     candidates = [*CANDIDATES[:3], _migration("20260925120000", "mid", MID_COMMIT)]
     steps = applier.plan_steps(

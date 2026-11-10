@@ -6,7 +6,7 @@ from scripts.ops.production_migration_gate import classify_migration
 from tests.test_decision_attachment_migration import ROOT, _statements
 
 MIGRATION = (
-    ROOT / "supabase/migrations/20260909225701_retire_research_rail_ledger_status.sql"
+    ROOT / "supabase/migrations_archive/20260909225701_retire_research_rail_ledger_status.sql"
 )
 
 

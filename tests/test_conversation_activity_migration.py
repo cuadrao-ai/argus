@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (
     ROOT
-    / "supabase/migrations/"
+    / "supabase/migrations_archive/"
     / "20260801000000_add_conversation_activity_read_states.sql"
 )
 

@@ -357,7 +357,7 @@ def test_ineligible_auth_identity_has_no_profile_write(apple_profile, pool, caus
 def test_migration_preserves_historical_rows_and_named_new_rows():
     schema = f"apple_name_migration_{uuid4().hex}"
     migration = Path(
-        "supabase/migrations/20261005230000_apple_name_initialization.sql"
+        "supabase/migrations_archive/20261005230000_apple_name_initialization.sql"
     ).read_text()
     with psycopg.connect(DSN) as connection, connection.transaction(force_rollback=True):
         connection.execute(f"create schema {schema}")

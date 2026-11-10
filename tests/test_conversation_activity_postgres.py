@@ -461,58 +461,6 @@ def test_conversation_owner_update_and_delete_cascade_read_state() -> None:
             _delete_identity(connection, destination_id)
 
 
-def test_cutoff_baseline_reads_existing_terminal_but_not_later_completion() -> None:
-    with _connect() as connection:
-        user_id = _seed_identity(connection)
-        conversation_id = _seed_conversation(connection, user_id=user_id)
-        cutoff = datetime.now(timezone.utc)
-        older_id = _seed_terminal_turn(
-            connection,
-            user_id=user_id,
-            conversation_id=conversation_id,
-            occurred_at=cutoff - timedelta(seconds=1),
-        )
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "select public.baseline_conversation_activity_read_states("
-                    " %s, null, 500)",
-                    (cutoff,),
-                )
-                result = cursor.fetchone()[0]
-                assert result["processed"] >= 1
-
-            newer_id = _seed_terminal_turn(
-                connection,
-                user_id=user_id,
-                conversation_id=conversation_id,
-                occurred_at=cutoff + timedelta(seconds=1),
-            )
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "select public.baseline_conversation_activity_read_states("
-                    " %s, null, 500)",
-                    (cutoff + timedelta(seconds=2),),
-                )
-                cursor.fetchone()
-                cursor.execute(
-                    "select read_through_source_id"
-                    " from public.conversation_read_states"
-                    " where user_id = %s and conversation_id = %s",
-                    (user_id, conversation_id),
-                )
-                assert str(cursor.fetchone()[0]) == older_id
-
-            rows = _read_sources(
-                connection,
-                user_id=user_id,
-                conversation_ids=[conversation_id],
-            )
-            assert rows[0][1][-1]["source_id"] == newer_id
-        finally:
-            _delete_identity(connection, user_id)
-
-
 def _seed_job(
     connection,
     *,

@@ -992,11 +992,17 @@ def _is_supabase_tag_character(character: str) -> bool:
 
 
 def _ends_begin_atomic(source: str, index: int) -> bool:
-    if source[index] not in {"c", "C"}:
+    """Does `begin <whitespace> atomic` end at index? Scans back, so a long file stays linear."""
+
+    if source[max(0, index - 5) : index + 1].lower() != "atomic":
         return False
-    prefix = source[: index + 1]
-    match = re.search(r"(?i)(?<![\w$])begin\s+atomic$", prefix)
-    return match is not None
+    begin_end = index - 6
+    while begin_end >= 0 and source[begin_end].isspace():
+        begin_end -= 1
+    if begin_end == index - 6 or source[max(0, begin_end - 4) : begin_end + 1].lower() != "begin":
+        return False
+    before = begin_end - 5
+    return before < 0 or not (source[before].isalnum() or source[before] in "_$")
 
 
 def _top_level_statements(source: str) -> list[str]:

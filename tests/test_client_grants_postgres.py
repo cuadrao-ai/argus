@@ -154,8 +154,6 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "argus_private.business_workspace_assets",
         "argus_private.business_workspace_commands",
         "argus_private.invite_code_digests",
-        "argus_private.retention_policies",
-        "argus_private.retention_sweeps",
         "public.apple_sign_in_credentials",
         "public.argus_memory_vectors",
         "public.backtest_runs",

@@ -189,7 +189,7 @@ def test_the_contract_declares_it_on_user_but_not_on_guest_user() -> None:
 
 def test_the_migration_bounds_it_and_keeps_it_off_the_guest_surface() -> None:
     migration = (
-        ROOT / "supabase" / "migrations" / "20260809140000_add_preferred_name.sql"
+        ROOT / "supabase" / "migrations_archive" / "20260809140000_add_preferred_name.sql"
     ).read_text(encoding="utf-8")
 
     assert "add column if not exists preferred_name text" in migration

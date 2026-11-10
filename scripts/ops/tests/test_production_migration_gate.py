@@ -384,10 +384,11 @@ def test_historical_ledger_change_breaks_the_reconciled_production_fingerprint()
 
 
 def _history_through_reconciliation() -> list[CandidateMigration]:
+    # The reconciled history now lives in the archive the baseline replaced (#1890).
     root = Path(__file__).resolve().parents[3]
     return [
-        CandidateMigration.from_source(path.relative_to(root).as_posix(), path.read_text())
-        for path in sorted((root / "supabase" / "migrations").glob("*.sql"))
+        CandidateMigration.from_source(f"supabase/migrations/{path.name}", path.read_text())
+        for path in sorted((root / "supabase" / "migrations_archive").glob("*.sql"))
         if path.name[:14] <= migration_gate._LEDGER_RECONCILIATION_THROUGH
     ]
 
@@ -628,6 +629,20 @@ begin atomic
 end""",
         "select 3",
     )
+
+
+@pytest.mark.parametrize(
+    ("opening", "atomic"),
+    [("begin atomic", True), ("BEGIN\n\t  Atomic", True), ("xbegin atomic", False),
+     ("_begin atomic", False), ("beginatomic", False)],
+)  # fmt: skip
+def test_only_a_whole_begin_atomic_opens_an_atomic_body(opening: str, atomic: bool) -> None:
+    candidate = CandidateMigration.from_source(
+        "supabase/migrations/20260812000000_add_release_marker.sql",
+        f"{opening}\n  select 1;\n  select 2;\nend;\nselect 3;",
+    )
+
+    assert len(candidate.statements) == (2 if atomic else 4)
 
 
 def test_candidate_statement_history_accepts_unicode_dollar_tags() -> None:

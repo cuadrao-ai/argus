@@ -21,7 +21,7 @@ from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (
-    ROOT / "supabase" / "migrations" / "20260911120000_add_profile_home_country.sql"
+    ROOT / "supabase" / "migrations_archive" / "20260911120000_add_profile_home_country.sql"
 )
 SETTINGS = ("country", "currency_override", "currency")
 

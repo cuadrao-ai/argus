@@ -37,7 +37,7 @@ pytestmark = pytest.mark.skipif(
 )
 MIGRATION = (
     Path(__file__).resolve().parents[2]
-    / "supabase/migrations/20261001190000_goal_residual_allocations.sql"
+    / "supabase/migrations_archive/20261001190000_goal_residual_allocations.sql"
 )
 
 

@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_avatar_theme_migration_defaults_to_a_fixed_token_and_restricts_guest_writes():
-    migrations = sorted((ROOT / "supabase" / "migrations").glob("*avatar_theme*.sql"))
+    migrations = sorted((ROOT / "supabase" / "migrations_archive").glob("*avatar_theme*.sql"))
 
     assert len(migrations) == 1
     migration = migrations[0].read_text(encoding="utf-8")
