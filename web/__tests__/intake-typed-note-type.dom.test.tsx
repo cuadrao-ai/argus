@@ -1,0 +1,81 @@
+import assert from "node:assert/strict";
+import { afterAll, afterEach, beforeAll, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
+
+// A typed note prints no RNC, so the server's rule (resolved_document_type with no issuer) makes it a Compra.
+// "Automático" would turn every typed sale into a purchase: a typed note names its own type before it is saved.
+beforeAll(() => {
+  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+afterEach(async () => {
+  (await import("@/components/layout/overlayStack")).resetOverlayStack();
+  document.body.innerHTML = "";
+});
+afterAll(async () => { await GlobalRegistrator.unregister(); });
+
+async function mount() {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+  const ReceiptIntakeDialog = (await import("@/components/business-app/ReceiptIntakeDialog")).default;
+  const { ReceiptUploadQueue } = await import("@/components/business-app/receipt-upload-queue");
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const notes: { text: string; document_type?: string }[] = [];
+  const context = {
+    source: { captureNote: async (body: { text: string; document_type?: string }) => { notes.push(body); return {}; } },
+    records: { workspace: { accounts: [], currencies: [], assistant_available: false, chat_available: false, receipt_limits: { max_bytes: 1024, media_types: ["image/jpeg"] } }, overview: null, inbox: [], notes: [], notesTruncated: false, error: false },
+    bridge: null,
+    reload: () => undefined,
+  } as unknown as BusinessContextValue;
+  const queue = new ReceiptUploadQueue(async () => { throw new Error("no upload here"); }, () => undefined);
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} /></BusinessContext.Provider></I18nextProvider>);
+  });
+  const typeControl = () => document.querySelector('[data-testid="intake-document-type"]')!;
+  const segments = () => [...typeControl().querySelectorAll<HTMLElement>('[role="radio"], button')].map((item) => ({ label: item.textContent, checked: item.getAttribute("aria-checked") === "true" || item.getAttribute("aria-pressed") === "true" }));
+  const click = (selector: string) => act(async () => document.querySelector<HTMLElement>(selector)!.click());
+  const type = async (value: string) => {
+    const field = document.querySelector<HTMLTextAreaElement>("#intake-write-text")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(field, value);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  };
+  const choose = (label: string) => act(async () => [...typeControl().querySelectorAll<HTMLElement>("button")].find((item) => item.textContent === label)!.click());
+  return { act, root, notes, segments, click, type, choose, help: () => document.querySelector('[data-testid="intake-type-help"]')?.textContent ?? null, save: () => document.querySelector<HTMLButtonElement>('[data-testid="intake-write-save"]')! };
+}
+
+test("file uploads keep Automático, chosen by default, with the RNC rule beside it", async () => {
+  const page = await mount();
+  assert.deepEqual(page.segments().map((segment) => segment.label), ["Automático", "Compra", "Venta"]);
+  assert.equal(page.segments().find((segment) => segment.checked)?.label, "Automático");
+  assert.match(page.help() ?? "", /RNC/);
+  await page.act(async () => page.root.unmount());
+});
+
+test("a typed note offers only Compra and Venta, none chosen, and saves only after the person picks one", async () => {
+  const page = await mount();
+  await page.click('[data-testid="intake-write-open"]');
+  assert.deepEqual(page.segments().map((segment) => segment.label), ["Compra", "Venta"]);
+  assert.equal(page.segments().some((segment) => segment.checked), false, "no type is chosen for the person");
+  assert.doesNotMatch(document.body.textContent ?? "", /RNC/, "the RNC rule does not apply to a typed note");
+  await page.type("Vendí 3 sacos de cemento a RD$1,500");
+  assert.equal(page.save().disabled, true, "Guardar waits for a type");
+  await page.choose("Venta");
+  assert.equal(page.save().disabled, false);
+  await page.act(async () => page.save().click());
+  await page.act(async () => { await Promise.resolve(); });
+  assert.deepEqual(page.notes, [{ text: "Vendí 3 sacos de cemento a RD$1,500", document_type: "venta" }]);
+  await page.click('[data-testid="intake-write-open"]');
+  assert.equal(page.segments().some((segment) => segment.checked), false, "the next note starts unchosen again");
+  await page.act(async () => page.root.unmount());
+});

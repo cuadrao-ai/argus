@@ -82,6 +82,9 @@ for (const width of [1280, 390]) {
       const write = await newNote(page);
       const original = "  Ayer compré pintura para el taller.\nNo sé cuánto pagué.  ";
       await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill("  ");
+      // A typed note names its own type: Guardar waits for Compra or Venta.
+      await expect(write.getByTestId("intake-write-save")).toBeDisabled();
+      await page.getByTestId("intake-document-type").getByRole("radio", { name: "Compra", exact: true }).click();
       await write.getByTestId("intake-write-save").click();
       await expect(write.getByRole("alert")).toContainText("Escribe qué pasó antes de guardar.");
       expect(state.captures).toHaveLength(0);
@@ -89,7 +92,7 @@ for (const width of [1280, 390]) {
       const starts = state.starts;
       await write.getByTestId("intake-write-save").click();
       await expect(page.getByTestId("receipt-typed-row")).toContainText("Guardado en la Bandeja");
-      expect(state.captures[0].input).toMatchObject({ text: original.trim() });
+      expect(state.captures[0].input).toMatchObject({ text: original.trim(), document_type: "recibo" });
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await page.getByRole("button", { name: /Bandeja/ }).first().click();

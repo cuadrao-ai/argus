@@ -143,6 +143,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
 
   const [documentType, setDocumentType] = useState<DocumentType | null>(null);
   const [writing, setWriting] = useState(false);
+  // A typed note prints no RNC, so Automático would always read it as a purchase: the person names its type.
+  const [writeType, setWriteType] = useState<DocumentType | null>(null);
+  const shownType = writing ? writeType : documentType;
   const [draftText, setDraftText] = useState("");
   const [writeEmpty, setWriteEmpty] = useState(false);
   const [typed, setTyped] = useState<readonly TypedEntry[]>([]);
@@ -174,9 +177,11 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       writeRef.current?.focus();
       return;
     }
-    const entry: TypedEntry = { key: randomId(), text: draftText.trim(), documentType, status: "saving", problem: null };
+    if (!writeType) return;
+    const entry: TypedEntry = { key: randomId(), text: draftText.trim(), documentType: writeType, status: "saving", problem: null };
     setTyped((current) => [entry, ...current]);
     setDraftText("");
+    setWriteType(null);
     setWriting(false);
     void sendTyped(entry);
   };
@@ -306,7 +311,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 {t("business.intake.write_back", "Upload files")}
               </button>
-              <button type="button" data-testid="intake-write-save" className={`${pillButtonClass} bg-[#2f5a49] text-[#FFFEFA] dark:bg-[#8fcbb0] dark:text-[#172b26]`} onClick={saveWriting}>
+              <button type="button" data-testid="intake-write-save" disabled={!writeType} className={`${pillButtonClass} bg-[#2f5a49] text-[#FFFEFA] disabled:opacity-40 dark:bg-[#8fcbb0] dark:text-[#172b26]`} onClick={saveWriting}>
                 {t("business.intake.write_save", "Save")}
               </button>
             </div>
@@ -347,7 +352,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
         {NOTES_ENTRY_ENABLED && many && !writing ? (
           <p className={`-mt-2 text-center text-[13px] ${MUTED}`}>
             {t("business.intake.no_paper", "No paper?")}
-            <button type="button" data-testid="intake-write-open" className={`${smallAction} ml-1`} onClick={() => setWriting(true)}>
+            <button type="button" data-testid="intake-write-open" className={`${smallAction} ml-1`} onClick={() => { setWriteType(null); setWriting(true); }}>
               <PenLine className="h-4 w-4" aria-hidden="true" />
               {t("business.intake.write", "Write it")}
             </button>
@@ -392,21 +397,23 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
               testId="intake-document-type"
               label={t("business.intake.saved_as", "Saved as")}
               segments={[
-                { key: "auto" as const, label: t("business.intake.type_auto", "Automatic") },
+                ...(writing ? [] : [{ key: "auto" as const, label: t("business.intake.type_auto", "Automatic") }]),
                 { key: "recibo" as const, label: t("business.intake.type_recibo", "Purchase") },
                 { key: "venta" as const, label: t("business.intake.type_venta", "Sale") },
               ]}
-              value={documentType ?? "auto"}
-              onChange={(key) => setDocumentType(key === "auto" ? null : key)}
+              value={writing ? writeType : documentType ?? "auto"}
+              onChange={(key) => (writing ? setWriteType(key === "auto" ? null : key) : setDocumentType(key === "auto" ? null : key))}
             />
           </div>
-          <p className={`mt-1 text-right text-[13px] ${MUTED}`} data-testid="intake-type-help">
-            {documentType === "venta"
-              ? t("business.intake.type_venta_help", "An invoice the business issued.")
-              : documentType === "recibo"
-                ? t("business.intake.type_recibo_help", "Something the business paid for.")
-                : t("business.intake.type_auto_help", "With your business's RNC it is a sale; otherwise a purchase.")}
-          </p>
+          {shownType || !writing ? (
+            <p className={`mt-1 text-right text-[13px] ${MUTED}`} data-testid="intake-type-help">
+              {shownType === "venta"
+                ? t("business.intake.type_venta_help", "An invoice the business issued.")
+                : shownType === "recibo"
+                  ? t("business.intake.type_recibo_help", "Something the business paid for.")
+                  : t("business.intake.type_auto_help", "With your business's RNC it is a sale; otherwise a purchase.")}
+            </p>
+          ) : null}
         </div>
 
         {failure === "server" || failure === "unavailable" ? (
