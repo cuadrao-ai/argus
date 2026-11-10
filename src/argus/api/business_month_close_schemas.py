@@ -192,6 +192,10 @@ class MonthClose(_Wire):
     reasons: list[CloseReason | UnreviewedReason]
     # The first month with a document this close would show; null while none.
     earliest_month: str | None
+    # The Business holds documents in more than one currency in some month
+    # (approved ones in any month, or this month's Bandeja drafts), so Inicio
+    # keeps its currency choice in view even in a month of one currency.
+    more_than_one_currency: bool = False
     # The methods a cobrado or pagado mark may carry; absent while settlement is off.
     payment_methods: list[str] | None = _settlement()
     dgii_forms: DgiiForms

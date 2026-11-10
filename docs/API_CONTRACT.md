@@ -9735,7 +9735,10 @@ the Bandeja still holds in the month), and how many the Bandeja still holds. A
 Bandeja draft counts in the currency its read or review named; one that names
 none yet (a note nobody reviewed, a read in flight) counts in the Business's own. A currency only the Bandeja holds gets its
 own block, with zero figures. `unreviewed_movements_count` is the sum of the
-blocks' `documents_in_bandeja`. Each currency block carries `itbis_charged`
+blocks' `documents_in_bandeja`. `more_than_one_currency` (bool) says the
+Business holds documents in more than one currency in some month (approved ones
+it admits in any month, or this month's Bandeja drafts), so Inicio keeps the
+currency choice in view in a month of one currency. Each currency block carries `itbis_charged`
 (ITBIS on the month's approved sales)
 and `itbis_paid` (ITBIS on its approved purchases, the 606 lines) as two plain
 totals, with no balance between them: the real ITBIS position needs facts the

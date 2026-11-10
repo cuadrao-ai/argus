@@ -27506,6 +27506,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        more_than_one_currency:
+          type: boolean
+          default: false
         payment_methods:
           anyOf:
           - items:

@@ -512,12 +512,16 @@ def summarize(
             }
         blocks.append(block)
     in_scope = [document.occurred_on for document in documents if in_close(document)]
+    # Whether the Business holds documents in more than one currency in any
+    # month, so the currency choice stays in view in a month of one.
+    held = {document.currency for document in documents if in_close(document)}
     summary = {
         "from": start.isoformat(),
         "to": end.isoformat(),
         "closed": not reasons,
         "reasons": reasons,
         "earliest_month": min(in_scope).strftime("%Y-%m") if in_scope else None,
+        "more_than_one_currency": len(held | set(waiting)) > 1,
         "currencies": blocks,
         "missing_rnc": missing_rnc,
         "ncf_malformed": ncf_malformed,

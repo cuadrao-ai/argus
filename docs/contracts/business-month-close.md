@@ -65,6 +65,7 @@ The error body is the usual problem document. `code` is the field above.
     {"code": "missing_ncf", "activity_id": "…", "document_kind": "receipt"}
   ],
   "earliest_month": "2026-07",
+  "more_than_one_currency": false,
   "payment_methods": ["efectivo", "transferencia", "tarjeta", "credito", "otro"],
   "dgii_forms": {"606": "needs_review", "607": "needs_review"},
   "currencies": [
@@ -131,6 +132,7 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `itbis_cobrado_minor` | The part of `itbis_charged_minor` that belongs to sales already marked `cobrado`. A credit note marked cobrado subtracts. |
 | `net_result_final` | True when no document of this currency in the month is still `pendiente` (only while settlement is on). The net is in its own currency, so a rate never holds it; a rate matters only where the 606 and 607 convert to pesos (`dgii_foreign_currency`). A pending document in another currency does not hold it back. |
 | `net_result_minor` | Income before ITBIS minus expenses before ITBIS. Negative when expenses are larger. |
+| `more_than_one_currency` | The Business holds documents in more than one currency in some month: approved ones the close admits, in any month, or this month's Bandeja drafts. Inicio shows its currency choice whenever this is true, listing only this month's currencies. |
 | `documents_counted` | How many of this currency's documents in the month the figures above count, from the same list (`month_close.in_figures`): the 606 and 607 lines and the sin comprobante documents. |
 | `documents_total` | How many documents of this currency the month holds: the approved ones the close admits (not those marked personal and left out) plus `documents_in_bandeja`. Inicio says "Incluye {documents_counted} de {documents_total} documentos". |
 | `documents_in_bandeja` | The month's drafts in this currency the Bandeja still holds, dated as `unreviewed_movements_count` dates them. A draft counts in the currency its read or review named; one that names none yet (a note nobody reviewed, a read in flight) counts in the Business's own. A currency only the Bandeja holds gets its own block, with zero figures. The blocks' sum is `unreviewed_movements_count`. |

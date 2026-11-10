@@ -70,6 +70,7 @@ def test_each_read_answers_its_empty_shape_once_the_business_exists(alice: Owner
             "closed": True,
             "reasons": [],
             "earliest_month": None,
+            "more_than_one_currency": False,
             "payment_methods": [
                 "efectivo",
                 "transferencia",
