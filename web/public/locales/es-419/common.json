@@ -2363,7 +2363,6 @@
         "confirm_on_save": "Al guardar, confirmas que este RNC corresponde a {{business}}.",
         "label": "Razón social",
         "source": "Según la DGII",
-        "source_missing": "No aparece en la lista de la DGII.",
         "source_status": "Según la DGII: {{status}}",
         "tag_inactive": "No activo",
         "tag_pending": "Por confirmar",

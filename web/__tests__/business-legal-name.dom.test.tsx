@@ -110,16 +110,17 @@ test("Verificado comes from the stored legal name for the current number, with n
   }finally{await page.close();}
 });
 
-test("Sin verificar shows a dash for the value, the registry line, and saving stores the number only",async()=>{
+test("Sin verificar shows the tag and a dash only, with no source line, and saving stores the number only",async()=>{
   const calls=server(empty,value=>Response.json(answer(value,"sin_verificar")));
   const page=await mount();
   try{
     await page.type("131000031");
     const block=page.block()!;
     expect(block.dataset.legalNameStatus).toBe("unverified");
-    expect(block.textContent).toContain("Sin verificar");expect(block.textContent).toContain("No aparece en la lista de la DGII.");
+    expect(block.textContent).toContain("Sin verificar");
     expect(block.querySelector('[data-testid="legal-name-value"]')).toBeNull();
-    expect([...block.querySelectorAll("p")].map(item=>item.textContent)).toContain("-");
+    expect([...block.querySelectorAll("p")].map(item=>item.textContent)).toEqual(["-"]);
+    expect(block.textContent).not.toContain("DGII");
     expect(document.querySelector('[data-testid="legal-name-confirm"]')).toBeNull();
     await page.save();
     expect(writes(calls)).toEqual(["PATCH /business/fiscal-profile"]);

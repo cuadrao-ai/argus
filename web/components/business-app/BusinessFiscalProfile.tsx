@@ -317,10 +317,11 @@ function LegalNameBlock({ state, onRetry }: { state: LegalNameState; onRetry: ()
     : state.status === "inactive"
       ? <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.inactive}`}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{t("business.dgii.legal_name.tag_inactive")}</span>
       : <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.neutral}`}>{t(state.status === "pending" ? "business.dgii.legal_name.tag_pending" : "business.dgii.legal_name.tag_unverified")}</span>;
-  const source = state.status === "unverified" ? t("business.dgii.legal_name.source_missing") : state.status === "inactive" ? t("business.dgii.legal_name.source_status", { status: state.registryStatus }) : t("business.dgii.legal_name.source");
+  // Sin verificar names no source: the registry copy is loaded by hand and can be stale.
+  const source = state.status === "unverified" ? null : state.status === "inactive" ? t("business.dgii.legal_name.source_status", { status: state.registryStatus }) : t("business.dgii.legal_name.source");
   return <div data-testid="legal-name" data-legal-name-status={state.status} aria-live="polite" className="min-w-0 space-y-1">
     <div className="flex flex-wrap items-center gap-2">{label}{tag}</div>
     {state.status === "unverified" ? <p className="text-[16px] text-[#56635e] dark:text-white/70">-</p> : <p data-testid="legal-name-value" className="text-[16px] [overflow-wrap:anywhere]">{state.name}</p>}
-    <p className="text-[14px] text-[#56635e] dark:text-white/70">{source}</p>
+    {source ? <p className="text-[14px] text-[#56635e] dark:text-white/70">{source}</p> : null}
   </div>;
 }

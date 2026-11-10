@@ -2363,7 +2363,6 @@
         "confirm_on_save": "When you save, you confirm that this RNC belongs to {{business}}.",
         "label": "Legal name",
         "source": "According to the DGII",
-        "source_missing": "It is not on the DGII list.",
         "source_status": "According to the DGII: {{status}}",
         "tag_inactive": "Not active",
         "tag_pending": "To confirm",
