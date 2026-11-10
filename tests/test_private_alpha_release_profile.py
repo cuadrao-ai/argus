@@ -283,6 +283,7 @@ def test_settings_tool_emits_the_production_pairs_the_audit_reads() -> None:
     assert worker_pairs.stdout.splitlines() == [
         "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS=210",
         "CUADRAO_DOCUMENT_JOBS_MAX_READS=3",
+        "POSTHOG_REGION=us",
     ]
     assert _settings_tool("print", "production", "workflow").returncode != 0
 
@@ -367,6 +368,8 @@ def test_render_blueprint_production_worker_matches_the_manifest() -> None:
     services = {service["name"]: service for service in render_blueprint["services"]}
     expected = {
         name: {"key": name, "value": rule["value"]}
+        if "value" in rule
+        else {"key": name, "sync": False}
         for name, rule in _production("documents_worker").items()
     }
 
