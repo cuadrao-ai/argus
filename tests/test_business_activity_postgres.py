@@ -22,7 +22,10 @@ from psycopg_pool import ConnectionPool
 from tests import test_financial_accounts_postgres as shared
 from tests.test_business_spaces_migration_postgres import owned_space
 
-pytestmark = pytest.mark.skipif(not shared.DSN, reason="Disposable database required")
+pytestmark = [
+    pytest.mark.skipif(not shared.DSN, reason="Disposable database required"),
+    pytest.mark.usefixtures("activity_on"),
+]
 
 EMAIL = "invitee@example.test"
 SECRET = "raw-input-that-never-leaves-the-ledger"
@@ -822,3 +825,18 @@ def test_an_actor_id_spells_no_account_id(people, business, authority):
     for person in people.values():
         for spelling in (person, person.replace("-", ""), person.upper()):
             assert spelling.lower() not in text, spelling
+
+
+def test_entries_are_recorded_and_read_with_the_switch_off(
+    people, business, authority, monkeypatch
+):
+    monkeypatch.setenv("CUADRAO_BUSINESS_ACTIVITY_ENABLED", "false")
+    with Connection.connect(shared.DSN) as db:
+        receipt(
+            db,
+            business,
+            people["editor"],
+            {"action": "review_draft", "draft_id": str(uuid4())},
+            seconds_ago=10,
+        )
+    assert _actions(_seen(authority, people["owner"], business)) == ["review_draft"]

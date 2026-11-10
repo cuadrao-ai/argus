@@ -351,6 +351,7 @@ def test_a_lost_acknowledgement_reuses_the_one_row(
         )
 
 
+@pytest.mark.usefixtures("activity_on")
 def test_an_unpaid_purchase_reads_everywhere_and_forma_de_pago_stays_blank(world) -> None:  # noqa: ANN001
     _fiscal_profile(world)
     draft, recorded = _recorded(world, "expense", "B0100000021")
@@ -469,6 +470,7 @@ def test_month_close_lists_no_form_for_a_purchase_the_606_leaves_out(world) -> N
     assert month["missing_payment_form"] == []
 
 
+@pytest.mark.usefixtures("activity_on")
 def test_an_unpaid_sale_reads_everywhere_and_is_collected(world) -> None:  # noqa: ANN001
     _fiscal_profile(world)
     _, recorded = _recorded(

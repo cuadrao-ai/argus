@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import { CuadraoMark } from "@/components/CuadraoMark";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
-import { invoicingShown, useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
+import { activityShown, invoicingShown, useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
 import { inboxCount as countInbox, porIgualarCount } from "./inbox-count";
 import { useIgualarEnabled } from "./transacciones/transacciones-gate";
 import { recordList } from "./record-tray";
@@ -16,7 +16,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   const { t } = useTranslation();
   const [command, setCommand] = useState(false);
   useEffect(() => { setCommand(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)); }, []);
-  const { panel, openPanel, records, invoicing } = useBusiness();
+  const { panel, openPanel, records, invoicing, activity } = useBusiness();
   const inboxCount = countInbox(records);
   // Only beside the screen that lists them: with igualar off here, Transacciones shows no Por igualar.
   const igualarCount = useIgualarEnabled() ? porIgualarCount(records) : null;
@@ -77,11 +77,11 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         active={isActive("invoicing")} collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "invoicing" })} iconSize={20} variant="business"
       /> : null}
-      <SidebarNavButton
+      {activityShown(activity) ? <SidebarNavButton
         glyph={navGlyph(NAV_GLYPHS.activity)} label={t("business.nav.activity")}
         active={isActive("activity")} collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "activity" })} iconSize={20} variant="business"
-      />
+      /> : null}
     </nav>
   );
 }
