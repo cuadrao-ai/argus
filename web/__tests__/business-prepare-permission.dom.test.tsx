@@ -28,10 +28,12 @@ afterAll(async () => {
 
 const GRANTS = {
   admin: { space_id: "client-admin", name: "Ferretería sintética", grant_id: "grant-admin", role: "accountant", business_role: "admin", permissions: ["read", "prepare", "manage", "download", "export"], capabilities: ["read", "prepare"], access_seen: true },
+  editor: { space_id: "client-editor", name: "Taller sintético", grant_id: "grant-editor", role: "accountant", business_role: "editor", permissions: ["read", "prepare", "download", "export"], capabilities: ["read", "prepare"], access_seen: true },
   viewer: { space_id: "client-viewer", name: "Colmado sintético", grant_id: "grant-viewer", role: "accountant", business_role: "viewer", permissions: ["read"], capabilities: ["read"], access_seen: true },
 } satisfies Record<string, GrantedSpace>;
+const OWN = { space_id: "own-space", name: "Negocio propio sintético", grant_id: "grant-own", role: "owner", business_role: "owner", permissions: ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"], capabilities: ["read", "prepare", "approve"], access_seen: true } satisfies GrantedSpace;
 
-async function mount(grant: GrantedSpace) {
+async function mount(grant: GrantedSpace, spaces: GrantedSpace[] = [grant]) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -47,11 +49,11 @@ async function mount(grant: GrantedSpace) {
   const { useRowCommands } = await import("@/components/business-app/transacciones/transacciones-commands");
   const { useState } = await import("react");
   const { setChosenGrant } = await import("@/lib/business-grant");
-  setChosenGrant(null);
+  setChosenGrant(spaces.length > 1 ? grant.grant_id : null);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
-  const source = { ...fixture, spaces: async () => [grant] };
+  const source = { ...fixture, spaces: async () => spaces };
   let searchActions: string[] | null = null;
   let rowCommands: string[] | null = null;
   let chosen: GrantedSpace | null = null;
@@ -109,6 +111,20 @@ describe("adding records follows the server's prepare capability", () => {
     await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     assert.equal(document.querySelector('[data-testid="home-setup-panel"]'), null, "the step closes the setup dossier");
     assert.ok([...document.querySelectorAll('[role="dialog"]')].some((dialog) => dialog.textContent?.startsWith("Agregar")), "the first-document step opens Agregar's upload");
+  });
+
+  test("an owner who also administers another person's Business sees Agregar there, as the server allows", async () => {
+    const page = await mount(GRANTS.admin, [OWN, GRANTS.admin]);
+    assert.equal(page.chosen()?.grant_id, "grant-admin", "the other person's Business is selected");
+    for (const area of ["top-bar", "registros-bar", "bandeja"]) assert.equal(page.adds(area), 1, `${area} holds Agregar`);
+    assert.ok(page.searchActions()?.includes("add"), "search offers Agregar");
+  });
+
+  test("an editor grant with prepare sees Agregar", async () => {
+    const page = await mount(GRANTS.editor);
+    assert.equal(page.chosen()?.grant_id, "grant-editor");
+    for (const area of ["top-bar", "registros-bar", "bandeja"]) assert.equal(page.adds(area), 1, `${area} holds Agregar`);
+    assert.ok(page.rowCommands()?.includes("agregar"), "a movement missing its receipt offers Agregar");
   });
 
   test("a viewer grant without prepare sees no Agregar anywhere", async () => {

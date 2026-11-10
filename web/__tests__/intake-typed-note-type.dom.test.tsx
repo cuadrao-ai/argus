@@ -92,6 +92,10 @@ test("a typed note asks Compra or Venta inside its card, none chosen, and saves 
   assert.deepEqual(page.notes, [{ text: "Vendí 3 sacos de cemento a RD$1,500", document_type: "venta" }]);
   await page.click('[data-testid="intake-write-open"]');
   assert.equal(page.segments().some((segment) => segment.checked), false, "the next note starts unchosen again");
+  await page.type("Compré gasoil por RD$500 en efectivo");
+  assert.equal(page.save().disabled, true, "text without Compra or Venta waits");
+  await page.act(async () => page.save().click());
+  assert.equal(page.notes.length, 1, "nothing is saved until Compra or Venta is chosen");
   await page.act(async () => page.root.unmount());
 });
 
