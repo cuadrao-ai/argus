@@ -67,6 +67,7 @@ for (const width of [1440, 390]) {
     await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
+    if (await account.getAttribute("aria-expanded") === "true") await page.keyboard.press("Escape");
     await testInfo.attach(`saved-account-${width}`, { body: await page.screenshot(), contentType: "image/png" });
     const evidence = process.env.ACCOUNT_AVATAR_EVIDENCE_DIR;
     if (evidence) await page.screenshot({ path: `${evidence}/account-${width}.png` });
