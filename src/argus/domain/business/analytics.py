@@ -222,19 +222,26 @@ def _fact(name: str, raw: object) -> tuple[object, object]:
     return (raw.get("state", "unknown"), value)
 
 
-def changed_fields(
+def approval_field_edits(
     read: Mapping[str, Any], approved: Mapping[str, Any]
-) -> tuple[RecordField, ...]:
-    """The record fields whose state or value differs between the read's
-    facts and the approved facts. Names only."""
+) -> tuple[tuple[RecordField, ...], tuple[RecordField, ...]]:
+    """Return the names of fields filled and fields corrected, in that order."""
 
     def fact(facts: Mapping[str, Any], name: str) -> tuple[object, object]:
         holder = (facts.get("fiscal") or {}) if name in FISCAL_FIELDS else facts
         return _fact(name, holder.get(name))
 
-    return tuple(
-        name for name in RECORD_FIELDS if fact(read, name) != fact(approved, name)
-    )
+    filled: list[RecordField] = []
+    corrected: list[RecordField] = []
+    for name in RECORD_FIELDS:
+        before = fact(read, name)
+        after = fact(approved, name)
+        if before[0] == "known":
+            if before != after:
+                corrected.append(name)
+        elif after[0] == "known":
+            filled.append(name)
+    return tuple(filled), tuple(corrected)
 
 
 @dataclass(frozen=True)
@@ -283,10 +290,10 @@ def approval_events(
     approved_at: datetime,
 ) -> list[BusinessEvent]:
     business_hash = business_hash_for_id(business_id)
-    changed = (
-        changed_fields(facts.read_facts, approved)
+    filled, corrected = (
+        approval_field_edits(facts.read_facts, approved)
         if facts.read_facts is not None
-        else None
+        else (None, None)
     )
     seconds = (
         max(0, int((approved_at - facts.received_at).total_seconds()))
@@ -297,8 +304,10 @@ def approval_events(
     return [
         BusinessRecordApproved(
             business_hash=business_hash,
-            changed_fields=changed,
-            changed_count=len(changed) if changed is not None else None,
+            filled_fields=filled,
+            filled_count=len(filled) if filled is not None else None,
+            corrected_fields=corrected,
+            corrected_count=len(corrected) if corrected is not None else None,
             seconds_to_approve=seconds,
         ),
         BusinessRecordRecorded(

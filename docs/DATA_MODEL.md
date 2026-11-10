@@ -1405,7 +1405,7 @@ fails if any field could hold free text or a money-formatted value (A4).
 | `business_document_received` | `channel`: `upload`, `note`, `email`, or `whatsapp`; `file_type`: an extension `SOURCE_MEDIA_TYPES` names, absent for a typed note; `page_count`: `1` for an image, absent when not known before the read; `size_bucket`: `under_100kb`, `100kb_to_1mb`, `1mb_to_5mb`, or `5mb_or_more` | a new Business document is saved; a repeat of the same bytes is not counted |
 | `business_document_read` | `result`: `read`, `failed`, or `unsure`; `failure_reason`: a receipt `Attention` value (for example `ai_unavailable`, `interrupted`, `unreadable`, `not_a_receipt`, `check_details`), absent when `read`; `latency_ms`: 0 to 3600000; `model_tier`: an OpenRouter model tier; `input_tokens`, `output_tokens`: 0 to 10000000; `cost_micro_usd`: 0 to 100000000 | a read that reached the model settles, once per provider-admitted attempt |
 | `business_document_needs_review` | `reason_codes`: one or more `BandejaReason` values, in the Listos rule's order | a read leaves a draft that is not Listos, or the model's answer cannot become a draft |
-| `business_record_approved` | `changed_fields`: the record field names (`FactField` and the fiscal fields) whose value differs between the read and the approval, absent with no read; `changed_count`; `seconds_to_approve`: from first arrival to approval | a person's approval records the draft, once (not on a replay) |
+| `business_record_approved` | `filled_fields` and `filled_count` cover record fields that had no known value in the read and have one at approval. `corrected_fields` and `corrected_count` cover fields whose known value changed or was removed. Lists carry field names (`FactField` and the fiscal fields). All four properties are omitted when there is no extractor read. `seconds_to_approve` measures time from first arrival to approval | a person's approval records the draft, once (not on a replay) |
 | `business_record_recorded` | `direction`: `compra` or `venta`; `document_type`: `recibo` or `venta` | with `business_record_approved` |
 | `business_records_exported` | `format`: `excel` or `csv`; `scope`: `lo_que_ves` or `dgii`; `row_count`: 0 to 1000000 | an Excel or CSV export is built |
 
@@ -1417,8 +1417,8 @@ fails if any field could hold free text or a money-formatted value (A4).
   analytics. `distinct_id` is the acting person's actor hash, or the owner's
   for a read. Business events never carry document text or images, document
   amounts, RNC, cédula, names, emails, phone numbers, addresses, razón social,
-  note text, file names, request bodies or IP addresses. A corrected field is
-  sent by name, never by value.
+  note text, file names, request bodies or IP addresses. Approval events
+  send the names of filled and corrected fields.
 - `cost_micro_usd` is Cuadrao's own provider cost for one read, summed with
   `Decimal` from the read's route receipts (`usage_cost_usd`) and rounded half
   to even to whole micro-dollars. It is absent when any receipt has no cost. It
