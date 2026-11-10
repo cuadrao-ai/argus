@@ -3627,7 +3627,10 @@
       "write_help": "Qué compraste o vendiste, cuánto, cuándo y cómo pagaste. Lo revisas en la Bandeja antes de aprobar.",
       "write_back": "Subir archivos",
       "write_save": "Guardar",
-      "write_empty": "Escribe qué pasó antes de guardar.",
+      "write_type": {
+        "copy_review": "pending_lucas",
+        "label": "¿Es una compra o una venta?"
+      },
       "typed_kind": "Escrito",
       "typed_saving": "Guardando…",
       "typed_saved": "Guardado en la Bandeja",

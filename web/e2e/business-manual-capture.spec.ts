@@ -82,11 +82,10 @@ for (const width of [1280, 390]) {
       const write = await newNote(page);
       const original = "  Ayer compré pintura para el taller.\nNo sé cuánto pagué.  ";
       await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill("  ");
-      // A typed note names its own type: Guardar waits for Compra or Venta.
+      // A typed note names its own type inside its card: Guardar waits for text and Compra or Venta.
       await expect(write.getByTestId("intake-write-save")).toBeDisabled();
-      await page.getByTestId("intake-document-type").getByRole("radio", { name: "Compra", exact: true }).click();
-      await write.getByTestId("intake-write-save").click();
-      await expect(write.getByRole("alert")).toContainText("Escribe qué pasó antes de guardar.");
+      await write.getByTestId("intake-write-type").getByRole("radio", { name: "Compra", exact: true }).click();
+      await expect(write.getByTestId("intake-write-save")).toBeDisabled();
       expect(state.captures).toHaveLength(0);
       await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill(original);
       const starts = state.starts;

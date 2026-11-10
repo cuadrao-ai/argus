@@ -4439,7 +4439,10 @@
       "write_help": "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.",
       "write_back": "Upload files",
       "write_save": "Save",
-      "write_empty": "Write what happened before saving.",
+      "write_type": {
+        "copy_review": "pending_lucas",
+        "label": "Is it a purchase or a sale?"
+      },
       "typed_kind": "Typed",
       "typed_saving": "Saving…",
       "typed_saved": "Saved to the Inbox",

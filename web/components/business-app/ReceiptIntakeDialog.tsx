@@ -27,7 +27,7 @@ import { useForwardAddress } from "./useForwardAddress";
 import { useInputCapabilities } from "./useInputCapabilities";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { resolveLanguage } from "@/lib/language-features";
-import NoteCount, { noteLength, withinNoteLimit } from "./NoteCount";
+import NoteCount, { noteLength, useGrowingNoteBox, withinNoteLimit } from "./NoteCount";
 
 export type { IntakeTarget } from "./receipt-upload-queue";
 
@@ -146,11 +146,11 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const [writing, setWriting] = useState(false);
   // A typed note prints no RNC, so Automático would always read it as a purchase: the person names its type.
   const [writeType, setWriteType] = useState<DocumentType | null>(null);
-  const shownType = writing ? writeType : documentType;
   const [draftText, setDraftText] = useState("");
-  const [writeEmpty, setWriteEmpty] = useState(false);
+  const writeReady = writeType !== null && validCaptureText(draftText);
   const [typed, setTyped] = useState<readonly TypedEntry[]>([]);
   const writeRef = useRef<HTMLTextAreaElement>(null);
+  useGrowingNoteBox(writeRef, writing ? draftText : "");
   useEffect(() => {
     if (writing) writeRef.current?.focus();
   }, [writing]);
@@ -173,12 +173,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
     }
   };
   const saveWriting = () => {
-    if (!validCaptureText(draftText)) {
-      setWriteEmpty(true);
-      writeRef.current?.focus();
-      return;
-    }
-    if (!writeType) return;
+    if (!writeType || !validCaptureText(draftText)) return;
     const entry: TypedEntry = { key: randomId(), text: draftText.trim(), documentType: writeType, status: "saving", problem: null };
     setTyped((current) => [entry, ...current]);
     setDraftText("");
@@ -298,22 +293,33 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
               id="intake-write-text"
               ref={writeRef}
               value={draftText}
-              rows={5}
-              aria-invalid={writeEmpty}
+              rows={6}
               aria-describedby="intake-write-help intake-write-text-count"
               placeholder={t("business.intake.write_placeholder", "For example: I paid RD$500 for gas today at Isla, in cash.")}
-              onChange={(event) => { setDraftText(withinNoteLimit(event.target.value)); setWriteEmpty(false); }}
-              className="mt-2 block w-full resize-y rounded-item border border-[#7d8a84] bg-white p-3 text-[16px] leading-relaxed text-[#172b26] placeholder:text-[#687A72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#1f2225] dark:text-white"
+              onChange={(event) => setDraftText(withinNoteLimit(event.target.value))}
+              className="mt-2 block w-full resize-none rounded-item border border-[#7d8a84] bg-white p-3 text-[16px] leading-relaxed text-[#172b26] placeholder:text-[#687A72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#1f2225] dark:text-white"
             />
             <NoteCount id="intake-write-text-count" count={noteLength(draftText)} />
-            {writeEmpty ? <p role="alert" className={`mt-1 text-[13px] ${DANGER}`}>{t("business.intake.write_empty", "Write what happened before saving.")}</p> : null}
             <p id="intake-write-help" className={`mt-2 text-[13px] ${MUTED}`}>{t("business.intake.write_help", "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.")}</p>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <button type="button" className={smallAction} onClick={() => { setWriting(false); setWriteEmpty(false); }}>
+            <div className="mt-4">
+              <p className={`mb-2 text-[14px] ${MUTED}`}>{t("business.intake.write_type.label")}</p>
+              <SegmentedControl
+                testId="intake-write-type"
+                label={t("business.intake.write_type.label")}
+                segments={[
+                  { key: "recibo" as const, label: t("business.intake.type_recibo", "Purchase") },
+                  { key: "venta" as const, label: t("business.intake.type_venta", "Sale") },
+                ]}
+                value={writeType}
+                onChange={setWriteType}
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+              <button type="button" className={smallAction} onClick={() => setWriting(false)}>
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 {t("business.intake.write_back", "Upload files")}
               </button>
-              <button type="button" data-testid="intake-write-save" disabled={!writeType} className={`${pillButtonClass} bg-[#2f5a49] text-[#FFFEFA] disabled:opacity-40 dark:bg-[#8fcbb0] dark:text-[#172b26]`} onClick={saveWriting}>
+              <button type="button" data-testid="intake-write-save" disabled={!writeReady} className={`${pillButtonClass} bg-[#2f5a49] text-[#FFFEFA] disabled:opacity-40 dark:bg-[#8fcbb0] dark:text-[#172b26]`} onClick={saveWriting}>
                 {t("business.intake.write_save", "Save")}
               </button>
             </div>
@@ -392,31 +398,29 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             }}
           />
 
-        <div>
+        {writing ? null : <div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className={`text-[14px] ${MUTED}`}>{t("business.intake.saved_as", "Saved as")}</p>
             <SegmentedControl
               testId="intake-document-type"
               label={t("business.intake.saved_as", "Saved as")}
               segments={[
-                ...(writing ? [] : [{ key: "auto" as const, label: t("business.intake.type_auto", "Automatic") }]),
+                { key: "auto" as const, label: t("business.intake.type_auto", "Automatic") },
                 { key: "recibo" as const, label: t("business.intake.type_recibo", "Purchase") },
                 { key: "venta" as const, label: t("business.intake.type_venta", "Sale") },
               ]}
-              value={writing ? writeType : documentType ?? "auto"}
-              onChange={(key) => (writing ? setWriteType(key === "auto" ? null : key) : setDocumentType(key === "auto" ? null : key))}
+              value={documentType ?? "auto"}
+              onChange={(key) => setDocumentType(key === "auto" ? null : key)}
             />
           </div>
-          {shownType || !writing ? (
-            <p className={`mt-1 text-right text-[13px] ${MUTED}`} data-testid="intake-type-help">
-              {shownType === "venta"
-                ? t("business.intake.type_venta_help", "An invoice the business issued.")
-                : shownType === "recibo"
-                  ? t("business.intake.type_recibo_help", "Something the business paid for.")
-                  : t("business.intake.type_auto_help", "With your business's RNC it is a sale; otherwise a purchase.")}
-            </p>
-          ) : null}
-        </div>
+          <p className={`mt-1 text-right text-[13px] ${MUTED}`} data-testid="intake-type-help">
+            {documentType === "venta"
+              ? t("business.intake.type_venta_help", "An invoice the business issued.")
+              : documentType === "recibo"
+                ? t("business.intake.type_recibo_help", "Something the business paid for.")
+                : t("business.intake.type_auto_help", "With your business's RNC it is a sale; otherwise a purchase.")}
+          </p>
+        </div>}
 
         {failure === "server" || failure === "unavailable" ? (
           <ServerErrorScreen reference={serverReference} onRetry={() => failed && queue.retry(failed.key)} />
