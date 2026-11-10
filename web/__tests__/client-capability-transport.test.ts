@@ -12,6 +12,7 @@ describe("API client capability negotiation", () => {
         "X-Argus-Client-Capabilities": "caller-cannot-override",
       },
       { Authorization: "Bearer test-token" },
+      null,
     );
 
     expect(ARGUS_CLIENT_CAPABILITIES).toEqual([

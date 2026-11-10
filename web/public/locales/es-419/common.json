@@ -2608,7 +2608,6 @@
           "preview_failed": "No pudimos preparar la vista previa. No se agregó ningún archivo.",
           "preview_file": "Ver archivo",
           "received_document": "Documento recibido",
-          "received_unavailable": "Vincular documentos recibidos aún no está disponible.",
           "record_actions": "Acciones del registro",
           "too_large": "El archivo supera el tamaño permitido.",
           "unsupported": "Este tipo de archivo no está permitido."
@@ -3335,6 +3334,7 @@
     },
     "home_setup": {
       "copy_review": "pending_lucas",
+      "done": "Listo, tu negocio está configurado",
       "lead": "Completa estos pasos para empezar a recibir y revisar documentos.",
       "optional": "Opcional",
       "remaining_one": "Falta 1 paso",
@@ -3354,7 +3354,7 @@
           "title": "Agrega el RNC o la cédula"
         },
         "receipt_reading": {
-          "body": "Cuadrao lee tus facturas, recibos y PDF y extrae sus datos. Incluye correo, WhatsApp y archivos subidos.",
+          "body": "Cuadrao lee tus facturas, recibos y PDF y extrae sus datos.",
           "title": "Activar lectura de documentos"
         },
         "receiving_address": {
@@ -3627,7 +3627,10 @@
       "write_help": "Qué compraste o vendiste, cuánto, cuándo y cómo pagaste. Lo revisas en la Bandeja antes de aprobar.",
       "write_back": "Subir archivos",
       "write_save": "Guardar",
-      "write_empty": "Escribe qué pasó antes de guardar.",
+      "write_type": {
+        "copy_review": "pending_lucas",
+        "label": "¿Es una compra o una venta?"
+      },
       "typed_kind": "Escrito",
       "typed_saving": "Guardando…",
       "typed_saved": "Guardado en la Bandeja",

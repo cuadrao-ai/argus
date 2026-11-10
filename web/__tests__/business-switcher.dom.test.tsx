@@ -282,23 +282,26 @@ describe("the one-time access line belongs to invitations", () => {
 });
 
 describe("the chosen grant rides on every API call", () => {
-  test("the header is present only while a grant is chosen, and the memory survives a re-read", async () => {
-    const { getChosenGrant, setChosenGrant, GRANT_HEADER, chosenGrantHeader } = await import("@/lib/business-grant");
-    const { argusApiRequestHeaders } = await import("@/lib/argus-api-transport");
+  test("the header carries the grant a call was bound to, and only Business calls carry one", async () => {
+    const { getChosenGrant, setChosenGrant, GRANT_HEADER, grantHeader } = await import("@/lib/business-grant");
+    const { argusApiRequestHeaders, carriesChosenGrant } = await import("@/lib/argus-api-transport");
     setChosenGrant(null);
-    assert.equal(argusApiRequestHeaders(undefined, {}).get(GRANT_HEADER), null);
+    assert.deepEqual(grantHeader(getChosenGrant()), {});
     setChosenGrant("4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
     assert.equal(getChosenGrant(), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
-    assert.deepEqual(chosenGrantHeader(), { [GRANT_HEADER]: "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b" });
-    assert.equal(argusApiRequestHeaders({ "Idempotency-Key": "k" }, {}).get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    assert.deepEqual(grantHeader(getChosenGrant()), { [GRANT_HEADER]: "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b" });
+    assert.equal(argusApiRequestHeaders({ "Idempotency-Key": "k" }, {}, getChosenGrant()).get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    // The builder sends the grant it is given, not the one chosen now: a request bound to A stays A's after a switch to B.
+    setChosenGrant("8c7d6e5f-4a3b-4c2d-9e1f-0a9b8c7d6e5f");
+    assert.equal(argusApiRequestHeaders(undefined, {}, "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b").get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    assert.equal(argusApiRequestHeaders(undefined, {}, null).get(GRANT_HEADER), null);
     // Only Business calls carry it: Personal chat and the rest never see the chosen grant.
-    assert.equal(argusApiRequestHeaders(undefined, {}, "/business/receipts?view=inbox").get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
-    assert.equal(argusApiRequestHeaders(undefined, {}, "/conversations?surface=business").get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    assert.equal(carriesChosenGrant("/business/receipts?view=inbox"), true);
+    assert.equal(carriesChosenGrant("/conversations?surface=business"), true);
     for (const path of ["/conversations/c1/messages", "/conversations?surface=personal", "/conversations", "/chat/stream", "/backtests/run", "/me"]) {
-      assert.equal(argusApiRequestHeaders(undefined, {}, path).get(GRANT_HEADER), null, path);
+      assert.equal(carriesChosenGrant(path), false, path);
     }
     setChosenGrant(null);
-    assert.equal(argusApiRequestHeaders(undefined, {}).get(GRANT_HEADER), null);
   });
 });
 

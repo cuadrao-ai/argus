@@ -204,7 +204,7 @@ export async function fetchBusinessExport(draftId: string | undefined, start: st
   const query = new URLSearchParams({ start, end });
   if (draftId) query.set("draft_id", draftId);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/exports?${query}`, {
-    headers: argusApiRequestHeaders(undefined, authHeaders), credentials: "include", cache: "no-store", signal,
+    headers: argusApiRequestHeaders(undefined, authHeaders, grant), credentials: "include", cache: "no-store", signal,
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -465,14 +465,15 @@ export type BusinessCapture = {
 /** One page of notes. `has_more` says more exist past the limit; the route has no cursor. */
 export type BusinessCapturePage = { items: BusinessCapture[]; has_more?: boolean };
 
-export async function captureBusinessNote(input: BusinessCaptureInput, key: string): Promise<BusinessDossier> {
+/** `grant` is the Business the note was written in; a queued or retried note passes its own, bound when the person acted. */
+export async function captureBusinessNote(input: BusinessCaptureInput, key: string, grant: string | null = getChosenGrant()): Promise<BusinessDossier> {
   const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders();
   requireBrowserAuthGeneration(generation);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/captures`, {
     method: "POST",
     credentials: "include",
-    headers: argusApiRequestHeaders({ "Idempotency-Key": key }, authHeaders),
+    headers: argusApiRequestHeaders({ "Idempotency-Key": key }, authHeaders, grant),
     body: JSON.stringify(input),
   });
   if (!response.ok) {
@@ -572,12 +573,13 @@ export async function getBusinessSpaces(): Promise<GrantedSpace[]> {
 /** The person dismissed the one-time access line for one of their grants; remembered server side. */
 export async function markBusinessAccessSeen(grantId: string): Promise<void> {
   const generation = browserAuthGeneration();
+  const grant = getChosenGrant();
   const authHeaders = await authenticatedRequestHeaders();
   requireBrowserAuthGeneration(generation);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/spaces/${encodeURIComponent(grantId)}/seen`, {
     method: "POST",
     credentials: "include",
-    headers: argusApiRequestHeaders(undefined, authHeaders),
+    headers: argusApiRequestHeaders(undefined, authHeaders, grant),
   });
   if (!response.ok) throw new Error(`API error ${response.status}`);
 }
@@ -688,6 +690,8 @@ export async function uploadBusinessReceipt(
   /** Null leaves the header out so the server detects the type; a picked type turns detection off. */
   documentType: "recibo" | "venta" | null = null,
   onProgress?: UploadProgressListener,
+  /** The Business the file was added in; the queue passes it, so a file sent or retried after a switch still lands there. */
+  grant: string | null = getChosenGrant(),
 ): Promise<ReceiptSummary> {
   const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders();
@@ -701,6 +705,7 @@ export async function uploadBusinessReceipt(
       ...(consentToPrepare ? { "X-Extraction-Consent": "true" } : {}),
     },
     authHeaders,
+    grant,
   );
   const url = `${CUADRAO_API_BASE_URL}/business/receipts`;
   if (onProgress && typeof XMLHttpRequest !== "undefined") {
@@ -741,11 +746,12 @@ export const RECEIPT_SOURCE_TIMEOUT_MS = 30_000;
 
 export async function fetchBusinessReceiptSource(id: string, options: { timeoutMs?: number } = {}): Promise<Blob> {
   const generation = browserAuthGeneration();
+  const grant = getChosenGrant();
   const authHeaders = await authenticatedRequestHeaders();
   requireBrowserAuthGeneration(generation);
   const response = await fetch(
     `${CUADRAO_API_BASE_URL}/business/receipts/${encodeURIComponent(id)}/source`,
-    { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders), signal: AbortSignal.timeout(options.timeoutMs ?? RECEIPT_SOURCE_TIMEOUT_MS) },
+    { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders, grant), signal: AbortSignal.timeout(options.timeoutMs ?? RECEIPT_SOURCE_TIMEOUT_MS) },
   );
   if (!response.ok) throw new Error(`API error ${response.status}`);
   return response.blob();

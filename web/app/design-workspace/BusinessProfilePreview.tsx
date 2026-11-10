@@ -82,7 +82,7 @@ function BusinessProfileContent() {
   const imagePending=live&&server.profile?.appearance.kind==="image"&&appearanceState!=="ready";
   const failureReference=server.reference??fiscalReference;
   const country = records.workspace?.country;
-  const canEdit = canManageBusiness(chosen, live) && !(live && server.refused);
+  const canEdit = canManageBusiness(chosen) && !(live && server.refused);
   const [footerTarget,setFooterTarget] = useState<HTMLDivElement|null>(null);
   const [selected,setSelected] = useState<ProfileSection|null>(null);
   const [fiscalDraft,setFiscalDraft] = useState<FiscalProfileDraft|null>(null);

@@ -25,7 +25,7 @@ for (const held of [false, true]) test(`email off removes sender search results 
   function Harness() {
     const [emailAvailable, setAvailable] = useState(true);
     disable = () => setAvailable(false);
-    const search = useBusinessSearch({ source, accounts: [], actions: { create: [], composer: [], starterEntries: [] }, owner: false, scope: "business", canExport: false, openExport: () => {}, openPanel: () => {}, emailAvailable });
+    const search = useBusinessSearch({ source, accounts: [], actions: { create: [], composer: [], starterEntries: [] }, canAdd: false, scope: "business", canExport: false, openExport: () => {}, openPanel: () => {}, emailAvailable });
     const result = useWorkspaceSearch(search, "sender");
     return <output>{result.state.status === "ready" ? result.state.groups.map(group => group.id).join(" ") : result.state.status}</output>;
   }

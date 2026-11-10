@@ -21,9 +21,7 @@ export async function businessSettingsRequest<T>(path: string, options: RequestI
   const check = () => { options.signal?.throwIfAborted(); requireBrowserAuthGeneration(generation); if (getChosenGrant() !== scope.selection) throw new Error("Business selection changed"); };
   const auth = await authenticatedRequestHeaders(scope.userId);
   check();
-  const headers = argusApiRequestHeaders(options.headers, auth, path);
-  if (scope.grant) headers.set("X-Business-Grant", scope.grant);
-  else headers.delete("X-Business-Grant");
+  const headers = argusApiRequestHeaders(options.headers, auth, scope.grant);
   const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, { ...options, headers, credentials: "include", cache: "no-store" });
   check();
   const text = await response.text();

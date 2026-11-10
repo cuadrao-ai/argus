@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { getChosenGrant, setChosenGrant, synchronizeBusinessAccount, chosenGrantHeader, soleClientGrantId } from "@/lib/business-grant";
+import { getChosenGrant, setChosenGrant, synchronizeBusinessAccount, grantHeader, soleClientGrantId } from "@/lib/business-grant";
 import { readStored, writeStored } from "@/lib/browser-storage";
 beforeAll(() => GlobalRegistrator.register({ url: "http://localhost" }));
 afterAll(() => GlobalRegistrator.unregister());
@@ -8,14 +8,14 @@ const grant = "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b";
 test("another account cannot inherit a remembered grant, including after reload", () => {
   synchronizeBusinessAccount("old");
   setChosenGrant(grant);
-  expect(chosenGrantHeader()).toEqual({ "X-Business-Grant": grant });
+  expect(grantHeader(getChosenGrant())).toEqual({ "X-Business-Grant": grant });
   const saved = readStored("argus:business-grant:v1")!;
   synchronizeBusinessAccount("new");
   expect(getChosenGrant()).toBeNull();
   writeStored("argus:business-grant:v1", saved);
   synchronizeBusinessAccount(null);
   synchronizeBusinessAccount("new");
-  expect(chosenGrantHeader()).toEqual({});
+  expect(grantHeader(getChosenGrant())).toEqual({});
   expect(readStored("argus:business-grant:v1")).toBeNull();
 });
 test("same owner token refresh keeps their choice; logout removes it", () => {
@@ -56,7 +56,7 @@ test("mock local selection restores with no authenticated owner and never enters
     const modulePath = "../lib/business-grant.ts?mock-page-reload";
     const fresh: typeof import("@/lib/business-grant") = await import(modulePath);
     expect(fresh.getChosenGrant()).toBe("local-business-mock");
-    expect(fresh.chosenGrantHeader()).toEqual({});
+    expect(fresh.grantHeader(fresh.getChosenGrant())).toEqual({});
   } finally {
     setChosenGrant(null);
     Object.assign(process.env, { NODE_ENV: nodeEnv, NEXT_PUBLIC_MOCK_AUTH: mockAuth });

@@ -6,8 +6,10 @@ from unittest.mock import MagicMock
 from uuid import UUID
 
 import pytest
+from argus.domain.business.annotations import EditCurrentNote
 from argus.domain.business.contracts.actions import (
     MAX_TURN_ACTIONS,
+    NOTE_MAX_LENGTH,
     ApprovalCommand,
     ApproveIncome,
     AttachmentPreparationBinding,
@@ -547,7 +549,11 @@ def test_manual_capture_preserves_original_text_and_exact_target(target: bool) -
         TurnPlan.model_validate({"actions": [payload]})
 
 
-@pytest.mark.parametrize("text", ["", " \t\r\n\f\v\u00a0", "a" * 20001])
+@pytest.mark.parametrize(
+    "text",
+    ["", " \t\r\n\f\v\u00a0", "a" * 501, "🟢" * 501],
+    ids=["empty", "blank", "501-ascii", "501-code-points"],
+)
 def test_manual_capture_rejects_empty_blank_or_oversized_text(text: str) -> None:
     with pytest.raises(ValidationError):
         TypeAdapter(Command).validate_python(
@@ -555,9 +561,16 @@ def test_manual_capture_rejects_empty_blank_or_oversized_text(text: str) -> None
         )
 
 
-@pytest.mark.parametrize("length", [1, 20000])
+@pytest.mark.parametrize("length", [1, 500])
 def test_manual_capture_accepts_text_length_boundaries(length: int) -> None:
     assert CaptureNote(text="a" * length).text == "a" * length
+
+
+def test_a_typed_note_and_a_record_note_share_one_limit() -> None:
+    assert CaptureNote(text="🟢" * NOTE_MAX_LENGTH).text == "🟢" * NOTE_MAX_LENGTH
+    assert EditCurrentNote(expected_version=1, note="🟢" * NOTE_MAX_LENGTH).note == "🟢" * NOTE_MAX_LENGTH
+    with pytest.raises(ValidationError):
+        EditCurrentNote(expected_version=1, note="a" * (NOTE_MAX_LENGTH + 1))
 
 
 @pytest.mark.parametrize(

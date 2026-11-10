@@ -125,16 +125,6 @@ test("an address from another Business opens Registros without a notice", async 
   assert.doesNotMatch(document.body.textContent ?? "", /Los registros cambiaron/);
 });
 
-test("saved notes stay on the row and the note editor is not offered", async () => {
-  const page = await mount();
-  const row = document.querySelector(`[data-record-key="draft:${fixtureId(1)}"]`)!;
-  assert.match(row.textContent ?? "", /Nota 1/);
-  assert.equal(document.querySelector("[data-record-note]"), null);
-  assert.equal(document.querySelector("textarea"), null);
-  assert.ok(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/current-note")).length, 0);
-});
-
 test("supporting files freeze the uncertain file before advancing and download by returned receipt identity", async () => {
   const page = await mount(); page.fixture.controls.fileUncertainAt = 1;
   await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
@@ -298,6 +288,7 @@ test("view conflicts keep the unsaved name and require current version readback 
   assert.notEqual(writes[0].headers.get('Idempotency-Key'), writes[1].headers.get('Idempotency-Key'));
 });
 
+
 test("phone rows and their attachment editor preserve an authoritative negative decimal", async () => {
   const page = await mount({ large: true, width: 390 });
   const row = document.querySelector(`[data-record-key="draft:${fixtureId(5)}"]`)!;
@@ -307,17 +298,26 @@ test("phone rows and their attachment editor preserve an authoritative negative 
   assert.match(document.querySelector('[role="dialog"]')!.textContent!, /-RD\$ 20\.00/);
 });
 
-for (const denied of ['supporting', 'source'] as const) test(`${denied} access refusal clears the cached report and closes the editor`, async () => {
+for (const denied of ['note', 'supporting', 'dossier', 'source'] as const) test(`${denied} access refusal clears the cached report and closes the editor`, async () => {
   const page = await mount();
-  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
+  await page.click(document.querySelector(`[data-record-${denied === 'source' || denied === 'supporting' ? 'attachment' : 'note'}="draft:${fixtureId(1)}"]`));
   page.fixture.controls.reportForbidden = true;
-  if (denied === 'supporting') {
-    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
-    await act(async () => { Object.defineProperty(input, 'files', { configurable: true, value: [new File(['synthetic'], 'apoyo.pdf', { type: 'application/pdf' })] }); input.dispatchEvent(new Event('change', { bubbles: true })); });
-    await page.settle(() => document.querySelector('[data-local-files] li') !== null);
+  if (denied === 'dossier') {
+    page.fixture.records[0].revision++;
+    await page.click(page.button('Guardar'));
+    await page.settle(() => page.button('Recargar') !== undefined);
+    const request = globalThis.fetch;
+    globalThis.fetch = (async (input, init) => String(input).endsWith('/dossier') ? Response.json({ code: 'permission_denied' }, { status: 403 }) : request(input, init)) as typeof fetch;
+    await page.click(page.button('Recargar'));
+  } else {
+    if (denied === 'supporting') {
+      const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+      await act(async () => { Object.defineProperty(input, 'files', { configurable: true, value: [new File(['synthetic'], 'apoyo.pdf', { type: 'application/pdf' })] }); input.dispatchEvent(new Event('change', { bubbles: true })); });
+      await page.settle(() => document.querySelector('[data-local-files] li') !== null);
+    }
+    page.fixture.controls.readOnly = true;
+    await page.click(page.button(denied === 'source' ? 'Original sintético.pdf' : 'Guardar'));
   }
-  page.fixture.controls.readOnly = true;
-  await page.click(page.button(denied === 'source' ? 'Original sintético.pdf' : 'Guardar'));
   await page.settle(() => document.querySelector('[data-testid="records-count"]') === null && document.querySelector('[role="dialog"]') === null);
   assert.equal(document.querySelectorAll('[data-record-key]').length, 0);
   assert.equal(document.body.textContent?.includes('Proveedor 1'), false);

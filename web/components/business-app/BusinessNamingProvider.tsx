@@ -5,6 +5,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/brows
 import { getBusinessName, type BusinessNamingState } from "@/lib/business-naming-api";
 import BusinessNameDialog from "./BusinessNameDialog";
 import { useBusiness } from "./BusinessWorkspace";
+import { canManageBusiness } from "./business-ui";
 
 type Naming = { canEdit: boolean; requireName: () => Promise<boolean> };
 const NamingContext = createContext<Naming | null>(null);
@@ -19,22 +20,22 @@ export default function BusinessNamingProvider({ children }: { children: ReactNo
   const { chosen, source, reload } = useBusiness();
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const pending = useRef<Prompt | null>(null);
-  const ownerId = chosen?.role === "owner" && source.mode === "live" ? chosen.space_id : null;
-  const current = useRef(ownerId);
+  const namerId = canManageBusiness(chosen) && source.mode === "live" ? chosen?.space_id ?? null : null;
+  const current = useRef(namerId);
   useLayoutEffect(() => {
-    current.current = ownerId;
+    current.current = namerId;
     return () => { current.current = null; };
-  }, [ownerId]);
+  }, [namerId]);
 
   // Another Business answers no question asked for this one.
-  useEffect(() => () => { pending.current?.resolve(false); pending.current = null; setPrompt(null); }, [ownerId]);
+  useEffect(() => () => { pending.current?.resolve(false); pending.current = null; setPrompt(null); }, [namerId]);
 
   const requireName = useCallback(async () => {
-    if (!ownerId) return true;
+    if (!namerId) return true;
     const generation = browserAuthGeneration();
     const state = await getBusinessName();
     requireBrowserAuthGeneration(generation);
-    if (current.current !== ownerId || state.id !== ownerId) return false;
+    if (current.current !== namerId || state.id !== namerId) return false;
     if (!state.name_required) return true;
     return new Promise<boolean>(resolve => {
       pending.current?.resolve(false);
@@ -42,11 +43,11 @@ export default function BusinessNamingProvider({ children }: { children: ReactNo
       pending.current = next;
       setPrompt(next);
     });
-  }, [ownerId]);
+  }, [namerId]);
 
-  return <NamingContext.Provider value={{ canEdit: !!ownerId, requireName }}>
+  return <NamingContext.Provider value={{ canEdit: !!namerId, requireName }}>
     {children}
-    {prompt && prompt.business.id === ownerId ? <BusinessNameDialog key={prompt.business.id} business={prompt.business} required onClose={() => setPrompt(null)} onSaved={next => {
+    {prompt && prompt.business.id === namerId ? <BusinessNameDialog key={prompt.business.id} business={prompt.business} required onClose={() => setPrompt(null)} onSaved={next => {
       if (current.current !== next.id) return;
       setPrompt(null);
       pending.current = null;

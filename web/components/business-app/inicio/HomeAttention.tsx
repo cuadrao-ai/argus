@@ -17,6 +17,7 @@ import { FOCUS_RING } from "../foundation/presentation";
 import { receptionDocumentTitle, receptionRows, receptionTarget, type ReceptionRow } from "../recepcion/reception-model";
 import { BANDEJA_REASON_KEY, receptionTag } from "../recepcion/reception-status";
 import { HomeCard, HOME_MUTED, HOME_SKELETON, HOME_TYPE } from "./HomeCard";
+import ReceptionEmptyState from "../recepcion/ReceptionEmptyState";
 
 /** Rows the card shows; "Ver todo" opens the rest in the Bandeja. */
 export const ATTENTION_ROWS = 6;
@@ -96,10 +97,10 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
     if (firstDay) {
       const add = prepares ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
       return card(
-        <div data-testid="home-attention-first-day" className="flex flex-col items-center gap-2 px-5 py-6 text-center">
-          <p className="text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.inicio.attention.first_day_title")}</p>
-          <p className={`max-w-sm ${HOME_TYPE.secondary} ${HOME_MUTED}`}>{t("business.inicio.attention.first_day_body")}</p>
-          {add ? <button type="button" data-testid="home-attention-add" className={`mt-2 ${secondaryButtonClass}`} onClick={add.run}>{t("business.inicio.attention.first_day_add")}</button> : null}
+        <div data-testid="home-attention-first-day">
+          <ReceptionEmptyState compact kind="first_run" title={t("business.inicio.attention.first_day_title")} body={t("business.inicio.attention.first_day_body")}>
+            {add ? <button type="button" data-testid="home-attention-add" className={`mt-4 ${secondaryButtonClass}`} onClick={add.run}>{t("business.inicio.attention.first_day_add")}</button> : null}
+          </ReceptionEmptyState>
         </div>,
       );
     }

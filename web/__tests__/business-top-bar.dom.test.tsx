@@ -118,6 +118,8 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(search.getAttribute("aria-label"), "Busca comercio, monto o nota", "named even when the bar is narrow and only the icon shows");
     await page.act(async () => search.click());
     assert.deepEqual(page.searches, ["open"]);
+    // Agregar waits for the chosen Business: the server's prepare capability decides it.
+    await page.ready();
     const order = [...page.bar().querySelectorAll("[data-testid]")].map((node) => node.getAttribute("data-testid")).filter((id) => ["header-search", "add-menu-header", "amounts-toggle"].includes(id!));
     assert.deepEqual(order, ["header-search", "add-menu-header", "amounts-toggle"]);
     const greeting = page.bar().querySelector("h1")!;
@@ -212,11 +214,12 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(page.bar().querySelector('[data-testid="add-menu-more"]'), null);
   });
 
-  test("a contador has no add control even with export permission", async () => {
+  test("a client grant with prepare gets Agregar, as the server's capability says", async () => {
     const page = await mount({ grant: "fixture-grant-client" });
-    await page.settle(() => page.api().chosen?.role === "accountant", "the client business");
+    await page.settle(() => page.api().chosen?.grant_id === "fixture-grant-client", "the client business");
     await page.wait(400);
-    assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null);
+    assert.deepEqual(page.api().chosen?.capabilities, ["read", "prepare"]);
+    assert.ok(page.bar().querySelector('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]'));
   });
 
   test("server email availability hides an existing address and restores its copy action", async () => {

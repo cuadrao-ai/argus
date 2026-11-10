@@ -20,19 +20,23 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeTarget, type ReceiptUpload, type UploadRejection } from "./receipt-upload-queue";
 import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
-import { randomId } from "@/lib/random-id";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
-import { captureOutcomeUnknown, validCaptureText } from "./ManualCaptureDialog";
+import { validCaptureText } from "./ManualCaptureDialog";
+import { isUnfinishedNote, type TypedNote, type TypedNoteQueue } from "./typed-note-queue";
+import { enteredIn, getChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
 import { useForwardAddress } from "./useForwardAddress";
 import { useInputCapabilities } from "./useInputCapabilities";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { resolveLanguage } from "@/lib/language-features";
+import NoteCount, { noteLength, useGrowingNoteBox, withinNoteLimit } from "./NoteCount";
 
 export type { IntakeTarget } from "./receipt-upload-queue";
 
 type IntakeProps = {
   target: IntakeTarget;
   queue: ReceiptUploadQueue;
+  /** Typed notes outlive the panel like uploads, so an unconfirmed one keeps its text and key for its retry. */
+  notes: TypedNoteQueue;
   onClose: () => void;
   /** Every saved receipt of this target; one opens its review, several open the Inbox. */
   onReview: (receipts: ReceiptSummary[]) => void;
@@ -81,7 +85,7 @@ function dragStateFor(event: DragEvent, limits: ReceiptLimits): DragState {
   return files.every((item) => known(item.type.toLowerCase())) ? { kind: "accept", count: files.length } : { kind: "reject" };
 }
 
-function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & { limits: ReceiptLimits }) {
+function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeProps & { limits: ReceiptLimits }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const capabilities = useInputCapabilities();
@@ -89,20 +93,25 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   /** The photo row is for phones: a camera, file capture and a phone-sized screen. */
   const showCamera = capabilities.cameraCapture && isBelowTablet;
   const pasteKeys = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
-  const { bridge, clearLostAccess, source, reload } = useBusiness();
+  const { bridge, clearLostAccess, source } = useBusiness();
   const forwardAddress = useForwardAddress();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replacingRef = useRef<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
-  const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target);
+  const grant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
+  // Only this Business's uploads and notes show; a save or retry carries the Business the item was entered in.
+  const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target).filter(enteredIn(grant));
+  const typed = useSyncExternalStore(notes.subscribe, notes.snapshot, notes.snapshot).filter(enteredIn(grant));
   const consent = false;
   const [drag, setDrag] = useState<DragState>({ kind: "idle" });
   const [copyFailed, setCopyFailed] = useState(false);
   const addressRef = useRef<HTMLParagraphElement>(null);
   const copyLabels = useCopyLabels(forwardAddress ?? "");
   const uploading = queue.uploading;
-  const unfinished = entries.some(isUnfinishedUpload);
+  const unfinishedUploads = entries.some(isUnfinishedUpload);
+  // The next step waits while anything of this Business still sends or waits for a retry, a note as much as a file.
+  const unfinished = unfinishedUploads || typed.some(isUnfinishedNote);
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
   const batch = uploadBatchView(entries, queue.retryWaiting);
   const renderRow = (item: ReceiptUpload) => (
@@ -143,47 +152,26 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
 
   const [documentType, setDocumentType] = useState<DocumentType | null>(null);
   const [writing, setWriting] = useState(false);
+  // A typed note prints no RNC, so Automático would always read it as a purchase: the person names its type.
+  const [writeType, setWriteType] = useState<DocumentType | null>(null);
   const [draftText, setDraftText] = useState("");
-  const [writeEmpty, setWriteEmpty] = useState(false);
-  const [typed, setTyped] = useState<readonly TypedEntry[]>([]);
+  const writeReady = writeType !== null && validCaptureText(draftText);
   const writeRef = useRef<HTMLTextAreaElement>(null);
+  useGrowingNoteBox(writeRef, writing ? draftText : "");
   useEffect(() => {
     if (writing) writeRef.current?.focus();
   }, [writing]);
-  const updateTyped = (key: string, change: Partial<TypedEntry>) =>
-    setTyped((current) => current.map((entry) => (entry.key === key ? { ...entry, ...change } : entry)));
-  /** A typed entry becomes a Bandeja draft through the note path; a retry repeats the same key, so it is never saved twice. */
-  const sendTyped = async (entry: TypedEntry) => {
-    updateTyped(entry.key, { status: "saving", problem: null });
-    try {
-      await source.captureNote({ text: entry.text, ...(entry.documentType ? { document_type: entry.documentType } : {}) }, entry.key);
-      updateTyped(entry.key, { status: "saved" });
-      reload();
-    } catch (error) {
-      const { status, code } = error as { status?: number; code?: string };
-      if (status && status >= 400 && status < 500 && !captureOutcomeUnknown(status, code)) {
-        updateTyped(entry.key, { status: "refused", problem: t("business.capture.refused", "The note could not be saved. Your text is retained; review the request before trying again.") });
-      } else {
-        updateTyped(entry.key, { status: "uncertain", problem: t("business.intake.typed_uncertain", "We couldn't confirm it was saved. Try again; it won't be saved twice.") });
-      }
-    }
-  };
   const saveWriting = () => {
-    if (!validCaptureText(draftText)) {
-      setWriteEmpty(true);
-      writeRef.current?.focus();
-      return;
-    }
-    const entry: TypedEntry = { key: randomId(), text: draftText.trim(), documentType, status: "saving", problem: null };
-    setTyped((current) => [entry, ...current]);
+    if (!writeType || !validCaptureText(draftText)) return;
+    void notes.add({ grant, text: draftText.trim(), documentType: writeType }, (input, key, noteGrant) => source.captureNote(input, key, noteGrant));
     setDraftText("");
+    setWriteType(null);
     setWriting(false);
-    void sendTyped(entry);
   };
   /** Files start uploading as soon as they arrive; a running drain takes them at its tail. */
   const choose = (files: readonly File[]) => {
     const before = new Set(queue.snapshot().map((item) => item.key));
-    queue.add(files, limits, target, bridge?.conversationId ?? null, documentType);
+    queue.add(files, limits, target, bridge?.conversationId ?? null, documentType, grant);
     const fresh = queue.snapshot().filter((item) => !before.has(item.key) && item.status === "queued").map((item) => item.key);
     if (fresh.length) void queue.save(target, consent, new Set(fresh));
   };
@@ -278,7 +266,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       // The X closes; the footer holds only the next step, once there is one.
       footer={saved.length > 0 && !unfinished && !uploading ? (
         <div className="flex justify-end" data-testid="receipt-intake-footer">
-          <button type="button" className={`${primaryButtonClass} w-full tablet:w-auto`} onClick={() => { queue.clear(target); onReview(saved); }}>
+          <button type="button" className={`${primaryButtonClass} w-full tablet:w-auto`} onClick={() => { queue.clear(target, grant); onReview(saved); }}>
             {t("business.intake.review_saved", "Review saved receipts")}
           </button>
         </div>
@@ -292,21 +280,33 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
               id="intake-write-text"
               ref={writeRef}
               value={draftText}
-              rows={5}
-              aria-invalid={writeEmpty}
-              aria-describedby="intake-write-help"
+              rows={6}
+              aria-describedby="intake-write-help intake-write-text-count"
               placeholder={t("business.intake.write_placeholder", "For example: I paid RD$500 for gas today at Isla, in cash.")}
-              onChange={(event) => { setDraftText(event.target.value); setWriteEmpty(false); }}
-              className="mt-2 block w-full resize-y rounded-item border border-[#7d8a84] bg-white p-3 text-[16px] leading-relaxed text-[#172b26] placeholder:text-[#687A72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#1f2225] dark:text-white"
+              onChange={(event) => setDraftText(withinNoteLimit(event.target.value))}
+              className="mt-2 block w-full resize-none rounded-item border border-[#7d8a84] bg-white p-3 text-[16px] leading-relaxed text-[#172b26] placeholder:text-[#687A72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#1f2225] dark:text-white"
             />
-            {writeEmpty ? <p role="alert" className={`mt-1 text-[13px] ${DANGER}`}>{t("business.intake.write_empty", "Write what happened before saving.")}</p> : null}
+            <NoteCount id="intake-write-text-count" count={noteLength(draftText)} />
             <p id="intake-write-help" className={`mt-2 text-[13px] ${MUTED}`}>{t("business.intake.write_help", "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.")}</p>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <button type="button" className={smallAction} onClick={() => { setWriting(false); setWriteEmpty(false); }}>
+            <div className="mt-4">
+              <p className={`mb-2 text-[14px] ${MUTED}`}>{t("business.intake.write_type.label")}</p>
+              <SegmentedControl
+                testId="intake-write-type"
+                label={t("business.intake.write_type.label")}
+                segments={[
+                  { key: "recibo" as const, label: t("business.intake.type_recibo", "Purchase") },
+                  { key: "venta" as const, label: t("business.intake.type_venta", "Sale") },
+                ]}
+                value={writeType}
+                onChange={setWriteType}
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+              <button type="button" className={smallAction} onClick={() => setWriting(false)}>
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 {t("business.intake.write_back", "Upload files")}
               </button>
-              <button type="button" data-testid="intake-write-save" className={`${pillButtonClass} bg-[#2f5a49] text-[#FFFEFA] dark:bg-[#8fcbb0] dark:text-[#172b26]`} onClick={saveWriting}>
+              <button type="button" data-testid="intake-write-save" disabled={!writeReady} className={`${pillButtonClass} bg-[#2f5a49] text-[#FFFEFA] disabled:opacity-40 dark:bg-[#8fcbb0] dark:text-[#172b26]`} onClick={saveWriting}>
                 {t("business.intake.write_save", "Save")}
               </button>
             </div>
@@ -347,7 +347,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
         {NOTES_ENTRY_ENABLED && many && !writing ? (
           <p className={`-mt-2 text-center text-[13px] ${MUTED}`}>
             {t("business.intake.no_paper", "No paper?")}
-            <button type="button" data-testid="intake-write-open" className={`${smallAction} ml-1`} onClick={() => setWriting(true)}>
+            <button type="button" data-testid="intake-write-open" className={`${smallAction} ml-1`} onClick={() => { setWriteType(null); setWriting(true); }}>
               <PenLine className="h-4 w-4" aria-hidden="true" />
               {t("business.intake.write", "Write it")}
             </button>
@@ -385,7 +385,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             }}
           />
 
-        <div>
+        {writing ? null : <div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className={`text-[14px] ${MUTED}`}>{t("business.intake.saved_as", "Saved as")}</p>
             <SegmentedControl
@@ -407,7 +407,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                 ? t("business.intake.type_recibo_help", "Something the business paid for.")
                 : t("business.intake.type_auto_help", "With your business's RNC it is a sale; otherwise a purchase.")}
           </p>
-        </div>
+        </div>}
 
         {failure === "server" || failure === "unavailable" ? (
           <ServerErrorScreen reference={serverReference} onRetry={() => failed && queue.retry(failed.key)} />
@@ -427,7 +427,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
               </div>
             ) : null}
             <ul className="space-y-2" data-testid="receipt-upload-queue">
-              {typed.map((entry) => <TypedRow key={entry.key} entry={entry} onRetry={() => void sendTyped(entry)} />)}
+              {typed.map((entry) => <TypedRow key={entry.key} entry={entry} onRetry={() => void notes.retry(entry.key, (input, key, noteGrant) => source.captureNote(input, key, noteGrant))} />)}
               {[...batch.attention, ...batch.active, ...batch.waiting].map(renderRow)}
               {batch.saved.length === 1 ? batch.saved.map(renderRow) : null}
             </ul>
@@ -494,8 +494,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           </section>
         ) : null}
 
-        <ReceiptReadingControl showWhenOn />
-        {unfinished ? (
+        {/* Nothing reads a typed note, so the reading line belongs to file uploads only. */}
+        {writing ? null : <ReceiptReadingControl showWhenOn />}
+        {unfinishedUploads ? (
           <p className={`text-[13px] ${MUTED}`}>
             {t("business.intake.keep_open", "You can close this panel and come back to your uploads. Keep this page open until every file is saved.")}
           </p>
@@ -539,10 +540,7 @@ export function uploadBatchView(entries: readonly ReceiptUpload[], retryWaiting:
   };
 }
 
-/** Text the owner typed instead of uploading a file; it becomes a Bandeja draft like any receipt. */
-type TypedEntry = { key: string; text: string; documentType: DocumentType | null; status: "saving" | "saved" | "uncertain" | "refused"; problem: string | null };
-
-function TypedRow({ entry, onRetry }: { entry: TypedEntry; onRetry: () => void }) {
+function TypedRow({ entry, onRetry }: { entry: TypedNote; onRetry: () => void }) {
   const { t } = useTranslation();
   const failed = entry.status === "uncertain" || entry.status === "refused";
   return (
@@ -561,7 +559,11 @@ function TypedRow({ entry, onRetry }: { entry: TypedEntry; onRetry: () => void }
       {entry.status === "saved" ? <p className="mt-2 text-[13px] text-[#2f5a49] dark:text-[#8fcbb0]">{t("business.intake.typed_saved", "Saved to the Inbox")}</p> : null}
       {failed ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <p role="alert" className={`text-[13px] ${DANGER}`}>{entry.problem}</p>
+          <p role="alert" className={`text-[13px] ${DANGER}`}>
+            {entry.status === "refused"
+              ? t("business.capture.refused", "The note could not be saved. Your text is retained; review the request before trying again.")
+              : t("business.intake.typed_uncertain", "We couldn't confirm it was saved. Try again; it won't be saved twice.")}
+          </p>
           {entry.status === "uncertain" ? (
             <button type="button" className={smallAction} onClick={onRetry}>
               <RotateCw className="h-4 w-4" aria-hidden="true" />

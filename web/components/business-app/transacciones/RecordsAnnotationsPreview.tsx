@@ -28,8 +28,8 @@ import { matchesRecordSearch } from "./records-search-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import cells from "./transacciones-cells.module.css";
 import styles from "./records-annotations-preview.module.css";
+import NoteCount, { NOTE_LIMIT, noteLength } from "../NoteCount";
 
-const NOTE_LIMIT = 500;
 
 type RecordAnnotation = { note: string; attachments: readonly LocalEvidence[] };
 type EditorSelection = { scope: string; row: RecordRow; opener: HTMLElement | null } & ({ kind: "note" } | { kind: "attachment" });
@@ -74,27 +74,28 @@ export function RecordsAnnotationsPreview({ children, connected }: { children: R
   const canRead = Boolean(chosen?.capabilities.includes("read"));
   const canEdit = canRead && canAddRecords(chosen);
   const limits = records.workspace?.receipt_limits ?? null;
-  const attachmentPreviewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  // A row without a server report keeps its notes and files only on this screen, so only the local preview edits one.
+  const localAnnotationsEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const pending = useMemo(() => new Map<string, PendingAnnotation>(), []);
-  const noteEditable = (row: RecordRow) => row.report ? Boolean(connected && canRead && row.report.can_edit_note) : canEdit;
-  const attachmentEditable = (row: RecordRow) => row.report ? Boolean(connected && canRead && row.report.can_append_supporting && limits) : attachmentPreviewEnabled && canEdit && limits !== null;
+  const noteEditable = (row: RecordRow) => row.report ? Boolean(connected && canRead && row.report.can_edit_note) : localAnnotationsEnabled && canEdit;
+  const attachmentEditable = (row: RecordRow) => row.report ? Boolean(connected && canRead && row.report.can_append_supporting && limits) : localAnnotationsEnabled && canEdit && limits !== null;
   const [annotations, setAnnotations] = useState<ReadonlyMap<string, RecordAnnotation>>(() => new Map());
   const [selected, setSelected] = useState<EditorSelection | null>(null);
   const read = (row: RecordRow) => canRead ? row.report ? { note: row.report.note ?? "", attachments: [] } : annotations.get(annotationKey(scope, row)) ?? EMPTY_ANNOTATION : EMPTY_ANNOTATION;
   const edit = (row: RecordRow, kind: EditorSelection["kind"]) => {
     if (kind === "note" && !NOTES_ENTRY_ENABLED) return;
     if (row.report && !(kind === "note" ? noteEditable(row) || Boolean(row.report.note) : attachmentEditable(row) || row.hasProof === true)) return;
-    if (!row.report && kind === "attachment" && !attachmentPreviewEnabled) return;
+    if (!row.report && !localAnnotationsEnabled) return;
     setSelected({ scope, row, kind, opener: document.activeElement instanceof HTMLElement ? document.activeElement : null });
   };
   const selectedRow = selected ? connected?.rows.find((row) => recordRowKey(row) === recordRowKey(selected.row)) ?? selected.row : null;
-  const active = canRead && selected?.scope === scope && (selected.kind === "note" ? NOTES_ENTRY_ENABLED : connected || attachmentPreviewEnabled) ? { ...selected, row: selectedRow! } : null;
+  const active = canRead && selected?.scope === scope && (selected.kind === "note" ? NOTES_ENTRY_ENABLED : connected || localAnnotationsEnabled) ? { ...selected, row: selectedRow! } : null;
   const save = (value: RecordAnnotation) => {
     if (!active || !canEdit) return;
     setAnnotations((current) => new Map(current).set(annotationKey(scope, active.row), value));
     setSelected(null);
   };
-  return <AnnotationContext.Provider value={{ read, edit, canRead, canEdit, canAttach: Boolean(connected) || attachmentPreviewEnabled && canEdit && limits !== null, noteEditable, attachmentEditable }}>
+  return <AnnotationContext.Provider value={{ read, edit, canRead, canEdit, canAttach: Boolean(connected) || localAnnotationsEnabled && canEdit && limits !== null, noteEditable, attachmentEditable }}>
     {children}
     {active ? <AnnotationEditor key={`${scope}:${recordRowKey(active.row)}:${active.kind}`} selected={active} initial={read(active.row)} limits={limits} connected={active.row.report && connected ? connected : undefined} pending={pending} canEdit={active.kind === "note" ? noteEditable(active.row) : attachmentEditable(active.row)} close={() => setSelected(null)} save={save} /> : null}
   </AnnotationContext.Provider>;
@@ -169,7 +170,7 @@ function AnnotationEditor({ selected, initial, limits, canEdit, close, save, con
     if (failure.kind !== 'access') return false;
     pending.clear(); connected?.revoke(); close(); return true;
   };
-  const noteCount = connected ? Array.from(note).length : note.length;
+  const noteCount = connected ? noteLength(note) : note.length;
   const closeEditor = () => { if (!busy) close(); };
   const saveConnected = async () => {
     if (!connected || !selected.row.report?.draft_id || busy || !canEdit) return;
@@ -255,12 +256,11 @@ function AnnotationEditor({ selected, initial, limits, canEdit, close, save, con
       {selected.kind === "attachment" ? <div className={styles.amount}>{selected.row.report && (selected.row.report.gross_amount === null || selected.row.report.currency === null) ? <Unknown /> : selected.row.report ? <span className="cuadrao-amount whitespace-nowrap tabular-nums">{formatMoney(selected.row.money.amount, selected.row.money.currency, locale)}</span> : <PlainAmount money={selected.row.money} />}</div> : null}
       {selected.kind === "attachment" && selected.row.account ? <p className={styles.account}>{t("business.transactions.columns.cuenta")} · <AccountLabel account={selected.row.account} /></p> : null}
     </div>
-    {selected.kind === "note" ? <><label htmlFor={fieldId} className={styles.label}>{word("current_note")}</label><textarea ref={field} id={fieldId} className={styles.textarea} rows={4} maxLength={connected ? undefined : NOTE_LIMIT} value={note} readOnly={!canEdit || busy || problem?.kind === "uncertain"} aria-describedby={`${fieldId}-count`} onChange={(event) => setNote(connected ? event.target.value : event.target.value.slice(0, NOTE_LIMIT))} /><div id={`${fieldId}-count`} className="mt-1 text-right text-[13px] tabular-nums text-[#56635e] dark:text-white/55">{noteCount}/{NOTE_LIMIT}</div>{serverNote !== undefined ? <p className={styles.hint}>{word("current_note")} · {serverNote || t("business.dossier.not_recorded")}</p> : null}</> : <>
+    {selected.kind === "note" ? <><label htmlFor={fieldId} className={styles.label}>{word("current_note")}</label><textarea ref={field} id={fieldId} className={styles.textarea} rows={4} maxLength={connected ? undefined : NOTE_LIMIT} value={note} readOnly={!canEdit || busy || problem?.kind === "uncertain"} aria-describedby={`${fieldId}-count`} onChange={(event) => setNote(connected ? event.target.value : event.target.value.slice(0, NOTE_LIMIT))} /><NoteCount id={`${fieldId}-count`} count={noteCount} />{serverNote !== undefined ? <p className={styles.hint}>{word("current_note")} · {serverNote || t("business.dossier.not_recorded")}</p> : null}</> : <>
       <section aria-label={word("linked_evidence")} className={styles.linkedEvidence}>
         <h3 className={styles.label}>{word("linked_evidence")}</h3>
         {documentNumbers.length ? <p className={styles.hint}>{documentNumbers.join(" · ")}</p> : null}
         {connected && selected.row.report?.attachment_sources?.length ? <ul className={styles.fileList}>{selected.row.report.attachment_sources.map((source) => <li key={source.source_id}><button type="button" className={quietButtonClass} disabled={busy || !source.receipt_id || !source.source_available || !source.download_available} title={!source.download_available || !source.source_available ? word("linked_unavailable") : undefined} onClick={() => { if (source.receipt_id) void downloadSource(source.receipt_id, source.filename ?? word("received_document")); }}><FileText size={16} aria-hidden="true" />{source.filename ?? word("received_document")}</button></li>)}</ul> : selected.row.hasProof ? selected.row.opens ? <button type="button" className={quietButtonClass} onClick={openOriginal}><FileText size={16} aria-hidden="true" />{word("open_linked_attachment")}</button> : <p className={styles.hint}>{word("linked_unavailable")}</p> : <p className={styles.hint}>{word(selected.row.hasProof === null ? "linked_unknown" : "no_linked_attachment")}</p>}
-        {canEdit ? <p className={styles.hint}>{word("received_unavailable")}</p> : null}
       </section>
       <ul className={styles.fileList} aria-label={word("local_preview")} data-local-files="">{attachments.map(({ digest, file }) => <li key={digest}><LocalFilePreview file={file} /></li>)}</ul>
       {canEdit && limits ? <RecordsEvidenceDropZone limits={limits} busy={busy || selection.kind === "preparing"} onFiles={(files) => { void selectFiles(files); }} /> : null}

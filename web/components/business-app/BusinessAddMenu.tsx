@@ -4,7 +4,7 @@ import { ChevronDown, Copy, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ActionMenu from "./ActionMenu";
 import { useBusiness } from "./BusinessWorkspace";
-import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { canAddRecords, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { useForwardAddress } from "./useForwardAddress";
 import { copyText } from "./foundation/CopyButton";
 import { showToast } from "./foundation/toasts";
@@ -13,15 +13,15 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
   const { t } = useTranslation();
   const { actions, chosen, openPanel } = useBusiness();
   const forwardAddress = useForwardAddress();
-  const owner = chosen?.role !== "accountant";
-  const add = owner ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
+  const canAdd = canAddRecords(chosen);
+  const add = canAdd ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   const copyForward = async (address: string) => {
     const copied = await copyText(address);
     if (copied) showToast({ kind: "info", text: t("business.email.copied", "Address copied.") });
     else openPanel({ kind: "business", tab: "correo" });
   };
   const more = [
-    ...(owner && forwardAddress ? [{ id: "copy_forward", icon: Copy, label: t("business.overview.copy_forward", "Copy forwarding address"), run: () => void copyForward(forwardAddress) }] : []),
+    ...(canAdd && forwardAddress ? [{ id: "copy_forward", icon: Copy, label: t("business.overview.copy_forward", "Copy forwarding address"), run: () => void copyForward(forwardAddress) }] : []),
   ];
   const hasMore = more.length > 0;
   if (!add && !hasMore) return null;

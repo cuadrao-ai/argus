@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { afterAll, beforeAll, describe, test } from "bun:test";
+import { afterAll, beforeAll, describe, jest, test } from "bun:test";
+import { SETUP_DONE_MS, SETUP_FADE_MS } from "@/components/business-app/inicio/HomeSetup";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import type { BusinessSetupStep } from "@/lib/business-setup-api";
@@ -15,7 +16,7 @@ const UNDER_WAY: BusinessSetupStep[] = [step("created", true), step("fiscal_iden
 const DONE: BusinessSetupStep[] = [step("created", true), step("fiscal_identity", true), step("team", false, false)];
 
 /** The sidebar's setup card, fed from the server once, as the rail's footer mounts it. */
-async function mount(answer: BusinessSetupStep[] | Error, { permissions = ["read", "manage"], collapsed = false, role = "owner" } = {}) {
+async function mount(answer: BusinessSetupStep[] | Error, { permissions = ["read", "prepare", "manage"], collapsed = false, role = "owner" } = {}) {
   const { act, createElement } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -34,7 +35,7 @@ async function mount(answer: BusinessSetupStep[] | Error, { permissions = ["read
     source,
     openPanel: (panel: unknown) => { opened.push(panel); },
     actions: { create: role === "accountant" ? [] : [{ id: "upload_receipt", label: "Subir", run: () => { uploads += 1; } }] },
-    chosen: { space_id: "space-setup", name: "Taller Nuevo", grant_id: "g", role, capabilities: ["read"], permissions },
+    chosen: { space_id: "space-setup", name: "Taller Nuevo", grant_id: "g", role, capabilities: permissions.filter((permission) => ["read", "prepare", "approve"].includes(permission)), permissions },
     revision,
   }) as unknown as BusinessContextValue;
   const host = document.createElement("div");
@@ -107,12 +108,60 @@ describe("Configurar negocio lives in the sidebar, from the server's steps", () 
     } finally { await page.close(); }
   });
 
-  test("the card leaves when the last required step is done, with no all-done card", async () => {
+  const reducedMotion = (reduce: boolean) => {
+    window.matchMedia = ((query: string) => ({ matches: reduce && query.includes("prefers-reduced-motion"), media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
+  };
+  const advance = async (page: Awaited<ReturnType<typeof mount>>, ms: number) => { await page.act(async () => { jest.advanceTimersByTime(ms); }); };
+
+  test("when the last required step is done, the ring fills, says Listo for 3 seconds, fades and stays gone", async () => {
+    reducedMotion(false);
     const page = await mount(UNDER_WAY);
+    const fills: unknown[] = [];
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (keyframes: unknown) { fills.push(keyframes); return { cancel: () => {} } as unknown as Animation; };
+    jest.useFakeTimers();
     try {
       assert.ok(page.host.querySelector('[data-testid="sidebar-setup"]'));
       await page.answer(DONE);
       assert.equal(page.reads(), 2);
+      assert.equal(page.host.querySelector('[data-testid="sidebar-setup"]'), null, "the card no longer opens the dossier");
+      const done = page.host.querySelector('[data-testid="sidebar-setup-done"]')!;
+      assert.equal(done.getAttribute("role"), "status");
+      assert.equal(done.getAttribute("data-phase"), "shown");
+      assert.match(done.textContent ?? "", /Listo, tu negocio está configurado/);
+      assert.doesNotMatch(done.textContent ?? "", /\d\/\d/, "a check replaces the count");
+      assert.equal(fills.length, 1, "the ring fills once, from where it was");
+      await advance(page, SETUP_DONE_MS - 1);
+      assert.equal(page.host.querySelector('[data-testid="sidebar-setup-done"]')?.getAttribute("data-phase"), "shown");
+      await advance(page, 1);
+      assert.equal(page.host.querySelector('[data-testid="sidebar-setup-done"]')?.getAttribute("data-phase"), "fading");
+      await advance(page, SETUP_FADE_MS);
+      assert.equal(page.host.innerHTML, "");
+      await page.answer(DONE);
+      assert.equal(page.host.innerHTML, "", "a later answer does not play it again");
+    } finally { jest.useRealTimers(); Element.prototype.animate = animate; await page.close(); }
+  });
+
+  test("with reduced motion the check and line show for the same time, then the card is gone with no fill or fade", async () => {
+    reducedMotion(true);
+    const page = await mount(UNDER_WAY);
+    const fills: unknown[] = [];
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (keyframes: unknown) { fills.push(keyframes); return { cancel: () => {} } as unknown as Animation; };
+    jest.useFakeTimers();
+    try {
+      await page.answer(DONE);
+      assert.match(page.host.textContent ?? "", /Listo, tu negocio está configurado/);
+      assert.equal(fills.length, 0);
+      await advance(page, SETUP_DONE_MS);
+      assert.equal(page.host.innerHTML, "");
+    } finally { jest.useRealTimers(); Element.prototype.animate = animate; reducedMotion(false); await page.close(); }
+  });
+
+  test("a setup already complete when the app loads shows nothing", async () => {
+    const page = await mount(DONE);
+    try {
+      assert.equal(page.reads(), 1);
       assert.equal(page.host.innerHTML, "");
     } finally { await page.close(); }
   });

@@ -67,7 +67,7 @@ test("closing the subscriber cannot drop a running queue or permit duplicate sav
   expect(queue.snapshot()[0].status).toBe("uploading");
   stopListening();
   await queue.save("inbox", true);
-  queue.clear("inbox");
+  queue.clear("inbox", null);
   queue.remove(queue.snapshot()[0].key);
   expect(queue.snapshot()).toHaveLength(1);
   finish(savedReceipt("server-id"));
@@ -87,7 +87,7 @@ test("composer accepts one file without replacing the inbox queue, and cancellin
   await queue.save("composer", false);
   expect(reported).toEqual(["inbox", "composer"]);
   expect(queue.snapshot()[0].status).toBe("saved");
-  queue.clear("composer");
+  queue.clear("composer", null);
   expect(queue.snapshot()).toHaveLength(1);
 });
 
@@ -166,7 +166,7 @@ test("closing forgets saved and rejected rows and keeps unfinished ones", async 
   await queue.save("inbox", false);
   expect(queue.snapshot().map((item) => item.status)).toEqual(["saved", "failed", "rejected"]);
   queue.add([file("pendiente.txt")], limits, "inbox");
-  queue.clearSettled("inbox");
+  queue.clearSettled("inbox", null);
   expect(queue.snapshot().map((item) => [item.file.name, item.status])).toEqual([["falla.txt", "failed"], ["pendiente.txt", "queued"]]);
   fail = false;
   await queue.save("inbox", false);
@@ -266,4 +266,45 @@ test("a server type rejection asks for another file rather than resending it", a
   expect(queue.snapshot()[0]).toMatchObject({ status: "rejected", reason: "unsupported" });
   await queue.save("inbox", true);
   expect(calls).toBe(1);
+});
+
+// The queue holds every Business's files; an action in one Business touches only that Business's files.
+const A = "grant-a";
+const B = "grant-b";
+const names = (queue: ReceiptUploadQueue, grant: string) => queue.snapshot().filter((item) => item.grant === grant).map((item) => item.file.name);
+
+test("clearing one Business's target leaves another Business's files and keys in place", async () => {
+  const queue = new ReceiptUploadQueue(async (candidate) => savedReceipt(candidate.name), () => undefined);
+  queue.add([file("a.txt")], limits, "inbox", null, null, A);
+  queue.add([file("b.txt")], limits, "inbox", null, null, B);
+  await queue.save("inbox", false);
+  const keyOfA = queue.snapshot()[0].key;
+  queue.clear("inbox", B);
+  expect(names(queue, B)).toEqual([]);
+  expect(queue.snapshot().map((item) => [item.file.name, item.key])).toEqual([["a.txt", keyOfA]]);
+});
+
+test("forgetting one Business's finished files keeps another Business's finished files", async () => {
+  const queue = new ReceiptUploadQueue(async (candidate) => savedReceipt(candidate.name), () => undefined);
+  queue.add([file("a.txt"), file("bad.exe", "application/octet-stream")], limits, "inbox", null, null, A);
+  queue.add([file("b.txt")], limits, "inbox", null, null, B);
+  await queue.save("inbox", false);
+  queue.clearSettled("inbox", B);
+  expect(names(queue, A)).toEqual(["a.txt", "bad.exe"]);
+  expect(names(queue, B)).toEqual([]);
+});
+
+test("a file already listed in one Business is still added in another, and a new composer file replaces only its Business's idle one", async () => {
+  const queue = new ReceiptUploadQueue(async (candidate) => savedReceipt(candidate.name), () => undefined);
+  const same = file("recibo.txt");
+  queue.add([same], limits, "inbox", null, null, A);
+  queue.add([same], limits, "inbox", null, null, B);
+  expect(names(queue, A)).toEqual(["recibo.txt"]);
+  expect(names(queue, B)).toEqual(["recibo.txt"]);
+  queue.add([file("chat-a.txt")], limits, "composer", "chat-a", null, A);
+  queue.add([file("chat-b.txt")], limits, "composer", "chat-b", null, B);
+  expect(names(queue, A)).toEqual(["recibo.txt", "chat-a.txt"]);
+  queue.add([file("chat-b2.txt")], limits, "composer", "chat-b", null, B);
+  expect(names(queue, A)).toEqual(["recibo.txt", "chat-a.txt"]);
+  expect(names(queue, B)).toEqual(["recibo.txt", "chat-b2.txt"]);
 });

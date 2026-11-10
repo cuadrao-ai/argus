@@ -14,7 +14,7 @@ type Loaded = { business: string; steps: readonly BusinessSetupStep[] | null };
  */
 export function useBusinessSetup(): readonly BusinessSetupStep[] | null {
   const { source, chosen, revision } = useBusiness();
-  const allowed = canManageBusiness(chosen, source.mode === "live");
+  const allowed = canManageBusiness(chosen);
   const business = `${chosen?.space_id ?? "none"}:${chosen?.grant_id ?? "own"}`;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   useEffect(() => {

@@ -183,10 +183,10 @@ describe("switching Business inside one signed-in account", () => {
     for (let i = 0; i < 40 && page.text("probe-chosen") !== "Colmado Peña"; i += 1) {
       await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     }
-    const { getChosenGrant, chosenGrantHeader, GRANT_HEADER } = await import("@/lib/business-grant");
+    const { getChosenGrant, grantHeader, GRANT_HEADER } = await import("@/lib/business-grant");
     assert.equal(getChosenGrant(), "g-a");
     assert.equal(page.text("probe-chosen"), "Colmado Peña");
-    assert.deepEqual(chosenGrantHeader(), { [GRANT_HEADER]: "g-a" });
+    assert.deepEqual(grantHeader(getChosenGrant()), { [GRANT_HEADER]: "g-a" });
     await page.act(async () => { page.api().openPanel({ kind: "overview" }); });
     await page.settle();
     assert.ok(page.text("probe-inbox")?.includes("g-a"), page.text("probe-inbox") ?? "");
@@ -218,14 +218,14 @@ test("a newly created local owner business stays selected with empty scoped reco
 test("local selection survives a preview reload without sending a synthetic grant header", async () => {
   const nodeEnv = process.env.NODE_ENV;
   const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
-  const { synchronizeBusinessAccount, setChosenGrant, getChosenGrant, chosenGrantHeader } = await import("@/lib/business-grant");
+  const { synchronizeBusinessAccount, setChosenGrant, getChosenGrant, grantHeader } = await import("@/lib/business-grant");
   const key = "argus:business-grant:v1";
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
     synchronizeBusinessAccount("local-owner");
     setChosenGrant("local-business-persisted");
     const saved = localStorage.getItem(key)!;
-    assert.deepEqual(chosenGrantHeader(), {});
+    assert.deepEqual(grantHeader(getChosenGrant()), {});
     synchronizeBusinessAccount(null);
     localStorage.setItem(key, saved);
     synchronizeBusinessAccount("local-owner");

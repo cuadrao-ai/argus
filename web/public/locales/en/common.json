@@ -2608,7 +2608,6 @@
           "preview_failed": "We could not prepare the preview. No files were added.",
           "preview_file": "Preview file",
           "received_document": "Received document",
-          "received_unavailable": "Linking received documents is not available yet.",
           "record_actions": "Record actions",
           "too_large": "The file exceeds the allowed size.",
           "unsupported": "This file type is not allowed."
@@ -3979,6 +3978,7 @@
     },
     "home_setup": {
       "copy_review": "pending_lucas",
+      "done": "Done, your business is set up",
       "lead": "Finish these steps to start receiving and reviewing documents.",
       "optional": "Optional",
       "remaining_one": "1 step left",
@@ -3998,7 +3998,7 @@
           "title": "Add the RNC or cédula"
         },
         "receipt_reading": {
-          "body": "Cuadrao reads your invoices, receipts and PDFs and pulls out their details. Includes email, WhatsApp and uploaded files.",
+          "body": "Cuadrao reads your invoices, receipts and PDFs and pulls out their details.",
           "title": "Turn on document reading"
         },
         "receiving_address": {
@@ -4439,7 +4439,10 @@
       "write_help": "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.",
       "write_back": "Upload files",
       "write_save": "Save",
-      "write_empty": "Write what happened before saving.",
+      "write_type": {
+        "copy_review": "pending_lucas",
+        "label": "Is it a purchase or a sale?"
+      },
       "typed_kind": "Typed",
       "typed_saving": "Saving…",
       "typed_saved": "Saved to the Inbox",
