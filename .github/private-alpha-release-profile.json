@@ -1,34 +1,26 @@
 {
   "schema_version": 1,
-  "release_mode": "real-workflow",
   "services": {
     "api": {
-      "name": "argus-api",
+      "name": "cuadrao-api",
       "auto_deploy_trigger": "off"
     },
     "web": {
-      "name": "argus-app",
+      "name": "cuadrao-app",
       "auto_deploy_trigger": "off"
     },
     "marketing": {
-      "name": "cuadrao-web",
+      "name": "cuadrao-marketing",
       "auto_deploy_trigger": "off"
     },
-    "workflow": {
-      "name": "argus-backtests",
+    "documents_worker": {
+      "name": "cuadrao-documents-worker",
       "auto_deploy_trigger": "off"
     }
   },
-  "workflow": {
-    "proof_task": "argus-backtests/workflow_proof",
-    "real_task": "argus-backtests/run_backtest_job",
-    "health_status": "ready",
-    "runtime_provider_mode": "live_provider"
-  },
   "capabilities": {
     "spanish": true,
-    "omnisearch": true,
-    "real_workflow_execution": true
+    "omnisearch": true
   },
   "locales": {
     "supported": [

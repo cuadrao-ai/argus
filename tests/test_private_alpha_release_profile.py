@@ -73,17 +73,17 @@ def test_release_profile_is_non_secret_and_holds_no_environment() -> None:
     profile = _profile()
     serialized = json.dumps(profile).lower()
 
-    assert profile["release_mode"] == "real-workflow"
-    assert set(profile["services"]) == {"api", "web", "workflow", "marketing"}
-    assert profile["services"]["api"]["name"] == "argus-api"
-    assert profile["services"]["web"]["name"] == "argus-app"
-    assert profile["services"]["marketing"]["name"] == "cuadrao-web"
-    assert profile["services"]["workflow"]["name"] == "argus-backtests"
-    for surface in ("api", "web", "workflow", "marketing"):
+    assert set(profile) == {"schema_version", "services", "capabilities", "locales"}
+    assert set(profile["services"]) == {"api", "web", "marketing", "documents_worker"}
+    assert profile["services"]["api"]["name"] == "cuadrao-api"
+    assert profile["services"]["web"]["name"] == "cuadrao-app"
+    assert profile["services"]["marketing"]["name"] == "cuadrao-marketing"
+    assert profile["services"]["documents_worker"]["name"] == "cuadrao-documents-worker"
+    for surface in profile["services"]:
         assert set(profile["services"][surface]) == {"name", "auto_deploy_trigger"}
         assert profile["services"][surface]["auto_deploy_trigger"] == "off"
     assert "staging_only" not in profile
-    assert profile["workflow"]["real_task"] == "argus-backtests/run_backtest_job"
+    assert "real_workflow_execution" not in profile["capabilities"]
     assert profile["locales"]["supported"] == ["en", "es-419"]
     assert profile["capabilities"]["omnisearch"] is True
 
@@ -110,7 +110,7 @@ def test_profile_validation_rejects_environment_settings() -> None:
     ("mutate", "message"),
     [
         (
-            lambda profile: profile["services"]["workflow"].update(
+            lambda profile: profile["services"]["documents_worker"].update(
                 auto_deploy_trigger="checksPass"
             ),
             "share one auto_deploy_trigger",
@@ -131,6 +131,66 @@ def test_profile_validation_rejects_split_autodeploy(
     mutate(profile)
 
     with pytest.raises(module.ProfileValidationError, match=message):
+        module.validate_profile(profile)
+
+
+def test_profile_lists_each_live_render_service_in_the_blueprint() -> None:
+    profile = _profile()
+    render_config = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
+    declared = {service["name"]: service for service in render_config["services"]}
+
+    for service in profile["services"].values():
+        assert declared[service["name"]]["branch"] == "main"
+        assert declared[service["name"]]["autoDeployTrigger"] == service[
+            "auto_deploy_trigger"
+        ]
+        assert declared[f"{service['name']}-staging"]["autoDeployTrigger"] == "off"
+    assert declared["cuadrao-documents-worker"]["type"] == "worker"
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda profile: profile["services"].update(
+                workflow={"name": "argus-backtests", "auto_deploy_trigger": "off"}
+            ),
+            "services must define api, web, marketing, and documents_worker",
+        ),
+        (
+            lambda profile: profile["services"]["api"].update(name="argus-api"),
+            "services.api.name must be cuadrao-api",
+        ),
+    ],
+)
+def test_profile_validation_rejects_retired_service_names(
+    mutate: Callable[[dict[str, Any]], None], message: str
+) -> None:
+    module = _profile_module()
+    profile = _profile()
+    mutate(profile)
+
+    with pytest.raises(module.ProfileValidationError, match=message):
+        module.validate_profile(profile)
+
+
+@pytest.mark.parametrize(
+    ("surface", "retired_name"),
+    [
+        ("api", "argus-api"),
+        ("web", "cuadrao-web-staging"),
+        ("marketing", "cuadrao-web"),
+        ("documents_worker", "argus-backtests"),
+    ],
+)
+def test_profile_validation_pins_each_surface_to_its_live_service_name(
+    surface: str, retired_name: str
+) -> None:
+    module = _profile_module()
+    profile = _profile()
+    profile["services"][surface]["name"] = retired_name
+
+    with pytest.raises(module.ProfileValidationError, match=f"services.{surface}.name"):
         module.validate_profile(profile)
 
 
@@ -206,9 +266,10 @@ def test_profile_utility_validates_and_hashes_the_profile_with_the_manifest() ->
     for retired in ("env-pairs", "env-value", "required-present", "allowed-keys"):
         assert _profile_utility(retired, "api").returncode != 0
 
-    workflow_autodeploy = _profile_utility("auto-deploy-trigger", "workflow")
-    assert workflow_autodeploy.returncode == 0, workflow_autodeploy.stderr
-    assert workflow_autodeploy.stdout.strip() == "off"
+    worker_autodeploy = _profile_utility("auto-deploy-trigger", "documents_worker")
+    assert worker_autodeploy.returncode == 0, worker_autodeploy.stderr
+    assert worker_autodeploy.stdout.strip() == "off"
+    assert _profile_utility("auto-deploy-trigger", "workflow").returncode != 0
 
 
 def test_settings_tool_emits_the_production_pairs_the_audit_reads() -> None:
@@ -217,9 +278,13 @@ def test_settings_tool_emits_the_production_pairs_the_audit_reads() -> None:
     assert "CUADRAO_PERSISTENCE_MODE=supabase" in api_pairs.stdout.splitlines()
     assert "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED" not in api_pairs.stdout
 
-    workflow_pairs = _settings_tool("print", "production", "workflow")
-    assert workflow_pairs.returncode == 0, workflow_pairs.stderr
-    assert "ARGUS_MARKET_DATA_PROVIDER_MODE" not in workflow_pairs.stdout
+    worker_pairs = _settings_tool("print", "production", "documents_worker")
+    assert worker_pairs.returncode == 0, worker_pairs.stderr
+    assert worker_pairs.stdout.splitlines() == [
+        "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS=210",
+        "CUADRAO_DOCUMENT_JOBS_MAX_READS=3",
+    ]
+    assert _settings_tool("print", "production", "workflow").returncode != 0
 
     allowed = _settings_tool("names", "production", "web", "allowed")
     assert allowed.returncode == 0, allowed.stderr
@@ -227,12 +292,56 @@ def test_settings_tool_emits_the_production_pairs_the_audit_reads() -> None:
     assert "NEXT_PUBLIC_CUADRAO_API_URL" in allowed.stdout.splitlines()
 
 
+def test_settings_tool_gives_no_delete_list_for_the_documents_worker(
+    tmp_path: Path,
+) -> None:
+    live = tmp_path / "live-names"
+    live.write_text(
+        "APP_ENV\nARGUS_WORKFLOW_DATABASE_URL\nCUADRAO_PROD_OPENROUTER_API_KEY\n",
+        encoding="utf-8",
+    )
+
+    result = _settings_tool(
+        "print", "production", "documents_worker", "--live-names", str(live)
+    )
+
+    assert result.returncode != 0
+    assert "delete" not in result.stdout
+    assert "live readback" in result.stderr
+
+
+def test_settings_tool_keeps_the_web_launch_copy_sources_until_the_deploy(
+    tmp_path: Path,
+) -> None:
+    live = tmp_path / "live-names"
+    live.write_text(
+        "NEXT_PUBLIC_ARGUS_API_URL\nNEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY\n",
+        encoding="utf-8",
+    )
+
+    result = _settings_tool("print", "production", "web", "--live-names", str(live))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "delete now:",
+        "delete after the launch deploy:",
+        "NEXT_PUBLIC_ARGUS_API_URL",
+        "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY",
+    ]
+    to_fill = _settings_tool("print", "production", "web", "--to-fill")
+    assert "copy the live value of NEXT_PUBLIC_ARGUS_API_URL on cuadrao-app" in to_fill.stdout
+    assert (
+        "copy the live value of NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY on cuadrao-app"
+        in to_fill.stdout
+    )
+
+
 def test_render_blueprint_production_api_matches_the_manifest() -> None:
     profile = _profile()
     render_blueprint = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
     services = {service["name"]: service for service in render_blueprint["services"]}
 
-    marketing = services["cuadrao-web"]
+    marketing = services["cuadrao-marketing"]
     assert marketing["rootDir"] == "marketing"
     assert "envVars" not in marketing
     assert marketing["autoDeployTrigger"] == profile["services"]["marketing"][
@@ -251,3 +360,20 @@ def test_render_blueprint_production_api_matches_the_manifest() -> None:
         item["key"]: {**item, "value": str(item["value"])} if "value" in item else item
         for item in api["envVars"]
     } == expected
+
+
+def test_render_blueprint_production_worker_matches_the_manifest() -> None:
+    render_blueprint = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
+    services = {service["name"]: service for service in render_blueprint["services"]}
+    expected = {
+        name: {"key": name, "value": rule["value"]}
+        for name, rule in _production("documents_worker").items()
+    }
+
+    for name in ("cuadrao-documents-worker", "cuadrao-documents-worker-staging"):
+        worker = services[name]
+        assert worker["startCommand"] == "poetry run python -m workflows.document_worker"
+        assert {item["key"]: item for item in worker["envVars"]} == expected
+    for name in ("cuadrao-api", "cuadrao-api-staging"):
+        keys = {item["key"] for item in services[name]["envVars"]}
+        assert not {key for key in keys if key.startswith("CUADRAO_DOCUMENT_JOBS_")}

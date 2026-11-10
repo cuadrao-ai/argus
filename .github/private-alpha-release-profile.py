@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate and expose the non-secret private-alpha release profile.
 
-The profile owns service names, the deploy trigger and the workflow contract.
+The profile owns service names and the deploy trigger.
 Environment settings live in scripts/ops/staging_env_manifest.json; read them
 with scripts/ops/staging_env.py.
 """
@@ -19,7 +19,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / ".github" / "private-alpha-release-profile.json"
 MANIFEST_PATH = ROOT / "scripts" / "ops" / "staging_env_manifest.json"
-SURFACES = ("api", "web", "workflow", "marketing")
+SURFACES = ("api", "web", "marketing", "documents_worker")
 AUTO_DEPLOY_TRIGGERS = ("off", "checksPass")
 FORBIDDEN_KEY_FRAGMENTS = (
     "candidate_sha",
@@ -58,8 +58,6 @@ def _require_mapping(value: object, field: str) -> dict[str, Any]:
 def validate_profile(profile: dict[str, Any]) -> None:
     if profile.get("schema_version") != 1:
         raise ProfileValidationError("schema_version must be 1")
-    if profile.get("release_mode") != "real-workflow":
-        raise ProfileValidationError("release_mode must be real-workflow")
 
     serialized = json.dumps(profile, sort_keys=True)
     lower_keys = {str(key).lower() for key in _walk_keys(profile)}
@@ -71,13 +69,13 @@ def validate_profile(profile: dict[str, Any]) -> None:
     services = _require_mapping(profile.get("services"), "services")
     if set(services) != set(SURFACES):
         raise ProfileValidationError(
-            "services must define api, web, workflow, and marketing"
+            "services must define api, web, marketing, and documents_worker"
         )
     expected_names = {
-        "api": "argus-api",
-        "web": "argus-app",
-        "workflow": "argus-backtests",
-        "marketing": "cuadrao-web",
+        "api": "cuadrao-api",
+        "web": "cuadrao-app",
+        "marketing": "cuadrao-marketing",
+        "documents_worker": "cuadrao-documents-worker",
     }
     triggers: set[object] = set()
     for surface, expected_name in expected_names.items():
@@ -97,24 +95,12 @@ def validate_profile(profile: dict[str, Any]) -> None:
             )
     if len(triggers) != 1:
         raise ProfileValidationError(
-            "api, web, workflow, and marketing must share one auto_deploy_trigger"
+            "api, web, marketing, and documents_worker must share one auto_deploy_trigger"
         )
-
-    workflow = _require_mapping(profile.get("workflow"), "workflow")
-    if workflow.get("proof_task") != "argus-backtests/workflow_proof":
-        raise ProfileValidationError("workflow.proof_task is invalid")
-    if workflow.get("real_task") != "argus-backtests/run_backtest_job":
-        raise ProfileValidationError("workflow.real_task is invalid")
-    if workflow.get("health_status") != "ready":
-        raise ProfileValidationError("workflow.health_status must be ready")
-    if workflow.get("runtime_provider_mode") != "live_provider":
-        raise ProfileValidationError("workflow.runtime_provider_mode must be live_provider")
 
     capabilities = _require_mapping(profile.get("capabilities"), "capabilities")
     if capabilities.get("spanish") is not True or capabilities.get("omnisearch") is not True:
         raise ProfileValidationError("Spanish and Omnisearch must be enabled")
-    if capabilities.get("real_workflow_execution") is not True:
-        raise ProfileValidationError("real workflow execution must be enabled")
 
     locales = _require_mapping(profile.get("locales"), "locales")
     if locales.get("supported") != ["en", "es-419"]:

@@ -88,6 +88,34 @@ def test_local_smoke_script_is_disposable_predeploy_gate() -> None:
     assert "put_render_env" not in source
 
 
+def test_local_smoke_points_the_web_at_the_smoke_api() -> None:
+    env = os.environ.copy()
+    env["NEXT_PUBLIC_CUADRAO_API_URL"] = "http://127.0.0.1:8000/api/v1"
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            (
+                "set -euo pipefail; "
+                "ARGUS_LOCAL_SMOKE_SOURCE_ONLY=true "
+                "source .github/local-smoke.sh; "
+                "configure_local_smoke_env; "
+                'printf "%s\\n%s\\n" "$API_URL" "$NEXT_PUBLIC_CUADRAO_API_URL"'
+            ),
+        ],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    api_url, web_api_url = result.stdout.splitlines()
+    assert web_api_url == f"{api_url}/api/v1"
+    assert ":8000/" not in web_api_url
+
+
 def test_local_smoke_contract_reports_sha_flags_mode_and_fingerprint() -> None:
     expected_sha = subprocess.check_output(
         ["git", "rev-parse", "HEAD"],
@@ -123,7 +151,7 @@ def test_local_smoke_contract_rejects_sha_or_real_workflow_mismatch() -> None:
     mode_result = _run_local_smoke_contract("--workflow-mode", "real-workflow")
 
     assert mode_result.returncode == 2
-    assert "real-workflow mode is not allowed for local smoke" in mode_result.stdout
+    assert "Unknown local smoke workflow mode: real-workflow" in mode_result.stdout
 
 
 def test_local_smoke_allows_only_memory_supabase_readiness_degradation(
