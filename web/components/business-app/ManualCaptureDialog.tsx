@@ -9,9 +9,10 @@ import { randomId } from "@/lib/random-id";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { useBusiness } from "./BusinessWorkspace";
 import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import NoteCount, { NOTE_LIMIT, noteLength, withinNoteLimit } from "./NoteCount";
 
 export function validCaptureText(text: string): boolean {
-  return Boolean(text.trim()) && [...text].length <= 20000 && !text.includes("\0");
+  return Boolean(text.trim()) && noteLength(text) <= NOTE_LIMIT && !text.includes("\0");
 }
 
 export function captureOutcomeUnknown(status: number | undefined, code: string | undefined): boolean {
@@ -87,7 +88,7 @@ export default function ManualCaptureDialog({ isOpen, target, revision, onClose,
     <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="space-y-4 p-5">
       <p className="text-[14px] leading-relaxed text-black/65 dark:text-white/65">{t("business.capture.help", "Save your original words for review. This creates no assistant reply and records no money movement.")}</p>
       {displayedTarget && revision !== undefined ? <p className="text-[13px] text-black/60 dark:text-white/60">{t("business.capture.target_revision", "Record revision {{version}}", { version: revision })}</p> : null}
-      <label htmlFor={textId} className="block text-[13px] font-medium text-black/65 dark:text-white/65">{t("business.capture.text", "Original note")}</label><textarea id={textId} value={text} onChange={(event) => { setText(event.target.value); onRetained?.(event.target.value.length > 0); }} readOnly={phase !== "idle"} required autoFocus rows={7} className="mt-2 block w-full rounded-item border border-black/15 bg-transparent p-3 text-[16px] font-normal leading-relaxed text-black outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:border-white/20 dark:text-white" />
+      <label htmlFor={textId} className="block text-[13px] font-medium text-black/65 dark:text-white/65">{t("business.capture.text", "Original note")}</label><textarea id={textId} value={text} aria-describedby={`${textId}-count`} onChange={(event) => { const next = withinNoteLimit(event.target.value); setText(next); onRetained?.(next.length > 0); }} readOnly={phase !== "idle"} required autoFocus rows={7} className="mt-2 block w-full rounded-item border border-black/15 bg-transparent p-3 text-[16px] font-normal leading-relaxed text-black outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:border-white/20 dark:text-white" /><NoteCount id={`${textId}-count`} count={noteLength(text)} />
       {problem ? <p role="alert" className="text-[14px] leading-relaxed text-black/75 dark:text-white/75">{problem}</p> : null}
       <div className="flex flex-wrap gap-3">
         <button type="button" disabled={saving} className={secondaryButtonClass} onClick={onClose}>{t("common.close", "Close")}</button>

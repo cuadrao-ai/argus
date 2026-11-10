@@ -302,8 +302,12 @@ class TypedPurchase(Contract):
     occurred_on: date
 
 
+#: The longest note a person writes, typed or on a record, in characters.
+NOTE_MAX_LENGTH = 500
+
+
 class CaptureNote(Contract):
-    text: str = Field(min_length=1, max_length=20000)
+    text: str = Field(min_length=1, max_length=NOTE_MAX_LENGTH)
     draft: ExistingDraft | None = None
     #: The type of the new draft this note starts; a review changes it later.
     document_type: DocumentType | None = Field(

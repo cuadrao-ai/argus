@@ -11,8 +11,8 @@ const fixture = () => createDossierFixtures([{ id: "cash", nickname: "Caja", typ
 test("verbatim notes reject blanks/NUL and count Unicode characters like the server", () => {
   assert.equal(validCaptureText(" \n "), false);
   assert.equal(validCaptureText("hola\0"), false);
-  assert.equal(validCaptureText("á".repeat(20001)), false);
-  assert.equal(validCaptureText("🧾".repeat(20000)), true);
+  assert.equal(validCaptureText("á".repeat(501)), false, "a note is capped at 500 characters, like a record's note");
+  assert.equal(validCaptureText("🧾".repeat(500)), true, "the cap counts characters, not UTF-16 units");
   assert.equal(validCaptureText("  ayer pagué pintura\nno sé cuánto  "), true);
 });
 

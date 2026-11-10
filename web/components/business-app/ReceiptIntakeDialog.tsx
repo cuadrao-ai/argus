@@ -27,6 +27,7 @@ import { useForwardAddress } from "./useForwardAddress";
 import { useInputCapabilities } from "./useInputCapabilities";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { resolveLanguage } from "@/lib/language-features";
+import NoteCount, { noteLength, withinNoteLimit } from "./NoteCount";
 
 export type { IntakeTarget } from "./receipt-upload-queue";
 
@@ -299,11 +300,12 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
               value={draftText}
               rows={5}
               aria-invalid={writeEmpty}
-              aria-describedby="intake-write-help"
+              aria-describedby="intake-write-help intake-write-text-count"
               placeholder={t("business.intake.write_placeholder", "For example: I paid RD$500 for gas today at Isla, in cash.")}
-              onChange={(event) => { setDraftText(event.target.value); setWriteEmpty(false); }}
+              onChange={(event) => { setDraftText(withinNoteLimit(event.target.value)); setWriteEmpty(false); }}
               className="mt-2 block w-full resize-y rounded-item border border-[#7d8a84] bg-white p-3 text-[16px] leading-relaxed text-[#172b26] placeholder:text-[#687A72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#1f2225] dark:text-white"
             />
+            <NoteCount id="intake-write-text-count" count={noteLength(draftText)} />
             {writeEmpty ? <p role="alert" className={`mt-1 text-[13px] ${DANGER}`}>{t("business.intake.write_empty", "Write what happened before saving.")}</p> : null}
             <p id="intake-write-help" className={`mt-2 text-[13px] ${MUTED}`}>{t("business.intake.write_help", "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.")}</p>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">

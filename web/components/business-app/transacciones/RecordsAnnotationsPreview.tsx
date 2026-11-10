@@ -28,8 +28,8 @@ import { matchesRecordSearch } from "./records-search-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import cells from "./transacciones-cells.module.css";
 import styles from "./records-annotations-preview.module.css";
+import NoteCount, { NOTE_LIMIT, noteLength } from "../NoteCount";
 
-const NOTE_LIMIT = 500;
 
 type RecordAnnotation = { note: string; attachments: readonly LocalEvidence[] };
 type EditorSelection = { scope: string; row: RecordRow; opener: HTMLElement | null } & ({ kind: "note" } | { kind: "attachment" });
@@ -169,7 +169,7 @@ function AnnotationEditor({ selected, initial, limits, canEdit, close, save, con
     if (failure.kind !== 'access') return false;
     pending.clear(); connected?.revoke(); close(); return true;
   };
-  const noteCount = connected ? Array.from(note).length : note.length;
+  const noteCount = connected ? noteLength(note) : note.length;
   const closeEditor = () => { if (!busy) close(); };
   const saveConnected = async () => {
     if (!connected || !selected.row.report?.draft_id || busy || !canEdit) return;
@@ -255,7 +255,7 @@ function AnnotationEditor({ selected, initial, limits, canEdit, close, save, con
       {selected.kind === "attachment" ? <div className={styles.amount}>{selected.row.report && (selected.row.report.gross_amount === null || selected.row.report.currency === null) ? <Unknown /> : selected.row.report ? <span className="cuadrao-amount whitespace-nowrap tabular-nums">{formatMoney(selected.row.money.amount, selected.row.money.currency, locale)}</span> : <PlainAmount money={selected.row.money} />}</div> : null}
       {selected.kind === "attachment" && selected.row.account ? <p className={styles.account}>{t("business.transactions.columns.cuenta")} · <AccountLabel account={selected.row.account} /></p> : null}
     </div>
-    {selected.kind === "note" ? <><label htmlFor={fieldId} className={styles.label}>{word("current_note")}</label><textarea ref={field} id={fieldId} className={styles.textarea} rows={4} maxLength={connected ? undefined : NOTE_LIMIT} value={note} readOnly={!canEdit || busy || problem?.kind === "uncertain"} aria-describedby={`${fieldId}-count`} onChange={(event) => setNote(connected ? event.target.value : event.target.value.slice(0, NOTE_LIMIT))} /><div id={`${fieldId}-count`} className="mt-1 text-right text-[13px] tabular-nums text-[#56635e] dark:text-white/55">{noteCount}/{NOTE_LIMIT}</div>{serverNote !== undefined ? <p className={styles.hint}>{word("current_note")} · {serverNote || t("business.dossier.not_recorded")}</p> : null}</> : <>
+    {selected.kind === "note" ? <><label htmlFor={fieldId} className={styles.label}>{word("current_note")}</label><textarea ref={field} id={fieldId} className={styles.textarea} rows={4} maxLength={connected ? undefined : NOTE_LIMIT} value={note} readOnly={!canEdit || busy || problem?.kind === "uncertain"} aria-describedby={`${fieldId}-count`} onChange={(event) => setNote(connected ? event.target.value : event.target.value.slice(0, NOTE_LIMIT))} /><NoteCount id={`${fieldId}-count`} count={noteCount} />{serverNote !== undefined ? <p className={styles.hint}>{word("current_note")} · {serverNote || t("business.dossier.not_recorded")}</p> : null}</> : <>
       <section aria-label={word("linked_evidence")} className={styles.linkedEvidence}>
         <h3 className={styles.label}>{word("linked_evidence")}</h3>
         {documentNumbers.length ? <p className={styles.hint}>{documentNumbers.join(" · ")}</p> : null}

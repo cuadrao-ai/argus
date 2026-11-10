@@ -19242,7 +19242,7 @@ components:
       properties:
         text:
           type: string
-          maxLength: 20000
+          maxLength: 500
           minLength: 1
         draft:
           anyOf:

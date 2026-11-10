@@ -10218,8 +10218,9 @@ Existing `ARGUS_BUSINESS_PILOT_ENABLED`, `ARGUS_INGESTION_ENABLED` and `ARGUS_DO
 `{text, draft?: {draft_id, version}, document_type?: "recibo" | "venta"}` and
 `Idempotency-Key`, returning the existing
 `BusinessDossier`. This foundation supplies its command and receipt constraints;
-route/service implementation is a separate owned slice. `text` is 1–20,000
-characters, rejects whitespace-only input and U+0000 (NUL), and is retained
+route/service implementation is a separate owned slice. `text` is 1–500
+characters, the same limit as a record's current note (`NOTE_MAX_LENGTH`),
+rejects whitespace-only input and U+0000 (NUL), and is retained
 verbatim without rewriting accepted text. The optional `draft.version` must be
 an exact JSON integer of at least 1; booleans, numeric strings and floats are
 rejected for this capture command. The body

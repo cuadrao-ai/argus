@@ -97,3 +97,15 @@ test("the reading line shows for file uploads and not for a typed note, which no
   assert.equal(reading(), true, "back to files, the line returns");
   await page.act(async () => page.root.unmount());
 });
+
+test("a typed note shows the record-note counter and stops at 500 characters", async () => {
+  const page = await mount();
+  await page.click('[data-testid="intake-write-open"]');
+  const counter = () => document.querySelector("#intake-write-text-count")?.textContent ?? null;
+  assert.equal(counter(), "0/500");
+  assert.equal(document.querySelector("#intake-write-text")!.getAttribute("aria-describedby")?.includes("intake-write-text-count"), true);
+  await page.type("🟢".repeat(501));
+  assert.equal(document.querySelector<HTMLTextAreaElement>("#intake-write-text")!.value, "🟢".repeat(500), "typing stops at 500");
+  assert.equal(counter(), "500/500");
+  await page.act(async () => page.root.unmount());
+});
