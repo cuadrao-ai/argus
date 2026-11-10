@@ -2147,7 +2147,7 @@ function ChatInterfaceContent() {
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
         showProfileMenu={!isGuest}
-        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} headerMark={workspace?.sidebarMark?.(shellBridge)} profileAvatar={workspace?.id === "business" ? <SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} fallback={<Avatar name={greetingName} size={40} testId="header-avatar"/>}/> : undefined} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
+        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} headerMark={workspace?.sidebarMark?.(shellBridge)} profileAvatar={workspace?.id === "business" ? <SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} fallback={<Avatar name={greetingName} theme={account?.user.avatar_theme} size={40} testId="header-avatar"/>}/> : undefined} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
         isGuest={isEstablishedGuest}
         guestExpiresAt={account?.guest?.expires_at}
       />
@@ -2268,7 +2268,7 @@ function ChatInterfaceContent() {
                   memoryChrome={memoryChrome}
                 />
               ) : null}
-              {layout.businessPhone && !isGuest ? <BusinessPhoneAccount avatar={<SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} size={32} fallback={<Avatar name={greetingName} size={32}/>}/>} onLogout={(options) => { void handleLogout(options); }} onFeedback={(type) => setFeedbackState({ isOpen: true, type, context: { surface: "sidebar", conversation_id: conversationId } })} onHistoryMutated={refreshHistory} onProfileUpdated={onProfileUpdated} onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)} settingsOpenRequest={keyboardShortcuts.settingsOpenRequest} /> : null}
+              {layout.businessPhone && !isGuest ? <BusinessPhoneAccount avatar={<SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} size={32} fallback={<Avatar name={greetingName} theme={account?.user.avatar_theme} size={32}/>}/>} onLogout={(options) => { void handleLogout(options); }} onFeedback={(type) => setFeedbackState({ isOpen: true, type, context: { surface: "sidebar", conversation_id: conversationId } })} onHistoryMutated={refreshHistory} onProfileUpdated={onProfileUpdated} onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)} settingsOpenRequest={keyboardShortcuts.settingsOpenRequest} /> : null}
               {workspace?.profileInHeader && !mobileShell.isBelowTablet ? <div ref={setProfileSlot} className="relative" /> : null}
             </div>
           </header>
