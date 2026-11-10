@@ -174,6 +174,26 @@ def test_profile_validation_rejects_retired_service_names(
         module.validate_profile(profile)
 
 
+@pytest.mark.parametrize(
+    ("surface", "retired_name"),
+    [
+        ("api", "argus-api"),
+        ("web", "cuadrao-web-staging"),
+        ("marketing", "cuadrao-web"),
+        ("documents_worker", "argus-backtests"),
+    ],
+)
+def test_profile_validation_pins_each_surface_to_its_live_service_name(
+    surface: str, retired_name: str
+) -> None:
+    module = _profile_module()
+    profile = _profile()
+    profile["services"][surface]["name"] = retired_name
+
+    with pytest.raises(module.ProfileValidationError, match=f"services.{surface}.name"):
+        module.validate_profile(profile)
+
+
 def test_profile_validation_lets_the_deploy_decision_change_in_the_profile() -> None:
     module = _profile_module()
     profile = _profile()

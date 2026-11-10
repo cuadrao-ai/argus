@@ -114,6 +114,8 @@ def test_release_contract_keeps_every_service_on_manual_deploys() -> None:
         service["autoDeployTrigger"] == "off" for service in render_by_name.values()
     )
     assert "argus-backtests" not in render_by_name
+    # The older boolean autoDeploy field could turn deploys back on beside the trigger.
+    assert not [name for name, service in render_by_name.items() if "autoDeploy" in service]
     assert "`autoDeployTrigger: off`" in runbook
 
 
