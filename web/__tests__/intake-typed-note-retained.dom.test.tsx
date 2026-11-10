@@ -26,7 +26,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-type Capture = { input: { text: string; document_type?: string }; key: string };
+type Capture = { input: { text: string; document_type?: string }; key: string; grant: string | null | undefined };
 
 async function mount(answers: ("lost" | "refused" | "ok")[], spaces?: GrantedSpace[]) {
   const { act } = await import("react");
@@ -47,8 +47,8 @@ async function mount(answers: ("lost" | "refused" | "ok")[], spaces?: GrantedSpa
   const source = {
     ...fixture,
     ...(spaces ? { spaces: async () => spaces } : {}),
-    captureNote: async (input: Capture["input"], key: string) => {
-      captures.push({ input, key });
+    captureNote: async (input: Capture["input"], key: string, grant?: string | null) => {
+      captures.push({ input, key, grant });
       const answer = answers.shift() ?? "ok";
       if (answer === "lost") throw new TypeError("Failed to fetch");
       if (answer === "refused") throw Object.assign(new Error("refused"), { status: 422, code: "validation_failed" });
@@ -147,4 +147,7 @@ test("an unconfirmed typed note stays with its Business, so a retry never sends 
   await page.openAgregar();
   assert.deepEqual(page.rows(), [{ status: "uncertain", text: "Pagué RD$900 de flete" }], "back in its Business, the note waits for its retry");
   assert.equal(page.captures.length, 1);
+  await page.retry();
+  await page.settle();
+  assert.deepEqual(page.captures.map((capture) => capture.grant), ["grant-admin", "grant-admin"], "both attempts name the Business the note was typed in");
 });
