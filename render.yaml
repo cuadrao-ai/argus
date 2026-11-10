@@ -39,7 +39,7 @@ services:
       - key: CUADRAO_BETA_INVITE_GATE_ENABLED
         value: "false"
       - key: CUADRAO_ACCOUNT_DELETION_ENABLED
-        value: "false"
+        value: "true"
       - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED
