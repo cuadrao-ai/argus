@@ -2693,8 +2693,6 @@
         },
         "no_period_records": "No hay registros en este período.",
         "overview": {
-          "bandeja_waiting_one": "{{count}} recibo espera en la Bandeja",
-          "bandeja_waiting_other": "{{count}} recibos esperan en la Bandeja",
           "coverage_placeholder": "{{populated}} de {{applicable}} compras",
           "export": {
             "title": "Listos para exportar"
@@ -2860,7 +2858,6 @@
           "what": "Qué exportar"
         },
         "financial_cards_pending": "Cobros, pagos y saldos pendientes aún no están disponibles.",
-        "invalid_page": "Los registros cambiaron. Abre la última página disponible.",
         "pending_contract": "Esta función aún no está conectada.",
         "refresh": "Actualizar",
         "refresh_records": "Actualizar registros",
@@ -4679,7 +4676,6 @@
       "change": "Cambiar de negocio",
       "choose": "Elige un negocio",
       "client": "Cliente",
-      "client_cue": "Cliente: {{name}}",
       "role_editor": "Editar",
       "role_owner": "Dueño",
       "role_accountant": "Contador",

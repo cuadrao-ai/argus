@@ -166,6 +166,8 @@ export type BusinessContextValue = Readonly<{
   chosen: GrantedSpace | null;
   chooseBusiness: (grantId: string | null) => void;
   renamePreviewBusiness?: (name: string) => void;
+  /** The server offers Business invitations: its last directory answer. */
+  invitationsAvailable?: boolean;
   /** The one-time access line for the chosen client Business was dismissed. */
   markAccessSeen: () => Promise<void>;
   /** The chosen grant stopped being live mid-session; the person is back in their own Business. */
@@ -386,8 +388,7 @@ function BusinessWorkspaceContent({
   useEffect(() => {
     let cancelled = false;
     setDirectoryStatus("loading");
-    setInvitationsAvailable(false);
-    const directory = source.mode === "live" && source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false }));
+    const directory = source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false }));
     directory.then(
       ({ spaces: listed, closed_spaces: closed, invitations_available: capability }) => {
         if (cancelled) return;
@@ -478,7 +479,6 @@ function BusinessWorkspaceContent({
 
   const reload = useCallback(() => {
     setDirectoryStatus("loading");
-    setInvitationsAvailable(false);
     setRevision((value) => value + 1);
   }, []);
   const [reloadWaits] = useState(createReloadWaits);
@@ -687,6 +687,7 @@ function BusinessWorkspaceContent({
       chosen,
       chooseBusiness,
       renamePreviewBusiness: localPreview ? renamePreviewBusiness : undefined,
+      invitationsAvailable,
       markAccessSeen,
       lostAccess,
       clearLostAccess,
@@ -706,7 +707,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, activity, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, activity, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, invitationsAvailable, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);

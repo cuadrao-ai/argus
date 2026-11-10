@@ -2693,8 +2693,6 @@
         },
         "no_period_records": "No records in this period.",
         "overview": {
-          "bandeja_waiting_one": "{{count}} receipt is waiting in the Inbox",
-          "bandeja_waiting_other": "{{count}} receipts are waiting in the Inbox",
           "coverage_placeholder": "{{populated}} of {{applicable}} purchases",
           "export": {
             "title": "Ready to export"
@@ -2860,7 +2858,6 @@
           "what": "What to export"
         },
         "financial_cards_pending": "Collections, payments and balances due are not available yet.",
-        "invalid_page": "Records changed. Open the last available page.",
         "pending_contract": "This feature is not connected yet.",
         "refresh": "Refresh",
         "refresh_records": "Refresh records",
@@ -4679,7 +4676,6 @@
       "change": "Switch Business",
       "choose": "Choose a Business",
       "client": "Client",
-      "client_cue": "Client: {{name}}",
       "role_editor": "Can edit",
       "role_owner": "Owner",
       "role_accountant": "Accountant",

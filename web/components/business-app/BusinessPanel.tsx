@@ -27,24 +27,18 @@ import { RecordTrayContext, recordList } from "./record-tray";
 import { primaryButtonClass } from "./business-ui";
 
 /**
- * Inside a client's Business every screen says so, and the first landing
- * carries a one-line welcome the person dismisses once; the server remembers
- * the dismissal per grant. A grant that died mid-session says so, once.
+ * While invitations are on, the first landing in a client's Business carries a
+ * one-line welcome the person dismisses once; the server remembers the
+ * dismissal per grant. A grant that died mid-session says so, once.
  */
 export function BusinessContextCue() {
   const { t } = useTranslation();
   const { chosen, lostAccess, clearLostAccess } = useBusiness();
   const access = useAccessBanner();
-  const client = chosen && chosen.role !== "owner" ? chosen : null;
-  const clientName = formatBusinessName(client?.name, t("business.overview.title", "My business"));
+  const clientName = formatBusinessName(chosen?.name, t("business.overview.title", "My business"));
   return (
     <>
       {lostAccess ? <RemovedMemberScreen onReturn={clearLostAccess} /> : null}
-      {client ? (
-        <p data-testid="business-client-cue" className="mb-3 text-[13px] font-medium text-[var(--cuadrao-green)]">
-          {t("business.switcher.client_cue", "Client: {{name}}", { name: clientName })}
-        </p>
-      ) : null}
       {access.visible ? (
         <div role="status" data-testid="business-access-line" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-item border border-[var(--cuadrao-green)]/30 bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/80 dark:bg-white/[0.06] dark:text-white/85">
           <span>{t("business.switcher.access_line", "You now have access to {{name}} · View and prepare", { name: clientName })}</span>

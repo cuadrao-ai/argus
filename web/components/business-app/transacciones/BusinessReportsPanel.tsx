@@ -13,7 +13,6 @@ import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, report
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
-import { inboxCount } from "../inbox-count";
 import { RecordsExportButton } from "./RecordsExportButton";
 import RecordsExportPanel from "./RecordsExportPanel";
 import { clearRecordsExportRequest, useRecordsExportRequested } from "./records-export-request";
@@ -101,7 +100,7 @@ export default function BusinessReportsPanel() {
 
 export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest }) {
   const { t } = useTransaccionesWords();
-  const { panel, openPanel, revision, records } = useBusiness();
+  const { panel, openPanel, revision } = useBusiness();
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
   const { userId, businessId, grantId } = scope;
   const scopeKey = `${userId}:${businessId}`;
@@ -113,10 +112,10 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
     const params = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
     const other = params.has("report_scope") && params.get("report_scope") !== scopeKey;
     const saved = restoreReportLocation(other ? new URLSearchParams() : params);
-    return { ...saved, invalid: saved.invalid || other, request: singleCurrency(initial ?? (params.has("report") && !other ? saved.request : reportRequestSchema.parse({ filters: { period: { kind: "latest_month" } } }))) };
+    return { ...saved, request: singleCurrency(initial ?? (params.has("report") && !other ? saved.request : reportRequestSchema.parse({ filters: { period: { kind: "latest_month" } } }))) };
   });
   const { controller, state } = useBusinessReport(scope, restored.request, transport);
-  const answer = state.load.kind === "ready" || state.load.kind === "invalid-page" ? state.load.answer : undefined;
+  const answer = state.load.kind === "ready" ? state.load.answer : undefined;
   const currentFormat = state.request.schema_version === 2;
   const periodKey = JSON.stringify([state.request.filters.period, state.request.filters.record_families]);
   const [scopeData, setScopeData] = useState<{ periodKey: string; answer: ReportAnswer } | null>(null);
@@ -132,7 +131,6 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const focused = useRef<string | null>(null);
   const screen = useRef<HTMLElement>(null);
   const previousRevision = useRef(revision);
-  const [urlInvalid, setUrlInvalid] = useState(restored.invalid);
   const filter: RecordsFilter = { query: state.request.filters.q, kind: state.request.filters.record_families[0] === "sale" ? "venta" : "gasto" };
   const filters = reportFiltersForUi(state.request.filters);
   const selectedPeriod = periodForUi(state.request.filters.period, periodAnswer);
@@ -141,7 +139,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const { toggle: toggleFiscal, clear: clearFiscal } = useFiscalStageToggle(filters, (selection) => load(reportRequestSchema.parse({ ...state.request, filters: { ...state.request.filters, fiscal_data: selection.fiscal_data, review_stages: selection.review.map((key) => STAGE_OF[key]) }, page: 1 })));
   useEffect(() => { updateUrl(state.request); }, [state.request, state.anchor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const restore = (event: PopStateEvent) => { if (isProgrammaticPop(event)) return; const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); setUrlInvalid(next.invalid); clearFiscal(); controller.rememberAnchor(next.anchor); void controller.load(singleCurrency(next.request)); };
+    const restore = (event: PopStateEvent) => { if (isProgrammaticPop(event)) return; const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); clearFiscal(); controller.rememberAnchor(next.anchor); void controller.load(singleCurrency(next.request)); };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, [controller, scopeKey, clearFiscal, singleCurrency]);
@@ -275,10 +273,9 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
         { label: t(`${GUIDE}pending.label`), body: t(`${GUIDE}pending.body`) },
       ]} />
       <RecordsTypeTabs value={filter.kind} onChange={(kind) => recipe({ filters: { ...state.request.filters, record_families: [kind === "venta" ? "sale" : "purchase"] } }, false)} />
-      <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} fiscalCount={overview?.needs_fiscal_data ?? null} selected={filters.fiscal_data === "missing" ? ["fiscal"] : []} loading={state.load.kind === "loading"} onChoose={toggleFiscal} waiting={inboxCount(records)} onOpenBandeja={() => openPanel({ kind: "inbox" })} />
+      <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} fiscalCount={overview?.needs_fiscal_data ?? null} selected={filters.fiscal_data === "missing" ? ["fiscal"] : []} loading={state.load.kind === "loading"} onChoose={toggleFiscal} />
       <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{!phone ? <RecordsRefreshButton busy={state.load.kind === "loading"} onRefresh={() => void controller.refresh()} /> : null}{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview purchase={filter.kind === "gasto"} value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: { items: views, select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } }, save: (name) => writeView(name), update: (id, name) => writeView(name, id), remove: (id) => { const view = views.find((view) => view.id === id); if (view) void controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } }); }, busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain, notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !currentFormat ? <p>{t(`${REPORTING}pending_contract`)}</p> : null } }} />
-      {urlInvalid ? <p role="status">{t(`${REPORTING}invalid_page`)}<button type="button" className={quietButtonClass} onClick={() => { setUrlInvalid(false); void controller.setPage(1); }}>{t(`${REPORTING}refresh`)}</button></p> : null}
-      {state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : state.load.kind === "invalid-page" ? <div className={cardClass}><EmptyState kind="filtered" compact title={t(`${REPORTING}invalid_page`)} action={{ label: t(`${REPORTING}refresh`), run: () => { void controller.recoverPage(); } }} /></div> : state.load.kind !== "ready" || !preferences || probePending ? (preferences ? <RecordsLoadingPreview purchase={filter.kind === "gasto"} preferences={preferences} density={preferences.density} /> : <FullscreenLoading />) : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
+      {state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : state.load.kind !== "ready" || !preferences || probePending ? (preferences ? <RecordsLoadingPreview purchase={filter.kind === "gasto"} preferences={preferences} density={preferences.density} /> : <FullscreenLoading />) : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
         <RecordsPagePreview purchase={filter.kind === "gasto"} records={rows} preferences={preferences} onSortChange={() => undefined} density={preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: state.load.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
       </RecordEvidenceContext.Provider></RecordGlanceContext.Provider>}
     </section>
