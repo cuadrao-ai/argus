@@ -136,7 +136,7 @@ configure_local_smoke_env() {
 
   export NEXT_PUBLIC_MOCK_AUTH=true
   export NEXT_PUBLIC_ENABLE_SPANISH=true
-  export NEXT_PUBLIC_ARGUS_API_URL="${API_URL}/api/v1"
+  export NEXT_PUBLIC_CUADRAO_API_URL="${API_URL}/api/v1"
   export NEXT_PUBLIC_OMNISEARCH_ENABLED=true
 }
 
@@ -167,7 +167,7 @@ local_env_fingerprint() {
       ARGUS_BACKTEST_REAL_WORKFLOW_TASK \
       NEXT_PUBLIC_MOCK_AUTH \
       NEXT_PUBLIC_ENABLE_SPANISH \
-      NEXT_PUBLIC_ARGUS_API_URL \
+      NEXT_PUBLIC_CUADRAO_API_URL \
       NEXT_PUBLIC_OMNISEARCH_ENABLED
     do
       printf "%s=%s\n" "$key" "${!key:-}"

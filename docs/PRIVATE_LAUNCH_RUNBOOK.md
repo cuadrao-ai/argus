@@ -338,7 +338,7 @@ separate readback. They are not app-managed hosted declarations.
 
 The business-web contract on `cuadrao-app` still requires `ARGUS_TRUSTED_CLIENT_IP_HEADER=CF-Connecting-IP` before that service's build. Do not set the business-web contract on the marketing site.
 
-The business-web env lives in the settings manifest's `web` surface, not in `render.yaml`. `render.yaml` declares no env for `cuadrao-marketing` or `cuadrao-app`. The documents worker's production settings are the manifest's `documents_worker` surface. The audited marketing env is the release profile `marketing` surface, taken from the marketing launch runbook and the keys `marketing/` reads.
+The business-web env lives in the settings manifest's `web` surface, not in `render.yaml`. `render.yaml` declares no env for `cuadrao-marketing` or `cuadrao-app`. The manifest's `documents_worker` surface holds only the worker's two job settings, and the tool refuses `--live-names` on it until its live readback is done, because the worker also reads settings the surface does not list. The audited marketing env is the release profile `marketing` surface, taken from the marketing launch runbook and the keys `marketing/` reads.
 
 These profile `optional` names are secrets. Set one only when Lucas is turning that surface on, and never record the value. Absence is allowed by the audit. `CUADRAO_INVITE_CODE_SECRET` is the exception timed above. The others are `CUADRAO_INVITE_CODE_SECRET_PREVIOUS`, `ARGUS_INGESTION_SECRET_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_WEBHOOK_URL`, `CUADRAO_APPLE_TEAM_ID`, `CUADRAO_APPLE_SIGN_IN_KEY_ID`, `CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY`, and `CUADRAO_APPLE_BUNDLE_ID`.
 

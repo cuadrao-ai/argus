@@ -998,7 +998,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "enter": "keep the live value on cuadrao-app"
+            "copy_from": "NEXT_PUBLIC_ARGUS_API_URL"
           },
           "local": {
             "value": "http://localhost:8000/api/v1"
@@ -1009,7 +1009,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "enter": "keep the live value on cuadrao-app"
+            "copy_from": "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY"
           }
         },
         {

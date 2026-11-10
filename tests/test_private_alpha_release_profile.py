@@ -292,6 +292,50 @@ def test_settings_tool_emits_the_production_pairs_the_audit_reads() -> None:
     assert "NEXT_PUBLIC_CUADRAO_API_URL" in allowed.stdout.splitlines()
 
 
+def test_settings_tool_gives_no_delete_list_for_the_documents_worker(
+    tmp_path: Path,
+) -> None:
+    live = tmp_path / "live-names"
+    live.write_text(
+        "APP_ENV\nARGUS_WORKFLOW_DATABASE_URL\nCUADRAO_PROD_OPENROUTER_API_KEY\n",
+        encoding="utf-8",
+    )
+
+    result = _settings_tool(
+        "print", "production", "documents_worker", "--live-names", str(live)
+    )
+
+    assert result.returncode != 0
+    assert "delete" not in result.stdout
+    assert "live readback" in result.stderr
+
+
+def test_settings_tool_keeps_the_web_launch_copy_sources_until_the_deploy(
+    tmp_path: Path,
+) -> None:
+    live = tmp_path / "live-names"
+    live.write_text(
+        "NEXT_PUBLIC_ARGUS_API_URL\nNEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY\n",
+        encoding="utf-8",
+    )
+
+    result = _settings_tool("print", "production", "web", "--live-names", str(live))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "delete now:",
+        "delete after the launch deploy:",
+        "NEXT_PUBLIC_ARGUS_API_URL",
+        "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY",
+    ]
+    to_fill = _settings_tool("print", "production", "web", "--to-fill")
+    assert "copy the live value of NEXT_PUBLIC_ARGUS_API_URL on cuadrao-app" in to_fill.stdout
+    assert (
+        "copy the live value of NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY on cuadrao-app"
+        in to_fill.stdout
+    )
+
+
 def test_render_blueprint_production_api_matches_the_manifest() -> None:
     profile = _profile()
     render_blueprint = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
