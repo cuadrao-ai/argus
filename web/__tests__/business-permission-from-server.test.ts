@@ -15,6 +15,7 @@ const ROLE_CHECKS = [
   new RegExp(`${ROLE}\\s*[!=]==?\\s*${LABEL}`),
   new RegExp(`${LABEL}\\s*[!=]==?\\s*${ROLE}`),
   new RegExp(`\\.includes\\(\\s*${ROLE}`),
+  new RegExp(`\\.has\\(\\s*${ROLE}`),
   new RegExp(`switch\\s*\\(\\s*${ROLE}`),
 ];
 const isRoleCheck = (line: string) => ROLE_CHECKS.some((check) => check.test(line));
@@ -119,6 +120,7 @@ describe("permissions come from the server, not the role label", () => {
     expect(isRoleCheck("const owner = chosen.role === `owner`;")).toBe(true);
     expect(isRoleCheck('const prepares = ["owner", "admin"].includes(chosen.role);')).toBe(true);
     expect(isRoleCheck("const prepares = PREPARERS.includes(chosen?.business_role);")).toBe(true);
+    expect(isRoleCheck('const prepares = new Set(["owner", "admin"]).has(chosen.role);')).toBe(true);
     expect(isRoleCheck("switch (chosen.role) {")).toBe(true);
     expect(isRoleCheck("switch (memberRole) {")).toBe(true);
     expect(isRoleCheck('const prepares = ["owner", "admin"].includes(chosen.role ?? "");')).toBe(true);
