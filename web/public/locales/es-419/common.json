@@ -2608,7 +2608,6 @@
           "preview_failed": "No pudimos preparar la vista previa. No se agregó ningún archivo.",
           "preview_file": "Ver archivo",
           "received_document": "Documento recibido",
-          "received_unavailable": "Vincular documentos recibidos aún no está disponible.",
           "record_actions": "Acciones del registro",
           "too_large": "El archivo supera el tamaño permitido.",
           "unsupported": "Este tipo de archivo no está permitido."

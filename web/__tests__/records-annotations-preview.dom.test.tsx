@@ -107,7 +107,7 @@ test("local files add without replacing, preserve existing evidence, isolate rec
   assert.equal(document.querySelector<HTMLInputElement>('input[type="file"]')!.multiple, true);
   assert.equal(page.button("Guardar"), undefined, "files do not offer a durable Save action");
   assert.match(document.querySelector('[role="dialog"]')!.textContent!, /no se han subido ni vinculado/i);
-  assert.match(document.querySelector('[role="dialog"]')!.textContent!, /documentos recibidos aún no está disponible/);
+  assert.doesNotMatch(document.querySelector('[role="dialog"]')!.textContent!, /no está disponible/, "an off feature is not announced");
   assert.equal(page.button("Cancelar"), undefined);
   assert.equal(page.button("Conservar").disabled, true);
   await page.choose(new File(["first"], "record.pdf", { type: "application/pdf" }), new File(["second"], "other.pdf", { type: "application/pdf" }));

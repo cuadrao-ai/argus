@@ -160,6 +160,15 @@ test("a concurrent note edit keeps the losing text and uses the reviewed version
   assert.notEqual(writes[0].headers.get("Idempotency-Key"), writes[1].headers.get("Idempotency-Key"));
 });
 
+test("the Adjunto panel shows what works and announces no feature that is off", async () => {
+  const page = await mount();
+  await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));
+  const panel = document.querySelector('[role="dialog"]')!;
+  assert.match(panel.textContent ?? "", /Adjuntos vinculados/);
+  assert.ok(panel.querySelector('input[type="file"]'), "the upload area stays");
+  assert.doesNotMatch(panel.textContent ?? "", /no está disponible|Vincular documentos recibidos/);
+});
+
 test("supporting files freeze the uncertain file before advancing and download by returned receipt identity", async () => {
   const page = await mount(); page.fixture.controls.fileUncertainAt = 1;
   await page.click(document.querySelector(`[data-record-attachment="draft:${fixtureId(1)}"]`));

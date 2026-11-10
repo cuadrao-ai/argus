@@ -2608,7 +2608,6 @@
           "preview_failed": "We could not prepare the preview. No files were added.",
           "preview_file": "Preview file",
           "received_document": "Received document",
-          "received_unavailable": "Linking received documents is not available yet.",
           "record_actions": "Record actions",
           "too_large": "The file exceeds the allowed size.",
           "unsupported": "This file type is not allowed."
