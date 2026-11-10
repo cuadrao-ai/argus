@@ -514,7 +514,7 @@ function BusinessWorkspaceContent({
   const [typedNotes] = useState(() => new TypedNoteQueue(reload));
   // Every way Agregar closes forgets finished typed notes; one still saving or unconfirmed waits for its retry.
   useEffect(() => { if (!intakeTarget) typedNotes.clearSettled(chosenGrant); }, [intakeTarget, typedNotes, chosenGrant]);
-  // Leaving the page asks first while anything Agregar took is still being sent, a file or a typed note alike.
+  // Leaving the page asks first while anything Agregar took is still being sent, or a typed note is not saved yet.
   const [inFlight] = useState(() => intakeWork([uploadQueue, typedNotes]));
   const unfinishedIntake = useSyncExternalStore(inFlight.subscribe, inFlight.unfinished, () => false);
   useEffect(() => {
