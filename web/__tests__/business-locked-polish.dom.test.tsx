@@ -325,7 +325,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const page = await mount(() => {
       function Probe() {
         const { source } = useBusinessContext();
-        built = useBusinessSearch({ source, accounts: [], openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, owner: true, scope: "own" });
+        built = useBusinessSearch({ source, accounts: [], openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, canAdd: true, scope: "own" });
         return null;
       }
       return <Probe />;

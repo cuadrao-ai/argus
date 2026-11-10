@@ -1,5 +1,4 @@
 /**
- * Pilot default. Note writing stays off until a product decision turns this on.
- * Not an environment variable.
+ * Pilot default: people who may prepare records can write notes. Not an environment variable.
  */
-export const NOTES_ENTRY_ENABLED: boolean = false;
+export const NOTES_ENTRY_ENABLED: boolean = true;

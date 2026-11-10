@@ -91,7 +91,9 @@ test("a Bandeja that has never been used says so and offers Agregar", async () =
     const card = page.host.querySelector('[data-testid="reception-empty"]')!;
     assert.equal(card.getAttribute("data-empty-kind"), "first_run");
     assert.equal(card.querySelector("h3")?.textContent, "Tus archivos y notas llegan aquí");
-    // On a wide screen the one Agregar lives in the top bar; the Bandeja toolbar does not repeat it.
+    // On a wide screen the one Agregar lives in the top bar; the Bandeja toolbar does not repeat it. It shows once the
+    // chosen Business, and with it the server's prepare capability, is known.
+    await page.settle(() => page.host.querySelector("[data-testid=top-bar] [data-testid=business-primary-upload]") !== null);
     assert.equal(page.host.querySelector("[data-testid=top-bar] [data-testid=add-menu-header] [data-testid=business-primary-upload]")?.textContent, "Agregar", "the empty Bandeja offers Agregar");
     assert.equal(page.host.querySelectorAll("[data-testid=business-primary-upload]").length, 1, "Agregar is offered once");
   } finally { await page.close(); }

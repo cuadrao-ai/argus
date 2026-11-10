@@ -147,7 +147,7 @@ async function businessSearch(partial: Partial<BusinessSearchResult>, notes: Bus
       accounts: [{ id: "acct-1", nickname: "Caja", type: "cash", currency: "DOP" }],
       openPanel: (panel) => opened.push(panel),
       actions,
-      owner: true,
+      canAdd: true,
       scope: "own",
       canExport: true,
       openExport: noop,

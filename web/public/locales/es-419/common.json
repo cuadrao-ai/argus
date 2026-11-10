@@ -3335,6 +3335,7 @@
     },
     "home_setup": {
       "copy_review": "pending_lucas",
+      "done": "Listo, tu negocio está configurado",
       "lead": "Completa estos pasos para empezar a recibir y revisar documentos.",
       "optional": "Opcional",
       "remaining_one": "Falta 1 paso",
@@ -3354,7 +3355,7 @@
           "title": "Agrega el RNC o la cédula"
         },
         "receipt_reading": {
-          "body": "Cuadrao lee tus facturas, recibos y PDF y extrae sus datos. Incluye correo, WhatsApp y archivos subidos.",
+          "body": "Cuadrao lee tus facturas, recibos y PDF y extrae sus datos.",
           "title": "Activar lectura de documentos"
         },
         "receiving_address": {

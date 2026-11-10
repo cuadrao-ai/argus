@@ -25,7 +25,7 @@ import { barSearchAvailable, useLendListSearch } from "../foundation/list-search
 import ReceptionFilters, { ReceptionFilterChips } from "./ReceptionFilters";
 import { emptyReceptionFilters, receptionFilterMatches, receptionArrivedInPeriod, receptionSenderIdentity, type SenderIdentity, type ReceptionFiltersValue } from "./reception-filters";
 import ReceptionEmptyState from "./ReceptionEmptyState";
-import { quietButtonClass } from "../business-ui";
+import { canAddRecords, quietButtonClass } from "../business-ui";
 import { listoItem, receptionDocumentTitle, receptionMatches, receptionRows, receptionSearchText, type ReceptionRow, type ReceptionView } from "./reception-model";
 import { bandejaAttentionCount, bandejaListoCount } from "../inbox-count";
 import ReceptionArrivalRow from "./ReceptionArrivalRow";
@@ -159,7 +159,7 @@ function ReceptionWorkspace() {
   });
   const counts = { attention: bandejaAttentionCount(records), listos: bandejaListoCount(records) };
   const unseenIds = new Set(rows.filter(row => row.kind === "receipt" && row.receipt.activity?.unread === true && row.receipt.bandeja?.leyendo !== true).map(rowKey));
-  const reviewNext = chosen?.role === "accountant" ? rows.find(row => row.kind === "receipt" && row.receipt.bandeja?.por_revisar === true) : undefined;
+  const reviewNext = canAddRecords(chosen) && !chosen?.capabilities.includes("approve") ? rows.find(row => row.kind === "receipt" && row.receipt.bandeja?.por_revisar === true) : undefined;
   const inPanel = phone || panel.kind !== "inbox";
   const retry = () => {
     if (retryableArrivals) setAttempt(value => value + 1);

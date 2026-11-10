@@ -77,7 +77,7 @@ import { useEmailDeliveries } from "./useEmailDeliveries";
 import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
-import { quietButtonClass } from "./business-ui";
+import { canAddRecords, canManageBusiness, quietButtonClass } from "./business-ui";
 import { applyListSearch, useLendingList } from "./foundation/list-search";
 import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, publishBusinessAppearance } from "@/lib/business-profile-api";
@@ -376,7 +376,7 @@ function BusinessWorkspaceContent({
     return()=>controller.abort();
   },[source.mode,appearanceBusinessId,chosenGrant]);
   const renamePreviewBusiness = useCallback((name: string) => {
-    if (!localPreview || !chosen || chosen.role !== "owner" || !name.trim() || [...name.trim()].length > 80) return;
+    if (!localPreview || !chosen || !canManageBusiness(chosen) || !name.trim() || [...name.trim()].length > 80) return;
     setPreviewNames(current => {
       const next = { ...current, [chosen.space_id]: name.trim() };
       writeStored("cuadrao-preview-business-names-v1", JSON.stringify(next));
@@ -721,7 +721,7 @@ function BusinessWorkspaceContent({
     accounts: records.workspace?.accounts ?? NO_ACCOUNTS,
     openPanel,
     actions,
-    owner: chosen?.role !== "accountant",
+    canAdd: canAddRecords(chosen),
     scope: chosen?.space_id ?? "own",
     canExport: chosen?.permissions?.includes("export") === true,
     openExport: exportRegistros,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { primaryButtonClass, secondaryButtonClass, quietButtonClass, dangerButtonClass, dangerConfirmButtonClass } from "@/components/business-app/business-ui";
+import { canAddRecords, primaryButtonClass, secondaryButtonClass, quietButtonClass, dangerButtonClass, dangerConfirmButtonClass } from "@/components/business-app/business-ui";
 import { BusinessEmailAddress } from "@/components/business-app/BusinessEmailDeliveries";
 import { CopyButton } from "@/components/business-app/foundation/CopyButton";
 import { useTranslation } from "react-i18next";
@@ -54,7 +54,7 @@ export default function WorkspaceSetupPreview({ invitation, profileInvoicing, re
   const invitationFixture = typeof window !== "undefined" && invitation ? new URLSearchParams(window.location.search).get("inviteResult") : null;
   const fixtureQuery = ["partial", "error"].includes(invitationFixture ?? "") ? `&inviteResult=${invitationFixture}` : "";
   const scope = chosen ? `?business=${encodeURIComponent(chosen.space_id)}` : "";
-  const upload = chosen?.role !== "accountant"
+  const upload = canAddRecords(chosen)
     ? actions.create.find((action) => action.id === "upload_receipt")
     : undefined;
   const inheritControls = useCallback(() => {

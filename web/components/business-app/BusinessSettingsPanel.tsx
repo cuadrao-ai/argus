@@ -18,7 +18,7 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
   const { chosen, openPanel, source } = useBusiness();
   const { isBelowTablet } = useResponsiveLayout();
   const owner = chosen?.role === "owner";
-  const manager = canManageBusiness(chosen, source.mode === "live");
+  const manager = canManageBusiness(chosen);
   const tabs = [
     { key: "datos" as const, label: t("business.settings.tab_datos", "Details") },
     ...(manager ? [{ key: "equipo" as const, label: t("business.settings.tab_equipo", "Access") }] : []),
