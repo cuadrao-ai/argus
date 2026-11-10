@@ -1103,8 +1103,9 @@ function sampleClientFor(source: object, empty = false, settlement = false): Mon
 
 export function useMonthCloseSource(): MonthCloseSource {
   const { chosen, source, spaces, records } = useBusiness();
-  // One key per Business, known before the first load: the own Business is "own" before and after the list arrives.
-  const scopeKey = spaces === null ? null : chosen && (chosen.role !== "owner" || chosen.space_id?.startsWith(LOCAL_BUSINESS_PREFIX)) ? chosen.grant_id : "own";
+  // One key per selected Business, so a switch, even between two Businesses the person owns, reloads that Business's
+  // month. Null until the directory says which Business that is; "own" only for a person with no Business chosen.
+  const scopeKey = spaces === null ? null : chosen?.grant_id ?? "own";
   // The sample books answer as the sample workspace's settlement switch says, the way the server would.
   return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX), businessSettlementAvailable(records?.workspace)) : monthCloseClient, scopeKey };
 }
