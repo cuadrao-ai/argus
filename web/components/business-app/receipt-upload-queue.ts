@@ -8,8 +8,11 @@ import { runFifo } from "./receipt-upload-fifo";
 export type IntakeTarget = "inbox" | "composer";
 export type UploadRejection = "unsupported" | "too_large" | "heic";
 export type UploadOrigin = { target: "inbox" } | { target: "composer"; conversationId: string | null };
-/** Each file keeps the type picked when it was added, so one batch can mix receipts and sales; null lets the server detect it. */
-type UploadFile = { key: string; file: File; documentType: DocumentType | null } & UploadOrigin;
+/**
+ * Each file keeps the type picked when it was added, so one batch can mix receipts and sales; null lets the server
+ * detect it. It also keeps the Business it was added in, so a file sent or retried after a switch still lands there.
+ */
+type UploadFile = { key: string; file: File; documentType: DocumentType | null; grant: string | null } & UploadOrigin;
 
 /** A composer upload attaches only to the conversation it was added in. */
 export function composerUploadDisposition(origin: UploadOrigin, current: { conversationId: string | null; intakeTarget: IntakeTarget | null }): "inbox" | "attach" | "attach_and_close" {
@@ -28,7 +31,7 @@ export type ReceiptUpload = UploadFile & (
 export type DocumentType = "recibo" | "venta";
 /** How far one attempt has gone; the rate and `secondsLeft` are null until a second of sending makes them honest. */
 export type UploadBytes = { sent: number; total: number; bytesPerSecond: number | null; secondsLeft: number | null };
-type Upload = (file: File, consent: boolean, key: string, documentType: DocumentType | null, onProgress: (sent: number, total: number) => void) => Promise<ReceiptSummary>;
+type Upload = (file: File, consent: boolean, key: string, documentType: DocumentType | null, onProgress: (sent: number, total: number) => void, grant: string | null) => Promise<ReceiptSummary>;
 
 /** A row repaints at most this often while bytes move. */
 const PROGRESS_REPAINT_MS = 100;
@@ -118,7 +121,7 @@ export class ReceiptUploadQueue {
 
   /** A file already in this target's list (same name, size and last change) is not added twice.
    *  A file added while a save is running joins the tail instead of being dropped. */
-  add(files: readonly File[], limits: ReceiptLimits, target: IntakeTarget, conversationId: string | null = null, documentType: DocumentType | null = null): boolean {
+  add(files: readonly File[], limits: ReceiptLimits, target: IntakeTarget, conversationId: string | null = null, documentType: DocumentType | null = null, grant: string | null = null): boolean {
     const selected = target === "composer" ? files.slice(0, 1) : files;
     if (!selected.length) return true;
     const identity = (file: File) => `${file.name}\u0000${file.size}\u0000${file.lastModified}`;
@@ -132,7 +135,7 @@ export class ReceiptUploadQueue {
     const incoming: ReceiptUpload[] = fresh.map((candidate) => {
       const file = receiptFileWithType(candidate, limits);
       const origin: UploadOrigin = target === "composer" ? { target, conversationId } : { target };
-      const base = { file, key: randomId(), documentType, ...origin };
+      const base = { file, key: randomId(), documentType, grant, ...origin };
       const reason = rejectionFor(file, limits);
       return reason ? { ...base, status: "rejected", reason } : { ...base, status: "queued" };
     });
@@ -191,7 +194,7 @@ export class ReceiptUploadQueue {
           };
           let receipt: ReceiptSummary;
           try {
-            receipt = await this.uploadPastLimits(item.file, consent, item.key, item.documentType, onProgress);
+            receipt = await this.uploadPastLimits(item, consent, onProgress);
           } catch (error: unknown) {
             if (error instanceof Error && "status" in error && error.status === 415) {
               this.replace({ ...item, status: "rejected", reason: "unsupported" });
@@ -218,11 +221,11 @@ export class ReceiptUploadQueue {
     if (this.items.some(this.waiting)) await this.drain();
   }
 
-  private async uploadPastLimits(file: File, consent: boolean, key: string, documentType: DocumentType | null, onProgress: (sent: number, total: number, startedAt: number) => void): Promise<ReceiptSummary> {
+  private async uploadPastLimits(item: UploadFile, consent: boolean, onProgress: (sent: number, total: number, startedAt: number) => void): Promise<ReceiptSummary> {
     for (;;) {
       const startedAt = Date.now();
       try {
-        return await this.upload(file, consent, key, documentType, (sent, total) => onProgress(sent, total, startedAt));
+        return await this.upload(item.file, consent, item.key, item.documentType, (sent, total) => onProgress(sent, total, startedAt), item.grant);
       } catch (error: unknown) {
         const waitMs = limitedFor(error);
         if (waitMs === null) throw error;

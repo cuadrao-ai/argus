@@ -1,5 +1,6 @@
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { CUADRAO_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
+import { getChosenGrant } from "./business-grant";
 
 /** The signed-in owner's WhatsApp sender link. The backend owns every fact. */
 
@@ -20,12 +21,13 @@ export type WhatsAppLinkStatus = {
 export type WhatsAppLinkError = Error & { status: number; code: string };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const grant = getChosenGrant();
   const authHeaders = await authenticatedRequestHeaders();
   const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, {
     ...options,
     credentials: "include",
     cache: "no-store",
-    headers: argusApiRequestHeaders(options?.headers, authHeaders),
+    headers: argusApiRequestHeaders(options?.headers, authHeaders, grant),
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { code?: unknown; detail?: unknown };

@@ -44,9 +44,14 @@ async function mount(answers: ("lost" | "refused" | "ok")[], spaces?: GrantedSpa
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const captures: Capture[] = [];
+  const uploads: (string | null | undefined)[] = [];
   const source = {
     ...fixture,
     ...(spaces ? { spaces: async () => spaces } : {}),
+    uploadReceipt: async (file: File, consent: boolean, key: string, type?: "recibo" | "venta" | null, onProgress?: (sent: number, total: number) => void, grant?: string | null) => {
+      uploads.push(grant);
+      return fixture.uploadReceipt(file, consent, key, type, onProgress);
+    },
     captureNote: async (input: Capture["input"], key: string, grant?: string | null) => {
       captures.push({ input, key, grant });
       const answer = answers.shift() ?? "ok";
@@ -95,7 +100,14 @@ async function mount(answers: ("lost" | "refused" | "ok")[], spaces?: GrantedSpa
   const rows = () => [...document.querySelectorAll<HTMLElement>('[data-testid="receipt-typed-row"]')].map((row) => ({ status: row.dataset.status, text: row.querySelector("p")?.textContent }));
   const retry = () => act(async () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="receipt-typed-row"] button')].find((item) => item.textContent === "Reintentar")!.click());
   const choose = (grant: string) => act(async () => { setChosenGrant(grant); await new Promise((resolve) => setTimeout(resolve, 50)); });
-  return { captures, dialog, openAgregar, closeAgregar, writeNote, rows, retry, settle, choose };
+  const pickFile = async (name: string) => {
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]:not([capture])')!;
+    const transfer = new DataTransfer();
+    transfer.items.add(new File(["recibo"], name, { type: "image/png" }));
+    await act(async () => { input.files = transfer.files; input.dispatchEvent(new Event("change", { bubbles: true })); });
+    for (let i = 0; i < 40 && !uploads.length; i += 1) await settle();
+  };
+  return { captures, uploads, dialog, openAgregar, closeAgregar, writeNote, rows, retry, settle, choose, pickFile };
 }
 
 test("an unconfirmed typed note survives closing Agregar and retries with its original key", async () => {
@@ -150,4 +162,13 @@ test("an unconfirmed typed note stays with its Business, so a retry never sends 
   await page.retry();
   await page.settle();
   assert.deepEqual(page.captures.map((capture) => capture.grant), ["grant-admin", "grant-admin"], "both attempts name the Business the note was typed in");
+});
+
+test("a file picked in Agregar is handed to the upload with the Business Agregar is open in", async () => {
+  const own = { space_id: "own-space", name: "Negocio propio sintético", grant_id: "grant-own", role: "owner", business_role: "owner", permissions: ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"], capabilities: ["read", "prepare", "approve"], access_seen: true } satisfies GrantedSpace;
+  const client = { space_id: "client-admin", name: "Ferretería sintética", grant_id: "grant-admin", role: "accountant", business_role: "admin", permissions: ["read", "prepare", "manage", "download", "export"], capabilities: ["read", "prepare"], access_seen: true } satisfies GrantedSpace;
+  const page = await mount([], [own, client]);
+  await page.openAgregar();
+  await page.pickFile("factura.png");
+  assert.deepEqual(page.uploads, ["grant-admin"]);
 });

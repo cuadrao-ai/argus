@@ -75,8 +75,8 @@ export function subscribeChosenGrant(listener: () => void): () => void {
 /** The header every Business call carries while a grant is chosen. */
 export const GRANT_HEADER = "X-Business-Grant";
 
-export function chosenGrantHeader(): Record<string, string> {
-  const grant = getChosenGrant();
+/** The header for one grant: the one bound when the person acted, not whatever is chosen when the call goes out. */
+export function grantHeader(grant: string | null): Record<string, string> {
   return grant && !grant.startsWith(LOCAL_BUSINESS_PREFIX) ? { [GRANT_HEADER]: grant } : {};
 }
 

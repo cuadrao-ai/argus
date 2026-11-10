@@ -78,9 +78,10 @@ export type BusinessDataSource = Readonly<{
   clearSearchRecents?: () => Promise<void>;
   /** A result was opened, so it ranks first next time. Best effort. */
   recordSearchOpen?: (kind: BusinessSearchKind, id: string) => Promise<void>;
-  captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
+  /** `grant` is the Business the note was written in; omitted, the call binds the chosen Business before it awaits. */
+  captureNote: (input: BusinessCaptureInput, key: string, grant?: string | null) => Promise<BusinessDossier>;
   captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapturePage>;
-  uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener) => Promise<ReceiptSummary>;
+  uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener, grant?: string | null) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;
   confirmReceipt: (id: string, version: number, key: string) => Promise<ReceiptDetail>;

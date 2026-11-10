@@ -152,7 +152,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   const [draftText, setDraftText] = useState("");
   const writeReady = writeType !== null && validCaptureText(draftText);
   const grant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
-  // Only this Business's notes show: a retry goes to the Business chosen when it is sent.
+  // Only this Business's notes show; a save or retry carries the Business the note was typed in.
   const typed = useSyncExternalStore(notes.subscribe, notes.snapshot, notes.snapshot).filter((entry) => entry.grant === grant);
   const writeRef = useRef<HTMLTextAreaElement>(null);
   useGrowingNoteBox(writeRef, writing ? draftText : "");
@@ -161,7 +161,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   }, [writing]);
   const saveWriting = () => {
     if (!writeType || !validCaptureText(draftText)) return;
-    void notes.add({ grant, text: draftText.trim(), documentType: writeType }, (input, key) => source.captureNote(input, key));
+    void notes.add({ grant, text: draftText.trim(), documentType: writeType }, (input, key, noteGrant) => source.captureNote(input, key, noteGrant));
     setDraftText("");
     setWriteType(null);
     setWriting(false);
@@ -169,7 +169,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   /** Files start uploading as soon as they arrive; a running drain takes them at its tail. */
   const choose = (files: readonly File[]) => {
     const before = new Set(queue.snapshot().map((item) => item.key));
-    queue.add(files, limits, target, bridge?.conversationId ?? null, documentType);
+    queue.add(files, limits, target, bridge?.conversationId ?? null, documentType, grant);
     const fresh = queue.snapshot().filter((item) => !before.has(item.key) && item.status === "queued").map((item) => item.key);
     if (fresh.length) void queue.save(target, consent, new Set(fresh));
   };
@@ -425,7 +425,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
               </div>
             ) : null}
             <ul className="space-y-2" data-testid="receipt-upload-queue">
-              {typed.map((entry) => <TypedRow key={entry.key} entry={entry} onRetry={() => void notes.retry(entry.key, (input, key) => source.captureNote(input, key))} />)}
+              {typed.map((entry) => <TypedRow key={entry.key} entry={entry} onRetry={() => void notes.retry(entry.key, (input, key, noteGrant) => source.captureNote(input, key, noteGrant))} />)}
               {[...batch.attention, ...batch.active, ...batch.waiting].map(renderRow)}
               {batch.saved.length === 1 ? batch.saved.map(renderRow) : null}
             </ul>

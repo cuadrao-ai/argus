@@ -6,6 +6,7 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { BusinessCaptureInput } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { randomId } from "@/lib/random-id";
+import { getChosenGrant } from "@/lib/business-grant";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { useBusiness } from "./BusinessWorkspace";
 import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
@@ -40,14 +41,15 @@ export default function ManualCaptureDialog({ isOpen, target, revision, onClose,
   const [phase, setPhase] = useState<Phase>("idle");
   const [submittedTarget, setSubmittedTarget] = useState<BusinessCaptureInput["draft"]>();
   const [problem, setProblem] = useState<string | null>(null);
-  const command = useRef<{ input: BusinessCaptureInput; key: string } | null>(null);
+  // The request is fixed at the first save, its Business included, so a retry repeats it whatever is chosen by then.
+  const command = useRef<{ input: BusinessCaptureInput; key: string; grant: string | null } | null>(null);
   const inFlight = useRef(false);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
 
   const save = async () => {
     if (inFlight.current || phase === "refused" || !validCaptureText(text)) return;
-    command.current ??= { input: { text, ...(target ? { draft: { ...target } } : {}) }, key: randomId() };
+    command.current ??= { input: { text, ...(target ? { draft: { ...target } } : {}) }, key: randomId(), grant: getChosenGrant() };
     const submitted = command.current;
     setSubmittedTarget(submitted.input.draft);
     inFlight.current = true;
@@ -55,7 +57,7 @@ export default function ManualCaptureDialog({ isOpen, target, revision, onClose,
     setProblem(null);
     onPending?.(true);
     try {
-      const saved = await source.captureNote(submitted.input, submitted.key);
+      const saved = await source.captureNote(submitted.input, submitted.key, submitted.grant);
       if (!active.current) return;
       command.current = null;
       setSubmittedTarget(undefined);

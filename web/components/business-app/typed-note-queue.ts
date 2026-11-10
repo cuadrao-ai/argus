@@ -4,10 +4,10 @@ import type { DocumentType } from "./receipt-upload-queue";
 
 /**
  * Text the owner typed instead of uploading a file; it becomes a Bandeja draft like any receipt. It keeps the
- * Business it was typed in, because every call goes to the Business chosen when it is sent.
+ * Business it was typed in, and every save and retry carries that Business, whatever is chosen when it is sent.
  */
 export type TypedNote = { key: string; grant: string | null; text: string; documentType: DocumentType; status: "saving" | "saved" | "uncertain" | "refused" };
-type Capture = (input: { text: string; document_type: DocumentType }, key: string) => Promise<unknown>;
+type Capture = (input: { text: string; document_type: DocumentType }, key: string, grant: string | null) => Promise<unknown>;
 
 /**
  * Owned by one mounted business workspace, like the upload queue, so closing Agregar never drops a note whose
@@ -44,7 +44,7 @@ export class TypedNoteQueue {
   private async send(entry: TypedNote, capture: Capture) {
     this.update(entry.key, "saving");
     try {
-      await capture({ text: entry.text, document_type: entry.documentType }, entry.key);
+      await capture({ text: entry.text, document_type: entry.documentType }, entry.key, entry.grant);
     } catch (error) {
       const { status, code } = error as { status?: number; code?: string };
       this.update(entry.key, status && status >= 400 && status < 500 && !captureOutcomeUnknown(status, code) ? "refused" : "uncertain");
