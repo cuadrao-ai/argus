@@ -7,7 +7,17 @@ import path from "node:path";
 // who prepares and a viewer who only reads look alike. Deciding an action from it hid Agregar from admins. The
 // per-Business `business_role` is no better a gate: its permissions are the server's to derive.
 const WEB = path.resolve(import.meta.dir, "..");
-const ROLE_CHECK = /(?:\b|_)role\s*[!=]==?\s*["'](owner|accountant|admin|editor|viewer)["']|["'](owner|accountant|admin|editor|viewer)["']\s*[!=]==?\s*[\w?.]*(?:\b|_)role\b/;
+const LABEL = "[\"'`](?:owner|accountant|admin|editor|viewer)[\"'`]";
+/** Any name ending in role or Role: `role`, `chosen?.role`, `business_role`, `memberRole`. */
+const ROLE = "[\\w?.]*[Rr]ole\\b";
+/** A role compared with a label either way round, membership in a list of labels, and a switch over a role. */
+const ROLE_CHECKS = [
+  new RegExp(`${ROLE}\\s*[!=]==?\\s*${LABEL}`),
+  new RegExp(`${LABEL}\\s*[!=]==?\\s*${ROLE}`),
+  new RegExp(`\\.includes\\(\\s*${ROLE}`),
+  new RegExp(`switch\\s*\\(\\s*${ROLE}`),
+];
+const isRoleCheck = (line: string) => ROLE_CHECKS.some((check) => check.test(line));
 
 /**
  * Role comparisons that name who someone is, never what they may do, keyed by file and a piece of the line.
@@ -16,6 +26,7 @@ const ROLE_CHECK = /(?:\b|_)role\s*[!=]==?\s*["'](owner|accountant|admin|editor|
 const ALLOWED: Record<string, Record<string, string>> = {
   "app/design-workspace/BusinessAccessPreview.tsx": {
     'person.role==="owner"&&!chosen.permissions.includes("assign_owner")': "the listed person's own role; changing an owner is gated on the server's assign_owner",
+    'memberEmail && memberRole === "owner" ?': "the local sketch, never live, seeds its preview owner from the person's own Business",
   },
   "app/design-workspace/businessAccessPreviewState.ts": {
     'role === "owner"&&!canAssignOwner': "an option in the role picker, gated on the server's assign_owner",
@@ -74,7 +85,7 @@ function sources(dir: string): string[] {
 
 const checks = ["app", "components", "lib"].flatMap((dir) => sources(path.join(WEB, dir))).flatMap((file) => {
   const relative = path.relative(WEB, file);
-  return readFileSync(file, "utf8").split("\n").flatMap((line, index) => (ROLE_CHECK.test(line) ? [{ file: relative, line: index + 1, text: line.trim() }] : []));
+  return readFileSync(file, "utf8").split("\n").flatMap((line, index) => (isRoleCheck(line) ? [{ file: relative, line: index + 1, text: line.trim() }] : []));
 });
 
 describe("permissions come from the server, not the role label", () => {
@@ -95,10 +106,24 @@ describe("permissions come from the server, not the role label", () => {
   });
 
   test("the guard catches the shape that hid Agregar from admins", () => {
-    expect(ROLE_CHECK.test('const owner = chosen?.role !== "accountant";')).toBe(true);
-    expect(ROLE_CHECK.test('if ("owner" === space.role) {')).toBe(true);
-    expect(ROLE_CHECK.test('chosen.business_role === "admin"')).toBe(true);
-    expect(ROLE_CHECK.test('"viewer" !== grant.business_role')).toBe(true);
-    expect(ROLE_CHECK.test('message.role === "user"')).toBe(false);
+    expect(isRoleCheck('const owner = chosen?.role !== "accountant";')).toBe(true);
+    expect(isRoleCheck('if ("owner" === space.role) {')).toBe(true);
+    expect(isRoleCheck('chosen.business_role === "admin"')).toBe(true);
+    expect(isRoleCheck('"viewer" !== grant.business_role')).toBe(true);
+    expect(isRoleCheck('message.role === "user"')).toBe(false);
+  });
+
+  test("the guard catches every other way to read a role label", () => {
+    expect(isRoleCheck('if (memberRole === "owner") {')).toBe(true);
+    expect(isRoleCheck('const admin = "admin" !== chosen.businessRole;')).toBe(true);
+    expect(isRoleCheck("const owner = chosen.role === `owner`;")).toBe(true);
+    expect(isRoleCheck('const prepares = ["owner", "admin"].includes(chosen.role);')).toBe(true);
+    expect(isRoleCheck("const prepares = PREPARERS.includes(chosen?.business_role);")).toBe(true);
+    expect(isRoleCheck("switch (chosen.role) {")).toBe(true);
+    expect(isRoleCheck("switch (memberRole) {")).toBe(true);
+    expect(isRoleCheck('const prepares = ["owner", "admin"].includes(chosen.role ?? "");')).toBe(true);
+    expect(isRoleCheck('switch (chosen?.role ?? "none") {')).toBe(true);
+    expect(isRoleCheck('const label = roleLabel === "owner";')).toBe(false);
+    expect(isRoleCheck("const roles = people.map((person) => person.role);")).toBe(false);
   });
 });
