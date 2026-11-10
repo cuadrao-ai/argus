@@ -1,7 +1,7 @@
 """Postgres twin of ``InMemoryAppleCredentialRepository``.
 
 Runs as the API's service role. The table admits no client role at all
-(``supabase/migrations/20261003150000_apple_sign_in_credentials.sql``).
+(``supabase/migrations_archive/20261003150000_apple_sign_in_credentials.sql``).
 """
 
 from __future__ import annotations

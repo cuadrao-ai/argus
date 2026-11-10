@@ -50,6 +50,14 @@ Render/FastAPI owns orchestration and compute, not long-term state. Render
 Workflows own temporary backtest execution, but job lifecycle and result truth
 remain in Supabase.
 
+The schema is built from one baseline migration,
+`supabase/migrations/20261110160000_cuadrao_baseline.sql` (#1890), plus any
+migration after it. The files it replaced are kept, unchanged, in
+`supabase/migrations_archive/` as history; the migration names this document
+cites live there. `docs/reports/evidence/1890-baseline/` holds the inventory of
+every object, its owner, and the schema diff that proves the baseline equals
+the history.
+
 ---
 
 ## Cuadrao record design principles
@@ -537,10 +545,8 @@ marketing-email ledger.
   `requested` row becoming an enabled `user` must already have a matching
   delivery record. No other lifecycle transition can fire it, so it needs no
   backfill for rows that predate it.
-- `delete_private_alpha_access_welcome_artifacts(email)` is the
-  service-role-executable orphan cleanup: it removes claim and delivery rows
-  only when no allowlist row exists for the email. The canary teardown and
-  offboarding repairs use it; it refuses while the email is still listed.
+- `delete_private_alpha_access_welcome_artifacts(email)` was dropped by
+  `20261110160100_drop_unowned_objects.sql` (#1890); no code called it.
 
 ## 6.2 private_alpha_access_welcome_claims
 
@@ -943,11 +949,11 @@ advancing a cursor. Read RPCs accept at most 100 owned conversation ids and the
 activity reconciler settles at most 20 stale turns across that batch using the
 existing lifecycle evidence predicate.
 
-The migration baseline is idempotent and keyset-batched at 500 conversations.
-It marks only the newest eligible terminal boundary at or before the captured
-migration-start cutoff as read. Activity completing after that cutoff remains
-unread. The baseline and later activity reads do not update conversation,
-message, job, Run, artifact, or sort timestamps.
+The one-time read-state backfill, `baseline_conversation_activity_read_states`,
+ran when the table was created and marked only the newest eligible terminal
+boundary at or before its cutoff as read. Nothing called it again, and
+`20261110160100_drop_unowned_objects.sql` dropped it (#1890). Activity reads do
+not update conversation, message, job, Run, artifact, or sort timestamps.
 
 ---
 
@@ -1469,7 +1475,8 @@ these objects; do not query them.
 Historical. `public.cuadrao_early_access_signups`, the `public.cuadrao_waitlist_*`
 functions, the `cuadrao_scheduler` schema with its three functions, the
 `cuadrao-waitlist-retention` and `cuadrao-waitlist-reminders` cron jobs, and the
-table's row in `argus_private.retention_policies` were created by
+table's row in `argus_private.retention_policies` (itself dropped by
+`20261110160100_drop_unowned_objects.sql`, #1890) were created by
 `20260920000000_cuadrao_early_access_signups.sql`,
 `20261017010000_personal_waitlist_confirmation.sql`,
 `20261017020000_waitlist_supabase_scheduling.sql`,
@@ -2393,8 +2400,7 @@ subject on `research_searches`.
 - **Window lookup index**:
   `(visitor_key, resource, period_end)`
 - RLS is enabled with no policies. Only `service_role` has table access and may
-  execute `settle_visitor_usage`, `claim_research_usage`,
-  `claim_guest_compute_usage`, `claim_registered_compute_usage`, or
+  execute `settle_visitor_usage`, `claim_research_usage`, or
   `purge_expired_visitor_usage`.
 - Expired rows are disposable operational data, but `period_end` is not a timer
   and nothing in the database acts on it. The row has no owner to cascade from,
@@ -2447,30 +2453,13 @@ subject on `research_searches`.
   thorough-job replays never call the claim. Claim failures degrade to the honest
   research-capacity response and do not enter the provider path.
 
-### Guest compute policy
-- A guest's ordinary chat turns claim one `guest_compute_turns` unit against
-  the visitor digest and one unit against `session:<guest user id>` in the
-  same transaction, at turn start. The guest hits whichever daily ceiling
-  is lower. The visitor ceiling is 300. The session ceiling defaults to 100
-  (`CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING`) so one workspace cannot reset
-  the cap by changing IP. A claim that is admitted stands if the turn later
-  errors; there is no release. A claim RPC error is not treated as
-  exhaustion; the guest sees a short retry, not the daily-cap 429.
-  Migration
-  `20260925120000_claim_guest_compute_usage.sql` adds the claim. The visitor
-  identity is the trusted client IP header (`CF-Connecting-IP` by default,
-  `ARGUS_TRUSTED_CLIENT_IP_HEADER`), never the first `X-Forwarded-For` hop.
-  IPv6 visitor keys group by `/64`.
-
-### Signed-in compute policy
-- A signed-in account's ordinary chat turns claim one
-  `account_compute_turns` unit against `user:<account id>` at turn start.
-  The daily ceiling defaults to 200 (`CUADRAO_REGISTERED_DAILY_TURN_CEILING`).
-  A claim that is admitted stands if the turn later errors; there is no
-  release. A claim RPC error is not treated as exhaustion; the user sees a
-  short retry, not the daily-cap 429. Migration
-  `20260925140000_claim_registered_compute_usage.sql` adds the claim.
-  `GET /me/usage` never projects this counter.
+### Compute ceilings (retired)
+- Nothing claims a `guest_compute_turns` or `account_compute_turns` unit.
+  The guest and signed-in claims
+  (`20260925120000_claim_guest_compute_usage.sql`,
+  `20260925140000_claim_registered_compute_usage.sql`) lost their callers with
+  the chat routes (#1625), and `20261110160100_drop_unowned_objects.sql`
+  dropped both functions (#1890). No row with either resource is written.
 
 ---
 
@@ -3311,7 +3300,7 @@ asset commands until an accepted response or explicit failure resolution.
 ## Apple sign-in credentials
 
 `public.apple_sign_in_credentials`
-(`supabase/migrations/20261003150000_apple_sign_in_credentials.sql`) holds one
+(`supabase/migrations_archive/20261003150000_apple_sign_in_credentials.sql`) holds one
 row per person who signed in with Apple while
 `CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` was on: `user_id` (primary key, the
 verified session's user), `client_id` (the Apple client the token was issued
@@ -4429,15 +4418,15 @@ to a database that already holds the table. `docs/runbooks/dgii-rnc-import.md`
 has the size check. Re-running the swap
 with the same load contents produces the same registry. Proven by
 `tests/test_dgii_rnc_postgres.py`. Migrations
-`supabase/migrations/20261018190000_dgii_rnc_registry.sql` and
-`supabase/migrations/20261102204200_dgii_rnc_csv_columns.sql` and
-`supabase/migrations/20261102225200_dgii_rnc_rename_swap.sql`.
+`supabase/migrations_archive/20261018190000_dgii_rnc_registry.sql` and
+`supabase/migrations_archive/20261102204200_dgii_rnc_csv_columns.sql` and
+`supabase/migrations_archive/20261102225200_dgii_rnc_rename_swap.sql`.
 
 ## Tables without a detailed section
 
-These live tables exist in the migrations but have no section above yet. The migration is the schema.
+These live tables exist in the migrations but have no section above yet. The baseline is the schema; the file named here first created the table.
 
-| Table | Area | Created in `supabase/migrations/` |
+| Table | Area | Created in `supabase/migrations_archive/` |
 | --- | --- | --- |
 | `checkpoint_migrations` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:6` |
 | `checkpoints` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:10` |

@@ -521,7 +521,7 @@ def test_seed_cli_no_longer_accepts_a_conversation() -> None:
 
 
 def test_backtest_jobs_migration_defines_durable_workflow_boundary() -> None:
-    migrations = list((ROOT / "supabase" / "migrations").glob("*backtest_jobs*.sql"))
+    migrations = list((ROOT / "supabase" / "migrations_archive").glob("*backtest_jobs*.sql"))
     assert migrations, "missing backtest_jobs migration"
 
     sql = "\n".join(path.read_text(encoding="utf-8") for path in migrations)
@@ -564,7 +564,7 @@ def test_backtest_finalization_migration_defines_transactional_service_role_rpc(
     migration = (
         ROOT
         / "supabase"
-        / "migrations"
+        / "migrations_archive"
         / "20260713000001_finalize_backtest_completion.sql"
     )
 

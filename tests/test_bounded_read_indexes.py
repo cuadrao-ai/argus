@@ -5,7 +5,7 @@ from psycopg import sql
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (
-    ROOT / "supabase" / "migrations" / "20260727000001_add_bounded_read_indexes.sql"
+    ROOT / "supabase" / "migrations_archive" / "20260727000001_add_bounded_read_indexes.sql"
 )
 SEARCH_MIGRATION_GLOB = "*_add_search_trigram_indexes.sql"
 HISTORY_STATE_MIGRATION_GLOB = "*_add_history_state_page_indexes.sql"
@@ -87,7 +87,7 @@ def test_bounded_read_migration_records_exact_index_rollback() -> None:
 
 
 def test_search_trigram_migration_is_private_and_index_only() -> None:
-    migrations = sorted((ROOT / "supabase" / "migrations").glob(SEARCH_MIGRATION_GLOB))
+    migrations = sorted((ROOT / "supabase" / "migrations_archive").glob(SEARCH_MIGRATION_GLOB))
     assert len(migrations) == 1, "Search trigram migration is missing or ambiguous"
     migration = " ".join(migrations[0].read_text(encoding="utf-8").lower().split())
 
@@ -114,7 +114,7 @@ def test_search_trigram_migration_is_private_and_index_only() -> None:
 
 def test_history_state_page_migration_adds_only_plan_proven_indexes() -> None:
     migrations = sorted(
-        (ROOT / "supabase" / "migrations").glob(HISTORY_STATE_MIGRATION_GLOB)
+        (ROOT / "supabase" / "migrations_archive").glob(HISTORY_STATE_MIGRATION_GLOB)
     )
     assert len(migrations) == 1, "History state-page migration is missing or ambiguous"
     migration = " ".join(migrations[0].read_text(encoding="utf-8").lower().split())
@@ -150,7 +150,7 @@ def test_history_state_page_migration_adds_only_plan_proven_indexes() -> None:
 
 def test_message_recall_migration_is_user_only_private_and_index_only() -> None:
     migrations = sorted(
-        (ROOT / "supabase" / "migrations").glob(MESSAGE_RECALL_MIGRATION_GLOB)
+        (ROOT / "supabase" / "migrations_archive").glob(MESSAGE_RECALL_MIGRATION_GLOB)
     )
     assert len(migrations) == 1, "Message recall migration is missing or ambiguous"
     migration = " ".join(migrations[0].read_text(encoding="utf-8").lower().split())
@@ -176,7 +176,7 @@ def test_message_recall_migration_is_user_only_private_and_index_only() -> None:
 
 def test_decision_recall_migration_is_private_and_index_only() -> None:
     migrations = sorted(
-        (ROOT / "supabase" / "migrations").glob(DECISION_RECALL_MIGRATION_GLOB)
+        (ROOT / "supabase" / "migrations_archive").glob(DECISION_RECALL_MIGRATION_GLOB)
     )
     assert len(migrations) == 1, "Decision recall migration is missing or ambiguous"
     migration = " ".join(migrations[0].read_text(encoding="utf-8").lower().split())
@@ -210,7 +210,7 @@ def test_asset_symbol_prefix_migration_indexes_all_five_canonical_slots() -> Non
     from scripts.generate_asset_symbol_index_migration import render_migration
 
     migrations = sorted(
-        (ROOT / "supabase" / "migrations").glob(ASSET_SYMBOL_MIGRATION_GLOB)
+        (ROOT / "supabase" / "migrations_archive").glob(ASSET_SYMBOL_MIGRATION_GLOB)
     )
     assert len(migrations) == 1, "Asset symbol prefix migration is missing or ambiguous"
     migration = " ".join(migrations[0].read_text(encoding="utf-8").split())

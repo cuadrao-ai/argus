@@ -213,7 +213,11 @@ These three files are on `main`. Apply one only when the landed gate lists it as
 | `20261017010000` | `personal_waitlist_confirmation` | contract-replacing | `expand_contract_or_maintenance_required` |
 | `20261017020000` | `waitlist_supabase_scheduling` | contract-replacing | `expand_contract_or_maintenance_required` |
 
-Integration files absent from `main`, in apply order:
+Integration files absent from `main`, in apply order. This table predates
+#1890: every file in it now sits in `supabase/migrations_archive/`, a reset
+database (#1789) applies `20261110160000_cuadrao_baseline.sql` and what follows
+it instead, and rows 1 and 2 name functions that
+`20261110160100_drop_unowned_objects.sql` dropped.
 
 | # | Version | Name | Classification | Live requirement |
 | ---: | --- | --- | --- | --- |

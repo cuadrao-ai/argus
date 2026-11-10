@@ -248,7 +248,7 @@ def test_supabase_append_omits_degraded_compatibility_text_from_preview() -> Non
 def test_message_append_migration_backfills_legacy_degraded_previews() -> None:
     migration = (
         Path(__file__).resolve().parents[1]
-        / "supabase/migrations/20260717000001_serialize_conversation_message_append.sql"
+        / "supabase/migrations_archive/20260717000001_serialize_conversation_message_append.sql"
     ).read_text()
     sql = " ".join(migration.lower().split())
 

@@ -1,0 +1,11 @@
++GRANT SELECT ON TABLE public.business_guide_dismissals TO anon;
+-CREATE POLICY business_guide_dismissals_insert ON public.business_guide_dismissals
+-CREATE TRIGGER refuse_placeholder_email BEFORE INSERT OR UPDATE OF email ON auth.users
+-INSERT INTO argus_private.business_custody_deferred_keys (constraint_name) VALUES ('financial_accounts_owner_space_fkey');
++INSERT INTO storage.buckets
++ALTER EVENT TRIGGER ensure_rls DISABLE;
++ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO anon;
++COMMENT ON TABLE public.spaces IS 'control';
++    SET search_path TO 'public'
+-CREATE UNIQUE INDEX financial_import_events_sale_ncf_idx ON public.financial_import_events
++CREATE UNIQUE INDEX financial_import_events_sale_ncf_idx ON public.financial_import_events

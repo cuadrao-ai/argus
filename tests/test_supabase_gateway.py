@@ -459,7 +459,7 @@ def test_conversation_message_append_migration_is_one_locked_service_role_bounda
 ):
     migration_path = (
         Path(__file__).resolve().parents[1]
-        / "supabase/migrations/20260717000001_serialize_conversation_message_append.sql"
+        / "supabase/migrations_archive/20260717000001_serialize_conversation_message_append.sql"
     )
 
     assert migration_path.exists()
@@ -521,7 +521,7 @@ def test_supabase_search_matcher_handles_punctuation_and_multi_token_queries():
 def test_p1_spine_migration_enforces_artifact_truth_immutability() -> None:
     migration = (
         Path(__file__).resolve().parents[1]
-        / "supabase/migrations/20260621053126_enforce_p1_evidence_immutability.sql"
+        / "supabase/migrations_archive/20260621053126_enforce_p1_evidence_immutability.sql"
     ).read_text()
 
     assert "prevent_idea_version_immutable_update" in migration

@@ -9,8 +9,8 @@ import psycopg
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "supabase/migrations/20261016154607_adopt_staging_rls_auto_enable.sql"
-HARDENING = ROOT / "supabase/migrations/20261018030016_security_extensions_waitlist.sql"
+MIGRATION = ROOT / "supabase/migrations_archive/20261016154607_adopt_staging_rls_auto_enable.sql"
+HARDENING = ROOT / "supabase/migrations_archive/20261018030016_security_extensions_waitlist.sql"
 REVOKE_HARDENING = next(
     statement
     for statement in HARDENING.read_text().split(";")

@@ -160,8 +160,6 @@ def mock_gateway():
 
     def _rpc(name: str, params: dict[str, Any] | None = None, **_kwargs: Any):
         if name in {
-            "claim_registered_compute_usage",
-            "claim_guest_compute_usage",
             "claim_research_usage",
         }:
             return SimpleNamespace(

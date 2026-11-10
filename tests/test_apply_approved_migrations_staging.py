@@ -726,8 +726,10 @@ class _PlanServer:
 
         if "current_database" in sql:
             return _Cursor([("postgres",)])
-        if "pg_try_advisory_lock" in sql:
+        if "pg_try_advisory_lock" in sql or "has_table_privilege" in sql:
             return _Cursor([(True,)])
+        if "to_regclass" in sql:
+            return _Cursor([("supabase_migrations.schema_migrations",)])
         if "schema_migrations order by" in sql:
             return _Cursor([(version,) for version in self.ledger])
         return _Cursor([])
