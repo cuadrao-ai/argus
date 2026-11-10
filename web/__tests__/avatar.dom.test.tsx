@@ -48,3 +48,15 @@ test("a group shows up to its max and counts the rest as +N, named for assistive
     assert.match(group.textContent ?? "", /\+2$/);
   } finally { await view.close(); }
 });
+
+test("a saved color wins over the name tint, including the neutral saved theme", async () => {
+  const view = await render(<><Avatar name="Ana Luna" theme="plum" testId="saved" /><Avatar name="Other Name" theme="plum" testId="renamed" /><Avatar name="Ana Luna" theme="ocean" testId="neutral" /><Avatar name="Ana Luna" testId="fallback" /></>);
+  try {
+    const [saved, renamed, neutral, fallback] = ["saved", "renamed", "neutral", "fallback"].map((id) => view.host.querySelector<HTMLElement>(`[data-testid="${id}"]`)!);
+    assert.equal(saved.style.backgroundColor, "#DAF1DE");
+    assert.equal(renamed.style.backgroundColor, saved.style.backgroundColor);
+    assert.equal(neutral.style.backgroundColor, "");
+    assert.match(neutral.className, /bg-\[#191c1f\]/);
+    assert.equal(fallback.style.backgroundColor, "#e3ebe1");
+  } finally { await view.close(); }
+});
