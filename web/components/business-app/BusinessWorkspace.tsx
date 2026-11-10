@@ -60,6 +60,7 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
+import { TypedNoteQueue } from "./typed-note-queue";
 import ExportRecordsPanel from "./ExportRecordsPanel";
 import { openRecordsExport } from "./transacciones/records-export-request";
 import { HandHeart } from "lucide-react";
@@ -509,6 +510,9 @@ function BusinessWorkspaceContent({
     });
   }, [uploadQueue, reload, conversationId, intakeTarget]);
   const uploads = useSyncExternalStore(uploadQueue.subscribe, uploadQueue.snapshot, uploadQueue.snapshot);
+  const [typedNotes] = useState(() => new TypedNoteQueue(reload));
+  // Every way Agregar closes forgets finished typed notes; one still saving or unconfirmed waits for its retry.
+  useEffect(() => { if (!intakeTarget) typedNotes.clearSettled(); }, [intakeTarget, typedNotes]);
   useEffect(() => {
     if (!uploadQueue.unfinished) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -799,6 +803,7 @@ function BusinessWorkspaceContent({
         <ReceiptIntakeDialog
           target={intakeTarget}
           queue={uploadQueue}
+          notes={typedNotes}
           onClose={() => {
             if (intakeTarget) uploadQueue.clearSettled(intakeTarget);
             setIntakeTarget(null);

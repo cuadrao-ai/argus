@@ -7,6 +7,7 @@ import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import ReceiptIntakeDialog from "@/components/business-app/ReceiptIntakeDialog";
+import { TypedNoteQueue } from "@/components/business-app/typed-note-queue";
 import { ReceiptUploadQueue } from "@/components/business-app/receipt-upload-queue";
 import { retryAfterMs, uploadBusinessReceipt, type ReceiptSummary } from "@/lib/business-api";
 import spanish from "@/public/locales/es-419/common.json";
@@ -106,7 +107,7 @@ test("nine files under the upload limit wait out Retry-After, retry the same fil
     root.render(
       <I18nextProvider i18n={i18n}>
         <BusinessContext.Provider value={context}>
-          <ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} />
+          <ReceiptIntakeDialog target="inbox" notes={new TypedNoteQueue(() => undefined)} queue={queue} onClose={() => undefined} onReview={() => undefined} />
         </BusinessContext.Provider>
       </I18nextProvider>,
     );

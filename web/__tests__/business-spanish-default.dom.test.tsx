@@ -73,6 +73,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
     const { setChosenGrant } = await import("@/lib/business-grant");
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const ReceiptIntakeDialog = (await import("@/components/business-app/ReceiptIntakeDialog")).default;
+    const { TypedNoteQueue } = await import("@/components/business-app/typed-note-queue");
     const ReceiptReviewPanel = (await import("@/components/business-app/ReceiptReviewPanel")).default;
     const { ReceiptUploadQueue } = await import("@/components/business-app/receipt-upload-queue");
     const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
@@ -108,7 +109,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
             <BusinessWorkspaceProvider source={source as never}>
               <BusinessMark />
               <BusinessOverviewPanel />
-              <ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} />
+              <ReceiptIntakeDialog target="inbox" notes={new TypedNoteQueue(() => undefined)} queue={queue} onClose={() => undefined} onReview={() => undefined} />
               <ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-ferreteria" }} />
             </BusinessWorkspaceProvider>
           </BusinessConsentTestProvider>

@@ -23,6 +23,7 @@ async function mount() {
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const ReceiptIntakeDialog = (await import("@/components/business-app/ReceiptIntakeDialog")).default;
+  const { TypedNoteQueue } = await import("@/components/business-app/typed-note-queue");
   const { ReceiptUploadQueue } = await import("@/components/business-app/receipt-upload-queue");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const i18n = i18next.createInstance();
@@ -42,7 +43,7 @@ async function mount() {
   document.body.appendChild(host);
   const root = createRoot(host);
   await act(async () => {
-    root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={context}><ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>);
+    root.render(<I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={context}><ReceiptIntakeDialog target="inbox" notes={new TypedNoteQueue(() => undefined)} queue={queue} onClose={() => undefined} onReview={() => undefined} /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>);
   });
   // While Escríbelo is open its own choice sits in the card; uploads keep "Se guardan como".
   const typeControl = () => document.querySelector('[data-testid="intake-write-type"]') ?? document.querySelector('[data-testid="intake-document-type"]')!;
