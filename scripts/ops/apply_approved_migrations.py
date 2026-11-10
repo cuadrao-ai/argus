@@ -48,9 +48,13 @@ _ADVISORY_LOCK_KEY = 7_340_118_221_605
 _BEGIN = {"begin", "start"}
 _COMMIT = {"commit", "end"}
 _REFUSED_CONTROL = {"rollback", "abort", "savepoint", "release"}
+_LEDGER_TABLE = "supabase_migrations.schema_migrations"
 _LEDGER_INSERT = (
-    "insert into supabase_migrations.schema_migrations (version, statements, name)"
-    " values (%s, %s, %s)"
+    f"insert into {_LEDGER_TABLE} (version, statements, name) values (%s, %s, %s)"
+)
+_LEDGER_DDL = (
+    "create schema if not exists supabase_migrations; "
+    f"create table {_LEDGER_TABLE} (version text primary key, statements text[], name text)"
 )
 
 
@@ -518,9 +522,21 @@ def archived_versions(root: Path, candidate_sha: str) -> list[str]:
     return [Path(path).name[:14] for path in listing.splitlines() if path.endswith(".sql")]
 
 
+def check_ledger_table(connection: object) -> None:
+    """A reset database (#1789) brings the empty ledger back before anything is recorded."""
+
+    row = connection.execute(  # type: ignore[attr-defined]
+        "select to_regclass(%s)", (_LEDGER_TABLE,)
+    ).fetchone()
+    if not row or row[0] is None:
+        raise ApplyError(
+            f"the migration ledger table {_LEDGER_TABLE} is missing; create it first: {_LEDGER_DDL}"
+        )
+
+
 def read_ledger_versions(connection: object) -> list[str]:
     rows = connection.execute(  # type: ignore[attr-defined]
-        "select version from supabase_migrations.schema_migrations order by version"
+        f"select version from {_LEDGER_TABLE} order by version"
     ).fetchall()
     return [str(row[0]) for row in rows]
 
@@ -683,6 +699,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ).fetchone()
         if not locked or not locked[0]:
             raise ApplyError("another run of this tool holds the migration lock")
+        check_ledger_table(connection)
         ledger = read_ledger_versions(connection)
         if args.record_only:
             check_history_recorded(ledger, archived_versions(Path.cwd(), args.candidate_sha))

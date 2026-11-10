@@ -30,10 +30,12 @@ BLOCK = re.compile(r"\n(?=--\n-- (Name|Data for Name): )")
 
 
 def dump(container: str, *args: str) -> str:
+    # Bytes, decoded strictly: a string literal in the dump can hold a raw carriage
+    # return or tab, which universal newlines and str.splitlines() would lose.
     return subprocess.run(
         ["docker", "exec", container, "pg_dump", "-U", "supabase_admin", "-d", "postgres", *args],
-        check=True, capture_output=True, text=True,
-    ).stdout  # fmt: skip
+        check=True, capture_output=True,
+    ).stdout.decode("utf-8")  # fmt: skip
 
 
 def normalized(container: str) -> list[str]:
@@ -42,19 +44,23 @@ def normalized(container: str) -> list[str]:
     data += dump(container, "--data-only", "--column-inserts", "-t", "storage.buckets")
     blocks = []
     for block in BLOCK.split(schema + data)[::2]:
-        lines = [line for line in block.splitlines() if not any(p.match(line) for p in VOLATILE)]
-        blocks.append("\n".join(CLOCK.sub("'<clock>'", line) for line in lines).strip())
-    return "\n\n".join(sorted(b for b in blocks if b)).splitlines()
+        lines = [line for line in block.split("\n") if not any(p.match(line) for p in VOLATILE)]
+        blocks.append("\n".join(CLOCK.sub("'<clock>'", line) for line in lines).strip("\n"))
+    return "\n\n".join(sorted(b for b in blocks if b)).split("\n")
+
+
+def write(path: Path, text: str) -> None:
+    path.write_text(text, encoding="utf-8", newline="")
 
 
 def main() -> None:
     left, right, out = sys.argv[1], sys.argv[2], Path(sys.argv[3])
     out.mkdir(parents=True, exist_ok=True)
     a, b = normalized(left), normalized(right)
-    (out / "a.sql").write_text("\n".join(a) + "\n")
-    (out / "b.sql").write_text("\n".join(b) + "\n")
+    write(out / "a.sql", "\n".join(a) + "\n")
+    write(out / "b.sql", "\n".join(b) + "\n")
     diff = list(difflib.unified_diff(a, b, "a (history + drops)", "b (baseline)", lineterm=""))
-    (out / "schema.diff").write_text("\n".join(diff) + ("\n" if diff else ""))
+    write(out / "schema.diff", "\n".join(diff) + ("\n" if diff else ""))
     print(f"a: {len(a)} lines, b: {len(b)} lines, diff: {len(diff)} lines")
     sys.exit(1 if diff else 0)
 

@@ -393,7 +393,19 @@ def _history_through_reconciliation() -> list[CandidateMigration]:
     ]
 
 
+def _live_tree() -> list[CandidateMigration]:
+    root = Path(__file__).resolve().parents[3]
+    return [
+        CandidateMigration.from_source(
+            path.relative_to(root).as_posix(), path.read_bytes().decode("utf-8")
+        )
+        for path in sorted((root / "supabase" / "migrations").glob("*.sql"))
+    ]
+
+
 def _history_report(applied: list[AppliedMigration]) -> dict[str, Any]:
+    # The archived history as the candidate tree held it before the baseline, so the
+    # pinned production ledgers of that era stay checked against what they recorded.
     history = _history_through_reconciliation()
     return build_migration_report(
         candidate_sha="4" * 40,
@@ -404,12 +416,67 @@ def _history_report(applied: list[AppliedMigration]) -> dict[str, Any]:
         candidate_migrations=history,
         applied_migrations=applied,
         reconciled_candidate_catalog_sha256=(
+            migration_gate._candidate_catalog_sha256(history)
+        ),
+        reconciled_production_ledger_sha256s=(
+            migration_gate._RECONCILED_PRODUCTION_LEDGER_SHA256S
+        ),
+    )
+
+
+def _reset_report(applied: list[AppliedMigration]) -> dict[str, Any]:
+    # A reset production (#1789) with the gate's own pins, as main() runs it.
+    return build_migration_report(
+        candidate_sha="5" * 40,
+        target=ProductionDatabaseTarget(
+            project_ref="production-ref",
+            database_host="pooler.supabase.test",
+        ),
+        candidate_migrations=_live_tree(),
+        applied_migrations=applied,
+        reconciled_candidate_catalog_sha256=(
             migration_gate._RECONCILED_CANDIDATE_CATALOG_SHA256
         ),
         reconciled_production_ledger_sha256s=(
             migration_gate._RECONCILED_PRODUCTION_LEDGER_SHA256S
         ),
     )
+
+
+def test_the_pinned_catalog_is_the_empty_history_the_live_tree_holds() -> None:
+    tree = _live_tree()
+    assert tree
+    assert all(m.version > migration_gate._LEDGER_RECONCILIATION_THROUGH for m in tree)
+    assert (
+        migration_gate._candidate_catalog_sha256(tree)
+        == migration_gate._candidate_catalog_sha256([])
+        == migration_gate._RECONCILED_CANDIDATE_CATALOG_SHA256
+    )
+    assert (
+        migration_gate._production_ledger_sha256([])
+        in migration_gate._RECONCILED_PRODUCTION_LEDGER_SHA256S
+    )
+
+
+def test_a_reset_production_that_applied_the_live_tree_passes() -> None:
+    report = _reset_report(
+        [AppliedMigration(m.version, m.name, m.statements) for m in _live_tree()]
+    )
+
+    assert report["status"] == "pass"
+    assert report["stop_reasons"] == []
+    assert report["advisories"] == []
+    assert report["readback"] == "migration_ledger_parity_verified"
+
+
+def test_a_reset_production_with_a_ledger_row_the_tree_lacks_blocks() -> None:
+    applied = [AppliedMigration(m.version, m.name, m.statements) for m in _live_tree()]
+    applied.append(AppliedMigration("20261110170000", "not_in_the_tree", ("select 1",)))
+
+    report = _reset_report(applied)
+
+    assert report["status"] == "blocked"
+    assert report["stop_reasons"] == ["unexpected_applied_migrations"]
 
 
 def test_a_ledger_that_recorded_exactly_the_reconciled_history_passes() -> None:

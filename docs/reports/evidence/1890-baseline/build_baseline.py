@@ -42,15 +42,17 @@ select pg_catalog.set_config('search_path', '', true);
 
 def run(container: str, *args: str) -> str:
     # An empty search path makes every name in the output schema-qualified.
+    # Bytes, decoded strictly: a string literal in the dump can hold a raw carriage
+    # return or tab, which universal newlines and str.splitlines() would lose.
     return subprocess.run(
         ["docker", "exec", "-e", "PGOPTIONS=-c search_path=", container, *args],
-        check=True, capture_output=True, text=True,
-    ).stdout  # fmt: skip
+        check=True, capture_output=True,
+    ).stdout.decode("utf-8")  # fmt: skip
 
 
 def query(container: str, sql: str) -> list[str]:
     out = run(container, "psql", "-U", "supabase_admin", "-d", "postgres", "-XAtc", sql)
-    return [line for line in out.splitlines() if line]
+    return [line for line in out.split("\n") if line]
 
 
 def schema_dump(container: str) -> str:
@@ -67,7 +69,7 @@ def schema_dump(container: str) -> str:
         re.compile(r"^COMMENT ON SCHEMA public IS "),
         re.compile(r"^ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin "),
     )
-    lines = [line for line in body.splitlines() if not any(p.match(line) for p in drop)]
+    lines = [line for line in body.split("\n") if not any(p.match(line) for p in drop)]
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip() + "\n"
 
 
@@ -112,7 +114,7 @@ def seed_rows(container: str) -> list[str]:
             container, "pg_dump", "-U", "supabase_admin", "-d", "postgres", "--data-only",
             "--column-inserts", "-t", table,
         )  # fmt: skip
-        out += [line for line in dump.splitlines() if line.startswith("INSERT INTO ")]
+        out += [line for line in dump.split("\n") if line.startswith("INSERT INTO ")]
     return out
 
 
@@ -163,7 +165,7 @@ def main() -> None:
         # Last, so it does not enable row security on tables the history left without it.
         "\n".join(event_triggers(container)) + "\n",
     ]
-    with open(output, "w") as handle:
+    with open(output, "w", encoding="utf-8", newline="") as handle:
         handle.write("\n".join(parts))
 
 

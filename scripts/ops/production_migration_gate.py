@@ -44,14 +44,19 @@ _RENDER_PATH = "render.yaml"
 _MIGRATION_APPLY = "never"
 # Production history was hand-reconciled through this pre-gate migration.
 _LEDGER_RECONCILIATION_THROUGH = "20260811210000"
+# The candidate tree holds no file at or below the threshold since the baseline
+# (#1890) moved them to supabase/migrations_archive/: the catalog digest of an empty
+# history, sha256 of the JSON list "[]".
 _RECONCILED_CANDIDATE_CATALOG_SHA256 = (
-    "f05cf5738ce8b6e0ad74ce2b4b77d773387bc5421bab3a101448241b5431e2c2"
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
 )
 _RECONCILED_PRODUCTION_LEDGER_SHA256S = (
     # The hand-reconciled 63-row history production held on 2026-08-13.
     "e352a2c003572611f0fb201305e085e3736eefbfae0d62ef29f4322a18062032",
     # The 61-row history a Supabase CLI push of main 980d56ba3 records.
     "b46b42afac8c07b413c436bb90c448b4eb60d8325340d1117d266ebd28654c03",
+    # The empty history a reset production (#1789) holds below the threshold.
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
 )
 
 

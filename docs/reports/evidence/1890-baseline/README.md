@@ -15,9 +15,11 @@ throwaway local Supabase stacks; no hosted database was read or changed.
 | `schema_diff.py` | Compares two databases: whole-database schema, grants, triggers, buckets and seed rows. |
 | `schema.diff` | The diff between the two builds. Every line is explained below. |
 | `explain_checks.py` | Shows each differing CHECK is the history's text as Postgres re-reads it. |
-| `diff_controls.sql`, `diff_controls.expected` | Known-bad changes the diff must catch. |
+| `diff_controls.sql`, `diff_controls.expected` | Known-bad changes the diff must catch, one of them a lone carriage return. |
+| `reset_ledger.sql` | The production reset step: the empty migration ledger, recreated. |
+| `gate_on_reset.py` | Runs the production gate's comparison against a reset database. |
 | `splitter_equivalence.py` | Shows the faster migration splitter splits every file exactly as before. |
-| `prove.sh` | Rebuilds both databases, runs the staging alignment, and checks the diff. |
+| `prove.sh` | Rebuilds the three databases, runs the staging alignment and the production reset, and checks every diff. |
 
 ## Rerun
 
@@ -25,14 +27,27 @@ throwaway local Supabase stacks; no hosted database was read or changed.
 docs/reports/evidence/1890-baseline/prove.sh temp/1890-proof
 ```
 
-It starts two stacks with their own project ids and ports (5981x and 5982x),
-builds A from `supabase/migrations_archive/`, aligns A the way staging will be
-aligned (baseline recorded without running, drop migration run, both through
-`scripts/ops/apply_approved_migrations.py`), builds B from
-`supabase/migrations/`, and exits 0 only when the diff equals `schema.diff`,
-every CHECK line is explained, and the `net` grant probe passes on both. It
-also rewrites `inventory.md` and `inventory.json` from A before alignment, so
-`git status` shows any drift. Pass `--keep` to leave the stacks running.
+It starts three stacks with their own project ids and ports (5981x, 5982x and
+5983x), builds A from `supabase/migrations_archive/`, aligns A the way staging
+will be aligned (baseline recorded without running, drop migration run, both
+through `scripts/ops/apply_approved_migrations.py`), builds B from
+`supabase/migrations/`, and builds C the way the production reset will: no
+migrations, `reset_ledger.sql`, then both files from the committed tree through
+the apply tool. It exits 0 only when the A to B diff equals `schema.diff`, every
+CHECK line is explained, the `net` grant probe passes on A and B, the apply tool
+names the missing ledger table on C before it exists, the production gate
+passes on C and blocks on one extra ledger row, the A to C diff equals
+`schema.diff` too, and every marker in `diff_controls.expected` shows after
+`diff_controls.sql` runs on C. It also rewrites `inventory.md` and
+`inventory.json` from A before alignment, so `git status` shows any drift. Pass
+`--keep` to leave the stacks running (C then holds the controls; B is as built).
+
+The scripts read `pg_dump` as bytes and split on `\n` only. Postgres stores
+`E' \t\r\n'` from the archived `20261021050000_business_sale_ncf_once.sql` as a
+raw carriage return inside the index definition, and universal newlines or
+`str.splitlines()` would drop it from the baseline while hiding the loss from
+the diff. `.gitattributes` exempts the baseline from line-ending conversion for
+the same reason.
 
 ## Inventory
 
@@ -101,15 +116,22 @@ grants still fails.
   `explain_checks.py` adds each history text to a copy of its table and reads it
   back: 7 of 7 come back exactly as the baseline text. This is how Postgres
   stores an expression it reads from text, not a schema difference.
-- **Controls.** `diff_controls.sql` makes nine known-bad changes on B (a grant,
+- **Controls.** `diff_controls.sql` makes ten known-bad changes on C (a grant,
   a policy, an auth trigger, a seed row, a bucket, the event trigger, default
-  privileges, a comment, a function setting). The diff caught all nine.
+  privileges, a comment, a function setting, and the sale NCF index with no
+  carriage return in its `btrim` set). `prove.sh` requires the diff to show all
+  ten.
 - **Staging rehearsal.** On A built from the history, the apply tool recorded
   the baseline without running it and ran the drop migration; the result
   diffs against B as above.
-- **Production reset rehearsal.** On an empty local database with an empty
-  ledger table, the apply tool ran both files, about one second; the result
-  diffs against A as above.
+- **Production reset rehearsal.** C is a database with no migrations. Without
+  the ledger table the apply tool stops with
+  `the migration ledger table supabase_migrations.schema_migrations is missing;
+  create it first: ...`. After `reset_ledger.sql` it runs both files from the
+  committed tree, about one second. `gate_on_reset.py` then reads C's ledger
+  the way the production gate does and gets `pass` with no advisory, and
+  `blocked` with `unexpected_applied_migrations` once one row the tree does not
+  have is added. C diffs against A as above.
 - **Postgres tests on B.** Every test file that reads
   `ARGUS_DISPOSABLE_DATABASE_URL` or the local Supabase URL (236 files, wider
   than the pull-request set in CI) ran against B: 2,952 passed, 5 skipped (four
@@ -168,20 +190,39 @@ apply tool only plans versions above them, so they need no repair.
 
 ## Production (#1789)
 
-- **Reset.** After the founder empties the database, keep or recreate an empty
-  `supabase_migrations.schema_migrations` table, then apply both versions with
-  the apply tool and a production approval record, without `--record-only`.
+- **Reset.** After the founder empties the database, run `reset_ledger.sql` on
+  it as `postgres`:
+
+  ```sql
+  create schema if not exists supabase_migrations;
+  create table if not exists supabase_migrations.schema_migrations (
+      version text primary key,
+      statements text[],
+      name text
+  );
+  ```
+
+  A reset that kept the table empty needs nothing; one that dropped the schema
+  gets it back. Then apply both versions with the apply tool and a production
+  approval record, without `--record-only`. If the table is still missing the
+  tool stops before anything runs and says
+  `the migration ledger table supabase_migrations.schema_migrations is missing;
+  create it first: create schema if not exists supabase_migrations; create table
+  supabase_migrations.schema_migrations (version text primary key, statements
+  text[], name text)`.
 - **In place.** If production keeps its history instead, it needs the staging
   steps. The tool refuses unless production's ledger holds every archived
   version, and its hand-reconciled history may not. That case needs a decision
   first.
-- **Gate.** `scripts/ops/production_migration_gate.py` still pins the old
-  production ledger and the archived candidate catalog through
-  `20260811210000`. Run on this tree against a reset production with both files
-  applied, `build_migration_report` returns `blocked` with
-  `historical_candidate_catalog_drift` and `historical_production_ledger_drift`.
-  It needs a rule for a fresh history before the next promotion. Not changed
-  here.
+- **Gate.** `scripts/ops/production_migration_gate.py` pins what the tree and
+  the ledger hold at or below `20260811210000`. The tree now holds nothing
+  there, so the candidate catalog pin is the digest of an empty history,
+  `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945` (sha256
+  of `[]`), and that digest joins the production ledger pins beside the two
+  pre-reset histories, which stay so a gate run against production before the
+  reset reports `missing_candidate_migrations` rather than pin drift. On a
+  reset production with both files applied the report is `pass`
+  (`gate_on_reset.py` on C), and a ledger row the tree lacks still blocks.
 
 ## If another migration merges first
 
