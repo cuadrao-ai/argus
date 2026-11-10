@@ -1379,8 +1379,9 @@ Current behavior:
 
 Analytics events. Each is one Pydantic model (`extra="forbid"`, strict) whose
 fields are exactly the properties listed. Every field is a literal value, a
-boolean, a bounded integer, a calculation name checked against the catalog, or
-`cohort`. `tests/test_analytics_events.py`
+boolean, a bounded integer, a calculation name checked against the catalog,
+`cohort`, the hashed Business id `business_hash`, or a bounded tuple of
+literal values. `tests/test_analytics_events.py`
 fails if any field could hold free text or a money-formatted value (A4).
 
 | Event | Properties | Fires (package) |
@@ -1395,7 +1396,36 @@ fails if any field could hold free text or a money-formatted value (A4).
 | `installed_app_opened` | none | standalone launch, once per session (0C-5) |
 | `landing_viewed` | `language`: `en` or `es-419`; `cohort` for guests with a stored cohort only | once per landing view (0C-5) |
 | `receipt_shared` | `calculator`: a registered calculation name, `backtest`, `multiple`, or `none` | a real share-link insert (0C-8) |
+| `business_document_received` | `channel`: `upload`, `note`, `email`, or `whatsapp`; `file_type`: an extension `SOURCE_MEDIA_TYPES` names, absent for a typed note; `page_count`: `1` for an image, absent when not known before the read; `size_bucket`: `under_100kb`, `100kb_to_1mb`, `1mb_to_5mb`, or `5mb_or_more` | a new Business document is saved; a repeat of the same bytes is not counted |
+| `business_document_read` | `result`: `read`, `failed`, or `unsure`; `failure_reason`: a receipt `Attention` value (for example `ai_unavailable`, `interrupted`, `unreadable`, `not_a_receipt`, `check_details`), absent when `read`; `latency_ms`: 0 to 3600000; `model_tier`: an OpenRouter model tier; `input_tokens`, `output_tokens`: 0 to 10000000; `cost_micro_usd`: 0 to 100000000 | a read that reached the model settles, once per provider-admitted attempt |
+| `business_document_needs_review` | `reason_codes`: one or more `BandejaReason` values, in the Listos rule's order | a read leaves a draft that is not Listos, or the model's answer cannot become a draft |
+| `business_record_approved` | `changed_fields`: the record field names (`FactField` and the fiscal fields) whose value differs between the read and the approval, absent with no read; `changed_count`; `seconds_to_approve`: from first arrival to approval | a person's approval records the draft, once (not on a replay) |
+| `business_record_recorded` | `direction`: `compra` or `venta`; `document_type`: `recibo` or `venta` | with `business_record_approved` |
+| `business_records_exported` | `format`: `excel` or `csv`; `scope`: `lo_que_ves` or `dgii`; `row_count`: 0 to 1000000 | an Excel or CSV export is built |
 
+- Business events are sent after the work they describe has committed, off the
+  request or read's thread, and never delay or fail it; a send failure logs
+  one warning. Each carries `business_hash`, the one-way hash of the Business
+  id (`argus_business_` and 32 hex digits, the same scheme as the actor hash
+  under its own prefix), so one Business's events group without group
+  analytics. `distinct_id` is the acting person's actor hash, or the owner's
+  for a read. Business events never carry document text or images, document
+  amounts, RNC, cédula, names, emails, phone numbers, addresses, razón social,
+  note text, file names, request bodies or IP addresses. A corrected field is
+  sent by name, never by value.
+- `cost_micro_usd` is Cuadrao's own provider cost for one read, summed with
+  `Decimal` from the read's route receipts (`usage_cost_usd`) and rounded half
+  to even to whole micro-dollars. It is absent when any receipt has no cost. It
+  is not a customer amount, so the rule that no customer amount leaves the app
+  still holds. Tokens follow the same rule.
+- Unhandled API exceptions and unhandled document read failures are sent to
+  the same project as PostHog's `$exception` event, behind the same token and
+  region check. The payload holds only the exception class name, the route
+  template or job name (`document_preparation`, `document_read_pull`), the
+  actor hash when known (else `argus_server`), the stack frames as module,
+  function and line number, and `$process_person_profile = false`. The
+  exception message, local variables, request bodies and headers are never
+  read. A refusal the Business rules raise during a read is not an exception.
 - `cohort` is the invite cohort code, `^[a-z]{2,12}-[a-z0-9]{4,8}$` (for
   example `piloto-7kq2`). The pattern is enforced by the model.
 - `calculator` is checked when the event is validated against the names
