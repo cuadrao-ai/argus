@@ -107,6 +107,8 @@ def _run_render_release_audit(
     web_env_json: str,
     api_service_json: str | None = None,
     web_service_json: str | None = None,
+    app_service_json: str | None = None,
+    worker_service_json: str | None = None,
     expect_mode: str = "safe-off",
     isolate: bool = False,
 ) -> subprocess.CompletedProcess[str]:
@@ -126,6 +128,8 @@ case "$*" in
     ;;
   *"/services/$FAKE_API_SERVICE_ID"*) printf "%s" "$FAKE_API_SERVICE_JSON" ;;
   *"/services/$FAKE_WEB_SERVICE_ID"*) printf "%s" "$FAKE_WEB_SERVICE_JSON" ;;
+  *"/services/$FAKE_APP_SERVICE_ID"*) printf "%s" "$FAKE_APP_SERVICE_JSON" ;;
+  *"/services/$FAKE_WORKER_SERVICE_ID"*) printf "%s" "$FAKE_WORKER_SERVICE_JSON" ;;
   *)
     echo "unexpected curl request: $*" >&2
     exit 9
@@ -140,7 +144,7 @@ esac
         surface: json.dumps(
             {"autoDeployTrigger": profile["services"][surface]["auto_deploy_trigger"]}
         )
-        for surface in ("api", "marketing")
+        for surface in ("api", "marketing", "web", "documents_worker")
     }
     env = os.environ.copy()
     env.update(
@@ -149,10 +153,15 @@ esac
             "RENDER_API_KEY": "fake-render-token",
             "FAKE_API_SERVICE_ID": "srv-d78tanmuk2gs73e17nn0",
             "FAKE_WEB_SERVICE_ID": "srv-d7ap6bmslomc73eqp8m0",
+            "FAKE_APP_SERVICE_ID": "srv-dbid9lflk1mc73fvkqgg",
+            "FAKE_WORKER_SERVICE_ID": "srv-dbm1pf5g1s2s73bs5a1g",
             "FAKE_API_ENV_JSON": api_env_json,
             "FAKE_WEB_ENV_JSON": web_env_json,
             "FAKE_API_SERVICE_JSON": api_service_json or profile_triggers["api"],
             "FAKE_WEB_SERVICE_JSON": web_service_json or profile_triggers["marketing"],
+            "FAKE_APP_SERVICE_JSON": app_service_json or profile_triggers["web"],
+            "FAKE_WORKER_SERVICE_JSON": worker_service_json
+            or profile_triggers["documents_worker"],
             "FAKE_CURL_REQUEST_LOG": str(request_log),
         }
     )
@@ -733,6 +742,8 @@ def test_render_env_sync_audit_accepts_the_marketing_site_profile(
     assert "ok cuadrao-api:CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false" in result.stdout
     assert "ok cuadrao-api:autoDeployTrigger=off" in result.stdout
     assert "ok cuadrao-marketing:autoDeployTrigger=off" in result.stdout
+    assert "ok cuadrao-app:autoDeployTrigger=off" in result.stdout
+    assert "ok cuadrao-documents-worker:autoDeployTrigger=off" in result.stdout
     assert "autodeploy_status=ready" in result.stdout
     assert "status=ready" in result.stdout
     for retired in ("argus-api", "argus-app", "argus-backtests", "workflow_env"):

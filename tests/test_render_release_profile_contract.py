@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 
 from tests.test_environment_scripts import (
@@ -177,23 +178,32 @@ def test_argus_api_disables_the_default_render_subdomain() -> None:
     assert "#694" in waitlist_floor
 
 
+@pytest.mark.parametrize(
+    ("surface", "argument"),
+    [
+        ("api", "api_service_json"),
+        ("marketing", "web_service_json"),
+        ("web", "app_service_json"),
+        ("documents_worker", "worker_service_json"),
+    ],
+)
 def test_render_env_sync_audit_reports_a_service_that_leaves_manual_deploys(
-    tmp_path: Path,
+    tmp_path: Path, surface: str, argument: str
 ) -> None:
     profile = json.loads(_source(".github/private-alpha-release-profile.json"))
-    expected = profile["services"]["marketing"]["auto_deploy_trigger"]
+    service = profile["services"][surface]
 
     result = _run_render_release_audit(
         tmp_path,
         api_env_json=_render_env_payload("cuadrao-api"),
         web_env_json=_render_env_payload("cuadrao-marketing"),
-        web_service_json=json.dumps({"autoDeployTrigger": "checksPass"}),
+        **{argument: json.dumps({"autoDeployTrigger": "checksPass"})},
     )
 
     assert result.returncode == 1
     assert (
-        "drift cuadrao-marketing:autoDeployTrigger "
-        f"expected={expected} actual=checksPass" in result.stdout
+        f"drift {service['name']}:autoDeployTrigger "
+        f"expected={service['auto_deploy_trigger']} actual=checksPass" in result.stdout
     )
     assert "autodeploy_status=drift" in result.stdout
     assert "status=drift" in result.stdout
@@ -210,10 +220,17 @@ def test_render_env_sync_audit_accepts_manual_deploys_on_the_audited_services(
         web_env_json=_render_env_payload("cuadrao-marketing"),
         api_service_json=manual,
         web_service_json=manual,
+        app_service_json=manual,
+        worker_service_json=manual,
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
-    for service in ("cuadrao-api", "cuadrao-marketing"):
+    for service in (
+        "cuadrao-api",
+        "cuadrao-marketing",
+        "cuadrao-app",
+        "cuadrao-documents-worker",
+    ):
         assert f"ok {service}:autoDeployTrigger=off" in result.stdout
     assert "autodeploy_status=ready" in result.stdout
     assert "status=ready" in result.stdout

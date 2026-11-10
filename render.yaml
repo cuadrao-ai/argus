@@ -150,14 +150,14 @@ services:
     buildCommand: bun install --frozen-lockfile && bun run build --webpack
     startCommand: bun run start -- -p $PORT
 
-  # The 2026-11-10 read did not record build command, plan or region for the
-  # next two services. Read them on the dashboard before any Blueprint sync.
   - type: web
     name: cuadrao-app
     runtime: node
     repo: https://github.com/lagarcess/argus
     branch: main
     rootDir: web
+    region: virginia
+    plan: 0.5c-512mb
     autoDeployTrigger: "off"
     buildCommand: bun install --frozen-lockfile && bun run build
     startCommand: bun run start -- -p $PORT
@@ -169,9 +169,12 @@ services:
     repo: https://github.com/lagarcess/argus
     branch: main
     rootDir: .
+    region: virginia
+    plan: starter
     autoDeployTrigger: "off"
-    buildCommand: poetry config virtualenvs.create false && poetry install --only main --no-interaction
+    buildCommand: poetry install
     startCommand: poetry run python -m workflows.document_worker
+    maxShutdownDelaySeconds: 240
     envVars:
       - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
         value: "210"
@@ -326,6 +329,8 @@ services:
     repo: https://github.com/lagarcess/argus
     branch: codex/private-alpha-next
     rootDir: web
+    region: virginia
+    plan: 0.5c-512mb
     autoDeployTrigger: "off"
     buildCommand: bun install --frozen-lockfile && bun run build
     startCommand: bun run start -- -p $PORT
@@ -365,16 +370,18 @@ services:
       - key: NEXT_PUBLIC_ENABLE_SPANISH
         value: "true"
 
-  # The 2026-11-10 read did not record this worker's build command or plan.
   - type: worker
     name: cuadrao-documents-worker-staging
     runtime: python
     repo: https://github.com/lagarcess/argus
     branch: codex/private-alpha-next
     rootDir: .
+    region: virginia
+    plan: starter
     autoDeployTrigger: "off"
     buildCommand: poetry install
     startCommand: poetry run python -m workflows.document_worker
+    maxShutdownDelaySeconds: 240
     envVars:
       - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
         value: "210"

@@ -102,8 +102,10 @@ Auth settings and env names the connectors cannot read are in
 `cuadrao-api-staging`, `cuadrao-app-staging`, `cuadrao-marketing-staging`, and
 `cuadrao-documents-worker-staging`. These are the dashboard names read on
 2026-11-10. The release profile and the `render-env-sync.sh` audit labels use
-the same names. The 2026-11-10 read did not record build commands, plans, or
-regions for `cuadrao-app` and the two workers. A Blueprint sync matches
+the same names. The 2026-11-10 read also recorded the build and start commands,
+plans, regions, and the workers' 240-second shutdown delay that `render.yaml`
+now holds for `cuadrao-app`, `cuadrao-app-staging`, and the two workers. A
+Blueprint sync matches
 services by name. Never Blueprint-sync until the
 `render.yaml` service names match the dashboard and someone has reviewed the
 sync diff. This checklist does not sync.
@@ -407,7 +409,7 @@ Before the separately approved first load, confirm these steps.
 
 After the landed gate reports `status=pass` and the env readbacks above match the founder choices:
 
-1. Do not Blueprint-sync. Never Blueprint-sync until someone has read the dashboard settings `render.yaml` does not record and has reviewed the sync diff. The `cuadrao-api-staging` start command is still unconfirmed and is a must-check before that sync. This checklist does not sync. `renderSubdomainPolicy: disabled` stays on `cuadrao-api` in the file. Disabling the live subdomain is the promotion-day item in [item 4](#render-services-and-promotion-day-items). Autodeploy on the production dashboard services stays off.
+1. Do not Blueprint-sync. Never Blueprint-sync until someone has reviewed the sync diff. The `cuadrao-api-staging` start command is still unconfirmed and is a must-check before that sync. This checklist does not sync. `renderSubdomainPolicy: disabled` stays on `cuadrao-api` in the file. Disabling the live subdomain is the promotion-day item in [item 4](#render-services-and-promotion-day-items). Autodeploy on the production dashboard services stays off.
 2. Set the env in [section 3](#3-render-environment-on-production) on dashboard `cuadrao-api` before that service deploys. Confirm the approved workflow controls through a separate operator readback before restarting the service. The retired API mode commands no longer write those controls. Do not set the business-web contract on dashboard `cuadrao-marketing`.
 3. Run the audit before the deploys:
 
@@ -415,7 +417,7 @@ After the landed gate reports `status=pass` and the env readbacks above match th
 .github/render-env-sync.sh release-config-audit --expect-mode safe-off
 ```
 
-`status=ready` is the promotion gate. `ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID` is `srv-d7ap6bmslomc73eqp8m0`, dashboard `cuadrao-marketing`, the marketing site. The audit checks that service against the manifest `marketing` surface and labels the lines `cuadrao-marketing`. It does not audit `cuadrao-app` or `cuadrao-documents-worker`. Stop on any `cuadrao-api` or `cuadrao-marketing` drift or `unexpected_live_env` line. The vision-model allow-list stop in section 3 still applies to `cuadrao-api`.
+`status=ready` is the promotion gate. `ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID` is `srv-d7ap6bmslomc73eqp8m0`, dashboard `cuadrao-marketing`, the marketing site. The audit checks that service against the manifest `marketing` surface and labels the lines `cuadrao-marketing`. For `cuadrao-app` and `cuadrao-documents-worker` it checks only the deploy trigger, not their env. Stop on any `cuadrao-api`, `cuadrao-marketing`, `cuadrao-app`, or `cuadrao-documents-worker` drift or `unexpected_live_env` line. The vision-model allow-list stop in section 3 still applies to `cuadrao-api`.
 
 4. Deploy dashboard `cuadrao-api`, then `cuadrao-documents-worker`, from the landed SHA. Manual triggers, in that order. The worker runs the same Python code as the API and is the only receipt reader. Deploy `cuadrao-app` from `main` when this promotion ships `web/`. Do not deploy `cuadrao-marketing` here. It serves `marketing/` from branch `main`, autoDeploy is off, and a person deploys it by hand when `main` should ship. `web-deploy-status` reads `srv-d7ap6bmslomc73eqp8m0`, the marketing site, and that commit does not have to equal the candidate.
 5. Read deploy status:
@@ -683,8 +685,7 @@ the landed tree is verified.
 > and `render.yaml` together, never by a sync.
 
 5. In Render, sync the Blueprint from `render.yaml` only when service config
-   drift needs reconciliation and the settings `render.yaml` does not record
-   have been read on the dashboard.
+   drift needs reconciliation and someone has reviewed the sync diff.
 6. Confirm Render is updating the existing `cuadrao-*` services.
    Stop if Render proposes duplicate services.
 7. Confirm the live deploy mode matches the deliberate founder decision and is

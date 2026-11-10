@@ -602,5 +602,7 @@ def test_job_settings_match_on_staging_and_production_and_the_switches_are_gone(
         "cuadrao-documents-worker",
         "cuadrao-documents-worker-staging",
     }
+    shutdown = read_seconds() + CANCEL_SECONDS + HOST_SHUTDOWN_MARGIN_SECONDS
     for worker in workers:
         assert worker["startCommand"] == "poetry run python -m workflows.document_worker"
+        assert shutdown <= worker["maxShutdownDelaySeconds"] <= HOST_SHUTDOWN_MAX_SECONDS

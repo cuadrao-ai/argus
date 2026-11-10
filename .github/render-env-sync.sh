@@ -13,6 +13,8 @@ argus_load_root_env >/dev/null || true
 
 API_SERVICE_ID="${ARGUS_RENDER_API_SERVICE_ID:-$ARGUS_PRIVATE_LAUNCH_API_SERVICE_ID}"
 WEB_SERVICE_ID="${ARGUS_RENDER_WEB_SERVICE_ID:-$ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID}"
+APP_SERVICE_ID="$CUADRAO_PRIVATE_LAUNCH_APP_SERVICE_ID"
+DOCUMENTS_WORKER_SERVICE_ID="$CUADRAO_PRIVATE_LAUNCH_DOCUMENTS_WORKER_SERVICE_ID"
 
 usage() {
   cat <<'USAGE'
@@ -489,6 +491,7 @@ audit_release_config() {
 
   local api_env_json web_env_json fingerprint
   local api_service_json web_service_json autodeploy_fingerprint_value
+  local app_service_json worker_service_json
   local api_autodeploy_trigger web_autodeploy_trigger
   local mode_pair
   local api_profile_pairs=()
@@ -511,6 +514,8 @@ audit_release_config() {
   web_env_json="$(render_env_json "$WEB_SERVICE_ID")"
   api_service_json="$(render_service_json "$API_SERVICE_ID")"
   web_service_json="$(render_service_json "$WEB_SERVICE_ID")"
+  app_service_json="$(render_service_json "$APP_SERVICE_ID")"
+  worker_service_json="$(render_service_json "$DOCUMENTS_WORKER_SERVICE_ID")"
   api_autodeploy_trigger="$(release_profile_auto_deploy_trigger api)"
   web_autodeploy_trigger="$(release_profile_auto_deploy_trigger marketing)"
   echo "Argus release config audit"
@@ -531,6 +536,14 @@ audit_release_config() {
     "$web_service_json" \
     "cuadrao-marketing" \
     "$web_autodeploy_trigger"
+  audit_render_auto_deploy_trigger \
+    "$app_service_json" \
+    "cuadrao-app" \
+    "$(release_profile_auto_deploy_trigger web)"
+  audit_render_auto_deploy_trigger \
+    "$worker_service_json" \
+    "cuadrao-documents-worker" \
+    "$(release_profile_auto_deploy_trigger documents_worker)"
   fingerprint="$(render_env_fingerprint)"
   autodeploy_fingerprint_value="$(autodeploy_fingerprint)"
   echo "env_fingerprint=$fingerprint"
