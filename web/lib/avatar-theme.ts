@@ -32,3 +32,31 @@ export function avatarThemeStyle(theme: AvatarTheme | undefined) {
     match && { backgroundColor: match.backgroundColor, color: match.color }
   );
 }
+
+const TINTS = [
+  { bg: "#e3ebe1", fg: "#2f5a49" },
+  { bg: "#f2e8c9", fg: "#5c4910" },
+  { bg: "#dde7ef", fg: "#2c5170" },
+  { bg: "#f1e0ea", fg: "#7a2f57" },
+  { bg: "#e7e2f3", fg: "#4a3d78" },
+  { bg: "#e0eeeb", fg: "#1f5c55" },
+  { bg: "#f3e2d9", fg: "#7a3d1c" },
+  { bg: "#e8e8e3", fg: "#3d4a45" },
+] as const;
+
+function tintFor(seed: string) {
+  let hash = 0;
+  for (const char of seed.toLocaleLowerCase()) hash = (hash * 31 + char.codePointAt(0)!) >>> 0;
+  return TINTS[hash % TINTS.length];
+}
+
+export function personAvatarAppearance(
+  name: string | null | undefined,
+  theme: AvatarTheme | undefined,
+) {
+  if (theme !== undefined) {
+    return { className: avatarThemeClassName(theme), style: avatarThemeStyle(theme) };
+  }
+  const tint = tintFor(name ?? "");
+  return { className: "", style: { backgroundColor: tint.bg, color: tint.fg } };
+}
