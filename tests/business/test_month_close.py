@@ -989,3 +989,20 @@ def test_a_currency_only_the_bandeja_holds_gets_its_own_block_of_zeros():
     assert MonthClose.model_validate(
         {"month": "2026-10", "today": DAY, "dgii_forms": {"606": "no_operations", "607": "no_operations"}, **summary}
     ).currencies[0].documents_in_bandeja == 3
+
+
+def test_more_than_one_currency_is_any_month_of_the_business_not_only_this_one():
+    """The currency choice stays visible in a month of one currency when
+    another month holds a second one."""
+
+    september = date(2026, 9, 10)
+    start, end = month_period("2026-10")
+    pesos = document(activity_id="peso", total_minor=1000)
+    dollars = document(activity_id="usd-september", currency="USD", occurred_on=september)
+    assert summarize([pesos], start, end)["more_than_one_currency"] is False
+    october = summarize([pesos, dollars], start, end)
+    assert [block["currency"] for block in october["currencies"]] == ["DOP"]
+    assert october["more_than_one_currency"] is True
+    assert summarize([pesos], start, end, bandeja={"USD": 1})["more_than_one_currency"] is True
+    personal = replace(dollars, personal=True, include_606=False)
+    assert summarize([pesos, personal], start, end)["more_than_one_currency"] is False
