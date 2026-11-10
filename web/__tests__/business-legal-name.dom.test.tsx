@@ -209,3 +209,13 @@ test("the English twins render and the copy never says mi, tu or my or your busi
     expect(document.querySelector('[data-testid="legal-name-confirm"]')?.textContent).toBe("When you save, you confirm that this RNC belongs to La Palma.");
   }finally{await page.close();}
 });
+
+test("someone who cannot manage the Business sees no Razón social block and never asks the registry",async()=>{
+  const calls=server({...empty,tax_id:{type:"rnc",value:"131000014"},can_edit:false},value=>Response.json(answer(value,"verificado")));
+  const page=await mount();
+  try{
+    expect(document.querySelector('[data-testid="business-fiscal-profile"]')?.textContent).toContain("131000014");
+    expect(page.block()).toBeNull();
+    expect(calls.some(call=>call.path==="/business/fiscal-profile/registry")).toBe(false);
+  }finally{await page.close();}
+});

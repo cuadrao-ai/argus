@@ -361,3 +361,98 @@ def test_the_routes_answer_the_form_and_refuse_with_named_codes(actions, registr
         )
         assert stale.status_code == 409
         assert stale.json()["detail"]["code"] == "stale_version"
+
+
+def _stored(context) -> dict:
+    """The Business row and its action receipts, as the database holds them."""
+
+    with Connection.connect(shared.shared.DSN) as db:
+        return {
+            "space": db.execute(
+                "select to_jsonb(s) from public.spaces s where id=%s",
+                (context.actor.space_id,),
+            ).fetchone()[0],
+            "receipts": db.execute(
+                "select count(*) from public.business_action_receipts where space_id=%s",
+                (context.actor.space_id,),
+            ).fetchone()[0],
+        }
+
+
+def test_the_lookup_writes_nothing(actions, registry):
+    service, context, _ = actions
+    rnc, name, _ = registry["active"]
+    _save_rnc(service, context, rnc)
+    _confirm(service, context, rnc, name)
+    before = _stored(context)
+    for case in ("active", "suspended", "missing"):
+        lookup_registry(
+            service.authority, context, RegistryQuery(tax_id=_rnc_id(registry[case][0]))
+        )
+    assert _stored(context) == before
+
+
+def test_the_database_refuses_a_blank_untrimmed_or_overlong_legal_name(
+    actions, registry
+):
+    service, context, _ = actions
+    rnc, name, _ = registry["active"]
+    _save_rnc(service, context, rnc)
+    _confirm(service, context, rnc, name)
+    update = "update public.spaces set business_legal_name=%s where id=%s"
+    with Connection.connect(shared.shared.DSN) as db:
+        for refused in ("   ", f" {name}", f"{name} ", "x" * 251):
+            with pytest.raises(CheckViolation), db.transaction():
+                db.execute(update, (refused, context.actor.space_id))
+        db.execute(update, ("x" * 250, context.actor.space_id))
+
+
+def test_only_a_person_with_no_turn_records_a_legal_name_receipt(actions, registry):
+    service, context, _ = actions
+    rnc, name, _ = registry["active"]
+    _save_rnc(service, context, rnc)
+    _confirm(service, context, rnc, name, key="by-a-person")
+    with Connection.connect(shared.shared.DSN) as db:
+        with pytest.raises(CheckViolation, match="business_legal_name_human_commands"):
+            db.execute(
+                "insert into public.business_action_receipts"
+                " (space_id,actor_id,actor,idempotency_key,input_hash,command)"
+                " select space_id,actor_id,"
+                " jsonb_set(actor,'{actor_kind}','\"owner_via_agent\"'),"
+                " 'by-an-agent',input_hash,command"
+                " from public.business_action_receipts"
+                " where space_id=%s and idempotency_key='by-a-person'",
+                (context.actor.space_id,),
+            )
+
+
+def test_deleting_the_person_who_confirmed_keeps_the_name_and_forgets_who(
+    actions, registry, users
+):
+    service, context, _ = actions
+    rnc, name, _ = registry["active"]
+    _save_rnc(service, context, rnc)
+    with Connection.connect(shared.shared.DSN) as db:
+        admin = shared.shared._create_users(db, ("admin", False))
+        grant = db.execute(
+            "insert into public.business_client_grants"
+            "(space_id,grantee_id,issuer_id,business_role,capabilities)"
+            " values(%s,%s,%s,'admin',array['read','prepare']) returning id",
+            (context.actor.space_id, admin["admin"], users["owner"]),
+        ).fetchone()[0]
+    manager = service.resolve_actor(
+        TrustedActor(
+            actor_id=admin["admin"], actor_kind="member", space_id=context.actor.space_id
+        ),
+        grant_id=grant,
+    )
+    confirmed = _confirm(service, manager, rnc, name)["legal_name"]
+    assert str(_stored(context)["space"]["business_legal_name_confirmed_by"]) == str(
+        admin["admin"]
+    )
+    with Connection.connect(shared.shared.DSN) as db:
+        shared.shared._delete_users(db, admin)
+    space = _stored(context)["space"]
+    assert space["business_legal_name_confirmed_by"] is None
+    assert space["business_legal_name"] == name
+    assert read_profile(service.authority, context)["legal_name"] == confirmed
