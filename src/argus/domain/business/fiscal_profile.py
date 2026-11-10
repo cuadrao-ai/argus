@@ -98,8 +98,9 @@ class LegalNameInput(BaseModel):
 
 
 class LegalNameChange(BaseModel):
-    """The legal name a person who manages the Business confirms for the tax id
-    they saw in the registry. Null clears it and needs no confirmation."""
+    """A person who manages the Business confirms the registry's name for the
+    stored tax id. ``legal_name`` is the name they saw; the server stores the
+    registry row's own name. Null clears it and needs no confirmation."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -254,8 +255,9 @@ def lookup_registry(authority, context, query: RegistryQuery) -> dict:
 
 
 def set_legal_name(authority, context, command: LegalNameChange, key: str):
-    """Stores the legal name, who confirmed it and when. A name is accepted only
-    for the stored tax id, and only when the registry has that tax id."""
+    """Stores the registry's name for the stored tax id, who confirmed it and
+    when. Refused when the registry lacks the tax id or names it differently
+    from what the person saw."""
 
     with transaction(authority, context, "manage") as tx:
         _require_manager(context)
@@ -266,13 +268,18 @@ def set_legal_name(authority, context, command: LegalNameChange, key: str):
                 or _stored_tax_id(row) != command.tax_id
             ):
                 raise ActionError("stale_version", "stale_version")
-            if (
-                command.legal_name is not None
-                and _registry_answer(tx, command.tax_id)["record"] is None
-            ):
-                raise ActionError("invalid_input", "legal_name_not_in_registry")
+            stored = None
+            if command.legal_name is not None:
+                record = _registry_answer(tx, command.tax_id)["record"]
+                if record is None:
+                    raise ActionError("invalid_input", "legal_name_not_in_registry")
+                # The registry owns the name. The person's copy only proves which
+                # name they saw; another one (refreshed since, or invented) is stale.
+                stored = record["name"].strip()
+                if command.legal_name != stored:
+                    raise ActionError("stale_version", "stale_version")
             plans.start_receipt(tx, key, command)
-            confirmed = command.legal_name is not None
+            confirmed = stored is not None
             tx.rows(
                 "update public.spaces set business_legal_name=%s,"
                 " business_legal_name_confirmed_by=%s,"
@@ -280,7 +287,7 @@ def set_legal_name(authority, context, command: LegalNameChange, key: str):
                 " case when %s then clock_timestamp() end"
                 " where id=%s returning id",
                 (
-                    command.legal_name,
+                    stored,
                     context.actor.actor_id if confirmed else None,
                     confirmed,
                     context.actor.space_id,

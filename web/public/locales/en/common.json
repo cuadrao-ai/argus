@@ -2360,7 +2360,8 @@
       "form": "Format",
       "legal_name": {
         "copy_review": "pending_lucas",
-        "confirm_on_save": "When you save, you confirm that this RNC belongs to {{business}}.",
+        "confirm_on_save_cedula": "When you save, you confirm that this cédula belongs to {{business}}.",
+        "confirm_on_save_rnc": "When you save, you confirm that this RNC belongs to {{business}}.",
         "label": "Legal name",
         "source": "According to the DGII",
         "source_status": "According to the DGII: {{status}}",

@@ -3805,7 +3805,8 @@ trimmed), `business_legal_name_confirmed_by` (references `auth.users`, ON DELETE
 NULL) and `business_legal_name_confirmed_at`. The check `business_legal_name_confirmed`
 requires all three null, or a Business row with a stored tax id, a trimmed name and a
 confirmation time. Only `PUT /business/fiscal-profile/legal-name` writes them, for the
-stored tax id and only when the DGII registry lists it; a change or clear of the tax id
+stored tax id and only when the DGII registry lists it; the name stored is the registry
+row's own, never one the client sends; a change or clear of the tax id
 clears them. The confirmation is also a `set_business_legal_name` action receipt; the
 migration adds it to `business_action_receipts_unplanned_command` and adds
 `business_legal_name_human_commands`, so only a member with no turn records it. The

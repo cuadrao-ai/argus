@@ -96,17 +96,46 @@ test("Por confirmar shows the registry name, says who it confirms, and saving co
   }finally{await page.close();}
 });
 
-test("Verificado comes from the stored legal name for the current number, with no registry call",async()=>{
-  const calls=server({...empty,tax_id:{type:"rnc",value:"131000014"},legal_name:{value:"TALLER PALMA SRL",confirmed_at:"2026-11-09T12:00:00Z"}},()=>failure());
+const stored:FiscalProfile={...empty,tax_id:{type:"rnc",value:"131000014"},legal_name:{value:"TALLER PALMA SRL",confirmed_at:"2026-11-09T12:00:00Z"}};
+
+test("Verificado needs the stored name and the registry saying verificado now, and a changed number is checked again",async()=>{
+  const calls=server(stored,value=>value==="131000014"?Response.json(answer(value,"verificado","TALLER PALMA SRL")):failure());
   const page=await mount();
   try{
     expect(page.block()?.dataset.legalNameStatus).toBe("verified");
     expect(page.block()?.textContent).toContain("TALLER PALMA SRL");expect(page.block()?.textContent).toContain("Según la DGII");
-    expect(calls.some(call=>call.path==="/business/fiscal-profile/registry")).toBe(false);
-    // Changing the number clears it and checks the new one.
+    expect(document.querySelector('[data-testid="legal-name-confirm"]')).toBeNull();
     await page.type("131000022");
-    expect(calls.filter(call=>call.path==="/business/fiscal-profile/registry").map(call=>(call.body as {tax_id:{value:string}}).tax_id.value)).toEqual(["131000022"]);
+    expect(calls.filter(call=>call.path==="/business/fiscal-profile/registry").map(call=>(call.body as {tax_id:{value:string}}).tax_id.value)).toEqual(["131000014","131000022"]);
     expect(page.block()?.dataset.legalNameStatus).toBe("failed");
+  }finally{await page.close();}
+});
+
+test("a stored name whose number the registry now lists as not active shows No activo, never Verificado, and asks nothing on save",async()=>{
+  server(stored,value=>Response.json(answer(value,"no_activo","OTRO NOMBRE SRL","SUSPENDIDO")));
+  const page=await mount();
+  try{
+    const block=page.block()!;
+    expect(block.dataset.legalNameStatus).toBe("inactive");
+    expect(block.textContent).toContain("No activo");expect(block.textContent).not.toContain("Verificado");
+    expect(block.textContent).toContain("TALLER PALMA SRL");expect(block.textContent).toContain("Según la DGII: SUSPENDIDO");
+    expect(document.querySelector('[data-testid="legal-name-confirm"]')).toBeNull();
+  }finally{await page.close();}
+});
+
+test("a stored name shows a skeleton while its registry status loads, and with no tag beside the failure line when that fails",async()=>{
+  let release:(value:Response)=>void=()=>{};
+  server(stored,()=>new Promise<Response>(resolve=>{release=resolve;}) as unknown as Response);
+  const page=await mount();
+  try{
+    expect(page.block()?.dataset.legalNameStatus).toBe("checking");
+    expect(page.block()?.textContent).not.toContain("TALLER PALMA SRL");
+    await act(async()=>release(failure()));await flush();
+    const block=page.block()!;
+    expect(block.dataset.legalNameStatus).toBe("failed");
+    expect(block.querySelector('[data-testid="legal-name-value"]')?.textContent).toBe("TALLER PALMA SRL");
+    expect(block.textContent).not.toMatch(/Verificado|No activo|Por confirmar|Sin verificar/);
+    expect(block.querySelector('[role="alert"]')?.textContent).toContain("Ref.");
   }finally{await page.close();}
 });
 
@@ -138,7 +167,20 @@ test("No activo names the registry status and saving still confirms it",async()=
     expect(document.querySelector('[data-testid="legal-name-confirm"]')).not.toBeNull();
     await page.save();
     expect(writes(calls)).toEqual(["PATCH /business/fiscal-profile","PUT /business/fiscal-profile/legal-name"]);
-    expect(page.block()?.dataset.legalNameStatus).toBe("verified");
+    expect(page.block()?.dataset.legalNameStatus).toBe("inactive");
+    expect(page.block()?.textContent).toContain("No activo");expect(page.block()?.textContent).not.toContain("Verificado");
+    expect(document.querySelector('[data-testid="legal-name-confirm"]')).toBeNull();
+  }finally{await page.close();}
+});
+
+test("a cédula's confirm line names the cédula",async()=>{
+  server(empty,value=>Response.json({...answer(value,"verificado"),tax_id:{type:"cedula",value}}));
+  const page=await mount();
+  try{
+    await act(async()=>{const kind=[...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="listbox"]')].find(item=>item.textContent?.includes("RNC"));kind?.click();});await flush();
+    await act(async()=>[...document.querySelectorAll<HTMLElement>('[role="option"]')].find(item=>item.textContent?.startsWith("Cédula"))?.click());await flush();
+    await page.type("001-0000000-1");
+    expect(document.querySelector('[data-testid="legal-name-confirm"]')?.textContent).toBe("Al guardar, confirmas que esta cédula corresponde a La Palma.");
   }finally{await page.close();}
 });
 

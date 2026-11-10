@@ -2360,7 +2360,8 @@
       "form": "Formato",
       "legal_name": {
         "copy_review": "approved",
-        "confirm_on_save": "Al guardar, confirmas que este RNC corresponde a {{business}}.",
+        "confirm_on_save_cedula": "Al guardar, confirmas que esta cédula corresponde a {{business}}.",
+        "confirm_on_save_rnc": "Al guardar, confirmas que este RNC corresponde a {{business}}.",
         "label": "Razón social",
         "source": "Según la DGII",
         "source_status": "Según la DGII: {{status}}",
@@ -2480,7 +2481,7 @@
         "review_draft": "revisó un registro",
         "revoke_grant": "quitó un acceso",
         "revoke_invite": "canceló una invitación",
-        "set_business_legal_name": "[placeholder] business.activity_feed.actions.set_business_legal_name",
+        "set_business_legal_name": "confirmó la razón social del negocio",
         "set_business_rnc": "actualizó el RNC del negocio",
         "settle_remainder": "saldó el resto de un registro"
       }

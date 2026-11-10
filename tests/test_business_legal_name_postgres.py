@@ -187,10 +187,13 @@ def test_a_confirmed_legal_name_saves_reloads_and_is_one_activity_entry(
     service, context, _ = actions
     rnc, name, _ = registry["suspended"]
     _save_rnc(service, context, rnc)
-    typed = f"  {name.title()}  "
-    saved = _confirm(service, context, rnc, typed, key="legal-name")
-    assert saved["legal_name"]["value"] == name.title()
-    assert _confirm(service, context, rnc, typed, key="legal-name") == saved
+    # The person saw the registry's name; a name typed another way is not it.
+    with pytest.raises(ActionError, match="stale_version"):
+        _confirm(service, context, rnc, f"  {name.title()}  ", key="retyped")
+    assert read_profile(service.authority, context)["legal_name"] is None
+    saved = _confirm(service, context, rnc, f"  {name}  ", key="legal-name")
+    assert saved["legal_name"]["value"] == name
+    assert _confirm(service, context, rnc, f"  {name}  ", key="legal-name") == saved
     reloaded = read_profile(service.authority, context)
     assert reloaded == saved
     with service.authority.pool.connection() as db:
@@ -216,14 +219,34 @@ def test_a_confirmed_legal_name_saves_reloads_and_is_one_activity_entry(
 
     with pytest.raises(ActionError, match="stale_version"):
         _confirm(service, context, rnc, name, previous=None)
-    cleared = _confirm(service, context, rnc, None, previous=name.title())
+    cleared = _confirm(service, context, rnc, None, previous=name)
     assert cleared["legal_name"] is None
+
+
+def test_the_stored_legal_name_is_the_registry_row_never_a_client_name(
+    actions, registry
+):
+    """An invented name is refused, and so is the name the person saw once the
+    registry has been refreshed with another name in between."""
+
+    service, context, _ = actions
+    rnc, name, _ = registry["active"]
+    _save_rnc(service, context, rnc)
+    with pytest.raises(ActionError, match="stale_version"):
+        _confirm(service, context, rnc, fake.company())
+    refreshed = f"{name} NUEVO"
+    with Connection.connect(shared.shared.DSN) as db:
+        db.execute("update public.dgii_rnc set name=%s where rnc=%s", (refreshed, rnc))
+    with pytest.raises(ActionError, match="stale_version"):
+        _confirm(service, context, rnc, name)
+    assert read_profile(service.authority, context)["legal_name"] is None
+    assert _confirm(service, context, rnc, refreshed)["legal_name"]["value"] == refreshed
 
 
 def test_the_legal_name_belongs_to_the_tax_id_it_was_confirmed_for(actions, registry):
     service, context, _ = actions
     rnc, name, _ = registry["active"]
-    other, _, _ = registry["suspended"]
+    other, other_name, _ = registry["suspended"]
     _save_rnc(service, context, rnc)
     _confirm(service, context, rnc, name)
     with pytest.raises(ActionError, match="stale_version"):
@@ -242,7 +265,7 @@ def test_the_legal_name_belongs_to_the_tax_id_it_was_confirmed_for(actions, regi
     )
     assert renamed["legal_name"]["value"] == name
     assert _save_rnc(service, context, other, rnc)["legal_name"] is None
-    _confirm(service, context, other, name)
+    _confirm(service, context, other, other_name)
     assert _save_rnc(service, context, None, other)["legal_name"] is None
 
 

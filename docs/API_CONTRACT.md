@@ -10145,21 +10145,24 @@ clears the stored legal name; a change of name alone keeps it.
 `POST /business/fiscal-profile/registry` checks a tax id against the DGII registry, through
 the same registry reader that verifies counterparties. The body is `{tax_id: {type, value}}`,
 validated and cleaned as in `PATCH`, with the same 422 codes. Only a member whose live grant
-allows `manage` may ask: anyone else receives 403 `business_permission_denied` (or
-`business_owner_required` for an agent). It writes nothing. The answer is
+allows `manage` may ask; a member without it receives 403 `business_permission_denied`.
+It writes nothing. The answer is
 `{tax_id, verification, record, checked_at}`. `verification` uses the counterparty words:
 `verificado` (the registry lists it as active), `no_activo` (listed with any other status) or
 `sin_verificar` (not listed; `record` is null). `record` is `{rnc, name, trade_name, status,
 file_date}` from the registry row; `status` is the registry's own text. A registry failure is
 the standard 500 problem with its reference.
 
-`PUT /business/fiscal-profile/legal-name` stores the legal name and requires the same
-`manage` permission and an `Idempotency-Key`. The body is `{legal_name, previous_legal_name,
-tax_id, confirmed}`. `legal_name` is 1 to 250 characters after trimming, or null to clear it.
-A non-null `legal_name` needs `confirmed: true`, else 422 `legal_name_confirmation_required`,
-and the registry must list the stored tax id, else 422 `legal_name_not_in_registry`.
-`previous_legal_name` must equal the stored legal name and `tax_id` the stored tax id, else
-409 `stale_version`. A blank or too long name is 422 `legal_name_invalid`. The server stores
+`PUT /business/fiscal-profile/legal-name` stores the registry's name for the stored tax id
+and requires the same `manage` permission and an `Idempotency-Key`. The body is
+`{legal_name, previous_legal_name, tax_id, confirmed}`. `legal_name` is the name the person
+saw, 1 to 250 characters after trimming, or null to clear the stored one. A non-null
+`legal_name` needs `confirmed: true`, else 422 `legal_name_confirmation_required`, and the
+registry must list the stored tax id, else 422 `legal_name_not_in_registry`. The server
+stores the registry row's own name, never the client's: a `legal_name` that differs from it
+(the registry was refreshed in between, or the name was never the registry's) is 409
+`stale_version`, as is a `previous_legal_name` other than the stored legal name or a
+`tax_id` other than the stored tax id. A blank or too long name is 422 `legal_name_invalid`. The server stores
 who confirmed it and when, and writes one `set_business_legal_name` action receipt, listed in
 the activity feed. Replaying the same key returns the saved profile and does not write again.
 The response is the fiscal profile.
