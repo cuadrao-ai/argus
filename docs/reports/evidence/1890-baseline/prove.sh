@@ -74,8 +74,8 @@ elif grep -q "supabase_migrations.schema_migrations is missing" "$scratch/c-no-l
 else
   echo "C: missing ledger table not named plainly" && cat "$scratch/c-no-ledger.log" && status=1
 fi
-docker exec -i "$c" psql -U supabase_admin -d postgres -Xq -v ON_ERROR_STOP=1 \
-  < "$evidence/reset_ledger.sql" > /dev/null
+# As postgres, the user the apply tool connects with, so it owns the ledger it writes.
+psql "$c_url" -Xq -v ON_ERROR_STOP=1 -f "$evidence/reset_ledger.sql" > /dev/null
 apply "$c_url" --execute
 psql "$c_url" -Xq -v ON_ERROR_STOP=1 -f "$root/supabase/seed.sql" > /dev/null
 (cd "$root" && poetry run python "$evidence/gate_on_reset.py" "$c_url") || status=1

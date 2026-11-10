@@ -459,7 +459,7 @@ class _Server:
         if "pg_try_advisory_lock" in sql:
             return _Cursor([(self.lock_free,)])
         if "to_regclass" in sql:
-            return _Cursor([("supabase_migrations.schema_migrations",)])
+            return _Cursor([("supabase_migrations.schema_migrations", True)])
         if "schema_migrations order by" in sql:
             return _Cursor([(version,) for version in self.ledger])
         return _Cursor([])

@@ -191,7 +191,9 @@ apply tool only plans versions above them, so they need no repair.
 ## Production (#1789)
 
 - **Reset.** After the founder empties the database, run `reset_ledger.sql` on
-  it as `postgres`:
+  it as `postgres`, the user the apply tool connects with, so that user owns
+  the ledger it writes (a table another role created makes the tool stop with
+  `the connected user cannot insert into supabase_migrations.schema_migrations`):
 
   ```sql
   create schema if not exists supabase_migrations;

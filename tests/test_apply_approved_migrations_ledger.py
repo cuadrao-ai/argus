@@ -21,14 +21,12 @@ class _Cursor:
 
 
 class _Connection:
-    def __init__(self, ledger_table: str | None) -> None:
-        self.ledger_table = ledger_table
-        self.statements: list[str] = []
+    def __init__(self, ledger_table: str | None, can_insert: bool = True) -> None:
+        self.ledger_table, self.can_insert = ledger_table, can_insert
 
     def execute(self, sql: str, params: object = None) -> _Cursor:
-        self.statements.append(sql)
-        assert "to_regclass" in sql and params == (applier._LEDGER_TABLE,)
-        return _Cursor((self.ledger_table,))
+        assert "to_regclass" in sql and params == (applier._LEDGER_TABLE,) * 2
+        return _Cursor((self.ledger_table, self.can_insert))
 
 
 def test_a_missing_ledger_table_is_named_with_the_statement_that_creates_it() -> None:
@@ -43,5 +41,10 @@ def test_a_missing_ledger_table_is_named_with_the_statement_that_creates_it() ->
     )
 
 
-def test_a_present_ledger_table_passes_silently() -> None:
+def test_a_ledger_table_the_user_cannot_write_is_named_too() -> None:
+    with pytest.raises(applier.ApplyError, match="cannot insert into supabase_migrations"):
+        applier.check_ledger_table(_Connection(applier._LEDGER_TABLE, can_insert=False))
+
+
+def test_a_present_writable_ledger_table_passes_silently() -> None:
     applier.check_ledger_table(_Connection(applier._LEDGER_TABLE))
