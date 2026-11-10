@@ -224,6 +224,21 @@ test("non-preview mode retains direct durable evidence reads and exposes no loca
   } finally { process.env.NEXT_PUBLIC_MOCK_AUTH = previous; }
 });
 
+test("outside the local preview, a live row without a server report takes no note that would live only on this screen", async () => {
+  const previous = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
+  try {
+    for (const width of [1440, 390]) {
+      const page = await mount(width);
+      assert.equal(page.note(), null, `${width}px: no note editor on the row`);
+      assert.equal(page.host.querySelector('[data-record-note]'), null, `${width}px: no row offers a note`);
+      assert.equal(document.querySelector('[role="dialog"]'), null);
+      await cleanup();
+      cleanup = async () => {};
+    }
+  } finally { process.env.NEXT_PUBLIC_MOCK_AUTH = previous; }
+});
+
 
 test("phone attachment sheet starts full and keeps several selected files locally", async () => {
   const page = await mount(390);

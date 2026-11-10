@@ -74,27 +74,28 @@ export function RecordsAnnotationsPreview({ children, connected }: { children: R
   const canRead = Boolean(chosen?.capabilities.includes("read"));
   const canEdit = canRead && canAddRecords(chosen);
   const limits = records.workspace?.receipt_limits ?? null;
-  const attachmentPreviewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  // A row without a server report keeps its notes and files only on this screen, so only the local preview edits one.
+  const localAnnotationsEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const pending = useMemo(() => new Map<string, PendingAnnotation>(), []);
-  const noteEditable = (row: RecordRow) => row.report ? Boolean(connected && canRead && row.report.can_edit_note) : canEdit;
-  const attachmentEditable = (row: RecordRow) => row.report ? Boolean(connected && canRead && row.report.can_append_supporting && limits) : attachmentPreviewEnabled && canEdit && limits !== null;
+  const noteEditable = (row: RecordRow) => row.report ? Boolean(connected && canRead && row.report.can_edit_note) : localAnnotationsEnabled && canEdit;
+  const attachmentEditable = (row: RecordRow) => row.report ? Boolean(connected && canRead && row.report.can_append_supporting && limits) : localAnnotationsEnabled && canEdit && limits !== null;
   const [annotations, setAnnotations] = useState<ReadonlyMap<string, RecordAnnotation>>(() => new Map());
   const [selected, setSelected] = useState<EditorSelection | null>(null);
   const read = (row: RecordRow) => canRead ? row.report ? { note: row.report.note ?? "", attachments: [] } : annotations.get(annotationKey(scope, row)) ?? EMPTY_ANNOTATION : EMPTY_ANNOTATION;
   const edit = (row: RecordRow, kind: EditorSelection["kind"]) => {
     if (kind === "note" && !NOTES_ENTRY_ENABLED) return;
     if (row.report && !(kind === "note" ? noteEditable(row) || Boolean(row.report.note) : attachmentEditable(row) || row.hasProof === true)) return;
-    if (!row.report && kind === "attachment" && !attachmentPreviewEnabled) return;
+    if (!row.report && !localAnnotationsEnabled) return;
     setSelected({ scope, row, kind, opener: document.activeElement instanceof HTMLElement ? document.activeElement : null });
   };
   const selectedRow = selected ? connected?.rows.find((row) => recordRowKey(row) === recordRowKey(selected.row)) ?? selected.row : null;
-  const active = canRead && selected?.scope === scope && (selected.kind === "note" ? NOTES_ENTRY_ENABLED : connected || attachmentPreviewEnabled) ? { ...selected, row: selectedRow! } : null;
+  const active = canRead && selected?.scope === scope && (selected.kind === "note" ? NOTES_ENTRY_ENABLED : connected || localAnnotationsEnabled) ? { ...selected, row: selectedRow! } : null;
   const save = (value: RecordAnnotation) => {
     if (!active || !canEdit) return;
     setAnnotations((current) => new Map(current).set(annotationKey(scope, active.row), value));
     setSelected(null);
   };
-  return <AnnotationContext.Provider value={{ read, edit, canRead, canEdit, canAttach: Boolean(connected) || attachmentPreviewEnabled && canEdit && limits !== null, noteEditable, attachmentEditable }}>
+  return <AnnotationContext.Provider value={{ read, edit, canRead, canEdit, canAttach: Boolean(connected) || localAnnotationsEnabled && canEdit && limits !== null, noteEditable, attachmentEditable }}>
     {children}
     {active ? <AnnotationEditor key={`${scope}:${recordRowKey(active.row)}:${active.kind}`} selected={active} initial={read(active.row)} limits={limits} connected={active.row.report && connected ? connected : undefined} pending={pending} canEdit={active.kind === "note" ? noteEditable(active.row) : attachmentEditable(active.row)} close={() => setSelected(null)} save={save} /> : null}
   </AnnotationContext.Provider>;
