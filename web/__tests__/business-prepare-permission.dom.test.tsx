@@ -57,10 +57,12 @@ async function mount(grant: GrantedSpace, spaces: GrantedSpace[] = [grant]) {
   let searchActions: string[] | null = null;
   let rowCommands: string[] | null = null;
   let chosen: GrantedSpace | null = null;
+  let waitingForReview: number | null = null;
   function Probe() {
     const business = useBusiness();
     const [setupOpen, setSetupOpen] = useState(true);
     chosen = business.chosen;
+    waitingForReview = business.records.inbox?.filter((receipt) => receipt.bandeja?.por_revisar).length ?? null;
     searchActions = useChatWorkspace()?.search?.shortcuts?.find((group) => group.id === "actions")?.hits.map((hit) => hit.id) ?? null;
     const commands = useRowCommands({} as never);
     rowCommands = commands({ id: "movement", match: { state: "falta_comprobante" } } as never).map((command) => command.id);
@@ -87,12 +89,14 @@ async function mount(grant: GrantedSpace, spaces: GrantedSpace[] = [grant]) {
       </I18nextProvider>,
     );
   });
-  for (let i = 0; i < 60 && (chosen as GrantedSpace | null)?.grant_id !== grant.grant_id; i += 1) {
+  // The sample Bandeja loads after the Business is chosen; until it does, nothing waits for review and no check can fail.
+  for (let i = 0; i < 60 && ((chosen as GrantedSpace | null)?.grant_id !== grant.grant_id || waitingForReview === null); i += 1) {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
   }
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
   unmount = () => act(async () => root.unmount());
   const adds = (area: string) => host.querySelectorAll(`[data-testid="${area}"] [data-testid="business-primary-upload"]`).length;
+  assert.ok(waitingForReview, "the Bandeja holds receipts waiting for review");
   return { act, host, adds, searchActions: () => searchActions, rowCommands: () => rowCommands, chosen: () => chosen as GrantedSpace | null };
 }
 
@@ -120,10 +124,11 @@ describe("adding records follows the server's prepare capability", () => {
     assert.ok(page.searchActions()?.includes("add"), "search offers Agregar");
   });
 
-  test("an editor grant with prepare sees Agregar", async () => {
+  test("an editor grant with prepare sees Agregar and is asked to review", async () => {
     const page = await mount(GRANTS.editor);
     assert.equal(page.chosen()?.grant_id, "grant-editor");
     for (const area of ["top-bar", "registros-bar", "bandeja"]) assert.equal(page.adds(area), 1, `${area} holds Agregar`);
+    assert.ok(page.host.querySelector('[data-testid="business-primary-review"]'), "a receipt waits, so the preparer is asked to review");
     assert.ok(page.rowCommands()?.includes("agregar"), "a movement missing its receipt offers Agregar");
   });
 
