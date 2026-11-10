@@ -9909,9 +9909,9 @@ grant history exists (the extractor, an erased account).
 `prepare_attachment`, `rebind_attachment`, `settle_remainder`, `mark_personal`,
 `decide_606`, `resolve_duplicate`, `edit_current_note`,
 `append_supporting_file`, `receipt_upload`, `receipt_review`,
-`receipt_confirm`, `set_business_rnc`, `business_propose_activity`,
-`business_attach_source`, `business_propose_allocation`, `business_ask`,
-`owner_grant`, `grant_access`, `invite_access`, `accept_invite`,
+`receipt_confirm`, `set_business_rnc`, `set_business_legal_name`,
+`business_propose_activity`, `business_attach_source`,
+`business_propose_allocation`, `business_ask`, `owner_grant`, `grant_access`, `invite_access`, `accept_invite`,
 `revoke_grant`, `revoke_invite`, `change_role`), two events read from other
 tables (`ownership_transferred`: an accepted ownership transfer, the new owner
 as actor at its acceptance; `receipt_reading_enabled`: the owner turning
@@ -9926,7 +9926,8 @@ does not list yet: the consent table records when, not who.
 `records` (`review_draft`, the approvals, `capture_note`, `settle_remainder`,
 `mark_personal`, `decide_606`, `edit_current_note`, `receipt_review`,
 `receipt_confirm`, `business_propose_activity`, `business_propose_allocation`,
-`business_ask`), `business` (`set_business_rnc`, the access changes,
+`business_ask`), `business` (`set_business_rnc`, `set_business_legal_name`,
+the access changes,
 `ownership_transferred`, `receipt_reading_enabled`); `invoicing` is reserved
 and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
@@ -9958,8 +9959,8 @@ approvals, `receipt_confirm`, `decide_606`; `edits` for `capture_note`,
 `business_propose_activity`, `business_propose_allocation`; `files` for
 `rebind_attachment`, `append_supporting_file`, `business_attach_source`;
 `invoices`, reserved and empty; `access` for the access changes and
-`ownership_transferred`; `settings` for `set_business_rnc` and
-`receipt_reading_enabled`). Values of one filter are OR'ed and the filters are
+`ownership_transferred`; `settings` for `set_business_rnc`,
+`set_business_legal_name` and `receipt_reading_enabled`). Values of one filter are OR'ed and the filters are
 AND'ed. An unknown value is 422 `validation_error`. An `area` or
 `action_group` filter matches catalog actions only, so `other` never matches
 a filter, for any reader.
@@ -10128,11 +10129,13 @@ Unknown, mismatched, unsupported or post-purge events remain quarantined. Authen
 failure is 401; oversized body 413; invalid JSON 422; failed durable persistence 503.
 Probe JSON is exactly `{message:"Test message"}` and creates no fiscal observation.
 
-`GET /business/fiscal-profile` returns `{name, tax_id, can_edit}` under the same live read
+`GET /business/fiscal-profile` returns `{name, tax_id, legal_name, can_edit}` under the same live read
 grant. Optional `draft_id` supplies the existing canonical Business anchor.
 `name` is the Business name the switcher lists. `tax_id` is null until the owner sets one.
 A set tax id is `{type, value}` where `type` is `rnc` or `cedula` and `value` is digits only.
-An RNC is 9 digits. A cédula is 11 digits. Leading zeros stay. `can_edit` is true only for
+An RNC is 9 digits. A cédula is 11 digits. Leading zeros stay. `legal_name` is null until a
+person who manages the Business confirms one, else `{value, confirmed_at}`: the razón social
+and when it was confirmed. `can_edit` is true only for
 the space owner. Another member of that Business receives the same profile with `can_edit`
 false. The route does not take a space id, so another Business is not addressable here.
 
@@ -10156,7 +10159,33 @@ A member who is not the owner and holds approve receives 403 `business_owner_req
 A member without approve receives 403 `business_permission_denied`. Each accepted change
 is an immutable action receipt with the actor and the time. Replaying the same key returns
 the saved profile and does not write again. A change of tax id types no existing draft
-again: only documents read after it are compared with it.
+again: only documents read after it are compared with it. A change of tax id, or clearing it,
+clears the stored legal name; a change of name alone keeps it.
+
+`POST /business/fiscal-profile/registry` checks a tax id against the DGII registry, through
+the same registry reader that verifies counterparties. The body is `{tax_id: {type, value}}`,
+validated and cleaned as in `PATCH`, with the same 422 codes. Only a member whose live grant
+allows `manage` may ask; a member without it receives 403 `business_permission_denied`.
+It writes nothing. The answer is
+`{tax_id, verification, record, checked_at}`. `verification` uses the counterparty words:
+`verificado` (the registry lists it as active), `no_activo` (listed with any other status) or
+`sin_verificar` (not listed; `record` is null). `record` is `{rnc, name, trade_name, status,
+file_date}` from the registry row; `status` is the registry's own text. A registry failure is
+the standard 500 problem with its reference.
+
+`PUT /business/fiscal-profile/legal-name` stores the registry's name for the stored tax id
+and requires the same `manage` permission and an `Idempotency-Key`. The body is
+`{legal_name, previous_legal_name, tax_id, confirmed}`. `legal_name` is the name the person
+saw, 1 to 250 characters after trimming, or null to clear the stored one. A non-null
+`legal_name` needs `confirmed: true`, else 422 `legal_name_confirmation_required`, and the
+registry must list the stored tax id, else 422 `legal_name_not_in_registry`. The server
+stores the registry row's own name, never the client's: a `legal_name` that differs from it
+(the registry was refreshed in between, or the name was never the registry's) is 409
+`stale_version`, as is a `previous_legal_name` other than the stored legal name or a
+`tax_id` other than the stored tax id. A blank or too long name is 422 `legal_name_invalid`. The server stores
+who confirmed it and when, and writes one `set_business_legal_name` action receipt, listed in
+the activity feed. Replaying the same key returns the saved profile and does not write again.
+The response is the fiscal profile.
 
 `GET /business/fiscal-profile/fields` supplies the form controls from the same
 typed declaration and annex column definitions used by the exporter. Each field

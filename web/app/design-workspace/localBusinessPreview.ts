@@ -206,6 +206,7 @@ export function withLocalBusinessPreview(
     fiscalProfile: async () => ({
       name: current()!.name,
       tax_id: null,
+      legal_name: null,
       can_edit: true,
     }),
   };

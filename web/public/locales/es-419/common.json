@@ -2358,6 +2358,18 @@
         "withheld_on": "Fecha de Retención"
       },
       "form": "Formato",
+      "legal_name": {
+        "copy_review": "approved",
+        "confirm_on_save_cedula": "Al guardar, confirmas que esta cédula corresponde a {{business}}.",
+        "confirm_on_save_rnc": "Al guardar, confirmas que este RNC corresponde a {{business}}.",
+        "label": "Razón social",
+        "source": "Según la DGII",
+        "source_status": "Según la DGII: {{status}}",
+        "tag_inactive": "No activo",
+        "tag_pending": "Por confirmar",
+        "tag_unverified": "Sin verificar",
+        "tag_verified": "Verificado"
+      },
       "load_failed": "No se pudieron cargar los campos fiscales.",
       "save_failed": "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aprobar.",
       "actual_refund": "Se recibió un reembolso…",
@@ -2469,6 +2481,7 @@
         "review_draft": "revisó un registro",
         "revoke_grant": "quitó un acceso",
         "revoke_invite": "canceló una invitación",
+        "set_business_legal_name": "confirmó la razón social del negocio",
         "set_business_rnc": "actualizó el RNC del negocio",
         "settle_remainder": "saldó el resto de un registro"
       }

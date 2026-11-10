@@ -4206,6 +4206,105 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/fiscal-profile/legal-name:
+    put:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegalNameInput'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiscalProfile'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/fiscal-profile/registry:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistryLookupInput'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistryAnswer'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/guide-cards/{card_id}:
     get:
       tags:
@@ -16210,6 +16309,7 @@ components:
           - receipt_review
           - receipt_confirm
           - set_business_rnc
+          - set_business_legal_name
           - business_propose_activity
           - business_attach_source
           - business_propose_allocation
@@ -23177,6 +23277,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/TaxId'
           - type: 'null'
+        legal_name:
+          anyOf:
+          - $ref: '#/components/schemas/LegalName'
+          - type: 'null'
         can_edit:
           type: boolean
       additionalProperties: false
@@ -23184,6 +23288,7 @@ components:
       required:
       - name
       - tax_id
+      - legal_name
       - can_edit
     FiscalProfileInput:
       properties:
@@ -26028,6 +26133,42 @@ components:
       - value
       - origin
       - source_ids
+    LegalName:
+      properties:
+        value:
+          type: string
+        confirmed_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - confirmed_at
+      description: 'The Business''s razón social, as a person who manages it confirmed it
+
+        against the registry row for the stored tax id.'
+    LegalNameInput:
+      properties:
+        legal_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        previous_legal_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        tax_id:
+          $ref: '#/components/schemas/TaxIdDraft'
+        confirmed:
+          type: boolean
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - legal_name
+      - previous_legal_name
+      - tax_id
     LinkActivityBody:
       properties:
         version:
@@ -31962,6 +32103,66 @@ components:
       description: 'An approved purchase a credit note may refund; ``id`` is the activity
 
         the declaration''s ``purchase_activity_id`` names.'
+    RegistryAnswer:
+      properties:
+        tax_id:
+          $ref: '#/components/schemas/TaxId'
+        verification:
+          type: string
+          enum:
+          - verificado
+          - no_activo
+          - sin_verificar
+        record:
+          anyOf:
+          - $ref: '#/components/schemas/RegistryRecord'
+          - type: 'null'
+        checked_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - tax_id
+      - verification
+      - record
+      - checked_at
+      description: 'What the registry says of one tax id: the same verification words a
+
+        counterparty''s RNC gets.'
+    RegistryLookupInput:
+      properties:
+        tax_id:
+          $ref: '#/components/schemas/TaxIdDraft'
+      additionalProperties: false
+      type: object
+      required:
+      - tax_id
+    RegistryRecord:
+      properties:
+        rnc:
+          type: string
+        name:
+          type: string
+        trade_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        status:
+          type: string
+        file_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - rnc
+      - name
+      - trade_name
+      - status
+      - file_date
     RememberSearch:
       properties:
         q:
