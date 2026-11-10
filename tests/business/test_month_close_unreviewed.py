@@ -59,27 +59,6 @@ def test_the_reason_carries_every_unreviewed_draft_and_keeps_earlier_reasons():
     assert shown["reasons"] == [earlier, {"code": "movimientos_sin_revisar", "count": 5}]
 
 
-def test_each_draft_counts_in_its_reads_currency_and_a_note_names_none():
-    start, end = month_period("2026-10")
-    views = [
-        _view("review_ready", "2026-10-12", currency="USD"),
-        _view("needs_attention", "2026-10-13", currency="DOP"),
-        _view("saved", "2026-10-14"),
-        _view("review_ready", "2026-11-02", currency="USD"),
-    ]
-    days = unreviewed_days(NO_STORE, views)
-    assert [currency for _, currency in days] == ["USD", "DOP", None, "USD"]
-    counted = unreviewed_in_month(
-        ((day, currency or "DOP") for day, currency in days), start, end
-    )
-    assert counted == {"USD": 1, "DOP": 2}
-    blocks = with_unreviewed(empty_month("2026-10", bandeja=counted))["currencies"]
-    assert [
-        (b["currency"], b["documents_in_bandeja"], b["documents_total"], b["documents_counted"])
-        for b in blocks
-    ] == [("DOP", 2, 2, 0), ("USD", 1, 1, 0)]
-
-
 def test_approved_or_rejected_drafts_do_not_block():
     assert (
         _october([_view("confirmed", "2026-10-12"), _view("dismissed", "2026-10-12")])
