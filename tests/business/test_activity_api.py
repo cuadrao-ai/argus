@@ -12,6 +12,8 @@ from tests.business.test_activity_projection import NONE, row
 from tests.business.test_business_api import BASE, Owner, started
 from tests.ingestion.conftest import ALICE
 
+pytestmark = pytest.mark.usefixtures("activity_on")
+
 
 @pytest.fixture
 def alice(biz: TestClient, identities) -> Owner:
