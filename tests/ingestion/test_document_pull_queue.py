@@ -580,18 +580,27 @@ def test_job_settings_match_on_staging_and_production_and_the_switches_are_gone(
         for service in yaml.safe_load((ROOT / "render.yaml").read_text())["services"]
     }
     example = (ROOT / ".env.example").read_text()
-    entries = {e["name"]: e for e in manifest["services"]["api"]["entries"]}
-    staging = {e["key"]: e for e in services["cuadrao-api-staging"]["envVars"]}
-    production = {e["key"]: e for e in services["cuadrao-api"]["envVars"]}
+    entries = {e["name"]: e for e in manifest["services"]["documents_worker"]["entries"]}
+    api_names = {e["name"] for e in manifest["services"]["api"]["entries"]}
+    staging = {e["key"]: e for e in services["cuadrao-documents-worker-staging"]["envVars"]}
+    production = {e["key"]: e for e in services["cuadrao-documents-worker"]["envVars"]}
 
     for name, value in JOB_SETTINGS.items():
-        assert entries[name]["value"] == value
         assert entries[name]["production"] == {"value": value}
         assert staging[name]["value"] == value
         assert production[name]["value"] == value
         assert f"{name}={value}\n" in example
+        assert name not in api_names
+        for api_service in ("cuadrao-api", "cuadrao-api-staging"):
+            assert name not in {e["key"] for e in services[api_service]["envVars"]}
     declared = json.dumps(manifest) + example
     declared += json.dumps(services)
     for name in REMOVED_SETTINGS:
         assert name not in declared, f"{name} was deleted with the one read path"
-    assert not any(service["type"] == "worker" for service in services.values())
+    workers = [service for service in services.values() if service["type"] == "worker"]
+    assert {service["name"] for service in workers} == {
+        "cuadrao-documents-worker",
+        "cuadrao-documents-worker-staging",
+    }
+    for worker in workers:
+        assert worker["startCommand"] == "poetry run python -m workflows.document_worker"

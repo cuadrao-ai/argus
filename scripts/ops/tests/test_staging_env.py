@@ -39,7 +39,7 @@ class FakeClient:
     def service_name(self, service_id):
         return self.names.get(
             service_id,
-            "cuadrao-api-staging" if "mrr" in service_id else "cuadrao-web-staging",
+            "cuadrao-api-staging" if "mrr" in service_id else "cuadrao-app-staging",
         )
 
     def list_env(self, service_id):
@@ -176,19 +176,6 @@ def test_api_plan_allows_guest_key_matching_registered_on_legacy_live_state(
     plan = se.compute_plan(manifest["services"]["api"], live, {})
     assert not any("must differ" in problem for problem in plan.problems)
     assert live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] == shared_value
-
-
-def test_workflow_manifest_still_manages_guest_openrouter_secret(manifest):
-    workflow = manifest["services"]["workflow"]
-    managed = {entry["name"] for entry in workflow["entries"]}
-    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in managed
-    guest = next(
-        entry
-        for entry in workflow["entries"]
-        if entry["name"] == "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"
-    )
-    assert guest["kind"] == "secret"
-    assert "enter" in guest["production"]
 
 
 def full_secrets():
@@ -590,11 +577,6 @@ def _offline(capsys, *argv):
     return capsys.readouterr().out
 
 
-def test_workflow_required_names_include_guest_openrouter_key(capsys):
-    out = _offline(capsys, "names", "production", "workflow", "required")
-    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in out.splitlines()
-
-
 def test_every_entry_has_a_production_rule(manifest):
     for label, service in manifest["services"].items():
         for entry in service["entries"]:
@@ -657,7 +639,7 @@ def test_offline_commands_never_read_secrets(monkeypatch, tmp_path, capsys):
         ["print", "production", "api"],
         ["print", "production", "web", "--to-fill"],
         ["print", "staging", "api", "--live-names", str(live)],
-        ["names", "production", "workflow", "required"],
+        ["names", "production", "documents_worker", "required"],
     ):
         _offline(capsys, *argv)
 

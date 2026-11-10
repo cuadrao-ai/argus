@@ -123,7 +123,7 @@ def test_local_smoke_contract_rejects_sha_or_real_workflow_mismatch() -> None:
     mode_result = _run_local_smoke_contract("--workflow-mode", "real-workflow")
 
     assert mode_result.returncode == 2
-    assert "real-workflow mode is not allowed for local smoke" in mode_result.stdout
+    assert "Unknown local smoke workflow mode: real-workflow" in mode_result.stdout
 
 
 def test_local_smoke_allows_only_memory_supabase_readiness_degradation(

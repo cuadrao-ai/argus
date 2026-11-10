@@ -223,13 +223,7 @@ def test_declarations_are_optional_and_server_only() -> None:
             assert production["optional"] is True and "enter" in production
         else:
             assert production == {"not_set": True}
-    workflow = {
-        entry["name"]: entry["production"]
-        for entry in manifest["services"]["workflow"]["entries"]
-    }
-    for name in NEW_NAMES:
-        assert workflow[name]["optional"] is True
-    for label in ("web", "marketing"):
+    for label in ("web", "marketing", "documents_worker"):
         names = {entry["name"] for entry in manifest["services"][label]["entries"]}
         assert not set(NEW_NAMES) & names
 

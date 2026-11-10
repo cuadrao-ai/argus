@@ -71,10 +71,6 @@ done
 case "$WORKFLOW_MODE" in
   safe-off|proof-shadow)
     ;;
-  real-workflow)
-    echo "real-workflow mode is not allowed for local smoke; use Render warmup/canaries for real workflow execution."
-    exit 2
-    ;;
   *)
     echo "Unknown local smoke workflow mode: $WORKFLOW_MODE"
     usage

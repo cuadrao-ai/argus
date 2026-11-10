@@ -210,22 +210,6 @@
           }
         },
         {
-          "name": "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS",
-          "kind": "plain",
-          "value": "210",
-          "production": {
-            "value": "210"
-          }
-        },
-        {
-          "name": "CUADRAO_DOCUMENT_JOBS_MAX_READS",
-          "kind": "plain",
-          "value": "3",
-          "production": {
-            "value": "3"
-          }
-        },
-        {
           "name": "CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT",
           "kind": "plain",
           "value": "3",
@@ -932,7 +916,7 @@
     },
     "web": {
       "service_id": "srv-db5ihr7lot8c73f3b3h0",
-      "service_name": "cuadrao-web-staging",
+      "service_name": "cuadrao-app-staging",
       "redeploy_note": "NEXT_PUBLIC_* values are baked at build time: trigger a web redeploy (clear build cache) for these changes to reach the browser.",
       "entries": [
         {
@@ -969,14 +953,6 @@
           "value": "skedzwocnmrhfigiwyzi",
           "production": {
             "value": "lgdhvepyrzbnscqssgqq"
-          }
-        },
-        {
-          "name": "NEXT_PUBLIC_ARGUS_API_URL",
-          "kind": "plain",
-          "local_only": true,
-          "local": {
-            "value": "http://localhost:8000/api/v1"
           }
         },
         {
@@ -1022,7 +998,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "copy_from": "NEXT_PUBLIC_ARGUS_API_URL"
+            "enter": "keep the live value on cuadrao-app"
           },
           "local": {
             "value": "http://localhost:8000/api/v1"
@@ -1033,7 +1009,7 @@
           "kind": "plain",
           "keep_current": true,
           "production": {
-            "copy_from": "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY"
+            "enter": "keep the live value on cuadrao-app"
           }
         },
         {
@@ -1144,7 +1120,7 @@
     },
     "marketing": {
       "production": {
-        "service_name": "cuadrao-web"
+        "service_name": "cuadrao-marketing"
       },
       "entries": [
         {
@@ -1165,7 +1141,7 @@
           "name": "CUADRAO_SITE_INDEXING",
           "kind": "plain",
           "production": {
-            "enter": "keep the live value on cuadrao-web",
+            "enter": "keep the live value on cuadrao-marketing",
             "optional": true
           }
         },
@@ -1173,7 +1149,7 @@
           "name": "CUADRAO_SOCIAL_PREVIEW",
           "kind": "plain",
           "production": {
-            "enter": "keep the live value on cuadrao-web",
+            "enter": "keep the live value on cuadrao-marketing",
             "optional": true
           }
         },
@@ -1181,7 +1157,7 @@
           "name": "CUADRAO_TRUSTED_CLIENT_IP_HEADER",
           "kind": "plain",
           "production": {
-            "enter": "keep the live value on cuadrao-web",
+            "enter": "keep the live value on cuadrao-marketing",
             "optional": true
           }
         },
@@ -1196,137 +1172,29 @@
           "name": "RESEND_API_URL",
           "kind": "plain",
           "production": {
-            "enter": "keep the live value on cuadrao-web",
+            "enter": "keep the live value on cuadrao-marketing",
             "optional": true
           }
         }
       ]
     },
-    "workflow": {
+    "documents_worker": {
       "production": {
-        "service_name": "argus-backtests"
+        "service_name": "cuadrao-documents-worker"
       },
       "entries": [
         {
-          "name": "APP_ENV",
+          "name": "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS",
           "kind": "plain",
           "production": {
-            "value": "production"
+            "value": "210"
           }
         },
         {
-          "name": "CUADRAO_CHAT_FALLBACK_MODEL",
+          "name": "CUADRAO_DOCUMENT_JOBS_MAX_READS",
           "kind": "plain",
           "production": {
-            "value": "qwen/qwen3.5-9b"
-          }
-        },
-        {
-          "name": "CUADRAO_CHAT_MODEL",
-          "kind": "plain",
-          "production": {
-            "value": "deepseek/deepseek-v4-flash"
-          }
-        },
-        {
-          "name": "CUADRAO_CONTEXT_FALLBACK_MODEL",
-          "kind": "plain",
-          "production": {
-            "value": "deepseek/deepseek-v4-flash"
-          }
-        },
-        {
-          "name": "CUADRAO_CONTEXT_MODEL",
-          "kind": "plain",
-          "production": {
-            "value": "openai/gpt-oss-120b"
-          }
-        },
-        {
-          "name": "CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS",
-          "kind": "plain",
-          "production": {
-            "value": "30"
-          }
-        },
-        {
-          "name": "CUADRAO_READOUT_FALLBACK_MODEL",
-          "kind": "plain",
-          "production": {
-            "value": "openai/gpt-5.6-luna"
-          }
-        },
-        {
-          "name": "CUADRAO_READOUT_MODEL",
-          "kind": "plain",
-          "production": {
-            "value": "openai/gpt-5.6-luna"
-          }
-        },
-        {
-          "name": "CUADRAO_STRUCTURED_FALLBACK_MODEL",
-          "kind": "plain",
-          "production": {
-            "value": "anthropic/claude-haiku-4.5"
-          }
-        },
-        {
-          "name": "CUADRAO_STRUCTURED_MODEL",
-          "kind": "plain",
-          "production": {
-            "value": "x-ai/grok-4.3"
-          }
-        },
-        {
-          "name": "CUADRAO_UTILITY_FALLBACK_MODEL",
-          "kind": "plain",
-          "production": {
-            "value": "qwen/qwen3.5-9b"
-          }
-        },
-        {
-          "name": "CUADRAO_UTILITY_MODEL",
-          "kind": "plain",
-          "production": {
-            "value": "google/gemini-2.5-flash-lite"
-          }
-        },
-        {
-          "name": "CUADRAO_PROD_OPENROUTER_API_KEY",
-          "kind": "secret",
-          "production": {
-            "enter": "the same key as CUADRAO_PROD_OPENROUTER_API_KEY on cuadrao-api"
-          }
-        },
-        {
-          "name": "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
-          "kind": "secret",
-          "production": {
-            "enter": "the capped guest model-gateway key for legacy workflow traffic; it must differ from CUADRAO_PROD_OPENROUTER_API_KEY"
-          }
-        },
-        {
-          "name": "CUADRAO_OPENROUTER_API_KEY_DEV",
-          "kind": "secret",
-          "production": {
-            "enter": "keep the live value on argus-backtests",
-            "optional": true
-          }
-        },
-        {
-          "name": "CUADRAO_OPENROUTER_API_KEY_STG",
-          "kind": "secret",
-          "production": {
-            "enter": "keep the live value on argus-backtests",
-            "optional": true
-          }
-        },
-        {
-          "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
-          "kind": "secret",
-          "production": {
-            "enter": "keep the live value on argus-backtests",
-            "optional": true
+            "value": "3"
           }
         }
       ]

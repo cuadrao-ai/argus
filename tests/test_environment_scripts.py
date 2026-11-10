@@ -54,7 +54,7 @@ def _production_required(label: str) -> set[str]:
 
 
 def _render_env(service_name: str) -> dict[str, dict[str, str | bool]]:
-    surface = {"argus-app": "web", "cuadrao-web": "marketing"}.get(service_name)
+    surface = {"cuadrao-app": "web", "cuadrao-marketing": "marketing"}.get(service_name)
     if surface is not None:
         return {
             name: {"key": name, "value": rule["value"]}
@@ -100,65 +100,13 @@ def _render_env_payload(
     return json.dumps(rows)
 
 
-def _workflow_env_payload(
-    *,
-    omit: set[str] | None = None,
-    extra: dict[str, str] | None = None,
-    overrides: dict[str, str] | None = None,
-) -> str:
-    omitted = omit or set()
-    extra = extra or {}
-    overrides = overrides or {}
-    values = {
-        "ARGUS_WORKFLOW_DATABASE_URL": "postgres://workflow-db.example/argus",
-        "APP_ENV": "production",
-        "ARGUS_RENDER_WORKFLOW_PROOF_TASK": "argus-backtests/workflow_proof",
-        "ARGUS_WORKFLOW_PROOF_PLAN": "starter",
-        "POETRY_VERSION": "2.1.3",
-        "ARGUS_BACKTEST_WORKFLOW_TIMEOUT_SECONDS": "300",
-        "ARGUS_MARKET_DATA_PROVIDER_MODE": "live_provider",
-        "ENABLE_MARKET_DATA_CACHE": "false",
-        "ALPACA_API_KEY": "fake-alpaca-key",
-        "ALPACA_SECRET_KEY": "fake-alpaca-secret",
-        "ALPACA_PAPER_TRADING": "true",
-        "CUADRAO_PROD_OPENROUTER_API_KEY": "fake-registered-openrouter-key",
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY": "fake-guest-openrouter-key",
-        "CUADRAO_UTILITY_MODEL": "google/gemini-2.5-flash-lite",
-        "CUADRAO_UTILITY_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "CUADRAO_CHAT_MODEL": "deepseek/deepseek-v4-flash",
-        "CUADRAO_CHAT_FALLBACK_MODEL": "qwen/qwen3.5-9b",
-        "CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS": "30",
-        "CUADRAO_STRUCTURED_MODEL": "x-ai/grok-4.3",
-        "CUADRAO_STRUCTURED_FALLBACK_MODEL": "anthropic/claude-haiku-4.5",
-        "CUADRAO_CONTEXT_MODEL": "openai/gpt-oss-120b",
-        "CUADRAO_CONTEXT_FALLBACK_MODEL": "deepseek/deepseek-v4-flash",
-        "CUADRAO_READOUT_MODEL": "openai/gpt-5.6-luna",
-        "CUADRAO_READOUT_FALLBACK_MODEL": "openai/gpt-5.6-luna",
-    }
-    allowed = set(_production_rules("workflow"))
-    values = {key: value for key, value in values.items() if key in allowed}
-    rows: list[dict[str, dict[str, str]]] = []
-
-    for key, default_value in values.items():
-        if key in omitted:
-            continue
-        rows.append({"envVar": {"key": key, "value": overrides.get(key, default_value)}})
-
-    for key, value in extra.items():
-        rows.append({"envVar": {"key": key, "value": value}})
-
-    return json.dumps(rows)
-
-
 def _run_render_release_audit(
     tmp_path: Path,
     *,
     api_env_json: str,
     web_env_json: str,
-    workflow_env_json: str | None = None,
     api_service_json: str | None = None,
     web_service_json: str | None = None,
-    workflow_service_json: str | None = None,
     expect_mode: str = "safe-off",
     isolate: bool = False,
 ) -> subprocess.CompletedProcess[str]:
@@ -176,12 +124,8 @@ case "$*" in
   *"/services/$FAKE_WEB_SERVICE_ID/env-vars"*)
     printf "%s" "$FAKE_WEB_ENV_JSON"
     ;;
-  *"/services/$FAKE_WORKFLOW_SERVICE_ID/env-vars"*)
-    printf "%s" "$FAKE_WORKFLOW_ENV_JSON"
-    ;;
   *"/services/$FAKE_API_SERVICE_ID"*) printf "%s" "$FAKE_API_SERVICE_JSON" ;;
   *"/services/$FAKE_WEB_SERVICE_ID"*) printf "%s" "$FAKE_WEB_SERVICE_JSON" ;;
-  *"/workflows/$FAKE_WORKFLOW_SERVICE_ID"*) printf "%s" "$FAKE_WORKFLOW_SERVICE_JSON" ;;
   *)
     echo "unexpected curl request: $*" >&2
     exit 9
@@ -196,7 +140,7 @@ esac
         surface: json.dumps(
             {"autoDeployTrigger": profile["services"][surface]["auto_deploy_trigger"]}
         )
-        for surface in ("api", "marketing", "workflow")
+        for surface in ("api", "marketing")
     }
     env = os.environ.copy()
     env.update(
@@ -205,15 +149,10 @@ esac
             "RENDER_API_KEY": "fake-render-token",
             "FAKE_API_SERVICE_ID": "srv-d78tanmuk2gs73e17nn0",
             "FAKE_WEB_SERVICE_ID": "srv-d7ap6bmslomc73eqp8m0",
-            "ARGUS_RENDER_WORKFLOW_SERVICE_ID": "wfl-fake-backtests",
-            "FAKE_WORKFLOW_SERVICE_ID": "wfl-fake-backtests",
             "FAKE_API_ENV_JSON": api_env_json,
             "FAKE_WEB_ENV_JSON": web_env_json,
-            "FAKE_WORKFLOW_ENV_JSON": workflow_env_json or _workflow_env_payload(),
             "FAKE_API_SERVICE_JSON": api_service_json or profile_triggers["api"],
             "FAKE_WEB_SERVICE_JSON": web_service_json or profile_triggers["marketing"],
-            "FAKE_WORKFLOW_SERVICE_JSON": workflow_service_json
-            or profile_triggers["workflow"],
             "FAKE_CURL_REQUEST_LOG": str(request_log),
         }
     )
@@ -222,9 +161,8 @@ esac
     cwd = str(ROOT)
     if isolate:
         # Mirror the scripts into a root with no .env so argus_load_root_env is a
-        # no-op, then scrub workflow secrets from the process env. This reproduces
-        # the daily-gate warmup step, which exports neither .env nor the workflow
-        # secrets (ALPACA_*/segmented OpenRouter keys) it audits.
+        # no-op, then scrub provider secrets from the process env. This reproduces
+        # the daily-gate warmup step, which exports neither.
         github_dir = _copy_release_scripts(tmp_path)
         for secret in (
             "ALPACA_API_KEY",
@@ -250,18 +188,6 @@ esac
         capture_output=True,
         text=True,
         check=False,
-    )
-
-
-def _real_workflow_api_env_payload() -> str:
-    return _render_env_payload(
-        "cuadrao-api",
-        overrides={
-            "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED": "true",
-            "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED": "true",
-            "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "true",
-            "RENDER_API_KEY": "fake-render-token",
-        },
     )
 
 
@@ -427,10 +353,7 @@ def test_render_python_builds_use_managed_poetry() -> None:
         'ARGUS_RENDER_API_START_COMMAND="poetry run uvicorn argus.api.main:app '
         '--host 0.0.0.0 --port \\$PORT"'
     ) in env_contract
-    assert (
-        'ARGUS_RENDER_WORKFLOW_BUILD_COMMAND="poetry config virtualenvs.create false '
-        '&& poetry install --only main,workflows --no-interaction"'
-    ) in env_contract
+    assert "ARGUS_RENDER_WORKFLOW_BUILD_COMMAND" not in env_contract
 
 
 def test_env_example_declares_render_api_key_once() -> None:
@@ -442,15 +365,16 @@ def test_env_example_declares_render_api_key_once() -> None:
 
 def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
     assert set(_contract_array("ARGUS_RENDER_API_ENV")) == set(_render_env("cuadrao-api"))
-    assert set(_contract_array("ARGUS_RENDER_WEB_ENV")) == set(_render_env("argus-app"))
+    assert set(_contract_array("ARGUS_RENDER_WEB_ENV")) == set(_render_env("cuadrao-app"))
     render_config = yaml.safe_load(_source("render.yaml"))
     services = {service["name"]: service for service in render_config["services"]}
     assert set(services) == set(
-        "cuadrao-api cuadrao-web cuadrao-api-staging "
-        "cuadrao-web-staging cuadrao-marketing-staging cuadrao-dgii-rnc-staging".split()
+        "cuadrao-api cuadrao-marketing cuadrao-app cuadrao-documents-worker "
+        "cuadrao-api-staging cuadrao-app-staging cuadrao-documents-worker-staging "
+        "cuadrao-marketing-staging".split()
     )
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
-    stage = _render_env("cuadrao-web-staging")
+    stage = _render_env("cuadrao-app-staging")
     entries = [
         entry
         for entry in manifest["services"]["web"]["entries"]
@@ -470,7 +394,7 @@ def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
 
 def test_render_web_declares_exact_server_only_https_app_origin() -> None:
     api_env = _render_env("cuadrao-api")
-    web_env = _render_env("argus-app")
+    web_env = _render_env("cuadrao-app")
     env_contract = ENV_CONTRACT.read_text()
 
     # The production origin is copied from the live ARGUS_APP_ORIGIN, never
@@ -494,7 +418,7 @@ def test_render_web_declares_exact_server_only_https_app_origin() -> None:
 
 def test_render_blueprint_syncs_public_supabase_coordinates() -> None:
     api_env = _render_env("cuadrao-api")
-    web_env = _render_env("argus-app")
+    web_env = _render_env("cuadrao-app")
 
     assert "value" in api_env["SUPABASE_URL"]
     assert api_env["SUPABASE_URL"].get("sync") is not False
@@ -547,9 +471,10 @@ def test_render_blueprint_keeps_true_secrets_manual() -> None:
     assert "SUPABASE_JWT_SECRET" not in api_env
 
 
-def test_workflow_proof_env_contract_is_documented_but_not_blueprinted() -> None:
+def test_workflow_proof_env_is_documented_without_a_hosted_service() -> None:
     env_example = _source(".env.example")
     render_config = yaml.safe_load(_source("render.yaml"))
+    manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
 
     assert "ARGUS_RENDER_WORKFLOW_PROOF_TASK=" in env_example
     assert (
@@ -560,13 +485,11 @@ def test_workflow_proof_env_contract_is_documented_but_not_blueprinted() -> None
     assert "POETRY_VERSION=2.1.3" in env_example
     assert "ARGUS_BACKTEST_WORKFLOW_TIMEOUT_SECONDS=300" in env_example
     assert "CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS=30" in env_example
-    assert set(_contract_array("ARGUS_RENDER_WORKFLOW_PROOF_ENV")) == (
-        _production_required("workflow")
-    )
-    assert "RENDER_API_KEY" not in _contract_array("ARGUS_RENDER_WORKFLOW_PROOF_ENV")
+    assert "workflow" not in manifest["services"]
+    assert "ARGUS_RENDER_WORKFLOW_PROOF_ENV" not in ENV_CONTRACT.read_text()
     render_sync = _source(".github/render-env-sync.sh")
-    assert "workflow_render_env_value()" in render_sync
-    assert 'manifest_env_value workflow "$key"' in render_sync
+    assert "WORKFLOW_SERVICE_ID" not in render_sync
+    assert "api.render.com/v1/workflows" not in render_sync
     assert all(service["type"] != "workflow" for service in render_config["services"])
 
 
@@ -585,63 +508,9 @@ def test_render_env_sync_uses_shared_contract_and_single_var_updates() -> None:
     env_contract = ENV_CONTRACT.read_text()
 
     assert 'source "$SCRIPT_DIR/argus-env.sh"' in source
-    assert "ARGUS_RENDER_WORKFLOW_BUILD_COMMAND" in env_contract
     assert "ARGUS_RENDER_API_BUILD_COMMAND" in env_contract
     assert "ARGUS_RENDER_API_START_COMMAND" in env_contract
-    assert "ARGUS_RENDER_WORKFLOW_START_COMMAND" in env_contract
     assert "/v1/services/${service_id}/env-vars/${key}" in source
-
-
-def test_render_env_sync_pushes_workflow_llm_readout_env() -> None:
-    source = _source(".github/render-env-sync.sh")
-    workflow_block = source.split("sync_workflow_proof() {", maxsplit=1)[1].split(
-        "\n}",
-        maxsplit=1,
-    )[0]
-
-    assert 'for key in "${ARGUS_RENDER_WORKFLOW_PROOF_ENV[@]}"; do' in workflow_block
-    assert (
-        'put_render_env "$WORKFLOW_SERVICE_ID" "$key" '
-        '"$(workflow_render_env_value "$key")"'
-    ) in workflow_block
-    assert 'manifest_env_value workflow "$key"' in source
-    assert "ARGUS_WORKFLOW_DATABASE_URL" in source
-
-
-def test_render_env_sync_can_release_workflow_after_env_updates() -> None:
-    source = _source(".github/render-env-sync.sh")
-
-    assert ".github/render-env-sync.sh workflow-release [commit]" in source
-    assert ".github/render-env-sync.sh workflow-version-status" in source
-    assert "sync_workflow_release()" in source
-    assert "print_workflow_version_status()" in source
-    assert 'render workflows versions release "$WORKFLOW_SERVICE_ID"' in source
-    assert 'render workflows versions list "$WORKFLOW_SERVICE_ID"' in source
-    assert '"commit=\\(.name // "<missing>")"' in source
-    assert "--wait" in source
-    assert "--confirm" in source
-    assert 'for key in "${ARGUS_RENDER_WORKFLOW_PROOF_ENV[@]}"; do' in source
-    assert 'workflow_render_env_value "$key"' in source
-    for key in ("ALPACA_API_KEY", "ALPACA_SECRET_KEY"):
-        assert key in source
-    assert 'manifest_env_value workflow "$key"' in source
-    assert "workflow-runtime" in source
-    assert "https://api.render.com/v1/workflows/${WORKFLOW_SERVICE_ID}" in source
-    assert "render_workflow_json" in source
-    assert "release_profile_auto_deploy_trigger workflow" in source
-    assert "autoDeployTrigger: $auto_deploy_trigger" in source
-    assert 'autoDeployTrigger: "off"' not in source
-
-
-def test_render_env_sync_workflow_proof_uses_the_profile_live_provider_mode() -> None:
-    source = _source(".github/render-env-sync.sh")
-
-    value_block = source.split("workflow_render_env_value() {", maxsplit=1)[1].split(
-        "\n}",
-        maxsplit=1,
-    )[0]
-    assert 'manifest_env_value workflow "$key"' in value_block
-    assert 'echo "${ARGUS_MARKET_DATA_PROVIDER_MODE:-live_provider}"' not in value_block
 
 
 def test_render_env_sync_prints_api_deploy_status_without_mutation() -> None:
@@ -650,7 +519,7 @@ def test_render_env_sync_prints_api_deploy_status_without_mutation() -> None:
     assert ".github/render-env-sync.sh api-deploy-status" in source
     assert "print_api_deploy_status()" in source
     assert "/v1/services/${service_id}/deploys?limit=1" in source
-    assert 'print_deploy_status "$API_SERVICE_ID" "argus-api"' in source
+    assert 'print_deploy_status "$API_SERVICE_ID" "cuadrao-api"' in source
     assert "commit_short" in source
     assert "deploy_id" in source
 
@@ -674,7 +543,7 @@ def test_render_env_sync_prints_web_deploy_status_without_mutation() -> None:
     assert "WEB_SERVICE_ID" in source
     assert "print_web_deploy_status()" in source
     assert "/v1/services/${service_id}/deploys?limit=1" in source
-    assert 'print_deploy_status "$WEB_SERVICE_ID" "cuadrao-web"' in source
+    assert 'print_deploy_status "$WEB_SERVICE_ID" "cuadrao-marketing"' in source
 
     deploy_status_block = source.split(
         "print_web_deploy_status() {",
@@ -690,16 +559,13 @@ def test_render_env_sync_can_sync_api_runtime_config() -> None:
 
     assert ".github/render-env-sync.sh api-runtime" in source
     api_runtime_block = source.split("sync_api_runtime() {", maxsplit=1)[1].split(
-        "sync_workflow_proof() {", maxsplit=1
+        "\n}", maxsplit=1
     )[0]
     assert "https://api.render.com/v1/services/${API_SERVICE_ID}" in api_runtime_block
     assert "envSpecificDetails" in api_runtime_block
     assert "buildCommand: $build_command" in api_runtime_block
     assert "startCommand: $start_command" in api_runtime_block
     assert "put_render_env" not in api_runtime_block
-    assert ".buildConfig + {buildCommand: $build_command}" in source
-    assert "ARGUS_RENDER_WORKFLOW_BUILD_COMMAND" in source
-    assert "ARGUS_RENDER_WORKFLOW_START_COMMAND" in source
     assert "set -x" not in source
 
 
@@ -774,36 +640,6 @@ def test_retired_render_sync_modes_make_no_network_calls(
     assert requests == []
 
 
-@pytest.mark.parametrize(
-    "missing",
-    [None, "CUADRAO_PROD_OPENROUTER_API_KEY", "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"],
-)
-def test_workflow_sync_preflights_secrets_and_writes_only_managed_settings(
-    tmp_path: Path, missing: str | None
-) -> None:
-    values = {
-        "RENDER_API_KEY": "fake-render",
-        "CUADRAO_PROD_OPENROUTER_API_KEY": "fake-prod",
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY": "fake-guest",
-        "ALPACA_API_KEY": "unused-alpaca",
-        "ARGUS_WORKFLOW_DATABASE_URL": "unused-db",
-    }
-    if missing:
-        values.pop(missing)
-    result, requests = _run_isolated_sync(tmp_path, "workflow-proof", values)
-    if missing:
-        assert result.returncode != 0
-        assert requests == []
-        return
-    assert result.returncode == 0, result.stdout + result.stderr
-    written = {request.split("/env-vars/", 1)[1].split(" ", 1)[0] for request in requests}
-    assert written == _production_required("workflow")
-    assert len(requests) == len(written)
-    assert all("unused-" not in request for request in requests)
-    assert "fake-prod" not in result.stdout
-    assert "fake-guest" not in result.stdout
-
-
 def test_mode_scripts_pin_render_workflow_dispatch_off() -> None:
     env_contract = ENV_CONTRACT.read_text()
     dev_block = env_contract.split("argus_export_dev_mode() {", maxsplit=1)[1].split(
@@ -834,22 +670,19 @@ def test_render_env_sync_can_audit_release_config_without_mutation() -> None:
     source = _source(".github/render-env-sync.sh")
 
     assert ".github/render-env-sync.sh release-config-audit" in source
-    assert "--expect-mode <safe-off|proof-shadow|real-workflow>" in source
+    assert "--expect-mode <safe-off|proof-shadow>" in source
+    assert "real-workflow" not in source.replace("api-real-workflow-on", "")
     assert "audit_release_config()" in source
     assert "audit_render_service_config" in source
     assert "manifest_env_pairs" in source
     assert "manifest_required_present" in source
     assert "manifest_allowed_keys" in source
-    assert "ARGUS_RENDER_WORKFLOW_PROOF_ENV" in source
-    assert "workflow_expected_env_pairs" in source
     assert "ARGUS_FORBIDDEN_LEGACY_ENV" in source
     assert "render_env_fingerprint" in source
-    assert "workflow_env_fingerprint=" in source
-    assert "workflow_env_status=" in source
+    assert "workflow_env_fingerprint=" not in source
+    assert "workflow_env_status=" not in source
     assert "env_fingerprint=" in source
     assert "status=ready" in source
-    assert "ARGUS_BACKTEST_WORKFLOW_TASK" in source
-    assert "ARGUS_BACKTEST_REAL_WORKFLOW_TASK" in source
     assert "<redacted-present>" in source
     assert "<missing-or-empty>" in source
 
@@ -876,7 +709,7 @@ def test_render_env_sync_audit_uses_large_render_env_page(
                 "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "false",
             },
         ),
-        web_env_json=_render_env_payload("cuadrao-web"),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
@@ -884,175 +717,41 @@ def test_render_env_sync_audit_uses_large_render_env_page(
     assert "env-vars?limit=100" in request_log.read_text()
 
 
-def test_render_env_sync_audit_includes_workflow_env_parity(
-    tmp_path: Path,
-) -> None:
-    result = _run_render_release_audit(
-        tmp_path,
-        expect_mode="real-workflow",
-        api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(),
-    )
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert (
-        "ok argus-backtests:CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS=30"
-        in result.stdout
-    )
-    assert (
-        "ok argus-backtests:CUADRAO_PROD_OPENROUTER_API_KEY=<redacted-present>"
-        in result.stdout
-    )
-    assert "ok argus-api:CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false" in result.stdout
-    assert "workflow_env_status=ready" in result.stdout
-    assert "autodeploy_status=ready" in result.stdout
-    assert "status=ready" in result.stdout
-    assert "postgres://workflow-db.example/argus" not in result.stdout
-
-
 def test_render_env_sync_audit_accepts_the_marketing_site_profile(
     tmp_path: Path,
 ) -> None:
     result = _run_render_release_audit(
         tmp_path,
-        expect_mode="real-workflow",
-        api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(),
-    )
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "ok cuadrao-web:CUADRAO_INQUIRY_TO=hola@cuadrao.ai" in result.stdout
-    assert "ok cuadrao-web:RESEND_API_KEY=<redacted-present>" in result.stdout
-    assert "drift argus-app:" not in result.stdout
-    assert "status=ready" in result.stdout
-
-
-def test_render_env_sync_skips_workflow_env_gate_outside_real_workflow_mode(
-    tmp_path: Path,
-) -> None:
-    result = _run_render_release_audit(
-        tmp_path,
-        expect_mode="safe-off",
-        api_env_json=_render_env_payload(
-            "cuadrao-api",
-            overrides={
-                "RENDER_API_KEY": "",
-                "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED": "false",
-                "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED": "false",
-                "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED": "false",
-            },
-        ),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(
-            extra={"ARGUS_MARKET_DATA_PROVIDER_MODE": "synthetic_unit_fixture"},
-            omit={
-                "CUADRAO_PROD_OPENROUTER_API_KEY",
-                "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
-            },
-        ),
-    )
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "workflow_env_status=skipped" in result.stdout
-    assert "status=ready" in result.stdout
-    assert "drift argus-backtests:" not in result.stdout
-
-
-def test_render_env_sync_audit_workflow_secrets_ready_without_local_secrets(
-    tmp_path: Path,
-) -> None:
-    # Regression for the daily-gate warmup step: it audits the workflow service
-    # without exporting workflow secrets (Alpaca/segmented OpenRouter) or a .env.
-    # The audit must verify those secrets are present on Render, not in the audit
-    # runner's local env, so it stays ready even when the runner has none of them.
-    result = _run_render_release_audit(
-        tmp_path,
-        expect_mode="real-workflow",
-        api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(),
+        api_env_json=_render_env_payload("cuadrao-api"),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
         isolate=True,
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
-    for secret in (
-        "CUADRAO_PROD_OPENROUTER_API_KEY",
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
-    ):
-        assert f"ok argus-backtests:{secret}=<redacted-present>" in result.stdout
-        assert f"drift argus-backtests:{secret}" not in result.stdout
-    assert "argus-backtests:ARGUS_WORKFLOW_DATABASE_URL=" not in result.stdout
-    assert "workflow_env_status=ready" in result.stdout
+    assert "ok cuadrao-marketing:CUADRAO_INQUIRY_TO=hola@cuadrao.ai" in result.stdout
+    assert "ok cuadrao-marketing:RESEND_API_KEY=<redacted-present>" in result.stdout
+    assert "ok cuadrao-api:CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED=false" in result.stdout
+    assert "ok cuadrao-api:autoDeployTrigger=off" in result.stdout
+    assert "ok cuadrao-marketing:autoDeployTrigger=off" in result.stdout
+    assert "autodeploy_status=ready" in result.stdout
     assert "status=ready" in result.stdout
+    for retired in ("argus-api", "argus-app", "argus-backtests", "workflow_env"):
+        assert retired not in result.stdout
 
 
-def test_render_env_sync_audit_flags_workflow_secret_missing_on_render(
-    tmp_path: Path,
-) -> None:
-    # The unconditional <redacted-present> expectation must still catch a secret
-    # that is genuinely absent on the Render workflow service.
-    result = _run_render_release_audit(
-        tmp_path,
-        expect_mode="real-workflow",
-        api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(
-            omit={"CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"}
-        ),
-        isolate=True,
-    )
-
-    assert result.returncode == 1
-    assert (
-        "drift argus-backtests:CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY "
-        "expected=<redacted-present> actual=<missing-or-empty>"
-    ) in result.stdout
-    assert "workflow_env_status=drift" in result.stdout
-
-
-def test_render_env_sync_audit_rejects_unmanaged_workflow_provider_mode(
+def test_render_env_sync_audit_refuses_the_retired_real_workflow_mode(
     tmp_path: Path,
 ) -> None:
     result = _run_render_release_audit(
         tmp_path,
         expect_mode="real-workflow",
-        api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(
-            extra={"ARGUS_MARKET_DATA_PROVIDER_MODE": "synthetic_unit_fixture"},
-        ),
+        api_env_json=_render_env_payload("cuadrao-api"),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
     )
 
-    assert result.returncode == 1
-    assert (
-        "forbidden argus-backtests:ARGUS_MARKET_DATA_PROVIDER_MODE unexpected_live_env"
-    ) in result.stdout
-    assert "workflow_env_status=drift" in result.stdout
-    assert "status=drift" in result.stdout
-    assert "fake-alpaca-secret" not in result.stdout
-
-
-def test_render_env_sync_audit_rejects_render_api_key_on_workflow_runtime(
-    tmp_path: Path,
-) -> None:
-    result = _run_render_release_audit(
-        tmp_path,
-        expect_mode="real-workflow",
-        api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(
-            extra={"RENDER_API_KEY": "fake-render-token"},
-        ),
-    )
-
-    assert result.returncode == 1
-    assert "forbidden argus-backtests:RENDER_API_KEY unexpected_live_env" in (
-        result.stdout
-    )
-    assert "fake-render-token" not in result.stdout
-    assert "workflow_env_status=drift" in result.stdout
+    assert result.returncode == 2
+    assert "Unknown expected API mode: real-workflow" in result.stdout
+    assert not (tmp_path / "curl-requests.log").exists()
 
 
 def test_render_env_sync_audit_fails_when_contract_key_is_missing(
@@ -1065,11 +764,11 @@ def test_render_env_sync_audit_fails_when_contract_key_is_missing(
             omit={"CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS"},
             overrides={"RENDER_API_KEY": ""},
         ),
-        web_env_json=_render_env_payload("cuadrao-web"),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
     )
 
     assert result.returncode == 1
-    assert "drift argus-api:CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS" in result.stdout
+    assert "drift cuadrao-api:CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS" in result.stdout
     assert "status=drift" in result.stdout
 
 
@@ -1083,7 +782,7 @@ def test_render_env_sync_audit_rejects_frontend_secrets_and_legacy_keys(
             overrides={"RENDER_API_KEY": ""},
         ),
         web_env_json=_render_env_payload(
-            "cuadrao-web",
+            "cuadrao-marketing",
             extra={
                 "NEXT_PUBLIC_ARGUS_API_URL": "https://app.example.test",
                 "NEXT_PUBLIC_API_URL": "https://legacy.example.test",
@@ -1092,14 +791,14 @@ def test_render_env_sync_audit_rejects_frontend_secrets_and_legacy_keys(
     )
 
     assert result.returncode == 1
-    assert "forbidden cuadrao-web:NEXT_PUBLIC_ARGUS_API_URL" in result.stdout
-    assert "forbidden cuadrao-web:NEXT_PUBLIC_API_URL" in result.stdout
+    assert "forbidden cuadrao-marketing:NEXT_PUBLIC_ARGUS_API_URL" in result.stdout
+    assert "forbidden cuadrao-marketing:NEXT_PUBLIC_API_URL" in result.stdout
     assert "status=drift" in result.stdout
 
 
 def test_render_blueprint_excludes_unmanaged_analytics_key() -> None:
     assert "NEXT_PUBLIC_POSTHOG_KEY" not in _contract_array("ARGUS_RENDER_WEB_ENV")
-    assert "NEXT_PUBLIC_POSTHOG_KEY" not in _render_env("argus-app")
+    assert "NEXT_PUBLIC_POSTHOG_KEY" not in _render_env("cuadrao-app")
 
 
 def test_warmup_script_defaults_to_private_launch_render_urls() -> None:
@@ -1127,38 +826,21 @@ def test_warmup_script_checks_product_readiness_endpoint() -> None:
 def test_warmup_script_can_assert_expected_api_mode_without_mutating_render() -> None:
     warmup = _source(".github/warmup-render.sh")
 
-    assert "--expect-mode <safe-off|proof-shadow|real-workflow>" in warmup
+    assert "--expect-mode <safe-off|proof-shadow>" in warmup
+    assert "real-workflow" not in warmup
     assert "assert_api_mode()" in warmup
     assert '"$SCRIPT_DIR/render-env-sync.sh" release-config-audit' in warmup
     assert '--expect-mode "$mode"' in warmup
     assert 'if ! status="$(' in warmup
     assert 'printf "%s\\n" "$status"' in warmup
     assert "env_fingerprint=" in warmup
-    assert "workflow_env_fingerprint=" in warmup
-    assert "workflow_env_status=ready" in warmup
+    assert "workflow" not in warmup
     assert "status=ready" in warmup
     assert "put_render_env" not in warmup
     assert "delete_render_env" not in warmup
 
 
-def test_warmup_script_runs_remote_workflow_proof_for_real_workflow_mode() -> None:
-    warmup = _source(".github/warmup-render.sh")
-
-    assert "run_workflow_runtime_proof()" in warmup
-    assert 'if [ "$mode" != "real-workflow" ]; then' in warmup
-    assert '.github/workflow-proof.sh seed --nonce "$nonce"' in warmup
-    assert '.github/workflow-proof.sh remote --job-id "$job_id" --nonce "$nonce"' in (
-        warmup
-    )
-    assert (
-        '.github/workflow-proof.sh verify --job-id "$job_id" '
-        '--expect-nonce "$nonce" --expect-provider-mode live_provider'
-    ) in warmup
-    assert "workflow_runtime_provider_mode=live_provider" in warmup
-    assert "workflow_runtime_proof=ready" in warmup
-
-
-def test_private_launch_runbook_uses_real_workflow_readiness_gate() -> None:
+def test_private_launch_runbook_uses_the_live_service_readiness_gate() -> None:
     runbook = _source("docs/PRIVATE_LAUNCH_RUNBOOK.md")
     before_sessions = runbook.split("## Before Tester Sessions", maxsplit=1)[1].split(
         "## Backtest Workflow Modes", maxsplit=1
@@ -1169,22 +851,22 @@ def test_private_launch_runbook_uses_real_workflow_readiness_gate() -> None:
     assert ".github/render-env-sync.sh api-real-workflow-on" not in before_sessions
     assert ".github/render-env-sync.sh api-deploy-status" in before_sessions
     assert ".github/render-env-sync.sh web-deploy-status" in before_sessions
-    assert ".github/render-env-sync.sh workflow-version-status" in before_sessions
-    assert "argus-api" in before_sessions
-    assert "argus-app" in before_sessions
-    assert "argus-backtests" in before_sessions
+    assert "workflow-version-status" not in runbook
+    for retired in ("`argus-api`", "`argus-app`", "`argus-backtests`", "`cuadrao-web`"):
+        assert retired not in before_sessions
     assert (
-        "Deploy production `cuadrao-api`, then **`argus-backtests`**, from the "
+        "Deploy production `cuadrao-api`, then **`cuadrao-documents-worker`**, from the "
         "candidate commit."
     ) in before_sessions
-    assert "workflow_commit_mismatch" in before_sessions
     assert "argus-maintenance" not in runbook
     assert "cron-deploy-status" not in runbook
-    assert ".github/warmup-render.sh --expect-mode real-workflow" in before_sessions
+    assert ".github/warmup-render.sh --expect-mode safe-off" in before_sessions
+    assert "--expect-mode real-workflow" not in runbook
     assert ".github/canary-render.sh" in before_sessions
     assert (
-        "API deploy-status, app deploy-status, workflow version status, local smoke, warmup, both "
-        "canary surfaces, and the release manifest" in normalized_before_sessions
+        "API deploy-status, app deploy-status, the documents worker deploy commit, local smoke, "
+        "warmup, both canary surfaces, and the release manifest"
+        in normalized_before_sessions
     )
     assert "both scripts pass" not in before_sessions
     assert "api-safe-off` is the default private-alpha tester mode" not in runbook

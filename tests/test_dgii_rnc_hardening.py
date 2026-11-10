@@ -328,29 +328,22 @@ def _blueprint() -> dict[str, dict]:
     return {service["name"]: service for service in config["services"]}
 
 
-def test_the_daily_job_is_one_staging_cron_with_no_values_in_the_blueprint() -> None:
-    crons = [service for service in _blueprint().values() if service["type"] == "cron"]
-    assert len(crons) == 1
-    cron = crons[0]
-    assert cron["name"] == "cuadrao-dgii-rnc-staging"
-    assert cron["branch"] == "codex/private-alpha-next"
-    assert cron["schedule"] == "0 7 * * *"
-    assert cron["autoDeployTrigger"] == "off"
-    assert cron["startCommand"] == "bash scripts/ops/dgii_rnc_daily.sh"
-    assert {entry["key"] for entry in cron["envVars"]} == {
-        "SUPABASE_STAGING_DB_URL",
-        "DGII_RNC_LOAD_ENABLED",
-        "DGII_RNC_STATEMENT_TIMEOUT",
-        "DGII_RNC_LOAD_HEADROOM_FLOOR",
-        "DGII_RNC_SIZE_LIMIT",
-    }
-    assert all(entry == {"key": entry["key"], "sync": False} for entry in cron["envVars"])
+def test_the_refresh_is_manual_with_no_hosted_service() -> None:
+    blueprint = _blueprint()
+    assert not [service for service in blueprint.values() if service["type"] == "cron"]
+    for service in blueprint.values():
+        assert service.get("startCommand") != "bash scripts/ops/dgii_rnc_daily.sh"
+    assert (ROOT / "scripts/ops/dgii_rnc_daily.sh").is_file()
 
 
 def test_no_production_service_can_reach_the_daily_job() -> None:
     blueprint = _blueprint()
-    for name in ("cuadrao-api", "cuadrao-web"):
-        assert blueprint[name]["type"] == "web"
+    for name in (
+        "cuadrao-api",
+        "cuadrao-app",
+        "cuadrao-marketing",
+        "cuadrao-documents-worker",
+    ):
         assert blueprint[name]["branch"] == "main"
         keys = {entry["key"] for entry in blueprint[name].get("envVars", [])}
         assert not {key for key in keys if key.startswith("DGII_")}

@@ -15,10 +15,8 @@ from pydantic import BaseModel
 
 from tests.test_environment_scripts import (
     _contract_array,
-    _real_workflow_api_env_payload,
     _render_env_payload,
     _run_render_release_audit,
-    _workflow_env_payload,
 )
 
 LUNA_MODEL = "openai/gpt-5.6-luna"
@@ -164,7 +162,7 @@ async def test_luna_attempt_preserves_receipt_usage_and_never_tries_another_mode
 
 @pytest.mark.parametrize(
     "contract",
-    ["ARGUS_QA_REQUIRED_ENV", "ARGUS_RENDER_API_ENV", "ARGUS_RENDER_WORKFLOW_PROOF_ENV"],
+    ["ARGUS_QA_REQUIRED_ENV", "ARGUS_RENDER_API_ENV"],
 )
 def test_readout_models_reach_each_runtime_environment_contract(contract: str) -> None:
     values = _contract_array(contract)
@@ -172,24 +170,16 @@ def test_readout_models_reach_each_runtime_environment_contract(contract: str) -
         assert values.count(key) == 1
 
 
-@pytest.mark.parametrize("service", ["argus-api", "argus-backtests"])
 @pytest.mark.parametrize("key", ["CUADRAO_READOUT_MODEL", "CUADRAO_READOUT_FALLBACK_MODEL"])
 def test_release_audit_rejects_missing_readout_model_configuration(
-    tmp_path: Path, service: str, key: str
+    tmp_path: Path, key: str
 ) -> None:
-    api_rows = json.loads(_real_workflow_api_env_payload())
-    if service == "argus-api":
-        api_rows = [row for row in api_rows if row["envVar"]["key"] != key]
     result = _run_render_release_audit(
         tmp_path,
-        expect_mode="real-workflow",
-        api_env_json=json.dumps(api_rows),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(
-            omit={key} if service == "argus-backtests" else set()
-        ),
+        api_env_json=_render_env_payload("cuadrao-api", omit={key}),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
         isolate=True,
     )
     assert result.returncode == 1
-    assert f"drift {service}:{key}" in result.stdout
+    assert f"drift cuadrao-api:{key}" in result.stdout
     assert "status=drift" in result.stdout

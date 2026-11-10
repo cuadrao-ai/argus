@@ -89,7 +89,7 @@ def test_private_alpha_web_flags_are_declared_for_hosted_settings() -> None:
     render_web = {
         service["name"]: {item["key"]: item for item in service["envVars"]}
         for service in yaml.safe_load(_text("render.yaml"))["services"]
-        if service["name"] == "cuadrao-web-staging"
+        if service["name"] == "cuadrao-app-staging"
     }
     for name in BUSINESS_DEFAULT_OFF_FLAGS:
         assert re.search(rf"^{name}=false$", env_example, re.M)
