@@ -1,4 +1,5 @@
-"""The closed product analytics registry: Iris's wave 1 events, and nothing else.
+"""The closed product analytics registry: Iris's wave 1 events and the Business
+pilot's events (``argus.domain.business.analytics_events``), and nothing else.
 
 Each event is one Pydantic model whose fields are the event's exact properties.
 Fields are typed only as ``Literal[...]``, ``bool``, a bounded ``int``, a
@@ -23,16 +24,16 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import (
-    BaseModel,
     ConfigDict,
     Field,
     GetCoreSchemaHandler,
     StringConstraints,
     ValidationError,
-    model_validator,
 )
 from pydantic_core import core_schema
 
+from argus.domain.business.analytics_events import BUSINESS_EVENT_MODELS
+from argus.observability.analytics_event_base import AnalyticsEvent
 from argus.observability.envelope import (
     ArgusEventEnvelope,
     EventCaptureResult,
@@ -111,31 +112,6 @@ MAX_DAYS_SINCE_SIGNUP = 36_500
 # build time, so one far from now was not stamped by the registry.
 _MAX_ENVELOPE_AGE = timedelta(minutes=5)
 _MAX_CLOCK_SKEW = timedelta(seconds=5)
-
-
-class AnalyticsEvent(BaseModel):
-    """One analytics event. Subclasses set ``event_name`` and their properties."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
-
-    event_name: ClassVar[str]
-    # Only ``signed_in`` links an account to the guest it came from (C3).
-    carries_guest_id_hash: ClassVar[bool] = False
-
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_lookalike_numbers(cls, data: Any) -> Any:
-        # ``True == 1 == 1.0``, so a literal like ``step: 1`` would otherwise
-        # accept a bool or a float. No property is a float, and only a
-        # ``bool`` field takes a bool.
-        if isinstance(data, dict):
-            for name, value in data.items():
-                field = cls.model_fields.get(name)
-                if field is None or field.annotation is bool:
-                    continue
-                if isinstance(value, bool | float):
-                    raise ValueError(f"{name} does not take a {type(value).__name__}")
-        return data
 
 
 class FirstAnswerShown(AnalyticsEvent):
@@ -224,6 +200,7 @@ ANALYTICS_EVENT_MODELS: dict[str, type[AnalyticsEvent]] = {
         InstalledAppOpened,
         LandingViewed,
         ReceiptShared,
+        *BUSINESS_EVENT_MODELS,
     )
 }
 

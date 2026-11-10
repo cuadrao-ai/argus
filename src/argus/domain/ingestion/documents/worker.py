@@ -24,6 +24,7 @@ from argus.domain.ingestion.documents.jobs import (
     sweep_forever,
 )
 from argus.domain.ingestion.documents.service import DocumentsService
+from argus.observability.envelope import capture_exception
 
 POLL_SECONDS = 1.0
 
@@ -66,6 +67,7 @@ class DocumentWorker:
                     store.pull, now=clock(), cap=self.settings.max_reads
                 )
             except Exception as error:
+                capture_exception(error, job="document_read_pull")
                 logger.warning(
                     "Document read pull failed failure_mode={}", type(error).__name__
                 )

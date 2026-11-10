@@ -154,6 +154,7 @@ class RecordsFile:
     filename: str
     media_type: str
     content: bytes
+    row_count: int = 0
 
 
 Cell = str | Decimal | date | None
@@ -458,8 +459,12 @@ def build_file(source: ExportSource, choice: RecordsExport) -> RecordsFile:
         ]
     period = _period_name(request, source)
     if choice.format == "csv":
-        return RecordsFile(_filename(stem, period, "csv"), CSV, _csv(headers, rows))
-    return RecordsFile(_filename(stem, period, "xlsx"), XLSX, _xlsx(sheet, headers, rows))
+        return RecordsFile(
+            _filename(stem, period, "csv"), CSV, _csv(headers, rows), len(rows)
+        )
+    return RecordsFile(
+        _filename(stem, period, "xlsx"), XLSX, _xlsx(sheet, headers, rows), len(rows)
+    )
 
 
 def preview_export(

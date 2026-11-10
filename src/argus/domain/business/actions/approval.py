@@ -13,6 +13,7 @@ from psycopg.errors import UniqueViolation
 from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter
 
+from argus.domain.business import analytics as business_analytics
 from argus.domain.business.actions import dossier, mutations, plans
 from argus.domain.business.actions.facts import facts_of, validate_facts
 from argus.domain.business.actions.fiscal import (
@@ -464,6 +465,10 @@ def approve(
                     context.actor.actor_id,
                     key,
                 ),
+            )
+        if isinstance(result, Applied):
+            business_analytics.record_approved(
+                service, context, draft_id, request.version, datetime.now(timezone.utc)
             )
         return result
     except ActionError as error:

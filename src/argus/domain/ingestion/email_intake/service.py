@@ -18,6 +18,7 @@ from uuid import UUID
 from loguru import logger
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business import analytics as business_analytics
 from argus.domain.business.authority import ActionError, authorize
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.ingestion.documents.models import DocumentExtractionError
@@ -453,6 +454,14 @@ class EmailCapture:
                 result = replace(
                     result, state="captured", document_id=outcome.connection_id
                 )
+                if not outcome.replayed:
+                    business_analytics.document_received(
+                        channel="email",
+                        business_id=scope.space_id,
+                        user_id=delivery.principal_id,
+                        media_type=part.media_type,
+                        size_bytes=len(part.content),
+                    )
             except DocumentExtractionError as error:
                 result = replace(result, state="rejected", error_code=error.code)
             except DocumentServiceError as error:

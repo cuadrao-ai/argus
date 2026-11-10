@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import os
+import traceback
+from collections.abc import Callable
+from concurrent.futures import Executor, ThreadPoolExecutor
 from datetime import datetime, timezone
+from types import TracebackType
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -150,6 +154,12 @@ _POSTHOG_US_HOST = "https://us.i.posthog.com"
 _POSTHOG_EU_HOST = "https://eu.i.posthog.com"
 _POSTHOG_CAPTURE_PATH = "/i/v0/e/"
 _POSTHOG_DEFAULT_TIMEOUT_SECONDS = 0.75
+# Sends leave the request or job that made them, so a slow or failing
+# analytics host never delays or fails it.
+_SENDER: Executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="analytics")
+EXCEPTION_FRAME_LIMIT = 50
+# The distinct id of a server exception no signed-in person was making.
+SERVER_DISTINCT_ID = "argus_server"
 
 
 def _clean_env(name: str) -> str | None:
@@ -429,3 +439,102 @@ def _posthog_timeout_seconds() -> float:
         return max(0.1, float(raw))
     except ValueError:
         return _POSTHOG_DEFAULT_TIMEOUT_SECONDS
+
+
+def send_later(send: Callable[..., object], /, *args: Any, **kwargs: Any) -> None:
+    """Run ``send`` off the caller's thread; whatever it raises is logged once."""
+
+    def guarded() -> None:
+        try:
+            send(*args, **kwargs)
+        except Exception as error:
+            logger.warning(
+                "Analytics send failed failure_mode={}", type(error).__name__
+            )
+
+    try:
+        _SENDER.submit(guarded)
+    except RuntimeError:
+        # The process is stopping; the event is dropped, never raised.
+        pass
+
+
+def exception_frames(tb: TracebackType | None) -> list[dict[str, Any]]:
+    """Module, function and line of each frame, innermost last. No locals,
+    file paths or source lines."""
+
+    frames = [
+        {
+            "module": str(frame.f_globals.get("__name__", "")),
+            "function": frame.f_code.co_name,
+            "lineno": lineno,
+        }
+        for frame, lineno in traceback.walk_tb(tb)
+    ]
+    return frames[-EXCEPTION_FRAME_LIMIT:]
+
+
+def exception_payload(
+    error: BaseException,
+    *,
+    api_key: str,
+    route: str | None = None,
+    job: str | None = None,
+    actor_hash: str | None = None,
+) -> dict[str, Any]:
+    """PostHog's exception event with the class name, where it happened, the
+    hashed actor and the frames. The message is never read: it can carry a
+    customer value."""
+
+    if (route is None) == (job is None):
+        raise ValueError("an exception names its route or its job")
+    return {
+        "api_key": api_key,
+        "event": "$exception",
+        "distinct_id": actor_hash or SERVER_DISTINCT_ID,
+        "properties": {
+            "$exception_list": [
+                {
+                    "type": type(error).__name__,
+                    "stacktrace": {
+                        "type": "raw",
+                        "frames": exception_frames(error.__traceback__),
+                    },
+                }
+            ],
+            **({"route": route} if route is not None else {"job": job}),
+            "$process_person_profile": False,
+        },
+    }
+
+
+def capture_exception(
+    error: BaseException,
+    *,
+    route: str | None = None,
+    job: str | None = None,
+    actor_hash: str | None = None,
+) -> None:
+    """Send an unhandled server exception, off the caller's thread. Nothing
+    is sent without a project token and a region, and nothing is raised."""
+
+    api_key = _posthog_project_token()
+    capture_url = _posthog_capture_url() if api_key is not None else None
+    if api_key is None or capture_url is None:
+        return
+    try:
+        payload = exception_payload(
+            error, api_key=api_key, route=route, job=job, actor_hash=actor_hash
+        )
+    except Exception as failure:
+        logger.warning(
+            "Exception capture failed failure_mode={}", type(failure).__name__
+        )
+        return
+
+    def post() -> None:
+        httpx.post(
+            capture_url, json=payload, timeout=_posthog_timeout_seconds()
+        ).raise_for_status()
+
+    send_later(post)
