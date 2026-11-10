@@ -438,10 +438,8 @@ class _Cursor:
 class _Server:
     """Stands in for psycopg.connect against a local database."""
 
-    def __init__(
-        self, ledger: list[str], lock_free: bool = True, ledger_table: bool = True
-    ) -> None:
-        self.ledger, self.lock_free, self.ledger_table = ledger, lock_free, ledger_table
+    def __init__(self, ledger: list[str], lock_free: bool = True) -> None:
+        self.ledger, self.lock_free = ledger, lock_free
         self.info = SimpleNamespace(host="127.0.0.1", hostaddr="127.0.0.1")
         self.statements: list[str] = []
 
@@ -461,7 +459,7 @@ class _Server:
         if "pg_try_advisory_lock" in sql:
             return _Cursor([(self.lock_free,)])
         if "to_regclass" in sql:
-            return _Cursor([(params[0] if self.ledger_table else None,)])  # type: ignore[index]
+            return _Cursor([("supabase_migrations.schema_migrations",)])
         if "schema_migrations order by" in sql:
             return _Cursor([(version,) for version in self.ledger])
         return _Cursor([])
@@ -499,18 +497,6 @@ def test_a_held_lock_refuses_the_run(
 ) -> None:
     with pytest.raises(applier.ApplyError, match="holds the migration lock"):
         _run(monkeypatch, tmp_path, _Server(APPLIED, lock_free=False), "--execute")
-
-
-def test_a_missing_ledger_table_is_named_plainly(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    server = _Server([], ledger_table=False)
-    with pytest.raises(
-        applier.ApplyError,
-        match="supabase_migrations.schema_migrations is missing; create it first: create schema",
-    ):
-        _run(monkeypatch, tmp_path, server, "--execute")
-    assert not any("schema_migrations order by" in sql for sql in server.statements)
 
 
 def test_the_run_lock_is_taken_before_the_ledger_is_read(

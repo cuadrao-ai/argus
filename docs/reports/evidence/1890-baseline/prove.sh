@@ -25,8 +25,8 @@ stack() {  # name port-prefix migration-files...
   sed -e "s/^project_id = .*/project_id = \"cuadrao-1890-$(basename "$dir")\"/" \
       -e "s/= 5433\([0-9]\)\$/= $prefix\1/" -e "s/^inspector_port = .*/inspector_port = ${prefix}8/" \
       "$root/supabase/config.toml" > "$dir/supabase/config.toml"
-  cp "$root/supabase/seed.sql" "$dir/supabase/seed.sql"
-  if [ $# -gt 0 ]; then cp "$@" "$dir/supabase/migrations/"; fi
+  # C has no migrations at start, so its seed waits until the apply tool built the tables.
+  if [ $# -gt 0 ]; then cp "$@" "$dir/supabase/migrations/" && cp "$root/supabase/seed.sql" "$dir/supabase/seed.sql"; fi
   supabase start --workdir "$dir" -x "$excluded" > "$dir/start.log" 2>&1
 }
 
@@ -77,6 +77,7 @@ fi
 docker exec -i "$c" psql -U supabase_admin -d postgres -Xq -v ON_ERROR_STOP=1 \
   < "$evidence/reset_ledger.sql" > /dev/null
 apply "$c_url" --execute
+psql "$c_url" -Xq -v ON_ERROR_STOP=1 -f "$root/supabase/seed.sql" > /dev/null
 (cd "$root" && poetry run python "$evidence/gate_on_reset.py" "$c_url") || status=1
 python3 "$evidence/schema_diff.py" "$a" "$c" "$scratch/diff-c" || true
 cmp "$scratch/diff-c/schema.diff" "$evidence/schema.diff" || status=1
