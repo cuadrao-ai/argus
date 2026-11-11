@@ -177,6 +177,7 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
         "form": "606",
         "currency": "DOP",
         "record_count": 1,
+        "pending_count": card,
         "pending_fiscal_count": card,
         "pending_rate_count": 0,
         "pending_rate_currencies": [],
