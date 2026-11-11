@@ -48,3 +48,6 @@ fixtures/dgii/*.TXT -text -eol
 
 # The generated baseline carries raw control bytes inside string literals (#1890); git must not touch them.
 supabase/migrations/20261110160000_cuadrao_baseline.sql -text
+
+# Built from content/app-legal-source by marketing/scripts/build-app-legal.ts
+marketing/content/app-legal-*.json linguist-generated=true
