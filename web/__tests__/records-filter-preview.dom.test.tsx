@@ -252,12 +252,12 @@ test("desktop kind lives in tabs and saved views restore its controlled value", 
     const search = document.querySelector<HTMLInputElement>('input[type="search"]')!;
     await type(search, "Nube");
     await page.click(page.button("Compras"));
-    await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
+    await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista actual"));
     await type(document.querySelector<HTMLInputElement>('[role="dialog"] input')!, "Gastos de Nube");
     await page.click(document.querySelector('[role="dialog"] button[type="submit"]'));
     await page.click(page.button("Ventas"));
     assert.equal(search.value, "Nube");
-    await page.click(page.button("Vistas")); await page.click(page.button("Gastos de Nube"));
+    await page.click(document.querySelector('button[aria-label="Vistas: Gastos de Nube"]')); await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Gastos de Nube"));
     assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
     assert.equal(document.querySelector('[role="tab"][aria-selected="true"]')?.textContent, "Compras");
     await page.click(page.button("Limpiar búsqueda"));

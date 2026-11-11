@@ -43,6 +43,7 @@ export function createBusinessReportHttpFixture() {
   }));
   const calls: { path: string; method: string; headers: Headers; body: unknown }[] = [];
   const views: { id: string; name: string; recipe: unknown; version: number; created_at: string; updated_at: string }[] = [];
+  let createdViews = 0;
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
   const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
@@ -108,7 +109,7 @@ export function createBusinessReportHttpFixture() {
       const current = views.find((view) => view.id === id);
       if (method !== "POST" && (!current || current.version !== command.expected_version)) return problem(409, "business_report_view_changed");
       if (method === "DELETE") { views.splice(views.indexOf(current!), 1); return new Response(null, { status: 204 }); }
-      const saved = { id: current?.id ?? fixtureId(9000 + views.length), name: command.name!, recipe: command.recipe, version: (current?.version ?? 0) + 1, created_at: "2026-10-26T12:00:00Z", updated_at: "2026-10-26T12:00:00Z" };
+      const saved = { id: current?.id ?? fixtureId(9000 + createdViews++), name: command.name!, recipe: command.recipe, version: (current?.version ?? 0) + 1, created_at: "2026-10-26T12:00:00Z", updated_at: "2026-10-26T12:00:00Z" };
       if (current) views.splice(views.indexOf(current), 1, saved); else views.push(saved);
       return Response.json(saved, { status: current ? 200 : 201 });
     }
