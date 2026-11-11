@@ -302,3 +302,71 @@ def test_two_invite_deliveries_borrow_labels_without_losing_claims(users, monkey
                 == "accepted"
             )
         assert send.call_count == 2
+
+
+def test_concurrent_expense_receipt_reads_use_the_grant_connection(
+    management, actions, monkeypatch
+):
+    from dataclasses import replace
+    from datetime import date
+
+    from argus.domain.business import transactions
+    from tests.test_business_receipt_views_postgres import _web
+
+    pool, _, _ = management
+    service, actor, _ = actions
+    expense = shared_actions.ready(service, actor)
+    approved = service.approve(
+        actor, expense, ApproveExpense(version=1, action="record_expense"), str(uuid4())
+    )
+    assert approved.outcome == "applied"
+    now = datetime.now(timezone.utc)
+    source = PostgresConnectionRepository(pool).create(
+        user_id=actor.owner_id,
+        source="statement",
+        external_ref=str(uuid4()),
+        label=None,
+        now=now,
+        scope=actor.scope,
+    )
+    candidate = ImportCandidate(
+        source=SourceRef(
+            source="statement",
+            connection_id=source.id,
+            external_id="receipt-link",
+            observed_at=now,
+        ),
+        evidence="transaction",
+        amount="850",
+        currency="DOP",
+        direction="outflow",
+    )
+    service.imports.submit(
+        user_id=actor.owner_id,
+        connection_id=source.id,
+        candidates=[candidate],
+        scope=actor.scope,
+    )
+    with service.imports.store.transaction(actor.owner_id, scope=actor.scope) as tx:
+        observation = tx.observation(source.id, "receipt-link")
+        tx.put_observation(replace(observation, event_id=str(expense)))
+    monkeypatch.setattr(service.authority, "pool", pool)
+    web = _web(service, actor)
+    ready = Barrier(2, timeout=3)
+    lock = transactions.lock_owner
+
+    def synchronized_lock(connection, owner):
+        ready.wait()
+        lock(connection, owner)
+
+    monkeypatch.setattr(transactions, "lock_owner", synchronized_lock)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(
+                web.service.expenses, web.scope, date(2026, 10, 1), date(2026, 10, 31)
+            )
+            for _ in range(2)
+        ]
+        for future in futures:
+            [result] = future.result(timeout=4)
+            assert result["id"] == str(approved.activity_id)
