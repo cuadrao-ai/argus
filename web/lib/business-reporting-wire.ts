@@ -76,8 +76,8 @@ export type ReportLoad =
 export type ViewLoad = { kind: "idle" | "loading" } | { kind: "ready"; items: SavedReportView[] } | { kind: "failed"; problem: ReportFailure };
 export type ReportOperation = { kind: "idle" | "busy" } | { kind: "failed"; problem: ReportFailure } | { kind: "done" };
 export type ViewOperation = ReportOperation & { command?: ReportViewCommand };
-/** What one view write did: the saved view the server returned, or why it did not land. */
-export type ViewWriteResult = { kind: "done"; view: SavedReportView | null } | { kind: "failed"; problem: ReportFailure };
+/** What one view write did: the saved view the server returned, or why it did not land. An unconfirmed write also carries `confirmed`, its outcome once a retry with its key is answered. */
+export type ViewWriteResult = { kind: "done"; view: SavedReportView | null } | { kind: "failed"; problem: ReportFailure; confirmed?: Promise<ViewWriteResult> };
 export type ReportState = Readonly<{ request: ReportRequest; load: ReportLoad; views: ViewLoad; viewOperation: ViewOperation; anchor: string | null; missingAnchor: boolean }>;
 export type ReportingTransport = {
   query: typeof queryBusinessReport; exportPreview: typeof previewRecordsExport; exportFile: typeof downloadRecordsExport;
@@ -96,12 +96,25 @@ export function createBusinessReportController(scope: ReportScope, initial = def
   const operations = new Set<AbortController>();
   // View writes run one at a time, in the order asked. A write asked for while another runs waits for it.
   let viewWrites: Promise<unknown> = Promise.resolve();
+  // Callers of an unconfirmed write wait here by its key. The next answer to that key settles them, and so does the end of this scope.
+  const unconfirmed = new Map<string, { confirmed: Promise<ViewWriteResult>; settle: (result: ViewWriteResult) => void }>();
+  const confirmation = (key: string) => {
+    const waiting = unconfirmed.get(key);
+    if (waiting) return waiting.confirmed;
+    let settle: (result: ViewWriteResult) => void = () => undefined;
+    const confirmed = new Promise<ViewWriteResult>((resolve) => { settle = resolve; });
+    unconfirmed.set(key, { confirmed, settle });
+    return confirmed;
+  };
+  const answer = (key: string, result: ViewWriteResult) => { unconfirmed.get(key)?.settle(result); unconfirmed.delete(key); return result; };
+  const abandonUnconfirmed = (problem: ReportFailure) => { for (const key of [...unconfirmed.keys()]) answer(key, { kind: "failed", problem }); };
   const publish = (patch: Partial<ReportState>) => { state = { ...state, ...patch }; listeners.forEach((listener) => listener()); };
   const abortOperations = () => { queryAbort?.abort(); for (const operation of operations) operation.abort(); operations.clear(); };
   const revoke = (problem: ReportFailure) => {
     generation += 1;
     abortOperations();
     publish({ load: { kind: "failed", problem }, views: { kind: "failed", problem }, viewOperation: { kind: "idle" }, anchor: null });
+    abandonUnconfirmed(problem);
   };
   const writeView = async (snapshot: ReportViewCommand, currentGeneration: number): Promise<ViewWriteResult> => {
     if (currentGeneration !== generation) return { kind: "failed", problem: { kind: "access", code: "business_report_scope_changed" } };
@@ -116,19 +129,19 @@ export function createBusinessReportController(scope: ReportScope, initial = def
       const existing = state.views.kind === "ready" ? state.views.items : [];
       const items = snapshot.kind === "delete" ? existing.filter((view) => view.id !== snapshot.id) : saved ? [...existing.filter((view) => view.id !== saved.id), saved] : existing;
       publish({ views: { kind: "ready", items }, viewOperation: { kind: "done" } });
-      return { kind: "done", view: saved };
+      return answer(snapshot.key, { kind: "done", view: saved });
     } catch (error) {
       const problem = reportFailure(error, true);
       if (abort.signal.aborted || currentGeneration !== generation) return { kind: "failed", problem };
       if (problem.kind === "access") revoke(problem);
       else publish({ viewOperation: { kind: "failed", problem, command: snapshot } });
-      return { kind: "failed", problem };
+      return problem.kind === "uncertain" ? { kind: "failed", problem, confirmed: confirmation(snapshot.key) } : answer(snapshot.key, { kind: "failed", problem });
     } finally { operations.delete(abort); }
   };
   const controller = {
     getSnapshot: () => state,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); },
-    dispose: () => { generation += 1; abortOperations(); },
+    dispose: () => { generation += 1; abortOperations(); abandonUnconfirmed({ kind: "access", code: "business_report_scope_changed" }); },
     revoke: () => revoke({ kind: "access", code: "business_report_scope_changed" }),
     async load(request = state.request): Promise<void> {
       const report = reportRequestSchema.parse(request);

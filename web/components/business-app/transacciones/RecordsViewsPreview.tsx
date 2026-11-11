@@ -8,14 +8,14 @@ import type { RecordsFilter } from "./RecordsToolbar";
 import type { PreviewFilters } from "./records-filter-preview-model";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import { useTransaccionesWords } from "./transacciones-words";
-import { showToast } from "../foundation/toasts";
+import { dismissToast, showToast } from "../foundation/toasts";
 import pointerAffordances from "@/components/sidebar/pointerAffordances.module.css";
 
 export type RecordsViewSelection = { record: RecordsFilter; period: Period; filters: PreviewFilters; preferences?: RecordsViewPreferences };
 export type SavedRecordsView = { id: string; name: string; selection: RecordsViewSelection };
 
-/** Restores the deleted view. Resolves false when the restore did not land, so Deshacer stays offered. */
-export type UndoDelete = () => Promise<boolean>;
+/** Restores the deleted view. Resolves false when the restore did not land, so Deshacer stays offered. If Reintentar later lands an unconfirmed restore, `landed` runs. */
+export type UndoDelete = (landed: () => void) => Promise<boolean>;
 export type RecordsViews = {
   items: { id: string; name: string }[];
   applied: { id: string; changed: boolean } | null;
@@ -81,7 +81,8 @@ function ViewsMenu({ views, close, registerCancel }: { views: RecordsViews; clos
     pendingFocus.current = views.items[index + 1]?.id ?? views.items[index - 1]?.id ?? FOOTER;
     const undo = await views.remove(id);
     if (!undo) return;
-    const offerUndo = () => showToast({ kind: "success", text: word("deleted", { name }), action: { label: t("business.transactions.undo"), run: () => { void undo().then((restored) => { if (!restored) offerUndo(); }); } } });
+    let offered = 0;
+    const offerUndo = () => { offered = showToast({ kind: "success", text: word("deleted", { name }), action: { label: t("business.transactions.undo"), run: () => { void undo(() => dismissToast(offered)).then((restored) => { if (!restored) offerUndo(); }); } } }); };
     offerUndo();
   };
   const nameRef = (id: string) => (node: HTMLButtonElement | null) => { if (node) names.current.set(id, node); else names.current.delete(id); };

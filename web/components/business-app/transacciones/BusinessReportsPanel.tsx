@@ -8,7 +8,7 @@ import { getMe } from "@/lib/argus-api";
 import { getChosenGrant } from "@/lib/business-grant";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import { isProgrammaticPop } from "@/lib/overlay-history";
-import { businessReportRow, liveReportingTransport, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportFailure, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
+import { businessReportRow, liveReportingTransport, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportFailure, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport, type ViewWriteResult } from "@/lib/business-reporting-wire";
 import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, reportPeriodSchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand } from "@/lib/business-reports-api";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
@@ -188,35 +188,38 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const applyView = (id: string | null) => { viewChoices.current += 1; setAppliedViewId(id); };
   const appliedView = views.find((view) => view.id === appliedViewId);
   const shownRecipe = preferences ? recipeFromRequest(state.request, recordsPresentationToReport(preferences)) : null;
+  // A write the server did not confirm finishes when Reintentar gets its answer, the way a first answer would have.
+  const outcome = async (write: Promise<ViewWriteResult>) => { const result = await write; return result.kind === "failed" && result.confirmed ? result.confirmed : result; };
   const updateView = async (id: string, name: string | undefined, viewRecipe: ReportRecipe | null) => {
     const view = views.find((view) => view.id === id);
     if (!view || !viewRecipe) return false;
-    const result = await controller.mutateView({ kind: "update", id, key: crypto.randomUUID(), body: { name: name ?? view.name, recipe: viewRecipe, expected_version: view.version } });
+    const result = await outcome(controller.mutateView({ kind: "update", id, key: crypto.randomUUID(), body: { name: name ?? view.name, recipe: viewRecipe, expected_version: view.version } }));
     return result.kind === "done";
   };
-  // The created view is the one the server returned. It is applied only if no view was chosen since the write started.
-  const createView = async (command: CreateViewCommand, applyIfNoChoiceSince: number | null) => {
+  // The created view is the one the server returned. It is applied only if no view was chosen since the write started, also when Reintentar confirms it later.
+  const createView = async (command: CreateViewCommand, applyIfNoChoiceSince: number | null): Promise<ViewWriteResult> => {
+    const apply = (result: ViewWriteResult) => { if (result.kind === "done" && result.view && applyIfNoChoiceSince === viewChoices.current) applyView(result.view.id); return result; };
     const result = await controller.mutateView(command);
-    if (result.kind === "done" && result.view && applyIfNoChoiceSince === viewChoices.current) applyView(result.view.id);
-    return result;
+    return result.kind === "failed" && result.confirmed ? { ...result, confirmed: result.confirmed.then(apply) } : apply(result);
   };
   const savedViews: RecordsViews = {
     items: views,
     applied: appliedView && shownRecipe ? { id: appliedView.id, changed: !sameRecipe(appliedView.recipe, shownRecipe) } : null,
     select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); applyView(id); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } },
-    save: async (name) => shownRecipe ? (await createView({ kind: "create", key: crypto.randomUUID(), body: { name, recipe: shownRecipe } }, viewChoices.current)).kind === "done" : false,
+    save: async (name) => shownRecipe ? (await outcome(createView({ kind: "create", key: crypto.randomUUID(), body: { name, recipe: shownRecipe } }, viewChoices.current))).kind === "done" : false,
     rename: (id, name) => updateView(id, name, views.find((view) => view.id === id)?.recipe ?? null),
     saveChanges: (id) => updateView(id, undefined, shownRecipe),
     remove: async (id) => {
       const view = views.find((view) => view.id === id);
       if (!view) return null;
       const choiceAtDelete = id === appliedViewId ? viewChoices.current : null;
-      const deleted = await controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } });
+      const deleted = await outcome(controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } }));
       if (deleted.kind !== "done") return null;
       // A retry after an unconfirmed restore sends the same key, so the server makes the view once.
       let restore: CreateViewCommand = { kind: "create", key: crypto.randomUUID(), body: { name: view.name, recipe: view.recipe } };
-      return async () => {
+      return async (landed) => {
         const result = await createView(restore, choiceAtDelete);
+        if (result.kind === "failed" && result.confirmed) void result.confirmed.then((confirmed) => { if (confirmed.kind === "done") landed(); });
         if (result.kind === "failed" && result.problem.kind !== "uncertain") restore = { ...restore, key: crypto.randomUUID() };
         return result.kind === "done";
       };
