@@ -76,9 +76,9 @@ async function mount(width: number, initial: boolean | undefined | "hold") {
   return {
     act, host, settle,
     bell: () => host.querySelector<HTMLButtonElement>('[aria-label="Notificaciones"]'),
-    notificationRequests: () => requests.filter((url) => /\/business\/invitations|\/email-intake\/senders/.test(url)),
-    release: async (available: boolean) => { await act(async () => release!({ ...(await fixture.workspace()), notifications_available: available } as BusinessWorkspaceInfo)); },
-    reload: async (available: boolean) => { answer = available; await act(async () => business!.reload()); await settle(() => (business!.records.workspace as BusinessWorkspaceInfo & { notifications_available?: boolean })?.notifications_available === available); },
+    notificationRequests: () => requests.filter((url) => /\/business\/(?:invitations|email\/senders)/.test(url)),
+    release: async (available: boolean) => { await act(async () => release!({ ...(await fixture.workspace()), notifications_available: available })); },
+    reload: async (available: boolean) => { answer = available; await act(async () => business!.reload()); await settle(() => business!.records.workspace?.notifications_available === available); },
   };
 }
 
@@ -86,7 +86,7 @@ for (const width of [1440, 390]) {
   for (const available of [false, undefined]) {
     test(`notifications ${String(available)}: no bell or notification requests at ${width}px`, async () => {
       const page = await mount(width, available);
-      assert.equal(page.bell(), null);
+      assert.equal(page.bell() !== null, false);
       assert.deepEqual(page.notificationRequests(), []);
     });
   }
@@ -100,11 +100,11 @@ for (const width of [1440, 390]) {
 
 test("the bell stays absent until the workspace answers, then follows refreshed availability", async () => {
   const page = await mount(1440, "hold");
-  assert.equal(page.bell(), null);
+  assert.equal(page.bell() !== null, false);
   assert.deepEqual(page.notificationRequests(), []);
   await page.release(true);
   assert.ok(page.bell());
   await page.reload(false);
-  assert.equal(page.bell(), null);
+  assert.equal(page.bell() !== null, false);
   assert.equal(document.querySelector('[role="dialog"]'), null);
 });
