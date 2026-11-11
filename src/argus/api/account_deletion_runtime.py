@@ -17,10 +17,29 @@ from typing import Any
 
 from loguru import logger
 
+from argus.observability.posthog_deletion import (
+    DeletionConfigurationError,
+    DeletionSetting,
+)
+
 _lock = threading.Lock()
 _pools: dict[str, Any] = {}
 _revokers: dict[str, Any] = {}
 _apple: dict[str, Any] = {}
+
+
+def failure_reason(exc: BaseException) -> str:
+    if type(exc) is DeletionConfigurationError and isinstance(
+        exc.setting, DeletionSetting
+    ):
+        return exc.setting.failure_message
+    origin = exc.__traceback__
+    if origin is None:
+        return "origin unavailable"
+    while origin.tb_next is not None:
+        origin = origin.tb_next
+    module = origin.tb_frame.f_globals.get("__name__", "unknown")
+    return f"{module}.{origin.tb_frame.f_code.co_name}:{origin.tb_lineno}"
 
 
 def _clock() -> datetime:
@@ -93,7 +112,11 @@ def standalone_revoker() -> Any:
             if plaid.configured:
                 hub.register(PlaidAdapter(PlaidClient(plaid)))
         except ValueError as exc:
-            logger.warning("Plaid revoke for deletion unavailable", reason=str(exc))
+            logger.warning(
+                "Plaid revoke for deletion unavailable: {} {}",
+                type(exc).__name__,
+                failure_reason(exc),
+            )
         _revokers["hub"] = hub
         return hub
 
@@ -120,7 +143,11 @@ def standalone_apple(pool: Any) -> Any | None:
             config = AppleSignInConfig.from_env()
             box = SecretBox.from_env()
         except (AppleSignInUnconfigured, SecretBoxUnavailable) as exc:
-            logger.warning("Apple revoke for deletion unavailable", reason=str(exc))
+            logger.warning(
+                "Apple revoke for deletion unavailable: {} {}",
+                type(exc).__name__,
+                failure_reason(exc),
+            )
             service = None
         else:
             service = AppleCredentialService(

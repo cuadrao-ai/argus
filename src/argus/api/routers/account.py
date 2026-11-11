@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from argus.api import state as api_state
 from argus.api.account_deletion_auth import deletion_requester
+from argus.api.account_deletion_runtime import failure_reason
 from argus.api.dependencies import problem
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import User
@@ -248,7 +249,11 @@ def account_deletion_eligibility(
         service = account_deletion_service()
         eligibility = service.deletion_eligibility(user.id) if service else None
     except Exception as exc:
-        logger.error("Account deletion check failed: {}", type(exc).__name__)
+        logger.error(
+            "Account deletion check failed: {} {}",
+            type(exc).__name__,
+            failure_reason(exc),
+        )
         eligibility = None
     if eligibility is None:
         raise problem(
@@ -284,7 +289,12 @@ def delete_account(
     # A guest session is deleted by the same command (Lane 6 acceptance).
     try:
         service = account_deletion_service()
-    except Exception:
+    except Exception as exc:
+        logger.error(
+            "Account deletion service failed to build: {} {}",
+            type(exc).__name__,
+            failure_reason(exc),
+        )
         service = None
     if service is None:
         started = getattr(request.state, "account_deletion_started", False)
