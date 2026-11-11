@@ -42,7 +42,7 @@ async function pressEscape(field: HTMLElement) {
 }
 async function saveView(page: Page, name: string) {
   await openMenu(page);
-  await page.click(inMenu("Guardar vista actual"));
+  await page.click(inMenu("Guardar vista actual") ?? inMenu("Guardar como vista nueva"));
   const field = nameField()!;
   await page.type(field, name);
   await pressEnter(field);
@@ -164,6 +164,80 @@ test("delete asks nothing, and Deshacer recreates the view with its name and rec
   assert.equal(restored.name, "Mi vista");
   assert.deepEqual(restored.recipe, saved.recipe, "the recipe it had, not the search typed since");
   assert.equal((saved.recipe as Recipe).filters.q, "");
+});
+
+const undoButton = () => [...document.querySelectorAll('[data-testid="toast-viewport"] button')].find((button) => button.textContent === "Deshacer");
+async function deleteApplied(page: Page, name: string, left: number) {
+  await openMenu(page);
+  await page.click(inMenu(`Eliminar ${name}`));
+  await page.settle(() => page.fixture.views.length === left);
+  await closeMenu(page);
+}
+async function choose(page: Page, name: string) {
+  await openMenu(page);
+  await page.click(inMenu(name));
+}
+async function appliedIs(page: Page, name: string, others: string[]) {
+  assert.equal(trigger()!.textContent, name);
+  await openMenu(page);
+  assert.equal(inMenu(name)!.getAttribute("aria-current"), "true");
+  for (const other of others) assert.equal(inMenu(other)!.getAttribute("aria-current"), null, `${other} is not applied`);
+  assert.equal(row(name)!.textContent!.includes("Con cambios"), false, "the table shows the applied view's recipe");
+  await closeMenu(page);
+}
+
+test("Deshacer gives the restored view back its applied place when nothing was chosen since", async () => {
+  await mountToasts();
+  const page = await mount();
+  await saveView(page, "Otra vista");
+  await saveView(page, "Mi vista");
+  await deleteApplied(page, "Mi vista", 1);
+  assert.equal(trigger()!.textContent, "Vistas");
+  await page.click(undoButton());
+  await page.settle(() => page.fixture.views.length === 2);
+  await appliedIs(page, "Mi vista", ["Otra vista"]);
+});
+
+test("Deshacer restores the view but keeps a view chosen after the delete", async () => {
+  await mountToasts();
+  const page = await mount();
+  await saveView(page, "Otra vista");
+  await search(page, "pena");
+  await saveView(page, "Mi vista");
+  await deleteApplied(page, "Mi vista", 1);
+  await choose(page, "Otra vista");
+  await page.click(undoButton());
+  await page.settle(() => page.fixture.views.length === 2);
+  await appliedIs(page, "Otra vista", ["Mi vista"]);
+});
+
+test("a view chosen while Deshacer or a save is still writing stays applied", async () => {
+  await mountToasts();
+  let release = () => {};
+  let held = false;
+  const page = await mount({ viewWriteGate: () => held ? new Promise<void>((resolve) => { release = resolve; }) : undefined });
+  await saveView(page, "Otra vista");
+  await search(page, "pena");
+  await saveView(page, "Mi vista");
+  await deleteApplied(page, "Mi vista", 1);
+
+  held = true;
+  await page.click(undoButton());
+  await choose(page, "Otra vista");
+  release();
+  await page.settle(() => page.fixture.views.length === 2);
+  await appliedIs(page, "Otra vista", ["Mi vista"]);
+
+  await search(page, "otra");
+  await openMenu(page);
+  await page.click(inMenu("Guardar como vista nueva"));
+  const field = nameField()!;
+  await page.type(field, "Con otra");
+  await pressEnter(field);
+  await page.click(inMenu("Mi vista"));
+  release();
+  await page.settle(() => page.fixture.views.length === 3);
+  await appliedIs(page, "Mi vista", ["Otra vista", "Con otra"]);
 });
 
 test("Con cambios shows only while the current recipe differs from the applied view", async () => {
