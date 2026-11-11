@@ -106,14 +106,19 @@ def test_aggregate_rejects_invalid_flag(tmp_path, flag):
     assert aggregate(tmp_path, flag).returncode != 0
 
 
-HEAVY_JOBS = {"BACKEND_CHECKS", "FRONTEND_CHECKS", "MARKETING_CHECKS", "DATABASE_CHECKS"}
+ALWAYS_REPORTED = {
+    "DOCS_CHANGE_GATE",
+    "OWNERSHIP_GATE",
+    "BACKEND_CHECKS",
+    "FRONTEND_CHECKS",
+    "MARKETING_CHECKS",
+    "DATABASE_CHECKS",
+}
 
 
 def selected(job, flag):
-    """A docs-only run selects docs-checks; any other run selects every heavy job."""
-    return job in {"DOCS_CHANGE_GATE", "OWNERSHIP_GATE"} or (
-        job == "DOCS_CHECKS" if flag == "true" else job in HEAVY_JOBS
-    )
+    """Docs-only selects docs-checks. The product checks always report success."""
+    return job in ALWAYS_REPORTED or (flag == "true" and job == "DOCS_CHECKS")
 
 
 def aggregate(tmp_path, flag="true", **overrides):
@@ -123,7 +128,15 @@ def aggregate(tmp_path, flag="true", **overrides):
         for key in step["env"]
     }
     heavy = "false" if flag == "true" else "true"
-    env.update(DOCS_ONLY=flag, RUN_HEAVY=heavy, RUN_MARKETING=heavy, **overrides)
+    env.update(
+        DOCS_ONLY=flag,
+        RUN_HEAVY=heavy,
+        RUN_MARKETING=heavy,
+        RUN_BACKEND=heavy,
+        RUN_FRONTEND=heavy,
+        RUN_DATABASE=heavy,
+        **overrides,
+    )
     return bash(step["run"], tmp_path, env)
 
 
