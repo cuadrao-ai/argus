@@ -406,11 +406,13 @@ They extend Forms below, including email aliases, authorized senders and invoici
   Nombre del negocio is the workspace display name, not a separate legal name.
   Show the saved operating country when known. Do not invent registry fields,
   completion percentages or registry facts. Only name, valid identification,
-  matching confirmed legal name, country and address count toward this checklist;
+  a confirmed legal name (or a server registry answer with no row), country and
+  address count toward this checklist;
   the phone's folded progress line counts those five saved facts. Filled green
-  checks and muted labels mean saved basic facts; incomplete basics use hollow
-  circles. Email, phone, website and description are optional, with quiet plus
-  icons instead of completion circles. Checklist rows open their source section.
+  checks and muted labels mean saved facts; incomplete basics use hollow circles.
+  Email, phone, website and description remain optional: saved rows use the same
+  check and muted label, empty rows use a quiet plus. They never count toward
+  progress or block completion. Checklist rows open their source section.
 - This checklist alone has a visit-only done state. After the last basic fact
   saves, show the filled check and done heading with a short fade, or instantly
   with reduced motion. Keep the subheading, announce completion once, and show
@@ -418,9 +420,10 @@ They extend Forms below, including email aliases, authorized senders and invoici
   checklist without changing the profile card's width. Empty optional sections
   retain their existing hints.
 - RNC o cédula and Razón social each have a separate 44px info target beside the
-  row button, using the shared tooltip. The legal-name help explains the registry
+  row button, using the shared tooltip. Help controls have their own accessible
+  name, with the tooltip text as their description. The legal-name help explains the registry
   name, not inclusion in the 606 or 607. Optional and done headings and both help
-  texts are marked placeholder copy pending approval.
+  texts and the help-control name are marked placeholder copy pending approval.
 - Address, province, municipality, business email, phone or WhatsApp, website and
   short description are optional business-provided details, separate from registry
   identity. They persist as one object in the existing scoped guide. An address

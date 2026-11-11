@@ -5,20 +5,21 @@ import {createRoot} from "react-dom/client";
 import i18next from "i18next";
 import {I18nextProvider} from "react-i18next";
 import {pageInset} from "./support/page-inset";
+import type {BusinessDataSource} from "../components/business-app/business-data";
 import type {BusinessContextValue} from "../components/business-app/BusinessWorkspace";
 
 beforeAll(()=>{GlobalRegistrator.register({url:"http://localhost/biz",settings:{navigation:{disableChildFrameNavigation:true}}});(globalThis as {IS_REACT_ACT_ENVIRONMENT?:boolean}).IS_REACT_ACT_ENVIRONMENT=true;});
 afterEach(()=>{document.body.innerHTML="";window.localStorage.clear();});
 afterAll(async()=>{await GlobalRegistrator.unregister();});
 
-async function mount(locale="es-419",live=false) {
+async function mount(locale="es-419",live=false,sourceOverrides:Partial<BusinessDataSource>={}) {
   const {default:Profile}=await import("../app/design-workspace/BusinessProfilePreview");
   const {BusinessContext}=await import("../components/business-app/BusinessWorkspace");
   const {createFixtureBusinessDataSource}=await import("../components/business-app/fixture-data");
   const messages=locale === "en" ? (await import("../public/locales/en/common.json")).default : (await import("../public/locales/es-419/common.json")).default;
   const i18n=i18next.createInstance();await i18n.init({lng:locale,resources:{[locale]:{translation:messages}}});
   const fixture=createFixtureBusinessDataSource({chatAvailable:true});
-  const context={invoicing:"sample" as const,source:live?{...fixture,mode:"live"}:fixture,chosen:{space_id:live?"55555555-5555-4555-8555-555555555555":"profile-test",name:"La Palma",role:"owner",permissions:["read","prepare","approve","manage"],capabilities:["read","prepare","approve"]},records:{workspace:{country:"DO"}},reload:()=>{},actions:{create:[]}} as unknown as BusinessContextValue;
+  const context={invoicing:"sample" as const,source:live?{...fixture,mode:"live",...sourceOverrides}:fixture,chosen:{space_id:live?"55555555-5555-4555-8555-555555555555":"profile-test",name:"La Palma",role:"owner",permissions:["read","prepare","approve","manage"],capabilities:["read","prepare","approve"]},records:{workspace:{country:"DO"}},reload:()=>{},actions:{create:[]}} as unknown as BusinessContextValue;
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   await act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Profile/></BusinessContext.Provider></I18nextProvider>));
   const button=(text:string,container:ParentNode=host)=>[...container.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent?.includes(text))!;
@@ -162,12 +163,14 @@ test("live Datos shows the server's confirmed legal name and its checklist item,
  }finally{await confirmed.close();globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;}
 });
 
-async function savedProfilePage({address = "", optional = false}: {address?: string; optional?: boolean} = {}) {
+async function savedProfilePage({address = "", optional = false, registry, locale = "es-419"}: {address?: string; optional?: boolean; registry?: "missing" | "listed" | "failed" | "recover"; locale?: string} = {}) {
   const previousFetch = globalThis.fetch;
   const previousAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   let details = {address, email: optional ? "team@example.com" : "", phone: optional ? "809-555-0100" : "", website: optional ? "https://example.com" : "", description: optional ? "Synthetic business" : ""};
   let finishSave: (() => void) | undefined;
+  let finishLookup: (() => void) | undefined;
+  const registryRequests: unknown[] = [];
   const profile = () => ({space_id:"55555555-5555-4555-8555-555555555555",name:"La Palma",country:"DO",currency:"DOP",revision:1,details,appearance:{kind:"default"},image:null});
   globalThis.fetch = async (url, init) => {
     if(String(url).endsWith("/profile")) {
@@ -177,11 +180,20 @@ async function savedProfilePage({address = "", optional = false}: {address?: str
       }
       return Response.json(profile());
     }
-    if(String(url).endsWith("/business/fiscal-profile")) return Response.json({name:"La Palma",tax_id:{type:"rnc",value:"131245678"},legal_name:{value:"Taller Palma de Ejemplo SRL",confirmed_at:"2026-11-09T12:00:00Z"},can_edit:true});
+    if(String(url).endsWith("/business/fiscal-profile")) return Response.json({name:"La Palma",tax_id:{type:"rnc",value:"131245678"},legal_name:registry ? null : {value:"Taller Palma de Ejemplo SRL",confirmed_at:"2026-11-09T12:00:00Z"},can_edit:true});
+    if(String(url).endsWith("/business/fiscal-profile/registry")) {
+      const body = JSON.parse(String(init?.body));
+      registryRequests.push(body);
+      const attempt = registryRequests.length;
+      await new Promise<void>(resolve => {finishLookup = resolve;});
+      if(registry === "failed" || registry === "recover" && attempt === 1) return Response.json({detail:"unavailable"},{status:503});
+      return Response.json({tax_id:body.tax_id,verification:registry === "listed" ? "verificado" : "sin_verificar",record:registry === "listed" ? {rnc:body.tax_id.value,name:"Taller Palma de Ejemplo SRL",trade_name:null,status:"ACTIVO",file_date:null} : null,checked_at:"2026-11-11T12:00:00Z"});
+    }
     throw new Error(`Unexpected request: ${url}`);
   };
-  const page = await mount("es-419", true);
-  return {...page, saved: () => act(async () => finishSave?.()), close: async () => {
+  const {lookupRegistry,setLegalName} = await import("../lib/business-dgii");
+  const page = await mount(locale, true, registry ? {lookupRegistry,saveLegalName:setLegalName} : {});
+  return {...page, registryRequests, registrySettled: () => act(async () => finishLookup?.()), saved: () => act(async () => finishSave?.()), close: async () => {
     await page.close();
     globalThis.fetch = previousFetch;
     if(previousAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousAuth;
@@ -198,7 +210,7 @@ test("the profile counts only basic saved facts and optional rows do not ask for
       expect(row.querySelector("svg.lucide-plus")).not.toBeNull();
       expect(row.textContent).not.toContain("Pendiente");
     }
-    const help = page.host.querySelector<HTMLButtonElement>('[aria-label="RNC o cédula"]');
+    const help = page.host.querySelector<HTMLButtonElement>('[aria-label="Más sobre RNC o cédula"]');
     expect(help).not.toBeNull();
     expect(help?.closest('[data-profile-checklist]')).toBeNull();
     await page.click(help!);
@@ -248,7 +260,92 @@ test("the last basic fact shows the done moment only after its save, once for th
 test("the phone's folded checklist counts only the five basics", async () => {
   const previous = window.innerWidth;
   window.happyDOM.setWindowSize({width:390,height:844});
-  const page = await savedProfilePage();
+  const page = await savedProfilePage({optional:true});
   try {expect(page.host.textContent).toContain("4 de 5 listos");}
   finally {await page.close();window.happyDOM.setWindowSize({width:previous,height:768});}
+});
+
+
+test.each([false, true])("optional saved=%s uses the saved fact's icon without changing progress", async (optional) => {
+  const page = await savedProfilePage({optional});
+  try {
+    for(const key of ["email", "phone", "website", "description"]) {
+      const row = page.host.querySelector(`[data-profile-checklist="${key}"]`)!;
+      expect(Boolean(row.querySelector("svg.lucide-check"))).toBe(optional);
+      expect(Boolean(row.querySelector("svg.lucide-plus"))).toBe(!optional);
+      if(optional) {
+        expect(row.querySelector('[aria-hidden="true"]')?.className).toContain("bg-[#2f5a49]");
+        expect(row.querySelector("span:last-child")?.className).toContain("text-[#56635e]");
+      }
+    }
+    expect(page.host.querySelector("#profile-next-title")?.textContent).toBe("Completa tu perfil");
+  } finally {await page.close();}
+});
+
+test.each(["es-419", "en"])("%s checklist help has its own accessible name and the tooltip description", async (locale) => {
+  const page = await savedProfilePage({locale});
+  try {
+    for(const key of ["taxId", "legalName"]) {
+      const row = page.host.querySelector<HTMLButtonElement>(`[data-profile-checklist="${key}"]`)!;
+      const help = row.parentElement!.querySelector<HTMLButtonElement>('button[aria-label]')!;
+      expect(help).not.toBeNull();
+      const label = row.querySelector("span:last-child")!.firstChild!.textContent;
+      expect(help.getAttribute("aria-label")).toBe(`${locale === "en" ? "More about" : "Más sobre"} ${label}`);
+      expect(help.getAttribute("aria-label")).not.toBe(row.textContent);
+      await act(async () => help.dispatchEvent(new MouseEvent("mouseover", {bubbles:true})));
+      await act(async () => new Promise(resolve => setTimeout(resolve,310)));
+      const description = document.getElementById(help.getAttribute("aria-describedby")!);
+      expect(description?.getAttribute("role")).toBe("tooltip");
+      expect(description?.textContent?.trim()).toBe(key === "taxId"
+        ? locale === "en" ? "Used in your 606 and 607 reports." : "Va en tus reportes 606 y 607."
+        : locale === "en" ? "The name the DGII has for your RNC." : "El nombre que la DGII tiene para tu RNC.");
+      await act(async () => help.dispatchEvent(new MouseEvent("mouseout", {bubbles:true})));
+    }
+  } finally {await page.close();}
+});
+
+test.each(["missing", "listed", "failed"] as const)("registry %s controls whether an unconfirmed legal name can finish the checklist", async (registry) => {
+  const page = await savedProfilePage({registry});
+  try {
+    expect(page.registryRequests).toEqual([{tax_id:{type:"rnc",value:"131245678"}}]);
+    expect(page.host.textContent).not.toContain("Tu perfil está listo");
+    await page.registrySettled();
+    await page.click(page.button("Ubicación y contacto"));
+    await page.type("profile-address", "Calle Sol 10");
+    await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+    await page.saved();
+    await page.click(document.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!);
+    expect(page.host.querySelector("#profile-next-title")?.textContent).toBe(registry === "missing" ? "Tu perfil está listo" : "Completa tu perfil");
+  } finally {await page.close();}
+});
+
+test("a fresh complete unlisted profile does not replay completion while its registry read loads", async () => {
+  const page = await savedProfilePage({registry:"missing",address:"Calle Sol 10"});
+  try {
+    expect(page.host.textContent).not.toContain("Tu perfil está listo");
+    await page.registrySettled();
+    expect(page.host.querySelector("#profile-next-title")).toBeNull();
+  } finally {await page.close();}
+});
+
+
+test("returning from identity rechecks a failed registry lookup before completing an unlisted profile", async () => {
+  const page = await savedProfilePage({registry:"recover",address:"Calle Sol 10"});
+  try {
+    await page.registrySettled();
+    expect(page.host.querySelector("#profile-next-title")?.textContent).toBe("Completa tu perfil");
+    await page.click(page.host.querySelector<HTMLButtonElement>('[data-profile-checklist="legalName"]')!);
+    expect(page.registryRequests).toHaveLength(2);
+    await page.registrySettled();
+    expect(document.querySelector('[data-testid="legal-name"]')?.getAttribute("data-legal-name-status")).toBe("unverified");
+    await page.click(document.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!);
+    expect(page.registryRequests).toHaveLength(3);
+    await act(async () => new Promise(resolve => requestAnimationFrame(resolve)));
+    const opener = page.host.querySelector<HTMLButtonElement>('[data-profile-checklist="legalName"]');
+    expect(opener).not.toBeNull();
+    expect(document.activeElement).toBe(opener);
+    await page.registrySettled();
+    expect(document.activeElement).toBe(opener);
+    expect(page.host.querySelector("#profile-next-title")?.textContent).toBe("Tu perfil está listo");
+  } finally {await page.close();}
 });

@@ -4636,6 +4636,7 @@
       "profile_address": "Business address",
       "profile_card_empty_contact": "No contact details have been saved yet.",
       "profile_checklist_done_placeholder": "Your profile is ready",
+      "profile_checklist_help_placeholder": "More about {{field}}",
       "profile_checklist_legal_help_placeholder": "The name the DGII has for your RNC.",
       "profile_checklist_optional_placeholder": "Optional",
       "profile_checklist_tax_help_placeholder": "Used in your 606 and 607 reports.",

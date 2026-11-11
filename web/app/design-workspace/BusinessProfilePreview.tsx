@@ -5,6 +5,7 @@ import { Check, Info, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessContext, invoicingShown, useBusiness } from "@/components/business-app/BusinessWorkspace";
 import BusinessFiscalProfile, {type FiscalProfileDraft} from "@/components/business-app/BusinessFiscalProfile";
+import { useRegistryLookup } from "@/components/business-app/DgiiRegistryStatus";
 import { RowActionLabel } from "@/components/business-app/foundation/RowAction";
 import { SURFACE_CARD } from "@/components/business-app/foundation/surfaces";
 import IdentityEditor from "@/components/identity/IdentityEditor";
@@ -108,7 +109,8 @@ function BusinessProfileContent() {
   const previewProfile = useMemo(()=>{void raw;return readBusinessProfilePreview(live?emptyStorage:storage(),businessId,name,country);},[raw,businessId,name,country,live]);
   // The legal name has one owner, the server's fiscal profile; the local preview has none.
   const legalName = fiscal?.legal_name?.value ?? null;
-  const profile = live && server.profile ? {...previewProfile,name:server.profile.name??"",country:server.profile.country,taxId:fiscal?.tax_id??null,legalName,providedDetails:server.profile.details,checklist:profileChecklist({name:server.profile.name??"",country:server.profile.country,taxId:fiscal?.tax_id??null,legalName},server.profile.details)} : previewProfile;
+  const {lookup:registryLookup,retry:retryRegistry} = useRegistryLookup(live && !legalName ? fiscal?.tax_id ?? null : null);
+  const profile = live && server.profile ? {...previewProfile,name:server.profile.name??"",country:server.profile.country,taxId:fiscal?.tax_id??null,legalName,providedDetails:server.profile.details,checklist:profileChecklist({name:server.profile.name??"",country:server.profile.country,taxId:fiscal?.tax_id??null,legalName},server.profile.details,registryLookup?.status === "done" ? registryLookup.answer : null)} : previewProfile;
   const title = formatBusinessName(profile.name,t("business.overview.title","My business"));
   const taxType = profile.taxId?.type;
   const taxValue = profile.taxId?.value;
@@ -141,6 +143,7 @@ function BusinessProfileContent() {
   if(!live && invoicingShown(workspace.invoicing))sections.push({key:"invoicing",title:t("workspace_setup_preview.invoice_title"),summary:t(`workspace_setup_preview.invoice_${profile.invoice.status.replaceAll("-","_")}`)});
   const applySelection = ({section,trigger}:Selection)=>{
     if(trigger) opener.current = trigger;
+    if(selected === "identity" && live && !legalName)retryRegistry();
     setFiscalDraft(null);setProvidedDraft(null);setDirty(false);setSelected(section);setPending(null);
     refresh();
     if(section === null) requestAnimationFrame(()=>{
@@ -159,12 +162,12 @@ function BusinessProfileContent() {
   const selectedTitle = selected === "appearance" ? t("identity.change_image") : sections.find(section=>section.key === selected)?.title ?? "";
   const basics = profile.checklist.filter(item=>item.section === "basic");
   const basicsComplete = basics.every(item=>item.complete);
-  const factsReady = !live || Boolean(server.profile && fiscal);
+  const factsReady = !live || Boolean(server.profile && fiscal && registryLookup?.status !== "checking");
   const [checklistVisit,setChecklistVisit] = useState<"unseen"|"incomplete"|"done">("unseen");
   if(factsReady && !basicsComplete && checklistVisit === "unseen")setChecklistVisit("incomplete");
   if(factsReady && basicsComplete && checklistVisit === "incomplete")setChecklistVisit("done");
   const done = basicsComplete && checklistVisit === "done";
-  const showChecklist = !selected && (!basicsComplete || done);
+  const showChecklist = (factsReady || checklistVisit !== "unseen") && !selected && (!basicsComplete || done);
   const checklistHeading = t(done ? "business.settings.profile_checklist_done_placeholder" : "business.settings.profile_finish");
   const checklistHelp: Partial<Record<ProfileChecklistKey,string>> = {
     taxId:t("business.settings.profile_checklist_tax_help_placeholder"),
@@ -172,10 +175,10 @@ function BusinessProfileContent() {
   };
   const checklistRows = (section:"basic"|"additional")=><ul className="mt-3">{profile.checklist.filter(item=>item.section===section).map(item=><li key={item.key} className="flex items-center gap-1">
     <button type="button" data-profile-checklist={item.key} onClick={event=>select({section:checklistSection[item.key],trigger:event.currentTarget})} className={`flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-item text-left focus-visible:outline-2 focus-visible:outline-offset-2 ${section === "basic" ? "text-[16px]" : "text-[15px] text-[#56635e] dark:text-white/70"}`}>
-      <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${section === "additional" ? "text-[#56635e] dark:text-white/55" : item.complete ? "bg-[#2f5a49] text-white dark:bg-[#8fcbb0] dark:text-[#13211c]" : "border border-black/25 dark:border-white/35"}`}>{section === "additional" ? <Plus className="h-4 w-4"/> : item.complete ? <Check className="h-3 w-3"/> : null}</span>
-      <span className={item.complete ? "text-[#56635e] dark:text-white/60" : ""}>{labels[item.key]}{section === "basic" ? <span className="sr-only"> · {t(item.complete ? "business.settings.profile_saved" : "business.settings.profile_pending")}</span> : null}</span>
+      <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${item.complete ? "bg-[#2f5a49] text-white dark:bg-[#8fcbb0] dark:text-[#13211c]" : section === "additional" ? "text-[#56635e] dark:text-white/55" : "border border-black/25 dark:border-white/35"}`}>{item.complete ? <Check className="h-3 w-3"/> : section === "additional" ? <Plus className="h-4 w-4"/> : null}</span>
+      <span className={item.complete ? "text-[#56635e] dark:text-white/60" : ""}>{labels[item.key]}{section === "basic" || item.complete ? <span className="sr-only"> · {t(item.complete ? "business.settings.profile_saved" : "business.settings.profile_pending")}</span> : null}</span>
     </button>
-    {checklistHelp[item.key] ? <Tooltip content={checklistHelp[item.key]!} side="top"><button type="button" aria-label={labels[item.key]} className="-mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-item text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-white/60"><Info aria-hidden="true" className="h-4 w-4"/></button></Tooltip> : null}
+    {checklistHelp[item.key] ? <Tooltip content={checklistHelp[item.key]!} side="top"><button type="button" aria-label={t("business.settings.profile_checklist_help_placeholder",{field:labels[item.key]})} className="-mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-item text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-white/60"><Info aria-hidden="true" className="h-4 w-4"/></button></Tooltip> : null}
   </li>)}</ul>;
   const checklistDetails = <p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.settings.profile_finish_detail")}</p>;
   const optionalHeading = t("business.settings.profile_checklist_optional_placeholder");
