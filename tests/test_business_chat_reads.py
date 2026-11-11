@@ -110,3 +110,16 @@ def test_business_messages_history_and_search_match_the_base_shape(client) -> No
         "decided_runs",
     }
     assert set(hit["match"]) >= {"layer", "fragment", "count"}
+
+    activity = client.get(
+        f"/api/v1/conversations/{conversation_id}/activity", headers=_as(ALICE)
+    )
+    assert activity.status_code == 200, activity.text
+    assert activity.json()["attention"]["status"] == "none"
+    unread = client.patch(
+        f"/api/v1/conversations/{conversation_id}/activity",
+        json={"action": "mark_unread"},
+        headers=_as(ALICE),
+    )
+    assert unread.status_code == 200, unread.text
+    assert unread.json()["attention"]["status"] == "manual_unread"

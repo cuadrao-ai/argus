@@ -14,6 +14,8 @@ from argus.api.routers import (
     auth,
     auth_apple,
     business_conversations,
+    conversation_activity,
+    dev,
     feedback,
     financial_accounts,
     household_financial,
@@ -54,6 +56,8 @@ def health() -> dict[str, str | None]:
 for api_router in (
     auth.router,
     auth_apple.router,
+    conversation_activity.router,
+    dev.router,
     business_conversations.router,
     profile.router,
     profile_apple_name.router,

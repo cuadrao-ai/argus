@@ -24,8 +24,9 @@ from argus.domain.job_settlement import (
     RESEARCH_OPERATION_SCOPE,
     evaluate,
 )
-from argus.domain.retest_setup import EVIDENCE_IDENTITY_KEYS
 from argus.domain.store import AlphaStore, utcnow
+
+_EVIDENCE_IDENTITY_KEYS = ("evidence_artifact_id", "idea_id", "idea_version_id")
 
 _MAX_CONVERSATIONS = 100
 
@@ -166,7 +167,7 @@ def _memory_run_result_readable(
         return False
     card = run.conversation_result_card
     if not all(
-        isinstance(card.get(key), str) and card[key] for key in EVIDENCE_IDENTITY_KEYS
+        isinstance(card.get(key), str) and card[key] for key in _EVIDENCE_IDENTITY_KEYS
     ):
         return False
     artifact_id = str(card["evidence_artifact_id"])

@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query, Request
 
 from argus.api import state as api_state
+from argus.api.conversation_activity import conversation_activity_service
 from argus.api.conversation_previews import conversation_previews
 from argus.api.conversation_surface import (
     memory_conversation_in_scope,
@@ -17,10 +18,7 @@ from argus.api.pagination import decode_cursor, encode_cursor
 from argus.api.schemas import (
     BulkConversationDeleteResponse,
     Conversation,
-    ConversationActivity,
-    ConversationAttention,
     ConversationCreate,
-    ConversationOperation,
     ConversationPatch,
     ConversationResponse,
     HistoryItem,
@@ -63,13 +61,13 @@ def _rows(user: User, scope, *, deleted: bool | None = False, archived: bool | N
         and (deleted is None or (conversation.deleted_at is not None) is deleted)
         and (archived is None or conversation.archived is archived)
     ]
-def _activity(conversation: Conversation) -> ConversationActivity:
-    messages = api_state.store.messages.get(conversation.id, [])
-    return ConversationActivity(
-        operation=ConversationOperation(status="idle"),
-        attention=ConversationAttention(status="none"),
-        latest_message_id=messages[-1].id if messages else None,
+def _with_activity(conversations: list[Conversation], user_id: str) -> list[Conversation]:
+    if not conversations:
+        return []
+    activities = conversation_activity_service.project(
+        user_id=user_id, conversation_ids=[item.id for item in conversations]
     )
+    return [item.model_copy(update={"activity": activities[item.id]}) for item in conversations]
 def _missing(request: Request, conversation: Conversation | None) -> None:
     detail = "Conversation not found." if conversation is not None and conversation.surface == "business" else "Not Found"
     raise problem(request, status_code=404, code="not_found", title="Not Found", detail=detail)
@@ -77,13 +75,15 @@ def _missing(request: Request, conversation: Conversation | None) -> None:
 def create_conversation(payload: ConversationCreate, request: Request, user: User = Depends(current_user)) -> ConversationResponse:  # noqa: B008
     scope = surface_scope(request, user_id=user.id, surface=payload.surface)
     refuse_closed_chat(request, payload.surface)
-    return ConversationResponse(conversation=_remember(
+    created = _remember(
         payload.title or "New idea", "user_renamed" if payload.title else "system_default",
         payload.language or user.language, scope, user.id,
-    ))
+    )
+    return ConversationResponse(conversation=_with_activity([created], user.id)[0])
 @router.get("/conversations", response_model=PaginatedConversations)
 def list_conversations(request: Request, surface: str = Query("personal"), user: User = Depends(current_user)) -> PaginatedConversations:  # noqa: B008
-    return PaginatedConversations(items=_rows(user, surface_scope(request, user_id=user.id, surface=surface)))  # type: ignore[arg-type]
+    rows = _rows(user, surface_scope(request, user_id=user.id, surface=surface))  # type: ignore[arg-type]
+    return PaginatedConversations(items=_with_activity(rows, user.id))
 @router.delete("/conversations", response_model=BulkConversationDeleteResponse)
 def delete_conversations(request: Request, surface: str = Query("personal"), user: User = Depends(current_user)) -> BulkConversationDeleteResponse:  # noqa: B008
     scope = surface_scope(request, user_id=user.id, surface=surface)  # type: ignore[arg-type]
@@ -122,9 +122,6 @@ def list_messages(
         items=page, surface=conversation.surface,
         next_cursor=encode_cursor(last.created_at.isoformat(), last.id) if last else None,
     )
-@router.get("/conversations/{conversation_id}/activity")
-def read_activity(conversation_id: str, request: Request, user: User = Depends(current_user)) -> ConversationActivity:  # noqa: B008
-    return _activity(_owned(request, user, conversation_id))
 @router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
 def patch_conversation(conversation_id: str, payload: ConversationPatch, request: Request, user: User = Depends(current_user)) -> ConversationResponse:  # noqa: B008
     conversation = _owned(request, user, conversation_id)
@@ -133,7 +130,7 @@ def patch_conversation(conversation_id: str, payload: ConversationPatch, request
         update["updated_at"] = utcnow()
         conversation = conversation.model_copy(update=update)
         api_state.store.conversations[conversation_id] = conversation
-    return ConversationResponse(conversation=conversation)
+    return ConversationResponse(conversation=_with_activity([conversation], user.id)[0])
 @router.delete("/conversations/{conversation_id}")
 def delete_conversation(conversation_id: str, request: Request, user: User = Depends(current_user)) -> dict[str, bool]:  # noqa: B008
     conversation = _owned(request, user, conversation_id)
@@ -148,14 +145,32 @@ def history(
     scope = surface_scope(request, user_id=user.id, surface=surface)  # type: ignore[arg-type]
     page = sorted(_rows(user, scope, deleted=deleted, archived=archived), key=lambda item: (item.pinned, item.updated_at, item.id), reverse=True)[:limit]
     previews = conversation_previews(user_id=user.id, conversation_ids=[item.id for item in page])
+    runs = [
+        HistoryItem(
+            type="run",
+            id=run.id,
+            title=(run.conversation_result_card or {}).get("title") or "",
+            subtitle=((run.conversation_result_card or {}).get("rows") or [{}])[0].get("value") or "",
+            created_at=run.created_at,
+            conversation_id=run.conversation_id,
+        )
+        for run_id, run in api_state.store.backtest_runs.items()
+        if api_state.store.backtest_run_owners.get(run_id) == user.id
+        and (not run.conversation_id or memory_conversation_in_scope(run.conversation_id, scope))
+        and not deleted
+        and not archived
+    ]
+    activities = conversation_activity_service.project(
+        user_id=user.id, conversation_ids=[item.id for item in page]
+    ) if page else {}
     return PaginatedHistory(items=[
         HistoryItem(
             type="chat", id=item.id, title=item.title, title_source=item.title_source,
             subtitle=previews[item.id].text or "", pinned=item.pinned, created_at=item.updated_at,
-            activity=_activity(item), preview=previews[item.id],
+            activity=activities[item.id], preview=previews[item.id],
         )
         for item in page
-    ])
+    ] + runs)
 def _match(conversation: Conversation, query: str) -> tuple[str, str | None] | None:
     if not query or query in conversation.title.lower():
         return conversation.title, None
