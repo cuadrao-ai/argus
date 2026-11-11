@@ -66,7 +66,8 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
   const total = inboxCount(records);
   const waiting = receptionRows(records.inbox ?? [], records.notes ?? [], records.emails ?? []);
   const listsIn = records.inbox !== null && (records.notes !== null || Boolean(records.notesFailure)) && (records.emails !== null || Boolean(records.emailsFailure));
-  const failed = records.error || (total === null && Boolean(records.serverReference));
+  // A completed receipt read without counts cannot become ready by waiting longer.
+  const failed = records.error || (total === null && (records.inbox !== null || Boolean(records.serverReference)));
   const seeAll = (
     <button type="button" data-testid="home-attention-see-all" className={`${quietButtonClass} ${HOME_TYPE.action}`} onClick={() => openPanel({ kind: "inbox" })}>
       {t("business.inicio.attention.see_all")}
@@ -88,8 +89,7 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
       </div>,
     );
   }
-  // Rows show once their lists are in, with a count only once the server has counted; an empty card waits for that
-  // count and for whether any document ever arrived.
+  // Rows wait for their lists; an empty card also waits for whether any document ever arrived.
   // The server's count decides an empty card: zero is empty whatever rows another list still holds.
   const empty = total === 0 || (total === null && waiting.length === 0);
   if (!listsIn || (empty && (total === null || firstDay === null))) return card(<SkeletonRows />);

@@ -237,11 +237,15 @@ describe("Inicio on a live Business", () => {
     } finally { await page.close(); }
   });
 
-  test("an unknown review count keeps the Bandeja rows the server did send", async () => {
+  test("a completed receipt read without a review count offers retry instead of an unfinished card", async () => {
     const page = await mount("view=overview", { receiptPage: undefined }, "u-1");
     try {
-      await page.settle(() => (card(page)?.querySelectorAll("li[data-kind]").length ?? 0) > 0);
-      assert.ok((card(page)?.querySelectorAll("li[data-kind]").length ?? 0) > 0, "the rows the server sent");
+      await page.settle(() => failedCard(page));
+      const error = card(page)?.querySelector('[data-testid="home-attention-error"]');
+      assert.ok(error);
+      assert.ok([...error.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Reintentar"));
+      assert.equal(card(page)?.querySelector('[aria-busy="true"]'), null);
+      assert.equal(card(page)?.querySelector('[data-testid="home-attention-rows"]'), null);
       assert.equal(card(page)?.querySelector('[data-testid="home-attention-count"]'), null, "no count it could not read");
     } finally { await page.close(); }
   });
@@ -267,7 +271,7 @@ describe("Inicio on a live Business", () => {
   test("shows no sample recents or setup, and no count it could not read", async () => {
     const page = await mount("view=overview", { receiptPage: undefined, setup: undefined });
     try {
-      await page.settle(() => (card(page)?.querySelectorAll("li[data-kind]").length ?? 0) > 0);
+      await page.settle(() => failedCard(page));
       const text = page.host.textContent ?? "";
       for (const sample of ["Factura a Taller Brisa", "Configurar negocio", "Continuar trabajando", "facturas en borrador"]) {
         assert.ok(!text.includes(sample), `no "${sample}" on a live Business without its data`);

@@ -97,9 +97,10 @@ test("Inicio and the Bandeja use the same server count and follow its updates", 
   assert.equal(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length, reportRequests, "receipt activity updates do not request another report");
 });
 
-test("Inicio does not request a report while its shared receipt count is unknown", async () => {
+test("Inicio offers retry without requesting a report when a completed receipt read has no count", async () => {
   const page = await mount(null, false);
-  assert.ok(page.host.querySelector('[data-testid="home-attention"] [aria-busy="true"]'));
+  assert.ok(page.host.querySelector('[data-testid="home-attention-error"]'));
+  assert.equal(page.host.querySelector('[data-testid="home-attention"] [aria-busy="true"]'), null);
   assert.equal(page.fixture.calls.length, 0);
   await page.update(28);
   assert.equal(page.host.querySelector('[data-testid="home-attention-count"]')?.textContent, "28");

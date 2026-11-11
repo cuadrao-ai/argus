@@ -13,6 +13,7 @@ import { supportEmail } from "../lib/support-email";
 const baseURL = process.env.EVIDENCE_BASE_URL ?? "http://127.0.0.1:3198";
 if (!["127.0.0.1", "localhost"].includes(new URL(baseURL).hostname)) throw new Error("Evidence requires a local server");
 const stage = process.env.EVIDENCE_STAGE ?? "after";
+const theme = process.env.EVIDENCE_THEME === "dark" ? "dark" : "light";
 const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const output = resolve(process.env.EVIDENCE_OUTPUT ?? "../temp/lucas-design-server-fields", stage);
 mkdirSync(output, { recursive: true });
@@ -21,7 +22,7 @@ const receiptChecks: { state: string; width: number; retry: boolean; recovered?:
 const monthChecks: { width: number; reads_before: number; reads_after: number }[] = [];
 const retryChecks: { width: number; notes_before: number; notes_after: number; emails_before: number; emails_after: number }[] = [];
 const evidence: { file: string; sha256: string; state: string; width: number }[] = [];
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.EVIDENCE_BROWSER_PATH });
 try {
   for (const state of cases) {
     for (const width of [1440, 390]) {
@@ -33,7 +34,7 @@ try {
         unexpected.push(url.origin);
         return route.abort();
       });
-      await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
+      await installBreakpointFixture(page, { language: "es-419", theme, emptyChat: true });
       const source = createFixtureBusinessDataSource({ chatAvailable: false });
       const spaces = (await source.spaces()).slice(0, 1);
       const calls = { notes: 0, emails: 0, receipts: 0, month: 0 };
@@ -57,7 +58,7 @@ try {
           if ((state === "inicio-receipts-failed" || state === "inicio-receipts-tasks") && receiptsDown) return route.abort("connectionfailed");
           if (state === "inicio-receipts-refused") return refuse();
           if (state === "inicio-receipts-loading") await receiptRead;
-          if (state === "inicio-receipts-unknown") return route.fulfill({ json: { items: [], activity: null } });
+          if (state === "inicio-receipts-unknown" && receiptsDown) return route.fulfill({ json: { items: [], activity: null } });
         }
         if ((state === "bandeja-refused" || state === "bandeja-mixed") && path === "captures") { calls.notes += 1; return refuse(); }
         if (state === "bandeja-refused" && path === "email/deliveries") return refuse(503, "email_capture_unavailable");
@@ -106,8 +107,8 @@ try {
       const monthBody = page.getByTestId("home-month-body");
       const monthRetry = monthBody.getByRole("button", { name: "Reintentar", exact: true });
       const moneyError = page.getByTestId("month-close-money-error");
-      const receiptsFail = state === "inicio-receipts-failed" || state === "inicio-receipts-tasks";
-      const attentionFails = receiptsFail || state === "inicio-business-refused" || state === "inicio-receipts-refused";
+      const receiptsRetryable = state === "inicio-receipts-failed" || state === "inicio-receipts-tasks" || state === "inicio-receipts-unknown";
+      const attentionFails = receiptsRetryable || state === "inicio-business-refused" || state === "inicio-receipts-refused";
       const monthFails = state === "inicio-month-refused" || state === "inicio-month-500";
       // Inicio never claims a count, "Todo al día" or a first day the server did not send.
       const noAttentionClaim = async () => {
@@ -165,8 +166,8 @@ try {
           await expect(attentionError).toBeVisible();
           await expect(attentionError).toHaveAttribute("role", "alert");
           await expect(attentionError).toContainText("No pudimos cargar lo pendiente.");
-          await expect(attentionRetry).toHaveCount(receiptsFail ? 1 : 0);
-          if (receiptsFail) await expect(attentionError).not.toContainText(supportEmail);
+          await expect(attentionRetry).toHaveCount(receiptsRetryable ? 1 : 0);
+          if (receiptsRetryable) await expect(attentionError).not.toContainText(supportEmail);
           else {
             await expect(attentionError).toContainText(`Si crees que es un error, escríbenos a ${supportEmail}.`);
             await expect(attentionError).not.toContainText("conexión");
@@ -179,9 +180,9 @@ try {
             expect(box!.y).toBeGreaterThanOrEqual(0);
             expect(box!.y + box!.height, "the failed read and its way out stay on the first phone screen").toBeLessThanOrEqual(780);
           }
-          receiptChecks.push({ state, width, retry: receiptsFail });
+          receiptChecks.push({ state, width, retry: receiptsRetryable });
         } else await expect(attentionError).toHaveCount(0);
-        if (state === "inicio-receipts-loading" || state === "inicio-receipts-unknown") {
+        if (state === "inicio-receipts-loading") {
           await expect(attentionLoading).toBeVisible();
           await expect(attentionLoading).toHaveAttribute("aria-busy", "true");
           await expect(attentionLoading).toContainText("Cargando la Bandeja");
@@ -241,7 +242,7 @@ try {
         await page.screenshot({ path: resolve(output, detail), fullPage: true });
         evidence.push({ file: detail, sha256: createHash("sha256").update(readFileSync(resolve(output, detail))).digest("hex"), state, width });
       }
-      if (receiptsFail) {
+      if (receiptsRetryable) {
         const before = calls.receipts;
         receiptsDown = false;
         await attentionRetry.click();
@@ -303,6 +304,6 @@ try {
   throw error;
 } finally {
   await browser.close();
-  writeFileSync(resolve(output, "manifest.json"), JSON.stringify({ head, stage, proof: "synthetic fixture proof", generated_at: new Date().toISOString(), retryChecks, receiptChecks, monthChecks, evidence }, null, 2));
+  writeFileSync(resolve(output, "manifest.json"), JSON.stringify({ head, stage, theme, browser: browser.version(), proof: "synthetic fixture proof", generated_at: new Date().toISOString(), retryChecks, receiptChecks, monthChecks, evidence }, null, 2));
 }
 console.log(`Captured ${evidence.length} synthetic screenshots at ${head}`);

@@ -115,7 +115,7 @@ describe("Necesita atención", () => {
   });
 
   test("loading shows row shapes and no count, never Todo al día before the server counted", async () => {
-    for (const options of [{ waiting: null, rows: [], notes: [] }, { rows: null }, { waiting: 0, rows: [], notes: [], firstDay: null }] as AttentionOptions[]) {
+    for (const options of [{ waiting: null, rows: null, notes: [] }, { rows: null }, { waiting: 0, rows: [], notes: [], firstDay: null }] as AttentionOptions[]) {
       const page = await attention(options);
       try {
         assert.ok(page.card().querySelector('[data-testid="home-attention-loading"]'));
@@ -125,11 +125,20 @@ describe("Necesita atención", () => {
     }
   });
 
-  test("rows the server sent show before it has counted them, with no count", async () => {
-    const page = await attention({ waiting: null });
+  test.each([false, true])("a completed receipt read with unknown counts offers retry instead of loading (has rows: %s)", async (hasRows) => {
+    const page = await attention({ waiting: null, rows: hasRows ? await receipts() : [], notes: [] });
     try {
-      assert.equal(page.card().querySelectorAll('[data-testid="home-attention-rows"] > li').length, 6);
-      assert.equal(page.card().querySelector('[data-testid="home-attention-count"]'), null);
+      const error = page.card().querySelector('[data-testid="home-attention-error"]');
+      assert.ok(error, "receipts loaded without activity counts is a final read error");
+      assert.equal(error.getAttribute("role"), "alert");
+      assert.equal(error.querySelector("p")?.textContent, "No pudimos cargar lo pendiente.");
+      for (const state of ["loading", "count", "clear", "first-day", "rows"]) {
+        assert.equal(page.card().querySelector(`[data-testid="home-attention-${state}"]`), null, state);
+      }
+      const retry = [...error.querySelectorAll("button")].find((button) => button.textContent === "Reintentar");
+      assert.ok(retry);
+      await page.act(async () => retry.click());
+      assert.equal(page.reloads(), 1);
     } finally { await page.close(); }
   });
 
