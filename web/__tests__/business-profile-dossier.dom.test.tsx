@@ -161,3 +161,94 @@ test("live Datos shows the server's confirmed legal name and its checklist item,
   expect(confirmed.host.querySelector('[data-profile-checklist="legalName"] [aria-hidden="true"] svg')).not.toBeNull();
  }finally{await confirmed.close();globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;}
 });
+
+async function savedProfilePage({address = "", optional = false}: {address?: string; optional?: boolean} = {}) {
+  const previousFetch = globalThis.fetch;
+  const previousAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  let details = {address, email: optional ? "team@example.com" : "", phone: optional ? "809-555-0100" : "", website: optional ? "https://example.com" : "", description: optional ? "Synthetic business" : ""};
+  let finishSave: (() => void) | undefined;
+  const profile = () => ({space_id:"55555555-5555-4555-8555-555555555555",name:"La Palma",country:"DO",currency:"DOP",revision:1,details,appearance:{kind:"default"},image:null});
+  globalThis.fetch = async (url, init) => {
+    if(String(url).endsWith("/profile")) {
+      if(init?.method === "PATCH") {
+        const patch = JSON.parse(String(init.body));
+        await new Promise<void>(resolve => {finishSave = () => {details = {...details, ...patch.details}; resolve();};});
+      }
+      return Response.json(profile());
+    }
+    if(String(url).endsWith("/business/fiscal-profile")) return Response.json({name:"La Palma",tax_id:{type:"rnc",value:"131245678"},legal_name:{value:"Taller Palma de Ejemplo SRL",confirmed_at:"2026-11-09T12:00:00Z"},can_edit:true});
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  const page = await mount("es-419", true);
+  return {...page, saved: () => act(async () => finishSave?.()), close: async () => {
+    await page.close();
+    globalThis.fetch = previousFetch;
+    if(previousAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousAuth;
+  }};
+}
+
+test("the profile counts only basic saved facts and optional rows do not ask for completion", async () => {
+  const page = await savedProfilePage();
+  try {
+    expect(page.host.textContent).toContain("Completa tu perfil");
+    expect(page.host.querySelector('[data-profile-checklist="address"] [aria-hidden="true"] svg')).toBeNull();
+    for(const key of ["email", "phone", "website", "description"]) {
+      const row = page.host.querySelector(`[data-profile-checklist="${key}"]`)!;
+      expect(row.querySelector("svg.lucide-plus")).not.toBeNull();
+      expect(row.textContent).not.toContain("Pendiente");
+    }
+    const help = page.host.querySelector<HTMLButtonElement>('[aria-label="RNC o cédula"]');
+    expect(help).not.toBeNull();
+    expect(help?.closest('[data-profile-checklist]')).toBeNull();
+    await page.click(help!);
+    expect(document.querySelector('[data-testid="side-drawer"]')).toBeNull();
+  } finally {await page.close();}
+});
+
+test.each([false, true])("a new visit with the five basics saved hides the checklist even with optional saved=%s", async (optional) => {
+  const page = await savedProfilePage({address:"Calle Sol 10", optional});
+  try {
+    expect(page.host.textContent).toContain("Calle Sol 10");
+    expect(page.host.textContent).not.toContain("Completa tu perfil");
+    expect(page.host.textContent).not.toContain("Tu perfil está listo");
+    expect(page.host.querySelector('[data-testid="settings-columns"] > div')?.className).toContain("max-w-[40rem]");
+  } finally {await page.close();}
+});
+
+test("the last basic fact shows the done moment only after its save, once for this visit", async () => {
+  const page = await savedProfilePage();
+  try {
+    await page.click(page.button("Ubicación y contacto"));
+    await page.type("profile-address", "Calle Sol 10");
+    await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+    expect(page.host.textContent).not.toContain("Tu perfil está listo");
+    await page.saved();
+    await page.click(document.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!);
+    expect(page.host.querySelector("#profile-next-title")?.textContent).toBe("Tu perfil está listo");
+    expect(page.host.textContent).toContain("Revisa los datos guardados de tu negocio.");
+    const announcement = [...page.host.querySelectorAll('[role="status"]')].find(node => node.textContent === "Tu perfil está listo");
+    expect(announcement).toBeDefined();
+    await page.click(page.button("Presencia del negocio"));
+    await page.click(document.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!);
+    expect([...page.host.querySelectorAll('[role="status"]')].find(node => node.textContent === "Tu perfil está listo")).toBe(announcement);
+    for (const address of ["", "Calle Sol 10"]) {
+      await page.click(page.button("Ubicación y contacto"));
+      await page.type("profile-address", address);
+      await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+      await page.saved();
+      expect(announcement?.textContent).toBe("Tu perfil está listo");
+      await page.click(document.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!);
+    }
+  } finally {await page.close();}
+  const reload = await savedProfilePage({address:"Calle Sol 10"});
+  try {expect(reload.host.querySelector("#profile-next-title")).toBeNull();} finally {await reload.close();}
+});
+
+test("the phone's folded checklist counts only the five basics", async () => {
+  const previous = window.innerWidth;
+  window.happyDOM.setWindowSize({width:390,height:844});
+  const page = await savedProfilePage();
+  try {expect(page.host.textContent).toContain("4 de 5 listos");}
+  finally {await page.close();window.happyDOM.setWindowSize({width:previous,height:768});}
+});

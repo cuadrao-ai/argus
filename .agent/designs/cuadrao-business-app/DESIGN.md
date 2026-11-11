@@ -405,11 +405,22 @@ They extend Forms below, including email aliases, authorized senders and invoici
 - Reuse the shared Business avatar, field validation and descriptive picker.
   Nombre del negocio is the workspace display name, not a separate legal name.
   Show the saved operating country when known. Do not invent registry fields,
-  completion percentages, required checklist totals or an overall completed state.
-  Filled green checks and struck labels mean saved facts only; incomplete facts
-  use muted hollow circles. Name, valid identification, matching confirmed legal
-  name, country and address form the basic section. Email, phone, website and
-  description are additional details. Checklist actions focus their source field.
+  completion percentages or registry facts. Only name, valid identification,
+  matching confirmed legal name, country and address count toward this checklist;
+  the phone's folded progress line counts those five saved facts. Filled green
+  checks and muted labels mean saved basic facts; incomplete basics use hollow
+  circles. Email, phone, website and description are optional, with quiet plus
+  icons instead of completion circles. Checklist rows open their source section.
+- This checklist alone has a visit-only done state. After the last basic fact
+  saves, show the filled check and done heading with a short fade, or instantly
+  with reduced motion. Keep the subheading, announce completion once, and show
+  no confetti or percentage. On the next visit with all basics saved, omit the
+  checklist without changing the profile card's width. Empty optional sections
+  retain their existing hints.
+- RNC o cédula and Razón social each have a separate 44px info target beside the
+  row button, using the shared tooltip. The legal-name help explains the registry
+  name, not inclusion in the 606 or 607. Optional and done headings and both help
+  texts are marked placeholder copy pending approval.
 - Address, province, municipality, business email, phone or WhatsApp, website and
   short description are optional business-provided details, separate from registry
   identity. They persist as one object in the existing scoped guide. An address

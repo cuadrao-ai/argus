@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Check } from "lucide-react";
+import { Check, Info, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessContext, invoicingShown, useBusiness } from "@/components/business-app/BusinessWorkspace";
 import BusinessFiscalProfile, {type FiscalProfileDraft} from "@/components/business-app/BusinessFiscalProfile";
@@ -14,6 +14,7 @@ import { BusinessMark } from "@/components/business-app/BusinessSwitcher";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Tooltip } from "@/components/ui/Tooltip";
 import AccessRolePicker from "./AccessRolePicker";
 import { invitationStorageKeys } from "./businessAccessPreviewState";
 import { profileChecklist, readBusinessProfilePreview, saveBusinessProfilePreview, saveBusinessProvidedDetails, seedProfilePreview, type ProfileChecklistKey, type BusinessProvidedDetails } from "./businessProfilePreviewState";
@@ -129,7 +130,7 @@ function BusinessProfileContent() {
   const formContext = useMemo(()=>({...workspace,source:localSource,reload:()=>{}}),[workspace,localSource]);
   const countryLabel = profile.country ? t(`workspace_setup_preview.country_${profile.country.toLowerCase()}`,{defaultValue:profile.country}) : null;
   const labels: Record<ProfileChecklistKey,string> = {
-    name:t("workspace_setup_preview.business_name"),taxId:t("business.dgii.tax_id_type"),legalName:t("workspace_setup_preview.legal_name"),country:t("workspace_setup_preview.operating_country"),address:t("business.settings.profile_address"),email:t("business.settings.profile_email"),phone:t("business.settings.profile_phone"),website:t("business.settings.profile_website"),description:t("business.settings.profile_description"),
+    name:t("workspace_setup_preview.business_name"),taxId:t("business.settings.profile_checklist_tax_id"),legalName:t("workspace_setup_preview.legal_name"),country:t("workspace_setup_preview.operating_country"),address:t("business.settings.profile_address"),email:t("business.settings.profile_email"),phone:t("business.settings.profile_phone"),website:t("business.settings.profile_website"),description:t("business.settings.profile_description"),
   };
   const details = profile.providedDetails;
   const sections: {key:ProfileSection;title:string;summary:string}[] = [
@@ -156,11 +157,28 @@ function BusinessProfileContent() {
   const hasEditableForm = canEdit && (selected === "identity" || selected === "contact" || selected === "presence");
   const businessContext = selected !== "invoicing" ? <>{t("workspace_setup_preview.for_business")} <strong className="font-semibold text-[#152d26] dark:text-white">{title}</strong></> : undefined;
   const selectedTitle = selected === "appearance" ? t("identity.change_image") : sections.find(section=>section.key === selected)?.title ?? "";
-  const showChecklist = !selected && !profile.checklist.every(item=>item.complete);
-  const checklistRows = (section:"basic"|"additional")=><ul className="mt-3">{profile.checklist.filter(item=>item.section===section).map(item=><li key={item.key}><button type="button" data-profile-checklist={item.key} onClick={event=>select({section:checklistSection[item.key],trigger:event.currentTarget})} className="flex min-h-11 w-full items-center gap-3 rounded-item text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2">
-    <span aria-hidden="true" style={item.complete ? undefined : {borderColor:"currentColor",opacity:0.35}} className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${item.complete ? "bg-[#2f5a49] text-white dark:bg-[#8fcbb0] dark:text-[#13211c]" : "border border-black/25 dark:border-white/35"}`}>{item.complete ? <Check className="h-3 w-3"/> : null}</span>
-    <span className={item.complete ? "text-[#56635e] dark:text-white/60" : ""}>{labels[item.key]}<span className="sr-only"> · {t(item.complete ? "business.settings.profile_saved" : "business.settings.profile_pending")}</span></span>
-  </button></li>)}</ul>;
+  const basics = profile.checklist.filter(item=>item.section === "basic");
+  const basicsComplete = basics.every(item=>item.complete);
+  const factsReady = !live || Boolean(server.profile && fiscal);
+  const [checklistVisit,setChecklistVisit] = useState<"unseen"|"incomplete"|"done">("unseen");
+  if(factsReady && !basicsComplete && checklistVisit === "unseen")setChecklistVisit("incomplete");
+  if(factsReady && basicsComplete && checklistVisit === "incomplete")setChecklistVisit("done");
+  const done = basicsComplete && checklistVisit === "done";
+  const showChecklist = !selected && (!basicsComplete || done);
+  const checklistHeading = t(done ? "business.settings.profile_checklist_done_placeholder" : "business.settings.profile_finish");
+  const checklistHelp: Partial<Record<ProfileChecklistKey,string>> = {
+    taxId:t("business.settings.profile_checklist_tax_help_placeholder"),
+    legalName:t("business.settings.profile_checklist_legal_help_placeholder"),
+  };
+  const checklistRows = (section:"basic"|"additional")=><ul className="mt-3">{profile.checklist.filter(item=>item.section===section).map(item=><li key={item.key} className="flex items-center gap-1">
+    <button type="button" data-profile-checklist={item.key} onClick={event=>select({section:checklistSection[item.key],trigger:event.currentTarget})} className={`flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-item text-left focus-visible:outline-2 focus-visible:outline-offset-2 ${section === "basic" ? "text-[16px]" : "text-[15px] text-[#56635e] dark:text-white/70"}`}>
+      <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${section === "additional" ? "text-[#56635e] dark:text-white/55" : item.complete ? "bg-[#2f5a49] text-white dark:bg-[#8fcbb0] dark:text-[#13211c]" : "border border-black/25 dark:border-white/35"}`}>{section === "additional" ? <Plus className="h-4 w-4"/> : item.complete ? <Check className="h-3 w-3"/> : null}</span>
+      <span className={item.complete ? "text-[#56635e] dark:text-white/60" : ""}>{labels[item.key]}{section === "basic" ? <span className="sr-only"> · {t(item.complete ? "business.settings.profile_saved" : "business.settings.profile_pending")}</span> : null}</span>
+    </button>
+    {checklistHelp[item.key] ? <Tooltip content={checklistHelp[item.key]!} side="top"><button type="button" aria-label={labels[item.key]} className="-mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-item text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-white/60"><Info aria-hidden="true" className="h-4 w-4"/></button></Tooltip> : null}
+  </li>)}</ul>;
+  const checklistDetails = <p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.settings.profile_finish_detail")}</p>;
+  const optionalHeading = t("business.settings.profile_checklist_optional_placeholder");
   const dossier = <div key={`${businessId}:${selected}`} data-profile-dossier-content className="min-w-0">
     {selected === "appearance" ? <IdentityEditor saved={appearance} name={title} business onSave={async next=>{if(live)await server.saveAppearance(next);else{saveAppearance(storage(),`business:${businessId}`,next);window.dispatchEvent(new Event(IDENTITY_EVENT));}applySelection({section:null});}}/> : selected === "identity" ? <>
       <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile footerTarget={footerTarget} initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
@@ -172,7 +190,8 @@ function BusinessProfileContent() {
   </div>;
   if(live && (server.refused || !server.profile || !fiscal))return <div className={SURFACE_CARD}>{server.failed||fiscalFailed?<><p role="alert">{t(server.refused?"business.lifecycle.errors.business_unavailable":"business.empty.overview_error")} {failureReference?<ReferenceCode reference={failureReference}/>:null}</p>{!server.refused?<button type="button" className={quietButtonClass} onClick={()=>{server.retry();setFiscalFailed(false);void fetchFiscal().catch(()=>{});}}>{t("common.retry")}</button>:null}</>:<div aria-busy="true" className="h-40 animate-pulse rounded-item bg-black/5"/>}</div>;
   return <>
-    <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}[data-profile-dossier-content] iframe{max-width:100%}
+    <span role="status" aria-atomic="true" className="sr-only">{checklistVisit === "done" ? t("business.settings.profile_checklist_done_placeholder") : ""}</span>
+    <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}[data-profile-dossier-content] iframe{max-width:100%}@keyframes profile-done{from{opacity:0}to{opacity:1}}.profile-done{animation:profile-done 150ms ease-out}@media(prefers-reduced-motion:reduce){.profile-done{animation:none}}
     `}</style>
     {/* Perfil keeps the same 40rem main card as Acceso and Recepción; its checklist sits beside it only when the canvas has room. */}
     <div data-testid="business-profile-preview">
@@ -186,10 +205,10 @@ function BusinessProfileContent() {
         </section>
         </>}
         aside={showChecklist ? <aside className="rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-2 dark:border-white/10 dark:bg-[#1f2225]" aria-labelledby="profile-next-title">
-        <div className="rounded-item bg-black/5 p-4 dark:bg-white/5"><h2 id="profile-next-title" className="font-display text-[21px] font-medium">{t("business.settings.profile_finish")}</h2><p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.settings.profile_finish_detail")}</p>{checklistRows("basic")}</div>
-        <div className="px-4 pb-3 pt-5"><h3 className="text-[16px] font-medium">{t("business.settings.profile_additional")}</h3>{checklistRows("additional")}</div>
+        <div className="rounded-item bg-black/5 p-4 dark:bg-white/5"><div key={done ? "done" : "incomplete"} className={`flex items-center gap-2.5 ${done ? "profile-done" : ""}`}>{done ? <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2f5a49] text-white dark:bg-[#8fcbb0] dark:text-[#13211c]"><Check className="h-3.5 w-3.5"/></span> : null}<h2 id="profile-next-title" className="font-display text-[21px] font-medium">{checklistHeading}</h2></div>{checklistDetails}{checklistRows("basic")}</div>
+        <div className="px-4 pb-3 pt-5"><h3 className="text-[16px] font-medium">{optionalHeading}</h3>{checklistRows("additional")}</div>
       </aside> : undefined}
-        compact={showChecklist ? { label: t("business.settings.profile_finish"), detail: t("business.settings.profile_progress", { done: profile.checklist.filter(item => item.complete).length, total: profile.checklist.length }), content: <>{checklistRows("basic")}<h3 className="mt-4 text-[16px] font-medium">{t("business.settings.profile_additional")}</h3>{checklistRows("additional")}</> } : undefined}
+        compact={showChecklist && !done ? { label: checklistHeading, detail: t("business.settings.profile_progress", { done: basics.filter(item => item.complete).length, total: basics.length }), content: <>{checklistDetails}{checklistRows("basic")}<h3 className="mt-4 text-[16px] font-medium">{optionalHeading}</h3>{checklistRows("additional")}</> } : undefined}
       />
     </div>
     {selected ? <AdaptivePanel title={selectedTitle} summary={businessContext} headerSize="large" modal={false} width="lg" onClose={close} onBack={isBelowDesktop && selected !== "appearance" ? close : undefined} backLabel={t("business.settings.profile_overview")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" returnFocusRef={opener}><div id="profile-section-dossier" style={{padding:isBelowDesktop ? undefined : 20}}>{dossier}{hasEditableForm ? <div ref={setFooterTarget} data-footer-slot="" className="mt-6 border-t border-[#DCE0DA] pt-4 empty:hidden dark:border-white/10" /> : null}</div></AdaptivePanel> : null}
