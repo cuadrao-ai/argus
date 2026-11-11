@@ -80,8 +80,8 @@ class FakeAuth:
     def create_placeholder(self, *, user_id, email):
         with psycopg.connect(DSN) as db:
             db.execute(
-                "insert into auth.users(id,email,is_anonymous,email_confirmed_at,banned_until,raw_app_meta_data) values(%s,%s,false,now(),now()+interval '100 years','{\"placeholder\":true}')",
-                (user_id, email),
+                "insert into auth.users(id,email,encrypted_password,is_anonymous,email_confirmed_at,banned_until,raw_app_meta_data) values(%s,%s,%s,false,now(),now()+interval '100 years','{\"placeholder\":true}')",
+                (user_id, email, sha256(b"synthetic placeholder password").hexdigest()),
             )
 
     def delete_user(self, user):
