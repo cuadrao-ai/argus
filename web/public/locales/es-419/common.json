@@ -2564,6 +2564,14 @@
       "records_detail": "Excel y CSV",
       "originals": "Originales",
       "originals_detail": "Fotos y PDF de cada recibo",
+      "filename": {
+        "dgii": "DGII",
+        "mixed": "Compras y ventas",
+        "purchases": "Compras",
+        "records": "Registros",
+        "sales": "Ventas",
+        "to": "a"
+      },
       "fiscal": "606 y 607",
       "fiscal_detail": "Para la DGII",
       "included": "Incluido",

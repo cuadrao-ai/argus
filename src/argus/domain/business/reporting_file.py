@@ -10,18 +10,21 @@ import csv
 import io
 import json
 import unicodedata
+from calendar import monthrange
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal
+from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 import xlsxwriter
-from babel.dates import format_date
 from pydantic import model_validator
 
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
+from argus.domain.business.dgii_codes import TOOL_LABELS
 from argus.domain.business.dgii_columns import COLUMNS
 from argus.domain.business.dgii_export import line_values
 from argus.domain.business.dgii_validation import DECLARABLE_CURRENCY, declarable
@@ -29,6 +32,7 @@ from argus.domain.business.export import spreadsheet_cell
 from argus.domain.business.reporting_preferences import (
     PURCHASE_ONLY_COLUMNS,
     Contract,
+    Family,
     Presentation,
     ReportFilters,
     ReportInput,
@@ -37,6 +41,7 @@ from argus.domain.business.reporting_preferences import (
     TableColumn,
 )
 from argus.domain.business.reporting_query import (
+    CALENDAR,
     ReportRecord,
     matching_records,
     resolve_period,
@@ -46,10 +51,12 @@ from argus.domain.business.reporting_store import (
     read_export_source,
     require_export,
 )
+from argus.domain.business.space_name import default_space_name, given_name
 
 _WORDS = json.loads(
     Path(__file__).with_name("records_file_words.generated.json").read_text("utf-8")
 )
+FileLocale = Literal["en", "es-419"]
 FileColumn = TableColumn | Literal["currency"]
 _HEADER_PATHS: dict[FileColumn, str] = {
     "counterparty": "business.transactions.columns.contraparte",
@@ -65,29 +72,22 @@ _HEADER_PATHS: dict[FileColumn, str] = {
     "payment_form": "business.dossier.placeholder.payment_form",
     "funding": "business.transactions.columns.cuenta",
 }
-#: The table header with no currency, as Registros renders it.
-HEADERS: dict[FileColumn, str] = {
-    key: _WORDS[path].replace("{{currency}}", "").strip()
-    for key, path in _HEADER_PATHS.items()
-}
 _STAGE_PATHS = {
     "needs_review": "business.transactions.layout.workflow.review",
     "ready_for_export": "business.transactions.layout.workflow.ready",
     "exported": "business.transactions.layout.workflow.exported",
 }
-_MISSING = _WORDS["business.transactions.layout.workflow.missing"]
 _DGII_TEXT = frozenset(
     {
         "rnc",
         "id_type",
-        "category",
         "ncf",
         "modified_ncf",
         "income_type",
         "income_withholding_type",
-        "payment_method",
     }
 )
+_REQUIRED_ZERO = frozenset({"itbis_withheld", "income_withheld"})
 _DGII_DATES = frozenset({"occurred_on", "paid_on", "withheld_on"})
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 CSV = "text/csv; charset=utf-8"
@@ -269,28 +269,37 @@ def summarize_export(
     )
 
 
-def _stage_word(row: ReportRecord) -> str | None:
+def _stage_word(row: ReportRecord, locale: FileLocale) -> str | None:
+    words = _WORDS[locale]
     if row.stage == "needs_fiscal_data":
+        missing = words["business.transactions.layout.workflow.missing"]
         if row.export_missing_several:
-            return _MISSING["several"]
-        if row.export_missing in _MISSING and row.export_missing != "several":
-            return _MISSING[row.export_missing]
-        return _MISSING["detail_missing"]
-    return _WORDS[_STAGE_PATHS[row.stage]] if row.stage else None
+            return missing["several"]
+        if row.export_missing in missing and row.export_missing != "several":
+            return missing[row.export_missing]
+        return missing["detail_missing"]
+    return words[_STAGE_PATHS[row.stage]] if row.stage else None
 
 
-def _dgii_word(row: ReportRecord, field: Literal["expense_type", "payment_form"]) -> str:
+def _dgii_word(
+    row: ReportRecord, field: Literal["expense_type", "payment_form"], locale: FileLocale
+) -> str:
+    words = _WORDS[locale]
     if row.dgii_606 is None:
-        return _WORDS["business.export.form_no_aplica"]
+        return words["business.export.form_no_aplica"]
     choice = getattr(row.dgii_606, field)
-    return choice.label if choice else _WORDS["business.dossier.standing.missing"]
+    if choice is None:
+        return words["business.dossier.standing.missing"]
+    option = "category" if field == "expense_type" else "payment_method"
+    name = words[f"business.dgii.option.{option}"].get(choice.code)
+    return f"{choice.code} - {name.upper()}" if name else choice.code
 
 
 def _amount(text: str | None) -> Decimal | None:
     return Decimal(text) if text is not None else None
 
 
-def _table_cell(row: ReportRecord, key: FileColumn) -> Cell:
+def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
     if key == "counterparty":
         return row.counterparty
     if key == "fiscal_number":
@@ -304,13 +313,13 @@ def _table_cell(row: ReportRecord, key: FileColumn) -> Cell:
     if key == "itbis_amount":
         return _amount(row.itbis_amount) if row.currency else None
     if key == "stage":
-        return _stage_word(row)
+        return _stage_word(row, locale)
     if key == "note":
         return row.note
     if key == "attachment":
-        return _WORDS["common.yes" if row.has_document else "common.no"]
+        return _WORDS[locale]["common.yes" if row.has_document else "common.no"]
     if key in ("expense_type", "payment_form"):
-        return _dgii_word(row, key)
+        return _dgii_word(row, key, locale)
     return row.funding_label
 
 
@@ -329,29 +338,60 @@ def _file_columns(
     return tuple(order)
 
 
-def _period_name(
-    request: ReportRequest | ReportRequestV2, source: ExportSource
-) -> str | None:
-    period = resolve_period(request.filters.period, source.records, source.observed_at)
-    start, end = period.from_date, period.to_date
+def _period_name(start: date | None, end: date | None, separator: str) -> str:
     if start is None or end is None:
-        return None
-    if start.day == 1 and (end + timedelta(days=1)).day == 1:
-        if (start.year, start.month) == (end.year, end.month):
-            return f"{format_date(start, 'LLLL', locale='es')}-{start.year}"
-        if (start.month, end.month, start.year) == (1, 12, end.year):
-            return str(start.year)
-    return f"{start.isoformat()}_{end.isoformat()}"
+        return ""
+    first, last = start.isoformat(), end.isoformat()
+    if start.day == 1 and end.day == monthrange(end.year, end.month)[1]:
+        first, last = first[:7], last[:7]
+        if first == last:
+            return first
+    return f"{first} {separator} {last}"
 
 
-def _filename(stem: str, period: str | None, extension: str) -> str:
-    name = "_".join(part for part in (stem, period) if part)
-    ascii_name = "".join(
+def _safe_filename_part(value: str) -> str:
+    clean = "".join(
         char
-        for char in unicodedata.normalize("NFKD", name)
-        if not unicodedata.combining(char)
+        for char in value
+        if char not in '/\\:*?"<>|'
+        and unicodedata.category(char) not in {"Cc", "Cf", "Cs"}
     )
-    return f"{ascii_name.replace(' ', '-')}.{extension}"
+    return " ".join(clean.split())
+
+
+def records_filename(
+    *,
+    business_name: str | None,
+    families: Sequence[Family],
+    start: date | None,
+    end: date | None,
+    mode: Literal["table", "dgii"],
+    extension: Literal["xlsx", "csv"],
+    observed_at: datetime,
+    locale: FileLocale,
+) -> str:
+    words = _WORDS[locale]["business.export.filename"]
+    family = {
+        frozenset({"purchase"}): "purchases",
+        frozenset({"sale"}): "sales",
+    }.get(frozenset(families), "mixed")
+    period = _period_name(start, end, words["to"])
+    selection = " ".join(part for part in (words[family], period) if part)
+    name = _safe_filename_part(given_name(business_name) or "") or default_space_name(
+        locale
+    )
+    purpose = words["dgii" if mode == "dgii" else "records"]
+    timestamp = observed_at.astimezone(ZoneInfo(CALENDAR)).strftime("%Y-%m-%d %H%M")
+    return f"{name} - {selection} - {purpose} - {timestamp}.{extension}"
+
+
+def content_disposition(filename: str) -> str:
+    ascii_name = (
+        unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
+    )
+    fallback = _safe_filename_part(ascii_name)
+    encoded = quote(filename, safe="")
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{encoded}"
 
 
 def _csv(headers: Sequence[str], rows: Sequence[Sequence[Cell]]) -> bytes:
@@ -418,53 +458,73 @@ def _xlsx(
 
 def _dgii_cell(name: str, value: str) -> Cell:
     if value == "":
-        return None
+        return Decimal(0) if name in _REQUIRED_ZERO else None
+    if name in TOOL_LABELS:
+        return TOOL_LABELS[name][value]
     if name in _DGII_TEXT or name in _DGII_DATES:
         return value
     return Decimal(value)
 
 
-def build_file(source: ExportSource, choice: RecordsExport) -> RecordsFile:
+def build_file(
+    source: ExportSource,
+    choice: RecordsExport,
+    *,
+    business_name: str | None = None,
+    locale: FileLocale = "es-419",
+) -> RecordsFile:
     request = choice.report
     family = _family(request)
     if choice.mode == "dgii":
         form = "607" if family == "sale" else "606"
         columns = COLUMNS[form]
         headers = [label for _, label in columns]
+        records = sorted(
+            (
+                source.approved[row.linked_activity_ids[0]]
+                for row in _dgii_selection(source, request).lines
+            ),
+            key=lambda record: (record.occurred_on, record.activity_id),
+        )
         rows = [
             [
                 _dgii_cell(name, value)
-                for (name, _), value in zip(
-                    columns,
-                    line_values(source.approved[row.linked_activity_ids[0]]),
-                    strict=True,
-                )
+                for (name, _), value in zip(columns, line_values(record), strict=True)
             ]
-            for row in _dgii_selection(source, request).lines
+            for record in records
         ]
-        stem, sheet = form, form
+        dates = [record.occurred_on for record in records]
+        sheet = form
     else:
         selected = _with_currencies(request, choice.currencies)
         if selected is None:
             raise ActionError("invalid_input", "business_export_currency_required")
         keys = _file_columns(request, choice.columns, choice.currencies == "all")
-        headers = [HEADERS[key] for key in keys]
-        rows = [
-            [_table_cell(row, key) for key in keys]
-            for row in matching_records(source.records, selected, source.observed_at)
+        words = _WORDS[locale]
+        headers = [
+            words[_HEADER_PATHS[key]].replace("{{currency}}", "").strip() for key in keys
         ]
-        stem = sheet = _WORDS[
+        matching = matching_records(source.records, selected, source.observed_at)
+        rows = [[_table_cell(row, key, locale) for key in keys] for row in matching]
+        dates = [row.report_date for row in matching if row.report_date is not None]
+        sheet = words[
             "business.transactions.layout.overview."
             + ("sales" if family == "sale" else "purchases")
         ]
-    period = _period_name(request, source)
-    if choice.format == "csv":
-        return RecordsFile(
-            _filename(stem, period, "csv"), CSV, _csv(headers, rows), len(rows)
-        )
-    return RecordsFile(
-        _filename(stem, period, "xlsx"), XLSX, _xlsx(sheet, headers, rows), len(rows)
+    period = resolve_period(request.filters.period, source.records, source.observed_at)
+    filename = records_filename(
+        business_name=business_name,
+        families=request.filters.record_families,
+        start=period.from_date or min(dates, default=None),
+        end=period.to_date or max(dates, default=None),
+        mode=choice.mode,
+        extension=choice.format,
+        observed_at=source.observed_at,
+        locale=locale,
     )
+    if choice.format == "csv":
+        return RecordsFile(filename, CSV, _csv(headers, rows), len(rows))
+    return RecordsFile(filename, XLSX, _xlsx(sheet, headers, rows), len(rows))
 
 
 def preview_export(
@@ -476,8 +536,18 @@ def preview_export(
 
 
 def export_file(
-    authority: BusinessAuthority, context: ActionContext, choice: RecordsExport
+    authority: BusinessAuthority,
+    context: ActionContext,
+    choice: RecordsExport,
+    *,
+    business_name: str | None = None,
+    locale: FileLocale = "es-419",
 ) -> RecordsFile:
-    built = build_file(read_export_source(authority, context), choice)
+    built = build_file(
+        read_export_source(authority, context),
+        choice,
+        business_name=business_name,
+        locale=locale,
+    )
     require_export(authority, context)
     return built

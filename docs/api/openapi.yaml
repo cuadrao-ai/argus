@@ -6368,6 +6368,15 @@ paths:
       - financial-accounts
       - business
       parameters:
+      - name: Accept-Language
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Language for the filename and table text. Send en or es-419 (default).
+        description: Language for the filename and table text. Send en or es-419 (default).
       - name: X-Business-Grant
         in: header
         required: false
@@ -6393,6 +6402,11 @@ paths:
           content:
             application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: {}
             text/csv: {}
+          headers:
+            Content-Disposition:
+              description: Attachment with an ASCII filename fallback and a UTF-8 filename*.
+              schema:
+                type: string
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
