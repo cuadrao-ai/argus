@@ -530,3 +530,19 @@ value = setting_value("SAMPLE", "20")
         },
         [],
     )
+
+
+def test_frontend_imported_reader_rejects_a_shadowed_process_caller(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "web/lib"
+    root.mkdir(parents=True)
+    (root / "runtime.ts").write_text(
+        'import { config } from "./config"; '
+        "function unrelated(process: { env: Record<string, string> }) { "
+        "return config(process.env); }"
+    )
+    (root / "config.ts").write_text(
+        "export function config(env: Record<string, string>) { return env.CUADRAO_UNUSED; }"
+    )
+    assert scan(tmp_path) == ({}, [])
