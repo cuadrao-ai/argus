@@ -18,7 +18,6 @@ from argus.domain.business.contracts.facts import Unknown
 from argus.domain.business.dgii_export import fiscal_manifest, line_verdicts
 from argus.domain.business.reporting import ReportIdentity
 from argus.domain.business.reporting_file import (
-    HEADERS,
     RecordsExport,
     build_file,
     summarize_export,
@@ -343,7 +342,15 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
         ).content
     )
     assert [value for _, value, _ in cells[0]] == [
-        HEADERS[key] for key in ("counterparty", *columns)
+        "Contraparte",
+        "Fecha",
+        "Monto",
+        "ITBIS",
+        "Estado",
+        "Adjunto",
+        "Tipo de gasto",
+        "Forma de pago",
+        "Cuenta",
     ]
     kinds = [(kind, code) for kind, _, code in cells[1]]
     assert kinds[1:4] == [("n", "dd/mm/yyyy"), ("n", "#,##0.00"), ("n", "#,##0.00")]
@@ -545,7 +552,7 @@ def test_english_default_name_uses_the_dominican_day_at_midnight():
 
 
 def test_mixed_filename_label_and_ascii_fallback():
-    from argus.domain.business.reporting_filename import (
+    from argus.domain.business.reporting_file import (
         content_disposition,
         records_filename,
     )
@@ -669,7 +676,7 @@ def test_606_tool_values_exact_for_every_choice_and_withholding(fake, format):
         fiscal_date = date(2026, 9, index)
         withholding = (None, "0.00", "12.34")[(index - 1) % 3]
         projected = row(
-            fake, report_date=date(2026, 9, 30 - index), fiscal_data="complete"
+            fake, report_date=date(2026, 9, index * 7 % 30 + 1), fiscal_data="complete"
         )
         rows.append(projected)
         approved[projected.linked_activity_ids[0]] = replace(

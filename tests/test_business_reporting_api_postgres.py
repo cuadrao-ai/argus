@@ -114,11 +114,14 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
     response = export(http)
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
     written = lines(response)
-    assert re.fullmatch(
-        r'attachment; filename="Colmado - Compras [^"]+ - Registros - \d{4}-\d{2}-\d{2} \d{4}\.csv"; filename\*=UTF-8'
-        "[^;]+",
-        response.headers["content-disposition"],
+    fallback, encoded = response.headers["content-disposition"].split(
+        "; filename*=UTF-8''"
     )
+    assert re.fullmatch(
+        r"Colmado - Compras \d{4}-\d{2}-\d{2} a \d{4}-\d{2}-\d{2} - Registros - \d{4}-\d{2}-\d{2} \d{4}\.csv",
+        unquote(encoded),
+    )
+    assert fallback == f'attachment; filename="{unquote(encoded)}"'
     assert written[0] == ["Contraparte", "Fecha", "Monto", "Moneda"]
     assert len(written) == 27
     assert {line[3] for line in written[1:]} == {"DOP"}

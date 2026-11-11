@@ -527,7 +527,8 @@ def reports(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, SimpleNamespac
         for_space=lambda request, spaces: actor,
     )
     app.dependency_overrides[require_business_person] = lambda: SimpleNamespace(
-        person_id=str(actor.actor.actor_id), spaces=None
+        person_id=str(actor.actor.actor_id),
+        spaces=SimpleNamespace(get=lambda space_id: None),
     )
     return TestClient(app), actor
 
@@ -540,7 +541,14 @@ def test_an_export_reports_its_format_scope_and_row_count(
     client, actor = reports
     built: list[str] = []
 
-    def export_file(authority: object, context: object, choice: object) -> RecordsFile:
+    def export_file(
+        authority: object,
+        context: object,
+        choice: object,
+        *,
+        business_name: str | None,
+        locale: str,
+    ) -> RecordsFile:
         built.append("built")
         return RecordsFile("606.csv", "text/csv", b"a,b\n1,2\n", 7)
 
