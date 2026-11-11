@@ -643,6 +643,10 @@ class _Python:
                     or not isinstance(loop.iter, ast.Name)
                 ):
                     continue
+                if self._binding_scope(node.value, member) is not self._scope(
+                    loop.target
+                ):
+                    return []
                 name = loop.iter.id
                 if self._shadowed(loop.iter, name):
                     return []
