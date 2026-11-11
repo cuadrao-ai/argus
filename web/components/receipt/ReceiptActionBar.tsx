@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { reportReceiptFunnelStage } from "@/lib/receipt-funnel";
-import type { ReceiptKind } from "@/lib/public-receipt-turns";
 
 /**
  * The only action on the page, kept in reach, with the caveat attached to it.
@@ -16,24 +14,17 @@ import type { ReceiptKind } from "@/lib/public-receipt-turns";
  * and pairing it with what the page actually is, a what if on prices that already
  * happened, is what makes that acceptable. It also inverts the old arrangement,
  * where the caveat was the thing scrolled past and the button was the thing found.
- *
- * Position is CSS only. There is no scroll listener and no reveal, so the bar cannot
- * behave differently before hydration than after it. The click still reports the
- * funnel stage, which is the contract the owner-side counters read.
  */
 
 type ReceiptActionBarProps = {
   /** The short framing line. Never omitted. */
   framing: string;
   action: string;
-  /** Null means no frozen payload exists to attribute this visit. */
-  kind?: ReceiptKind | null;
 };
 
 export default function ReceiptActionBar({
   framing,
   action,
-  kind = "backtest",
 }: ReceiptActionBarProps) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#191c1f]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm">
@@ -43,7 +34,6 @@ export default function ReceiptActionBar({
         </p>
         <Link
           href="/"
-          onClick={() => { if (kind) reportReceiptFunnelStage("try_argus", kind); }}
           className="font-display flex min-h-[46px] shrink-0 items-center justify-center rounded-full bg-white px-5 text-[14px] font-medium text-[#191c1f] transition-colors hover:bg-white/90"
         >
           {action}

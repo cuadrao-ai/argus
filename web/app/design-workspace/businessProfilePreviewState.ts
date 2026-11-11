@@ -1,4 +1,4 @@
-import type { FiscalProfileInput, TaxId } from "@/lib/business-dgii";
+import type { FiscalProfileInput, RegistryAnswer, TaxId } from "@/lib/business-dgii";
 import { invitationStorageKeys } from "./businessAccessPreviewState";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
@@ -43,13 +43,13 @@ export function saveBusinessProvidedDetails(storage: StorageLike,businessId:stri
 }
 export type ProfileChecklistKey = "name" | "taxId" | "legalName" | "country" | "address" | "email" | "phone" | "website" | "description";
 export type ProfileChecklistItem = {key:ProfileChecklistKey;complete:boolean;section:"basic"|"additional"};
-export function profileChecklist(profile:{name:string;country:string|null;taxId:TaxId|null;legalName:string|null},details:BusinessProvidedDetails):ProfileChecklistItem[] {
+export function profileChecklist(profile:{name:string;country:string|null;taxId:TaxId|null;legalName:string|null},details:BusinessProvidedDetails,registry:RegistryAnswer|null=null):ProfileChecklistItem[] {
   const errors = validateBusinessProvidedDetails(details);
   const validTaxId = profile.taxId && new RegExp(`^\\d{${profile.taxId.type === "rnc" ? 9 : 11}}$`).test(profile.taxId.value) && !/^0+$/.test(profile.taxId.value);
   return [
     {key:"name",complete:Boolean(profile.name),section:"basic"},
     {key:"taxId",complete:Boolean(validTaxId),section:"basic"},
-    {key:"legalName",complete:Boolean(profile.legalName),section:"basic"},
+    {key:"legalName",complete:Boolean(profile.legalName)||registry?.record===null,section:"basic"},
     {key:"country",complete:Boolean(profile.country),section:"basic"},
     {key:"address",complete:Boolean(details.address)&&!errors.address,section:"basic"},
     ...(["email","phone","website","description"] as const).map(key=>({key,complete:Boolean(details[key])&&!errors[key],section:"additional" as const})),

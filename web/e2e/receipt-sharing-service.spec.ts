@@ -2,7 +2,6 @@ import { expect, test } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { receiptCopy } from "../lib/receipt-copy";
-import { receiptDocumentKind } from "../lib/public-receipt-turns";
 import { installMobileShellFixture } from "./support/mobile-shell-fixture";
 
 // Run the isolated scripts/qa/sharing_604_fixture.py first. These requests use
@@ -96,7 +95,7 @@ for (const cell of cells) {
     const visitor = await browser.newContext({ locale: language === "en" ? "en-US" : "es-419", colorScheme: theme, reducedMotion: "no-preference" });
     const publicPage = await visitor.newPage();
     const viewWrites: string[] = [];
-    publicPage.on("request", (req) => { if (req.method() !== "GET" && !req.url().endsWith("/receipt-funnel")) viewWrites.push(req.url()); });
+    publicPage.on("request", (req) => { if (req.method() !== "GET") viewWrites.push(req.url()); });
     for (const publicWidth of [width]) {
       await publicPage.setViewportSize({ width: publicWidth, height: publicWidth === 390 ? 844 : 800 });
       await publicPage.goto(new URL(receipt.path, page.url()).toString());
@@ -125,10 +124,8 @@ for (const cell of cells) {
         await route.fulfill({ status: 200, contentType: "text/event-stream", body: `data: ${JSON.stringify({ type: "final", payload: { conversation_id: body.conversation_id, assistant_response: "Fixture follow-up accepted.", message_id: "fixture-followup" } })}\n\ndata: [DONE]\n\n` });
       });
       const forkResponse = publicPage.waitForResponse(r => r.url().endsWith("/fork") && r.request().method() === "POST");
-      const tryArgusRequest = publicPage.waitForRequest(r => r.url().endsWith("/receipt-funnel") && r.postDataJSON()?.stage === "try_argus");
       await publicPage.getByRole("textbox", { name: copy.followup.label }).fill(followup);
       await publicPage.getByRole("button", { name: copy.followup.send, exact: true }).click();
-      expect((await tryArgusRequest).postDataJSON()).toEqual({ stage: "try_argus", kind: receiptDocumentKind(preview.payload) });
       const fork = await (await forkResponse).json();
       expect(fork.created).toBe(true);
       expect(fork.conversation.id).not.toBe(conversationId);
