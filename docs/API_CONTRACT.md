@@ -10135,8 +10135,8 @@ clears the stored legal name; a change of name alone keeps it.
 
 `POST /business/fiscal-profile/registry` checks a tax id against the DGII registry, through
 the same registry reader that verifies counterparties. The body is `{tax_id: {type, value}}`,
-validated and cleaned as in `PATCH`, with the same 422 codes. Only a member whose live grant
-allows `manage` may ask; a member without it receives 403 `business_permission_denied`.
+validated and cleaned as in `PATCH`, with the same 422 codes. Any member whose live grant
+allows `read` may ask, so the receipt review can check a supplier's RNC for every role.
 It writes nothing. The answer is
 `{tax_id, verification, record, checked_at}`. `verification` uses the counterparty words:
 `verificado` (the registry lists it as active), `no_activo` (listed with any other status) or
