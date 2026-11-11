@@ -581,6 +581,7 @@ function BusinessWorkspaceContent({
     };
   }, [chosenGrant, onRecord, period.from, period.to, revision, source, reloadWaits]);
 
+  const notificationsAvailable = records.workspaceGrant === chosenGrant && records.workspace?.notifications_available === true;
   const receivingChannels = useMemo(() => businessReceivingChannels(records.workspaceGrant === chosenGrant ? records.workspace : null), [chosenGrant, records.workspace, records.workspaceGrant]);
   const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant, onAnswered: emailsAnswered });
   const workspaceRecords = useMemo<Records>(
@@ -771,7 +772,7 @@ function BusinessWorkspaceContent({
           </button>
         </Tooltip> : null}
         <AmountsToggle />
-        <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen ? businessTitle : undefined} emailAvailable={receivingChannels.email.available} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} />
+        {notificationsAvailable ? <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen ? businessTitle : undefined} emailAvailable={receivingChannels.email.available} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} /> : null}
       </>,
       headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={businessTitle} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
@@ -797,7 +798,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [activity, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
+  }, [activity, notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>

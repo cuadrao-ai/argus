@@ -2786,8 +2786,17 @@
           "name": "View name",
           "placeholder": "E.g. Expenses without documents",
           "duplicate": "You already have a view with this name.",
-          "save": "Save view",
-          "export": "Export results"
+          "save": "Save current view",
+          "export": "Export results",
+          "changed": "Changed",
+          "delete_named": "Delete {{name}}",
+          "deleted": "Deleted “{{name}}”",
+          "empty_hint": "Set filters and columns, then save them to come back in one click.",
+          "rename_named": "Rename {{name}}",
+          "rename_save": "Save name",
+          "save_changes": "Save changes to “{{name}}”",
+          "save_hint": "Saves the filters, columns and sort you see now.",
+          "save_new": "Save as new view"
         },
         "workflow": {
           "exported": "Exported",

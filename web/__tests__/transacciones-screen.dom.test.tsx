@@ -306,13 +306,13 @@ describe("the gate", () => {
       assert.deepEqual([...page.records()[0].querySelectorAll('td')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["contraparte", "monto", "fecha", "estado"]);
       const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
       assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-      await clickText("Vistas"); await clickText("Guardar vista");
+      await clickText("Vistas"); await clickText("Guardar vista actual");
       const name = document.querySelector<HTMLInputElement>('[role="dialog"] input')!;
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, "Mi tabla"); name.dispatchEvent(new Event("input", { bubbles: true })); });
       await page.click(document.querySelector('[role="dialog"] button[type="submit"]'));
       await page.click(document.querySelector('[data-testid="transacciones-view-options"]')); await clickText("Restaurar valores iniciales");
       await page.act(async () => document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-      await clickText("Vistas"); await clickText("Mi tabla");
+      await page.click(document.querySelector('button[aria-label="Vistas: Mi tabla"]')); await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Mi tabla")!);
       assert.equal(document.querySelector<HTMLElement>('[data-testid="transacciones-records"]')!.dataset.density, "compacto"); assert.equal(document.querySelector('th[data-col="tipo_gasto"]'), null);
       assert.equal(document.querySelectorAll('thead th')[1].getAttribute("data-col"), "monto");
       assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
@@ -1151,7 +1151,7 @@ test("local header and phone sorts share preference state, reset pages and resto
     await page.click(document.querySelector('th[data-col="contraparte"] button'));
     assert.equal(page.records()[0].dataset.recordId, "sort-0"); assert.equal(count(), range);
     const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
-    await clickText("Vistas"); await clickText("Guardar vista");
+    await clickText("Vistas"); await clickText("Guardar vista actual");
     const name = document.querySelector<HTMLInputElement>('[role="dialog"] input')!;
     await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, "Por nombre"); name.dispatchEvent(new Event("input", { bubbles: true })); });
     await page.click(document.querySelector('[role="dialog"] button[type="submit"]'));
@@ -1164,7 +1164,7 @@ test("local header and phone sorts share preference state, reset pages and resto
     assert.equal(page.records()[0].dataset.recordId, "sort-0");
     await page.act(async () => { surface.style.setProperty("--records-narrow", "0"); window.dispatchEvent(new Event("resize")); });
     assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), "ascending");
-    await clickText("Vistas"); await clickText("Por nombre");
+    await page.click(document.querySelector('button[aria-label="Vistas: Por nombre"]')); await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Por nombre")!);
     assert.equal(document.querySelector('th[data-col="contraparte"]')?.getAttribute("aria-sort"), "ascending");
     assert.equal(page.records()[0].dataset.recordId, "sort-0"); assert.equal(footer().dataset.page, "1");
     await page.unmount();

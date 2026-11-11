@@ -352,6 +352,7 @@ export type BusinessWorkspaceInfo = {
   chat_available: boolean;
   /** Whether the server offers Facturación to this person; the one switch. */
   invoicing_available: boolean;
+  notifications_available?: boolean;
   /** Whether the server offers Por cobrar and Por pagar; the one switch. Absent in older payloads. */
   settlement_available?: boolean;
   /** Whether the server offers Actividad; the one switch. Absent in older payloads. */

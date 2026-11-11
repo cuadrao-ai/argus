@@ -57,7 +57,7 @@ test("server layout changes render, saved views retain the effective layout, and
   const page = await mount({ presentation: chosen });
   assert.deepEqual(renderedColumnKeys(), ["contraparte", "cuenta", "forma_pago", "tipo_gasto", "comprobante", "notas", "estado", "itbis", "monto", "fecha", "ncf"]);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
-  await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
+  await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista actual"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Mi diseño"); await page.click(page.button("Guardar"));
   await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
   assert.deepEqual((page.fixture.views[0].recipe as { presentation: unknown }).presentation, chosen);
@@ -65,7 +65,7 @@ test("server layout changes render, saved views retain the effective layout, and
   page.fixture.controls.presentation = fresh;
   await page.click(document.querySelector('[data-testid="records-refresh"]'));
   await page.settle(() => !renderedColumnKeys().includes("comprobante"));
-  await page.click(page.button("Vistas")); await page.click(page.button("Mi diseño"));
+  await page.click(page.button("Vistas: Mi diseño")); await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Mi diseño"));
   await page.settle(() => renderedColumnKeys()[1] === "cuenta");
   assert.deepEqual((page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as { presentation: unknown }).presentation, chosen);
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
@@ -91,13 +91,13 @@ for (const outcome of ["ready", "failed"] as const) test(`Restore cannot save a 
   await page.click(page.button("Restaurar valores iniciales"));
   await page.click(page.button("Vistas"));
   try {
-    assert.equal(page.button("Guardar vista")?.disabled, true, "saving must await the server's restored layout");
+    assert.equal(page.button("Guardar vista actual")?.disabled, true, "saving must await the server's restored layout");
   } finally { await act(async () => release()); }
   if (outcome === "failed") {
     await page.settle(() => document.querySelector('[role="alert"]') !== null);
-    assert.equal(page.button("Guardar vista")?.disabled, true, "failed Restore has no new layout to save");
+    assert.equal(page.button("Guardar vista actual")?.disabled, true, "failed Restore has no new layout to save");
   } else {
-    await page.settle(() => page.button("Guardar vista")?.disabled === false);
+    await page.settle(() => page.button("Guardar vista actual")?.disabled === false);
   }
   assert.equal(page.fixture.views.length, 0);
 });
