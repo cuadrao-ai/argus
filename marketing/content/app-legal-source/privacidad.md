@@ -1,6 +1,5 @@
 # Aviso de privacidad de la app Cuadrao
 
-Vigente desde: 10 de noviembre de 2026
 Última actualización: 10 de noviembre de 2026
 
 ## 1. Quiénes somos
@@ -65,7 +64,6 @@ Este aviso se aplica a todos los usuarios, estén donde estén. No vendemos tus 
 
 # Cuadrao app privacy notice
 
-Effective: November 10, 2026
 Last updated: November 10, 2026
 
 ## 1. Who we are

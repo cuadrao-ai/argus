@@ -19,11 +19,10 @@ for (const slug of APP_LEGAL_SLUGS) {
   });
 }
 
-test("both effective-date lines stay visible as their own paragraphs", () => {
-  expect(spanish.privacidad.blocks.slice(0, 2).map((block) => "text" in block && block.text)).toEqual([
-    "Vigente desde: 10 de noviembre de 2026",
-    "Última actualización: 10 de noviembre de 2026",
-  ]);
+test("the app pages show one update line and no effective date, like the website pages", () => {
+  expect(spanish.privacidad.blocks[0]).toEqual({ kind: "paragraph", text: "Última actualización: 10 de noviembre de 2026" });
+  const text = JSON.stringify([spanish, english]);
+  expect(text).not.toMatch(/Vigente desde|Effective:/);
 });
 
 test.each([

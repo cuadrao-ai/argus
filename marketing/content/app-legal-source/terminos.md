@@ -1,6 +1,5 @@
 # Términos de uso de la app Cuadrao
 
-Vigente desde: 10 de noviembre de 2026
 Última actualización: 10 de noviembre de 2026
 
 ## 1. Quiénes somos
@@ -56,7 +55,6 @@ En caso de diferencia, prevalece la versión en español. Preguntas: hola@cuadra
 
 # Cuadrao app Terms of Use
 
-Effective: November 10, 2026
 Last updated: November 10, 2026
 
 ## 1. Who we are
