@@ -27,9 +27,13 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
-          } catch {
-            // A Server Component cannot write cookies. The proxy publishes
-            // a refreshed session on the response before this render runs.
+          } catch (error) {
+            if (
+              !(error instanceof Error) ||
+              error.constructor.name !== "ReadonlyRequestCookiesError"
+            ) {
+              throw error;
+            }
           }
         },
       },
