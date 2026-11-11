@@ -4,6 +4,7 @@ import {act} from "react";
 import i18next from "i18next";
 import {I18nextProvider} from "react-i18next";
 import type {BusinessContextValue} from "../components/business-app/BusinessWorkspace";
+import {supportEmail} from "../lib/support-email";
 import messages from "../public/locales/en/common.json";
 
 const id="55555555-5555-4555-8555-555555555555";
@@ -108,7 +109,7 @@ test.each(["action","refresh"] as const)("an invitation %s refusal clears the pa
   await page.click(page.button(messages.workspace_setup_preview.batch_title));await page.type('input[type="email"]',"draft@example.test");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]'));
   await page.settle(()=>page.host.textContent?.includes(messages.business.lifecycle.errors.business_unavailable)===true);
   expect(document.body.textContent).not.toContain(member.email);expect(document.querySelector('input')).toBeNull();expect(document.querySelector('[data-invitation-modal]')).toBeNull();
-  expect(page.host.textContent).toContain(messages.auth.business_unavailable.body);expect(page.host.querySelector('[data-testid="error-reference"]')).not.toBeNull();
+  expect(page.host.textContent).toContain(messages.auth.business_unavailable.body.replace("{{supportEmail}}",supportEmail));expect(page.host.querySelector('[data-testid="error-reference"]')).not.toBeNull();
  }finally{await page.close();}
 });
 

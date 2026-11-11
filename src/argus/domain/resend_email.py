@@ -43,7 +43,7 @@ def send_resend_email(
 
     message = MIMEMultipart("alternative")
     message["From"] = _SENDER_HEADER
-    message["Reply-To"] = "hola@cuadrao.ai"
+    message["Reply-To"] = SUPPORT_EMAIL_ADDRESS
     message["To"] = recipient
     message["Subject"] = subject
     if idempotency_key is not None:

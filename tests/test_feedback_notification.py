@@ -216,7 +216,7 @@ def test_notification_goes_to_support_through_the_shared_resend_transport(
     assert (
         FEEDBACK_NOTIFICATION_RECIPIENT
         == SUPPORT_EMAIL_ADDRESS
-        == "support@get-argus.com"
+        == "hola@cuadrao.ai"
     )
     assert (smtp.host, smtp.port) == ("smtp.resend.com", 465)
     assert smtp.login_args == ("resend", "re_test_password")

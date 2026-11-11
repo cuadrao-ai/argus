@@ -2792,7 +2792,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(closedHome).not.toContain("onFailed() {}");
     expect(closedHome).toContain('t("settings.logout_error")');
     expect(closedHome).toContain('!text-[var(--cuadrao-cream)]');
-    expect(closedHome).toContain("mailto:${CUADRAO_ADMIN_EMAIL}");
+    expect(closedHome).toContain("mailto:${supportEmail}");
     const shots = readFileSync(join(root, "e2e/business-signed-in-home.spec.ts"), "utf-8");
     expect(shots).toContain("E2E_SCREENSHOT_DIR");
     expect(shots).toContain('"test-results"');

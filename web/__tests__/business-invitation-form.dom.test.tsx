@@ -7,6 +7,7 @@ import {I18nextProvider} from "react-i18next";
 import type {BusinessContextValue} from "@/components/business-app/BusinessWorkspace";
 import type {GrantedSpace} from "@/lib/business-api";
 import type {ChatShellBridge} from "@/components/chat/ChatWorkspace";
+import {supportEmail} from "@/lib/support-email";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 
@@ -217,7 +218,7 @@ test("a refused send says so, offers the contact line, and its draft never comes
  await page.settle(()=>page.refusals.length===1);
  const alert=document.querySelector('form [role="alert"]')!;
  expect(alert.textContent).toContain(english.business.lifecycle.errors.business_unavailable);
- expect(alert.textContent).toContain(english.auth.business_unavailable.body);
+ expect(alert.textContent).toContain(english.auth.business_unavailable.body.replace("{{supportEmail}}",supportEmail));
  expect(alert.querySelector('[data-testid="error-reference"]')).not.toBeNull();
  expect(page.sendButton().disabled).toBe(true);
  await page.unmount();

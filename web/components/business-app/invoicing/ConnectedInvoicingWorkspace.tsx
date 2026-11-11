@@ -5,6 +5,7 @@ import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import * as api from "@/lib/business-invoices-api";
 import { browserAuthGeneration } from "@/lib/browser-auth-generation";
 import { currencySymbol } from "@/lib/money-entry";
+import { supportEmail } from "@/lib/support-email";
 import { getChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
@@ -65,7 +66,7 @@ function CommandStatus({ state, retry, reload }: { state: CommandState; retry: (
   const message = state.failure === "refused" ? t([`business.invoicing.refused_${state.command?.kind ?? "request"}`, "business.invoicing.refused"]) : t(`business.invoicing.${state.failure}`);
   return <div role="alert" className={styles.notice}>
     <p>{message}</p>
-    {terminal ? <p>{t("auth.business_unavailable.body")}</p> : null}
+    {terminal ? <p>{t("auth.business_unavailable.body", { supportEmail })}</p> : null}
     {state.reference ? <ReferenceCode reference={state.reference} /> : null}
     {state.retryable ? <button type="button" className={quietButtonClass} onClick={retry}>{t("business.invoicing.retry")}</button> : state.failure === "conflict" ? <button type="button" className={quietButtonClass} onClick={reload}>{t("business.invoicing.reload")}</button> : null}
   </div>;

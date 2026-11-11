@@ -8,6 +8,8 @@ import { UNKNOWN_VALUE } from "./business-format";
 
 const FOCUS_RING = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]";
 const ACTION_CLASS = `flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-black/[0.04] disabled:opacity-40 dark:hover:bg-white/[0.06] ${FOCUS_RING}`;
+const ROW_BLEED = "-my-[11px]";
+const IN_PENCIL_COLUMN = "mr-[calc((0.875rem-2.75rem)/2)]";
 const PENCIL_CLASS = "h-3.5 w-3.5 shrink-0 text-[#56635e] opacity-70 group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60";
 
 /** What a closed row shows. */
@@ -54,9 +56,9 @@ export default function ReceiptEditRow({ label, value, compound, pencil = true, 
     const save = t("common.save", "Save");
     const cancel = t("common.cancel", "Cancel");
     return (
-      <div data-row-open="" className="-my-[7px] flex flex-wrap items-start gap-x-1 gap-y-1" onKeyDown={onKeyDown}>
-        <div className="min-w-[11rem] flex-1">{children}</div>
-        <div className="ml-auto flex shrink-0">
+      <div data-row-open="" className={`${ROW_BLEED} flex flex-wrap items-start gap-1 max-tablet:-my-[7px]`} onKeyDown={onKeyDown}>
+        <div className="min-w-[9.5rem] flex-1">{children}</div>
+        <div className={`ml-auto flex shrink-0 ${IN_PENCIL_COLUMN}`}>
           <Tooltip content={save} side="top">
             <button type="button" aria-label={`${save} · ${label}`} aria-busy={saving} disabled={saving} className={`${ACTION_CLASS} text-[#2f5a49] dark:text-[#8fcbb0]`} onClick={onSave}>
               {saving ? <Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Check className="h-[18px] w-[18px]" aria-hidden="true" />}
@@ -77,12 +79,12 @@ export default function ReceiptEditRow({ label, value, compound, pencil = true, 
     return (
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">{value}</div>
-        {pencil ? <button type="button" onClick={onOpen} aria-label={edit} className={`group -mr-2 -my-[11px] flex h-11 w-11 shrink-0 items-center justify-end rounded-item px-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${FOCUS_RING}`}><Pencil className={PENCIL_CLASS} aria-hidden="true" /></button> : null}
+        {pencil ? <button type="button" onClick={onOpen} aria-label={edit} className={`group -mr-2 ${ROW_BLEED} flex h-11 w-11 shrink-0 items-center justify-end rounded-item px-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${FOCUS_RING}`}><Pencil className={PENCIL_CLASS} aria-hidden="true" /></button> : null}
       </div>
     );
   }
   return (
-    <button type="button" onClick={onOpen} aria-label={edit} className={`group -mx-2 -my-[11px] flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-item px-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${FOCUS_RING}`}>
+    <button type="button" onClick={onOpen} aria-label={edit} className={`group -mx-2 ${ROW_BLEED} flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-item px-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${FOCUS_RING}`}>
       <span className="min-w-0 flex-1">{value || UNKNOWN_VALUE}</span>
       <Pencil className={PENCIL_CLASS} aria-hidden="true" />
     </button>

@@ -44,6 +44,7 @@ import { dismissToast, showToast, useToasts } from "./foundation/toasts";
 import { EmptyState } from "./foundation/EmptyState";
 import { resolveLanguage } from "@/lib/language-features";
 import { referenceCode, refusedForGood } from "@/lib/failure-screen";
+import { supportEmail } from "@/lib/support-email";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { setCurrencyView, useCurrencyView } from "@/lib/business-currency-view";
 import { currencySymbol } from "@/lib/money-entry";
@@ -607,7 +608,7 @@ function BusinessMonthCloseContent({
       <div role={reviewProblem.state === "failed" || reviewProblem.state === "refused" ? "alert" : undefined} data-testid={reviewProblem.state === "failed" || reviewProblem.state === "refused" ? "inicio-error" : undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-[#56635e] dark:text-white/70">
         <div className="min-w-0 flex-1 basis-full tablet:basis-auto">
           <p>{reviewProblem.state === "refused" ? t("auth.business_unavailable.title") : t(`business.month_close.receipts_${reviewProblem.state}`)}</p>
-          {reviewProblem.state === "refused" ? <p>{t("auth.business_unavailable.body")}{reviewProblem.reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reviewProblem.reference} /></span> : null}</p> : null}
+          {reviewProblem.state === "refused" ? <p>{t("auth.business_unavailable.body", { supportEmail })}{reviewProblem.reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reviewProblem.reference} /></span> : null}</p> : null}
         </div>
         {reviewProblem.state === "failed" ? <button type="button" className={`${quietButtonClass} shrink-0 px-3`} onClick={reviewProblem.retry}>{t("common.retry")}</button> : null}
         {reviewProblem.state === "failed" && reviewProblem.reference ? <ReferenceCode reference={reviewProblem.reference} /> : null}
@@ -886,7 +887,7 @@ function BusinessMonthCloseContent({
   function loadFailure(title: string, failedRefused: boolean, failedReference: string | null, retry: () => void) {
     return (
       <>
-        <EmptyState kind="error" compact title={title} body={failedRefused ? t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.") : t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={failedRefused ? undefined : { label: t("business.month_close.retry", "Try again"), run: retry }} />
+        <EmptyState kind="error" compact title={title} body={failedRefused ? t("auth.business_unavailable.body", { supportEmail }) : t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={failedRefused ? undefined : { label: t("business.month_close.retry", "Try again"), run: retry }} />
         {failedReference ? <div className="flex justify-center pb-2"><ReferenceCode reference={failedReference} /></div> : null}
       </>
     );
