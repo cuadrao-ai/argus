@@ -7,9 +7,11 @@ reported as errors because their targets cannot be established statically.
 
 from __future__ import annotations
 
+import argparse
 import ast
 import json
 import re
+import subprocess
 import sys
 from collections import deque
 from dataclasses import asdict, dataclass
@@ -26,6 +28,12 @@ PACKAGES = {
     "pandas-ta-classic": "pandas_ta_classic",
     "vectorbt": "vectorbt",
 }
+IMPORT_ALIASES = {
+    "fonttools": "fontTools",
+    "ipython": "IPython",
+    "scikit-learn": "sklearn",
+}
+BASELINE = "origin/codex/private-alpha-next"
 ENTRY_POINTS = (
     "argus.api.main",
     "workflows.document_worker",
@@ -140,20 +148,48 @@ def import_paths(graph: dict[str, set[str]], entry: str) -> dict[str, list[str]]
     return paths
 
 
-def production_dependencies(root: Path) -> set[str]:
-    text = (root / "pyproject.toml").read_text(encoding="utf-8")
+def production_dependencies(text: str) -> set[str]:
     section = text.split("[tool.poetry.dependencies]", 1)[1].split("\n[", 1)[0]
     return set(re.findall(r"^([A-Za-z0-9_-]+)\s*=", section, re.MULTILINE))
 
 
-def audit(root: Path = ROOT) -> tuple[list[dict[str, object]], list[str]]:
+def locked_production_packages(text: str) -> set[str]:
+    return {
+        match.group(1)
+        for package in text.split("[[package]]")[1:]
+        if re.search(r'^groups = .*"main"', package, re.MULTILINE)
+        if (match := re.search(r'^name = "([^"]+)"$', package, re.MULTILINE))
+    }
+
+
+def removed_packages(root: Path, baseline: str) -> set[str]:
+    def previous(path: str) -> str:
+        return subprocess.check_output(
+            ["git", "show", f"{baseline}:{path}"], cwd=root, text=True
+        )
+
+    previous_direct = production_dependencies(previous("pyproject.toml"))
+    current_direct = production_dependencies((root / "pyproject.toml").read_text())
+    previous_locked = locked_production_packages(previous("poetry.lock"))
+    current_locked = locked_production_packages((root / "poetry.lock").read_text())
+    return (previous_direct - current_direct) | (previous_locked - current_locked)
+
+
+def audit(
+    root: Path = ROOT, baseline: str = BASELINE
+) -> tuple[list[dict[str, object]], list[str]]:
     graph, uses = import_graph(root)
     paths = {entry: import_paths(graph, entry) for entry in ENTRY_POINTS}
     smoke_paths = import_paths(graph, SMOKE_ENTRY_POINT)
-    installed = production_dependencies(root)
+    installed = production_dependencies((root / "pyproject.toml").read_text())
+    candidates = {
+        name: IMPORT_ALIASES.get(name, name.replace("-", "_"))
+        for name in removed_packages(root, baseline)
+    }
+    candidates.update(PACKAGES)
     rows: list[dict[str, object]] = []
     failures: list[str] = []
-    for package, imported_name in PACKAGES.items():
+    for package, imported_name in sorted(candidates.items()):
         direct = sorted(
             {use for use in uses if use.target.split(".")[0] == imported_name},
             key=lambda use: (use.path, use.line, use.target),
@@ -175,6 +211,7 @@ def audit(root: Path = ROOT) -> tuple[list[dict[str, object]], list[str]]:
         rows.append(
             {
                 "package": package,
+                "kind": "direct" if package in PACKAGES else "transitive",
                 "disposition": "kept" if kept else "removed",
                 "direct_imports": [asdict(use) for use in direct],
                 "production_imports": reachable,
@@ -188,7 +225,10 @@ def audit(root: Path = ROOT) -> tuple[list[dict[str, object]], list[str]]:
 
 
 def main() -> int:
-    rows, failures = audit()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--baseline", default=BASELINE)
+    args = parser.parse_args()
+    rows, failures = audit(baseline=args.baseline)
     sys.stdout.write(
         json.dumps({"packages": rows, "failures": failures}, indent=2) + "\n"
     )

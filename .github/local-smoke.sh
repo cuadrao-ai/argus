@@ -218,8 +218,8 @@ for module in (
     "workflows.document_worker",
 ):
     import_module(module)
-print("production_import_probe=ready")
 PYTHON
+  echo "production_import_probe=ready"
 }
 
 run_workflow_probe() {

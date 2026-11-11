@@ -72,3 +72,25 @@ def test_production_and_smoke_entry_points_import_without_optional_stack() -> No
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_lock_audit_discovers_removed_transitive_packages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scripts.check_production_dependencies import removed_packages
+
+    manifest = "[tool.poetry.dependencies]\nkept = '1.0'\n"
+    lock = '[[package]]\nname = "kept"\ngroups = ["main"]\n'
+    (tmp_path / "pyproject.toml").write_text(manifest)
+    (tmp_path / "poetry.lock").write_text(lock)
+    previous = {
+        "base:pyproject.toml": manifest + "removed = '1.0'\n",
+        "base:poetry.lock": lock
+        + '[[package]]\nname = "transitive-only"\ngroups = ["main"]\n'
+        + '[[package]]\nname = "dev-only"\ngroups = ["dev"]\n',
+    }
+    monkeypatch.setattr(
+        "scripts.check_production_dependencies.subprocess.check_output",
+        lambda command, **kwargs: previous[command[-1]],
+    )
+    assert removed_packages(tmp_path, "base") == {"removed", "transitive-only"}
