@@ -139,6 +139,14 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, tag, match);
   };
 
+  // A 606 purchase is paid by its forma de pago, the code the export writes, not by a ledger account.
+  const purchase = dossier.dgii?.form === "606" ? dossier.dgii : null;
+  const paymentField = (key: BusinessFactField) => {
+    if (key !== "funding" || !purchase) return recordField(key);
+    const code = purchase.payment_method;
+    return field(key, t("business.dossier.field.funding"), typeof code === "string" && code ? t(`business.dgii.option.payment_method.${code}`, { defaultValue: code }) : UNKNOWN_VALUE);
+  };
+
   const noNumber = (form: FactsReview) => {
     const state = dossier.facts.receipt_state;
     const marked = state.state === "known" && state.value === "no_receipt";
@@ -229,7 +237,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         {fiscalFields}
       </>)}
       {choicesSection}
-      {section("payment", paymentTitle, PAYMENT_FIELDS.map(recordField))}
+      {section("payment", paymentTitle, PAYMENT_FIELDS.map(paymentField))}
     </div>
   );
 }
