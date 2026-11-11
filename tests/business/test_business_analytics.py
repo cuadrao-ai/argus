@@ -419,6 +419,65 @@ def _facts(**values: object) -> dict[str, Any]:
     }
 
 
+def _approval_properties(
+    read: dict[str, Any] | None, approved: dict[str, Any]
+) -> dict[str, Any]:
+    facts = business_analytics.ApprovalFacts(read, None, "recibo")
+    approval, _ = business_analytics.approval_events(
+        str(uuid4()), facts, approved, datetime.now(timezone.utc)
+    )
+    return approval.model_dump(exclude={"business_hash", "seconds_to_approve"})
+
+
+def _field_facts(name: str, state: str | None, value: str | None) -> dict[str, Any]:
+    if state is None:
+        return {}
+    fields = {name: {"state": state, "value": value}}
+    return {"fiscal": fields} if name in business_analytics.FISCAL_FIELDS else fields
+
+
+_OWNER_UNKNOWN = "owner_does_not_know"
+
+
+@pytest.mark.parametrize(
+    ("name", "read_state", "read_value", "approved_state", "approved_value", "edit"),
+    [
+        ("rnc", None, None, "known", "131313131", "filled"),
+        ("counterparty", "unknown", None, "known", "Colmado", "filled"),
+        ("rnc", _OWNER_UNKNOWN, None, "known", "131313131", "filled"),
+        ("rnc", "known", "101010101", "known", "131313131", "corrected"),
+        ("counterparty", "known", "Colmado", "known", "Colmado", None),
+        ("rnc", "known", "131313131", None, None, "corrected"),
+        ("counterparty", "known", "Colmado", "unknown", None, "corrected"),
+        ("rnc", "known", "131313131", _OWNER_UNKNOWN, None, "corrected"),
+        ("counterparty", "unknown", None, _OWNER_UNKNOWN, None, None),
+        ("rnc", _OWNER_UNKNOWN, None, "unknown", None, None),
+        ("counterparty", None, None, None, None, None),
+        ("amount", "known", "100.0", "known", "100.00", None),
+        ("itbis", "known", "100.0", "known", "100.00", None),
+    ],
+)
+def test_approval_classifies_field_transitions(
+    name: str,
+    read_state: str | None,
+    read_value: str | None,
+    approved_state: str | None,
+    approved_value: str | None,
+    edit: str | None,
+) -> None:
+    read = _field_facts(name, read_state, read_value)
+    approved = _field_facts(name, approved_state, approved_value)
+    filled = (name,) if edit == "filled" else ()
+    corrected = (name,) if edit == "corrected" else ()
+
+    assert _approval_properties(read, approved) == {
+        "filled_fields": filled,
+        "filled_count": len(filled),
+        "corrected_fields": corrected,
+        "corrected_count": len(corrected),
+    }
+
+
 @pytest.mark.parametrize(
     ("name", "read_value", "approved_value"),
     [
@@ -429,29 +488,16 @@ def _facts(**values: object) -> dict[str, Any]:
         ("category_id", "007", "7"),
     ],
 )
-def test_an_identifier_changed_only_by_leading_zeros_counts_as_changed(
+def test_approval_counts_removing_leading_zeros_from_an_identifier_as_a_correction(
     name: str, read_value: str, approved_value: str
 ) -> None:
-    read = _facts(**{name: read_value})
-    approved = _facts(**{name: approved_value})
-    if name in business_analytics.FISCAL_FIELDS:
-        read = _facts(fiscal={name: read_value})
-        approved = _facts(fiscal={name: approved_value})
+    read = _field_facts(name, "known", read_value)
+    approved = _field_facts(name, "known", approved_value)
 
-    assert business_analytics.changed_fields(read, approved) == (name,)
+    assert _approval_properties(read, approved)["corrected_fields"] == (name,)
 
 
-@pytest.mark.parametrize("name", ["amount", "itbis"])
-def test_a_money_field_written_with_other_decimals_is_unchanged(name: str) -> None:
-    read = _facts(**{name: "3450.00"})
-    approved = _facts(**{name: "3450"})
-    if name in business_analytics.FISCAL_FIELDS:
-        read = _facts(fiscal={name: "3450.00"})
-        approved = _facts(fiscal={name: "3450"})
-
-    assert business_analytics.changed_fields(read, approved) == ()
-
-def test_approval_names_the_fields_a_person_changed_never_their_values(
+def test_approval_sends_names_of_filled_and_corrected_fields(
     sent: Sent,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -480,10 +526,17 @@ def test_approval_names_the_fields_a_person_changed_never_their_values(
     )
 
     [approval] = _events(sent, "business_record_approved")
-    assert set(approval) == _keys("changed_fields", "changed_count", "seconds_to_approve")
-    # 3450.00 and 3450 are the same amount, so only the name and fiscal facts changed.
-    assert approval["changed_fields"] == ["counterparty", "rnc", "itbis"]
-    assert approval["changed_count"] == 3
+    assert set(approval) == _keys(
+        "filled_fields",
+        "filled_count",
+        "corrected_fields",
+        "corrected_count",
+        "seconds_to_approve",
+    )
+    assert approval["filled_fields"] == ["itbis"]
+    assert approval["filled_count"] == 1
+    assert approval["corrected_fields"] == ["counterparty", "rnc"]
+    assert approval["corrected_count"] == 2
     assert approval["seconds_to_approve"] == 5400
     [recorded] = _events(sent, "business_record_recorded")
     assert set(recorded) == _keys("direction", "document_type")
@@ -501,8 +554,15 @@ def test_a_typed_note_approval_has_no_read_to_compare(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     facts = business_analytics.ApprovalFacts(None, None, "venta")
+    approved = _facts(kind="income")
+    assert _approval_properties(None, approved) == {
+        "filled_fields": None,
+        "filled_count": None,
+        "corrected_fields": None,
+        "corrected_count": None,
+    }
     monkeypatch.setattr(
-        business_analytics, "read_approval", lambda *args: (facts, _facts(kind="income"))
+        business_analytics, "read_approval", lambda *args: (facts, approved)
     )
     context = SimpleNamespace(actor=SimpleNamespace(space_id=uuid4(), actor_id=uuid4()))
 

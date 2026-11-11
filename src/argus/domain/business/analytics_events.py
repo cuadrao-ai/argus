@@ -95,8 +95,12 @@ class BusinessDocumentNeedsReview(BusinessEvent):
 class BusinessRecordApproved(BusinessEvent):
     event_name: ClassVar[str] = "business_record_approved"
 
-    changed_fields: Annotated[tuple[RecordField, ...], Field(max_length=14)] | None = None
-    changed_count: Annotated[int, Field(ge=0, le=14)] | None = None
+    filled_fields: Annotated[tuple[RecordField, ...], Field(max_length=14)] | None = None
+    filled_count: Annotated[int, Field(ge=0, le=14)] | None = None
+    corrected_fields: Annotated[tuple[RecordField, ...], Field(max_length=14)] | None = (
+        None
+    )
+    corrected_count: Annotated[int, Field(ge=0, le=14)] | None = None
     seconds_to_approve: Annotated[int, Field(ge=0, le=MAX_SECONDS_TO_APPROVE)] | None = (
         None
     )

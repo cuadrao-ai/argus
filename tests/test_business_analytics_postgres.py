@@ -111,7 +111,7 @@ def _receipt_outcome(service, context, key: str) -> str | None:  # noqa: ANN001
     return row[0] if row else None
 
 
-def test_approval_reads_the_corrected_names_and_the_first_arrival(actions, sent):  # noqa: ANN001
+def test_approval_reads_the_filled_names_and_the_first_arrival(actions, sent):  # noqa: ANN001
     service, context = actions
     read = fiscal.colmado()
     draft, version = fiscal.receipt_draft(service, context, read, "DOP")
@@ -136,8 +136,10 @@ def test_approval_reads_the_corrected_names_and_the_first_arrival(actions, sent)
     assert settled == ["applied", "applied"]
     [approval] = _events(sent, "business_record_approved")
     # The review set who paid and the Business share; the read's facts stay.
-    assert approval["changed_fields"] == ["funding", "business_share"]
-    assert approval["changed_count"] == 2
+    assert approval["filled_fields"] == ["funding", "business_share"]
+    assert approval["filled_count"] == 2
+    assert approval["corrected_fields"] == []
+    assert approval["corrected_count"] == 0
     expected = range(
         int((before - received).total_seconds()),
         int((after - received).total_seconds()) + 1,

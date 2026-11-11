@@ -129,8 +129,10 @@ VALID_PROPERTIES: dict[str, dict[str, Any]] = {
     },
     "business_record_approved": {
         "business_hash": BUSINESS_HASH,
-        "changed_fields": ("amount", "rnc"),
-        "changed_count": 2,
+        "filled_fields": ("amount",),
+        "filled_count": 1,
+        "corrected_fields": ("rnc",),
+        "corrected_count": 1,
         "seconds_to_approve": 5400,
     },
     "business_record_recorded": {
