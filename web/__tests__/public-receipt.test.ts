@@ -223,18 +223,14 @@ describe("never indexable", () => {
     }
   });
 
-  test("a view is reported by the rendered page, not by reading the receipt", () => {
-    // The read endpoint answers the metadata pass and the preview image too, so
-    // counting there would log views for a pasted link nobody opened.
+  test("a view is not reported to the retired funnel", () => {
     const contract = code(join(WEB_ROOT, "lib/public-receipt-contract.ts"));
     expect(contract).not.toContain("receipt-funnel");
-    expect(source(join(WEB_ROOT, "components/receipt/ReceiptViewBeacon.tsx"))).toContain(
-      'reportReceiptFunnelStage("viewed", kind)',
-    );
-    expect(source(RECEIPT_BODY)).toContain("<ReceiptViewBeacon");
-    expect(source(join(WEB_ROOT, "components/receipt/ReceiptNotice.tsx"))).not.toContain("<ReceiptViewBeacon");
-    // The image never reports anything.
+    expect(source(RECEIPT_BODY)).not.toContain("ReceiptViewBeacon");
+    expect(source(RECEIPT_BODY)).not.toContain("receipt-funnel");
+    expect(source(join(WEB_ROOT, "components/receipt/ReceiptNotice.tsx"))).not.toContain("ReceiptViewBeacon");
     expect(code(OG_IMAGE_ROUTE)).not.toContain("receipt-funnel");
+    expect(source(ACTION_BAR)).not.toContain("receipt-funnel");
   });
 
   test("the metadata pass and the page render share one backend read", () => {
@@ -373,7 +369,7 @@ describe("try argus", () => {
   test("lands on bare guest entry with no carried state and no new parameter", () => {
     const body = source(ACTION_BAR);
     expect(body).toContain('href="/"');
-    const markup = renderToStaticMarkup(createElement(ReceiptActionBar, { framing: "Context", action: "Continue with Argus", kind: "research_answer" }));
+    const markup = renderToStaticMarkup(createElement(ReceiptActionBar, { framing: "Context", action: "Continue with Argus" }));
     expect(markup.match(/href="([^"]+)"/)?.[1]).toBe("/");
     expect(body).not.toContain("searchParams");
     expect(body).not.toContain("prefill");
@@ -476,7 +472,7 @@ describe("a view is only counted when a receipt was shown", () => {
   test("the outage notice does not fire the beacon", () => {
     const notice = source(join(WEB_ROOT, "components/receipt/ReceiptNotice.tsx"));
     expect(notice).not.toContain("<ReceiptViewBeacon");
-    expect(notice).toContain("kind={null}");
+    expect(notice).not.toContain("receipt-funnel");
   });
 });
 
@@ -740,8 +736,6 @@ describe("the action bar", () => {
   });
 
   test("its position owes nothing to JavaScript", () => {
-    // No scroll listener and no reveal, so it cannot behave differently before
-    // hydration than after it. The click beacon is the funnel contract and stays.
     const bar = code(ACTION_BAR);
     for (const forbidden of [
       "addEventListener",
@@ -752,7 +746,8 @@ describe("the action bar", () => {
     ]) {
       expect(bar).not.toContain(forbidden);
     }
-    expect(bar).toContain("reportReceiptFunnelStage");
+    expect(bar).not.toContain("reportReceiptFunnelStage");
+    expect(bar).not.toContain("receipt-funnel");
   });
 
   test("the tombstone gets it too", () => {
