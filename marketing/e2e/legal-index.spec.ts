@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import spanish from "../content/legal-es.json";
 import english from "../content/legal-en.json";
+import appSpanish from "../content/app-legal-es.json";
+import appEnglish from "../content/app-legal-en.json";
 import { legalSections } from "../lib/legal-sections";
 
 const PAGES = [
@@ -8,6 +10,10 @@ const PAGES = [
   { path: "/terminos", label: "En esta página", document: spanish.terminos },
   { path: "/en/privacy", label: "On this page", document: english.privacidad },
   { path: "/en/terms", label: "On this page", document: english.terminos },
+  { path: "/app/privacidad", label: "En esta página", document: appSpanish.privacidad },
+  { path: "/app/terminos", label: "En esta página", document: appSpanish.terminos },
+  { path: "/en/app/privacy", label: "On this page", document: appEnglish.privacidad },
+  { path: "/en/app/terms", label: "On this page", document: appEnglish.terminos },
 ];
 
 const isPhone = () => test.info().project.name === "mobile";

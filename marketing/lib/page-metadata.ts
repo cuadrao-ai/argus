@@ -19,6 +19,11 @@ export const PAGE_METADATA: Record<
     },
     terms: { title: "Términos | Cuadrao", description: "Términos de uso del sitio web de Cuadrao." },
     deletion: { title: "Eliminar tus datos | Cuadrao", description: "Cómo pedir que borremos tus datos en Cuadrao." },
+    appPrivacy: {
+      title: "Privacidad de la app | Cuadrao",
+      description: "Cubre la app Cuadrao Business: tu cuenta, los documentos y datos de tu negocio, y la lectura con inteligencia artificial.",
+    },
+    appTerms: { title: "Términos de la app | Cuadrao", description: "Estos Términos rigen la app Cuadrao Business." },
     privacy: {
       title: "Privacidad | Cuadrao",
       description:
@@ -37,6 +42,11 @@ export const PAGE_METADATA: Record<
     },
     terms: { title: "Terms | Cuadrao", description: "Cuadrao Website Terms of Use" },
     deletion: { title: "Delete your data | Cuadrao", description: "How to ask us to delete your data" },
+    appPrivacy: {
+      title: "App privacy | Cuadrao",
+      description: "It covers the Cuadrao Business app: your account, your business’s documents and data, and AI reading.",
+    },
+    appTerms: { title: "App terms | Cuadrao", description: "These Terms govern the Cuadrao Business app." },
     privacy: {
       title: "Privacy | Cuadrao",
       description:

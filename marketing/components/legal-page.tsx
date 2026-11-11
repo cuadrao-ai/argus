@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import spanish from "../content/legal-es.json";
 import english from "../content/legal-en.json";
+import appSpanish from "../content/app-legal-es.json";
+import appEnglish from "../content/app-legal-en.json";
 import { legalSections, sectionId } from "@/lib/legal-sections";
 import { htmlLang, type BusinessLocale } from "@/lib/site-routes";
 import { BusinessHeader } from "./business-header";
@@ -10,8 +12,21 @@ import { siteCopy } from "./site-copy";
 import styles from "./business.module.css";
 import legal from "./legal.module.css";
 
-export type LegalPageName = "privacy" | "terms" | "deletion";
-const slugs = { privacy: "privacidad", terms: "terminos", deletion: "eliminar-datos" } as const;
+type Documents = { es: Record<string, LegalDocument>; en: Record<string, LegalDocument> };
+type LegalDocument = { title: string; blocks: ({ kind: string; text?: string; items?: string[] })[] };
+
+const website: Documents = { es: spanish, en: english };
+const app: Documents = { es: appSpanish, en: appEnglish };
+
+const SOURCES = {
+  privacy: { documents: website, slug: "privacidad" },
+  terms: { documents: website, slug: "terminos" },
+  deletion: { documents: website, slug: "eliminar-datos" },
+  appPrivacy: { documents: app, slug: "privacidad" },
+  appTerms: { documents: app, slug: "terminos" },
+} as const;
+
+export type LegalPageName = keyof typeof SOURCES;
 
 function shown(text: string): string {
   return text.replace(/^(?:Vigente desde|Effective): .+? (?=(?:Última actualización|Last updated): )/, "");
@@ -27,8 +42,8 @@ function inline(text: string): ReactNode[] {
 }
 
 export function LegalPage({ page, locale = "es" }: { page: LegalPageName; locale?: BusinessLocale }) {
-  const documents = locale === "es" ? spanish : english;
-  const document = documents[slugs[page]];
+  const { documents, slug } = SOURCES[page];
+  const document = documents[locale][slug]!;
   const indexed = page !== "deletion";
   return (
     <div className={styles.site} lang={htmlLang(locale)} id="top" data-page-background="business">
@@ -39,7 +54,7 @@ export function LegalPage({ page, locale = "es" }: { page: LegalPageName; locale
           <h1 id="legal-title">{document.title}</h1>
           {document.blocks.map((block, index) => {
             if (block.kind === "heading" && block.text) return <h2 key={index} id={sectionId(block.text)}>{block.text}</h2>;
-            if ("items" in block && block.items) {
+            if (block.items) {
               const List = block.kind === "ordered" ? "ol" : "ul";
               return <List key={index}>{block.items.map((item) => <li key={item}>{inline(item)}</li>)}</List>;
             }

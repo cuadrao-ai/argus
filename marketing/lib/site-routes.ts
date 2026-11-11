@@ -1,15 +1,31 @@
 export const SITE_ORIGIN = "https://cuadrao.ai";
 
 export const LOCALES = ["es", "en"] as const;
-export const PAGES = ["home", "contact", "privacy", "terms", "deletion"] as const;
+export const PAGES = ["home", "contact", "privacy", "terms", "deletion", "appPrivacy", "appTerms"] as const;
 
 export type BusinessLocale = (typeof LOCALES)[number];
 export type BusinessPage = (typeof PAGES)[number];
 
 // A null slug keeps an untranslated page out of that locale.
 const SLUGS: Record<BusinessLocale, Record<BusinessPage, string | null>> = {
-  es: { home: "", contact: "contacto", privacy: "privacidad", terms: "terminos", deletion: "eliminar-datos" },
-  en: { home: "", contact: "contact", privacy: "privacy", terms: "terms", deletion: "delete-data" },
+  es: {
+    home: "",
+    contact: "contacto",
+    privacy: "privacidad",
+    terms: "terminos",
+    deletion: "eliminar-datos",
+    appPrivacy: "app/privacidad",
+    appTerms: "app/terminos",
+  },
+  en: {
+    home: "",
+    contact: "contact",
+    privacy: "privacy",
+    terms: "terms",
+    deletion: "delete-data",
+    appPrivacy: "app/privacy",
+    appTerms: "app/terms",
+  },
 };
 
 const HTML_LANG: Record<BusinessLocale, string> = { es: "es-DO", en: "en" };
@@ -84,7 +100,7 @@ export function pageFromSlug(
 export function slugSegments(locale: BusinessLocale, page: BusinessPage): string[] {
   const slug = SLUGS[locale][page];
   if (slug === null) throw new Error(`Page ${page} is unavailable in ${locale}`);
-  return slug ? [slug] : [];
+  return slug ? slug.split("/") : [];
 }
 
 export function alternateLanguages(page: BusinessPage): Record<string, string> {

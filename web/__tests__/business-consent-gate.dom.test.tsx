@@ -115,7 +115,7 @@ test("Continuar waits for the box, locks with a spinner while saving, and goes s
   assert.equal(screen.querySelector("h1")?.textContent, "Antes de empezar");
   assert.equal(screen.querySelector("h1 + p")?.textContent, spanish.business.consent.one_time);
   const privacy = host.querySelector('[data-testid="business-consent-privacy"]') as HTMLAnchorElement;
-  assert.equal(privacy.getAttribute("href"), "https://cuadrao.ai/privacidad");
+  assert.equal(privacy.getAttribute("href"), "https://cuadrao.ai/app/privacidad");
   assert.equal(privacy.getAttribute("target"), "_blank");
   assert.equal(privacy.textContent, "Ver aviso de privacidad");
   assert.equal(button(host).disabled, true);

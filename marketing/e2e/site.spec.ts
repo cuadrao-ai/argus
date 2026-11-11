@@ -9,6 +9,10 @@ const PAGES = [
   { path: "/en", lang: "en", title: "Every record. In its place. | Cuadrao", canonical: "https://cuadrao.ai/en", alternate: "https://cuadrao.ai" },
   { path: "/en/contact", lang: "en", title: "Let’s talk about your business | Cuadrao", canonical: "https://cuadrao.ai/en/contact", alternate: "https://cuadrao.ai/contacto" },
   { path: "/en/privacy", lang: "en", title: "Privacy | Cuadrao", canonical: "https://cuadrao.ai/en/privacy", alternate: "https://cuadrao.ai/privacidad" },
+  { path: "/app/privacidad", lang: "es-DO", title: "Privacidad de la app | Cuadrao", canonical: "https://cuadrao.ai/app/privacidad", alternate: "https://cuadrao.ai/en/app/privacy" },
+  { path: "/app/terminos", lang: "es-DO", title: "Términos de la app | Cuadrao", canonical: "https://cuadrao.ai/app/terminos", alternate: "https://cuadrao.ai/en/app/terms" },
+  { path: "/en/app/privacy", lang: "en", title: "App privacy | Cuadrao", canonical: "https://cuadrao.ai/en/app/privacy", alternate: "https://cuadrao.ai/app/privacidad" },
+  { path: "/en/app/terms", lang: "en", title: "App terms | Cuadrao", canonical: "https://cuadrao.ai/en/app/terms", alternate: "https://cuadrao.ai/app/terminos" },
 ];
 
 test.beforeEach(async ({ context }, info) => {

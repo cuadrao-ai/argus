@@ -55,7 +55,7 @@ for (const business of [true, false]) {
     const anchor = document.createElement("button");
     document.body.appendChild(anchor);
     const { act } = await mount(<ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: anchor }} />, business);
-    const published = 'a[href="https://cuadrao.ai/terminos"],a[href="https://cuadrao.ai/privacidad"]';
+    const published = 'a[href="https://cuadrao.ai/app/terminos"],a[href="https://cuadrao.ai/app/privacidad"]';
     assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, 0);
     assert.equal(document.querySelectorAll(published).length, 2, "the footer links the published pages on both surfaces");
     await act(async () => button("Ayuda y legal")!.click());
@@ -101,7 +101,7 @@ test("Ayuda y legal links the published Cuadrao pages, and a setting overrides t
     assert.equal(document.querySelector('a[href^="mailto:"]'), null);
   };
   await open();
-  expectLinks("https://cuadrao.ai/terminos", "https://cuadrao.ai/privacidad");
+  expectLinks("https://cuadrao.ai/app/terminos", "https://cuadrao.ai/app/privacidad");
   for (const cleanup of cleanups.splice(0)) await cleanup();
   document.body.innerHTML = "";
   process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = "https://cuadrao.example/terminos";
