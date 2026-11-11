@@ -240,6 +240,81 @@ test("a view chosen while Deshacer or a save is still writing stays applied", as
   await appliedIs(page, "Mi vista", ["Otra vista", "Con otra"]);
 });
 
+async function rename(page: Page, from: string, to: string) {
+  await openMenu(page);
+  await page.click(inMenu(`Renombrar ${from}`));
+  const field = nameField()!;
+  await page.type(field, to);
+  await pressEnter(field);
+}
+
+test("Deshacer pressed while a rename is still writing waits for it, then restores the view", async () => {
+  await mountToasts();
+  let release = () => {};
+  let held = false;
+  const page = await mount({ viewWriteGate: () => held ? new Promise<void>((resolve) => { release = resolve; }) : undefined });
+  await saveView(page, "Otra vista");
+  await search(page, "pena");
+  await saveView(page, "Mi vista");
+  await deleteApplied(page, "Mi vista", 1);
+
+  held = true;
+  await rename(page, "Otra vista", "Renombrada");
+  await page.click(undoButton());
+  held = false;
+  release();
+  await page.settle(() => page.fixture.views.length === 2 && page.fixture.views.some((view) => view.name === "Renombrada"));
+  assert.deepEqual(page.fixture.views.map((view) => view.name).sort(), ["Mi vista", "Renombrada"]);
+  await closeMenu(page);
+  await appliedIs(page, "Mi vista", ["Renombrada"]);
+});
+
+test("Deshacer applies the restored view itself, not another view that took its name", async () => {
+  await mountToasts();
+  const page = await mount();
+  const other = await saveView(page, "Otra vista");
+  await search(page, "pena");
+  await saveView(page, "Mi vista");
+  await deleteApplied(page, "Mi vista", 1);
+  await rename(page, "Otra vista", "Mi vista");
+  await page.settle(() => page.fixture.views[0].name === "Mi vista");
+  await closeMenu(page);
+  await page.click(undoButton());
+  await page.settle(() => page.fixture.views.length === 2);
+  const restored = page.fixture.views.find((view) => view.id !== other.id)!;
+  await openMenu(page);
+  const named = [...menu()!.querySelectorAll<HTMLButtonElement>("li button")].filter((button) => button.textContent === "Mi vista");
+  assert.equal(named.length, 2, "two views share the name");
+  assert.deepEqual(named.map((button) => button.getAttribute("aria-current")), [null, "true"], "the restored view, last in the list, is the applied one");
+  assert.equal(menu()!.textContent!.includes("Con cambios"), false, "the table shows the restored view's recipe");
+  assert.equal(inMenu("Guardar cambios en «Mi vista»"), undefined, "nothing offers to overwrite the renamed view");
+  assert.equal(restored.name, "Mi vista");
+});
+
+test("a failed Deshacer says so and keeps Deshacer to try again", async () => {
+  await mountToasts();
+  let fail = false;
+  const page = await mount({ viewWriteGate: () => { if (!fail) return undefined; fail = false; return Promise.reject(new TypeError("connection lost")); } });
+  await saveView(page, "Otra vista");
+  await search(page, "pena");
+  await saveView(page, "Mi vista");
+  await deleteApplied(page, "Mi vista", 1);
+
+  fail = true;
+  await page.click(undoButton());
+  await page.settle(() => Boolean(undoButton()));
+  assert.equal(page.fixture.views.length, 1, "nothing was restored");
+  assert.match(document.querySelector('[data-testid="toast-viewport"]')!.textContent!, /Se eliminó «Mi vista»/);
+  await openMenu(page);
+  assert.match(menu()!.textContent!, /No pudimos confirmar si se guardó/, "the menu shows the failed write");
+  await closeMenu(page);
+
+  await page.click(undoButton());
+  await page.settle(() => page.fixture.views.length === 2);
+  assert.equal(viewWrites(page, "POST").filter((call) => (call.body as { name: string }).name === "Mi vista").length, 2, "the save, then one restore");
+  await appliedIs(page, "Mi vista", ["Otra vista"]);
+});
+
 test("Con cambios shows only while the current recipe differs from the applied view", async () => {
   const page = await mount();
   await saveView(page, "Mi vista");

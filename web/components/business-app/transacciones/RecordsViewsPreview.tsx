@@ -14,7 +14,8 @@ import pointerAffordances from "@/components/sidebar/pointerAffordances.module.c
 export type RecordsViewSelection = { record: RecordsFilter; period: Period; filters: PreviewFilters; preferences?: RecordsViewPreferences };
 export type SavedRecordsView = { id: string; name: string; selection: RecordsViewSelection };
 
-export type UndoDelete = () => void;
+/** Restores the deleted view. Resolves false when the restore did not land, so Deshacer stays offered. */
+export type UndoDelete = () => Promise<boolean>;
 export type RecordsViews = {
   items: { id: string; name: string }[];
   applied: { id: string; changed: boolean } | null;
@@ -79,7 +80,9 @@ function ViewsMenu({ views, close, registerCancel }: { views: RecordsViews; clos
     const index = views.items.findIndex((view) => view.id === id);
     pendingFocus.current = views.items[index + 1]?.id ?? views.items[index - 1]?.id ?? FOOTER;
     const undo = await views.remove(id);
-    if (undo) showToast({ kind: "success", text: word("deleted", { name }), action: { label: t("business.transactions.undo"), run: undo } });
+    if (!undo) return;
+    const offerUndo = () => showToast({ kind: "success", text: word("deleted", { name }), action: { label: t("business.transactions.undo"), run: () => { void undo().then((restored) => { if (!restored) offerUndo(); }); } } });
+    offerUndo();
   };
   const nameRef = (id: string) => (node: HTMLButtonElement | null) => { if (node) names.current.set(id, node); else names.current.delete(id); };
 

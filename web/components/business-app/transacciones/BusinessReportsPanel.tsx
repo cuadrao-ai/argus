@@ -9,7 +9,7 @@ import { getChosenGrant } from "@/lib/business-grant";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import { isProgrammaticPop } from "@/lib/overlay-history";
 import { businessReportRow, liveReportingTransport, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportFailure, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
-import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, reportPeriodSchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRecipe, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
+import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, reportPeriodSchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand } from "@/lib/business-reports-api";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
@@ -45,6 +45,7 @@ const REPORTING = "business.transactions.reporting.";
 const EMPTY_COPY = "business.transactions.records.empty_placeholder";
 const GUIDE = "business.guide_cards.registros_intro.";
 type EmptyCause = "selection" | "filters" | "search";
+type CreateViewCommand = Extract<ReportViewCommand, { kind: "create" }>;
 type EmptyProbe =
   | { answer: ReportAnswer; result: EmptyCause | ReportFailure }
   | { request: ReportRequest; accessFailure: ReportFailure };
@@ -187,32 +188,38 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const applyView = (id: string | null) => { viewChoices.current += 1; setAppliedViewId(id); };
   const appliedView = views.find((view) => view.id === appliedViewId);
   const shownRecipe = preferences ? recipeFromRequest(state.request, recordsPresentationToReport(preferences)) : null;
-  const writeView = async (name: string, viewRecipe: ReportRecipe | null, id?: string) => {
+  const updateView = async (id: string, name: string | undefined, viewRecipe: ReportRecipe | null) => {
     const view = views.find((view) => view.id === id);
-    if (state.load.kind !== "ready" || id && !view || !viewRecipe) return false;
-    await controller.mutateView(id && view ? { kind: "update", id, key: crypto.randomUUID(), body: { name, recipe: viewRecipe, expected_version: view.version } } : { kind: "create", key: crypto.randomUUID(), body: { name, recipe: viewRecipe } });
-    return controller.getSnapshot().viewOperation.kind === "done";
+    if (!view || !viewRecipe) return false;
+    const result = await controller.mutateView({ kind: "update", id, key: crypto.randomUUID(), body: { name: name ?? view.name, recipe: viewRecipe, expected_version: view.version } });
+    return result.kind === "done";
   };
-  const createView = async (name: string, viewRecipe: ReportRecipe | null, applyIfNoChoiceSince: number | null) => {
-    if (!await writeView(name, viewRecipe)) return false;
-    const saved = controller.getSnapshot().views;
-    if (applyIfNoChoiceSince === viewChoices.current && saved.kind === "ready") applyView(saved.items.find((view) => view.name === name)?.id ?? null);
-    return true;
+  // The created view is the one the server returned. It is applied only if no view was chosen since the write started.
+  const createView = async (command: CreateViewCommand, applyIfNoChoiceSince: number | null) => {
+    const result = await controller.mutateView(command);
+    if (result.kind === "done" && result.view && applyIfNoChoiceSince === viewChoices.current) applyView(result.view.id);
+    return result;
   };
   const savedViews: RecordsViews = {
     items: views,
     applied: appliedView && shownRecipe ? { id: appliedView.id, changed: !sameRecipe(appliedView.recipe, shownRecipe) } : null,
     select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); applyView(id); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } },
-    save: (name) => createView(name, shownRecipe, viewChoices.current),
-    rename: (id, name) => writeView(name, views.find((view) => view.id === id)?.recipe ?? null, id),
-    saveChanges: (id) => writeView(views.find((view) => view.id === id)?.name ?? "", shownRecipe, id),
+    save: async (name) => shownRecipe ? (await createView({ kind: "create", key: crypto.randomUUID(), body: { name, recipe: shownRecipe } }, viewChoices.current)).kind === "done" : false,
+    rename: (id, name) => updateView(id, name, views.find((view) => view.id === id)?.recipe ?? null),
+    saveChanges: (id) => updateView(id, undefined, shownRecipe),
     remove: async (id) => {
       const view = views.find((view) => view.id === id);
       if (!view) return null;
       const choiceAtDelete = id === appliedViewId ? viewChoices.current : null;
-      await controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } });
-      if (controller.getSnapshot().viewOperation.kind !== "done") return null;
-      return () => { void createView(view.name, view.recipe, choiceAtDelete); };
+      const deleted = await controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } });
+      if (deleted.kind !== "done") return null;
+      // A retry after an unconfirmed restore sends the same key, so the server makes the view once.
+      let restore: CreateViewCommand = { kind: "create", key: crypto.randomUUID(), body: { name: view.name, recipe: view.recipe } };
+      return async () => {
+        const result = await createView(restore, choiceAtDelete);
+        if (result.kind === "failed" && result.problem.kind !== "uncertain") restore = { ...restore, key: crypto.randomUUID() };
+        return result.kind === "done";
+      };
     },
     busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain,
     notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !currentFormat ? <p>{t(`${REPORTING}pending_contract`)}</p> : null,

@@ -124,7 +124,7 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
       const view = views[index];
       if (!view) return null;
       setViews((current) => current.filter((each) => each.id !== id));
-      return () => setViews((current) => [...current.slice(0, index), view, ...current.slice(index)]);
+      return async () => { setViews((current) => [...current.slice(0, index), view, ...current.slice(index)]); return true; };
     },
     busy: false,
     notice: null,
