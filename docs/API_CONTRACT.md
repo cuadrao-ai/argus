@@ -11471,6 +11471,7 @@ accept path recorded.
   `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
   currency (`DOP`), `record_count` the records whose
   current `fiscal_data` is `complete` (a line on its month's form),
+  `pending_count` every record the form holds back, the two counts below,
   `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing` (the
   Faltan datos fiscales card for the same tab, period and DOP), and
   `pending_rate_count` with `pending_rate_currencies` the foreign-currency
