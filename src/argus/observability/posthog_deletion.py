@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import Enum
 from typing import Literal
 from urllib.parse import urlparse
 from uuid import UUID
@@ -10,6 +11,22 @@ import httpx
 
 Outcome = Literal["pending", "deleted", "failed", "operator_needed"]
 PENDING_STATUSES = {"draft", "pending", "approved", "in_progress", "queued"}
+
+
+class DeletionSetting(Enum):
+    HOST = "CUADRAO_POSTHOG_DELETION_HOST"
+    PROJECT_ID = "CUADRAO_POSTHOG_DELETION_PROJECT_ID"
+    API_KEY = "CUADRAO_POSTHOG_DELETION_API_KEY"
+
+    @property
+    def failure_message(self) -> str:
+        return f"{self.value} is missing or invalid in dedicated deletion configuration"
+
+
+class DeletionConfigurationError(ValueError):
+    def __init__(self, setting: DeletionSetting) -> None:
+        self.setting = DeletionSetting(setting)
+        super().__init__(self.setting.failure_message)
 
 
 @dataclass(frozen=True)
@@ -40,7 +57,10 @@ class PostHogEventDeletion:
         *,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
-        parsed = urlparse(host)
+        try:
+            parsed = urlparse(host)
+        except ValueError:
+            raise DeletionConfigurationError(DeletionSetting.HOST) from None
         if (
             parsed.scheme != "https"
             or not parsed.hostname
@@ -49,10 +69,12 @@ class PostHogEventDeletion:
             or parsed.query
             or parsed.fragment
             or parsed.path not in ("", "/")
-            or not project_id.isdecimal()
-            or not api_key.strip()
         ):
-            raise ValueError("Invalid PostHog deletion configuration")
+            raise DeletionConfigurationError(DeletionSetting.HOST)
+        if not project_id.isdecimal():
+            raise DeletionConfigurationError(DeletionSetting.PROJECT_ID)
+        if not api_key.strip():
+            raise DeletionConfigurationError(DeletionSetting.API_KEY)
         self._url = (
             f"{host.rstrip('/')}/api/projects/{project_id}/data_deletion_requests/"
         )
