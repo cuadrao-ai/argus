@@ -1,0 +1,304 @@
+"""Borrowing preserves transaction, response, and external-cleanup boundaries."""
+
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from threading import Barrier, Event, current_thread, local
+from unittest.mock import Mock
+from uuid import uuid4
+
+import pytest
+from argus.api import profile_images
+from argus.api.business import (
+    require_business_document_write,
+    require_business_management,
+)
+from argus.api.routers import business, business_logo
+from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
+from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+from argus.domain.ingestion.contract import ImportCandidate, SourceRef
+from argus.domain.ingestion.reconcile.service import ReconciliationService
+from argus.domain.ingestion.reconcile.store_postgres import PostgresImportStore
+from argus.domain.owner_scope import PERSONAL
+from argus.domain.profile_images import ProfileImageStorageUnavailable
+from argus.domain.profile_images import business as logo_subject
+from argus.domain.recording import canonical_groups
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+from psycopg_pool import ConnectionPool
+
+from tests import test_business_actions_postgres as shared_actions
+from tests import test_shared_business_pool_postgres as shared_pool
+from tests.profile_images.pictures import png
+
+actions = shared_actions.actions
+users = shared_actions.users
+management = shared_pool.management
+pytestmark = [
+    pytest.mark.owner_acts,
+    pytest.mark.skipif(
+        not shared_actions.shared.DSN, reason="Disposable PostgreSQL required"
+    ),
+]
+
+
+def test_refund_dossier_is_coherent_while_money_approval_commits(
+    management, actions, monkeypatch
+):
+    pool, _, _ = management
+    service, actor, _ = actions
+    expense = shared_actions.ready(service, actor)
+    refund, version = shared_actions.create(service, actor)
+    service.review(
+        actor,
+        refund,
+        ReviewDraft(
+            version=version,
+            facts=BusinessFactPatch.model_validate(
+                {
+                    "kind": {"state": "known", "value": "refund"},
+                    "currency": {"state": "known", "value": "DOP"},
+                    "occurred_on": {"state": "known", "value": "2026-10-01"},
+                }
+            ),
+        ),
+        str(uuid4()),
+    )
+    monkeypatch.setattr(service.authority, "pool", pool)
+    staged, proceed, committed = Event(), Event(), Event()
+    write = service.imports.money.write
+
+    def paused_write(*args, **kwargs):
+        staged.set()
+        assert proceed.wait(3)
+        result = write(*args, **kwargs)
+        committed.set()
+        return result
+
+    monkeypatch.setattr(service.imports.money, "write", paused_write)
+    reader = current_thread()
+    load = canonical_groups.load_owner
+
+    def interleaved_load(*args, **kwargs):
+        result = load(*args, **kwargs)
+        if current_thread() is reader:
+            proceed.set()
+            committed.wait(0.2)
+        return result
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            service.approve,
+            actor,
+            expense,
+            ApproveExpense(version=1, action="record_expense"),
+            str(uuid4()),
+        )
+        assert staged.wait(3)
+        monkeypatch.setattr(canonical_groups, "load_owner", interleaved_load)
+        try:
+            result = service.dossier(actor, refund)
+            assert result.facts.kind.value == "refund"
+        finally:
+            proceed.set()
+        assert future.result(timeout=3).outcome == "applied"
+
+
+def test_lost_logo_delete_reply_cannot_restore_metadata(management, monkeypatch):
+    pool, request, context = management
+    images = profile_images.profile_images()
+    subject = logo_subject(context.scope.owner.space_id)
+    images.replace(subject, png(), "image/png")
+    remove = images.objects.remove
+
+    def lost_reply(path):
+        remove(path)
+        raise ProfileImageStorageUnavailable("Synthetic lost delete response")
+
+    monkeypatch.setattr(images.objects, "remove", lost_reply)
+    with pytest.raises(HTTPException) as error:
+        with contextmanager(require_business_management)(request, context) as guarded:
+            business_logo.delete_logo(request, guarded)
+    assert error.value.status_code == 503
+    with pool.connection() as connection:
+        assert (
+            connection.execute(
+                "select 1 from public.business_logos where space_id=%s", (subject.id,)
+            ).fetchone()
+            is None
+        )
+    assert subject.path not in images.objects.objects
+
+
+@pytest.mark.parametrize("cancelled", [False, True])
+def test_rolled_back_logo_delete_keeps_its_object(management, cancelled):
+    import asyncio
+
+    _, request, context = management
+    images = profile_images.profile_images()
+    subject = logo_subject(context.scope.owner.space_id)
+    images.replace(subject, png(), "image/png")
+    failure = asyncio.CancelledError if cancelled else RuntimeError
+    with pytest.raises(failure):
+        with contextmanager(require_business_management)(request, context) as guarded:
+            business_logo.delete_logo(request, guarded)
+            raise failure()
+    assert images.url(subject) is not None
+    assert subject.path in images.objects.objects
+
+
+def test_account_response_waits_for_guard_commit(management):
+    pool, _, context = management
+
+    class FailedCommit:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def __getattr__(self, name):
+            return getattr(self.connection, name)
+
+        @contextmanager
+        def transaction(self):
+            with self.connection.transaction():
+                yield
+                raise RuntimeError("Synthetic commit rejection")
+
+    class CommitFailingPool:
+        @contextmanager
+        def connection(self):
+            with pool.connection() as connection:
+                yield FailedCommit(connection)
+
+    app = FastAPI()
+    app.state.financial_accounts_pool = CommitFailingPool()
+    app.dependency_overrides[require_business_document_write] = lambda: context
+    app.add_api_route(
+        "/accounts", business.create_account, methods=["POST"], status_code=201
+    )
+    nickname = str(uuid4())
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/accounts",
+            json={"type": "checking", "currency": "DOP", "nickname": nickname},
+            headers={"Idempotency-Key": str(uuid4())},
+        )
+    assert response.status_code == 500
+    with pool.connection() as connection:
+        assert (
+            connection.execute(
+                "select 1 from public.financial_accounts where nickname=%s", (nickname,)
+            ).fetchone()
+            is None
+        )
+
+
+def test_two_intake_submissions_reuse_the_live_source_connection(users, monkeypatch):
+    now = datetime.now(timezone.utc)
+    with ConnectionPool(
+        shared_actions.shared.DSN, min_size=2, max_size=2, timeout=0.5
+    ) as pool:
+        sources = PostgresConnectionRepository(pool)
+        jobs = []
+        for user in (users["owner"], users["other"]):
+            source = sources.create(
+                user_id=user,
+                source="statement",
+                external_ref=str(uuid4()),
+                label=None,
+                now=now,
+                scope=PERSONAL,
+            )
+            candidate = ImportCandidate(
+                source=SourceRef(
+                    source="statement",
+                    connection_id=source.id,
+                    external_id="proof",
+                    observed_at=now,
+                ),
+                evidence="transaction",
+                amount="10",
+                currency="DOP",
+                direction="outflow",
+            )
+            jobs.append((user, source.id, candidate))
+        service = ReconciliationService(
+            PostgresImportStore(pool), Mock(), lambda: now, connections=sources
+        )
+        ready, seen = Barrier(2, timeout=3), local()
+        getconn = pool.getconn
+
+        def acquire(*args, **kwargs):
+            connection = getconn(*args, **kwargs)
+            if not getattr(seen, "arrived", False):
+                seen.arrived = True
+                ready.wait()
+            return connection
+
+        monkeypatch.setattr(pool, "getconn", acquire)
+
+        def submit(job):
+            user, source, candidate = job
+            return service.submit(
+                user_id=user, connection_id=source, candidates=[candidate], scope=PERSONAL
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(submit, job) for job in jobs]
+            for future in futures:
+                assert future.result(timeout=4).recorded == 1
+
+
+def test_two_invite_deliveries_borrow_labels_without_losing_claims(users, monkeypatch):
+    from types import SimpleNamespace
+
+    from argus.api import business_invite_delivery, business_spaces
+    from argus.domain.business.access import PostgresAccessStore
+    from argus.domain.business.roles import BusinessRole
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    with ConnectionPool(
+        shared_actions.shared.DSN, min_size=2, max_size=2, timeout=0.5
+    ) as pool:
+        spaces, access = PostgresSpaceStore(pool), PostgresAccessStore(pool)
+        monkeypatch.setattr(business_spaces, "_spaces", spaces)
+        monkeypatch.setattr(business_spaces, "_access", access)
+        monkeypatch.setattr(
+            business_invite_delivery, "invitations_available", lambda: True
+        )
+        send = Mock()
+        monkeypatch.setattr(business_invite_delivery, "send_invite_email", send)
+        jobs = []
+        for owner in (users["owner"], users["other"]):
+            space, _ = spaces.create(owner, "Synthetic Business")
+            _, listing = access.give(
+                space.id, owner, f"invite-{uuid4().hex}@example.test", BusinessRole.VIEWER
+            )
+            jobs.append((listing, listing.invites[0], space.id, owner))
+        ready = Barrier(2, timeout=3)
+        original = business_invite_delivery._send_invite
+
+        def synchronized_send(*args, **kwargs):
+            ready.wait()
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(business_invite_delivery, "_send_invite", synchronized_send)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(
+                    business_invite_delivery.deliver_invite, SimpleNamespace(), *job
+                )
+                for job in jobs
+            ]
+            assert [future.result(timeout=4) for future in futures] == [
+                "accepted",
+                "accepted",
+            ]
+        assert send.call_count == 2
+        # Already accepted claims are replayed without sending again.
+        for job in jobs:
+            assert (
+                business_invite_delivery.deliver_invite(SimpleNamespace(), *job)
+                == "accepted"
+            )
+        assert send.call_count == 2
