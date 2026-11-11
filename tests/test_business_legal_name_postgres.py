@@ -147,17 +147,18 @@ def test_the_lookup_answers_with_the_counterparty_words(
         }
 
 
-def test_people_who_cannot_manage_can_neither_look_up_nor_confirm(
+def test_people_who_cannot_manage_look_up_but_never_confirm(
     actions, registry, users
 ):
     service, context, _ = actions
     rnc, name, _ = registry["active"]
     _save_rnc(service, context, rnc)
     accountant = _accountant(service, context, users)
-    with pytest.raises(ActionError, match="business_permission_denied"):
-        lookup_registry(
-            service.authority, accountant, RegistryQuery(tax_id=_rnc_id(rnc))
-        )
+    answer = lookup_registry(
+        service.authority, accountant, RegistryQuery(tax_id=_rnc_id(rnc))
+    )
+    assert answer["verification"] == "verificado"
+    assert answer["record"]["name"] == name
     with pytest.raises(ActionError, match="business_permission_denied"):
         _confirm(service, accountant, rnc, name)
     assert read_profile(service.authority, context)["legal_name"] is None
@@ -402,16 +403,20 @@ def _stored(context) -> dict:
         }
 
 
-def test_the_lookup_writes_nothing(actions, registry):
+def test_the_lookup_writes_nothing(actions, registry, users):
     service, context, _ = actions
     rnc, name, _ = registry["active"]
     _save_rnc(service, context, rnc)
     _confirm(service, context, rnc, name)
+    accountant = _accountant(service, context, users)
     before = _stored(context)
-    for case in ("active", "suspended", "missing"):
-        lookup_registry(
-            service.authority, context, RegistryQuery(tax_id=_rnc_id(registry[case][0]))
-        )
+    for asker in (context, accountant):
+        for case in ("active", "suspended", "missing"):
+            lookup_registry(
+                service.authority,
+                asker,
+                RegistryQuery(tax_id=_rnc_id(registry[case][0])),
+            )
     assert _stored(context) == before
 
 

@@ -2293,10 +2293,6 @@
         "check_digit": {
           "label": "RNC has an error",
           "reason": "This RNC's check digit does not match. A number may be mistyped."
-        },
-        "unverified": {
-          "label": "RNC not verified",
-          "reason": "We haven't checked it with the DGII yet."
         }
       },
       "business_name": "Business name",
