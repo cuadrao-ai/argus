@@ -30,7 +30,6 @@ from argus.api.guest_access import (
     store_account_context,
     visitor_key_for_request,
 )
-from argus.api.guest_observability import emit_verified_guest_funnel_event
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import (
     AccessRequestAccepted,
@@ -53,7 +52,6 @@ from argus.domain.username_signup import (
     serialized_guest_signup,
     serialized_username_signup,
 )
-from argus.observability.product_events import capture_product_event
 
 router = APIRouter(prefix="/api/v1", tags=["auth"])
 
@@ -83,6 +81,24 @@ def _login_auth_problem(request: Request) -> HTTPException:
         title="Unauthorized",
         detail="Invalid email or password.",
     )
+
+
+def _revoke_just_issued_session(result: object) -> None:
+    if not isinstance(result, dict):
+        return
+    session = result.get("session")
+    if not isinstance(session, dict):
+        return
+    token = session.get("access_token")
+    if not isinstance(token, str) or not token:
+        return
+    gateway = api_state.supabase_gateway
+    if gateway is None:
+        return
+    try:
+        gateway.client.auth.admin.sign_out(token, scope="local")
+    except Exception:
+        logger.warning("Denied sign-in left a provider session that could not be revoked")
 
 
 def _openapi_error_response(description: str) -> dict[str, object]:
@@ -118,24 +134,6 @@ def _signup_auth_problem(
         code="auth_signup_failed",
         title="Signup Failed",
         detail="Signup failed. Please try again.",
-    )
-
-
-def _emit_account_registration_completed_event(
-    profile: User | object,
-    *,
-    surface: str,
-) -> None:
-    profile_id = str(getattr(profile, "id", "") or "").strip()
-    if not profile_id:
-        return
-    capture_product_event(
-        "account_registration_completed",
-        user_id=profile_id,
-        attributes={
-            "surface": surface,
-            "language": getattr(profile, "language", None),
-        },
     )
 
 
@@ -459,23 +457,7 @@ def claim_guest_handoff(
     except Exception as exc:
         return _guest_handoff_failure_response(request, str(exc))
 
-    source_user_id, payload = _guest_handoff_claim_payload(request, claimed)
-    conversion_visitor_key = visitor_key_for_request(request)
-    account_event = (
-        "account_creation_completed"
-        if claimed.get("handoff_kind") == "new_account_signup"
-        else "existing_account_sign_in_completed"
-    )
-    emit_verified_guest_funnel_event(
-        account_event,
-        user_id=source_user_id,
-        visitor_key=conversion_visitor_key,
-        conversation_id=payload.conversation_id,
-        language=user.language,
-        surface="account_conversion",
-        product_capability="account",
-        terminal_outcome="completed",
-    )
+    _source_user_id, payload = _guest_handoff_claim_payload(request, claimed)
     response = JSONResponse(
         content=jsonable_encoder(payload.model_dump(mode="json")),
     )
@@ -736,9 +718,6 @@ def signup_guest_account(
                     profile.id, body.age_confirmed_at
                 )
             result["user"] = profile.model_dump(mode="json")
-            _emit_account_registration_completed_event(
-                profile, surface="guest_conversion"
-            )
 
             if not isinstance(result.get("session"), dict):
                 return auth_response(request, result)
@@ -749,20 +728,8 @@ def signup_guest_account(
                 destination_user_id=profile.id,
                 allow_same_destination_replay=True,
             )
-            source_user_id, claim_payload = _guest_handoff_claim_payload(request, claimed)
+            _source_user_id, claim_payload = _guest_handoff_claim_payload(request, claimed)
             result["guest_claim"] = claim_payload.model_dump(mode="json")
-            if claimed.get("replayed") is not True:
-                conversion_visitor_key = visitor_key_for_request(request)
-                emit_verified_guest_funnel_event(
-                    "account_creation_completed",
-                    user_id=source_user_id,
-                    visitor_key=conversion_visitor_key,
-                    conversation_id=claim_payload.conversation_id,
-                    language=profile.language,
-                    surface="account_conversion",
-                    product_capability="account",
-                    terminal_outcome="completed",
-                )
             response = auth_response(request, result)
             _clear_guest_handoff_cookies(request, response)
             return response
@@ -841,10 +808,6 @@ def signup(
                     api_state.supabase_gateway.record_age_confirmation(
                         profile.id, body.age_confirmed_at
                     )
-                _emit_account_registration_completed_event(
-                    profile,
-                    surface="direct_signup",
-                )
             else:
                 background_tasks.add_task(
                     send_existing_account_notice,
@@ -914,10 +877,9 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             detail="Supabase persistence is required for authentication.",
         )
     _enforce_auth_attempt_limit(request, action="login", email=body.email)
-    if not permanent_account_access_allowed(
+    allowed = permanent_account_access_allowed(
         api_state.supabase_gateway, body.email, business_access()
-    ):
-        raise _login_auth_problem(request)
+    )
     try:
         result = api_state.supabase_gateway.login(
             email=body.email,
@@ -928,6 +890,9 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
         raise _login_auth_problem(request) from None
     except Exception:
         raise _login_auth_problem(request) from None
+    if not allowed:
+        _revoke_just_issued_session(result)
+        raise _login_auth_problem(request)
     handoff_id = request.cookies.get(_GUEST_HANDOFF_ID_COOKIE, "").strip()
     opaque_secret = request.cookies.get(_GUEST_HANDOFF_COOKIE, "").strip()
     if bool(handoff_id) is not bool(opaque_secret):
@@ -967,24 +932,8 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             auth_payload=result,
         )
 
-    source_user_id, claim_payload = _guest_handoff_claim_payload(request, claimed)
+    _source_user_id, claim_payload = _guest_handoff_claim_payload(request, claimed)
     result["guest_claim"] = claim_payload.model_dump(mode="json")
-    if claimed.get("replayed") is not True:
-        conversion_visitor_key = visitor_key_for_request(request)
-        account_event = (
-            "account_creation_completed"
-            if claimed.get("handoff_kind") == "new_account_signup"
-            else "existing_account_sign_in_completed"
-        )
-        emit_verified_guest_funnel_event(
-            account_event,
-            user_id=source_user_id,
-            visitor_key=conversion_visitor_key,
-            conversation_id=claim_payload.conversation_id,
-            surface="account_conversion",
-            product_capability="account",
-            terminal_outcome="completed",
-        )
     response = auth_response(request, result)
     _clear_guest_handoff_cookies(request, response)
     return response
