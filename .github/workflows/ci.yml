@@ -68,6 +68,9 @@ jobs:
       - name: Reject credential literals in tracked configuration
         run: python scripts/check_config_credentials.py
 
+      - name: Check the settings list against the code
+        run: python scripts/ci/settings_agreement.py
+
       - name: Fetch the pull request base
         if: github.event_name == 'pull_request'
         env:

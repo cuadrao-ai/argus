@@ -1,0 +1,1550 @@
+{
+  "version": 1,
+  "settings": [
+    {
+      "name": "ABCDEFGHJKMNPQRSTVWXYZ23456789",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/identity.py"
+    },
+    {
+      "name": "ALPACA_API_KEY",
+      "default": null,
+      "owner": "src/argus/context/providers.py"
+    },
+    {
+      "name": "ALPACA_PAPER_TRADING",
+      "default": null,
+      "owner": "src/argus/domain/market_data/assets.py"
+    },
+    {
+      "name": "ALPACA_SECRET_KEY",
+      "default": null,
+      "owner": "src/argus/context/providers.py"
+    },
+    {
+      "name": "APP_ENV",
+      "default": "",
+      "owner": "src/argus/api/dependencies.py"
+    },
+    {
+      "name": "ARGUS_APP_ENV",
+      "default": "",
+      "owner": "src/argus/api/dependencies.py"
+    },
+    {
+      "name": "ARGUS_APP_ORIGIN",
+      "default": null,
+      "owner": "src/argus/api/business_invite_delivery.py"
+    },
+    {
+      "name": "ARGUS_ASSET_FIXTURE_PATH",
+      "default": null,
+      "owner": "src/argus/domain/market_data/assets.py"
+    },
+    {
+      "name": "ARGUS_ASSET_PROVIDER_MODE",
+      "default": null,
+      "owner": "src/argus/domain/market_data/assets.py"
+    },
+    {
+      "name": "ARGUS_ASSET_UNIVERSE_LOADER_TIMEOUT_SECONDS",
+      "default": null,
+      "owner": "src/argus/domain/market_data/assets.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_JOBS_DISPATCH_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/chat/backtest_jobs.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_JOBS_GLOBAL_QUEUED_LIMIT",
+      "default": "10",
+      "owner": "src/argus/domain/backtest_admission.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_JOBS_GLOBAL_RUNNING_LIMIT",
+      "default": "5",
+      "owner": "src/argus/domain/backtest_admission.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/chat/backtest_jobs.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_JOBS_USER_QUEUED_LIMIT",
+      "default": "2",
+      "owner": "src/argus/domain/backtest_admission.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_JOBS_USER_RUNNING_LIMIT",
+      "default": "1",
+      "owner": "src/argus/domain/backtest_admission.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_REAL_WORKFLOW_TASK",
+      "default": null,
+      "owner": "src/argus/api/chat/backtest_jobs.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/chat/backtest_jobs.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_WORKFLOW_TASK",
+      "default": null,
+      "owner": "src/argus/api/chat/backtest_jobs.py"
+    },
+    {
+      "name": "ARGUS_BACKTEST_WORKFLOW_TIMEOUT_SECONDS",
+      "default": "300",
+      "owner": "workflows/main.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_BANK_MATCHING_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/config.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_CHAT_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/config.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_EMAIL_CAPTURE_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_EMAIL_DOMAIN",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_EMAIL_INTAKE_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_EMAIL_PENDING_SENDERS_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_INVITE_EMAIL_ENABLED",
+      "default": null,
+      "owner": "src/argus/api/business_invite_delivery.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_PILOT_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/config.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_READS_PER_DAY",
+      "default": "300",
+      "owner": "src/argus/domain/business/read_budget.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_READS_PER_MONTH",
+      "default": "2000",
+      "owner": "src/argus/domain/business/read_budget.py"
+    },
+    {
+      "name": "ARGUS_BUSINESS_SUPPLIER_FAST_PATH_ENABLED",
+      "default": null,
+      "owner": "src/argus/domain/business/supplier_fast_path.py"
+    },
+    {
+      "name": "ARGUS_CONTEXT_PACKETS_ENABLED",
+      "default": "true",
+      "owner": "src/argus/api/chat/context_packets.py"
+    },
+    {
+      "name": "ARGUS_CONTEXT_PACKET_BUDGET_SECONDS",
+      "default": "4",
+      "owner": "src/argus/api/chat/context_packets.py"
+    },
+    {
+      "name": "ARGUS_DEV_ENDPOINTS_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/dependencies.py"
+    },
+    {
+      "name": "ARGUS_DEV_MEMORY_FALLBACK",
+      "default": "",
+      "owner": "src/argus/api/client_ip.py"
+    },
+    {
+      "name": "ARGUS_DISCOVERY_DAILY_LIMIT",
+      "default": "25",
+      "owner": "src/argus/domain/research/search/config.py"
+    },
+    {
+      "name": "ARGUS_DISCOVERY_GLOBAL_DAILY_CEILING",
+      "default": "500",
+      "owner": "src/argus/domain/usage_limits.py"
+    },
+    {
+      "name": "ARGUS_DISCOVERY_HOURLY_LIMIT",
+      "default": "10",
+      "owner": "src/argus/domain/research/search/config.py"
+    },
+    {
+      "name": "ARGUS_DISCOVERY_MAX_CANDIDATES",
+      "default": "5",
+      "owner": "src/argus/domain/research/search/config.py"
+    },
+    {
+      "name": "ARGUS_DISCOVERY_OPENROUTER_SEARCH_MODEL",
+      "default": "",
+      "owner": "src/argus/domain/research/search/selection.py"
+    },
+    {
+      "name": "ARGUS_DISCOVERY_SEARCH_PROVIDER",
+      "default": "",
+      "owner": "src/argus/domain/research/search/config.py"
+    },
+    {
+      "name": "ARGUS_DISCOVERY_SEARCH_TIMEOUT_SECONDS",
+      "default": "8.0",
+      "owner": "src/argus/domain/research/search/config.py"
+    },
+    {
+      "name": "ARGUS_DOCUMENT_EXTRACTION_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "ARGUS_DOCUMENT_EXTRACTION_MAX_BYTES",
+      "default": "10485760",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "ARGUS_DOCUMENT_EXTRACTION_MAX_PAGES",
+      "default": "8",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "ARGUS_DOCUMENT_JOBS_DRAIN_SECONDS",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "ARGUS_DOCUMENT_JOBS_MAX_READS",
+      "default": "3",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "ARGUS_DOCUMENT_JOBS_SWEEP_SECONDS",
+      "default": "30.0",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "ARGUS_DOCUMENT_UPLOADS_IN_FLIGHT",
+      "default": "3",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "ARGUS_DOCUMENT_UPLOADS_PER_MINUTE",
+      "default": "60",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "ARGUS_ENABLE_EXECUTION_REALISM",
+      "default": "",
+      "owner": "src/argus/domain/backtesting/config.py"
+    },
+    {
+      "name": "ARGUS_ENABLE_MEMORY_SEMANTIC_RECALL",
+      "default": "",
+      "owner": "src/argus/api/personalization_memory.py"
+    },
+    {
+      "name": "ARGUS_ENABLE_PERSONALIZATION_MEMORY",
+      "default": "",
+      "owner": "src/argus/memory/service.py"
+    },
+    {
+      "name": "ARGUS_ENV",
+      "default": "",
+      "owner": "src/argus/api/dependencies.py"
+    },
+    {
+      "name": "ARGUS_FINANCIAL_ACCOUNTS_ENABLED",
+      "default": null,
+      "owner": "src/argus/api/financial_accounts.py"
+    },
+    {
+      "name": "ARGUS_FRED_CONTEXT_SERIES",
+      "default": null,
+      "owner": "src/argus/context/providers.py"
+    },
+    {
+      "name": "ARGUS_GROUNDED_DISCOVERY_ENABLED",
+      "default": "true",
+      "owner": "src/argus/domain/research/search/config.py"
+    },
+    {
+      "name": "ARGUS_INGESTION_ENABLED",
+      "default": null,
+      "owner": "src/argus/api/ingestion.py"
+    },
+    {
+      "name": "ARGUS_INGESTION_SECRET_KEY",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/secrets.py"
+    },
+    {
+      "name": "ARGUS_IN_PLACE_CARD_EDITS_ENABLED",
+      "default": "",
+      "owner": "src/argus/domain/edit_contract_config.py"
+    },
+    {
+      "name": "ARGUS_MARKET_DATA_PROVIDER_MODE",
+      "default": "",
+      "owner": "src/argus/domain/market_data/provider.py"
+    },
+    {
+      "name": "ARGUS_MEMORY_EMBEDDING_DIMENSIONS",
+      "default": "1024",
+      "owner": "src/argus/llm/memory_embedding.py"
+    },
+    {
+      "name": "ARGUS_MEMORY_EMBEDDING_MODEL",
+      "default": "pplx-embed-v1-0.6b",
+      "owner": "src/argus/llm/memory_embedding.py"
+    },
+    {
+      "name": "ARGUS_MEMORY_EMBEDDING_TIMEOUT_SECONDS",
+      "default": "8.0",
+      "owner": "src/argus/llm/memory_embedding.py"
+    },
+    {
+      "name": "ARGUS_MEMORY_VECTOR_COLLECTION",
+      "default": "",
+      "owner": "src/argus/api/personalization_memory.py"
+    },
+    {
+      "name": "ARGUS_OPENROUTER_DISCOVERY_EXTRACTION_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "ARGUS_OPENROUTER_DISCOVERY_MODEL_KNOWLEDGE_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "ARGUS_OPENROUTER_DISCOVERY_VOICING_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "ARGUS_OPENROUTER_MEMORY_SENSITIVITY_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "ARGUS_QA_APPROVED_SUPABASE_REF",
+      "default": "",
+      "owner": "scripts/ops/staging_env.py"
+    },
+    {
+      "name": "ARGUS_READINESS_ASSET_TIMEOUT_SECONDS",
+      "default": null,
+      "owner": "src/argus/api/routers/ops.py"
+    },
+    {
+      "name": "ARGUS_REGISTERED_DAILY_RESEARCH_CEILING",
+      "default": "15",
+      "owner": "src/argus/domain/usage_limits.py"
+    },
+    {
+      "name": "ARGUS_RENDER_WORKFLOW_PROOF_POLL_SECONDS",
+      "default": null,
+      "owner": "workflows/trigger_proof.py"
+    },
+    {
+      "name": "ARGUS_RENDER_WORKFLOW_PROOF_TASK",
+      "default": null,
+      "owner": "src/argus/api/chat/backtest_jobs.py"
+    },
+    {
+      "name": "ARGUS_RENDER_WORKFLOW_PROOF_TIMEOUT_SECONDS",
+      "default": null,
+      "owner": "workflows/trigger_proof.py"
+    },
+    {
+      "name": "ARGUS_RESEARCH_BACKGROUND_DEADLINE_SECONDS",
+      "default": "",
+      "owner": "src/argus/domain/research/config.py"
+    },
+    {
+      "name": "ARGUS_RESEARCH_GLOBAL_DAILY_CEILING",
+      "default": "5000",
+      "owner": "src/argus/domain/usage_limits.py"
+    },
+    {
+      "name": "ARGUS_RESEARCH_RAIL_ENABLED",
+      "default": "",
+      "owner": "src/argus/domain/research/config.py"
+    },
+    {
+      "name": "ARGUS_RESEND_WEBHOOK_SECRET",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "ARGUS_TRUSTED_CLIENT_IP_HEADER",
+      "default": "",
+      "owner": "src/argus/api/client_ip.py"
+    },
+    {
+      "name": "ARGUS_VISION_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_ACCESS_TOKEN",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_AGENT_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_APP_SECRET",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_DISPLAY_PHONE_NUMBER",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_GRAPH_API_VERSION",
+      "default": "v23.0",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_INTAKE_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_OUTBOUND_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_PHONE_NUMBER_ID",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_REPLY_DAILY_LIMIT",
+      "default": "10",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_REPLY_GROUP_WAIT_SECONDS",
+      "default": "120",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_SENDER_KEY",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WHATSAPP_VERIFY_TOKEN",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "ARGUS_WORKFLOW_DATABASE_URL",
+      "default": null,
+      "owner": "workflows/proof.py"
+    },
+    {
+      "name": "ARGUS_WORKFLOW_PROOF_PLAN",
+      "default": "starter",
+      "owner": "workflows/main.py"
+    },
+    {
+      "name": "ARGUS_WORKFLOW_PROOF_USER_ID",
+      "default": null,
+      "owner": "workflows/proof.py"
+    },
+    {
+      "name": "BUSINESS_SUPPLIER_FAST_PATH_ENABLED",
+      "default": null,
+      "owner": "src/argus/domain/business/supplier_fast_path.py"
+    },
+    {
+      "name": "CUADRAO",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/identity.py"
+    },
+    {
+      "name": "CUADRAO_ACCOUNT_DELETION_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/routers/account.py"
+    },
+    {
+      "name": "CUADRAO_ANALYTICS_DELETION_ENABLED",
+      "default": "",
+      "owner": "src/argus/observability/analytics_deletion.py"
+    },
+    {
+      "name": "CUADRAO_APPLE_BUNDLE_ID",
+      "default": "",
+      "owner": "src/argus/domain/apple_sign_in/config.py"
+    },
+    {
+      "name": "CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/apple_sign_in.py"
+    },
+    {
+      "name": "CUADRAO_APPLE_SIGN_IN_KEY_ID",
+      "default": "",
+      "owner": "src/argus/domain/apple_sign_in/config.py"
+    },
+    {
+      "name": "CUADRAO_APPLE_SIGN_IN_PRIVATE_KEY",
+      "default": "",
+      "owner": "src/argus/domain/apple_sign_in/config.py"
+    },
+    {
+      "name": "CUADRAO_APPLE_TEAM_ID",
+      "default": "",
+      "owner": "src/argus/domain/apple_sign_in/config.py"
+    },
+    {
+      "name": "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
+      "default": null,
+      "owner": "src/argus/domain/resend_email.py"
+    },
+    {
+      "name": "CUADRAO_APP_ORIGIN",
+      "default": null,
+      "owner": "src/argus/api/business_invite_delivery.py"
+    },
+    {
+      "name": "CUADRAO_AUTH_EMAIL_HOOK_ENABLED",
+      "default": null,
+      "owner": "web/server/emails/auth-hook.ts"
+    },
+    {
+      "name": "CUADRAO_AUTH_EMAIL_HOOK_SECRET",
+      "default": null,
+      "owner": "web/server/emails/auth-hook.ts"
+    },
+    {
+      "name": "CUADRAO_AUTH_EMAIL_OTP_EXP_SECONDS",
+      "default": null,
+      "owner": "web/server/emails/auth-hook.ts"
+    },
+    {
+      "name": "CUADRAO_AUTH_EMAIL_PROJECT_REF",
+      "default": null,
+      "owner": "web/server/emails/auth-hook.ts"
+    },
+    {
+      "name": "CUADRAO_AUTH_EMAIL_RESEND_API_KEY",
+      "default": null,
+      "owner": "web/app/api/auth/send-email/route.ts"
+    },
+    {
+      "name": "CUADRAO_BETA_INVITES_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/households.py"
+    },
+    {
+      "name": "CUADRAO_BETA_INVITE_GATE_ENABLED",
+      "default": null,
+      "owner": "src/argus/domain/household/invite_codes.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_ACTIVITY_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_CHAT_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_EMAIL_DAILY_BYTE_LIMIT",
+      "default": "104857600",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_EMAIL_DAILY_MESSAGE_LIMIT",
+      "default": "100",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_EMAIL_DOMAIN",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_EMAIL_PENDING_SENDERS_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED",
+      "default": null,
+      "owner": "src/argus/api/business_invite_delivery.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_INVOICING_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/invoicing/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/notifications/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_PILOT_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_READS_PER_DAY",
+      "default": "300",
+      "owner": "src/argus/domain/business/read_budget.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_READS_PER_MONTH",
+      "default": "2000",
+      "owner": "src/argus/domain/business/read_budget.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_SETTLEMENT_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/config.py"
+    },
+    {
+      "name": "CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED",
+      "default": null,
+      "owner": "src/argus/domain/business/supplier_fast_path.py"
+    },
+    {
+      "name": "CUADRAO_CAPABILITY_REASONING_EFFORT",
+      "default": null,
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_CHAT_FALLBACK_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_CHAT_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_CHECKPOINTER_MODE",
+      "default": "",
+      "owner": "src/argus/api/state.py"
+    },
+    {
+      "name": "CUADRAO_CLIENT_IP_ECHO_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/routers/internal_client_ip.py"
+    },
+    {
+      "name": "CUADRAO_CONTEXT_FALLBACK_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_CONTEXT_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_CORS_ALLOW_ORIGINS",
+      "default": "",
+      "owner": "src/argus/api/app_setup.py"
+    },
+    {
+      "name": "CUADRAO_CROSS_CURRENCY_TRANSFERS_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/recording/money_transfers.py"
+    },
+    {
+      "name": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "CUADRAO_DOCUMENT_EXTRACTION_MAX_BYTES",
+      "default": "10485760",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "CUADRAO_DOCUMENT_EXTRACTION_MAX_PAGES",
+      "default": "8",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "CUADRAO_DOCUMENT_JOBS_MAX_READS",
+      "default": "3",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "CUADRAO_DOCUMENT_JOBS_SWEEP_SECONDS",
+      "default": "30.0",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT",
+      "default": "3",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE",
+      "default": "60",
+      "owner": "src/argus/domain/ingestion/documents/config.py"
+    },
+    {
+      "name": "CUADRAO_EMAIL_ASSET_ORIGIN",
+      "default": null,
+      "owner": "marketing/lib/email/account-layout.ts"
+    },
+    {
+      "name": "CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/public_excerpts.py"
+    },
+    {
+      "name": "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED",
+      "default": null,
+      "owner": "src/argus/api/financial_accounts.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_API_TOKEN",
+      "default": "",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_BUSINESS_ID",
+      "default": "",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_CALLBACK_SECRET",
+      "default": "",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_CONTACT_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_MANIFEST_PATH",
+      "default": "",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_MANIFEST_SHA256",
+      "default": "",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_POLL_LIMIT",
+      "default": "5",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_POLL_SECONDS",
+      "default": "30",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_STORAGE_HOST",
+      "default": "",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_FISCAL_SANDBOX_STORAGE_PATH_PREFIX",
+      "default": "",
+      "owner": "src/argus/domain/business/fiscal_sandbox/config.py"
+    },
+    {
+      "name": "CUADRAO_GUEST_ACCESS_ENABLED",
+      "default": "true",
+      "owner": "src/argus/api/guest_access.py"
+    },
+    {
+      "name": "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
+      "default": "",
+      "owner": "src/argus/llm/openrouter_key_policy.py"
+    },
+    {
+      "name": "CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING",
+      "default": "100",
+      "owner": "src/argus/domain/usage_limits.py"
+    },
+    {
+      "name": "CUADRAO_HOUSEHOLDS_ENABLED",
+      "default": "",
+      "owner": "src/argus/api/households.py"
+    },
+    {
+      "name": "CUADRAO_INGESTION_ENABLED",
+      "default": null,
+      "owner": "src/argus/api/ingestion.py"
+    },
+    {
+      "name": "CUADRAO_INGESTION_SECRET_KEY",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/secrets.py"
+    },
+    {
+      "name": "CUADRAO_INQUIRY_FROM",
+      "default": null,
+      "owner": "marketing/lib/forms/config.ts"
+    },
+    {
+      "name": "CUADRAO_INQUIRY_TO",
+      "default": null,
+      "owner": "marketing/lib/forms/config.ts"
+    },
+    {
+      "name": "CUADRAO_INVITE_CODE_SECRET",
+      "default": null,
+      "owner": "src/argus/domain/household/invite_codes.py"
+    },
+    {
+      "name": "CUADRAO_INVITE_CODE_SECRET_PREVIOUS",
+      "default": null,
+      "owner": "src/argus/domain/household/invite_codes.py"
+    },
+    {
+      "name": "CUADRAO_INVITE_FOUNDER_USER_ID",
+      "default": null,
+      "owner": "src/argus/domain/household/invite_codes.py"
+    },
+    {
+      "name": "CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED",
+      "default": null,
+      "owner": "src/argus/domain/household/invite_codes.py"
+    },
+    {
+      "name": "CUADRAO_LOCAL_ENV_STORE",
+      "default": null,
+      "owner": "scripts/ops/staging_env.py"
+    },
+    {
+      "name": "CUADRAO_MOCK_AUTH",
+      "default": "",
+      "owner": "src/argus/api/account_deletion_auth.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_API_KEY_DEV",
+      "default": "",
+      "owner": "src/argus/llm/openrouter_key_policy.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_API_KEY_PROD",
+      "default": "",
+      "owner": "src/argus/llm/openrouter_key_policy.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_API_KEY_STG",
+      "default": "",
+      "owner": "src/argus/llm/openrouter_key_policy.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_ASSET_MENTION_PREFLIGHT_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_CAPABILITY_CONFLICT_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_CHAT_COMPOSER_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_CLARIFICATION_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_DOCUMENT_EXTRACTION_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_FIELD_FIDELITY_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_INTERPRETATION_REPAIR_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_INTERPRETATION_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_KNOWLEDGE_ROUTE_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_KNOWLEDGE_VOICING_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_NAME_SUGGESTION_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPENROUTER_RESULT_SUMMARY_TIMEOUT_SECONDS",
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_OPS_TOKEN",
+      "default": null,
+      "owner": "src/argus/api/routers/ops.py"
+    },
+    {
+      "name": "CUADRAO_PERSISTENCE_MODE",
+      "default": "memory",
+      "owner": "src/argus/api/client_ip.py"
+    },
+    {
+      "name": "CUADRAO_POSTHOG_DELETION_API_KEY",
+      "default": "",
+      "owner": "src/argus/observability/analytics_deletion.py"
+    },
+    {
+      "name": "CUADRAO_POSTHOG_DELETION_HOST",
+      "default": "",
+      "owner": "src/argus/observability/analytics_deletion.py"
+    },
+    {
+      "name": "CUADRAO_POSTHOG_DELETION_PROJECT_ID",
+      "default": "",
+      "owner": "src/argus/observability/analytics_deletion.py"
+    },
+    {
+      "name": "CUADRAO_POSTHOG_TIMEOUT_SECONDS",
+      "default": null,
+      "owner": "src/argus/observability/envelope.py"
+    },
+    {
+      "name": "CUADRAO_PROD_OPENROUTER_API_KEY",
+      "default": "",
+      "owner": "src/argus/llm/openrouter_key_policy.py"
+    },
+    {
+      "name": "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED",
+      "default": "false",
+      "owner": "src/argus/api/guest_access.py"
+    },
+    {
+      "name": "CUADRAO_READOUT_FALLBACK_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_READOUT_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_REGISTERED_DAILY_TURN_CEILING",
+      "default": "200",
+      "owner": "src/argus/domain/usage_limits.py"
+    },
+    {
+      "name": "CUADRAO_RESEND_WEBHOOK_SECRET",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS",
+      "default": null,
+      "owner": "src/argus/agent_runtime/turn_execution.py"
+    },
+    {
+      "name": "CUADRAO_SITE_INDEXING",
+      "default": null,
+      "owner": "marketing/app/robots.ts"
+    },
+    {
+      "name": "CUADRAO_SOCIAL_PREVIEW",
+      "default": null,
+      "owner": "marketing/components/business-footer.tsx"
+    },
+    {
+      "name": "CUADRAO_STAGING_SECRETS_FILE",
+      "default": null,
+      "owner": "scripts/ops/staging_env.py"
+    },
+    {
+      "name": "CUADRAO_STRUCTURED_FALLBACK_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_STRUCTURED_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_STRUCTURED_REASONING_EFFORT",
+      "default": null,
+      "owner": "src/argus/llm/openrouter.py"
+    },
+    {
+      "name": "CUADRAO_TESTFLIGHT_PUBLIC_URL",
+      "default": null,
+      "owner": "src/argus/domain/household/invite_codes.py"
+    },
+    {
+      "name": "CUADRAO_TRUSTED_CLIENT_IP_HEADER",
+      "default": null,
+      "owner": "marketing/lib/forms/config.ts"
+    },
+    {
+      "name": "CUADRAO_TURN_CALL_ALLOWANCE",
+      "default": null,
+      "owner": "src/argus/agent_runtime/turn_execution.py"
+    },
+    {
+      "name": "CUADRAO_TURN_DEADLINE_SECONDS",
+      "default": null,
+      "owner": "src/argus/agent_runtime/turn_execution.py"
+    },
+    {
+      "name": "CUADRAO_UTILITY_FALLBACK_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_UTILITY_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_VISION_MODEL",
+      "default": null,
+      "owner": "src/argus/llm/openrouter_model_env.py"
+    },
+    {
+      "name": "CUADRAO_VISITOR_KEY_SECRET",
+      "default": "argus-visitor-key",
+      "owner": "src/argus/domain/visitor_usage.py"
+    },
+    {
+      "name": "CUADRAO_WAITLIST_URL",
+      "default": null,
+      "owner": "src/argus/domain/household/invite_codes.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_ACCESS_TOKEN",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_AGENT_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_APP_SECRET",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_GRAPH_API_VERSION",
+      "default": "v23.0",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_INTAKE_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_NUMBER_ID",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_OUTBOUND_ENABLED",
+      "default": "false",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_PHONE_NUMBER_ID",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_REPLY_DAILY_LIMIT",
+      "default": "10",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_REPLY_GROUP_WAIT_SECONDS",
+      "default": "120",
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_SENDER_KEY",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "CUADRAO_WHATSAPP_VERIFY_TOKEN",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+    },
+    {
+      "name": "DATABASE_URL",
+      "default": "",
+      "owner": "src/argus/api/state.py"
+    },
+    {
+      "name": "DGII_RNC_LOAD_HEADROOM_FLOOR",
+      "default": "",
+      "owner": "scripts/ops/dgii_rnc_import.py"
+    },
+    {
+      "name": "DGII_RNC_SIZE_LIMIT",
+      "default": "",
+      "owner": "scripts/ops/dgii_rnc_import.py"
+    },
+    {
+      "name": "DGII_RNC_STATEMENT_TIMEOUT",
+      "default": "",
+      "owner": "scripts/ops/dgii_rnc_import.py"
+    },
+    {
+      "name": "DOP",
+      "default": null,
+      "owner": "src/argus/domain/business/dgii_validation.py"
+    },
+    {
+      "name": "ENABLE_MARKET_DATA_CACHE",
+      "default": null,
+      "owner": "src/argus/domain/market_data/provider.py"
+    },
+    {
+      "name": "ENVIRONMENT",
+      "default": "",
+      "owner": "src/argus/api/dependencies.py"
+    },
+    {
+      "name": "ES256",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/plaid/verification.py"
+    },
+    {
+      "name": "FRED_API_KEY",
+      "default": null,
+      "owner": "src/argus/context/providers.py"
+    },
+    {
+      "name": "GOOGLE_OAUTH_CLIENT_ID",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/gmail/config.py"
+    },
+    {
+      "name": "GOOGLE_OAUTH_CLIENT_SECRET",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/gmail/config.py"
+    },
+    {
+      "name": "GOOGLE_OAUTH_REDIRECT_URI",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/gmail/config.py"
+    },
+    {
+      "name": "MALFORMED_RESPONSE",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/plaid/client.py"
+    },
+    {
+      "name": "MARKETING_POSTAL_ADDRESS",
+      "default": null,
+      "owner": "marketing/lib/email/account-layout.ts"
+    },
+    {
+      "name": "MARKET_DATA_CACHE_TTL",
+      "default": null,
+      "owner": "src/argus/domain/market_data/assets.py"
+    },
+    {
+      "name": "MEM0_TELEMETRY",
+      "default": "",
+      "owner": "src/argus/api/personalization_memory_index.py"
+    },
+    {
+      "name": "MOCK_USER_EMAIL",
+      "default": null,
+      "owner": "src/argus/domain/supabase_gateway.py"
+    },
+    {
+      "name": "MOCK_USER_PASSWORD",
+      "default": null,
+      "owner": "src/argus/domain/supabase_gateway.py"
+    },
+    {
+      "name": "NEXT_PUBLIC_ARGUS_API_URL",
+      "default": null,
+      "owner": "web/lib/public-env.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN",
+      "default": null,
+      "owner": "web/lib/public-env.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL",
+      "default": "",
+      "owner": "web/lib/support-email.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY",
+      "default": null,
+      "owner": "web/lib/public-env.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED",
+      "default": null,
+      "owner": "web/lib/private-alpha-flags.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_BUSINESS_ONLY_WEB",
+      "default": null,
+      "owner": "web/lib/private-alpha-flags.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED",
+      "default": null,
+      "owner": "web/lib/private-alpha-flags.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_CUADRAO_API_URL",
+      "default": null,
+      "owner": "web/lib/public-env.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
+      "default": null,
+      "owner": "web/lib/private-alpha-flags.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_CUADRAO_BUSINESS_LIFECYCLE_CONTROLS_ENABLED",
+      "default": null,
+      "owner": "web/lib/private-alpha-flags.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_CUADRAO_DATA_DELETION_URL",
+      "default": null,
+      "owner": "web/lib/cuadrao-legal-links.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN",
+      "default": null,
+      "owner": "web/lib/public-env.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_CUADRAO_PRIVACY_URL",
+      "default": null,
+      "owner": "web/lib/cuadrao-legal-links.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_CUADRAO_SUPPORT_EMAIL",
+      "default": "",
+      "owner": "web/lib/support-email.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_CUADRAO_TERMS_URL",
+      "default": null,
+      "owner": "web/lib/cuadrao-legal-links.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY",
+      "default": null,
+      "owner": "web/lib/guest-captcha.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP",
+      "default": null,
+      "owner": "web/app/page.tsx"
+    },
+    {
+      "name": "NEXT_PUBLIC_ENABLE_SPANISH",
+      "default": null,
+      "owner": "web/lib/language-features.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED",
+      "default": null,
+      "owner": "web/lib/private-alpha-flags.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_GUEST_ACCESS_ENABLED",
+      "default": null,
+      "owner": "src/argus/api/guest_access.py"
+    },
+    {
+      "name": "NEXT_PUBLIC_MOCK_AUTH",
+      "default": "",
+      "owner": "src/argus/api/account_deletion_auth.py"
+    },
+    {
+      "name": "NEXT_PUBLIC_OMNISEARCH_ENABLED",
+      "default": null,
+      "owner": "web/lib/private-alpha-flags.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_RESEARCH_RAIL_ENABLED",
+      "default": null,
+      "owner": "web/lib/private-alpha-flags.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "default": null,
+      "owner": "web/lib/email-otp.ts"
+    },
+    {
+      "name": "NEXT_PUBLIC_SUPABASE_URL",
+      "default": null,
+      "owner": "web/lib/email-otp.ts"
+    },
+    {
+      "name": "OPENROUTER_API_KEY",
+      "default": "",
+      "owner": "src/argus/llm/openrouter_key_policy.py"
+    },
+    {
+      "name": "PERPLEXITY_API_KEY",
+      "default": "",
+      "owner": "src/argus/domain/research/credentials.py"
+    },
+    {
+      "name": "PLAID_CLIENT_ID",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/plaid/config.py"
+    },
+    {
+      "name": "PLAID_COUNTRY_CODES",
+      "default": "US",
+      "owner": "src/argus/domain/ingestion/plaid/config.py"
+    },
+    {
+      "name": "PLAID_CREDENTIALS_INJECTED",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/plaid/config.py"
+    },
+    {
+      "name": "PLAID_ENV",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/plaid/config.py"
+    },
+    {
+      "name": "PLAID_SECRET",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/plaid/config.py"
+    },
+    {
+      "name": "PLAID_WEBHOOK_URL",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/plaid/config.py"
+    },
+    {
+      "name": "POSTHOG_HOST",
+      "default": null,
+      "owner": "src/argus/observability/envelope.py"
+    },
+    {
+      "name": "POSTHOG_PROJECT_TOKEN",
+      "default": null,
+      "owner": "src/argus/observability/envelope.py"
+    },
+    {
+      "name": "POSTHOG_REGION",
+      "default": null,
+      "owner": "src/argus/observability/envelope.py"
+    },
+    {
+      "name": "PROVIDER_UNREACHABLE",
+      "default": null,
+      "owner": "src/argus/domain/ingestion/plaid/client.py"
+    },
+    {
+      "name": "RENDER",
+      "default": "",
+      "owner": "src/argus/api/dependencies.py"
+    },
+    {
+      "name": "RENDER_API_KEY",
+      "default": null,
+      "owner": "src/argus/api/chat/backtest_jobs.py"
+    },
+    {
+      "name": "RENDER_GIT_COMMIT",
+      "default": null,
+      "owner": "src/argus/api/main.py"
+    },
+    {
+      "name": "RENDER_LOCAL_DEV_URL",
+      "default": "http://localhost:8120",
+      "owner": "src/argus/api/render_workflows.py"
+    },
+    {
+      "name": "RENDER_SERVICE_ID",
+      "default": "",
+      "owner": "src/argus/api/dependencies.py"
+    },
+    {
+      "name": "RENDER_TASK_RUN_ID",
+      "default": null,
+      "owner": "workflows/main.py"
+    },
+    {
+      "name": "RENDER_USE_LOCAL_DEV",
+      "default": "",
+      "owner": "src/argus/api/render_workflows.py"
+    },
+    {
+      "name": "RESEND_API_KEY",
+      "default": null,
+      "owner": "marketing/lib/forms/config.ts"
+    },
+    {
+      "name": "RESEND_API_URL",
+      "default": null,
+      "owner": "marketing/lib/forms/config.ts"
+    },
+    {
+      "name": "RESEND_BUSINESS_API_KEY",
+      "default": "",
+      "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "SUPABASE_ANON_KEY",
+      "default": "",
+      "owner": "src/argus/domain/supabase_gateway.py"
+    },
+    {
+      "name": "SUPABASE_ANON_PUBLIC_KEY",
+      "default": "",
+      "owner": "src/argus/domain/supabase_gateway.py"
+    },
+    {
+      "name": "SUPABASE_JWT_SECRET",
+      "default": "",
+      "owner": "src/argus/api/account_deletion_auth.py"
+    },
+    {
+      "name": "SUPABASE_POSTGRES_DIRECT_URL",
+      "default": null,
+      "owner": "scripts/ops/staging_env.py"
+    },
+    {
+      "name": "SUPABASE_POSTGRES_SESSION_POOLER_URL",
+      "default": null,
+      "owner": "scripts/ops/staging_env.py"
+    },
+    {
+      "name": "SUPABASE_POSTGRES_TRANSACTION_POOLER_URL",
+      "default": null,
+      "owner": "scripts/ops/staging_env.py"
+    },
+    {
+      "name": "SUPABASE_PROJECT_URL",
+      "default": null,
+      "owner": "src/argus/domain/supabase_gateway.py"
+    },
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY",
+      "default": null,
+      "owner": "src/argus/domain/supabase_gateway.py"
+    },
+    {
+      "name": "SUPABASE_STAGING_DB_URL",
+      "default": "",
+      "owner": "scripts/ops/dgii_rnc_import.py"
+    },
+    {
+      "name": "SUPABASE_URL",
+      "default": null,
+      "owner": "src/argus/domain/supabase_gateway.py"
+    },
+    {
+      "name": "USD",
+      "default": null,
+      "owner": "src/argus/agent_runtime/answer_calculation.py"
+    }
+  ]
+}

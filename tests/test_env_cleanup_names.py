@@ -52,8 +52,6 @@ def test_graveyard_settings_are_grouped_and_not_hosted():
     group = example.split(header)[1]
     names = {line.split("=", 1)[0] for line in group.splitlines() if "=" in line}
     assert names == {
-        'ARGUS_TITLE_AUTOGEN_ENABLED',
-        'ARGUS_TITLE_AUTOGEN_TIMEOUT_MS',
         'GOOGLE_OAUTH_CLIENT_ID',
         'GOOGLE_OAUTH_CLIENT_SECRET',
         'GOOGLE_OAUTH_REDIRECT_URI',

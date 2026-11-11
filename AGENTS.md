@@ -60,6 +60,7 @@ poetry run ruff check src tests workflows scripts
 poetry run python scripts/check_modularity_budget.py
 poetry run pytest tests -q --no-cov
 python scripts/check_config_credentials.py
+python scripts/ci/settings_agreement.py
 python .agent/scripts/ownership/verify_branch_ownership.py
 cd web && bun run lint && bun test && bun run build
 cd marketing && bun run lint && bun run typecheck && bun test && bun run build
@@ -109,9 +110,13 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
   jobs off locally (`ARGUS_BACKTEST_WORKFLOW_EXECUTION_ENABLED` unset).
 - Never commit secrets or env files (`.example` files hold placeholders). Never print
   secret values or write through a linked `.env`. The web gets only `NEXT_PUBLIC_*`.
-- New settings use `CUADRAO_*` names (`ARGUS_*` is a read-only fallback). Declare hosted
-  ones in `.env.example`, `render.yaml` and `scripts/ops/staging_env_manifest.json`,
-  which owns each setting's staging and production rule.
+- New settings use `CUADRAO_*` names (`ARGUS_*` is a read-only fallback).
+  `scripts/ops/settings_catalog.generated.json` owns every setting the code reads,
+  with its code default and the file that reads it. `scripts/ci/settings_agreement.py`
+  fails when the code reads a setting the catalog lacks, or the catalog names a
+  setting nothing reads. `scripts/ops/staging_env_manifest.json` owns each hosted
+  setting's staging and production rule. `.env.example` and `render.yaml` are
+  checked against the catalog.
 - Synthetic data only (Faker, the seed script). No real customer data anywhere.
 
 ## Copy
