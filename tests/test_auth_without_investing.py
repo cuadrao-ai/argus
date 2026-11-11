@@ -18,7 +18,10 @@ client = TestClient(app)
 def mock_gateway(monkeypatch: pytest.MonkeyPatch):
     gateway = MagicMock(spec=SupabaseGateway)
     gateway.login.return_value = {
-        "session": {"access_token": "access-token-123", "refresh_token": "refresh-token-123"},
+        "session": {
+            "access_token": "access-token-123",
+            "refresh_token": "refresh-token-123",
+        },
         "user": {"id": "test-user", "email": "disabled@example.com"},
     }
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
