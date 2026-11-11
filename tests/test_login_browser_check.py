@@ -189,6 +189,46 @@ def test_login_route_maps_server_failures_to_one_public_contract(
     gateway.login.assert_called_once()
 
 
+def test_denied_and_approved_sign_in_run_the_same_password_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    denied = _configure_login_route(monkeypatch, allowed=False)
+    denied.login.return_value = {
+        "user": {"id": "user-1"},
+        "session": {
+            "access_token": "issued-token",
+            "refresh_token": "issued-refresh",
+        },
+    }
+    denied_response = _post_login()
+
+    approved = _configure_login_route(
+        monkeypatch,
+        login_side_effect=RuntimeError("invalid provider password"),
+    )
+    approved_response = _post_login()
+
+    assert denied_response.status_code == approved_response.status_code == 401
+    assert _public_problem_body(denied_response.json()) == _public_problem_body(
+        approved_response.json()
+    )
+    assert _public_problem_body(denied_response.json()) == {
+        **_EXPECTED_UNAUTHORIZED,
+        "type": "https://api.argus.app/problems/unauthorized",
+    }
+    assert _public_headers(denied_response) == _public_headers(approved_response)
+    assert denied_response.headers.get("set-cookie") is None
+    assert denied.login.call_args == approved.login.call_args
+    assert denied.login.call_args.kwargs == {
+        "email": _LOGIN_PAYLOAD["email"],
+        "password": _LOGIN_PAYLOAD["password"],
+        "captcha_token": _LOGIN_PAYLOAD["captcha_token"],
+    }
+    denied.client.auth.admin.sign_out.assert_called_once_with(
+        "issued-token", scope="local"
+    )
+
+
 def test_login_route_denied_admission_matches_provider_auth_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -206,7 +246,7 @@ def test_login_route_denied_admission_matches_provider_auth_failure(
         provider_response.json()
     )
     assert _public_headers(denied_response) == _public_headers(provider_response)
-    denied.login.assert_not_called()
+    denied.login.assert_called_once()
     gateway.login.assert_called_once()
 
 

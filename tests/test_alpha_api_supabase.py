@@ -1552,6 +1552,7 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
         duplicate_provider_response,
     ]
     profile_rows: set[str] = set()
+
     def create_profile(auth_user):
         profile_rows.add(str(auth_user["id"]))
         return _mock_profile().model_copy(update={"id": str(auth_user["id"])})
@@ -1939,7 +1940,12 @@ def test_login_normalizes_private_alpha_access_failures(
     assert response.status_code == 401
     assert response.json()["code"] == "unauthorized"
     assert response.json()["detail"] == "Invalid email or password."
-    mock_gateway.login.assert_not_called()
+    assert response.headers.get("set-cookie") is None
+    mock_gateway.login.assert_called_once_with(
+        email="disabled@example.com",
+        password="password123",
+        captcha_token="captcha-proof",
+    )
     mock_gateway.private_alpha_email_allowed.assert_called_once_with(
         "disabled@example.com"
     )
