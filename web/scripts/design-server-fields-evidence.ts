@@ -166,9 +166,9 @@ try {
           await expect(attentionError).toHaveAttribute("role", "alert");
           await expect(attentionError).toContainText("No pudimos cargar lo pendiente.");
           await expect(attentionRetry).toHaveCount(receiptsFail ? 1 : 0);
-          if (receiptsFail) await expect(attentionError).not.toContainText("hola@cuadrao.ai");
+          if (receiptsFail) await expect(attentionError).not.toContainText(supportEmail);
           else {
-            await expect(attentionError).toContainText("Si crees que es un error, escríbenos a hola@cuadrao.ai.");
+            await expect(attentionError).toContainText(`Si crees que es un error, escríbenos a ${supportEmail}.`);
             await expect(attentionError).not.toContainText("conexión");
           }
           await expect(attentionLoading).toHaveCount(0);
@@ -200,7 +200,7 @@ try {
           await expect(page.getByTestId("home-month-net")).toHaveCount(0);
           await expect(monthRetry).toHaveCount(state === "inicio-month-500" ? 1 : 0);
           if (state === "inicio-month-refused") {
-            await expect(monthBody).toContainText("Si crees que es un error, escríbenos a hola@cuadrao.ai.");
+            await expect(monthBody).toContainText(`Si crees que es un error, escríbenos a ${supportEmail}.`);
             await expect(monthBody).not.toContainText("conexión");
           } else await expect(monthBody).toContainText("Tus datos siguen guardados. Revisa tu conexión e inténtalo otra vez.");
         } else {
@@ -214,7 +214,7 @@ try {
         if (state === "inicio-open-items-refused") {
           await expect(moneyError).toBeVisible();
           await expect(moneyError.getByRole("alert")).toContainText("No pudimos cargar lo que falta por cobrar y por pagar");
-          await expect(moneyError).toContainText("Si crees que es un error, escríbenos a hola@cuadrao.ai.");
+          await expect(moneyError).toContainText(`Si crees que es un error, escríbenos a ${supportEmail}.`);
           await expect(moneyError).not.toContainText("conexión");
           await expect(moneyError.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
           for (const id of ["month-close-receivable", "month-close-payable", "month-close-nothing-open"]) await expect(page.getByTestId(id)).toHaveCount(0);
