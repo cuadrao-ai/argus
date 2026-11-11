@@ -30,7 +30,7 @@ from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as shared_actions
-from tests import test_shared_business_pool_postgres as shared_pool
+from tests import test_business_shared_pool_postgres as shared_pool
 from tests.profile_images.pictures import png
 
 actions = shared_actions.actions
