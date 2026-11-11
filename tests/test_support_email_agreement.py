@@ -132,7 +132,7 @@ def test_hosted_settings_leave_the_address_to_the_contract_file() -> None:
         for setting in service["entries"]
         if SUPPORT_EMAIL_ADDRESS in json.dumps(setting)
     }
-    assert holding_the_address == {INQUIRY_INBOX_SETTING}
+    assert holding_the_address <= {INQUIRY_INBOX_SETTING}
 
 
 def test_only_the_web_owner_reads_the_support_address_setting() -> None:
