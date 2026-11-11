@@ -17,6 +17,11 @@ import pytest
 import yaml
 from faker import Faker
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / ".github" / "docs-only-changes.sh"
 WORKFLOW = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text())
@@ -32,9 +37,14 @@ DOCS = ALWAYS | {"docs-checks"}
 FLAGS = {"docs_only", "run_heavy", "run_marketing", "run_backend", "run_frontend", "run_database"}
 
 
-def classify(*paths: str, cwd: Path = ROOT, env: dict[str, str] | None = None):
+def classify(
+    *paths: str,
+    cwd: Path = ROOT,
+    env: dict[str, str] | None = None,
+    script: Path = SCRIPT,
+):
     return subprocess.run(
-        ["bash", str(SCRIPT), *paths],
+        ["bash", str(script), *paths],
         cwd=cwd,
         # Never append to the hosted step's real output file.
         env={**os.environ, "GITHUB_OUTPUT": "", **(env or {})},
@@ -74,6 +84,9 @@ CASES = {
     "backend-only": ([f"src/argus/api/{FAKE.word()}.py"], HEAVY),
     "web-only": ([f"web/components/{FAKE.word()}.tsx"], FRONTEND),
     "backend-package-under-web": (["web/argus_display_contract/x.json"], EVERY),
+    "backend-package-prefix-lookalike": (
+        ["web/argus_display_contract_backup/x.json"], FRONTEND,
+    ),
     "marketing-only": ([f"marketing/app/{FAKE.word()}/page.tsx"], MARKETING),
     "migration-only": ([f"supabase/migrations/20261021120000_{FAKE.word()}.sql"], HEAVY),
     "database-test-only": ([f"tests/test_{FAKE.word()}_postgres.py"], HEAVY),
@@ -137,6 +150,65 @@ def test_changed_paths_select_expected_jobs(paths, expected):
     assert jobs_for(*paths) == expected
 
 
+def test_backend_packaged_frontend_files_select_every_job():
+    with (ROOT / "pyproject.toml").open("rb") as source:
+        packages = tomllib.load(source)["tool"]["poetry"]["packages"]
+    for package in packages:
+        for path in (ROOT / package.get("from", ".")).glob(package["include"]):
+            relative = path.relative_to(ROOT)
+            if relative.parts[0] not in {"web", "marketing"}:
+                continue
+            for file in path.rglob("*") if path.is_dir() else [path]:
+                if file.is_file():
+                    assert jobs_for(file.relative_to(ROOT).as_posix()) == EVERY
+
+
+@pytest.fixture
+def classifier_checkout(tmp_path):
+    script = tmp_path / ".github" / SCRIPT.name
+    script.parent.mkdir()
+    script.write_text(SCRIPT.read_text())
+    (tmp_path / "pyproject.toml").write_text((ROOT / "pyproject.toml").read_text())
+    return tmp_path, script
+
+
+@pytest.mark.parametrize(
+    "package,path",
+    [
+        ('{include = "new_contract", from = "web"}', "web/new_contract/x.json"),
+        (
+            '{include = "new_contract", from = "marketing"}',
+            "marketing/new_contract/nested/x.json",
+        ),
+        ('{include = "web/new_contract"}', "./web/new_contract/x.json"),
+        (
+            '{include = "new_*", from = "./marketing/shared/"}',
+            "marketing/shared/new_contract/x.json",
+        ),
+        ('{include = "*/new_contract"}', "web/new_contract/x.json"),
+        ('{include = "new_contract.py", from = "web"}', "web/new_contract.py"),
+    ],
+)
+def test_new_backend_packages_are_derived_from_metadata(classifier_checkout, package, path):
+    root, script = classifier_checkout
+    (root / "pyproject.toml").write_text(f"[tool.poetry]\npackages = [{package}]\n")
+    result = classify("--files", path, script=script)
+    assert selected_jobs(outputs(result)) == EVERY
+
+
+@pytest.mark.parametrize("metadata", [None, "[tool.poetry\n", "[tool.poetry]\n"])
+def test_unreadable_backend_packages_fail_the_gate(classifier_checkout, metadata):
+    root, script = classifier_checkout
+    project = root / "pyproject.toml"
+    if metadata is None:
+        project.unlink()
+    else:
+        project.write_text(metadata)
+    result = classify("--files", "web/argus_display_contract/x.json", script=script)
+    assert result.returncode != 0
+    assert not any(line.startswith("run_") for line in result.stdout.splitlines())
+
+
 def test_migrations_always_reach_the_real_postgres_matrix():
     migration = f"supabase/migrations/20261021120002_{FAKE.word()}.sql"
     assert "database-checks" in jobs_for(migration)
@@ -186,7 +258,12 @@ def repo(tmp_path):
     git(tmp_path, "config", "user.email", "ci@example.test")
     git(tmp_path, "config", "user.name", "CI")
     git(tmp_path, "config", "commit.gpgsign", "false")
-    for path in ("marketing/app/page.tsx", "web/lib/a.ts", "docs/notes.md"):
+    for path in (
+        "marketing/app/page.tsx",
+        "web/lib/a.ts",
+        "web/argus_display_contract/x.json",
+        "docs/notes.md",
+    ):
         (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / path).write_text(FAKE.sentence())
     git(tmp_path, "add", "-A")
@@ -210,6 +287,8 @@ def commit_change(repo: Path, *args: str) -> set[str]:
         (("mv", "docs/notes.md", "docs/moved.md"), DOCS),
         (("rm", "-q", "docs/notes.md"), DOCS),
         (("mv", "web/lib/a.ts", "docs/a.md"), HEAVY),
+        (("rm", "-q", "web/argus_display_contract/x.json"), EVERY),
+        (("mv", "web/argus_display_contract/x.json", "web/lib/x.json"), EVERY),
     ],
     ids=[
         "delete-marketing",
@@ -219,6 +298,8 @@ def commit_change(repo: Path, *args: str) -> set[str]:
         "rename-inside-docs",
         "delete-docs",
         "rename-web-to-docs",
+        "delete-backend-package-under-web",
+        "rename-out-of-backend-package-under-web",
     ],
 )
 def test_deleted_and_renamed_paths_count_both_sides(repo, change, expected):

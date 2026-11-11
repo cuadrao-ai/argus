@@ -22,6 +22,29 @@
 
 set -euo pipefail
 
+BACKEND_PACKAGE_PATHS=()
+
+load_backend_package_paths() {
+  local paths
+  paths="$(python3 - "$(dirname "${BASH_SOURCE[0]}")/../pyproject.toml" <<'PY'
+import posixpath
+import sys
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
+with open(sys.argv[1], "rb") as source:
+    packages = tomllib.load(source)["tool"]["poetry"]["packages"]
+for package in packages:
+    path = posixpath.normpath(posixpath.join(package.get("from", "."), package["include"]))
+    sys.stdout.write(path + "\n")
+PY
+)"
+  mapfile -t BACKEND_PACKAGE_PATHS <<< "$paths"
+}
+
 write_result() {
   local docs_only="$1"
   local run_heavy="$2"
@@ -71,6 +94,16 @@ selects_marketing() {
 # A package file or a contract the API and the web both read. These run every job.
 is_shared_path() {
   local path="${1#./}"
+  local package_path
+  case "$path" in
+    web/*|marketing/*)
+      for package_path in "${BACKEND_PACKAGE_PATHS[@]}"; do
+        case "$path" in
+          $package_path|$package_path/*) return 0 ;;
+        esac
+      done
+      ;;
+  esac
   case "$path" in
     poetry.lock|pyproject.toml|.python-version|render.yaml) return 0 ;;
     .github/workflows/*|.github/docs-only-changes.sh) return 0 ;;
@@ -110,6 +143,7 @@ classify_files() {
     every_job
     return
   fi
+  load_backend_package_paths
   echo "Changed files:"
   for path in "$@"; do
     printf '  %s\n' "$path"
