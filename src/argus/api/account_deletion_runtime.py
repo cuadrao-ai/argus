@@ -30,15 +30,16 @@ def _clock() -> datetime:
 def deletion_pool(database_url: str) -> Any:
     from psycopg_pool import ConnectionPool
 
+    from argus.api.financial_accounts import business_pool
+
     with _lock:
+        # The business pool is closed when its surface stops. Remembering it
+        # here would hand the next unlink a closed client and answer 503.
+        shared = business_pool()
+        if shared is not None:
+            return shared
         pool = _pools.get(database_url)
         if pool is None:
-            from argus.api.financial_accounts import business_pool
-
-            shared = business_pool()
-            if shared is not None:
-                _pools[database_url] = shared
-                return shared
             pool = ConnectionPool(
                 database_url,
                 min_size=0,
