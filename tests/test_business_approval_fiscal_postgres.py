@@ -433,7 +433,7 @@ def test_account_funded_receipt_without_currency_is_refused_without_money(action
     service, context = actions
     account = dop_account(service, context)
     draft, version = receipt_draft(
-        service, context, colmado(currency=None, total="59.00"), None
+        service, context, colmado(currency=None, ncf=None, total="59.00"), None
     )
     funding = {"kind": "business_account", "account_id": str(account)}
     approved = reviewed(service, context, draft, version, funding=funding)
