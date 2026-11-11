@@ -79,7 +79,9 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const label = (key: ExportColumnKey) => t(recordsColumnLabelKey(recordColumnKey(key)), { currency: "" }).trim();
 
   const summary = !preview ? [periodLabel] : mode === "dgii"
-    ? [periodLabel, t(sale ? "business.transactions.reporting.export.summary_dgii_sales" : "business.transactions.reporting.export.summary_dgii_purchases"), t("business.transactions.reporting.export.summary_records", { count })]
+    ? preview.dgii.pending_count
+      ? [periodLabel, t("business.transactions.reporting.export.summary_dgii_ready", { count }), t("business.transactions.reporting.export.summary_dgii_pending", { count: preview.dgii.pending_count })]
+      : [periodLabel, t(sale ? "business.transactions.reporting.export.summary_dgii_sales" : "business.transactions.reporting.export.summary_dgii_purchases"), t("business.transactions.reporting.export.summary_records", { count })]
     : [periodLabel, filterCount ? t("business.transactions.reporting.export.summary_filters", { count: filterCount }) : null, t("business.transactions.reporting.export.summary_records", { count }), (selection?.currencies.length ?? 0) > 1 ? t("business.transactions.reporting.export.summary_currencies", { count: selection?.currencies.length }) : null];
 
   const download = async () => {

@@ -179,7 +179,7 @@ export const exportPreviewSchema = z.object({
     /** Null while an amount range ties the export to the screen's currency. */
     all: currencySelectionSchema.nullable(),
   }),
-  dgii: z.object({ form: z.enum(["606", "607"]), currency: z.string(), record_count: count, pending_fiscal_count: count, pending_rate_count: count, pending_rate_currencies: z.array(z.string()) }),
+  dgii: z.object({ form: z.enum(["606", "607"]), currency: z.string(), record_count: count, pending_count: count, pending_fiscal_count: count, pending_rate_count: count, pending_rate_currencies: z.array(z.string()) }),
 });
 export type ExportPreview = z.infer<typeof exportPreviewSchema>;
 export type ExportColumnKey = typeof REPORT_PRESENTATION_KEYS[number];
