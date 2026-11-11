@@ -4,6 +4,10 @@ from typing import get_args
 
 import httpx
 import pytest
+from argus.domain.business.analytics_events import (
+    BusinessDocumentReceived,
+    business_hash_for_id,
+)
 from argus.observability import (
     build_event_envelope,
     capture_event,
@@ -11,19 +15,16 @@ from argus.observability import (
     posthog_event_payload,
     sanitize_observability_attributes,
 )
-from argus.observability.analytics_events import (
-    CardSaved,
-    LandingViewed,
-    SignedIn,
-    build_analytics_envelope,
-)
+from argus.observability.analytics_events import build_analytics_envelope
 from argus.observability.envelope import EventType, FeatureArea
 from argus.observability.product_events import actor_hash_for_user
+
+BUSINESS_HASH = business_hash_for_id("business-raw-id")
 
 
 def _analytics_envelope():
     return build_analytics_envelope(
-        CardSaved(calculator="time_value"),
+        BusinessDocumentReceived(business_hash=BUSINESS_HASH, channel="upload"),
         user_id="account-raw-id",
         internal_account=False,
     )
@@ -32,9 +33,10 @@ def _analytics_envelope():
 def test_posthog_event_name_is_the_analytics_event_name() -> None:
     payload = posthog_event_payload(_analytics_envelope(), api_key="ph_project_token")
 
-    assert payload["event"] == "card_saved"
+    assert payload["event"] == "business_document_received"
     assert payload["distinct_id"] == actor_hash_for_user("account-raw-id")
-    assert payload["properties"]["calculator"] == "time_value"
+    assert payload["properties"]["channel"] == "upload"
+    assert payload["properties"]["business_hash"] == BUSINESS_HASH
     assert "product_event" not in payload["properties"]
     assert "event_type" not in payload["properties"]
 
@@ -117,8 +119,8 @@ def test_posthog_capture_is_a_personless_server_event(monkeypatch) -> None:
     monkeypatch.setenv("APP_ENV", "private-alpha")
     monkeypatch.setattr("argus.observability.envelope.httpx.post", fake_post)
     envelope = build_analytics_envelope(
-        LandingViewed(language="es-419", cohort="piloto-7kq2"),
-        user_id="guest-raw-id",
+        BusinessDocumentReceived(business_hash=BUSINESS_HASH, channel="whatsapp"),
+        user_id="account-raw-id",
         internal_account=False,
     )
 
@@ -134,18 +136,18 @@ def test_posthog_capture_is_a_personless_server_event(monkeypatch) -> None:
     assert url == "https://us.i.posthog.com/i/v0/e/"
     assert timeout == 0.75
     assert body["api_key"] == "ph_project_token"
-    assert body["event"] == "landing_viewed"
-    assert body["distinct_id"] == actor_hash_for_user("guest-raw-id")
+    assert body["event"] == "business_document_received"
+    assert body["distinct_id"] == actor_hash_for_user("account-raw-id")
     assert body["properties"] == {
         "$process_person_profile": False,
         "schema_version": "argus_analytics_event/v1",
         "event_id": envelope.event_id,
         "environment": "private-alpha",
         "internal_account": False,
-        "language": "es-419",
-        "cohort": "piloto-7kq2",
+        "business_hash": BUSINESS_HASH,
+        "channel": "whatsapp",
     }
-    assert "guest-raw-id" not in str(body)
+    assert "account-raw-id" not in str(body)
 
 
 def test_an_analytics_envelope_without_an_internal_flag_is_not_sent() -> None:
@@ -158,20 +160,11 @@ def test_an_analytics_envelope_without_an_internal_flag_is_not_sent() -> None:
         posthog_event_payload(envelope, api_key="ph_project_token")
 
 
-def test_signed_in_payload_carries_the_guest_hash_not_the_guest_id() -> None:
-    envelope = build_analytics_envelope(
-        SignedIn(signup="new", trigger="save"),
-        user_id="account-raw-id",
-        guest_user_id="guest-raw-id",
-        internal_account=False,
-    )
-
+def test_a_business_event_payload_does_not_carry_a_guest_id() -> None:
+    envelope = _analytics_envelope()
     payload = posthog_event_payload(envelope, api_key="ph_project_token")
 
-    assert payload["properties"]["guest_id_hash"] == actor_hash_for_user(
-        "guest-raw-id"
-    )
-    assert "guest-raw-id" not in str(payload)
+    assert "guest_id_hash" not in payload["properties"]
     assert "account-raw-id" not in str(payload)
 
 

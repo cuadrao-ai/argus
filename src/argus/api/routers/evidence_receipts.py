@@ -57,7 +57,6 @@ from argus.domain.supabase_public_excerpts import (
     DEFAULT_OWNER_PAGE_SIZE,
     MAX_OWNER_PAGE_SIZE,
 )
-from argus.observability.product_events import capture_product_event
 
 router = APIRouter(prefix="/api/v1", tags=["evidence-receipts"])
 
@@ -177,7 +176,7 @@ def create_public_excerpt(
         ) from exc
     _enforce_create_rate_limit(request, user=user)
     try:
-        snapshot, created = create_receipt_for_artifact(
+        snapshot, _created = create_receipt_for_artifact(
             user=user,
             artifact_id=owned_artifact_id,
             owner_note=owner_note,
@@ -202,19 +201,6 @@ def create_public_excerpt(
             title="Could Not Share",
             detail="Argus could not safely build that link. Please try again later.",
         ) from exc
-    if created:
-        # Only a real insert counts. Sharing the same result again returns the
-        # existing link, and counting that would inflate the funnel's creation
-        # stage with retries and reloads.
-        capture_product_event(
-            "receipt_created",
-            user_id=user.id,
-            status="created",
-            attributes={
-                "receipt_digest": snapshot.payload_digest[:16],
-                "kind": snapshot.kind,
-            },
-        )
     return PublicExcerptCreateResponse(receipt=snapshot_list_item(snapshot))
 
 
@@ -375,7 +361,7 @@ def create_selected_public_excerpt(
     owned_id = _selection_owner(request, conversation_id)
     _enforce_create_rate_limit(request, user=user)
     try:
-        snapshot, created = create_receipt_for_messages(
+        snapshot, _created = create_receipt_for_messages(
             user=user,
             conversation_id=owned_id,
             message_ids=[str(value) for value in payload.message_ids],
@@ -384,14 +370,4 @@ def create_selected_public_excerpt(
         )
     except (EvidenceReceiptSourceMissingError, PublicExcerptSourceError) as error:
         raise _selection_error(request, error) from error
-    if created:
-        capture_product_event(
-            "receipt_created",
-            user_id=user.id,
-            status="created",
-            attributes={
-                "receipt_digest": snapshot.payload_digest[:16],
-                "kind": snapshot.kind,
-            },
-        )
     return PublicExcerptCreateResponse(receipt=snapshot_list_item(snapshot))

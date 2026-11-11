@@ -159,14 +159,14 @@ def test_browser_guest_event_endpoint_is_gone() -> None:
     assert response.status_code == 404
 
 
-def test_first_useful_response_emits_only_at_the_first_settled_unit() -> None:
+def test_first_useful_response_claims_only_at_the_first_settled_unit() -> None:
     account = _guest_context()
     with (
         patch(
             "argus.api.guest_observability.current_guest_usage_count",
             side_effect=[1, 2],
         ),
-        patch("argus.api.guest_observability.capture_guest_funnel_event") as capture,
+        patch("argus.api.guest_observability.emit_verified_guest_funnel_event") as emit,
     ):
         emit_first_guest_message_event(
             account=account,
@@ -183,22 +183,14 @@ def test_first_useful_response_emits_only_at_the_first_settled_unit() -> None:
             language="en",
         )
 
-    capture.assert_called_once_with(
-        "first_useful_assistant_response_completed",
-        user_id=GUEST_USER_ID,
-        conversation_id="conversation-1",
-        message_id="message-1",
-        language="en",
-        surface="chat",
-        product_capability="chat",
-        terminal_outcome="completed",
-    )
+    emit.assert_called_once()
+    assert emit.call_args.kwargs["message_id"] == "message-1"
 
 
 def test_registered_context_never_emits_a_guest_event() -> None:
     from argus.api.guest_access import registered_account_context
 
-    with patch("argus.api.guest_observability.capture_guest_funnel_event") as capture:
+    with patch("argus.api.guest_observability.emit_verified_guest_funnel_event") as emit:
         emit_guest_funnel_event(
             account=registered_account_context("registered-user"),
             kind="first_useful_assistant_response_completed",
@@ -208,7 +200,7 @@ def test_registered_context_never_emits_a_guest_event() -> None:
             terminal_outcome="completed",
         )
 
-    capture.assert_not_called()
+    emit.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -216,10 +208,7 @@ def test_registered_context_never_emits_a_guest_event() -> None:
     [
         (
             "src/argus/api/routers/auth.py",
-            {
-                "account_creation_completed",
-                "existing_account_sign_in_completed",
-            },
+            set(),
         ),
         (
             "src/argus/api/guest_observability.py",
