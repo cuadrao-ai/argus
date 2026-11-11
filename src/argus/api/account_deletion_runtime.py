@@ -33,12 +33,17 @@ def deletion_pool(database_url: str) -> Any:
     with _lock:
         pool = _pools.get(database_url)
         if pool is None:
+            from argus.api.financial_accounts import business_pool
+
+            shared = business_pool()
+            if shared is not None:
+                _pools[database_url] = shared
+                return shared
             pool = ConnectionPool(
                 database_url,
                 min_size=0,
-                # A request and a sweep pass, or two requests, each need a
-                # connection for the run and one for the Apple service.
-                max_size=4,
+                # Only when the business pool is off. One client, then close.
+                max_size=1,
                 open=True,
                 name="argus-account-deletion",
             )

@@ -106,16 +106,19 @@ def start_apple_sign_in(app) -> None:  # noqa: ANN001
             if not api_state.DATABASE_URL:
                 logger.warning("Apple token capture needs DATABASE_URL; failing closed")
                 return
-            from psycopg_pool import ConnectionPool
-
+            from argus.api.financial_accounts import business_pool
             from argus.domain.apple_sign_in.credentials_postgres import (
                 PostgresAppleCredentialRepository,
             )
 
-            pool = ConnectionPool(
-                api_state.DATABASE_URL, min_size=0, max_size=2, open=True
-            )
-            app.state.apple_sign_in_pool = pool
+            pool = business_pool()
+            if pool is None:
+                from psycopg_pool import ConnectionPool
+
+                pool = ConnectionPool(
+                    api_state.DATABASE_URL, min_size=0, max_size=1, open=True
+                )
+                app.state.apple_sign_in_pool = pool
             repository = PostgresAppleCredentialRepository(pool)
         else:
             repository = InMemoryAppleCredentialRepository(_memory_linked_identity)

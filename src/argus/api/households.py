@@ -63,12 +63,13 @@ def start_invites(app) -> None:  # noqa: ANN001
         )
         return
     try:
-        from psycopg_pool import ConnectionPool
-
+        from argus.api.financial_accounts import business_pool
         from argus.domain.household.invites import PostgresInviteStore
 
-        pool = ConnectionPool(api_state.DATABASE_URL, min_size=0, max_size=4, open=True)
-        app.state.invites_pool = pool
+        pool = business_pool()
+        if pool is None:
+            logger.warning("Beta invites need the business database pool; surface stays off")
+            return
         configure_invites_store(PostgresInviteStore(pool))
     except Exception:
         logger.exception("Beta invite surface failed to start; leaving off")
@@ -125,14 +126,14 @@ def start_households(app) -> None:  # noqa: ANN001
                 )
                 configure_households_service(None)
                 return
-            from psycopg_pool import ConnectionPool
-
+            from argus.api.financial_accounts import business_pool
             from argus.domain.household.postgres import PostgresHouseholdRepository
 
-            pool = ConnectionPool(
-                api_state.DATABASE_URL, min_size=0, max_size=4, open=True
-            )
-            app.state.households_pool = pool
+            pool = business_pool()
+            if pool is None:
+                logger.warning("Households need the business database pool; surface stays off")
+                configure_households_service(None)
+                return
             lookup = FinancialAccountLookup(accounts_service._repository)  # noqa: SLF001
             configure_households_service(
                 HouseholdService(PostgresHouseholdRepository(pool, lookup))

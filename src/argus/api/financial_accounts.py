@@ -17,6 +17,7 @@ from argus.api import state as api_state
 from argus.api.dependencies import current_user, problem
 from argus.api.guest_access import account_context
 from argus.api.schemas import User
+from argus.domain.connection_budget import BUSINESS_POOL_MAX
 from argus.domain.recording.errors import (
     AccountNotFound,
     IdempotencyConflict,
@@ -32,6 +33,13 @@ FLAG = "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED"
 TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
 _service: FinancialAccountService | None = None
+_pool: object | None = None
+
+
+def business_pool() -> object | None:
+    """The one business client, or none when the surface is off."""
+
+    return _pool
 
 
 def financial_accounts_enabled() -> bool:
@@ -56,6 +64,8 @@ def start_financial_accounts(app) -> None:  # noqa: ANN001
     surface stays off rather than minting accounts that vanish on restart.
     """
 
+    global _pool
+
     if not financial_accounts_enabled():
         configure_financial_accounts_service(None)
         return
@@ -74,8 +84,9 @@ def start_financial_accounts(app) -> None:  # noqa: ANN001
             )
 
             pool = ConnectionPool(
-                api_state.DATABASE_URL, min_size=0, max_size=4, open=True
+                api_state.DATABASE_URL, min_size=0, max_size=BUSINESS_POOL_MAX, open=True
             )
+            _pool = pool
             app.state.financial_accounts_pool = pool
             configure_financial_accounts_service(
                 FinancialAccountService(PostgresFinancialAccountRepository(pool))
@@ -93,7 +104,9 @@ def start_financial_accounts(app) -> None:  # noqa: ANN001
 
 
 def stop_financial_accounts(app) -> None:  # noqa: ANN001
+    global _pool
     configure_financial_accounts_service(None)
+    _pool = None
     pool = getattr(app.state, "financial_accounts_pool", None)
     if pool is not None:
         try:

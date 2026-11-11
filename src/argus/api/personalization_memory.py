@@ -167,17 +167,15 @@ def start_personalization_memory(app) -> None:  # noqa: ANN001
                 )
                 configure_memory_service(None)
                 return
-            from psycopg_pool import ConnectionPool
-
+            from argus.api.financial_accounts import business_pool
             from argus.memory.postgres_store import PostgresCanonicalMemoryStore
 
-            pool = ConnectionPool(
-                api_state.DATABASE_URL,
-                min_size=0,
-                max_size=4,
-                open=True,
-            )
-            app.state.personalization_memory_pool = pool
+            pool = business_pool()
+            if pool is None:
+                from psycopg_pool import ConnectionPool
+
+                pool = ConnectionPool(api_state.DATABASE_URL, min_size=0, max_size=1, open=True)
+                app.state.personalization_memory_pool = pool
             configure_memory_service(
                 MemoryService(
                     store=PostgresCanonicalMemoryStore(pool),
