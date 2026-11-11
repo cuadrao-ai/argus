@@ -16,7 +16,7 @@ locks prove no finance_search number can reach a backtest:
 from __future__ import annotations
 
 import asyncio
-import json
+import re
 from pathlib import Path
 
 import pytest
@@ -27,11 +27,40 @@ from argus.agent_runtime.stages.interpret_types import StructuredInterpretation
 from argus.agent_runtime.state.models import RunState, StrategySummary, UserState
 from argus.domain.research.perplexity_agent import PerplexityAgentClient
 
+from tests.money_assertions import _assert_no_money_properties
 from tests.research.conftest import RecordingTransport, agent_response
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 SENTINEL_PRICE = "987654.32"
+
+
+def _assert_no_price_in_text(payload: object) -> None:
+    if isinstance(payload, dict):
+        for value in payload.values():
+            _assert_no_price_in_text(value)
+    elif isinstance(payload, list | tuple):
+        for value in payload:
+            _assert_no_price_in_text(value)
+    elif isinstance(payload, str):
+        assert re.search(rf"(?<![\w.]){re.escape(SENTINEL_PRICE)}(?!\w)", payload) is None
+
+
+@pytest.mark.parametrize("field", ["send_text", "label"])
+@pytest.mark.parametrize("punctuation", ["", "."])
+def test_research_price_check_rejects_a_price_in_nested_text(
+    field: str, punctuation: str
+) -> None:
+    with pytest.raises(AssertionError):
+        _assert_no_price_in_text(
+            {"rows": [{field: f"Test buying AAPL at ${SENTINEL_PRICE}{punctuation}"}]}
+        )
+
+
+@pytest.mark.parametrize("text", ["hash987654.32abc", "987654.321", "1987654.32"])
+def test_research_price_check_ignores_longer_values(text: str) -> None:
+    _assert_no_price_in_text({"rows": [{"send_text": text}]})
+
 
 # The full set of keys a research turn may write. Anything outside this set,
 # especially pending_strategy / confirmation_payload / execute state, is a
@@ -109,7 +138,8 @@ def test_research_launched_test_regrounds_in_argus_providers(monkeypatch) -> Non
     # ...but the runnable ask carries symbols and a window, never a figure.
     rows = result.stage_patch["next_experiments"]["rows"]
     for row in rows:
-        assert SENTINEL_PRICE not in json.dumps(row)
+        _assert_no_money_properties(row, SENTINEL_PRICE)
+        _assert_no_price_in_text(row)
 
     # Growing a real confirmation with the researched peer re-validates
     # through provider-backed preflight; no packet number can enter it.
@@ -145,8 +175,8 @@ def test_research_launched_test_regrounds_in_argus_providers(monkeypatch) -> Non
         source_payload, added=peers, language="en"
     )
     assert preparation.confirmation_payload is not None
-    serialized = json.dumps(preparation.confirmation_payload)
-    assert SENTINEL_PRICE not in serialized
+    _assert_no_money_properties(preparation.confirmation_payload, SENTINEL_PRICE)
+    _assert_no_price_in_text(preparation.confirmation_payload)
     assert preparation.confirmation_payload["strategy"]["asset_universe"] == [
         "NFLX",
         "MSFT",

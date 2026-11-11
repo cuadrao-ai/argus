@@ -34,9 +34,10 @@ from argus.observability.product_events import actor_hash_for_user
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tests.business.receipt_stub import ReceiptStub
+from tests.business.receipt_stub import PURCHASE, ReceiptStub
 from tests.business.test_business_api import RECEIPT, Owner, alice  # noqa: F401
 from tests.document_reads_support import read_receipt
+from tests.money_assertions import _assert_no_money_properties
 
 
 class Inline:
@@ -161,8 +162,10 @@ def test_upload_sends_received_then_read_after_each_commits(
         assert body["distinct_id"] == actor_hash_for_user(alice.person)
         assert body["properties"]["business_hash"] == business_hash
     leaked = json.dumps(sent)
-    for value in ("101010101", "ferreter", "FERRETERIA", "3450", alice.person):
+    for value in ("101010101", "ferreter", "FERRETERIA", alice.person):
         assert value not in leaked
+    for body in sent:
+        _assert_no_money_properties(body["properties"], PURCHASE["amount"])
 
 
 def test_the_same_bytes_again_are_not_received_twice(
@@ -545,8 +548,11 @@ def test_approval_sends_names_of_filled_and_corrected_fields(
         assert body["distinct_id"] == actor_hash_for_user(str(person))
         assert body["properties"]["business_hash"] == business_hash_for_id(str(space))
     leaked = json.dumps(sent)
-    for value in ("131313131", "101010101", "Ferreteria", "526.27", "3450"):
+    for value in ("131313131", "101010101", "Ferreteria"):
         assert value not in leaked
+    for body in sent:
+        for amount in (approved["amount"]["value"], approved["fiscal"]["itbis"]["value"]):
+            _assert_no_money_properties(body["properties"], amount)
 
 
 def test_a_typed_note_approval_has_no_read_to_compare(

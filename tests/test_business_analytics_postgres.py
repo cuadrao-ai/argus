@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, InvalidOperation
 from functools import partial
 from typing import Any
 from uuid import UUID, uuid4
@@ -23,6 +22,7 @@ from argus.observability import envelope
 from argus.observability.product_events import actor_hash_for_user
 
 from tests import test_business_approval_fiscal_postgres as fiscal
+from tests.money_assertions import _assert_no_money_properties
 
 users = fiscal.users
 shared_actions = fiscal.shared_actions
@@ -71,22 +71,6 @@ def _events(bodies: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
     return [body["properties"] for body in bodies if body["event"] == name]
 
 
-def _assert_no_money_properties(properties: object, amount: str) -> None:
-    if isinstance(properties, dict):
-        for key, value in properties.items():
-            assert key not in {"amount", "amount_minor", "total", "itbis"}
-            _assert_no_money_properties(value, amount)
-    elif isinstance(properties, list | tuple):
-        for value in properties:
-            _assert_no_money_properties(value, amount)
-    elif isinstance(properties, str | int | float) and not isinstance(properties, bool):
-        try:
-            value = Decimal(str(properties))
-        except InvalidOperation:
-            return
-        assert value != Decimal(amount)
-
-
 @pytest.mark.parametrize("kind", ["hash", "timestamp", "longer_number"])
 def test_money_leak_check_ignores_amount_substrings(faker, kind: str) -> None:  # noqa: ANN001
     amount = str(faker.random_int(min=1100, max=9999))
@@ -98,13 +82,16 @@ def test_money_leak_check_ignores_amount_substrings(faker, kind: str) -> None:  
     _assert_no_money_properties({"metadata": [{"value": safe}]}, amount)
 
 
-@pytest.mark.parametrize("kind", ["string", "decimal_string", "integer", "float"])
+@pytest.mark.parametrize(
+    "kind", ["string", "decimal_string", "grouped_decimal_string", "integer", "float"]
+)
 @pytest.mark.parametrize("nested", [False, True], ids=["top_level", "nested"])
 def test_money_leak_check_rejects_whole_amounts(faker, kind: str, nested: bool) -> None:  # noqa: ANN001
     amount = str(faker.random_int(min=1100, max=9999))
     leaked = {
         "string": amount,
         "decimal_string": f"{amount}.00",
+        "grouped_decimal_string": f"{int(amount):,}.00",
         "integer": int(amount),
         "float": float(amount),
     }[kind]
