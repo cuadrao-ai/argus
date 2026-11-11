@@ -109,10 +109,10 @@ describe("proxy", () => {
     }
   }
 
-  test("redirects /chat to business sign-in when the switch is on", () => {
+  test("redirects /chat to business sign-in when the switch is on", async () => {
     delete process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB;
     try {
-      const response = proxy(new NextRequest("http://localhost/chat"));
+      const response = await proxy(new NextRequest("http://localhost/chat"));
       expect(response.status).toBe(307);
       expect(response.headers.get("location")).toBe(
         "http://localhost/?auth=login",
@@ -122,10 +122,10 @@ describe("proxy", () => {
     }
   });
 
-  test("lets /chat through when the switch is off", () => {
+  test("lets /chat through when the switch is off", async () => {
     process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB = "false";
     try {
-      const response = proxy(new NextRequest("http://localhost/chat"));
+      const response = await proxy(new NextRequest("http://localhost/chat"));
       expect(response.headers.get("location")).toBeNull();
       expect(response.status).not.toBe(307);
     } finally {
@@ -133,11 +133,11 @@ describe("proxy", () => {
     }
   });
 
-  test("keeps an auth callback and the legal pages", () => {
+  test("keeps an auth callback and the legal pages", async () => {
     delete process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB;
     try {
       for (const path of ["/auth/recovery", "/privacy", "/terms", "/account/security"]) {
-        const response = proxy(new NextRequest(`http://localhost${path}`));
+        const response = await proxy(new NextRequest(`http://localhost${path}`));
         expect(response.headers.get("location")).toBeNull();
       }
     } finally {
