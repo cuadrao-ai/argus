@@ -206,7 +206,7 @@ def record_issues(
         if (
             identity is None
             or expected
-            and not re.fullmatch(rf"\d{{{expected}}}", identity)
+            and len(identity) != expected
             or identity
             and not any(c in "123456789" for c in identity)
         ):
