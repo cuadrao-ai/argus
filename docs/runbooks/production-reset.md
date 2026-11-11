@@ -8,6 +8,15 @@ Use the same project, `lgdhvepyrzbnscqssgqq`. Do not create a new project, rotat
 keys, or change URLs. This procedure assumes old test data only. It cannot undo
 a committed reset. Keep services suspended if any step fails.
 
+## 0. Approval first
+
+No step below runs until both of these hold:
+
+1. `docs/release-manifests/2026-11-10-production-baseline-apply.json` is filled (candidate SHA, a window of at most three days, `approved_by: founder`) and merged into `codex/private-alpha-next`, and its window has not expired.
+2. Its `approval_reference` names this reset as well as the baseline apply. The reset and the apply are one approved change, under one record.
+
+The SQL Editor cannot read the record, so this is a person's check. Engineering confirms both points in writing, with the merged commit, before Lucas opens the Dashboard. Stop if either one is missing.
+
 ## 1. Confirm the project
 
 1. Open the production project in the Dashboard.
