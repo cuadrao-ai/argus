@@ -1427,7 +1427,7 @@
       "error": "We couldn’t send your request. Please try again."
     },
     "business_unavailable": {
-      "body": "If you think this is a mistake, email us at hola@cuadrao.ai.",
+      "body": "If you think this is a mistake, email us at {{supportEmail}}.",
       "sign_out": "Sign out",
       "title": "Cuadrao Business isn't available for your account yet."
     },
@@ -1605,7 +1605,7 @@
     "auth_security": {
       "email_changed_description": "The email address for your Cuadrao account changed from {{oldEmail}} to {{newEmail}}.",
       "password_changed_description": "The password for your Cuadrao account was changed.",
-      "recovery_contact": "If this was not you, email us immediately at hola@cuadrao.ai to recover your account.",
+      "recovery_contact": "If this was not you, email us immediately at {{supportEmail}} to recover your account.",
       "safety_warning": "We will never ask for your password or access codes by email or phone. Enter them only at app.cuadrao.ai."
     },
     "business_lifecycle": {
@@ -1658,7 +1658,7 @@
       "title": "You already have an account"
     },
     "footer": {
-      "help": "Need help? Email hola@cuadrao.ai",
+      "help": "Need help? Email {{supportEmail}}",
       "legal": "Cuadrao LLC",
       "sign_off": "Regards,\nCuadrao"
     }
@@ -2293,10 +2293,6 @@
         "check_digit": {
           "label": "RNC has an error",
           "reason": "This RNC's check digit does not match. A number may be mistyped."
-        },
-        "unverified": {
-          "label": "RNC not verified",
-          "reason": "We haven't checked it with the DGII yet."
         }
       },
       "business_name": "Business name",
@@ -2852,7 +2848,11 @@
           "review": "Review",
           "summary_currencies_one": "{{count}} currency",
           "summary_currencies_other": "{{count}} currencies",
+          "summary_dgii_pending_one": "{{count}} pending",
+          "summary_dgii_pending_other": "{{count}} pending",
           "summary_dgii_purchases": "all ready purchases",
+          "summary_dgii_ready_one": "{{count}} ready",
+          "summary_dgii_ready_other": "{{count}} ready",
           "summary_dgii_sales": "all ready sales",
           "summary_filters_one": "{{count}} filter",
           "summary_filters_other": "{{count}} filters",

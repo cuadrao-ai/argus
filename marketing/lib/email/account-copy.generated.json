@@ -1,7 +1,7 @@
 {
   "es-419": {
     "footer": {
-      "help": "¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai",
+      "help": "¿Necesitas ayuda? Escríbenos a {{supportEmail}}",
       "legal": "Cuadrao LLC",
       "sign_off": "Saludos,\nCuadrao"
     },
@@ -57,7 +57,7 @@
   },
   "en": {
     "footer": {
-      "help": "Need help? Email hola@cuadrao.ai",
+      "help": "Need help? Email {{supportEmail}}",
       "legal": "Cuadrao LLC",
       "sign_off": "Regards,\nCuadrao"
     },

@@ -24,6 +24,7 @@ const downloadButton = () => document.querySelector<HTMLButtonElement>('[data-te
 const previews = (page: Page) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/export/preview"));
 const exports = (page: Page) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).map((call) => call.body as ExportBody);
 const dialogText = () => document.querySelector('[role="dialog"]')?.textContent ?? "";
+const summary = () => document.querySelector('[data-testid="records-export-summary"]')?.textContent;
 
 async function open(page: Page) {
   await page.click(document.querySelector('[data-testid="records-export"]'));
@@ -141,7 +142,7 @@ test("Formato DGII counts only tab and period, shows the server's notices and Re
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 4 registros");
   assert.match(dialogText(), /La DGII define las columnas\. Solo en pesos\./);
-  assert.match(dialogText(), /todas las compras listas/);
+  assert.match(summary()!, /^Octubre de 2026 · 4 listas · 5 pendientes$/, "the summary counts what the notices hold back");
   assert.match(dialogText(), /3 compras tienen datos fiscales pendientes y no se incluyen\./);
   assert.match(dialogText(), /2 compras en EUR y USD necesitan tasa y no se incluyen\./);
   assert.equal(document.querySelector('[data-testid="records-export-currencies"]'), null);
@@ -160,6 +161,15 @@ test("Formato DGII counts only tab and period, shows the server's notices and Re
   const last = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as ReportRequest;
   assert.equal(last.filters.fiscal_data, "missing");
   assert.equal(document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed"), "true");
+});
+
+test("Formato DGII says every record is ready only when the server holds none back", async () => {
+  const page = await mount({ edit: (rows) => rows.filter((row) => row.family === "purchase").forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.currency = "DOP"; }) });
+  await open(page);
+  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+  await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 63 registros");
+  assert.match(summary()!, /^Octubre de 2026 · todas las compras listas · 63 registros$/);
+  assert.doesNotMatch(dialogText(), /no se incluyen?\./);
 });
 
 test("before the server counts, the button names no number and cannot start", async () => {

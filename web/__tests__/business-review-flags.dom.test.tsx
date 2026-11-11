@@ -100,7 +100,8 @@ async function render(dossier: BusinessDossier, language: Language = "es-419") {
   };
 }
 
-const flagCopy = es.business.dossier.review_flag;
+const copy = es.business.dossier;
+const flagCopy = copy.review_flag;
 
 test("an RNC with a wrong check digit opens a step before approval, with Corregir as the primary way out", async () => {
   const { primaryButtonClass, secondaryButtonClass } = await import("@/components/business-app/business-ui");
@@ -140,6 +141,41 @@ test("Corregir closes the step, approves nothing and puts the cursor on the RNC 
     const rnc = page.host.querySelector<HTMLInputElement>('[data-testid="edit-rnc"] input');
     assert.equal(document.activeElement, rnc, "the RNC's own row opens");
     assert.equal(rnc?.value, READ_VALUES.rnc.flagged);
+  } finally {
+    await page.close();
+  }
+});
+
+test("an RNC error says it once, with no revisar on the row, and the pencil opens the RNC as read", async () => {
+  const dossier = await flaggedReceipt(["rnc_check_digit", "itbis_high"], accounts);
+  serve(dossier);
+  const page = await render(dossier);
+  try {
+    const row = (key: string) => page.host.querySelector<HTMLElement>(`[data-fact="${key}"]`)!;
+    assert.ok(row("rnc").textContent?.includes(es.business.dgii.rnc_check.check_digit.label));
+    assert.ok(row("rnc").textContent?.includes(es.business.dgii.rnc_check.check_digit.reason));
+    assert.equal(row("rnc").textContent?.includes(copy.placeholder.doubtful_read), false, "the RNC row has no second action");
+    assert.equal(row("itbis").textContent?.includes(copy.placeholder.doubtful_read), false, "the high ITBIS line says it once");
+    const [pencil, ...others] = row("rnc").querySelectorAll("button");
+    assert.equal(pencil?.getAttribute("aria-label"), `${copy.edit} · RNC`);
+    assert.equal(others.length, 0, "the pencil is the row's one action");
+    await page.act(async () => pencil.click());
+    await page.settle();
+    const rnc = page.host.querySelector<HTMLInputElement>('[data-testid="edit-rnc"] input');
+    assert.equal(document.activeElement, rnc, "the RNC's own row opens");
+    assert.equal(rnc?.value, READ_VALUES.rnc.flagged);
+  } finally {
+    await page.close();
+  }
+});
+
+test("an e-CF that disputes the RNC read leaves no revisar on the RNC row", async () => {
+  const dossier = await flaggedReceipt([], accounts);
+  dossier.ecf_checks = { encf: null, tipo_ecf: null, checked_at: "2026-10-10T14:25:00Z", checks: [{ name: "read_matches_xml", state: "failed", code: "read_differs", detail: { rnc: `read=${READ_VALUES.rnc.clean} xml=${READ_VALUES.rnc.flagged}` } }] } as unknown as BusinessDossier["ecf_checks"];
+  serve(dossier);
+  const page = await render(dossier);
+  try {
+    assert.equal(page.host.querySelector('[data-fact="rnc"]')?.textContent?.includes(copy.placeholder.doubtful_read), false);
   } finally {
     await page.close();
   }

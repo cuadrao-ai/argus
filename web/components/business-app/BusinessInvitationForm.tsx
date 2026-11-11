@@ -13,6 +13,7 @@ import AccessRolePicker from "@/app/design-workspace/AccessRolePicker";
 import { accessRoleOptions, businessAccessChangedEvent, defaultInvitationRole, readAccessPreview, recordInvitationPreview } from "@/app/design-workspace/businessAccessPreviewState";
 import { getBusinessAccess, inviteBusinessMembers, type BusinessInvitationCommand, type BusinessInvitationResult } from "@/lib/business-api";
 import { referenceCode } from "@/lib/failure-screen";
+import { supportEmail } from "@/lib/support-email";
 import { primaryButtonClass, quietButtonClass, secondaryButtonClass, trashButtonClass } from "./business-ui";
 import { formatBusinessName } from "./business-format";
 import { useBusiness } from "./BusinessWorkspace";
@@ -247,7 +248,7 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
     {!finished ? <div className="flex justify-start"><button type="button" className={`${quietButtonClass} -ml-1`} disabled={busy || blocked || rows.length >= MAX_ROWS} onClick={() => { setRows(current => [...current, emptyRow()]); focusLastEmail(); }}><Plus className="h-4 w-4" aria-hidden="true" />{t(copy("batch_add_short"))}</button></div> : null}
     {failure ? <div role="alert" className={`mt-3 space-y-1 ${fieldErrorClass}`}>
       <p>{t(unavailable ? copy("batch_unavailable_placeholder") : refused ? "business.lifecycle.errors.business_unavailable" : copy("batch_send_error"))}</p>
-      {refused ? <p>{t("auth.business_unavailable.body")}</p> : null}
+      {refused ? <p>{t("auth.business_unavailable.body", { supportEmail })}</p> : null}
       <ReferenceCode reference={failure.reference} />
     </div> : null}
     <div className="mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">

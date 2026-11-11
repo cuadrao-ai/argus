@@ -137,6 +137,8 @@ class DgiiExport(Contract):
     #: The one currency the form states; Revisar shows its pending records.
     currency: str = DECLARABLE_CURRENCY
     record_count: int
+    #: Every record the 606/607 holds back, for either reason below.
+    pending_count: int
     #: Pesos records the 606/607 holds for missing fiscal data, the card's count.
     pending_fiscal_count: int
     #: Foreign-currency records the 606/607 holds until they have a rate.
@@ -262,6 +264,7 @@ def summarize_export(
         dgii=DgiiExport(
             form="607" if _family(request) == "sale" else "606",
             record_count=len(dgii.lines),
+            pending_count=len(dgii.pending_fiscal) + len(dgii.pending_rate),
             pending_fiscal_count=len(dgii.pending_fiscal),
             pending_rate_count=len(dgii.pending_rate),
             pending_rate_currencies=_currencies(dgii.pending_rate),

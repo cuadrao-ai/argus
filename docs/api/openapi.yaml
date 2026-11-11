@@ -21531,6 +21531,8 @@ components:
           default: DOP
         record_count:
           type: integer
+        pending_count:
+          type: integer
         pending_fiscal_count:
           type: integer
         pending_rate_count:
@@ -21544,6 +21546,7 @@ components:
       required:
       - form
       - record_count
+      - pending_count
       - pending_fiscal_count
       - pending_rate_count
       - pending_rate_currencies

@@ -7401,7 +7401,8 @@ opt-in above. The detail keeps the ask's `source` but carries no rating, so only
 the tap's row holds the rating. Message thumbs send `positive` or `negative`.
 
 Every accepted submission, guest or registered and of any type, is emailed to
-`support@get-argus.com` after the response is sent, through the Resend SMTP
+the support address (`web/argus_display_contract/support_contact.json`) after
+the response is sent, through the Resend SMTP
 credential the access welcome email already uses
 (`CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`). The email carries the type, account kind,
 profile language, message, and the sanitized context above, and adds no contact
@@ -10134,8 +10135,8 @@ clears the stored legal name; a change of name alone keeps it.
 
 `POST /business/fiscal-profile/registry` checks a tax id against the DGII registry, through
 the same registry reader that verifies counterparties. The body is `{tax_id: {type, value}}`,
-validated and cleaned as in `PATCH`, with the same 422 codes. Only a member whose live grant
-allows `manage` may ask; a member without it receives 403 `business_permission_denied`.
+validated and cleaned as in `PATCH`, with the same 422 codes. Any member whose live grant
+allows `read` may ask, so the receipt review can check a supplier's RNC for every role.
 It writes nothing. The answer is
 `{tax_id, verification, record, checked_at}`. `verification` uses the counterparty words:
 `verificado` (the registry lists it as active), `no_activo` (listed with any other status) or
@@ -11471,6 +11472,7 @@ accept path recorded.
   `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
   currency (`DOP`), `record_count` the records whose
   current `fiscal_data` is `complete` (a line on its month's form),
+  `pending_count` every record the form holds back, the two counts below,
   `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing` (the
   Faltan datos fiscales card for the same tab, period and DOP), and
   `pending_rate_count` with `pending_rate_currencies` the foreign-currency
