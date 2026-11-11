@@ -48,13 +48,13 @@ was reloaded to fetch the changed locale bundle before the final image.
 
 | Surface | Before | After |
 | --- | --- | --- |
-| Main settings | [Before](before-menu.jpg) | [After](after-menu.jpg) |
-| Preferences | [Before](before-preferences.jpg) | [After](after-preferences.jpg) |
-| Language | [Before](before-language.jpg) | [After](after-language.jpg) |
-| Data controls | [Before](before-data.jpg) | [After](after-data.jpg) |
-| General feedback | [Before](before-feedback.jpg) | [After](after-feedback.jpg) |
+| Main settings | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/before-menu.jpg) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/after-menu.jpg) |
+| Preferences | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/before-preferences.jpg) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/after-preferences.jpg) |
+| Language | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/before-language.jpg) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/after-language.jpg) |
+| Data controls | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/before-data.jpg) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/after-data.jpg) |
+| General feedback | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/before-feedback.jpg) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/after-feedback.jpg) |
 
-[Successful address copy](copy-confirmed.jpg) records the existing status text.
+[Successful address copy](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-settings-cleanup/copy-confirmed.jpg) records the existing status text.
 Clipboard rejection is covered by the deferred DOM test, not a browser failure
 injection. The browser viewport override did not produce the requested phone
 CSS width; this packet makes no mobile-width acceptance claim. The override

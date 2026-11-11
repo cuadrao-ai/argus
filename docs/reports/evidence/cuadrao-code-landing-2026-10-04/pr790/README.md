@@ -27,11 +27,11 @@ Full PR patch ID before this evidence commit:
 
 ## Selected screenshots
 
-- [Profile release availability](profile-release-gates-en.png): DEBUG fixture of release visibility, not a signed-in production session.
-- [Settings clearance at large text](profile-signout-large-clearance.png).
-- [Money entry before Create](money-valid-plan-es.png).
-- [No-data and moved-history presentation](no-data-moved-history-es.png).
-- [Actual Release ignores preview arguments](release-preview-arguments-ignored.png): the installed Release app opens the ordinary auth-disabled financial sample, not the preview or gallery.
+- [Profile release availability](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/pr790/profile-release-gates-en.png): DEBUG fixture of release visibility, not a signed-in production session.
+- [Settings clearance at large text](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/pr790/profile-signout-large-clearance.png).
+- [Money entry before Create](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/pr790/money-valid-plan-es.png).
+- [No-data and moved-history presentation](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/pr790/no-data-moved-history-es.png).
+- [Actual Release ignores preview arguments](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/pr790/release-preview-arguments-ignored.png): the installed Release app opens the ordinary auth-disabled financial sample, not the preview or gallery.
 
 ## Limits and evidence correction
 

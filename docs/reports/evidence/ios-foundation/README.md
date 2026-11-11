@@ -65,18 +65,18 @@ build outputs; durable JSON results and exported PNGs are committed here.
   selected destination, including Close from Preferences.
 - Light and Dark persist through termination/relaunch. System stays selected
   and resolves to the OS appearance. [System readback](system-appearance.json)
-  and [Light](compact/system-light.png) / [Dark](compact/system-dark.png) captures
+  and [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/compact/system-light.png) / [Dark](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/compact/system-dark.png) captures
   show the same open Preferences screen following an OS change without relaunch.
   Captured at `5714518b`; later changes affect only Search and tests.
-- [Compact chat](compact/dark-argus.png), [large chat](large/dark-argus.png),
-  [compact Plan](compact/dark-plan.png), [large Accounts](large/accounts.png)
-  and [large Search](large/dark-search.png) show the shared visual foundation.
-- [Keyboard](compact/search-keyboard.png) leaves navigation reachable above it;
+- [Compact chat](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/compact/dark-argus.png), [large chat](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/large/dark-argus.png),
+  [compact Plan](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/compact/dark-plan.png), [large Accounts](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/large/accounts.png)
+  and [large Search](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/large/dark-search.png) show the shared visual foundation.
+- [Keyboard](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/compact/search-keyboard.png) leaves navigation reachable above it;
   switching tabs dismisses input focus and preserves the local query.
 - Spanish uses native resources. Accessibility XXXL wraps content and stacks
   amounts; screens scroll while navigation remains reachable. See
-  [compact preferences](compact/spanish-large-preferences.png) and
-  [large accounts](large/spanish-large-accounts.png).
+  [compact preferences](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/compact/spanish-large-preferences.png) and
+  [large accounts](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/large/spanish-large-accounts.png).
 - XCTest's hit-region, sufficient-description and trait audits pass on all
   five Spanish/XXXL destinations. Explicit default-size checks cover primary
   tab and Plan tab minimum targets. Amounts are announced with their context.
@@ -85,7 +85,7 @@ build outputs; durable JSON results and exported PNGs are committed here.
   it flags partially occluded text behind the floating bar or at the edge of a
   horizontal chip rail. The final test scopes this additional audit to the
   Search fix without suppressing audit issues. Home is also scrolled to show
-  [the lower section clear of navigation](compact/dark-home-scrolled.png).
+  [the lower section clear of navigation](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-foundation/compact/dark-home-scrolled.png).
 - Parent inspected representative light/dark, keyboard and large-type captures.
   There was no unrecoverable clipped control or horizontal page overflow in
   those checks. Scrollable content can pass under the floating material.

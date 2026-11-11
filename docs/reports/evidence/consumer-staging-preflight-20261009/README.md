@@ -59,7 +59,7 @@ mode was off and the API origin was `https://cuadrao-api-staging.onrender.com`.
 spending without inventing a balance, corrected its known starting balance to
 DOP -25.50 and verified persistence after relaunch.
 [Test summary](account-summary.json) and
-[relaunch screenshot](account-after-relaunch.png) preserve this limited proof.
+[relaunch screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-staging-preflight-20261009/account-after-relaunch.png) preserve this limited proof.
 
 Two older transaction tests stopped at Home summary labels that the current Home
 no longer renders. The currency reconciliation and release-surface tests both
