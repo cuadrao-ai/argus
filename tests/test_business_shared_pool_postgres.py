@@ -70,7 +70,7 @@ def management(actions, monkeypatch):
             lambda: True,
         )
         runtime.store.create_route(
-            recipient=f"{uuid4().hex}@receipts.example.test",
+            recipient=f"{uuid4().hex}@recibos.example.test",
             space_id=scope.owner.space_id,
             principal_id=scope.person_id,
             granted_by=scope.acting_person_id,
