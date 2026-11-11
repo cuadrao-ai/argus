@@ -1,7 +1,7 @@
 """Fail when the settings catalog and the code disagree.
 
-The catalog is `scripts/ops/settings_catalog.generated.json`. Each row is a
-name, the code default, and the file that reads it.
+The catalog is `scripts/ops/settings_catalog.generated.json`. Each row names a setting and its distinct default/reader pairs. Single-reader
+rows retain the compact default/owner form.
 """
 
 from __future__ import annotations
@@ -17,18 +17,36 @@ CATALOG_PATH = Path("scripts/ops/settings_catalog.generated.json")
 MANIFEST_PATH = Path("scripts/ops/staging_env_manifest.json")
 NAME = re.compile(r"[A-Z][A-Z0-9_]*")
 SKIP_DIRS = {
-    ".next", "__pycache__", "__tests__", "coverage", "dist", "e2e", "node_modules", "tests",
+    ".next",
+    "__pycache__",
+    "__tests__",
+    "coverage",
+    "dist",
+    "e2e",
+    "node_modules",
+    "tests",
 }
 SKIP_ENV = {
-    "CI", "HOME", "HOSTNAME", "LANG", "LOGNAME", "OLDPWD", "PATH", "PWD", "SHELL",
-    "PYTHONDONTWRITEBYTECODE", "PYTHONHASHSEED", "PYTHONPATH", "TEMP", "TERM",
-    "TMP", "TMPDIR", "USER", "VIRTUAL_ENV",
+    "CI",
+    "HOME",
+    "HOSTNAME",
+    "LANG",
+    "LOGNAME",
+    "OLDPWD",
+    "PATH",
+    "PWD",
+    "SHELL",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONHASHSEED",
+    "PYTHONPATH",
+    "TEMP",
+    "TERM",
+    "TMP",
+    "TMPDIR",
+    "USER",
+    "VIRTUAL_ENV",
 }
 SKIP_PREFIXES = ("ACTIONS_", "GITHUB_", "NODE_", "NPM_", "RUNNER_")
-SETTING_PREFIXES = (
-    "ALPACA_", "APP_", "ARGUS_", "CUADRAO_", "DATABASE_", "NEXT_PUBLIC_",
-    "OPENROUTER_", "POSTHOG_", "RESEND_", "SUPABASE_",
-)
 
 
 @dataclass(frozen=True)
@@ -140,13 +158,33 @@ class _Python:
         self.helpers: dict[str, list[str]] = {}
         self.wrappers: dict[str, str | None] = {}
         self.root = root
+        self.parents: dict[ast.AST, ast.AST] = {}
+        self.environ_aliases: set[tuple[ast.AST, str]] = set()
+        self.tree: ast.AST = ast.Module(body=[], type_ignores=[])
 
     def add(self, name: str, default: str | None) -> None:
         if is_setting(name):
             self.reads.setdefault(name, []).append(default)
 
     def scan(self, tree: ast.AST) -> None:
+        self.tree = tree
+        self.parents = {
+            child: parent
+            for parent in ast.walk(tree)
+            for child in ast.iter_child_nodes(parent)
+        }
         self._constants(tree)
+        while True:
+            previous = set(self.environ_aliases)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assign) and self._environment_source(node.value):
+                    self.environ_aliases.update(
+                        (self._scope(target), target.id)
+                        for target in node.targets
+                        if isinstance(target, ast.Name)
+                    )
+            if previous == self.environ_aliases:
+                break
         self._wrappers(tree)
         self._classes(tree)
         for node in ast.walk(tree):
@@ -154,9 +192,8 @@ class _Python:
                 self._call(node)
             elif isinstance(node, ast.Subscript):
                 self._subscript(node)
-        self._sequences(tree)
-        self._collections(tree)
-        self._used_constants(tree)
+            elif isinstance(node, ast.For):
+                self._item_filter(node)
 
     def _constants(self, tree: ast.AST) -> None:
         for node in ast.iter_child_nodes(tree):
@@ -178,7 +215,9 @@ class _Python:
 
     def _classes(self, tree: ast.AST) -> None:
         for node in ast.walk(tree):
-            if not isinstance(node, ast.ClassDef):
+            if not isinstance(node, ast.ClassDef) or not any(
+                _call_name(base) == "BaseSettings" for base in node.bases
+            ):
                 continue
             prefix = self._prefix(node)
             for statement in node.body:
@@ -262,14 +301,26 @@ class _Python:
             if templates:
                 self.helpers[node.name] = templates
             if _passes_parameter_to_getenv(node):
-                self.wrappers[node.name] = _signature_default(node)
+                default = _signature_default(node)
+                if default is None:
+                    default = next(
+                        (
+                            self._default(
+                                child, _call_default(child, None, self.constants)
+                            )
+                            for child in ast.walk(node)
+                            if isinstance(child, ast.Call) and _is_getenv(child)
+                        ),
+                        None,
+                    )
+                self.wrappers[node.name] = default
 
     def _call(self, node: ast.Call) -> None:
-        if _is_getenv(node):
+        if self._is_getenv(node):
             self._getenv(node)
             return
         name = _call_name(node.func)
-        if name in {"setting_aliases", "setting_names", "setting_value"} and node.args:
+        if name == "setting_value" and node.args:
             suffix = _string_arg(node.args[0], self.constants)
             default = (
                 _text(_const(node.args[1], self.constants))
@@ -277,31 +328,26 @@ class _Python:
                 else None
             )
             if suffix:
-                self.add(f"CUADRAO_{suffix}", default)
-                self.add(f"ARGUS_{suffix}", default)
+                self.add(f"CUADRAO_{suffix}", self._default(node, default))
+                self.add(f"ARGUS_{suffix}", self._default(node, default))
             return
         if name in self.wrappers and node.args:
-            target = _string_arg(node.args[0], self.constants)
-            if target:
-                self.add(target, _call_default(node, self.wrappers[name], self.constants))
+            for target in self._names(node.args[0]):
+                self.add(
+                    target,
+                    self._default(
+                        node, _call_default(node, self.wrappers[name], self.constants)
+                    ),
+                )
             return
-        if name in self.helpers and node.args:
-            suffix = _string_arg(node.args[0], self.constants)
-            if suffix:
-                for template in self.helpers[name]:
-                    self.add(template.replace("{name}", suffix), None)
 
     def _getenv(self, node: ast.Call) -> None:
         if not node.args:
             return
-        default = (
-            _text(_const(node.args[1], self.constants)) if len(node.args) > 1 else None
-        )
+        default = self._default(node, _call_default(node, None, self.constants))
         arg = node.args[0]
-        text = _string_arg(arg, self.constants)
-        if text:
+        for text in self._names(arg):
             self.add(text, default)
-            return
         if isinstance(arg, ast.JoinedStr):
             names = _timeout_names(self.root, arg)
             if names is None:
@@ -310,59 +356,196 @@ class _Python:
             for name in names:
                 self.add(name, default)
 
-    def _subscript(self, node: ast.Subscript) -> None:
-        value = node.value
-        environ = isinstance(value, ast.Attribute) and value.attr == "environ"
-        if not environ:
+    def _environment(self, node: ast.AST) -> bool:
+        return (
+            isinstance(node, ast.Name)
+            and (
+                node.id == "environ"
+                or (self._scope(node), node.id) in self.environ_aliases
+                or (self.tree, node.id) in self.environ_aliases
+            )
+        ) or (
+            isinstance(node, ast.Attribute)
+            and node.attr == "environ"
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "os"
+        )
+
+    def _environment_source(self, node: ast.AST) -> bool:
+        if self._environment(node):
+            return True
+        if isinstance(node, ast.IfExp):
+            return self._environment_source(node.body) or self._environment_source(
+                node.orelse
+            )
+        return (
+            isinstance(node, ast.Call)
+            and _call_name(node.func) == "dict"
+            and bool(node.args)
+            and self._environment_source(node.args[0])
+        )
+
+    def _item_filter(self, node: ast.For) -> None:
+        if not (
+            isinstance(node.target, ast.Tuple)
+            and len(node.target.elts) == 2
+            and isinstance(node.target.elts[0], ast.Name)
+            and isinstance(node.iter, ast.Call)
+            and isinstance(node.iter.func, ast.Attribute)
+            and node.iter.func.attr == "items"
+            and self._environment(node.iter.func.value)
+        ):
             return
-        text = _string_arg(node.slice, self.constants)
-        if text:
-            self.add(text, None)
+        key = node.target.elts[0].id
+        for child in ast.walk(node):
+            if (
+                isinstance(child, ast.Compare)
+                and isinstance(child.left, ast.Name)
+                and child.left.id == key
+            ):
+                for operation, value in zip(child.ops, child.comparators, strict=True):
+                    if isinstance(operation, (ast.In, ast.NotIn)):
+                        for name in self._names(value):
+                            self.add(name, None)
 
-    def _sequences(self, tree: ast.AST) -> None:
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            bound: dict[str, list[str]] = {}
-            for child in ast.walk(node):
-                if not isinstance(child, ast.Assign) or len(child.targets) != 1:
+    def _is_getenv(self, node: ast.Call) -> bool:
+        return _is_getenv(node) or (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and self._environment(node.func.value)
+        )
+
+    def _default(self, node: ast.AST, default: str | None) -> str | None:
+        if default:
+            return default
+        child = node
+        while child in self.parents:
+            parent = self.parents[child]
+            if isinstance(parent, ast.BoolOp) and isinstance(parent.op, ast.Or):
+                for value in parent.values[parent.values.index(child) + 1 :]:
+                    fallback = _text(_const(value, self.constants))
+                    if fallback is not None:
+                        return fallback
+                child = parent
+            elif isinstance(parent, ast.Attribute) and parent.value is child:
+                child = parent
+            elif isinstance(parent, ast.Call) and parent.func is child:
+                child = parent
+            else:
+                break
+        return default
+
+    def _subscript(self, node: ast.Subscript) -> None:
+        if not isinstance(node.ctx, ast.Load) or not self._environment(node.value):
+            return
+        for text in self._names(node.slice):
+            self.add(text, self._default(node, None))
+
+    def _scope(self, node: ast.AST) -> ast.AST:
+        while node in self.parents:
+            node = self.parents[node]
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                return node
+        return self.tree
+
+    def _names(self, node: ast.AST, seen: frozenset[ast.AST] = frozenset()) -> list[str]:
+        if node in seen:
+            return []
+        seen = seen | {node}
+        if isinstance(node, ast.Constant):
+            return [node.value] if isinstance(node.value, str) else []
+        if isinstance(node, (ast.List, ast.Set, ast.Tuple)):
+            return [name for child in node.elts for name in self._names(child, seen)]
+        if isinstance(node, ast.Starred):
+            return self._names(node.value, seen)
+        if isinstance(node, ast.IfExp):
+            return self._names(node.body, seen) + self._names(node.orelse, seen)
+        if isinstance(node, ast.Dict):
+            return [name for child in node.values for name in self._names(child, seen)]
+        if isinstance(node, ast.Subscript):
+            return self._names(node.value, seen)
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+        ):
+            return self._names(node.func.value, seen)
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            for statement in self.tree.body:
+                if not isinstance(statement, ast.ImportFrom) or not statement.module:
                     continue
-                target = child.targets[0]
-                if isinstance(target, ast.Name):
-                    values = _string_sequence(child.value)
-                    if values:
-                        bound[target.id] = values
-            for child in ast.walk(node):
-                generators = []
-                if isinstance(child, (ast.ListComp, ast.GeneratorExp, ast.SetComp)):
-                    generators = child.generators
-                elif isinstance(child, ast.For):
-                    generators = [child]
-                for generator in generators:
-                    names = _iter_names(generator, bound)
-                    if not names or not _reads_iter_name(child, generator):
-                        continue
-                    default = _getenv_default(child, self.constants)
-                    for name in names:
-                        self.add(name, default)
+                for alias in statement.names:
+                    if (alias.asname or alias.name) == node.value.id:
+                        return self._import_names(
+                            f"{statement.module}.{alias.name}", node.attr
+                        )
+        if not isinstance(node, ast.Name):
+            return []
+        scope = self._scope(node)
+        parameter = isinstance(
+            scope, (ast.FunctionDef, ast.AsyncFunctionDef)
+        ) and node.id in {arg.arg for arg in scope.args.args}
+        scopes = (
+            [scope, self.tree] if scope is not self.tree and not parameter else [scope]
+        )
+        for current in scopes:
+            found = []
+            for child in ast.walk(current):
+                if self._scope(child) is not current:
+                    continue
+                if isinstance(child, (ast.Assign, ast.AnnAssign)):
+                    targets = (
+                        child.targets if isinstance(child, ast.Assign) else [child.target]
+                    )
+                    if child.value and any(
+                        isinstance(target, ast.Name) and target.id == node.id
+                        for target in targets
+                    ):
+                        found.extend(self._names(child.value, seen))
+                elif (
+                    isinstance(child, (ast.For, ast.comprehension))
+                    and isinstance(child.target, ast.Name)
+                    and child.target.id == node.id
+                ):
+                    found.extend(self._names(child.iter, seen))
+                elif isinstance(child, ast.ImportFrom) and child.module:
+                    for alias in child.names:
+                        if (alias.asname or alias.name) == node.id:
+                            found.extend(self._import_names(child.module, alias.name))
+            if found:
+                return found
+        if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            parameters = [arg.arg for arg in scope.args.args]
+            if node.id in parameters and scope.name not in self.wrappers:
+                position = parameters.index(node.id)
+                return [
+                    name
+                    for call in ast.walk(self.tree)
+                    if isinstance(call, ast.Call)
+                    and _call_name(call.func) == scope.name
+                    and len(call.args) > position
+                    for name in self._names(call.args[position], seen)
+                ]
+        return []
 
-    def _used_constants(self, tree: ast.AST) -> None:
-        used = {
-            node.id
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
-        }
-        for key, value in self.constants.items():
-            if key in used and isinstance(value, str) and is_setting(value):
-                self.add(value, None)
-
-    def _collections(self, tree: ast.AST) -> None:
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.Set, ast.List, ast.Tuple, ast.Dict)):
-                continue
-            for text in _collection_strings(node):
-                if _prefixed(text) or text in {"APP_ENV", "DATABASE_URL", "ENVIRONMENT"}:
-                    self.add(text, None)
+    def _import_names(self, module: str, name: str) -> list[str]:
+        path = self.root / "src" / Path(*module.split(".")).with_suffix(".py")
+        if not path.is_file() or path == self.path:
+            return []
+        imported = ast.parse(path.read_text())
+        for statement in imported.body:
+            if isinstance(statement, (ast.Assign, ast.AnnAssign)):
+                targets = (
+                    statement.targets
+                    if isinstance(statement, ast.Assign)
+                    else [statement.target]
+                )
+                if statement.value and any(
+                    isinstance(target, ast.Name) and target.id == name
+                    for target in targets
+                ):
+                    return _collection_strings(statement.value)
+        return []
 
 
 def _collection_strings(node: ast.AST) -> list[str]:
@@ -451,63 +634,6 @@ def _call_default(
     return signature
 
 
-def _string_sequence(node: ast.AST) -> list[str]:
-    if not isinstance(node, (ast.List, ast.Tuple, ast.Set)):
-        return []
-    values = []
-    for elt in node.elts:
-        if (
-            isinstance(elt, ast.Constant)
-            and isinstance(elt.value, str)
-            and is_setting(elt.value)
-        ):
-            values.append(elt.value)
-        else:
-            return []
-    return values
-
-
-def _iter_names(generator: ast.AST, bound: dict[str, list[str]]) -> list[str]:
-    if isinstance(generator, ast.comprehension):
-        source = generator.iter
-    elif isinstance(generator, ast.For):
-        source = generator.iter
-    else:
-        return []
-    if isinstance(source, ast.Name):
-        return bound.get(source.id, [])
-    return [item for item in _string_sequence(source)]
-
-
-def _getenv_default(node: ast.AST, constants: dict[str, object]) -> str | None:
-    for child in ast.walk(node):
-        if isinstance(child, ast.Call) and _is_getenv(child) and len(child.args) > 1:
-            return _text(_const(child.args[1], constants))
-    return None
-
-
-def _reads_iter_name(node: ast.AST, generator: ast.AST) -> bool:
-    target = (
-        generator.target if isinstance(generator, (ast.comprehension, ast.For)) else None
-    )
-    if not isinstance(target, ast.Name):
-        return False
-    return any(
-        isinstance(child, ast.Call)
-        and _is_getenv(child)
-        and child.args
-        and isinstance(child.args[0], ast.Name)
-        and child.args[0].id == target.id
-        for child in ast.walk(node)
-    )
-
-
-def _prefixed(text: str) -> bool:
-    return any(
-        text.startswith(prefix) and len(text) > len(prefix) for prefix in SETTING_PREFIXES
-    )
-
-
 def _timeout_names(root: Path, node: ast.JoinedStr) -> list[str] | None:
     parts = node.values
     if len(parts) != 4:
@@ -573,50 +699,162 @@ def _kept(path: Path) -> bool:
 
 def _python_files(root: Path) -> list[Path]:
     roots = (root / "src", root / "workflows", root / "scripts" / "ops")
-    return [path for base in roots if base.is_dir() for path in base.rglob("*.py") if _kept(path)]
+    return [
+        path
+        for base in roots
+        if base.is_dir()
+        for path in base.rglob("*.py")
+        if _kept(path.relative_to(root))
+    ]
 
 
 def _typescript_files(root: Path) -> list[Path]:
-    folders = (
-        "web/app", "web/lib", "web/server", "web/components",
-        "marketing/app", "marketing/lib", "marketing/components",
-    )
-    suffixes = {".ts", ".tsx", ".js", ".mjs"}
-    found = []
-    for folder in folders:
-        base = root / folder
-        if base.is_dir():
-            found.extend(path for path in base.rglob("*") if path.suffix in suffixes and _kept(path))
-    return found
+    suffixes = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"}
+    return [
+        path
+        for package in ("web", "marketing")
+        for path in (root / package).rglob("*")
+        if path.suffix in suffixes
+        and _kept(path.relative_to(root))
+        and not re.search(r"\.(?:test|spec|d)\.[^.]+$", path.name)
+    ]
 
 
-_TS_ENV = re.compile(
-    r"""(?:process\.env|import\.meta\.env)(?:\.([A-Z][A-Z0-9_]*)|\[['"]([A-Z][A-Z0-9_]*)['"]\])"""
+_TS_TOKEN = re.compile(
+    r"""//[^\n]*|/\*.*?\*/|/(?:\\.|\[(?:\\.|[^\]\\])*\]|[^/\\\n])+/[dgimsuvy]*|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`|[A-Za-z_$][\w$]*|\d+(?:\.\d+)?|\?\?|\|\||===|!==|==|!=|=>|[^\s]""",
+    re.S,
 )
-_TS_RECORD = re.compile(r"""(?<![\w.])env\.([A-Z][A-Z0-9_]*)""")
-_TS_DEFAULT = re.compile(r"""(?:\?\?|\|\|)\s*['"]([^'"\n]*)['"]""")
-_COMMENT = re.compile(r"/\*.*?\*/|//.*?$", re.S | re.M)
+
+
+def _ts_tokens(path: Path) -> list[str]:
+    return [
+        token
+        for token in _TS_TOKEN.findall(path.read_text(errors="ignore"))
+        if not token.startswith(("//", "/*"))
+    ]
+
+
+def _ts_literal(token: str) -> str | None:
+    if token.startswith(("'", '"')):
+        return token[1:-1]
+    if token in {"true", "false"} or re.fullmatch(r"\d+(?:\.\d+)?", token):
+        return token
+    return None
+
+
+def _typescript_env_functions(paths: list[Path]) -> dict[Path, set[str]]:
+    functions: dict[Path, set[str]] = {}
+    for path in paths:
+        tokens = _ts_tokens(path)
+        for index in range(len(tokens) - 4):
+            if tokens[index + 1 : index + 6] != ["(", "process", ".", "env", ")"]:
+                continue
+            name = tokens[index]
+            for match in re.finditer(
+                r"import\s*\{([^}]+)\}\s*from\s*['\"]([^'\"]+)['\"]", path.read_text()
+            ):
+                for binding in match[1].split(","):
+                    parts = binding.strip().split()
+                    if not parts or parts[-1] != name:
+                        continue
+                    if match[2].startswith("@/"):
+                        package = next(
+                            parent
+                            for parent in path.parents
+                            if parent.name in {"web", "marketing"}
+                        )
+                        imported = package / match[2][2:]
+                    else:
+                        imported = path.parent / match[2]
+                    candidates = (
+                        [imported]
+                        if imported.suffix
+                        else [
+                            imported.with_suffix(suffix)
+                            for suffix in (".ts", ".tsx", ".js", ".mjs")
+                        ]
+                    )
+                    for candidate in candidates:
+                        if candidate.is_file():
+                            functions.setdefault(candidate.resolve(), set()).add(parts[0])
+    return functions
+
+
+def _ts_aliases(tokens: list[str], functions: set[str]) -> list[tuple[str, int, int]]:
+    aliases = []
+    for index, token in enumerate(tokens):
+        if token == "function" and index + 3 < len(tokens) and tokens[index + 2] == "(":
+            depth, end = 1, index + 3
+            while end < len(tokens) and depth:
+                depth += (tokens[end] == "(") - (tokens[end] == ")")
+                end += 1
+            parameters = tokens[index + 3 : end - 1]
+            direct = any(
+                parameters[offset : offset + 4] == ["=", "process", ".", "env"]
+                for offset in range(len(parameters))
+            )
+            if not parameters or not (direct or tokens[index + 1] in functions):
+                continue
+            start = end
+            while start < len(tokens) and tokens[start] != "{":
+                start += 1
+            end, depth = start + 1, 1
+            while end < len(tokens) and depth:
+                depth += (tokens[end] == "{") - (tokens[end] == "}")
+                end += 1
+            aliases.append((parameters[0], start, end))
+        if token in {"const", "let", "var"} and tokens[index + 2 : index + 6] == [
+            "=",
+            "process",
+            ".",
+            "env",
+        ]:
+            depth, end = 0, index + 6
+            while end < len(tokens):
+                depth += (tokens[end] == "{") - (tokens[end] == "}")
+                if depth < 0:
+                    break
+                end += 1
+            aliases.append((tokens[index + 1], index + 6, end))
+    return aliases
 
 
 def _scan_typescript(
-    path: Path, root: Path, found: dict[str, list[tuple[str | None, str]]]
+    path: Path,
+    root: Path,
+    found: dict[str, list[tuple[str | None, str]]],
+    functions: set[str],
 ) -> None:
     owner = path.relative_to(root).as_posix()
-    text = _COMMENT.sub("", path.read_text(errors="ignore"))
-    for match in _TS_ENV.finditer(text):
-        name = match.group(1) or match.group(2)
-        if not is_setting(name):
+    tokens = _ts_tokens(path)
+    aliases = _ts_aliases(tokens, functions)
+    for index, token in enumerate(tokens):
+        offset = index
+        if tokens[index : index + 3] == ["process", ".", "env"]:
+            offset += 3
+        elif tokens[index : index + 5] == ["import", ".", "meta", ".", "env"]:
+            offset += 5
+        elif any(token == name and start <= index < end for name, start, end in aliases):
+            offset += 1
+        else:
             continue
-        line_end = text.find("\n", match.start())
-        window = text[match.start() : line_end if line_end != -1 else match.end()]
-        default_match = _TS_DEFAULT.search(window)
-        default = default_match.group(1) if default_match else None
+        name = None
+        if tokens[offset : offset + 1] == ["."] and offset + 1 < len(tokens):
+            name = tokens[offset + 1]
+            offset += 2
+        elif (
+            tokens[offset : offset + 1] == ["["]
+            and offset + 2 < len(tokens)
+            and tokens[offset + 2] == "]"
+        ):
+            name = _ts_literal(tokens[offset + 1])
+            offset += 3
+        if not name or not is_setting(name) or tokens[offset : offset + 1] == ["="]:
+            continue
+        default = None
+        if tokens[offset : offset + 1] in (["??"], ["||"]) and offset + 1 < len(tokens):
+            default = _ts_literal(tokens[offset + 1])
         found.setdefault(name, []).append((default, owner))
-    if "env:" in text or "env." in text:
-        for match in _TS_RECORD.finditer(text):
-            name = match.group(1)
-            if is_setting(name):
-                found.setdefault(name, []).append((None, owner))
 
 
 def _owner_rank(item: tuple[str | None, str]) -> tuple[int, str, str]:
@@ -624,7 +862,7 @@ def _owner_rank(item: tuple[str | None, str]) -> tuple[int, str, str]:
     return (owner.startswith("scripts/"), owner, default or "")
 
 
-def scan(root: Path) -> tuple[dict[str, Read], list[str]]:
+def scan(root: Path) -> tuple[dict[str, tuple[Read, ...]], list[str]]:
     found: dict[str, list[tuple[str | None, str]]] = {}
     unresolved: list[str] = []
     for path in _python_files(root):
@@ -637,21 +875,20 @@ def scan(root: Path) -> tuple[dict[str, Read], list[str]]:
         unresolved.extend(reader.unresolved)
         for name, defaults in reader.reads.items():
             found.setdefault(name, []).extend((item, reader.owner) for item in defaults)
-    for path in _typescript_files(root):
-        _scan_typescript(path, root, found)
-    chosen: dict[str, Read] = {}
-    for name, reads in found.items():
-        explicit = [(default, owner) for default, owner in reads if default is not None]
-        distinct = sorted({default for default, _owner in explicit})
-        if len(distinct) > 1:
-            unresolved.append(f"conflict {name} {' '.join(distinct)}")
-        pool = explicit or reads
-        default, owner = sorted(pool, key=_owner_rank)[0]
-        chosen[name] = Read(default, owner)
+    typescript = _typescript_files(root)
+    env_functions = _typescript_env_functions(typescript)
+    for path in typescript:
+        _scan_typescript(path, root, found, env_functions.get(path.resolve(), set()))
+    chosen = {
+        name: tuple(
+            Read(default, owner) for default, owner in sorted(set(reads), key=_owner_rank)
+        )
+        for name, reads in found.items()
+    }
     return chosen, unresolved
 
 
-def _catalog(root: Path) -> tuple[dict[str, Read], str | None]:
+def _catalog(root: Path) -> tuple[dict[str, tuple[Read, ...]], str | None]:
     path = root / CATALOG_PATH
     if not path.is_file():
         return {}, "settings catalog is missing"
@@ -662,17 +899,37 @@ def _catalog(root: Path) -> tuple[dict[str, Read], str | None]:
     rows = payload.get("settings") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
         return {}, "settings catalog has no settings"
-    found: dict[str, Read] = {}
+    found: dict[str, tuple[Read, ...]] = {}
     for row in rows:
         if not isinstance(row, dict) or not isinstance(row.get("name"), str):
             return {}, "settings catalog has a row without a name"
-        default = row.get("default")
-        owner = row.get("owner")
-        if default is not None and not isinstance(default, str):
-            return {}, f"{row['name']} default must be a string or null"
-        if not isinstance(owner, str) or not owner:
-            return {}, f"{row['name']} has no owner"
-        found[row["name"]] = Read(default, owner)
+        name = row["name"]
+        if name in found:
+            return {}, f"duplicate setting {name}"
+        if "reads" in row:
+            if "default" in row or "owner" in row:
+                return {}, f"{name} mixes compact and per-reader defaults"
+            reads = row["reads"]
+        else:
+            reads = [row]
+        if not isinstance(reads, list) or not reads:
+            return {}, f"{name} has no reads"
+        parsed = []
+        for read in reads:
+            if not isinstance(read, dict):
+                return {}, f"{name} has an invalid read"
+            default, owner = read.get("default"), read.get("owner")
+            if default is not None and not isinstance(default, str):
+                return {}, f"{name} default must be a string or null"
+            if not isinstance(owner, str) or not owner:
+                return {}, f"{name} has no owner"
+            item = Read(default, owner)
+            if item in parsed:
+                return {}, f"{name} has a duplicate read"
+            parsed.append(item)
+        found[name] = tuple(
+            sorted(parsed, key=lambda read: _owner_rank((read.default, read.owner)))
+        )
     return found, None
 
 
@@ -706,15 +963,12 @@ def problems(root: Path) -> list[str]:
     if error:
         found.append(error)
     for name in sorted(set(reads) - set(listed)):
-        found.append(f"missing {name} read by {reads[name].owner}")
+        found.append(f"missing {name} read by {reads[name][0].owner}")
     for name in sorted(set(listed) - set(reads)):
         found.append(f"orphan {name}")
     for name in sorted(set(reads) & set(listed)):
-        code, row = reads[name], listed[name]
-        if row.default != code.default:
-            found.append(f"default {name} list={row.default!r} code={code.default!r}")
-        if row.owner != code.owner:
-            found.append(f"owner {name} list={row.owner} code={code.owner}")
+        if listed[name] != reads[name]:
+            found.append(f"reads {name} list={listed[name]!r} code={reads[name]!r}")
     known = set(listed)
     for label, name in _manifest_names(root):
         if name not in known:
@@ -732,12 +986,17 @@ def write_catalog(root: Path) -> None:
     reads, unresolved = scan(root)
     if unresolved:
         raise SystemExit("unresolved dynamic settings: " + ", ".join(unresolved))
-    rows = [
-        {"name": name, "default": reads[name].default, "owner": reads[name].owner}
-        for name in sorted(reads)
-    ]
+    rows = []
+    for name, items in sorted(reads.items()):
+        values = [{"default": item.default, "owner": item.owner} for item in items]
+        row = (
+            {"name": name, **values[0]}
+            if len(values) == 1
+            else {"name": name, "reads": values}
+        )
+        rows.append(row)
     path = root / CATALOG_PATH
-    path.write_text(json.dumps({"version": 1, "settings": rows}, indent=2) + "\n")
+    path.write_text(json.dumps({"version": 2, "settings": rows}, indent=2) + "\n")
 
 
 def main(argv: list[str] | None = None) -> int:

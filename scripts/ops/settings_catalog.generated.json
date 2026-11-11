@@ -1,54 +1,145 @@
 {
-  "version": 1,
+  "version": 2,
   "settings": [
     {
-      "name": "ABCDEFGHJKMNPQRSTVWXYZ23456789",
-      "default": null,
-      "owner": "src/argus/domain/ingestion/whatsapp/identity.py"
-    },
-    {
       "name": "ALPACA_API_KEY",
-      "default": null,
-      "owner": "src/argus/context/providers.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/context/providers.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/market_data/assets.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/market_data/capabilities.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/market_data/provider.py"
+        }
+      ]
     },
     {
       "name": "ALPACA_PAPER_TRADING",
-      "default": null,
-      "owner": "src/argus/domain/market_data/assets.py"
+      "reads": [
+        {
+          "default": "true",
+          "owner": "src/argus/domain/market_data/assets.py"
+        },
+        {
+          "default": "true",
+          "owner": "src/argus/domain/market_data/capabilities.py"
+        }
+      ]
     },
     {
       "name": "ALPACA_SECRET_KEY",
-      "default": null,
-      "owner": "src/argus/context/providers.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/context/providers.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/market_data/assets.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/market_data/capabilities.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/market_data/provider.py"
+        }
+      ]
     },
     {
       "name": "APP_ENV",
-      "default": "",
-      "owner": "src/argus/api/dependencies.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/dependencies.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/observability/analytics_deletion.py"
+        },
+        {
+          "default": "local",
+          "owner": "src/argus/observability/envelope.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_APP_ENV",
-      "default": "",
-      "owner": "src/argus/api/dependencies.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/dependencies.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/observability/analytics_deletion.py"
+        },
+        {
+          "default": "local",
+          "owner": "src/argus/observability/envelope.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_APP_ORIGIN",
-      "default": null,
-      "owner": "src/argus/api/business_invite_delivery.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/business_invite_delivery.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/routers/ops.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/business/close_mail.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/business/transfer_mail.py"
+        },
+        {
+          "default": null,
+          "owner": "src/argus/domain/existing_account_email.py"
+        },
+        {
+          "default": null,
+          "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+        },
+        {
+          "default": null,
+          "owner": "web/server/app-origin.ts"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_ASSET_FIXTURE_PATH",
-      "default": null,
+      "default": "",
       "owner": "src/argus/domain/market_data/assets.py"
     },
     {
       "name": "ARGUS_ASSET_PROVIDER_MODE",
-      "default": null,
+      "default": "live_provider",
       "owner": "src/argus/domain/market_data/assets.py"
     },
     {
       "name": "ARGUS_ASSET_UNIVERSE_LOADER_TIMEOUT_SECONDS",
-      "default": null,
+      "default": "20",
       "owner": "src/argus/domain/market_data/assets.py"
     },
     {
@@ -58,13 +149,29 @@
     },
     {
       "name": "ARGUS_BACKTEST_JOBS_GLOBAL_QUEUED_LIMIT",
-      "default": "10",
-      "owner": "src/argus/domain/backtest_admission.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/chat/backtest_jobs.py"
+        },
+        {
+          "default": "10",
+          "owner": "src/argus/domain/backtest_admission.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_BACKTEST_JOBS_GLOBAL_RUNNING_LIMIT",
-      "default": "5",
-      "owner": "src/argus/domain/backtest_admission.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/chat/backtest_jobs.py"
+        },
+        {
+          "default": "5",
+          "owner": "src/argus/domain/backtest_admission.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_BACKTEST_JOBS_SHADOW_ENABLED",
@@ -73,17 +180,33 @@
     },
     {
       "name": "ARGUS_BACKTEST_JOBS_USER_QUEUED_LIMIT",
-      "default": "2",
-      "owner": "src/argus/domain/backtest_admission.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/chat/backtest_jobs.py"
+        },
+        {
+          "default": "2",
+          "owner": "src/argus/domain/backtest_admission.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_BACKTEST_JOBS_USER_RUNNING_LIMIT",
-      "default": "1",
-      "owner": "src/argus/domain/backtest_admission.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/chat/backtest_jobs.py"
+        },
+        {
+          "default": "1",
+          "owner": "src/argus/domain/backtest_admission.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_BACKTEST_REAL_WORKFLOW_TASK",
-      "default": null,
+      "default": "argus-backtests/run_backtest_job",
       "owner": "src/argus/api/chat/backtest_jobs.py"
     },
     {
@@ -93,8 +216,16 @@
     },
     {
       "name": "ARGUS_BACKTEST_WORKFLOW_TASK",
-      "default": null,
-      "owner": "src/argus/api/chat/backtest_jobs.py"
+      "reads": [
+        {
+          "default": "argus-backtests/workflow_proof",
+          "owner": "src/argus/api/chat/backtest_jobs.py"
+        },
+        {
+          "default": "argus-backtests/workflow_proof",
+          "owner": "workflows/trigger_proof.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_BACKTEST_WORKFLOW_TIMEOUT_SECONDS",
@@ -133,7 +264,7 @@
     },
     {
       "name": "ARGUS_BUSINESS_INVITE_EMAIL_ENABLED",
-      "default": null,
+      "default": "false",
       "owner": "src/argus/api/business_invite_delivery.py"
     },
     {
@@ -168,13 +299,33 @@
     },
     {
       "name": "ARGUS_DEV_ENDPOINTS_ENABLED",
-      "default": "",
-      "owner": "src/argus/api/dependencies.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/dependencies.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/routers/dev.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_DEV_MEMORY_FALLBACK",
-      "default": "",
-      "owner": "src/argus/api/client_ip.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/client_ip.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/dependencies.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/state.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_DISCOVERY_DAILY_LIMIT",
@@ -203,7 +354,7 @@
     },
     {
       "name": "ARGUS_DISCOVERY_SEARCH_PROVIDER",
-      "default": "",
+      "default": "perplexity_direct",
       "owner": "src/argus/domain/research/search/config.py"
     },
     {
@@ -213,8 +364,16 @@
     },
     {
       "name": "ARGUS_DOCUMENT_EXTRACTION_ENABLED",
-      "default": "false",
-      "owner": "src/argus/domain/ingestion/documents/config.py"
+      "reads": [
+        {
+          "default": null,
+          "owner": "src/argus/domain/ingestion/documents/config.py"
+        },
+        {
+          "default": "false",
+          "owner": "src/argus/domain/ingestion/documents/config.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_DOCUMENT_EXTRACTION_MAX_BYTES",
@@ -268,12 +427,24 @@
     },
     {
       "name": "ARGUS_ENV",
-      "default": "",
-      "owner": "src/argus/api/dependencies.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/dependencies.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/observability/analytics_deletion.py"
+        },
+        {
+          "default": "local",
+          "owner": "src/argus/observability/envelope.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_FINANCIAL_ACCOUNTS_ENABLED",
-      "default": null,
+      "default": "",
       "owner": "src/argus/api/financial_accounts.py"
     },
     {
@@ -288,12 +459,12 @@
     },
     {
       "name": "ARGUS_INGESTION_ENABLED",
-      "default": null,
+      "default": "",
       "owner": "src/argus/api/ingestion.py"
     },
     {
       "name": "ARGUS_INGESTION_SECRET_KEY",
-      "default": null,
+      "default": "",
       "owner": "src/argus/domain/ingestion/secrets.py"
     },
     {
@@ -303,8 +474,32 @@
     },
     {
       "name": "ARGUS_MARKET_DATA_PROVIDER_MODE",
-      "default": "",
-      "owner": "src/argus/domain/market_data/provider.py"
+      "reads": [
+        {
+          "default": "live_provider",
+          "owner": "src/argus/domain/backtesting/coverage.py"
+        },
+        {
+          "default": "live_provider",
+          "owner": "src/argus/domain/market_data/assets.py"
+        },
+        {
+          "default": "live_provider",
+          "owner": "src/argus/domain/market_data/capabilities.py"
+        },
+        {
+          "default": "live_provider",
+          "owner": "src/argus/domain/market_data/market_session.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/market_data/provider.py"
+        },
+        {
+          "default": "",
+          "owner": "workflows/proof.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_MEMORY_EMBEDDING_DIMENSIONS",
@@ -347,13 +542,23 @@
       "owner": "src/argus/llm/openrouter.py"
     },
     {
+      "name": "ARGUS_PRODUCTION_DATABASE_SSL_ROOT_CERT",
+      "default": "",
+      "owner": "scripts/ops/production_migration_gate.py"
+    },
+    {
+      "name": "ARGUS_PRODUCTION_DATABASE_URL",
+      "default": "",
+      "owner": "scripts/ops/production_migration_gate.py"
+    },
+    {
       "name": "ARGUS_QA_APPROVED_SUPABASE_REF",
       "default": "",
       "owner": "scripts/ops/staging_env.py"
     },
     {
       "name": "ARGUS_READINESS_ASSET_TIMEOUT_SECONDS",
-      "default": null,
+      "default": "25",
       "owner": "src/argus/api/routers/ops.py"
     },
     {
@@ -368,8 +573,16 @@
     },
     {
       "name": "ARGUS_RENDER_WORKFLOW_PROOF_TASK",
-      "default": null,
-      "owner": "src/argus/api/chat/backtest_jobs.py"
+      "reads": [
+        {
+          "default": "argus-backtests/workflow_proof",
+          "owner": "src/argus/api/chat/backtest_jobs.py"
+        },
+        {
+          "default": "argus-backtests/workflow_proof",
+          "owner": "workflows/trigger_proof.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_RENDER_WORKFLOW_PROOF_TIMEOUT_SECONDS",
@@ -398,13 +611,21 @@
     },
     {
       "name": "ARGUS_TRUSTED_CLIENT_IP_HEADER",
-      "default": "",
-      "owner": "src/argus/api/client_ip.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/client_ip.py"
+        },
+        {
+          "default": null,
+          "owner": "web/app/api/auth/recovery/route.ts"
+        }
+      ]
     },
     {
       "name": "ARGUS_VISION_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "ARGUS_WHATSAPP_ACCESS_TOKEN",
@@ -468,7 +689,7 @@
     },
     {
       "name": "ARGUS_WORKFLOW_DATABASE_URL",
-      "default": null,
+      "default": "",
       "owner": "workflows/proof.py"
     },
     {
@@ -478,18 +699,8 @@
     },
     {
       "name": "ARGUS_WORKFLOW_PROOF_USER_ID",
-      "default": null,
+      "default": "00000000-0000-4000-8000-000000000124",
       "owner": "workflows/proof.py"
-    },
-    {
-      "name": "BUSINESS_SUPPLIER_FAST_PATH_ENABLED",
-      "default": null,
-      "owner": "src/argus/domain/business/supplier_fast_path.py"
-    },
-    {
-      "name": "CUADRAO",
-      "default": null,
-      "owner": "src/argus/domain/ingestion/whatsapp/identity.py"
     },
     {
       "name": "CUADRAO_ACCOUNT_DELETION_ENABLED",
@@ -528,13 +739,57 @@
     },
     {
       "name": "CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD",
-      "default": null,
-      "owner": "src/argus/domain/resend_email.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/domain/business/close_mail.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/business/transfer_mail.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/resend_email.py"
+        }
+      ]
     },
     {
       "name": "CUADRAO_APP_ORIGIN",
-      "default": null,
-      "owner": "src/argus/api/business_invite_delivery.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/business_invite_delivery.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/routers/ops.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/business/close_mail.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/business/transfer_mail.py"
+        },
+        {
+          "default": null,
+          "owner": "src/argus/domain/existing_account_email.py"
+        },
+        {
+          "default": null,
+          "owner": "src/argus/domain/ingestion/whatsapp/config.py"
+        },
+        {
+          "default": null,
+          "owner": "web/server/app-origin.ts"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     },
     {
       "name": "CUADRAO_AUTH_EMAIL_HOOK_ENABLED",
@@ -543,7 +798,7 @@
     },
     {
       "name": "CUADRAO_AUTH_EMAIL_HOOK_SECRET",
-      "default": null,
+      "default": "",
       "owner": "web/server/emails/auth-hook.ts"
     },
     {
@@ -553,7 +808,7 @@
     },
     {
       "name": "CUADRAO_AUTH_EMAIL_PROJECT_REF",
-      "default": null,
+      "default": "",
       "owner": "web/server/emails/auth-hook.ts"
     },
     {
@@ -563,12 +818,20 @@
     },
     {
       "name": "CUADRAO_BETA_INVITES_ENABLED",
-      "default": "",
-      "owner": "src/argus/api/households.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/households.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/household/invite_codes.py"
+        }
+      ]
     },
     {
       "name": "CUADRAO_BETA_INVITE_GATE_ENABLED",
-      "default": null,
+      "default": "",
       "owner": "src/argus/domain/household/invite_codes.py"
     },
     {
@@ -623,7 +886,7 @@
     },
     {
       "name": "CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED",
-      "default": null,
+      "default": "false",
       "owner": "src/argus/api/business_invite_delivery.py"
     },
     {
@@ -663,18 +926,18 @@
     },
     {
       "name": "CUADRAO_CAPABILITY_REASONING_EFFORT",
-      "default": null,
+      "default": "",
       "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_CHAT_FALLBACK_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_CHAT_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_CHECKPOINTER_MODE",
@@ -688,13 +951,13 @@
     },
     {
       "name": "CUADRAO_CONTEXT_FALLBACK_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_CONTEXT_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_CORS_ALLOW_ORIGINS",
@@ -708,8 +971,16 @@
     },
     {
       "name": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
-      "default": "false",
-      "owner": "src/argus/domain/ingestion/documents/config.py"
+      "reads": [
+        {
+          "default": null,
+          "owner": "src/argus/domain/ingestion/documents/config.py"
+        },
+        {
+          "default": "false",
+          "owner": "src/argus/domain/ingestion/documents/config.py"
+        }
+      ]
     },
     {
       "name": "CUADRAO_DOCUMENT_EXTRACTION_MAX_BYTES",
@@ -748,8 +1019,32 @@
     },
     {
       "name": "CUADRAO_EMAIL_ASSET_ORIGIN",
-      "default": null,
-      "owner": "marketing/lib/email/account-layout.ts"
+      "reads": [
+        {
+          "default": "https://cuadrao.ai",
+          "owner": "marketing/lib/email/account-layout.ts"
+        },
+        {
+          "default": "https://cuadrao.ai",
+          "owner": "src/argus/domain/business/close_mail.py"
+        },
+        {
+          "default": "https://cuadrao.ai",
+          "owner": "src/argus/domain/business/invite_email.py"
+        },
+        {
+          "default": "https://cuadrao.ai",
+          "owner": "src/argus/domain/business/transfer_mail.py"
+        },
+        {
+          "default": "https://cuadrao.ai",
+          "owner": "src/argus/domain/existing_account_email.py"
+        },
+        {
+          "default": "https://cuadrao.ai",
+          "owner": "web/server/emails/account-layout.generated.ts"
+        }
+      ]
     },
     {
       "name": "CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED",
@@ -758,7 +1053,7 @@
     },
     {
       "name": "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED",
-      "default": null,
+      "default": "",
       "owner": "src/argus/api/financial_accounts.py"
     },
     {
@@ -833,17 +1128,25 @@
     },
     {
       "name": "CUADRAO_HOUSEHOLDS_ENABLED",
-      "default": "",
-      "owner": "src/argus/api/households.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/households.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/household/invite_codes.py"
+        }
+      ]
     },
     {
       "name": "CUADRAO_INGESTION_ENABLED",
-      "default": null,
+      "default": "",
       "owner": "src/argus/api/ingestion.py"
     },
     {
       "name": "CUADRAO_INGESTION_SECRET_KEY",
-      "default": null,
+      "default": "",
       "owner": "src/argus/domain/ingestion/secrets.py"
     },
     {
@@ -868,12 +1171,12 @@
     },
     {
       "name": "CUADRAO_INVITE_FOUNDER_USER_ID",
-      "default": null,
+      "default": "",
       "owner": "src/argus/domain/household/invite_codes.py"
     },
     {
       "name": "CUADRAO_INVITE_UNIVERSAL_LINK_ENABLED",
-      "default": null,
+      "default": "",
       "owner": "src/argus/domain/household/invite_codes.py"
     },
     {
@@ -883,8 +1186,24 @@
     },
     {
       "name": "CUADRAO_MOCK_AUTH",
-      "default": "",
-      "owner": "src/argus/api/account_deletion_auth.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/account_deletion_auth.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/dependencies.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/routers/dev.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/routers/profile.py"
+        }
+      ]
     },
     {
       "name": "CUADRAO_OPENROUTER_API_KEY_DEV",
@@ -963,13 +1282,21 @@
     },
     {
       "name": "CUADRAO_OPS_TOKEN",
-      "default": null,
+      "default": "",
       "owner": "src/argus/api/routers/ops.py"
     },
     {
       "name": "CUADRAO_PERSISTENCE_MODE",
-      "default": "memory",
-      "owner": "src/argus/api/client_ip.py"
+      "reads": [
+        {
+          "default": "memory",
+          "owner": "src/argus/api/client_ip.py"
+        },
+        {
+          "default": "memory",
+          "owner": "src/argus/api/state.py"
+        }
+      ]
     },
     {
       "name": "CUADRAO_POSTHOG_DELETION_API_KEY",
@@ -1003,13 +1330,13 @@
     },
     {
       "name": "CUADRAO_READOUT_FALLBACK_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_READOUT_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_REGISTERED_DAILY_TURN_CEILING",
@@ -1023,13 +1350,33 @@
     },
     {
       "name": "CUADRAO_RUNTIME_EVENT_TIMEOUT_SECONDS",
-      "default": null,
-      "owner": "src/argus/agent_runtime/turn_execution.py"
+      "reads": [
+        {
+          "default": null,
+          "owner": "src/argus/agent_runtime/turn_execution.py"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/chat-runtime-timeout.ts"
+        }
+      ]
     },
     {
       "name": "CUADRAO_SITE_INDEXING",
-      "default": null,
-      "owner": "marketing/app/robots.ts"
+      "reads": [
+        {
+          "default": null,
+          "owner": "marketing/app/robots.ts"
+        },
+        {
+          "default": null,
+          "owner": "marketing/app/sitemap.ts"
+        },
+        {
+          "default": null,
+          "owner": "marketing/proxy.ts"
+        }
+      ]
     },
     {
       "name": "CUADRAO_SOCIAL_PREVIEW",
@@ -1043,22 +1390,22 @@
     },
     {
       "name": "CUADRAO_STRUCTURED_FALLBACK_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_STRUCTURED_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_STRUCTURED_REASONING_EFFORT",
-      "default": null,
+      "default": "",
       "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_TESTFLIGHT_PUBLIC_URL",
-      "default": null,
+      "default": "",
       "owner": "src/argus/domain/household/invite_codes.py"
     },
     {
@@ -1078,18 +1425,18 @@
     },
     {
       "name": "CUADRAO_UTILITY_FALLBACK_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_UTILITY_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_VISION_MODEL",
-      "default": null,
-      "owner": "src/argus/llm/openrouter_model_env.py"
+      "default": "",
+      "owner": "src/argus/llm/openrouter.py"
     },
     {
       "name": "CUADRAO_VISITOR_KEY_SECRET",
@@ -1098,7 +1445,7 @@
     },
     {
       "name": "CUADRAO_WAITLIST_URL",
-      "default": null,
+      "default": "",
       "owner": "src/argus/domain/household/invite_codes.py"
     },
     {
@@ -1168,8 +1515,36 @@
     },
     {
       "name": "DATABASE_URL",
-      "default": "",
-      "owner": "src/argus/api/state.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/state.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/domain/supabase_gateway.py"
+        },
+        {
+          "default": "",
+          "owner": "workflows/proof.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/ops/destructive_database_target.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/force_account_deletion_step.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/resume_account_deletions.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     },
     {
       "name": "DGII_RNC_LOAD_HEADROOM_FLOOR",
@@ -1187,28 +1562,223 @@
       "owner": "scripts/ops/dgii_rnc_import.py"
     },
     {
-      "name": "DOP",
-      "default": null,
-      "owner": "src/argus/domain/business/dgii_validation.py"
+      "name": "DRY_RUN",
+      "default": "",
+      "owner": "scripts/ops/dgii_rnc_import.py"
+    },
+    {
+      "name": "ENABLED",
+      "default": "",
+      "owner": "scripts/ops/dgii_rnc_import.py"
     },
     {
       "name": "ENABLE_MARKET_DATA_CACHE",
-      "default": null,
-      "owner": "src/argus/domain/market_data/provider.py"
+      "reads": [
+        {
+          "default": "true",
+          "owner": "src/argus/domain/market_data/provider.py"
+        },
+        {
+          "default": "",
+          "owner": "workflows/proof.py"
+        }
+      ]
     },
     {
       "name": "ENVIRONMENT",
-      "default": "",
-      "owner": "src/argus/api/dependencies.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/dependencies.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/observability/analytics_deletion.py"
+        },
+        {
+          "default": "local",
+          "owner": "src/argus/observability/envelope.py"
+        }
+      ]
     },
     {
-      "name": "ES256",
+      "name": "EVIDENCE_BASELINE",
       "default": null,
-      "owner": "src/argus/domain/ingestion/plaid/verification.py"
+      "owner": "web/scripts/auth-design-evidence.ts"
+    },
+    {
+      "name": "EVIDENCE_BASE_URL",
+      "reads": [
+        {
+          "default": "http://127.0.0.1:3199",
+          "owner": "web/scripts/auth-design-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:3198",
+          "owner": "web/scripts/business-lifecycle-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:3198",
+          "owner": "web/scripts/design-server-fields-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:3199",
+          "owner": "web/scripts/invite-only-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:3198",
+          "owner": "web/scripts/receipt-duplicate-resolution-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:3199",
+          "owner": "web/scripts/recovery-design-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:3199",
+          "owner": "web/scripts/session-recovery-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:4515",
+          "owner": "web/scripts/startup-design-evidence.ts"
+        }
+      ]
+    },
+    {
+      "name": "EVIDENCE_BROWSER",
+      "default": null,
+      "owner": "web/scripts/auth-design-evidence.ts"
+    },
+    {
+      "name": "EVIDENCE_CASE",
+      "reads": [
+        {
+          "default": null,
+          "owner": "web/scripts/business-lifecycle-evidence.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/scripts/design-server-fields-evidence.ts"
+        }
+      ]
+    },
+    {
+      "name": "EVIDENCE_EXPECTED_HEAD",
+      "reads": [
+        {
+          "default": null,
+          "owner": "web/scripts/home-checkpoint-evidence.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/scripts/registros-wiring-evidence.ts"
+        }
+      ]
+    },
+    {
+      "name": "EVIDENCE_FIXTURE_BASE_URL",
+      "reads": [
+        {
+          "default": "http://127.0.0.1:4418",
+          "owner": "web/scripts/home-checkpoint-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:4396",
+          "owner": "web/scripts/registros-wiring-evidence.ts"
+        }
+      ]
+    },
+    {
+      "name": "EVIDENCE_FIXTURE_PORT",
+      "reads": [
+        {
+          "default": "4418",
+          "owner": "web/scripts/home-checkpoint-fixture.ts"
+        },
+        {
+          "default": "4396",
+          "owner": "web/scripts/registros-wiring-fixture.ts"
+        }
+      ]
+    },
+    {
+      "name": "EVIDENCE_OUTPUT",
+      "reads": [
+        {
+          "default": "../temp/auth-design-evidence",
+          "owner": "web/scripts/auth-design-evidence.ts"
+        },
+        {
+          "default": "../temp/1222-sofia/lifecycle-evidence",
+          "owner": "web/scripts/business-lifecycle-evidence.ts"
+        },
+        {
+          "default": "../temp/lucas-design-server-fields",
+          "owner": "web/scripts/design-server-fields-evidence.ts"
+        },
+        {
+          "default": "../temp/home-checkpoint-integration/evidence",
+          "owner": "web/scripts/home-checkpoint-evidence.ts"
+        },
+        {
+          "default": "../temp/auth-design-evidence/invite-only",
+          "owner": "web/scripts/invite-only-evidence.ts"
+        },
+        {
+          "default": "../temp/duplicate-resolution-evidence",
+          "owner": "web/scripts/receipt-duplicate-resolution-evidence.ts"
+        },
+        {
+          "default": "../temp/auth-design-evidence",
+          "owner": "web/scripts/recovery-design-evidence.ts"
+        },
+        {
+          "default": "../temp/registros-wiring-evidence",
+          "owner": "web/scripts/registros-wiring-evidence.ts"
+        },
+        {
+          "default": "../temp/auth-design-evidence/session-recovery",
+          "owner": "web/scripts/session-recovery-evidence.ts"
+        },
+        {
+          "default": "../temp/startup-design-evidence",
+          "owner": "web/scripts/startup-design-evidence.ts"
+        }
+      ]
+    },
+    {
+      "name": "EVIDENCE_STAGE",
+      "default": "after",
+      "owner": "web/scripts/design-server-fields-evidence.ts"
+    },
+    {
+      "name": "EVIDENCE_WEB_BASE_URL",
+      "reads": [
+        {
+          "default": "http://127.0.0.1:4417",
+          "owner": "web/scripts/home-checkpoint-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:4417",
+          "owner": "web/scripts/home-checkpoint-fixture.ts"
+        },
+        {
+          "default": "http://127.0.0.1:4395",
+          "owner": "web/scripts/registros-wiring-evidence.ts"
+        },
+        {
+          "default": "http://127.0.0.1:4395",
+          "owner": "web/scripts/registros-wiring-fixture.ts"
+        }
+      ]
+    },
+    {
+      "name": "EVIDENCE_WIDTHS",
+      "default": null,
+      "owner": "web/scripts/auth-design-evidence.ts"
     },
     {
       "name": "FRED_API_KEY",
-      "default": null,
+      "default": "",
       "owner": "src/argus/context/providers.py"
     },
     {
@@ -1227,19 +1797,35 @@
       "owner": "src/argus/domain/ingestion/gmail/config.py"
     },
     {
-      "name": "MALFORMED_RESPONSE",
-      "default": null,
-      "owner": "src/argus/domain/ingestion/plaid/client.py"
+      "name": "MARKETING_CAPTURE_URL",
+      "default": "http://127.0.0.1:4512",
+      "owner": "marketing/scripts/capture-touchup.mjs"
     },
     {
       "name": "MARKETING_POSTAL_ADDRESS",
-      "default": null,
-      "owner": "marketing/lib/email/account-layout.ts"
+      "reads": [
+        {
+          "default": null,
+          "owner": "marketing/lib/email/account-layout.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/server/emails/account-layout.generated.ts"
+        }
+      ]
     },
     {
       "name": "MARKET_DATA_CACHE_TTL",
-      "default": null,
-      "owner": "src/argus/domain/market_data/assets.py"
+      "reads": [
+        {
+          "default": "900",
+          "owner": "src/argus/domain/market_data/assets.py"
+        },
+        {
+          "default": "900",
+          "owner": "src/argus/domain/market_data/provider.py"
+        }
+      ]
     },
     {
       "name": "MEM0_TELEMETRY",
@@ -1257,9 +1843,27 @@
       "owner": "src/argus/domain/supabase_gateway.py"
     },
     {
+      "name": "NEXT_DEV_ALLOWED_ORIGINS",
+      "default": "",
+      "owner": "web/next.config.ts"
+    },
+    {
+      "name": "NEXT_DIST_DIR",
+      "default": ".next",
+      "owner": "web/next.config.ts"
+    },
+    {
       "name": "NEXT_PUBLIC_ARGUS_API_URL",
-      "default": null,
-      "owner": "web/lib/public-env.ts"
+      "reads": [
+        {
+          "default": null,
+          "owner": "web/lib/public-env.ts"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     },
     {
       "name": "NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN",
@@ -1283,18 +1887,42 @@
     },
     {
       "name": "NEXT_PUBLIC_BUSINESS_ONLY_WEB",
-      "default": null,
-      "owner": "web/lib/private-alpha-flags.ts"
+      "reads": [
+        {
+          "default": null,
+          "owner": "web/lib/private-alpha-flags.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/proxy.ts"
+        }
+      ]
     },
     {
       "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED",
-      "default": null,
-      "owner": "web/lib/private-alpha-flags.ts"
+      "reads": [
+        {
+          "default": null,
+          "owner": "web/lib/private-alpha-flags.ts"
+        },
+        {
+          "default": "false",
+          "owner": "web/playwright.config.ts"
+        }
+      ]
     },
     {
       "name": "NEXT_PUBLIC_CUADRAO_API_URL",
-      "default": null,
-      "owner": "web/lib/public-env.ts"
+      "reads": [
+        {
+          "default": null,
+          "owner": "web/lib/public-env.ts"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     },
     {
       "name": "NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
@@ -1333,8 +1961,16 @@
     },
     {
       "name": "NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY",
-      "default": null,
-      "owner": "web/lib/guest-captcha.ts"
+      "reads": [
+        {
+          "default": null,
+          "owner": "web/lib/guest-captcha.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/public-env.ts"
+        }
+      ]
     },
     {
       "name": "NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP",
@@ -1353,13 +1989,169 @@
     },
     {
       "name": "NEXT_PUBLIC_GUEST_ACCESS_ENABLED",
-      "default": null,
-      "owner": "src/argus/api/guest_access.py"
+      "reads": [
+        {
+          "default": null,
+          "owner": "src/argus/api/guest_access.py"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/private-alpha-flags.ts"
+        }
+      ]
     },
     {
       "name": "NEXT_PUBLIC_MOCK_AUTH",
-      "default": "",
-      "owner": "src/argus/api/account_deletion_auth.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/account_deletion_auth.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/dependencies.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/routers/dev.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/routers/profile.py"
+        },
+        {
+          "default": null,
+          "owner": "web/app/biz/page.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/app/design-workspace/card/route.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/app/design-workspace/mark-feedback/page.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/app/page.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/BusinessApp.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/BusinessEmailDeliveries.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/BusinessMonthClosePanel.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/BusinessPanel.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/BusinessReception.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/BusinessWorkspace.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/foundation/BusinessNotifications.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/inicio/money-preview.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/transacciones/RecordsAnnotationsPreview.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/transacciones/RecordsToolbar.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/business-app/transacciones/TransaccionesPanel.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/chat/ChatInterface.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/chat/useChatAccountBoundary.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/components/settings/LanguageModal.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/sidebar/ProfileMenu.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/components/ui/DevModeBadge.tsx"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/account-deletion-preview.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/argus-api-transport.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/business-email.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/business-grant.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/chat-auth-ownership.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/identity-appearance.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/language-features.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/supabase-client.ts"
+        },
+        {
+          "default": "true",
+          "owner": "web/playwright.config.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/scripts/recovery-design-evidence.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/scripts/registros-wiring-evidence.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/scripts/registros-wiring-fixture.ts"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     },
     {
       "name": "NEXT_PUBLIC_OMNISEARCH_ENABLED",
@@ -1373,13 +2165,45 @@
     },
     {
       "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-      "default": null,
-      "owner": "web/lib/email-otp.ts"
+      "reads": [
+        {
+          "default": null,
+          "owner": "web/lib/email-otp.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/supabase-client.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/supabase-server.ts"
+        }
+      ]
     },
     {
       "name": "NEXT_PUBLIC_SUPABASE_URL",
-      "default": null,
-      "owner": "web/lib/email-otp.ts"
+      "reads": [
+        {
+          "default": null,
+          "owner": "web/lib/email-otp.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/supabase-client.ts"
+        },
+        {
+          "default": null,
+          "owner": "web/lib/supabase-server.ts"
+        },
+        {
+          "default": "",
+          "owner": "web/server/emails/auth-hook.ts"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     },
     {
       "name": "OPENROUTER_API_KEY",
@@ -1388,8 +2212,36 @@
     },
     {
       "name": "PERPLEXITY_API_KEY",
-      "default": "",
-      "owner": "src/argus/domain/research/credentials.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/domain/research/credentials.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/llm/memory_embedding.py"
+        }
+      ]
+    },
+    {
+      "name": "PGHOSTADDR",
+      "default": null,
+      "owner": "scripts/ops/apply_approved_migrations.py"
+    },
+    {
+      "name": "PGPASSFILE",
+      "default": null,
+      "owner": "scripts/ops/apply_approved_migrations.py"
+    },
+    {
+      "name": "PGSERVICE",
+      "default": null,
+      "owner": "scripts/ops/apply_approved_migrations.py"
+    },
+    {
+      "name": "PGSERVICEFILE",
+      "default": null,
+      "owner": "scripts/ops/apply_approved_migrations.py"
     },
     {
       "name": "PLAID_CLIENT_ID",
@@ -1408,7 +2260,7 @@
     },
     {
       "name": "PLAID_ENV",
-      "default": "",
+      "default": "sandbox",
       "owner": "src/argus/domain/ingestion/plaid/config.py"
     },
     {
@@ -1420,6 +2272,21 @@
       "name": "PLAID_WEBHOOK_URL",
       "default": "",
       "owner": "src/argus/domain/ingestion/plaid/config.py"
+    },
+    {
+      "name": "PLAYWRIGHT_BASE_URL",
+      "default": null,
+      "owner": "web/playwright.config.ts"
+    },
+    {
+      "name": "PLAYWRIGHT_PORT",
+      "default": "3100",
+      "owner": "web/playwright.config.ts"
+    },
+    {
+      "name": "PLAYWRIGHT_REUSE_EXISTING_SERVER",
+      "default": null,
+      "owner": "web/playwright.config.ts"
     },
     {
       "name": "POSTHOG_HOST",
@@ -1437,24 +2304,39 @@
       "owner": "src/argus/observability/envelope.py"
     },
     {
-      "name": "PROVIDER_UNREACHABLE",
-      "default": null,
-      "owner": "src/argus/domain/ingestion/plaid/client.py"
-    },
-    {
       "name": "RENDER",
       "default": "",
       "owner": "src/argus/api/dependencies.py"
     },
     {
       "name": "RENDER_API_KEY",
-      "default": null,
-      "owner": "src/argus/api/chat/backtest_jobs.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/chat/backtest_jobs.py"
+        },
+        {
+          "default": "",
+          "owner": "src/argus/api/render_workflows.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     },
     {
       "name": "RENDER_GIT_COMMIT",
-      "default": null,
-      "owner": "src/argus/api/main.py"
+      "reads": [
+        {
+          "default": null,
+          "owner": "src/argus/api/main.py"
+        },
+        {
+          "default": null,
+          "owner": "web/app/health/route.ts"
+        }
+      ]
     },
     {
       "name": "RENDER_LOCAL_DEV_URL",
@@ -1463,8 +2345,16 @@
     },
     {
       "name": "RENDER_SERVICE_ID",
-      "default": "",
-      "owner": "src/argus/api/dependencies.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/api/dependencies.py"
+        },
+        {
+          "default": "",
+          "owner": "web/server/emails/auth-hook.ts"
+        }
+      ]
     },
     {
       "name": "RENDER_TASK_RUN_ID",
@@ -1490,6 +2380,11 @@
       "name": "RESEND_BUSINESS_API_KEY",
       "default": "",
       "owner": "src/argus/domain/ingestion/email_intake/config.py"
+    },
+    {
+      "name": "SECRET_PRESENT",
+      "default": "",
+      "owner": "scripts/ops/dgii_rnc_import.py"
     },
     {
       "name": "SUPABASE_ANON_KEY",
@@ -1523,13 +2418,41 @@
     },
     {
       "name": "SUPABASE_PROJECT_URL",
-      "default": null,
-      "owner": "src/argus/domain/supabase_gateway.py"
+      "reads": [
+        {
+          "default": null,
+          "owner": "src/argus/domain/supabase_gateway.py"
+        },
+        {
+          "default": null,
+          "owner": "workflows/document_job.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/ops/destructive_database_target.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     },
     {
       "name": "SUPABASE_SERVICE_ROLE_KEY",
-      "default": null,
-      "owner": "src/argus/domain/supabase_gateway.py"
+      "reads": [
+        {
+          "default": null,
+          "owner": "src/argus/domain/supabase_gateway.py"
+        },
+        {
+          "default": null,
+          "owner": "workflows/document_job.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/ops/destructive_database_target.py"
+        }
+      ]
     },
     {
       "name": "SUPABASE_STAGING_DB_URL",
@@ -1538,13 +2461,24 @@
     },
     {
       "name": "SUPABASE_URL",
-      "default": null,
-      "owner": "src/argus/domain/supabase_gateway.py"
-    },
-    {
-      "name": "USD",
-      "default": null,
-      "owner": "src/argus/agent_runtime/answer_calculation.py"
+      "reads": [
+        {
+          "default": null,
+          "owner": "src/argus/domain/supabase_gateway.py"
+        },
+        {
+          "default": null,
+          "owner": "workflows/document_job.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/ops/destructive_database_target.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/ops/staging_env.py"
+        }
+      ]
     }
   ]
 }
