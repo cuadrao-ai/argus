@@ -72,15 +72,18 @@ def indicator_template(key: str) -> str | None:
 def get_tool_catalog(
     *, include_unavailable: bool = False, surface: str = "personal"
 ) -> ToolCatalog:
-    """Business declarations. Personal declarations live in personal_tool_catalog."""
+    """Business declarations, or the personal calculations that stay importable."""
+    del include_unavailable
     if surface == "business":
         from argus.domain.business.tools import get_business_declarations
 
-        return ToolCatalog(
-            tuple(
-                declaration
-                for declaration in get_business_declarations()
-                if surface in declaration.surfaces
-            )
-        )
-    raise ValueError("Unknown tool surface")
+        declarations = get_business_declarations()
+    elif surface == "personal":
+        from argus.domain.calculations import get_calculation_declarations
+
+        declarations = get_calculation_declarations()
+    else:
+        raise ValueError("Unknown tool surface")
+    return ToolCatalog(
+        tuple(declaration for declaration in declarations if surface in declaration.surfaces)
+    )

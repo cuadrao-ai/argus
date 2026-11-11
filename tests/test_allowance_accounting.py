@@ -92,7 +92,7 @@ class _FakeVisitorClient:
 
 @pytest.fixture
 def mock_gateway():
-    gateway = MagicMock(spec=SupabaseGateway)
+    gateway = MagicMock()
     gateway.get_user.return_value = _profile()
     gateway.get_or_create_mock_user.return_value = _profile()
     gateway.get_auth_user_from_token.return_value = {

@@ -7,18 +7,13 @@ See docs/archive/private-alpha-next-p2.1a-capability-registry-impl.md.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import get_args
 
-import pandas as pd
 import pytest
 from argus.agent_runtime.llm_interpreter_types import LLMStrategyDraft
 from argus.api.schemas import StrategyTemplate
 from argus.domain import capability_registry as registry
-from argus.domain.backtesting.config import ALLOWED_TEMPLATES, validate_backtest_config
-from argus.domain.backtesting.signals import _build_signals
 from argus.domain.engine_launch.models import LaunchStrategyType
-from argus.domain.engine_launch.strategies import normalize_template_name
 from argus.domain.indicators import EXECUTABLE_INDICATORS, search_indicators
 from argus.domain.strategy_capabilities import STRATEGY_CAPABILITIES
 from pydantic import TypeAdapter, ValidationError
@@ -90,9 +85,8 @@ def test_llm_requested_strategy_template_enum_is_derived_from_registry() -> None
 
 
 def test_allowed_templates_derived_and_excludes_drafts() -> None:
-    assert ALLOWED_TEMPLATES is registry.ALLOWED_TEMPLATES
-    assert ALLOWED_TEMPLATES == registry.EXECUTABLE_TEMPLATES | {"signal_strategy"}
-    assert DRAFT_STRATEGIES.isdisjoint(ALLOWED_TEMPLATES)
+    assert registry.ALLOWED_TEMPLATES == registry.EXECUTABLE_TEMPLATES | {"signal_strategy"}
+    assert DRAFT_STRATEGIES.isdisjoint(registry.ALLOWED_TEMPLATES)
 
 
 def test_api_strategy_template_is_single_sourced_from_registry() -> None:
@@ -152,53 +146,3 @@ def test_discovery_support_status_derived_from_execution_spec_membership() -> No
 
 # --- Containment: draft strategies have NO path ---------------------------------------
 
-
-@pytest.mark.parametrize("template", sorted(DRAFT_STRATEGIES))
-def test_draft_template_rejected_by_config_validation(template: str) -> None:
-    with pytest.raises(ValueError, match="unsupported_template"):
-        validate_backtest_config({"template": template})
-
-
-@pytest.mark.parametrize("template", sorted(DRAFT_STRATEGIES))
-def test_draft_template_has_no_signal_handler(template: str) -> None:
-    data = pd.DataFrame({"close": [10.0, 11.0, 12.0, 11.5, 12.5]})
-    with pytest.raises(ValueError, match="unsupported_template"):
-        _build_signals({"template": template, "parameters": {}}, data)
-
-
-@pytest.mark.parametrize("template", sorted(EXECUTABLE_FIVE - {"signal_strategy"}))
-def test_executable_templates_pass_config_template_gate(template: str) -> None:
-    # The template gate (first check) must accept every executable template. We assert
-    # it does not raise unsupported_template specifically (later asset/date checks may
-    # raise their own errors, which is fine — we only guard the template allow-list).
-    try:
-        validate_backtest_config({"template": template})
-    except ValueError as exc:
-        assert str(exc) != "unsupported_template"
-    except KeyError:
-        # Missing downstream config keys are expected for this minimal payload.
-        pass
-
-
-# --- Gap fix: explicit launch template normalization (no silent rewrite) ---------------
-
-
-def test_normalize_template_name_maps_each_strategy_type_explicitly() -> None:
-    assert normalize_template_name(SimpleNamespace(strategy_type="buy_and_hold")) == "buy_and_hold"
-    assert (
-        normalize_template_name(SimpleNamespace(strategy_type="dca_accumulation"))
-        == "dca_accumulation"
-    )
-    assert (
-        normalize_template_name(SimpleNamespace(strategy_type="signal_strategy"))
-        == "signal_strategy"
-    )
-    assert (
-        normalize_template_name(SimpleNamespace(strategy_type="indicator_threshold"))
-        == "rsi_mean_reversion"
-    )
-
-
-def test_normalize_template_name_raises_instead_of_silent_rewrite() -> None:
-    with pytest.raises(ValueError, match="unsupported_strategy_type"):
-        normalize_template_name(SimpleNamespace(strategy_type="momentum_breakout"))

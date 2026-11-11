@@ -8,11 +8,23 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from unittest.mock import MagicMock, patch
+
+import pytest
+from argus.api.main import app
 from argus.api.routers import auth as auth_router
 from argus.api.schemas import OnboardingState, User
 from argus.domain.store import utcnow
+from fastapi.testclient import TestClient
 
-from tests.test_alpha_api_supabase import client, mock_gateway  # noqa: F401
+client = TestClient(app)
+
+
+@pytest.fixture
+def mock_gateway():
+    gateway = MagicMock()
+    with patch("argus.api.state.supabase_gateway", gateway):
+        yield gateway
 
 
 def test_signup_emits_product_event_for_public_registration(

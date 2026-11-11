@@ -495,7 +495,7 @@ async def test_graph_projects_income_account_context_without_rebinding_facts(
 async def test_whatsapp_denial_precedes_provider_construction_and_state_access(
     turn_context, monkeypatch, supplied_callback
 ):
-    from argus.agent_runtime import llm_interpreter
+    from argus.agent_runtime.business import runner as business_runner
 
     turn, context, actions = turn_context
     constructed = []
@@ -507,7 +507,7 @@ async def test_whatsapp_denial_precedes_provider_construction_and_state_access(
     def denied():
         raise PermissionError("captured_consent_revoked")
 
-    monkeypatch.setattr(llm_interpreter, "OpenRouterStructuredInterpreter", construct)
+    monkeypatch.setattr(business_runner, "BusinessTurnInterpreter", construct)
     context = replace(context, require_access=denied if supplied_callback else None)
     runner = BusinessTurnRunner()
     with pytest.raises(PermissionError):
@@ -978,41 +978,28 @@ async def test_actual_post_access_guards_are_isolated_between_concurrent_tasks()
 
 
 @pytest.mark.asyncio
-async def test_real_memory_saver_characterizes_business_transient_reset_gap(turn_context):
+async def test_business_workflow_does_not_keep_a_prior_checkpoint(turn_context):
     from argus.agent_runtime.business.stages import BusinessStages
-    from argus.agent_runtime.graph.workflow import build_workflow
-    from argus.agent_runtime.runtime import build_workflow_input
+    from argus.agent_runtime.business.workflow import (
+        build_business_workflow,
+        business_workflow_input,
+    )
     from argus.agent_runtime.state.models import UserState
-    from langgraph.checkpoint.memory import MemorySaver
 
     turn, context, actions = turn_context
     interpreter = Interpreter(proposal)
-    workflow = build_workflow(
-        business_runtime=BusinessStages(context, interpreter, "Pagué 850"),
-        checkpointer=MemorySaver(),
-    )
-    config = {"configurable": {"thread_id": "offline-business-reset-characterization"}}
-    poison = {"unowned_prior_confirmation": True}
-    await workflow.aupdate_state(
-        config,
-        {
-            "business_plan": {"actions": [{"action": "unowned_prior_plan"}]},
-            "confirmation_payload": poison,
-            "assistant_response": "Prior turn text",
-        },
-    )
-    state = await workflow.ainvoke(
-        build_workflow_input(
+    state = await build_business_workflow(
+        BusinessStages(context, interpreter, "Pagué 850")
+    ).ainvoke(
+        business_workflow_input(
             user=UserState(user_id=str(turn.actor_id)),
             message="Pagué 850",
-        ),
-        config=config,
+        )
     )
     assert state["business_plan"] == actions.plan.model_dump(mode="json")
     assert state["run_state"].current_user_message == "Pagué 850"
     assert len(state["run_state"].tool_call_records) == 1
-    assert state["confirmation_payload"] == poison
-    assert state["assistant_response"] == "Prior turn text"
+    assert "confirmation_payload" not in state
     assert interpreter.interpret_count == 1
 
 
