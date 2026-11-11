@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { createInstance } from "i18next";
 import { I18nextProvider } from "react-i18next";
@@ -26,6 +26,11 @@ beforeAll(() => {
     return Response.json({ user, account_kind: "registered", available: false });
   }) as typeof fetch;
 });
+beforeEach(() => {
+  patches.length = 0;
+  user.display_name = "Ana Peña";
+  user.preferred_name = null;
+});
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
   (await import("@/components/layout/overlayStack")).resetOverlayStack();
@@ -40,7 +45,10 @@ afterAll(async () => {
 
 const button = (text: string) => [...document.body.querySelectorAll("button")].find((item) => item.textContent?.trim() === text);
 
-test("Perfil shows two names edited in place, without the handle or a language shortcut", async () => {
+test.each([
+  { id: "profile-name", label: profileCopy.name, key: "display_name", value: "Ana Pérez", saveWithEnter: true },
+  { id: "profile-preferred-name", label: profileCopy.preferred_name, key: "preferred_name", value: "Ana", saveWithEnter: false },
+])("Perfil edits $id with the shared actions and keeps Escape inside the edit", async ({ id, label, key, value, saveWithEnter }) => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { default: ProfileMenu } = await import("@/components/sidebar/ProfileMenu");
@@ -64,23 +72,37 @@ test("Perfil shows two names edited in place, without the handle or a language s
   assert.ok(document.querySelector('[data-testid="profile-name-row-profile-preferred-name"]'));
   assert.ok(dialog()?.textContent?.includes(profileCopy.preferred_name_hint));
 
-  // The pencil opens the field; Escape cancels the edit and keeps Perfil open.
-  await act(async () => document.querySelector<HTMLButtonElement>("button#profile-preferred-name")!.click());
-  assert.ok(document.querySelector("input#profile-preferred-name"));
-  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-  assert.equal(document.querySelector("input#profile-preferred-name"), null);
-  assert.ok(dialog(), "Escape cancelled the edit, not Perfil");
+  const row = () => document.querySelector(`[data-testid="profile-name-row-${id}"]`)!;
+  const open = async () => act(async () => row().querySelector<HTMLButtonElement>("button")!.click());
+  const action = (name: string) => row().querySelector<HTMLButtonElement>(`[aria-label="${name} · ${label}"]`);
 
-  // The check saves only that name.
-  await act(async () => document.querySelector<HTMLButtonElement>("button#profile-preferred-name")!.click());
-  const input = document.querySelector<HTMLInputElement>("input#profile-preferred-name")!;
+  // Both fields use the shared row's named, 44px save/cancel controls.
+  await open();
+  assert.ok(action(spanish.common.save), "save identifies the field, as the shared editor does");
+  assert.ok(action(spanish.common.cancel), "cancel identifies the field, as the shared editor does");
+  assert.ok(action(spanish.common.save)!.classList.contains("h-11"));
+  assert.ok(action(spanish.common.cancel)!.classList.contains("w-11"));
+  assert.ok(row().querySelector("[data-row-open]"));
+  const input = () => document.querySelector<HTMLInputElement>(`input#${id}`)!;
+  assert.equal(input().getAttribute("aria-describedby"), `${id}-hint`);
+  await act(async () => input().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  assert.equal(input(), null);
+  assert.ok(dialog(), "Escape cancelled the edit, not Perfil");
+  assert.deepEqual(patches, [], "cancel sends no name update");
+
+  await open();
   await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Ana");
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input(), value);
+    input().dispatchEvent(new Event("input", { bubbles: true }));
   });
-  await act(async () => document.querySelector<HTMLButtonElement>(`[aria-label="${spanish.common.save}"]`)!.click());
+  await act(async () => {
+    if (saveWithEnter) input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    else action(spanish.common.save)!.click();
+  });
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
-  assert.deepEqual(patches, [{ preferred_name: "Ana" }]);
-  assert.equal(document.querySelector("input#profile-preferred-name"), null, "the row returns to its value");
-  assert.ok(dialog()?.textContent?.includes("Ana"));
+  assert.deepEqual(patches, [{ [key]: value }], "one action saves only its name, exactly once");
+  assert.equal(input(), null, "the row returns to its saved value");
+  assert.ok(row().textContent?.includes(value));
+  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  assert.equal(dialog(), null, "with no edit open, Escape closes Perfil");
 });
