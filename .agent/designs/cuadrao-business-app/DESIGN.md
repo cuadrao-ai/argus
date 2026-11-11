@@ -523,6 +523,16 @@ Use it; never restyle a field by hand (Lucas, October 21, 2026).
   Continuar / Continue. Signup keeps its approved action copy. No claim that an
   account is free is added by the form.
 
+**Edit in place** (Lucas, November 11, 2026). One owner draws the actions:
+`web/components/business-app/ReceiptEditRow.tsx`, around the field from
+`web/components/business-app/ReceiptFactEditor.tsx`. Perfil and any later
+in-place editor reuse it. Save (check) and cancel (cross) sit on the field's
+line, to its right. Cancel takes the pencil's column, so the row keeps its
+height and the field does not move. Only when the field and both actions cannot
+fit at the current width do they wrap to a line below, aligned right to that
+column. Each action keeps a 44px target and an accessible name. Enter saves.
+Escape cancels and returns focus to the pencil.
+
 ### Auth entry
 
 These decisions cover the initial signup and sign-in screens. Confirmation,

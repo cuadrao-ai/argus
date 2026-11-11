@@ -18,7 +18,7 @@ import { resolveLanguage } from "@/lib/language-features";
 const FISCAL = ["rnc", "ncf", "ecf", "itbis"] as const;
 
 /** One label/value row; the document type control uses it too, so the form reads as one list. */
-export const FACT_ROW_CLASS = "grid grid-cols-[minmax(7.5rem,34%)_minmax(0,1fr)] items-start gap-x-4 border-t border-[#E8EBE6] py-1.5 first:border-t-0 max-tablet:[&:has([data-row-open])]:grid-cols-1 tablet:[&:has([data-row-open])>dt]:min-h-11 dark:border-white/[0.07]";
+export const FACT_ROW_CLASS = "grid grid-cols-[minmax(7.5rem,34%)_minmax(0,1fr)] items-start gap-x-4 border-t border-[#E8EBE6] py-1.5 first:border-t-0 max-tablet:[&:has([data-row-open])]:grid-cols-1 dark:border-white/[0.07]";
 export const FACT_LABEL_CLASS = "flex min-h-9 items-center gap-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70";
 
 /** The texts a row's value may appear as in the original message: what it shows and what it stores. */
