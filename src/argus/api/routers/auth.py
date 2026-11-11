@@ -85,9 +85,7 @@ def _login_auth_problem(request: Request) -> HTTPException:
     )
 
 
-def _discard_denied_sign_in(result: object) -> None:
-    """A correct password still must not leave a session for an email that
-    cannot sign in. Revoke the session the password check just created."""
+def _revoke_just_issued_session(result: object) -> None:
     if not isinstance(result, dict):
         return
     session = result.get("session")
@@ -948,7 +946,7 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
     except Exception:
         raise _login_auth_problem(request) from None
     if not allowed:
-        _discard_denied_sign_in(result)
+        _revoke_just_issued_session(result)
         raise _login_auth_problem(request)
     handoff_id = request.cookies.get(_GUEST_HANDOFF_ID_COOKIE, "").strip()
     opaque_secret = request.cookies.get(_GUEST_HANDOFF_COOKIE, "").strip()
