@@ -7,7 +7,13 @@ from decimal import Decimal
 from pathlib import Path
 
 import httpx
-from argus.domain.ingestion.documents.models import ExtractionBatch, ReceiptDetails
+import pytest
+from argus.domain.ingestion.documents.dgii_qr import read_dgii_qr
+from argus.domain.ingestion.documents.models import (
+    ExtractedObservation,
+    ExtractionBatch,
+    ReceiptDetails,
+)
 
 from scripts.documents.scoped_measurement import (
     CONTEXT_TOKENS,
@@ -19,6 +25,7 @@ from scripts.documents.scoped_measurement import (
     reservation_from_endpoints,
     score_checks,
 )
+from tests.dgii_qr_support import issue_date_receipt_png
 
 
 def _batch(cost: str) -> ExtractionBatch:
@@ -568,3 +575,64 @@ def test_runner_does_not_import_the_six_fixture_budget():
     assert "argus.llm.openrouter_tasks" in modules
     assert "argus.domain.ingestion.documents.models" in modules
     assert "scripts.documents.budget" not in modules
+
+
+ISSUE_DATE_MANIFEST = (
+    REPO
+    / "docs/reports/evidence/cuadrao-receipt-issue-date-1936"
+    / "pending-measurement-manifest.json"
+)
+
+
+def _read_dated(receipt_day: date, purchase_day: date) -> ExtractionBatch:
+    return ExtractionBatch(
+        readable=True,
+        complete=True,
+        candidates=(),
+        observations=(
+            ExtractedObservation(
+                page=1,
+                row=1,
+                evidence="transaction",
+                occurred_on=purchase_day,
+                amount="33254.91",
+                currency="DOP",
+            ),
+        ),
+        receipt=ReceiptDetails(occurred_on=receipt_day, total="33254.91"),
+    )
+
+
+def test_the_issue_date_fixture_is_the_one_its_generator_draws():
+    _manifest_body, fixtures = load_fixtures(ISSUE_DATE_MANIFEST, REPO)
+    assert [item.id for item in fixtures] == [
+        "receipt-dop",
+        "unreadable",
+        "receipt-valido-hasta",
+    ]
+    fixture = fixtures[2]
+    assert fixture.path.read_bytes() == issue_date_receipt_png()
+    qr = read_dgii_qr([fixture.path.read_bytes()])
+    assert qr is not None
+    assert [qr.fecha_emision.isoformat()] == fixture.entry["expected"]["purchase_dates"]
+
+
+@pytest.mark.parametrize(
+    ("receipt_day", "purchase_day", "failed"),
+    [
+        (date(2026, 11, 5), date(2026, 11, 5), set()),
+        (
+            date(2027, 12, 31),
+            date(2027, 12, 31),
+            {"paid_purchase_date", "purchase_dates"},
+        ),
+        (date(2026, 11, 5), date(2027, 12, 31), {"purchase_dates"}),
+    ],
+    ids=["issue-date", "expiry-everywhere", "expiry-on-the-purchase"],
+)
+def test_a_read_that_takes_the_expiry_date_fails_its_date_checks(
+    receipt_day, purchase_day, failed
+):
+    _manifest_body, fixtures = load_fixtures(ISSUE_DATE_MANIFEST, REPO)
+    checks = score_checks(fixtures[2], _read_dated(receipt_day, purchase_day), 0)
+    assert {name for name, value in checks.items() if value is not True} == failed

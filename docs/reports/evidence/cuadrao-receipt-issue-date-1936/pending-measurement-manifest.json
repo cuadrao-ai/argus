@@ -1,0 +1,64 @@
+{
+  "status": "PENDING_SPEND_APPROVAL",
+  "issue": 1936,
+  "model": "google/gemini-3.8-flash",
+  "calls": 3,
+  "concurrency": 1,
+  "retries": 0,
+  "max_output_tokens_per_call": 12000,
+  "timeout_seconds_per_call": 90,
+  "baseline_scorecard": "docs/reports/evidence/cuadrao-receipt-extraction-20261011/live-measurement.json",
+  "fixture_paths_relative_to": "repository root",
+  "fixtures": [
+    {
+      "id": "receipt-dop",
+      "path": "tests/document_extraction_fixtures/receipt-dop.png",
+      "sha256": "009f3082c0052c66be647a12a9c0967470c041fb648733cf45ba077740da25c3",
+      "comparison": "all checks from the named old scorecard remain true",
+      "expected_checks": {
+        "readable": true,
+        "complete": true,
+        "one_purchase_candidate": true,
+        "merchant": true,
+        "date": true,
+        "currency": true,
+        "total": true,
+        "missing_fiscal_unknown": true,
+        "unprinted_components_unknown": true,
+        "printed_items_exact": true,
+        "unprinted_item_units_unknown": true,
+        "purchase_amount_exact": true
+      }
+    },
+    {
+      "id": "unreadable",
+      "path": "tests/document_extraction_fixtures/unreadable.png",
+      "sha256": "b822720e186af2390eea6b1c221536267b7c3ee96b2239e16719020759b59307",
+      "comparison": "all checks from the named old scorecard remain true",
+      "expected_checks": {
+        "marked_unreadable": true,
+        "zero_candidates": true,
+        "no_invented_receipt_values": true,
+        "no_invented_items": true,
+        "no_invented_observations": true,
+        "no_invented_observation_values": true
+      }
+    },
+    {
+      "id": "receipt-valido-hasta",
+      "path": "tests/fixtures/receipt-issue-date/receipt-valido-hasta.png",
+      "sha256": "c0981b20a8bd2cf682758589956a8401a2c9e3db783a798c85a9d20054746f8f",
+      "source": "tests/dgii_qr_support.py issue_date_receipt_png",
+      "expected": {
+        "readable": true,
+        "complete": true,
+        "purchase_observations": 1,
+        "paid_purchase_date": "2026-11-05",
+        "purchase_dates": [
+          "2026-11-05"
+        ],
+        "receipt_total": "33254.91"
+      }
+    }
+  ]
+}

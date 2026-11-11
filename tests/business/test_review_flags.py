@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -8,6 +9,7 @@ from argus.domain.business.dgii_line import reason
 from argus.domain.business.month_close import summarize
 from argus.domain.business.review_flags import review_flags, unconfirmed
 from argus.domain.business.rnc_registry import RncRecord
+from faker import Faker
 
 from tests.business.test_month_close import DAY, document
 
@@ -178,3 +180,62 @@ class TestMonthClose:
             "malformed",
             "missing",
         ]
+
+
+fake = Faker("es_ES")
+Faker.seed(1936)
+UPLOAD = datetime(2026, 11, 5, 15, 30, tzinfo=timezone.utc)
+UPLOAD_DAY = date(2026, 11, 5)
+TODAY = date(2026, 11, 11)
+
+
+def dated(day: date, origin: str = "extracted") -> BusinessFacts:
+    return BusinessFacts(
+        occurred_on=Known(value=day, origin=origin, source_ids=SOURCE),
+        counterparty=known(fake.company()),
+    )
+
+
+def date_codes(view: BusinessFacts, *, uploaded=UPLOAD, today=TODAY) -> list[str]:
+    received = {} if uploaded is None else {SOURCE[0]: uploaded}
+    flagged = review_flags(view, received=received, today=today)
+    assert all(flag.field == "occurred_on" and not flag.confirm for flag in flagged)
+    return [flag.code for flag in flagged]
+
+
+class TestIssueDate:
+    @pytest.mark.parametrize(
+        ("day", "expected"),
+        [
+            (UPLOAD_DAY, []),
+            (UPLOAD_DAY - timedelta(days=30), []),
+            (UPLOAD_DAY - timedelta(days=31), ["issue_date_old"]),
+            (UPLOAD_DAY + timedelta(days=1), ["issue_date_future"]),
+            (date(2027, 12, 31), ["issue_date_future"]),
+        ],
+        ids=["upload-day", "30-days-before", "31-days-before", "day-after-upload", "ncf-expiry"],
+    )
+    @pytest.mark.parametrize("origin", ["extracted", "qr_decoded"])
+    def test_a_read_date_outside_the_window_only_warns(self, day, expected, origin):
+        assert date_codes(dated(day, origin)) == expected
+
+    @pytest.mark.parametrize("origin", ["owner_stated", "member_set"])
+    def test_a_date_a_person_gave_is_theirs(self, origin):
+        assert date_codes(dated(date(2027, 12, 31), origin)) == []
+        assert date_codes(dated(UPLOAD_DAY - timedelta(days=90), origin)) == []
+
+    def test_the_upload_day_is_the_santo_domingo_day(self):
+        late_evening = datetime(2026, 11, 6, 2, 0, tzinfo=timezone.utc)
+        assert date_codes(dated(date(2026, 11, 6)), uploaded=late_evening) == [
+            "issue_date_future"
+        ]
+        assert date_codes(dated(date(2026, 11, 5)), uploaded=late_evening) == []
+
+    def test_without_an_upload_only_a_future_date_is_flagged(self):
+        assert date_codes(dated(TODAY + timedelta(days=1)), uploaded=None) == [
+            "issue_date_future"
+        ]
+        assert date_codes(dated(TODAY - timedelta(days=90)), uploaded=None) == []
+
+    def test_an_unknown_date_is_not_flagged(self):
+        assert date_codes(BusinessFacts()) == []

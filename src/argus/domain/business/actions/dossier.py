@@ -314,7 +314,15 @@ def dossier(
         questions=questions,
         history=revisions,
         blockers=tuple(blocked),
-        review_flags=review_flags(facts, rnc_registry(tx)),
+        review_flags=review_flags(
+            facts,
+            rnc_registry(tx),
+            received={
+                source.id: source.received_at
+                for source in evidence
+                if source.kind == "attachment"
+            },
+        ),
         approval_available=approvable,
         duplicate_candidates=duplicate_candidates(tx, event, duplicate_ids),
         approval_action=APPROVAL_ACTION[facts.kind.value] if approvable else None,

@@ -300,6 +300,25 @@ test("a high ITBIS shows on the ITBIS row and approval goes straight through", a
   }
 });
 
+for (const code of ["issue_date_future", "issue_date_old"] as const) {
+  for (const language of ["es-419", "en"] as const) {
+    test(`a ${code} flag shows on the date row in ${language} and approval goes straight through`, async () => {
+      const dossier = await flaggedReceipt([code], accounts);
+      const approvals = serve(dossier);
+      const page = await render(dossier, language);
+      try {
+        assert.equal(page.host.querySelector('[data-fact="occurred_on"] [data-testid="issue-date-flag"]')?.textContent, locales[language].business.dossier.placeholder[code]);
+        await page.approve();
+        assert.equal(page.step(), null, "a date flag only warns");
+        assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action }]);
+        assert.ok(page.recorded(), "the receipt is recorded");
+      } finally {
+        await page.close();
+      }
+    });
+  }
+}
+
 test("a duplicate refusal after approving anyway names it and opens the record already approved", async () => {
   const dossier = await flaggedReceipt(["rnc_check_digit"], accounts);
   const existing = dossierFixtureIds.ready;

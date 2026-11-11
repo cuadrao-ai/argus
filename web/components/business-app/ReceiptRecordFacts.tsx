@@ -70,6 +70,14 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const sale = dossier.document_type === "venta";
   const paymentTitle = sale ? t("business.dossier.section.collection") : t("business.dossier.section.payment", "Payment");
   const flags = dossier.review_flags ?? [];
+  const flagLine = (testId: string, text: string) => (
+    <span data-testid={testId} className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#735c14] dark:text-[#e8b26f]">
+      <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      {text}
+    </span>
+  );
+  const dateFlag = flags.find((flag) => flag.field === "occurred_on");
+  const dateLine = dateFlag ? flagLine("issue-date-flag", t(`business.dossier.placeholder.${dateFlag.code}`)) : null;
   const labels = {
     unknown: "",
     ownerUnknown: t("business.dossier.owner_unknown", "Owner doesn't know"),
@@ -135,8 +143,9 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     const tag = origin(key, dossier.facts[key]);
     const fact = dossier.facts[key];
     const match = [value, fact.state === "known" && typeof fact.value === "string" ? fact.value : null];
-    if (review) return field(key, label, review.row(key, { label, value: value ? <>{value}{tag}</> : "" }), row, key === "amount" ? mismatchLine : undefined, match);
-    return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, tag, match);
+    const line = key === "amount" ? mismatchLine : key === "occurred_on" ? dateLine : null;
+    if (review) return field(key, label, review.row(key, { label, value: value ? <>{value}{tag}</> : "" }), row, line, match);
+    return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, <>{tag}{key === "occurred_on" ? dateLine : null}</>, match);
   };
 
   const noNumber = (form: FactsReview) => {
@@ -158,12 +167,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     const numberLabel = `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`;
     const numberValue = fiscal?.[number].value ?? (noFiscal ? t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "");
     const itbisValue = presentFiscalFact("itbis", dossier.facts, locale, labels);
-    const itbisHigh = flags.some((flag) => flag.code === "itbis_high") ? (
-      <span data-testid="itbis-high" className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#735c14] dark:text-[#e8b26f]">
-        <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {t("business.dossier.review_flag.itbis_high.text")}
-      </span>
-    ) : null;
+    const itbisHigh = flags.some((flag) => flag.code === "itbis_high") ? flagLine("itbis-high", t("business.dossier.review_flag.itbis_high.text")) : null;
     const itbisLabel = t("business.dossier.field.itbis", "ITBIS");
     return <>
       {field("rnc", rncLabel, form.row("rnc", rncAsked ? { label: rncLabel, value: "" } : { label: rncLabel, compound: true, pencil: !rncMissing, value: <><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin("rnc", fiscal?.rnc)}</> }), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
@@ -206,12 +210,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const fiscalFields = (fiscal || noFiscal ? FISCAL.filter((key) => !noFiscal || (key !== "ncf" && key !== "ecf")) : []).flatMap((key) => {
     if (key === "rnc") return [field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} />, undefined, origin("rnc", fiscal?.rnc), [fiscal?.rnc.value])];
     const shownValue = presentFiscalFact(key, dossier.facts, locale, labels);
-    const itbisHigh = key === "itbis" && flags.some((flag) => flag.code === "itbis_high") ? (
-      <span data-testid="itbis-high" className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#735c14] dark:text-[#e8b26f]">
-        <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {t("business.dossier.review_flag.itbis_high.text")}
-      </span>
-    ) : null;
+    const itbisHigh = key === "itbis" && flags.some((flag) => flag.code === "itbis_high") ? flagLine("itbis-high", t("business.dossier.review_flag.itbis_high.text")) : null;
     const shown = field(key, t(`business.dossier.field.${key}`, key), shownValue, fiscalRows.get(key), <>{origin(key, fiscal?.[key])}{itbisHigh}</>, [shownValue, fiscal?.[key].value]);
     return key === "itbis" && noFiscal
       ? [field("fiscal_number", `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`, t("business.marks.no_fiscal_chip", "No fiscal receipt number")), shown]

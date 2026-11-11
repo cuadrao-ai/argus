@@ -156,13 +156,14 @@ def test_a_clean_number_over_a_read_with_a_separator_reaches_the_606(
     draft, version = receipt_draft(service, context, colmado(ncf=stored), "DOP")
     read = service.dossier(context, draft)
     assert read.facts.fiscal.ncf.value == stored
-    assert [flag.code for flag in read.review_flags] == ["ncf_malformed"]
+    # A September receipt read now is also more than 30 days old: a date warning.
+    assert [flag.code for flag in read.review_flags] == ["issue_date_old", "ncf_malformed"]
 
     fiscal = fiscal_edit(service, context, draft, version, ncf=number)
 
     assert (fiscal.ncf.value, fiscal.ncf.origin) == (number, "member_set")
     edited = service.dossier(context, draft)
-    assert edited.review_flags == ()
+    assert [flag.code for flag in edited.review_flags] == ["issue_date_old"]
     approved = approve(
         service, context, draft, reviewed(service, context, draft, edited.version)
     )

@@ -8,7 +8,7 @@ import io
 from email.message import EmailMessage
 
 import segno
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 RNC = "131111222"
 ENCF = "E320000001234"
@@ -70,4 +70,43 @@ def qr_email(text: str = URL) -> bytes:
 def blank_png(size: tuple[int, int] = (800, 600)) -> bytes:
     buffer = io.BytesIO()
     Image.new("RGB", size, "white").save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+ISSUE_DAY = "05-11-2026"
+VALID_UNTIL = "31-12-2027"
+ISSUE_DATE_RECEIPT = (
+    "FICTICIO / SINTETICO",
+    "FERRETERIA EJEMPLO SRL",
+    f"RNC {RNC}",
+    f"Fecha: {ISSUE_DAY}",
+    "Cemento gris 1 saco        RD$ 28,182.13",
+    "ITBIS 18%                  RD$  5,072.78",
+    f"TOTAL                      RD$ {float(TOTAL):,.2f}",
+    "Pagado en efectivo",
+    f"e-NCF {ENCF}",
+    f"Valido hasta: {VALID_UNTIL}",
+)
+
+
+def issue_date_receipt_png() -> bytes:
+    """A synthetic e-CF receipt whose issue date is printed at the top and
+    whose sequence expiry ("Valido hasta") sits beside the QR, which carries
+    the issue date as FechaEmision."""
+
+    page = Image.new("RGB", (1100, 1000), "white")
+    font = ImageFont.load_default_imagefont()
+    for index, line in enumerate(ISSUE_DATE_RECEIPT):
+        glyphs = Image.new("L", font.getbbox(line)[2:])
+        ImageDraw.Draw(glyphs).text((0, 0), line, fill=255, font=font)
+        glyphs = glyphs.resize(
+            (glyphs.width * 3, glyphs.height * 3), Image.Resampling.NEAREST
+        )
+        page.paste((30, 30, 30), (40, 40 + index * 60), glyphs)
+    with Image.open(
+        io.BytesIO(qr_png(f"{URL}&FechaEmision={ISSUE_DAY}", scale=5))
+    ) as code:
+        page.paste(code.convert("RGB"), (page.width - code.width - 60, 560))
+    buffer = io.BytesIO()
+    page.save(buffer, format="PNG")
     return buffer.getvalue()

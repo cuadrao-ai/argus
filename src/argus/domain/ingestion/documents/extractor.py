@@ -74,6 +74,8 @@ Opening, closing, available and running balances are balance evidence, never tra
 A readable receipt that supports a purchase must
 include exactly one purchase in observations alongside receipt details.
 Use its printed final paid total and only source-supported date, currency and direction.
+A receipt's date, on the purchase and in receipt details, is its issue date (fecha de
+emisión), never the NCF or e-CF sequence expiry printed as "válido hasta".
 Receipt details supplement this observation; they do not replace it. Never create separate
 transactions for items, tax, subtotal, tender or change. If the source does not support a
 purchase, do not invent an observation. Copy printed item amounts with their fractional

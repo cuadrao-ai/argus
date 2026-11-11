@@ -36,7 +36,7 @@ def _attachments(
     another draft shares them."""
 
     rows = tx.rows(
-        "select l.draft_id,d.draft->>'status' as status,"
+        "select l.draft_id,s.id as source_id,s.received_at,d.draft->>'status' as status,"
         " exists (select 1 from public.business_draft_sources o"
         "   where o.space_id=l.space_id and o.source_id=l.source_id"
         "   and o.draft_id<>l.draft_id) as shared"
@@ -124,7 +124,14 @@ def draft_standings(
             ecf_failed=_ecf_failed(resolution),
             repeated=draft_id in repeated,
             blockers=tuple(blocker.code for blocker in blocked),
-            flags=review_flags(facts, registry),
+            flags=review_flags(
+                facts,
+                registry,
+                received={
+                    row["source_id"]: row["received_at"]
+                    for row in attachments.get(draft_id, [])
+                },
+            ),
         )
         if listo_reason(standing) is None:
             standing = replace(

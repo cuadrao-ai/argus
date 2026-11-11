@@ -9828,7 +9828,11 @@ match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
 a present NCF or e-CF that is not B plus 10 digits or E plus 12. Both have
 `confirm: true`. `itbis_high` (field `itbis`, `confirm: false`) is an ITBIS above
 18% of the total minus the ITBIS plus 1.00 in the receipt's own currency, in
-decimal math; a lower ITBIS is never flagged. The RNC and NCF stay exactly as
+decimal math; a lower ITBIS is never flagged. `issue_date_future` and
+`issue_date_old` (field `occurred_on`, `confirm: false`) are a date the read gave
+(origin `extracted` or `qr_decoded`) that is after today or after the Santo
+Domingo day its attachment arrived, or more than 30 days before that day; a date
+a person gave is never flagged. The RNC and NCF stay exactly as
 read. While a `confirm` flag stands, the approve request without
 `approve_anyway: true` is refused with 422 `approval_confirmation_required` and
 `context.flags` lists those codes. Send `approve_anyway: true` with a new
@@ -9836,7 +9840,8 @@ idempotency key to approve; the stored approve command keeps it in the action
 receipt. A warn-only flag never refuses. The 606 export still refuses the
 same check digit and NCF format. Month close lists a present but malformed NCF
 in `ncf_malformed` as well as in `missing_ncf`; the reason codes are unchanged.
-Spanish copy for these codes is `dgii_line.COPY`.
+Spanish copy for these codes is `dgii_line.COPY`; the date flags read
+placeholder web copy (`business.dossier.placeholder.issue_date_*`) until review.
 
 ### Business activity feed
 

@@ -3161,6 +3161,8 @@
       "placeholder": {
         "blocks_title": "Needed to approve",
         "expense_type": "Expense type",
+        "issue_date_future": "This date is after the day the receipt arrived. Check that it is the issue date and not the «válido hasta» date.",
+        "issue_date_old": "This date is more than 30 days before the receipt arrived. Check that it is the issue date.",
         "more_fiscal": "More tax details",
         "payment_form": "Payment method",
         "save_lost": "We couldn't confirm that {{field}} was saved. Approval is paused.",

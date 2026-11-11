@@ -8,13 +8,14 @@ from __future__ import annotations
 import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from argus.api.documents import documents_service
+from argus.domain.business import ledger
 from argus.domain.business.actions import approval
 from argus.domain.business.contracts.checks import EcfCheck, EcfVerification
 from argus.domain.ingestion.reconcile.service import ReconciliationService
@@ -23,7 +24,8 @@ from psycopg.types.json import Jsonb
 
 from tests import test_business_scope_switch_routes_postgres as scope
 from tests import test_financial_accounts_postgres as shared
-from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
+from tests.business import receipt_stub
+from tests.business.receipt_stub import ReceiptStub
 from tests.business.test_business_api import RECEIPT
 from tests.business.test_business_email_api import WEBHOOK, signed
 from tests.business_reading_support import ROUTE
@@ -49,6 +51,10 @@ LISTED_BAD_DIGIT = "138888003"
 ECF = "E310000000011"
 SENDER = "proveedor@example.test"
 ROUTE_PATH = "/business/drafts/approve-listos"
+PURCHASE = {**receipt_stub.PURCHASE, "occurred_on": receipt_stub.READ_DAY}
+DETAILS = {**receipt_stub.DETAILS, "occurred_on": receipt_stub.READ_DAY}
+NCF_EXPIRY = (ledger.today() + timedelta(days=400)).isoformat()
+STALE_DAY = (ledger.today() - timedelta(days=40)).isoformat()
 LIMIT = 50
 
 
@@ -58,7 +64,7 @@ def rig(people, monkeypatch: pytest.MonkeyPatch):  # noqa: ANN001, ANN201
     prepares in A. A stub stands in for the provider's read."""
 
     documents = documents_service()
-    stub = ReceiptStub()
+    stub = ReceiptStub(PURCHASE, DETAILS)
     monkeypatch.setattr(documents, "extractor", stub)
     monkeypatch.setattr(
         documents.business_receipt_consent, "route_resolver", lambda: ROUTE
@@ -277,6 +283,10 @@ def _state(item: dict) -> tuple:
         pytest.param({"itbis": None}, "missing_itbis", id="no ITBIS"),
         pytest.param({"currency": "USD"}, "foreign_currency", id="USD"),
         pytest.param({"itbis": "900.00"}, "review_flag", id="ITBIS above the rate"),
+        pytest.param(
+            {"occurred_on": NCF_EXPIRY}, "review_flag", id="the NCF expiry read as the date"
+        ),
+        pytest.param({"occurred_on": STALE_DAY}, "review_flag", id="a 40 day old date"),
         pytest.param({"ncf": "B0400000002"}, "credit_note", id="a credit note"),
     ],
 )
@@ -286,6 +296,18 @@ def test_the_rule_gives_one_group_and_one_reason(rig, read: dict, reason) -> Non
     group = "attention" if reason else "listo"
     assert _group(rig, receipt) == (group, reason)
     assert _counts(rig) == ((0, 1) if reason else (1, 0))
+
+
+@pytest.mark.parametrize(
+    ("day", "code"), [(NCF_EXPIRY, "issue_date_future"), (STALE_DAY, "issue_date_old")]
+)
+def test_an_odd_read_date_is_a_warning_on_the_date(rig, day: str, code: str) -> None:  # noqa: ANN001
+    draft = _named_draft(rig, _read(rig, {"occurred_on": day}))
+    dossier = _get(rig, f"/business/drafts/{draft}/dossier")
+    assert dossier["facts"]["occurred_on"]["value"] == day
+    assert dossier["review_flags"] == [
+        {"code": code, "field": "occurred_on", "confirm": False}
+    ]
 
 
 def test_a_receipt_that_needs_a_person_can_still_be_approved_alone(rig) -> None:  # noqa: ANN001

@@ -97,10 +97,10 @@ export function readBusinessDossier(value: unknown): BusinessDossier {
   return { ...body, review_note: readReviewNote(body.review_note) };
 }
 
-export const REVIEW_FLAG_CODES = ["rnc_check_digit", "ncf_malformed", "itbis_high"] as const;
+export const REVIEW_FLAG_CODES = ["rnc_check_digit", "ncf_malformed", "itbis_high", "issue_date_future", "issue_date_old"] as const;
 export type ReviewFlagCode = (typeof REVIEW_FLAG_CODES)[number];
 /** A read value to check again. A `confirm` flag stops approval until the person approves anyway; the rest only warn. */
-export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis"; confirm: boolean };
+export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis" | "occurred_on"; confirm: boolean };
 
 export function isReviewFlagCode(value: unknown): value is ReviewFlagCode {
   return REVIEW_FLAG_CODES.includes(value as ReviewFlagCode);

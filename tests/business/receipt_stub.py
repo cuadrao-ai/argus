@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
+from argus.domain.business import ledger
 from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import (
@@ -20,6 +21,9 @@ from argus.domain.ingestion.documents.models import (
 )
 from argus.domain.ingestion.documents.preparation import PreparedDocument
 
+# A read day inside the review window of a receipt uploaded today
+# (review_flags.ISSUE_DATE_WINDOW). A fixed day ages out of it.
+READ_DAY = (ledger.today() - timedelta(days=3)).isoformat()
 PURCHASE: dict[str, Any] = {
     "page": 1,
     "row": 1,

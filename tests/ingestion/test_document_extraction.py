@@ -150,6 +150,10 @@ async def test_receipt_request_requires_one_purchase_and_preserves_printed_evide
         "Do not round or adjust item amounts to reconcile the receipt total"
         in instructions
     )
+    assert (
+        "is its issue date (fecha de emisión), never the NCF or e-CF sequence expiry"
+        ' printed as "válido hasta"' in " ".join(instructions.split())
+    )
     schema = payload["response_format"]["json_schema"]["schema"]
     assert (
         "alongside receipt details" in schema["properties"]["observations"]["description"]

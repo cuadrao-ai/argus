@@ -3161,6 +3161,8 @@
       "placeholder": {
         "blocks_title": "Falta para aprobar",
         "expense_type": "Tipo de gasto",
+        "issue_date_future": "Esta fecha es posterior al día en que llegó el recibo. Revisa que sea la fecha de emisión y no la de «válido hasta».",
+        "issue_date_old": "Esta fecha es de más de 30 días antes de que llegara el recibo. Revisa que sea la fecha de emisión.",
         "more_fiscal": "Más datos fiscales",
         "payment_form": "Forma de pago",
         "save_lost": "No pudimos confirmar si {{field}} se guardó. Aprobar queda en pausa.",

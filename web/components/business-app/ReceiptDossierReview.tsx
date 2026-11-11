@@ -48,7 +48,7 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
-const FLAGGED_ROW: Record<ReviewFlagCode, ReviewRow> = { rnc_check_digit: "rnc", ncf_malformed: "fiscal_number", itbis_high: "itbis" };
+const FLAGGED_ROW: Record<ReviewFlagCode, ReviewRow> = { rnc_check_digit: "rnc", ncf_malformed: "fiscal_number", itbis_high: "itbis", issue_date_future: "occurred_on", issue_date_old: "occurred_on" };
 
 /** The values a form row offers the original message to mark: its own data-match list. */
 function rowValues(target: EventTarget): string[] {

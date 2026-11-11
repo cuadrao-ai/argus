@@ -7,6 +7,8 @@ export const REVIEW_FLAGS = {
   rnc_check_digit: { code: "rnc_check_digit", field: "rnc", confirm: true },
   ncf_malformed: { code: "ncf_malformed", field: "ncf", confirm: true },
   itbis_high: { code: "itbis_high", field: "itbis", confirm: false },
+  issue_date_future: { code: "issue_date_future", field: "occurred_on", confirm: false },
+  issue_date_old: { code: "issue_date_old", field: "occurred_on", confirm: false },
 } satisfies { [Code in ReviewFlagCode]: ReviewFlag & { code: Code } };
 
 /** Read values the server flags, each beside the nearest one it lets through (tests/business/test_review_flags.py). */

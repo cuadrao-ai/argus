@@ -407,6 +407,7 @@ def _order_actual(batch: ExtractionBatch, money_writes: int) -> dict:
         "purchase_candidates": len(_purchases(batch.candidates)),
         "purchase_observations": len(_purchases(batch.observations)),
         "paid_purchase_date": None if receipt is None else _iso(receipt.occurred_on),
+        "purchase_dates": [_iso(row.occurred_on) for row in _purchases(batch.observations)],
         "receipt_tax": None if receipt is None else receipt.tax,
         "estimated_tax": None if receipt is None else receipt.estimated_tax,
         "receipt_total": None if receipt is None else receipt.total,
@@ -441,16 +442,16 @@ def score_checks(
         return receipt_dop_checks(batch)
     if fixture.id == "unreadable":
         return unreadable_checks(batch)
-    if fixture.id == ORDER_FIXTURE:
-        expected = fixture.entry.get("expected")
-        if not isinstance(expected, dict):
-            raise MeasurementError("missing_expected")
+    expected = fixture.entry.get("expected")
+    if fixture.id == ORDER_FIXTURE and not isinstance(expected, dict):
+        raise MeasurementError("missing_expected")
+    if isinstance(expected, dict):
         return _order_matches(_order_actual(batch, money_writes), expected)
     return {"recognized": _mark(False, True, False)}
 
 
 def _check_count(fixture: Fixture) -> int:
-    if fixture.id == ORDER_FIXTURE and isinstance(fixture.entry.get("expected"), dict):
+    if isinstance(fixture.entry.get("expected"), dict):
         return len(fixture.entry["expected"])
     if fixture.id == "receipt-dop":
         return len(receipt_dop_checks(ExtractionBatch(candidates=())))
@@ -475,10 +476,10 @@ def _require_declared_checks(fixture_id: str, entry: dict) -> None:
         names = set(unreadable_checks(ExtractionBatch(candidates=())))
         if set(entry["expected_checks"]) != names:
             raise MeasurementError("check_manifest_drift")
-    if fixture_id == ORDER_FIXTURE:
-        expected = entry.get("expected")
-        if not isinstance(expected, dict):
-            raise MeasurementError("missing_expected")
+    expected = entry.get("expected")
+    if fixture_id == ORDER_FIXTURE and not isinstance(expected, dict):
+        raise MeasurementError("missing_expected")
+    if isinstance(expected, dict):
         sample = _order_actual(ExtractionBatch(candidates=()), 0)
         if not set(expected) <= set(sample):
             raise MeasurementError("check_manifest_drift")

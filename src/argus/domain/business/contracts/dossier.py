@@ -112,8 +112,14 @@ class ReviewFlag(Contract):
     """A read value to check again. ``confirm`` flags need ``approve_anyway``
     on the approve request; the rest only warn."""
 
-    code: Literal["rnc_check_digit", "ncf_malformed", "itbis_high"]
-    field: Literal["rnc", "ncf", "itbis"]
+    code: Literal[
+        "rnc_check_digit",
+        "ncf_malformed",
+        "itbis_high",
+        "issue_date_future",
+        "issue_date_old",
+    ]
+    field: Literal["rnc", "ncf", "itbis", "occurred_on"]
     confirm: bool
 
 
