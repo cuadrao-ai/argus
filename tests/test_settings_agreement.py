@@ -271,3 +271,59 @@ def test_frontend_read_shapes(
         {name: Read(default, "web/lib/config.ts") for name, default in defaults.items()},
         [],
     )
+
+
+@pytest.mark.parametrize("second_default", ["20", "30"])
+def test_catalog_preserves_every_reader(tmp_path: Path, second_default: str) -> None:
+    root = _tree(tmp_path, 'import os\nos.getenv("CUADRAO_SAMPLE", "20")\n', [])
+    (root / "src" / "other.py").write_text(
+        f'import os\nos.getenv("CUADRAO_SAMPLE", "{second_default}")\n'
+    )
+    from scripts.ci.settings_agreement import write_catalog
+
+    write_catalog(root)
+    rows = json.loads((root / "scripts/ops/settings_catalog.generated.json").read_text())[
+        "settings"
+    ]
+    assert rows == [
+        {
+            "name": "CUADRAO_SAMPLE",
+            "reads": [
+                {"default": "20", "owner": "src/app.py"},
+                {"default": second_default, "owner": "src/other.py"},
+            ],
+        }
+    ]
+    assert problems(root) == []
+    (root / "src" / "other.py").write_text(
+        'import os\nos.getenv("CUADRAO_SAMPLE", "40")\n'
+    )
+    assert problems(root)
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [{"name": "CUADRAO_SAMPLE", "default": "20", "owner": "src/app.py"}] * 2,
+        [
+            {
+                "name": "CUADRAO_SAMPLE",
+                "default": "20",
+                "owner": "src/app.py",
+                "reads": [{"default": "20", "owner": "src/app.py"}],
+            }
+        ],
+        [
+            {
+                "name": "CUADRAO_SAMPLE",
+                "reads": [{"default": "20", "owner": "src/app.py"}] * 2,
+            }
+        ],
+        [{"name": "CUADRAO_SAMPLE", "reads": []}],
+    ],
+)
+def test_catalog_rejects_ambiguous_rows(
+    tmp_path: Path, rows: list[dict[str, object]]
+) -> None:
+    root = _tree(tmp_path, 'import os\nos.getenv("CUADRAO_SAMPLE", "20")\n', rows)
+    assert problems(root)
