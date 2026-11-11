@@ -486,10 +486,10 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     # A selected job must succeed; skipping is allowed only when unselected.
     assert "require_success_or_skipped" not in aggregator_run
     assert 'require_selected docs-checks "$DOCS_ONLY"' in aggregator_run
-    assert 'require_selected backend-checks "$RUN_HEAVY"' in aggregator_run
-    assert 'require_selected frontend-checks "$RUN_HEAVY"' in aggregator_run
-    assert 'require_selected marketing-checks "$RUN_MARKETING"' in aggregator_run
-    assert 'require_selected database-checks "$RUN_HEAVY"' in aggregator_run
+    assert 'require_success backend-checks "$BACKEND_CHECKS"' in aggregator_run
+    assert 'require_success frontend-checks "$FRONTEND_CHECKS"' in aggregator_run
+    assert 'require_success marketing-checks "$MARKETING_CHECKS"' in aggregator_run
+    assert 'require_success database-checks "$DATABASE_CHECKS"' in aggregator_run
 
 
 def test_private_alpha_smoke_workflow_runs_local_predeploy_gate() -> None:
@@ -507,8 +507,9 @@ def test_private_alpha_smoke_workflow_runs_local_predeploy_gate() -> None:
     job = workflow["jobs"]["local-smoke"]
     assert job["timeout-minutes"] == 10
     assert _job_needs(job) == ["docs-change-gate"]
-    assert job["if"] == (
-        f"({_DRAFT_OR_NON_PR}) && " "needs.docs-change-gate.outputs.run_heavy == 'true'"
+    assert job["if"] == _DRAFT_OR_NON_PR
+    assert "needs.docs-change-gate.outputs.run_heavy == 'true'" in "\n".join(
+        step.get("if") or "" for step in job["steps"]
     )
     joined_steps = "\n".join(str(step.get("run", "")) for step in job["steps"])
     assert "poetry install --with dev,workflows --no-interaction" in joined_steps
@@ -632,13 +633,13 @@ def test_docs_only_changes_script_classifies_docs_and_code_lists() -> None:
     }
 
 
-def test_docs_only_changes_script_treats_docs_api_as_docs_only() -> None:
+def test_openapi_runs_every_job_and_other_docs_api_files_stay_docs_only() -> None:
     api_path = f"docs/api/{FAKE.file_name(extension='yaml')}"
 
     assert _classify_changed_files("docs/api/openapi.yaml") == {
-        "docs_only": "true",
-        "run_heavy": "false",
-        "run_marketing": "false",
+        "docs_only": "false",
+        "run_heavy": "true",
+        "run_marketing": "true",
     }
     assert _classify_changed_files(api_path) == {
         "docs_only": "true",
@@ -646,9 +647,9 @@ def test_docs_only_changes_script_treats_docs_api_as_docs_only() -> None:
         "run_marketing": "false",
     }
     assert _classify_changed_files("docs/PRODUCT.md", "docs/api/openapi.yaml") == {
-        "docs_only": "true",
-        "run_heavy": "false",
-        "run_marketing": "false",
+        "docs_only": "false",
+        "run_heavy": "true",
+        "run_marketing": "true",
     }
 
 
@@ -788,6 +789,9 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
     assert gate["outputs"]["run_marketing"] == (
         "${{ steps.classify.outputs.run_marketing }}"
     )
+    assert gate["outputs"]["run_backend"] == "${{ steps.classify.outputs.run_backend }}"
+    assert gate["outputs"]["run_frontend"] == "${{ steps.classify.outputs.run_frontend }}"
+    assert gate["outputs"]["run_database"] == "${{ steps.classify.outputs.run_database }}"
     assert classify["run"] == ".github/docs-only-changes.sh"
     assert classify["env"]["PR_BASE_SHA"] == ("${{ github.event.pull_request.base.sha }}")
     assert _job_needs(jobs["ownership-gate"]) == []
@@ -823,25 +827,25 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
         "${{ github.event.pull_request.base.sha }}"
     )
 
-    heavy_if = (
-        f"({_DRAFT_OR_PUSH} || {_FULL_RUN}) && "
-        "needs.docs-change-gate.outputs.run_heavy == 'true'"
+    event_if = f"({_DRAFT_OR_PUSH} || {_FULL_RUN})"
+    assert jobs["backend-shards"]["if"] == (
+        f"{event_if} && needs.docs-change-gate.outputs.run_backend == 'true'"
     )
-    for job_name in _HEAVY_CI_JOBS:
-        job = jobs[job_name]
-        assert _job_needs(job) == ["docs-change-gate"]
-        assert job["if"] == heavy_if
+    assert jobs["frontend-checks"]["if"] == event_if
+    assert "needs.docs-change-gate.outputs.run_frontend == 'true'" in "\n".join(
+        step.get("if") or "" for step in jobs["frontend-checks"]["steps"]
+    )
     marketing = jobs["marketing-checks"]
     assert _job_needs(marketing) == ["docs-change-gate"]
-    assert marketing["if"] == (
-        f"({_DRAFT_OR_PUSH} || {_FULL_RUN}) && "
-        "needs.docs-change-gate.outputs.run_marketing == 'true'"
+    assert marketing["if"] == event_if
+    assert "needs.docs-change-gate.outputs.run_marketing == 'true'" in "\n".join(
+        step.get("if") or "" for step in marketing["steps"]
     )
     guest_job = jobs["database-shards"]
     assert _job_needs(guest_job) == ["docs-change-gate"]
     assert guest_job["if"] == (
         f"({_DRAFT_OR_PUSH} || {_LATEST_CLI_PROBE}) && "
-        "needs.docs-change-gate.outputs.run_heavy == 'true'"
+        "needs.docs-change-gate.outputs.run_database == 'true'"
     )
 
     smoke = _smoke_workflow()

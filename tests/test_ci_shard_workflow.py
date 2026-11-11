@@ -33,8 +33,9 @@ def test_required_gate_rejects_failed_cancelled_or_missing_shards(suite: str) ->
     gate = JOBS[f"{suite}-checks"]
     assert gate["needs"] == ["docs-change-gate", f"{suite}-shards"]
     assert gate["if"].startswith("always() && ")
-    assert "needs.docs-change-gate.outputs.run_heavy == 'true'" in gate["if"]
-    check = gate["steps"][0]
+    assert f"needs.docs-change-gate.outputs.run_{suite} == 'true'" not in gate["if"]
+    check = next(step for step in gate["steps"] if step.get("name") == f"Require every {suite} shard")
+    assert check["if"] == f"needs.docs-change-gate.outputs.run_{suite} == 'true'"
     assert check["env"]["SHARDS_RESULT"] == "${{ needs." + suite + "-shards.result }}"
     for state in ["success", "failure", "cancelled", "skipped", ""]:
         result = subprocess.run(
@@ -53,7 +54,7 @@ def test_required_gate_verifies_union_after_all_shards_succeed(suite: str) -> No
     assert proofs
     assert "--output temp/ci-proof/" in proofs[0]["run"]
     assert "*.json" in proofs[0]["run"]
-    assert "if" not in proofs[0]
+    assert proofs[0]["if"] == f"needs.docs-change-gate.outputs.run_{suite} == 'true'"
     assert not any(s.get("continue-on-error") for s in gate["steps"])
     download = next(s for s in gate["steps"] if "download-artifact@" in s.get("uses", ""))
     assert (
@@ -91,7 +92,7 @@ def test_database_workers_each_own_a_disposable_database_and_auth_runs_once() ->
     proofs = [s for s in gate["steps"] if "test_shards.py" in s.get("run", "")]
     assert len(proofs) == 2
     assert all("--require-passed" in s["run"] for s in proofs)
-    assert proofs[1]["if"] == "matrix.supabase-cli == 'pinned'"
+    assert proofs[1]["if"] == "matrix.supabase-cli == 'pinned' && needs.docs-change-gate.outputs.run_database == 'true'"
     assert "auth.json" in proofs[1]["run"]
     assert WORKFLOW["permissions"] == {"contents": "read"}
 

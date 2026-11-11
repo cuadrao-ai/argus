@@ -23,9 +23,13 @@ WORKFLOW = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(
 FAKE = Faker()
 
 ALWAYS = {"docs-change-gate", "ownership-gate", "ci"}
+FRONTEND = ALWAYS | {"frontend-checks"}
+MARKETING = ALWAYS | {"marketing-checks"}
+PACKAGES = ALWAYS | {"frontend-checks", "marketing-checks"}
 HEAVY = ALWAYS | {"backend-checks", "backend-shards", "frontend-checks", "database-checks", "database-shards"}
 EVERY = HEAVY | {"marketing-checks"}
 DOCS = ALWAYS | {"docs-checks"}
+FLAGS = {"docs_only", "run_heavy", "run_marketing", "run_backend", "run_frontend", "run_database"}
 
 
 def classify(*paths: str, cwd: Path = ROOT, env: dict[str, str] | None = None):
@@ -44,16 +48,20 @@ def outputs(result: subprocess.CompletedProcess[str]) -> dict[str, str]:
     return dict(
         line.split("=", 1)
         for line in result.stdout.splitlines()
-        if line.split("=", 1)[0] in {"docs_only", "run_heavy", "run_marketing"}
+        if line.split("=", 1)[0] in FLAGS
     )
 
 
 def selected_jobs(flags: dict[str, str]) -> set[str]:
-    """Read each job's gate output from the workflow, as Actions does."""
+    """Jobs whose work steps run. A skip-pass step does not count as work."""
     picked = set()
     for name, job in WORKFLOW["jobs"].items():
-        gate = re.search(r"needs\.docs-change-gate\.outputs\.(\w+) == 'true'", job["if"])
-        if gate is None or flags[gate.group(1)] == "true":
+        pieces = [job.get("if") or ""]
+        pieces.extend(step.get("if") or "" for step in job.get("steps") or [])
+        gates = re.findall(
+            r"needs\.docs-change-gate\.outputs\.(\w+) == 'true'", "\n".join(pieces)
+        )
+        if not gates or any(flags[gate] == "true" for gate in gates):
             picked.add(name)
     return picked
 
@@ -64,16 +72,16 @@ def jobs_for(*paths: str) -> set[str]:
 
 CASES = {
     "backend-only": ([f"src/argus/api/{FAKE.word()}.py"], HEAVY),
-    "web-only": ([f"web/components/{FAKE.word()}.tsx"], HEAVY),
-    "marketing-only": ([f"marketing/app/{FAKE.word()}/page.tsx"], EVERY),
+    "web-only": ([f"web/components/{FAKE.word()}.tsx"], FRONTEND),
+    "marketing-only": ([f"marketing/app/{FAKE.word()}/page.tsx"], MARKETING),
     "migration-only": ([f"supabase/migrations/20261021120000_{FAKE.word()}.sql"], HEAVY),
     "database-test-only": ([f"tests/test_{FAKE.word()}_postgres.py"], HEAVY),
     "schema-docs-and-migration": (
         ["docs/DATA_MODEL.md", f"supabase/migrations/20261021120001_{FAKE.word()}.sql"],
         HEAVY,
     ),
-    "python-lockfile": (["poetry.lock", "pyproject.toml"], HEAVY),
-    "web-lockfile": (["web/bun.lock", "web/package.json"], HEAVY),
+    "python-lockfile": (["poetry.lock", "pyproject.toml"], EVERY),
+    "web-lockfile": (["web/bun.lock", "web/package.json"], EVERY),
     "marketing-lockfile": (["marketing/bun.lock"], EVERY),
     "edge-function-shared-with-marketing": (
         ["supabase/functions/waitlist-reminders/handler.ts"],
@@ -81,9 +89,10 @@ CASES = {
     ),
     "supabase-config": (["supabase/config.toml"], HEAVY),
     "ci-workflow-defines-marketing-job": ([".github/workflows/ci.yml"], EVERY),
-    "other-workflow": ([f".github/workflows/{FAKE.word()}.yml"], HEAVY),
+    "other-workflow": ([f".github/workflows/{FAKE.word()}.yml"], EVERY),
     "selection-script-selects-marketing": ([".github/docs-only-changes.sh"], EVERY),
-    "docs-only": ([f"docs/{FAKE.word()}.md", "docs/api/openapi.yaml"], DOCS),
+    "docs-only": ([f"docs/{FAKE.word()}.md"], DOCS),
+    "openapi-contract": (["docs/api/openapi.yaml", "docs/API_CONTRACT.md"], EVERY),
     "native-only": (
         [f"ios/{FAKE.word()}.swift", f"mobile/android/{FAKE.word()}.kt"],
         HEAVY,
@@ -110,7 +119,11 @@ CASES = {
         [f"docs/{FAKE.word()}.md", ".github/workflows/ci.yml"],
         EVERY,
     ),
-    "other-github-path": ([".github/CODEOWNERS", ".github/workflows/ci.yml.bak"], HEAVY),
+    "other-github-path": ([".github/CODEOWNERS", ".github/workflows/ci.yml.bak"], EVERY),
+    "web-and-marketing": (
+        [f"web/lib/{FAKE.word()}.ts", f"marketing/lib/{FAKE.word()}.ts"],
+        PACKAGES,
+    ),
     "marketing-prefix-lookalike": (
         ["marketing-notes.md", "supabase/functions.md"],
         HEAVY,
@@ -189,10 +202,10 @@ def commit_change(repo: Path, *args: str) -> set[str]:
 @pytest.mark.parametrize(
     "change,expected",
     [
-        (("rm", "-q", "marketing/app/page.tsx"), EVERY),
-        (("mv", "marketing/app/page.tsx", "web/lib/page.tsx"), EVERY),
-        (("mv", "web/lib/a.ts", "web/lib/b.ts"), HEAVY),
-        (("rm", "-q", "web/lib/a.ts"), HEAVY),
+        (("rm", "-q", "marketing/app/page.tsx"), MARKETING),
+        (("mv", "marketing/app/page.tsx", "web/lib/page.tsx"), PACKAGES),
+        (("mv", "web/lib/a.ts", "web/lib/b.ts"), FRONTEND),
+        (("rm", "-q", "web/lib/a.ts"), FRONTEND),
         (("mv", "docs/notes.md", "docs/moved.md"), DOCS),
         (("rm", "-q", "docs/notes.md"), DOCS),
         (("mv", "web/lib/a.ts", "docs/a.md"), HEAVY),
@@ -214,10 +227,10 @@ def test_deleted_and_renamed_paths_count_both_sides(repo, change, expected):
 @pytest.mark.parametrize(
     "path,expected",
     [
-        ("marketing/app/espa\u00f1ol.tsx", EVERY),
-        ("marketing/my page/index.tsx", EVERY),
+        ("marketing/app/espa\u00f1ol.tsx", MARKETING),
+        ("marketing/my page/index.tsx", MARKETING),
         ("supabase/functions/se\u00f1al/index.ts", EVERY),
-        ("web/lib/espa\u00f1ol.ts", HEAVY),
+        ("web/lib/espa\u00f1ol.ts", FRONTEND),
         ("docs/gu\u00eda r\u00e1pida.md", DOCS),
     ],
     ids=[
@@ -277,8 +290,12 @@ def aggregate(tmp_path: Path, flags: dict[str, str], **results: str):
     env = {"DOCS_CHANGE_GATE": "success", "OWNERSHIP_GATE": "success"}
     env.update(DOCS_ONLY=flags["docs_only"], RUN_HEAVY=flags["run_heavy"])
     env["RUN_MARKETING"] = flags["run_marketing"]
+    env["RUN_BACKEND"] = flags["run_backend"]
+    env["RUN_FRONTEND"] = flags["run_frontend"]
+    env["RUN_DATABASE"] = flags["run_database"]
+    reporting = {"backend-checks", "frontend-checks", "marketing-checks", "database-checks"}
     for job, key in RESULT_KEYS.items():
-        env[key] = "success" if job in picked else "skipped"
+        env[key] = "success" if job in picked or job in reporting else "skipped"
     env.update(results)
     assert set(env) == set(AGGREGATE["env"])
     return subprocess.run(
@@ -296,8 +313,9 @@ def test_aggregate_passes_each_selection_and_rejects_each_unexpected_skip(
 ):
     flags = outputs(classify("--files", *paths))
     assert aggregate(tmp_path, flags).returncode == 0
+    reporting = {"backend-checks", "frontend-checks", "marketing-checks", "database-checks"}
     for job, key in RESULT_KEYS.items():
-        if job in expected:
+        if job in expected or job in reporting:
             for state in ("skipped", "cancelled", "failure"):
                 result = aggregate(tmp_path, flags, **{key: state})
                 assert result.returncode != 0, (job, state)
@@ -309,29 +327,87 @@ def test_aggregate_passes_each_selection_and_rejects_each_unexpected_skip(
 @pytest.mark.parametrize(
     "flags",
     [
-        {"docs_only": "true", "run_heavy": "true", "run_marketing": "false"},
-        {"docs_only": "false", "run_heavy": "false", "run_marketing": "false"},
-        {"docs_only": "true", "run_heavy": "false", "run_marketing": "true"},
-        {"docs_only": "false", "run_heavy": "true", "run_marketing": ""},
-        {"docs_only": "false", "run_heavy": "yes", "run_marketing": "true"},
+        {
+            "docs_only": "true",
+            "run_heavy": "true",
+            "run_marketing": "false",
+            "run_backend": "true",
+            "run_frontend": "true",
+            "run_database": "true",
+        },
+        {
+            "docs_only": "false",
+            "run_heavy": "false",
+            "run_marketing": "false",
+            "run_backend": "false",
+            "run_frontend": "false",
+            "run_database": "false",
+        },
+        {
+            "docs_only": "true",
+            "run_heavy": "false",
+            "run_marketing": "true",
+            "run_backend": "false",
+            "run_frontend": "false",
+            "run_database": "false",
+        },
+        {
+            "docs_only": "false",
+            "run_heavy": "true",
+            "run_marketing": "",
+            "run_backend": "true",
+            "run_frontend": "true",
+            "run_database": "true",
+        },
+        {
+            "docs_only": "false",
+            "run_heavy": "yes",
+            "run_marketing": "true",
+            "run_backend": "true",
+            "run_frontend": "true",
+            "run_database": "true",
+        },
+        {
+            "docs_only": "false",
+            "run_heavy": "true",
+            "run_marketing": "false",
+            "run_backend": "true",
+            "run_frontend": "false",
+            "run_database": "false",
+        },
     ],
 )
 def test_aggregate_rejects_inconsistent_or_invalid_selection(tmp_path, flags):
-    defaults = {"docs_only": "false", "run_heavy": "true", "run_marketing": "true"}
-    result = aggregate(
-        tmp_path,
-        defaults,
-        DOCS_ONLY=flags["docs_only"],
-        RUN_HEAVY=flags["run_heavy"],
-        RUN_MARKETING=flags["run_marketing"],
-    )
+    defaults = {
+        "docs_only": "false",
+        "run_heavy": "true",
+        "run_marketing": "true",
+        "run_backend": "true",
+        "run_frontend": "true",
+        "run_database": "true",
+    }
+    result = aggregate(tmp_path, defaults, **{key.upper(): value for key, value in {
+        "docs_only": flags["docs_only"],
+        "run_heavy": flags["run_heavy"],
+        "run_marketing": flags["run_marketing"],
+        "run_backend": flags["run_backend"],
+        "run_frontend": flags["run_frontend"],
+        "run_database": flags["run_database"],
+    }.items()})
     assert result.returncode != 0
 
 
 def test_aggregate_reports_a_failed_gate_before_its_missing_outputs(tmp_path):
     result = aggregate(
         tmp_path,
-        {"docs_only": "false", "run_heavy": "true", "run_marketing": "true"},
+        {
+            "docs_only": "false",
+            "run_heavy": "true",
+            "run_marketing": "true",
+            "run_backend": "true",
+            "run_frontend": "true",
+            "run_database": "true",
+        },
         DOCS_CHANGE_GATE="failure",
         DOCS_ONLY="",
         RUN_HEAVY="",
