@@ -68,8 +68,10 @@ def start_invites(app) -> None:  # noqa: ANN001
 
         pool = business_pool()
         if pool is None:
-            logger.warning("Beta invites need the business database pool; surface stays off")
-            return
+            from psycopg_pool import ConnectionPool
+
+            pool = ConnectionPool(api_state.DATABASE_URL, min_size=0, max_size=1, open=True)
+            app.state.invites_pool = pool
         configure_invites_store(PostgresInviteStore(pool))
     except Exception:
         logger.exception("Beta invite surface failed to start; leaving off")
