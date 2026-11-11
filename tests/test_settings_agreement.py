@@ -175,7 +175,7 @@ def test_python_read_shapes(
     reads, unresolved = scan(root)
     assert unresolved == []
     assert reads == {
-        name: Read(default, "src/app.py") for name, default in defaults.items()
+        name: (Read(default, "src/app.py"),) for name, default in defaults.items()
     }
 
 
@@ -200,7 +200,10 @@ def test_frontend_package_executable_files(
     path = tmp_path / package / relative
     path.parent.mkdir(parents=True)
     path.write_text('const value = process.env.CUADRAO_SAMPLE ?? "20";\n')
-    assert scan(tmp_path) == ({"CUADRAO_SAMPLE": Read("20", f"{package}/{relative}")}, [])
+    assert scan(tmp_path) == (
+        {"CUADRAO_SAMPLE": (Read("20", f"{package}/{relative}"),)},
+        [],
+    )
 
 
 @pytest.mark.parametrize(
@@ -268,7 +271,10 @@ def test_frontend_read_shapes(
     path.parent.mkdir(parents=True)
     path.write_text(source)
     assert scan(tmp_path) == (
-        {name: Read(default, "web/lib/config.ts") for name, default in defaults.items()},
+        {
+            name: (Read(default, "web/lib/config.ts"),)
+            for name, default in defaults.items()
+        },
         [],
     )
 
@@ -327,3 +333,99 @@ def test_catalog_rejects_ambiguous_rows(
 ) -> None:
     root = _tree(tmp_path, 'import os\nos.getenv("CUADRAO_SAMPLE", "20")\n', rows)
     assert problems(root)
+
+
+@pytest.mark.parametrize("specifier", ["./config", "@/lib/config"])
+def test_frontend_environment_parameter_has_a_process_caller(
+    tmp_path: Path, specifier: str
+) -> None:
+    root = tmp_path / "web/lib"
+    root.mkdir(parents=True)
+    (root / "runtime.ts").write_text(
+        f'import {{ config }} from "{specifier}"; config(process.env);'
+    )
+    (root / "config.ts").write_text(
+        'export function config(env: Record<string, string>) { return env.CUADRAO_SAMPLE ?? "20"; }'
+    )
+    assert scan(tmp_path) == ({"CUADRAO_SAMPLE": (Read("20", "web/lib/config.ts"),)}, [])
+
+
+def test_frontend_unrelated_environment_parameter_is_not_a_reader(tmp_path: Path) -> None:
+    path = tmp_path / "web/lib/config.ts"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        "export function config(env: NodeJS.ProcessEnv) { return env.CUADRAO_UNUSED; }"
+    )
+    assert scan(tmp_path) == ({}, [])
+
+
+def test_python_imported_collection_reaches_a_read(tmp_path: Path) -> None:
+    root = _tree(
+        tmp_path,
+        """\
+import os
+from config import NAMES
+
+def configured(name):
+    return os.getenv(name, "20")
+
+values = [configured(name) for name in (*NAMES[tier],)]
+""",
+        [],
+    )
+    (root / "src/config.py").write_text(
+        'NAMES = {"sample": ("CUADRAO_SAMPLE", "ARGUS_SAMPLE")}\nUNUSED = ["CUADRAO_UNUSED"]\n'
+    )
+    assert scan(root) == (
+        {
+            name: (Read("20", "src/app.py"),)
+            for name in ("CUADRAO_SAMPLE", "ARGUS_SAMPLE")
+        },
+        [],
+    )
+
+
+def test_python_environment_snapshot_filter(tmp_path: Path) -> None:
+    root = _tree(
+        tmp_path,
+        """\
+import os
+NAMES = {"CUADRAO_SAMPLE"}
+source = dict(os.environ)
+for name, value in source.items():
+    if name not in NAMES:
+        continue
+    str(value)
+""",
+        [],
+    )
+    assert scan(root) == ({"CUADRAO_SAMPLE": (Read(None, "src/app.py"),)}, [])
+
+
+def test_python_environment_alias_does_not_escape_its_function(tmp_path: Path) -> None:
+    root = _tree(
+        tmp_path,
+        """\
+import os
+
+def real():
+    source = os.environ
+    return source.get("CUADRAO_SAMPLE")
+
+def unrelated():
+    source = {"CUADRAO_UNUSED": "not-a-setting"}
+    return source.get("CUADRAO_UNUSED")
+""",
+        [],
+    )
+    assert scan(root) == ({"CUADRAO_SAMPLE": (Read(None, "src/app.py"),)}, [])
+
+
+def test_frontend_environment_alias_does_not_escape_its_function(tmp_path: Path) -> None:
+    path = tmp_path / "web/lib/config.ts"
+    path.parent.mkdir(parents=True)
+    path.write_text("""\
+function real() { const env = process.env; return env.CUADRAO_SAMPLE; }
+function unrelated() { const env = { CUADRAO_UNUSED: "value" }; return env.CUADRAO_UNUSED; }
+""")
+    assert scan(tmp_path) == ({"CUADRAO_SAMPLE": (Read(None, "web/lib/config.ts"),)}, [])
