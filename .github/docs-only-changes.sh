@@ -39,7 +39,11 @@ with open(sys.argv[1], "rb") as source:
     packages = tomllib.load(source)["tool"]["poetry"]["packages"]
 for package in packages:
     path = posixpath.normpath(posixpath.join(package.get("from", "."), package["include"]))
-    sys.stdout.write(path + "\n")
+    patterns = [""]
+    for segment in path.split("/"):
+        expanded = [posixpath.join(prefix, segment) for prefix in patterns]
+        patterns = patterns + expanded if segment == "**" else expanded
+    sys.stdout.write("".join(pattern + "\n" for pattern in patterns))
 PY
 )"
   mapfile -t BACKEND_PACKAGE_PATHS <<< "$paths"
