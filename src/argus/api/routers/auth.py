@@ -85,6 +85,26 @@ def _login_auth_problem(request: Request) -> HTTPException:
     )
 
 
+def _discard_denied_sign_in(result: object) -> None:
+    """A correct password still must not leave a session for an email that
+    cannot sign in. Revoke the session the password check just created."""
+    if not isinstance(result, dict):
+        return
+    session = result.get("session")
+    if not isinstance(session, dict):
+        return
+    token = session.get("access_token")
+    if not isinstance(token, str) or not token:
+        return
+    gateway = api_state.supabase_gateway
+    if gateway is None:
+        return
+    try:
+        gateway.client.auth.admin.sign_out(token, scope="local")
+    except Exception:
+        logger.warning("Denied sign-in left a provider session that could not be revoked")
+
+
 def _openapi_error_response(description: str) -> dict[str, object]:
     return {
         "description": description,
@@ -914,10 +934,9 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             detail="Supabase persistence is required for authentication.",
         )
     _enforce_auth_attempt_limit(request, action="login", email=body.email)
-    if not permanent_account_access_allowed(
+    allowed = permanent_account_access_allowed(
         api_state.supabase_gateway, body.email, business_access()
-    ):
-        raise _login_auth_problem(request)
+    )
     try:
         result = api_state.supabase_gateway.login(
             email=body.email,
@@ -928,6 +947,9 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
         raise _login_auth_problem(request) from None
     except Exception:
         raise _login_auth_problem(request) from None
+    if not allowed:
+        _discard_denied_sign_in(result)
+        raise _login_auth_problem(request)
     handoff_id = request.cookies.get(_GUEST_HANDOFF_ID_COOKIE, "").strip()
     opaque_secret = request.cookies.get(_GUEST_HANDOFF_COOKIE, "").strip()
     if bool(handoff_id) is not bool(opaque_secret):
