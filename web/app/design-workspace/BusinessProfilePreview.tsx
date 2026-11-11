@@ -109,7 +109,7 @@ function BusinessProfileContent() {
   const previewProfile = useMemo(()=>{void raw;return readBusinessProfilePreview(live?emptyStorage:storage(),businessId,name,country);},[raw,businessId,name,country,live]);
   // The legal name has one owner, the server's fiscal profile; the local preview has none.
   const legalName = fiscal?.legal_name?.value ?? null;
-  const {lookup:registryLookup,retry:retryRegistry} = useRegistryLookup(live && !legalName ? fiscal?.tax_id ?? null : null);
+  const {lookup:registryLookup,retry:retryRegistry} = useRegistryLookup(live && fiscal?.can_edit && !legalName ? fiscal.tax_id : null);
   const profile = live && server.profile ? {...previewProfile,name:server.profile.name??"",country:server.profile.country,taxId:fiscal?.tax_id??null,legalName,providedDetails:server.profile.details,checklist:profileChecklist({name:server.profile.name??"",country:server.profile.country,taxId:fiscal?.tax_id??null,legalName},server.profile.details,registryLookup?.status === "done" ? registryLookup.answer : null)} : previewProfile;
   const title = formatBusinessName(profile.name,t("business.overview.title","My business"));
   const taxType = profile.taxId?.type;
