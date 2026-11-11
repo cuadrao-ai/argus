@@ -55,7 +55,7 @@ def test_graph_reports_computed_dynamic_imports(tmp_path: Path) -> None:
     assert [(use.target, use.line) for use in uses] == [("<dynamic>", 1)]
 
 
-def test_production_and_smoke_entry_points_import_without_optional_stack() -> None:
+def test_production_and_smoke_entry_points_import_with_installed_dependencies() -> None:
     import subprocess
     import sys
 

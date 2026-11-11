@@ -21,6 +21,8 @@ pandas = "^2.2.0"
 pandas-ta-classic = {git = "https://github.com/xgboosted/pandas-ta-classic.git", rev = "6e4cb10"}
 dateparser = "^1.4.0"
 joblib = "^1.5.3"
+numba = {version = ">=0.60.0", python = ">=3.10"}
+vectorbt = "^0.28.5"
 # Logging
 loguru = "^0.7.3"
 # API Server
