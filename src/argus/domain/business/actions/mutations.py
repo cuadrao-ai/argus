@@ -602,8 +602,14 @@ def prepare_attachment(
     facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
     read_facts = BusinessFacts.model_validate(facts)
     facts = read_facts.model_dump(mode="json")
+    no_currency_read = (
+        values["currency"] is None
+        and "currency" not in uncertain
+        and not getattr(batch.receipt, "currency", None)
+    )
     if (
-        not isinstance(read_facts.currency, Known)
+        no_currency_read
+        and not isinstance(read_facts.currency, Known)
         and read_facts.fiscal is not None
         and any(
             isinstance(number, Known) and normalized_ncf(number.value) is not None

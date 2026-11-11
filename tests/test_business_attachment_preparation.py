@@ -306,19 +306,20 @@ def test_extracted_currency_replaces_unsourced_dop_default(currency):
 
 
 @pytest.mark.parametrize(
-    ("currency", "fiscal", "expected_currency", "fires"),
+    ("currency", "fiscal", "expected_currency", "fires", "uncertain"),
     [
-        (None, {"ncf": " b0100000001 "}, "DOP", True),
-        (None, {"ecf": "E310000000001"}, "DOP", True),
-        (None, {}, None, False),
-        (None, {"ncf": "B01000001"}, None, False),
-        ("USD", {"ncf": "B0100000001"}, "USD", False),
-        ("DOP", {"ncf": "B0100000001"}, "DOP", False),
+        (None, {"ncf": " b0100000001 "}, "DOP", True, ()),
+        (None, {"ecf": "E310000000001"}, "DOP", True, ()),
+        (None, {}, None, False, ()),
+        (None, {"ncf": "B01000001"}, None, False, ()),
+        ("USD", {"ncf": "B0100000001"}, "USD", False, ()),
+        ("DOP", {"ncf": "B0100000001"}, "DOP", False, ()),
+        ("USD", {"ncf": "B0100000001"}, None, False, ("currency",)),
     ],
-    ids=["unknown-ncf", "unknown-ecf", "no-ncf", "malformed-ncf", "usd", "dop"],
+    ids=["unknown-ncf", "unknown-ecf", "no-ncf", "malformed-ncf", "usd", "dop", "uncertain-usd"],
 )
 def test_fiscal_receipt_defaults_only_unknown_currency_before_save(
-    checked, monkeypatch, currency, fiscal, expected_currency, fires
+    checked, monkeypatch, currency, fiscal, expected_currency, fires, uncertain
 ):
     from argus.domain.business.actions import mutations, sources
     from argus.domain.ingestion.contract import ImportCandidate, SourceRef
@@ -341,6 +342,7 @@ def test_fiscal_receipt_defaults_only_unknown_currency_before_save(
         currency=currency,
         kind_hint="expense",
         merchant="Synthetic shop",
+        uncertain=uncertain,
     )
     batch = ExtractionBatch(
         complete=True,
