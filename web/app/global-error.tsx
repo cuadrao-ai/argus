@@ -6,7 +6,8 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { BrandedStatusScreen } from "@/components/status/BrandedStatusScreen";
 import { ReferenceCodeView } from "@/components/status/ReferenceCode";
-import { CUADRAO_ADMIN_EMAIL, referenceCode, shortReference } from "@/lib/failure-screen";
+import { referenceCode, shortReference } from "@/lib/failure-screen";
+import { supportEmail } from "@/lib/support-email";
 import spanish from "@/public/locales/es-419/common.json";
 
 const inter = localFont({
@@ -52,7 +53,7 @@ export default function GlobalError({
               }}
             />
           }
-          contactEmail={CUADRAO_ADMIN_EMAIL}
+          contactEmail={supportEmail}
         />
       </body>
     </html>

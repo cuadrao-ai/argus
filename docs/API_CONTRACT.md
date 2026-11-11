@@ -7401,7 +7401,8 @@ opt-in above. The detail keeps the ask's `source` but carries no rating, so only
 the tap's row holds the rating. Message thumbs send `positive` or `negative`.
 
 Every accepted submission, guest or registered and of any type, is emailed to
-`support@get-argus.com` after the response is sent, through the Resend SMTP
+the support address (`web/argus_display_contract/support_contact.json`) after
+the response is sent, through the Resend SMTP
 credential the access welcome email already uses
 (`CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`). The email carries the type, account kind,
 profile language, message, and the sanitized context above, and adds no contact

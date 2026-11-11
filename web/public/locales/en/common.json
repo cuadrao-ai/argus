@@ -1427,7 +1427,7 @@
       "error": "We couldn’t send your request. Please try again."
     },
     "business_unavailable": {
-      "body": "If you think this is a mistake, email us at hola@cuadrao.ai.",
+      "body": "If you think this is a mistake, email us at {{supportEmail}}.",
       "sign_out": "Sign out",
       "title": "Cuadrao Business isn't available for your account yet."
     },
@@ -1605,7 +1605,7 @@
     "auth_security": {
       "email_changed_description": "The email address for your Cuadrao account changed from {{oldEmail}} to {{newEmail}}.",
       "password_changed_description": "The password for your Cuadrao account was changed.",
-      "recovery_contact": "If this was not you, email us immediately at hola@cuadrao.ai to recover your account.",
+      "recovery_contact": "If this was not you, email us immediately at {{supportEmail}} to recover your account.",
       "safety_warning": "We will never ask for your password or access codes by email or phone. Enter them only at app.cuadrao.ai."
     },
     "business_lifecycle": {
@@ -1658,7 +1658,7 @@
       "title": "You already have an account"
     },
     "footer": {
-      "help": "Need help? Email hola@cuadrao.ai",
+      "help": "Need help? Email {{supportEmail}}",
       "legal": "Cuadrao LLC",
       "sign_off": "Regards,\nCuadrao"
     }

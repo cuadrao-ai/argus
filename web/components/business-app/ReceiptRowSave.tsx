@@ -3,6 +3,7 @@
 import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
+import { supportEmail } from "@/lib/support-email";
 import { quietButtonClass } from "./business-ui";
 import type { RowSave } from "./receipt-review-save";
 
@@ -15,7 +16,7 @@ export default function ReceiptRowSave({ save, onRetry, onCancel }: { save?: Row
   return (
     <div role="alert" data-testid="row-save-failed" className="mt-1 space-y-1 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">
       <p>{save.message}</p>
-      {save.retry ? null : <p>{t("auth.business_unavailable.body")}</p>}
+      {save.retry ? null : <p>{t("auth.business_unavailable.body", { supportEmail })}</p>}
       <div className="flex flex-wrap items-center gap-x-3">
         <ReferenceCode reference={save.reference} />
         {save.retry ? <button type="button" className={quietButtonClass} onClick={onRetry}>{t("common.retry", "Retry")}</button> : null}

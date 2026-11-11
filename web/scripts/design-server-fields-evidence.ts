@@ -8,6 +8,7 @@ import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "../e2e
 import { monthCloseWire } from "../e2e/support/month-close-wire";
 import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
 import { designServerFieldsReception } from "../e2e/support/design-server-fields-reception";
+import { supportEmail } from "../lib/support-email";
 
 const baseURL = process.env.EVIDENCE_BASE_URL ?? "http://127.0.0.1:3198";
 if (!["127.0.0.1", "localhost"].includes(new URL(baseURL).hostname)) throw new Error("Evidence requires a local server");
@@ -132,11 +133,11 @@ try {
       if (state === "bandeja-mixed") {
         await expect(receptionAlert).toContainText("No pudimos cargar tus notas ni tus correos.");
         await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
-        await expect(receptionAlert).not.toContainText("hola@cuadrao.ai");
+        await expect(receptionAlert).not.toContainText(supportEmail);
       }
       if (state === "bandeja-refused") {
         await expect(receptionAlert).toContainText("No pudimos cargar tus notas ni tus correos.");
-        await expect(receptionAlert.getByText(/hola@cuadrao.ai/)).toBeVisible();
+        await expect(receptionAlert.getByText(supportEmail)).toBeVisible();
         await expect(receptionAlert).not.toContainText("conexión");
         await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
       }
@@ -227,7 +228,7 @@ try {
         await receptionAlert.getByRole("button", { name: "Reintentar", exact: true }).click();
         await expect(receptionAlert).toContainText("No pudimos cargar tus notas.");
         await expect(receptionAlert).not.toContainText("correos");
-        await expect(receptionAlert).toContainText("hola@cuadrao.ai");
+        await expect(receptionAlert).toContainText(supportEmail);
         await expect(receptionAlert).not.toContainText("conexión");
         await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
         expect(calls.notes, "permanently refused notes are not retried").toBe(before.notes);
