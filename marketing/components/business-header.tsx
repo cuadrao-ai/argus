@@ -64,7 +64,7 @@ export function BusinessHeader({
   const copy = businessContent[locale].navigation;
   const home = businessPath(locale);
   const spanishOnly = page === "terms" || page === "deletion";
-  const secondary = page === "contact" || page === "privacy" || spanishOnly;
+  const secondary = page !== "home";
   const primaryHref = businessPath(locale, "contact");
   const primaryLabel = copy.demo;
 

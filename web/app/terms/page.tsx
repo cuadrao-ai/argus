@@ -1,7 +1,5 @@
-import { redirect } from "next/navigation";
+import { LegalRedirect } from "@/components/legal/LegalRedirect";
 
-import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
-
-export default function TermsPage(): never {
-  redirect(cuadraoLegalLinks().terms);
+export default function TermsPage() {
+  return <LegalRedirect document="terms" />;
 }

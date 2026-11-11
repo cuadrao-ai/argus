@@ -18,8 +18,8 @@ const ENV_NAMES = [
 ] as const;
 const TERMS = "https://cuadrao.example/terminos";
 const PRIVACY = "https://cuadrao.example/privacidad";
-const PUBLISHED_TERMS = "https://cuadrao.ai/terminos";
-const PUBLISHED_PRIVACY = "https://cuadrao.ai/privacidad";
+const PUBLISHED_TERMS = "https://cuadrao.ai/app/terminos";
+const PUBLISHED_PRIVACY = "https://cuadrao.ai/app/privacidad";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });

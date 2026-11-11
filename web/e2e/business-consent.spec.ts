@@ -60,7 +60,7 @@ for (const width of [1440, 390]) {
     await expect(screen.getByRole("heading", { level: 1 })).toHaveText(COPY.title);
     await expect(screen.getByText(COPY.body, { exact: true })).toBeVisible();
     await expect(screen.getByText(COPY.optIn, { exact: true })).toBeVisible();
-    await expect(screen.getByRole("link", { name: COPY.privacy })).toHaveAttribute("href", "https://cuadrao.ai/privacidad");
+    await expect(screen.getByRole("link", { name: COPY.privacy })).toHaveAttribute("href", "https://cuadrao.ai/app/privacidad");
     const go = screen.getByRole("button", { name: COPY.continue, exact: true });
     await expect(go).toBeDisabled();
     await expect(page.locator("#business-overview-title")).toHaveCount(0);

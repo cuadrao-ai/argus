@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import timedelta
+from hashlib import sha256
 
 import psycopg
 import pytest
@@ -69,9 +70,14 @@ def gotrue_admin_create(user_id: str, email: str) -> int:
     with psycopg.connect(DSN) as c, c.transaction():
         c.execute("set local track_functions = 'all'")
         c.execute(
-            "insert into auth.users(id,email,is_anonymous,raw_app_meta_data,raw_user_meta_data)"
-            " values (%s,%s,false,%s,'{}')",
-            (user_id, email, json.dumps({"provider": "email", "providers": ["email"]})),
+            "insert into auth.users(id,email,encrypted_password,is_anonymous,raw_app_meta_data,raw_user_meta_data)"
+            " values (%s,%s,%s,false,%s,'{}')",
+            (
+                user_id,
+                email,
+                sha256(b"synthetic placeholder password").hexdigest(),
+                json.dumps({"provider": "email", "providers": ["email"]}),
+            ),
         )
         c.execute(
             "update auth.users set raw_app_meta_data = raw_app_meta_data || %s::jsonb"

@@ -80,6 +80,8 @@ export default async function SitePage({ params }: Props) {
     case "privacy":
     case "terms":
     case "deletion":
+    case "appPrivacy":
+    case "appTerms":
       return <LegalPage page={page} locale={locale} />;
   }
 }

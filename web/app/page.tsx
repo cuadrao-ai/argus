@@ -232,7 +232,7 @@ export default function LandingPage() {
   };
 
   const isSignup = authMode === "signup";
-  const acceptance = acceptanceLinks();
+  const acceptance = acceptanceLinks(i18n.language);
   const entrySurface = resolveLandingEntrySurface({
     authMode,
     // A Business build has no guest chat: a signed-out visitor sees login.
