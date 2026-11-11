@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from functools import partial
 from typing import Any
 from uuid import UUID, uuid4
@@ -68,6 +69,57 @@ def sent(monkeypatch: pytest.MonkeyPatch) -> Sent:
 
 def _events(bodies: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
     return [body["properties"] for body in bodies if body["event"] == name]
+
+
+def _assert_no_money_properties(properties: object, amount: str) -> None:
+    if isinstance(properties, dict):
+        for key, value in properties.items():
+            assert key not in {"amount", "amount_minor", "total", "itbis"}
+            _assert_no_money_properties(value, amount)
+    elif isinstance(properties, list | tuple):
+        for value in properties:
+            _assert_no_money_properties(value, amount)
+    elif isinstance(properties, str | int | float) and not isinstance(properties, bool):
+        try:
+            value = Decimal(str(properties))
+        except InvalidOperation:
+            return
+        assert value != Decimal(amount)
+
+
+@pytest.mark.parametrize("kind", ["hash", "timestamp", "longer_number"])
+def test_money_leak_check_ignores_amount_substrings(faker, kind: str) -> None:  # noqa: ANN001
+    amount = str(faker.random_int(min=1100, max=9999))
+    safe = {
+        "hash": f"argus_business_{amount}{faker.hexify('^' * 28)}",
+        "timestamp": f"{amount}-01-01T00:00:00Z",
+        "longer_number": int(amount) * 10 + 1,
+    }[kind]
+    _assert_no_money_properties({"metadata": [{"value": safe}]}, amount)
+
+
+@pytest.mark.parametrize("kind", ["string", "decimal_string", "integer", "float"])
+@pytest.mark.parametrize("nested", [False, True], ids=["top_level", "nested"])
+def test_money_leak_check_rejects_whole_amounts(faker, kind: str, nested: bool) -> None:  # noqa: ANN001
+    amount = str(faker.random_int(min=1100, max=9999))
+    leaked = {
+        "string": amount,
+        "decimal_string": f"{amount}.00",
+        "integer": int(amount),
+        "float": float(amount),
+    }[kind]
+    properties = {"value": leaked}
+    if nested:
+        properties = {"metadata": [{"details": properties}]}
+    with pytest.raises(AssertionError):
+        _assert_no_money_properties(properties, amount)
+
+
+@pytest.mark.parametrize("key", ["amount", "amount_minor", "total", "itbis"])
+def test_money_leak_check_rejects_money_fields(faker, key: str) -> None:  # noqa: ANN001
+    amount = str(faker.random_int(min=1100, max=9999))
+    with pytest.raises(AssertionError):
+        _assert_no_money_properties({"metadata": [{key: None}]}, amount)
 
 
 def _sources(service, draft: UUID) -> list[tuple[UUID, str | None, datetime]]:  # noqa: ANN001
@@ -157,13 +209,15 @@ def test_approval_reads_the_filled_names_and_the_first_arrival(actions, sent):  
         fiscal.SUPPLIER,
         fiscal.FILER,
         fiscal.NCF,
-        "1180",
         read["merchant"],
         str(context.actor.space_id),
         str(context.actor.actor_id),
         str(draft),
     ):
         assert value not in leaked
+    for body in sent:
+        for amount in (read["total"], read["itbis"]):
+            _assert_no_money_properties(body["properties"], amount)
 
     # The same approval again replays the stored outcome and reports nothing again.
     replayed = service.approve(
@@ -256,8 +310,9 @@ def test_a_typed_note_is_received_once(actions, sent):  # noqa: ANN001
     assert received["channel"] == "note"
     assert "file_type" not in received and "size_bucket" not in received
     leaked = json.dumps(sent)
-    for value in ("3450", "ferreter", "101010101", str(context.actor.space_id)):
+    for value in ("ferreter", "101010101", str(context.actor.space_id)):
         assert value not in leaked
+    _assert_no_money_properties(received, "3450")
 
 
 def test_two_approvals_under_one_key_report_the_approval_once(
