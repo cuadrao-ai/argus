@@ -27,7 +27,7 @@ and the concern, without passwords, keys, or row contents.
 
 ## 2. Suspend writers
 
-1. In Render, open **cuadrao-api**.
+1. In the hosting dashboard, open **cuadrao-api**.
 2. Open **Settings**.
 3. At the bottom, click **Suspend Web Service**.
 4. Confirm suspension.
@@ -128,8 +128,7 @@ buckets are not recreated.
 Stop if the menu differs, emptying is still queued, a bucket exceeds 200,000
 objects, or either operation fails. Tell us the bucket name, count, and error.
 Never delete Storage rows with SQL. SQL can leave backing files orphaned.
-See [supported file deletion](https://supabase.com/docs/guides/storage/management/delete-objects)
-and [bucket operations](https://supabase.com/docs/reference/self-hosting-storage/update-properties-of-a-bucket).
+See the database platform's documentation on deleting stored files and buckets.
 
 ## 5. Run the reset
 
