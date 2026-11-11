@@ -14,6 +14,10 @@
   opacity: 1;
 }
 
+.rowActions {
+  opacity: 1;
+}
+
 .hoverLayoutDate {
   right: 3.5rem;
 }
@@ -46,6 +50,15 @@
     opacity: 1;
   }
 
+  .rowActions {
+    opacity: 0;
+  }
+
+  :global(.group:hover) .rowActions,
+  :global(.group:focus-within) .rowActions {
+    opacity: 1;
+  }
+
   .hoverLayoutDate {
     right: 0.75rem;
   }
@@ -70,6 +83,10 @@
   }
 
   .replaceCue {
+    opacity: 1;
+  }
+
+  .rowActions {
     opacity: 1;
   }
 

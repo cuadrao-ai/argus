@@ -15,6 +15,7 @@ import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from
 await keepOwnListSearch();
 
 const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+const viewRowInOpenMenu = (name: string) => [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"][aria-label="Vistas"] button')].find((button) => button.textContent === name);
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
@@ -163,22 +164,22 @@ test("saved views persist only recipes, rename with versions, restore page one a
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"] } }) });
   await page.click(document.querySelector('button[aria-label="Última página"]'));
   await page.settle(() => document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "3");
-  await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
+  await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista actual"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Mi vista"); await page.click(page.button("Guardar"));
   await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
   const saved = page.fixture.views[0].recipe as Record<string, unknown>;
   assert.equal(saved.schema_version, 2); assert.ok(saved.presentation); assert.equal(saved.page_size, 25); assert.equal(saved.page, undefined); assert.equal(saved.totals, undefined);
   await page.type(document.querySelector('input[type="search"]')!, "pena");
   await page.settle(() => document.querySelectorAll("tbody tr").length === 1);
-  await page.click(page.button("Vistas")); await page.click(page.button("Mi vista"));
+  await page.click(page.button("Vistas: Mi vista")); await page.click(viewRowInOpenMenu("Mi vista"));
   await page.settle(() => document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "1" && document.querySelectorAll("tbody tr").length === 25);
   assert.equal(document.querySelector<HTMLInputElement>('input[type="search"]')!.value, "");
-  await page.click(page.button("Vistas")); await page.click(page.button(spanish.common.rename));
-  await page.type(document.querySelector('input[maxlength="120"]')!, "Mi vista nueva"); await page.click(page.button("Guardar"));
+  await page.click(page.button("Vistas: Mi vista")); await page.click(page.button("Renombrar Mi vista"));
+  await page.type(document.querySelector('input[maxlength="120"]')!, "Mi vista nueva"); await page.click(page.button("Guardar nombre"));
   await page.settle(() => page.fixture.views[0].version === 2);
   const update = page.fixture.calls.find((call) => call.method === "PATCH" && call.path.includes("report-views"));
   assert.equal((update!.body as { expected_version: number }).expected_version, 1);
-  await page.click(page.button("Vistas")); await page.click(page.button(spanish.common.delete));
+  await page.click(page.button("Eliminar Mi vista nueva"));
   await page.settle(() => page.fixture.views.length === 0);
 });
 
@@ -270,18 +271,18 @@ test("the phone keeps the pull gesture and gets no toolbar refresh control", asy
 
 test("view conflicts keep the unsaved name and require current version readback before another save", async () => {
   const page = await mount();
-  await page.click(page.button('Vistas')); await page.click(page.button('Guardar vista'));
+  await page.click(page.button('Vistas')); await page.click(page.button('Guardar vista actual'));
   await page.type(document.querySelector('input[maxlength="120"]')!, 'Vista inicial'); await page.click(page.button('Guardar'));
   await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
-  await page.click(page.button('Vistas')); await page.click(page.button(spanish.common.rename));
+  await page.click(page.button('Vistas: Vista inicial')); await page.click(page.button('Renombrar Vista inicial'));
   await page.type(document.querySelector('input[maxlength="120"]')!, 'Mi nombre pendiente');
   page.fixture.views[0].version = 5;
-  await page.click(page.button('Guardar')); await page.settle(() => document.querySelector('[role="alert"]')?.textContent?.includes('vista cambió') ?? false);
+  await page.click(page.button('Guardar nombre')); await page.settle(() => document.querySelector('[role="alert"]')?.textContent?.includes('vista cambió') ?? false);
   assert.equal(document.querySelector<HTMLInputElement>('input[maxlength="120"]')!.value, 'Mi nombre pendiente');
   assert.equal(page.fixture.views[0].name, 'Vista inicial');
   await page.click(page.button('Actualizar'));
   await page.settle(() => page.fixture.calls.filter((call) => call.path.endsWith('/report-views') && call.method === 'GET').length >= 2);
-  await page.click(page.button('Guardar')); await page.settle(() => page.fixture.views[0].version === 6);
+  await page.click(page.button('Guardar nombre')); await page.settle(() => page.fixture.views[0].version === 6);
   const writes = page.fixture.calls.filter((call) => call.method === 'PATCH');
   assert.equal((writes[0].body as { expected_version: number }).expected_version, 1);
   assert.equal((writes[1].body as { expected_version: number }).expected_version, 5);
@@ -809,12 +810,12 @@ test("selecting a saved Fiscal view discards the prior status snapshot", async (
   await page.click(fiscalCard());
   await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
   await page.click(page.button("Vistas"));
-  await page.click(page.button("Guardar vista"));
+  await page.click(page.button("Guardar vista actual"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Fiscales");
   await page.click(page.button("Guardar"));
   await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
-  await page.click(page.button("Vistas"));
-  await page.click(page.button("Fiscales"));
+  await page.click(page.button("Vistas: Fiscales"));
+  await page.click(viewRowInOpenMenu("Fiscales"));
   await page.settle(() => !fiscalCard().disabled);
   await page.click(fiscalCard());
   await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);

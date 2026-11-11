@@ -9,7 +9,7 @@ import { getChosenGrant } from "@/lib/business-grant";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import { isProgrammaticPop } from "@/lib/overlay-history";
 import { businessReportRow, liveReportingTransport, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportFailure, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
-import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, reportPeriodSchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
+import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, reportPeriodSchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRecipe, type ReportRequest, type ReportScope } from "@/lib/business-reports-api";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
@@ -25,6 +25,7 @@ import FullscreenLoading from "@/components/FullscreenLoading";
 import { activeFilterGroups, emptyPreviewFilters, REVIEW_FILTERS, STAGE_OF, type PreviewFilters } from "./records-filter-preview-model";
 import { showToast } from "../foundation/toasts";
 import { RecordsToolbar, type RecordsFilter } from "./RecordsToolbar";
+import { sameRecipe, type RecordsViews } from "./RecordsViewsPreview";
 import RecordsTypeTabs from "./RecordsTypeTabs";
 import RecordsSettingsPreview from "./RecordsSettingsPreview";
 import RecordsPagePreview from "./RecordsPagePreview";
@@ -179,13 +180,40 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const views = state.views.kind === "ready" ? state.views.items : [];
   const viewProblem = state.viewOperation.kind === "failed" ? state.viewOperation.problem : state.views.kind === "failed" ? state.views.problem : null;
   const uncertain = state.viewOperation.kind === "failed" && state.viewOperation.problem.kind === "uncertain";
-  const writeView = async (name: string, id?: string) => {
+  const problem = (failure: ReportFailure, retry: () => void): ReactNode => <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(`${REPORTING}${failure.kind === "access" ? "access_unavailable" : failure.kind === "version" ? "view_changed" : failure.kind === "uncertain" ? "uncertain_view" : "unavailable"}`)}{failure.kind !== "access" && failure.kind !== "conflict" ? <button type="button" className={quietButtonClass} onClick={retry}>{t(`${REPORTING}${failure.kind === "uncertain" ? "retry" : "refresh"}`)}</button> : null}{failure.requestId ? <ReferenceCode reference={failure.requestId} /> : null}</p>;
+  const [appliedViewId, setAppliedViewId] = useState<string | null>(null);
+  const appliedView = views.find((view) => view.id === appliedViewId);
+  const shownRecipe = preferences ? recipeFromRequest(state.request, recordsPresentationToReport(preferences)) : null;
+  const writeView = async (name: string, viewRecipe: ReportRecipe | null, id?: string) => {
     const view = views.find((view) => view.id === id);
-    if (state.load.kind !== "ready" || id && !view || !preferences) return false;
-    await controller.mutateView(id && view ? { kind: "update", id, key: crypto.randomUUID(), body: { name, recipe: view.recipe, expected_version: view.version } } : { kind: "create", key: crypto.randomUUID(), body: { name, recipe: recipeFromRequest(state.request, recordsPresentationToReport(preferences)) } });
+    if (state.load.kind !== "ready" || id && !view || !viewRecipe) return false;
+    await controller.mutateView(id && view ? { kind: "update", id, key: crypto.randomUUID(), body: { name, recipe: viewRecipe, expected_version: view.version } } : { kind: "create", key: crypto.randomUUID(), body: { name, recipe: viewRecipe } });
     return controller.getSnapshot().viewOperation.kind === "done";
   };
-  const problem = (failure: ReportFailure, retry: () => void): ReactNode => <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(`${REPORTING}${failure.kind === "access" ? "access_unavailable" : failure.kind === "version" ? "view_changed" : failure.kind === "uncertain" ? "uncertain_view" : "unavailable"}`)}{failure.kind !== "access" && failure.kind !== "conflict" ? <button type="button" className={quietButtonClass} onClick={retry}>{t(`${REPORTING}${failure.kind === "uncertain" ? "retry" : "refresh"}`)}</button> : null}{failure.requestId ? <ReferenceCode reference={failure.requestId} /> : null}</p>;
+  const createView = async (name: string, viewRecipe: ReportRecipe | null, apply: boolean) => {
+    if (!await writeView(name, viewRecipe)) return false;
+    const saved = controller.getSnapshot().views;
+    if (apply && saved.kind === "ready") setAppliedViewId(saved.items.find((view) => view.name === name)?.id ?? null);
+    return true;
+  };
+  const savedViews: RecordsViews = {
+    items: views,
+    applied: appliedView && shownRecipe ? { id: appliedView.id, changed: !sameRecipe(appliedView.recipe, shownRecipe) } : null,
+    select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); setAppliedViewId(id); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } },
+    save: (name) => createView(name, shownRecipe, true),
+    rename: (id, name) => writeView(name, views.find((view) => view.id === id)?.recipe ?? null, id),
+    saveChanges: (id) => writeView(views.find((view) => view.id === id)?.name ?? "", shownRecipe, id),
+    remove: async (id) => {
+      const view = views.find((view) => view.id === id);
+      if (!view) return null;
+      await controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } });
+      if (controller.getSnapshot().viewOperation.kind !== "done") return null;
+      const wasApplied = id === appliedViewId;
+      return () => { void createView(view.name, view.recipe, wasApplied); };
+    },
+    busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain,
+    notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !currentFormat ? <p>{t(`${REPORTING}pending_contract`)}</p> : null,
+  };
   const recheckAnnotationAccess = () => {
     setScopeData(null); controller.revoke();
     void controller.refresh().then(() => { if (controller.getSnapshot().load.kind === "ready") void controller.listViews(); });
@@ -274,7 +302,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
       ]} />
       <RecordsTypeTabs value={filter.kind} onChange={(kind) => recipe({ filters: { ...state.request.filters, record_families: [kind === "venta" ? "sale" : "purchase"] } }, false)} />
       <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} fiscalCount={overview?.needs_fiscal_data ?? null} selected={filters.fiscal_data === "missing" ? ["fiscal"] : []} loading={state.load.kind === "loading"} onChoose={toggleFiscal} />
-      <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{!phone ? <RecordsRefreshButton busy={state.load.kind === "loading"} onRefresh={() => void controller.refresh()} /> : null}{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview purchase={filter.kind === "gasto"} value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: { items: views, select: (id) => { const view = views.find((view) => view.id === id); if (view) { clearFiscal(); recipe({ ...view.recipe, page_size: view.recipe.schema_version === 2 ? view.recipe.page_size : state.request.page_size }); } }, save: (name) => writeView(name), update: (id, name) => writeView(name, id), remove: (id) => { const view = views.find((view) => view.id === id); if (view) void controller.mutateView({ kind: "delete", id, key: crypto.randomUUID(), body: { expected_version: view.version } }); }, busy: state.load.kind !== "ready" || state.viewOperation.kind === "busy" || uncertain, notice: viewProblem ? problem(viewProblem, () => { if (uncertain) void controller.retryView(); else void controller.listViews(); }) : !currentFormat ? <p>{t(`${REPORTING}pending_contract`)}</p> : null } }} />
+      <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{!phone ? <RecordsRefreshButton busy={state.load.kind === "loading"} onRefresh={() => void controller.refresh()} /> : null}{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview purchase={filter.kind === "gasto"} value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: savedViews }} />
       {state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : state.load.kind !== "ready" || !preferences || probePending ? (preferences ? <RecordsLoadingPreview purchase={filter.kind === "gasto"} preferences={preferences} density={preferences.density} /> : <FullscreenLoading />) : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
         <RecordsPagePreview purchase={filter.kind === "gasto"} records={rows} preferences={preferences} onSortChange={() => undefined} density={preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: state.load.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
       </RecordEvidenceContext.Provider></RecordGlanceContext.Provider>}

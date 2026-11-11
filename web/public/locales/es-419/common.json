@@ -2790,8 +2790,17 @@
           "name": "Nombre de la vista",
           "placeholder": "Ej. Gastos sin documento",
           "duplicate": "Ya tienes una vista con este nombre.",
-          "save": "Guardar vista",
-          "export": "Exportar resultados"
+          "save": "Guardar vista actual",
+          "export": "Exportar resultados",
+          "changed": "Con cambios",
+          "delete_named": "Eliminar {{name}}",
+          "deleted": "Se eliminó «{{name}}»",
+          "empty_hint": "Ajusta filtros y columnas, y guárdalos para volver con un clic.",
+          "rename_named": "Renombrar {{name}}",
+          "rename_save": "Guardar nombre",
+          "save_changes": "Guardar cambios en «{{name}}»",
+          "save_hint": "Guarda los filtros, columnas y orden que ves ahora.",
+          "save_new": "Guardar como vista nueva"
         },
         "workflow": {
           "exported": "Exportado",
