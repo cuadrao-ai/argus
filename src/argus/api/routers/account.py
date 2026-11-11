@@ -18,6 +18,7 @@ route) may call it again to resume their own run (``account_deletion_auth``).
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime
 from typing import Annotated, Literal, Union
 
@@ -57,6 +58,15 @@ _INCOMPLETE_RETRY_SECONDS = 5
 
 def account_deletion_enabled() -> bool:
     return os.getenv(FLAG, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+_CREDENTIAL = re.compile(r"(?i)(?:https?|postgres(?:ql)?)://\S+|Bearer\s+\S+")
+
+
+def _visible_failure_reason(exc: BaseException) -> str:
+    text = " ".join(str(exc).split())
+    redacted = _CREDENTIAL.sub("[redacted]", text).strip()
+    return redacted or type(exc).__name__
 
 
 class AccountDeletionRequest(BaseModel):
@@ -248,7 +258,11 @@ def account_deletion_eligibility(
         service = account_deletion_service()
         eligibility = service.deletion_eligibility(user.id) if service else None
     except Exception as exc:
-        logger.error("Account deletion check failed: {}", type(exc).__name__)
+        logger.error(
+            "Account deletion check failed: {} {}",
+            type(exc).__name__,
+            _visible_failure_reason(exc),
+        )
         eligibility = None
     if eligibility is None:
         raise problem(
@@ -284,7 +298,12 @@ def delete_account(
     # A guest session is deleted by the same command (Lane 6 acceptance).
     try:
         service = account_deletion_service()
-    except Exception:
+    except Exception as exc:
+        logger.error(
+            "Account deletion service failed to build: {} {}",
+            type(exc).__name__,
+            _visible_failure_reason(exc),
+        )
         service = None
     if service is None:
         started = getattr(request.state, "account_deletion_started", False)
