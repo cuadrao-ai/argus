@@ -16,6 +16,8 @@ from argus.observability.product_events import actor_hash_for_user
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from tests.money_assertions import _assert_no_money_properties
+
 
 class Inline:
     def submit(self, fn) -> None:  # noqa: ANN001
@@ -73,13 +75,14 @@ def test_an_unhandled_api_error_sends_its_class_route_and_frames_only(
     for value in (
         "101010101",
         "jose@example.com",
-        "3,450",
-        "3450",
         "RNC",
         "7f0d",
         "note",
     ):
         assert value not in sent
+    _assert_no_money_properties(body["properties"], "3450")
+    for entry in body["properties"]["$exception_list"]:
+        assert set(entry) == {"type", "stacktrace"}
 
 
 def test_an_api_error_with_no_token_sends_nothing_and_still_answers(
@@ -137,5 +140,8 @@ def test_an_unhandled_read_error_sends_the_job_and_the_hashed_owner(
     assert body["properties"]["job"] == "document_preparation"
     assert body["distinct_id"] == actor_hash_for_user("owner-raw-id")
     sent = json.dumps(body)
-    for value in ("101010101", "jose@example.com", "3,450", "3450", "owner-raw-id"):
+    for value in ("101010101", "jose@example.com", "owner-raw-id"):
         assert value not in sent
+    _assert_no_money_properties(body["properties"], "3450")
+    for entry in body["properties"]["$exception_list"]:
+        assert set(entry) == {"type", "stacktrace"}
