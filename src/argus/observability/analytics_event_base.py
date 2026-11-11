@@ -17,7 +17,8 @@ class AnalyticsEvent(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     event_name: ClassVar[str]
-    # Only ``signed_in`` links an account to the guest it came from (C3).
+    # No registered event sets this. The sink still refuses a guest hash on an
+    # event that leaves it false.
     carries_guest_id_hash: ClassVar[bool] = False
 
     @model_validator(mode="before")

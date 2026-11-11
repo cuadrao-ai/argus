@@ -1,36 +1,24 @@
-"""The closed product analytics registry: Iris's wave 1 events and the Business
-pilot's events (``argus.domain.business.analytics_events``), and nothing else.
+"""The closed product analytics registry: the Business pilot's events
+(``argus.domain.business.analytics_events``), and nothing else.
 
 Each event is one Pydantic model whose fields are the event's exact properties.
-Fields are typed only as ``Literal[...]``, ``bool``, a bounded ``int``, a
-string checked against a closed vocabulary another owner lists (the calculation
-catalog), or the one pattern-constrained ``cohort`` string, so an amount, a
-name, an email, or any other free text cannot be represented, let alone sent
-(SPEC 0, 0.5, A4).
+Fields are typed only as ``Literal[...]``, ``bool``, a bounded ``int``, or the
+hashed Business id, so an amount, a name, an email, or any other free text
+cannot be represented, let alone sent.
 
-PostHog receives each event under its own name. The sink in ``envelope.py``
-sends an envelope only when ``registered_payload()`` below re-validates it as
-one of these models, so this module is the only way an event reaches PostHog.
+The sink in ``envelope.py`` sends an envelope only when ``registered_payload()``
+below re-validates it as one of these models, so this module is the only way
+an event reaches the product analytics sink.
 """
 
 from __future__ import annotations
 
-import functools
 import re
 import uuid
-from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Any
 
-from pydantic import (
-    ConfigDict,
-    Field,
-    GetCoreSchemaHandler,
-    StringConstraints,
-    ValidationError,
-)
-from pydantic_core import core_schema
+from pydantic import ConfigDict, ValidationError
 
 from argus.domain.business.analytics_events import BUSINESS_EVENT_MODELS
 from argus.observability.analytics_event_base import AnalyticsEvent
@@ -44,164 +32,16 @@ from argus.observability.product_events import actor_hash_for_user
 
 ANALYTICS_SCHEMA_VERSION = "argus_analytics_event/v1"
 
-# The invite cohort code (SPEC 0, 0C-9). The only non-literal string an event
-# may carry. The request field, the database check, and the browser guard must
-# agree with this pattern; 0C-9 reuses this type rather than restating it.
-INVITE_COHORT_PATTERN = r"^[a-z]{2,12}-[a-z0-9]{4,8}$"
-InviteCohort = Annotated[
-    str,
-    StringConstraints(pattern=INVITE_COHORT_PATTERN, max_length=21),
-]
-
 # ``distinct_id`` and ``guest_id_hash`` are always ``actor_hash_for_user()``.
 _ACTOR_HASH = re.compile(r"^argus_actor_[0-9a-f]{32}$")
-
-
-@dataclass(frozen=True)
-class ClosedVocabulary:
-    """A string property whose allowed values another owner lists.
-
-    ``values()`` is read when a value is validated, so the owner stays the only
-    list; nothing here restates it.
-    """
-
-    values: Callable[[], frozenset[str]]
-
-    def __get_pydantic_core_schema__(
-        self,
-        source: Any,
-        handler: GetCoreSchemaHandler,
-    ) -> core_schema.CoreSchema:
-        return core_schema.no_info_after_validator_function(self._check, handler(source))
-
-    def _check(self, value: str) -> str:
-        if value not in self.values():
-            raise ValueError("not a registered value")
-        return value
-
-
-@functools.cache
-def registered_calculation_names() -> frozenset[str]:
-    """The calculation catalog's names, the one owner of the calculator values.
-
-    Read from ``get_calculation_declarations()`` on first validation and kept
-    for the process: the catalog is code, and building it costs tens of
-    milliseconds.
-    """
-    from argus.domain.calculations import get_calculation_declarations
-
-    return frozenset(declaration.name for declaration in get_calculation_declarations())
-
-
-CardCalculator = Annotated[
-    str,
-    ClosedVocabulary(lambda: registered_calculation_names() | {"backtest"}),
-]
-SharedCalculator = Annotated[
-    str,
-    ClosedVocabulary(
-        lambda: registered_calculation_names() | {"backtest", "multiple", "none"}
-    ),
-]
-AnalyticsLanguage = Literal["en", "es-419"]
-
-# No real person has been using Argus for a century.
-MAX_DAYS_SINCE_SIGNUP = 36_500
 
 # An analytics envelope is sent right after it is built. Its timestamp is the
 # build time, so one far from now was not stamped by the registry.
 _MAX_ENVELOPE_AGE = timedelta(minutes=5)
 _MAX_CLOCK_SKEW = timedelta(seconds=5)
 
-
-class FirstAnswerShown(AnalyticsEvent):
-    event_name: ClassVar[str] = "first_answer_shown"
-
-    account_kind: Literal["guest", "signed_in"]
-    chip_audience: Literal["everyday", "practitioner", "none"]
-    language: AnalyticsLanguage
-    cohort: InviteCohort | None = None
-
-
-class SignedIn(AnalyticsEvent):
-    event_name: ClassVar[str] = "signed_in"
-    carries_guest_id_hash: ClassVar[bool] = True
-
-    signup: Literal["new", "returning"]
-    trigger: Literal["save", "goal", "checklist", "other"]
-    cohort: InviteCohort | None = None
-
-
-class CardSaved(AnalyticsEvent):
-    event_name: ClassVar[str] = "card_saved"
-
-    calculator: CardCalculator
-
-
-class GoalCreated(AnalyticsEvent):
-    event_name: ClassVar[str] = "goal_created"
-
-    goal_type: Literal["savings"]
-
-
-class ChecklistStepCompleted(AnalyticsEvent):
-    event_name: ClassVar[str] = "checklist_step_completed"
-
-    step: Literal[1, 2, 3]
-
-
-class RemindersOptedIn(AnalyticsEvent):
-    event_name: ClassVar[str] = "reminders_opted_in"
-
-    channel: Literal["email", "push"]
-
-
-class RemindersOptedOut(AnalyticsEvent):
-    event_name: ClassVar[str] = "reminders_opted_out"
-
-    channel: Literal["email", "push"]
-
-
-class SessionStarted(AnalyticsEvent):
-    event_name: ClassVar[str] = "session_started"
-
-    days_since_signup: Annotated[int, Field(ge=0, le=MAX_DAYS_SINCE_SIGNUP)]
-    cohort: InviteCohort | None = None
-
-
-class InstalledAppOpened(AnalyticsEvent):
-    event_name: ClassVar[str] = "installed_app_opened"
-
-
-class LandingViewed(AnalyticsEvent):
-    event_name: ClassVar[str] = "landing_viewed"
-
-    language: AnalyticsLanguage
-    cohort: InviteCohort | None = None
-
-
-class ReceiptShared(AnalyticsEvent):
-    event_name: ClassVar[str] = "receipt_shared"
-
-    calculator: SharedCalculator
-
-
 ANALYTICS_EVENT_MODELS: dict[str, type[AnalyticsEvent]] = {
-    model.event_name: model
-    for model in (
-        FirstAnswerShown,
-        SignedIn,
-        CardSaved,
-        GoalCreated,
-        ChecklistStepCompleted,
-        RemindersOptedIn,
-        RemindersOptedOut,
-        SessionStarted,
-        InstalledAppOpened,
-        LandingViewed,
-        ReceiptShared,
-        *BUSINESS_EVENT_MODELS,
-    )
+    model.event_name: model for model in BUSINESS_EVENT_MODELS
 }
 
 # Sent with every event besides the model's own fields (SPEC 0, 0.5).
@@ -336,7 +176,8 @@ def registered_payload(
     included, and carry an instance of exactly one registered model. That instance is validated again, because
     ``model_construct()`` or a subclass could otherwise smuggle unchecked values
     past the model. The only attribute allowed next to it is a well-formed
-    ``guest_id_hash`` on ``signed_in``, and ``distinct_id`` must be an actor hash.
+    ``guest_id_hash`` on an event that sets ``carries_guest_id_hash``, and
+    ``distinct_id`` must be an actor hash. No registered event sets that flag.
     """
     if type(envelope) is not AnalyticsEnvelope or not _has_registry_shape(envelope):
         return None
@@ -375,10 +216,9 @@ def capture_analytics_event(
 ) -> EventCaptureResult:
     """Send one registered event to PostHog under its own name.
 
-    ``user_id`` is the account id for signed-in users and the guest user id for
-    guests; PostHog sees only its hash. ``guest_user_id`` is accepted only on
-    ``signed_in`` and becomes ``guest_id_hash``, the same hash the guest's own
-    events used as their ``distinct_id``.
+    ``user_id`` is hashed before it leaves this process. ``guest_user_id`` is
+    accepted only when the event sets ``carries_guest_id_hash``. No registered
+    event does, so a caller that passes one is refused.
     """
     return capture_event(
         build_analytics_envelope(

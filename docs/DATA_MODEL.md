@@ -1358,9 +1358,10 @@ service role server-side; service-role grants do not relax frontend/client RLS.
 
 P1 defines the private-alpha observability envelope in code. B3 measurement
 slice 3 adds the first durable internal cost ledger while keeping product
-analytics and eval-result persistence separate. Wave 1 (SPEC 0, package 0C-1)
-replaces the earlier product and guest funnel events with one closed analytics
-registry: PostHog receives only the events below, each under its own name.
+analytics and eval-result persistence separate. Wave 1 (SPEC 0, package 0C-1) replaced the earlier product and guest funnel
+events with one closed analytics registry. The wave 1 names are no longer
+registered. The sink receives only the Business events below, each under its
+own name.
 
 Current behavior:
 - `argus_observability_event/v1` is the canonical event-envelope schema;
@@ -1385,23 +1386,12 @@ Current behavior:
 
 Analytics events. Each is one Pydantic model (`extra="forbid"`, strict) whose
 fields are exactly the properties listed. Every field is a literal value, a
-boolean, a bounded integer, a calculation name checked against the catalog,
-`cohort`, the hashed Business id `business_hash`, or a bounded tuple of
-literal values. `tests/test_analytics_events.py`
-fails if any field could hold free text or a money-formatted value (A4).
+boolean, a bounded integer, the hashed Business id `business_hash`, or a
+bounded tuple of literal values. `tests/test_analytics_events.py`
+fails if any field could hold free text or a money-formatted value.
 
-| Event | Properties | Fires (package) |
+| Event | Properties | Fires |
 | --- | --- | --- |
-| `first_answer_shown` | `account_kind`: `guest` or `signed_in`; `chip_audience`: `everyday`, `practitioner`, or `none`; `language`: `en` or `es-419`; `cohort` for guests with a stored cohort only | first completed answer per subject (0C-3) |
-| `signed_in` | `signup`: `new` or `returning`; `trigger`: `save`, `goal`, `checklist`, or `other`; `guest_id_hash` only when the account came from a guest; `cohort` when the account has one | every sign-up and sign-in (0C-4) |
-| `card_saved` | `calculator`: a registered calculation name or `backtest` | saving a card (0C-4) |
-| `goal_created` | `goal_type`: `savings` | registered; fires in stage 2 |
-| `checklist_step_completed` | `step`: `1`, `2`, or `3` | registered; fires in stage 2 |
-| `reminders_opted_in`, `reminders_opted_out` | `channel`: `email` or `push` | registered; fire in stage 3 |
-| `session_started` | `days_since_signup`: integer, 0 to 36500, computed on the server; `cohort` when the account has one | once per browser session, signed-in only (0C-5) |
-| `installed_app_opened` | none | standalone launch, once per session (0C-5) |
-| `landing_viewed` | `language`: `en` or `es-419`; `cohort` for guests with a stored cohort only | once per landing view (0C-5) |
-| `receipt_shared` | `calculator`: a registered calculation name, `backtest`, `multiple`, or `none` | a real share-link insert (0C-8) |
 | `business_document_received` | `channel`: `upload`, `note`, `email`, or `whatsapp`; `file_type`: an extension `SOURCE_MEDIA_TYPES` names, absent for a typed note; `page_count`: `1` for an image, absent when not known before the read; `size_bucket`: `under_100kb`, `100kb_to_1mb`, `1mb_to_5mb`, or `5mb_or_more` | a new Business document is saved; a repeat of the same bytes is not counted |
 | `business_document_read` | `result`: `read`, `failed`, or `unsure`; `failure_reason`: a receipt `Attention` value (for example `ai_unavailable`, `interrupted`, `unreadable`, `not_a_receipt`, `check_details`), absent when `read`; `latency_ms`: 0 to 3600000; `model_tier`: an OpenRouter model tier; `input_tokens`, `output_tokens`: 0 to 10000000; `cost_micro_usd`: 0 to 100000000 | a read that reached the model settles, once per provider-admitted attempt |
 | `business_document_needs_review` | `reason_codes`: one or more `BandejaReason` values, in the Listos rule's order | a read leaves a draft that is not Listos, or the model's answer cannot become a draft |
@@ -1432,29 +1422,25 @@ fails if any field could hold free text or a money-formatted value (A4).
   function and line number, and `$process_person_profile = false`. The
   exception message, local variables, request bodies and headers are never
   read. A refusal the Business rules raise during a read is not an exception.
-- `cohort` is the invite cohort code, `^[a-z]{2,12}-[a-z0-9]{4,8}$` (for
-  example `piloto-7kq2`). The pattern is enforced by the model.
-- `calculator` is checked when the event is validated against the names
-  `get_calculation_declarations()` returns, plus the listed fixed values. The
-  calculation catalog is the only owner of that list; a new calculation is
-  accepted without editing the analytics registry.
 - Technical properties, sent with every event and nothing else besides the
   event's own properties: `$process_person_profile` (always `false`),
   `schema_version`, `event_id`, `environment`, and `internal_account`
   (a boolean every caller must state; the sink refuses an envelope without one,
-  and any technical value the registry did not set). `distinct_id` is `actor_hash_for_user(<user id>)`:
-  the account id for signed-in users, the guest user id for guests.
-  `guest_id_hash` is the same hash of the guest user id, so a guest's events
-  and the account's `signed_in` join without person profiles or aliasing.
+  and any technical value the registry did not set). `distinct_id` is `actor_hash_for_user(<user id>)`.
+  No registered event carries `guest_id_hash`.
 - Saved-query filter (SPEC 0, 0C-6): `environment = production` and
-  `internal_account = false`, broken down by `cohort`.
-- Retired: `evidence_capture`, `decision_capture`, `recall_usage`,
+  `internal_account = false`.
+- Retired, and not in the registry: `first_answer_shown`, `signed_in`,
+  `card_saved`, `goal_created`, `checklist_step_completed`,
+  `reminders_opted_in`, `reminders_opted_out`, `session_started`,
+  `installed_app_opened`, `landing_viewed`, `receipt_shared`,
+  `evidence_capture`, `decision_capture`, `recall_usage`,
   `continuity_mismatch`, `compare_started`, `next_experiments_offered`,
   `next_experiment_selected`, `eval_readiness`, the `receipt_*` funnel,
   `account_registration_completed`, every guest funnel event, and the research
-  settlement event no longer reach PostHog. Research work kind and outcome stay
+  settlement event. Research work kind and outcome stay
   on the cost ledger (`capability_class`). The guest funnel milestone claim
-  table stays and is reused by `first_answer_shown`.
+  table stays. No current analytics event reads it.
 
 Deferred durable surfaces:
 - Eval run/case result persistence.

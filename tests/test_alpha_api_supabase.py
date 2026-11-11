@@ -1497,15 +1497,6 @@ def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
     monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
-    captured_events: list[tuple[str, dict[str, object]]] = []
-
-    def fake_capture_product_event(kind: str, **payload: object) -> None:
-        captured_events.append((kind, dict(payload)))
-
-    monkeypatch.setattr(
-        "argus.api.routers.auth.capture_product_event",
-        fake_capture_product_event,
-    )
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.signup.return_value = {
         "session": None,
@@ -1527,7 +1518,6 @@ def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
     )
 
     assert response.status_code == 200
-    assert captured_events == []
     mock_gateway.get_or_create_profile_for_auth_user.assert_not_called()
 
 

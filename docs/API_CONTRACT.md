@@ -6783,15 +6783,14 @@ Core fields:
 - `analytics_event` and `internal_account`, which exist only on the frozen
   `AnalyticsEnvelope` the registry builds; the generic envelope cannot carry them
 
-### Product analytics events (wave 1, SPEC 0)
+### Product analytics events
 
 One closed registry, `src/argus/observability/analytics_events.py`, owns every
-event PostHog receives. Each event is one Pydantic model (`extra="forbid"`,
+event the sink receives. Each event is one Pydantic model (`extra="forbid"`,
 strict) whose fields are the event's exact properties, typed only as literal
-values, booleans, a bounded integer, a calculation name checked against the
-calculation catalog at validation time, or the pattern-checked invite
-`cohort`. An amount, a name, an email, question or answer text, or any other
-free text cannot be represented. Events are sent only through
+values, booleans, a bounded integer, or the hashed Business id. An amount, a
+name, an email, question or answer text, or any other free text cannot be
+represented. Events are sent only through
 `capture_analytics_event()`: only the frozen `AnalyticsEnvelope` the registry
 builds can carry an event, and the sink validates it again before sending,
 including that its timestamp is the build time (aware UTC, not backdated or in
@@ -6801,22 +6800,21 @@ envelope that only names an event, is suppressed with
 
 PostHog receives each event under its own name as the PostHog `event`. The
 event names and properties are documented in `docs/DATA_MODEL.md` section
-12.1.1: `first_answer_shown`, `signed_in`, `card_saved`, `goal_created`,
-`checklist_step_completed`, `reminders_opted_in`, `reminders_opted_out`,
-`session_started`, `installed_app_opened`, `landing_viewed`, and
-`receipt_shared`. The emitters land package by package (SPEC 0, 0C-3 to 0C-8);
-`goal_created`, `checklist_step_completed`, and the two reminder events are
-registered now and fire in later stages.
+12.1.1. They are the Business events: `business_document_received`,
+`business_document_read`, `business_document_needs_review`,
+`business_record_approved`, `business_record_recorded`, and
+`business_records_exported`. The wave 1 names (`first_answer_shown`,
+`signed_in`, `card_saved`, `goal_created`, `checklist_step_completed`,
+`reminders_opted_in`, `reminders_opted_out`, `session_started`,
+`installed_app_opened`, `landing_viewed`, `receipt_shared`) are not registered.
 
 Each PostHog capture carries only the event's own properties plus these
 technical properties: `$process_person_profile` (always `false`),
 `schema_version`, `event_id`, `environment`, and `internal_account` (a boolean
 every caller must state). The sink checks each technical value is exactly what
-the registry sets. `signed_in` alone may also
-carry `guest_id_hash`. `distinct_id` is `actor_hash_for_user(<user id>)`: the
-account id for signed-in users and the guest user id for guests. Hashed
-conversation, message, or run ids, `status`, `latency_ms`, and nested
-`attributes` are never sent.
+the registry sets. No registered event carries `guest_id_hash`. `distinct_id` is
+`actor_hash_for_user(<user id>)`. Hashed conversation, message, or run ids,
+`status`, `latency_ms`, and nested `attributes` are never sent.
 
 Privacy posture:
 - Default mode is `metadata_only`.
@@ -6842,15 +6840,12 @@ PostHog any more: the earlier product events (`evidence_capture`,
 `decision_capture`, `recall_usage`, `continuity_mismatch`, `compare_started`,
 `next_experiments_offered`, `next_experiment_selected`, `eval_readiness`, the
 `receipt_*` funnel, and `account_registration_completed`), every guest funnel
-event, and the research settlement event. Their emit calls are removed, except
-`decision_capture`, `receipt_created`, `account_registration_completed`,
-`first_useful_assistant_response_completed`, `account_creation_completed`, and
-`existing_account_sign_in_completed`, whose call sites SPEC 0 packages 0C-3,
-0C-4, and 0C-8 replace with `first_answer_shown`, `signed_in`, `card_saved`,
-and `receipt_shared`. Until then those calls stop at the sink. The guest funnel
-milestone claim stays; `first_answer_shown` reuses it. Research work kind and
-outcome stay on the cost ledger and the research sidecar
-(`capability_class`), which are not analytics.
+event, and the research settlement event. `decision_capture`,
+`receipt_created`, and `account_registration_completed` still have call sites
+inside the old chat evidence path. Those calls stop at the sink. The auth and
+share-link call sites no longer emit them. The guest funnel milestone claim
+stays. Research work kind and outcome stay on the cost ledger and the research
+sidecar (`capability_class`), which are not analytics.
 
 Implemented operational surface:
 - The append-only first-party `cost_ledger_entries` table is the server-owned

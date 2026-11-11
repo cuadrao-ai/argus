@@ -577,24 +577,16 @@ def test_a_stale_or_malformed_cursor_is_rejected(sharing_on: None) -> None:
     assert client.get(f"{LIST_PATH}?limit=99999").status_code == 422
 
 
-def test_resharing_a_result_does_not_count_as_a_new_receipt(
+def test_resharing_a_result_returns_the_existing_link(
     sharing_on: None,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The funnel's creation stage must not count retries and reloads."""
-    events: list[str] = []
-    monkeypatch.setattr(
-        evidence_receipts,
-        "capture_product_event",
-        lambda kind, **kwargs: events.append(kind),
-    )
+    """Sharing the same result again returns the existing link."""
     client = _client()
     _seed(client)
     first = _create(client)
     second = _create(client)
 
     assert first["public_id"] == second["public_id"]
-    assert events == ["receipt_created"]
 
 
 def test_an_insert_race_returns_the_existing_receipt_rather_than_failing(
