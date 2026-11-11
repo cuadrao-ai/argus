@@ -429,3 +429,21 @@ function real() { const env = process.env; return env.CUADRAO_SAMPLE; }
 function unrelated() { const env = { CUADRAO_UNUSED: "value" }; return env.CUADRAO_UNUSED; }
 """)
     assert scan(tmp_path) == ({"CUADRAO_SAMPLE": (Read(None, "web/lib/config.ts"),)}, [])
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        'value(process.env.CUADRAO_SAMPLE) ?? "https://example.invalid"',
+        '(process.env.CUADRAO_SAMPLE ?? "").trim() || "https://example.invalid"',
+        'process.env.CUADRAO_SAMPLE?.trim() || "https://example.invalid"',
+    ],
+)
+def test_frontend_transformed_read_fallback(tmp_path: Path, expression: str) -> None:
+    path = tmp_path / "web/lib/config.ts"
+    path.parent.mkdir(parents=True)
+    path.write_text(f"const value = {expression};")
+    assert scan(tmp_path) == (
+        {"CUADRAO_SAMPLE": (Read("https://example.invalid", "web/lib/config.ts"),)},
+        [],
+    )
