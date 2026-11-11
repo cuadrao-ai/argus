@@ -2,13 +2,12 @@
 
 import { type FormEvent, type ReactNode, useContext, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Check } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   getFiscalProfile,
   setFiscalProfile,
   type FiscalProfile,
-  type RegistryAnswer,
   type TaxIdType,
 } from "@/lib/business-dgii";
 import { randomId } from "@/lib/random-id";
@@ -19,6 +18,7 @@ import { BusinessContext } from "./BusinessWorkspace";
 import { formatBusinessName } from "./business-format";
 import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
+import DgiiRegistryStatus, { registryStatusOf, useRegistryLookup, type RegistryLookup, type RegistryStatusState } from "./DgiiRegistryStatus";
 
 const LENGTH = { rnc: 9, cedula: 11 } as const;
 
@@ -30,35 +30,20 @@ type Field = "name" | "number";
 export type FiscalProfileDraft = {name:string;kind:TaxIdType;value:string};
 /** A refusal the server explains; retrying the same values cannot help. */
 type Problem = { text: string; retry: boolean; reference?: string };
-/** The registry check of one typed number, keyed by type and digits. */
-type Lookup = { key: string } & ({ status: "checking" } | { status: "failed"; reference: string } | { status: "done"; answer: RegistryAnswer });
 /** What the Razón social block shows for the typed number. */
 /** `stored` is true when the name shown is the one confirmed for this number; only an unstored match asks to confirm. */
-type LegalNameState =
-  | { status: "checking" }
-  | { status: "failed"; reference: string; name: string | null }
-  | { status: "verified"; name: string }
-  | { status: "pending"; name: string }
-  | { status: "inactive"; name: string; registryStatus: string; stored: boolean }
-  | { status: "unverified"; name: string | null };
+type LegalNameState = Exclude<RegistryStatusState, { status: "inactive" }> | { status: "inactive"; name: string; registryStatus: string; stored: boolean };
 
 /** The tag is always the registry's current word for the typed number. A name confirmed for that
  * number is shown in place of the registry's, and is Verificado only while the registry says verificado. */
-function legalNameState(profile: FiscalProfile, kind: TaxIdType, digits: string, lookup: Lookup | null): LegalNameState {
+function legalNameState(profile: FiscalProfile, kind: TaxIdType, digits: string, lookup: RegistryLookup): LegalNameState {
   const stored = profile.legal_name && profile.tax_id?.type === kind && profile.tax_id.value === digits ? profile.legal_name.value : null;
-  if (!lookup || lookup.key !== `${kind}:${digits}` || lookup.status === "checking") return { status: "checking" };
-  if (lookup.status === "failed") return { status: "failed", reference: lookup.reference, name: stored };
-  const { verification, record } = lookup.answer;
-  if (!record || verification === "sin_verificar") return { status: "unverified", name: stored };
-  if (verification === "no_activo") return { status: "inactive", name: stored ?? record.name, registryStatus: record.status, stored: stored !== null };
-  return stored ? { status: "verified", name: stored } : { status: "pending", name: record.name };
+  const registry = registryStatusOf(lookup);
+  if (registry.status === "checking") return registry;
+  if (registry.status === "failed" || registry.status === "unverified") return { ...registry, name: stored };
+  if (registry.status === "inactive") return { ...registry, name: stored ?? registry.name, stored: stored !== null };
+  return stored ? { status: "verified", name: stored } : { status: "pending", name: registry.name };
 }
-
-const TAGS = {
-  verified: "bg-[#E3EFE8] text-[#2f5a49] dark:bg-[#8fcbb0]/15 dark:text-[#8fcbb0]",
-  neutral: "bg-[#EDECE6] text-[#56635e] dark:bg-white/10 dark:text-white/80",
-  inactive: "bg-[#F6EBD4] text-[#7a5512] dark:bg-[#f6e7c1]/15 dark:text-[#f6e7c1]",
-} as const;
 
 export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onDirtyChange, initialDraft, onDraftChange, footerTarget }: { draftId?: string; footerTarget?: HTMLElement | null; initialDraft?: FiscalProfileDraft | null; onDraftChange?: (draft:FiscalProfileDraft) => void; onDirtyChange?: (dirty: boolean) => void; renderTaxIdControl?: (props: {value: TaxIdType; label: string; disabled: boolean; onChange: (value: TaxIdType) => void}) => ReactNode }) {
   const { t, i18n } = useTranslation();
@@ -74,15 +59,11 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const [problem, setProblem] = useState<Problem | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [lookup, setLookup] = useState<Lookup | null>(null);
-  const [lookupAttempt, setLookupAttempt] = useState(0);
   // One key per number being confirmed, so a retry after a failed second step replays instead of writing twice.
   const confirmKey = useRef<{ key: string; id: string } | null>(null);
   // The workspace's source owns the read, so the sample business answers with its own name and RNC.
   const read = workspace?.source.fiscalProfile ?? getFiscalProfile;
   const write = workspace?.source.saveFiscalProfile ?? setFiscalProfile;
-  // Only a source with the registry (the live one) shows the Razón social block; the local preview and the sample have none.
-  const lookupSource = workspace?.source.lookupRegistry;
   const writeLegalName = workspace?.source.saveLegalName;
   useEffect(() => {
     let live = true;
@@ -124,17 +105,9 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const digits = digitsOf(value);
   const numberValid = Boolean(value.trim()) && rules.number({ name, number: value }) === null;
   const lookupKey = `${kind}:${digits}`;
-  const registryShown = Boolean(profile?.can_edit && lookupSource && writeLegalName && numberValid);
-  useEffect(() => {
-    if (!registryShown || !lookupSource) return;
-    const controller = new AbortController();
-    setLookup({ key: lookupKey, status: "checking" });
-    lookupSource({ type: kind, value: digits }, controller.signal)
-      .then((answer) => { if (!controller.signal.aborted) setLookup({ key: lookupKey, status: "done", answer }); })
-      .catch((error: unknown) => { if (!controller.signal.aborted) setLookup({ key: lookupKey, status: "failed", reference: referenceCode(error) }); });
-    return () => controller.abort();
-  }, [registryShown, lookupSource, lookupKey, kind, digits, lookupAttempt]);
-  const legal = profile && registryShown ? legalNameState(profile, kind, digits, lookup) : null;
+  // Only a source with the registry (the live one) answers; the local preview and the sample show no Razón social block.
+  const { lookup, retry: retryLookup } = useRegistryLookup(profile?.can_edit && writeLegalName && numberValid ? { type: kind, value: digits } : null);
+  const legal = profile && lookup ? legalNameState(profile, kind, digits, lookup) : null;
   const confirming = legal?.status === "pending" || (legal?.status === "inactive" && !legal.stored);
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -269,7 +242,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
               onChange={(event) => {setValue(event.target.value);setSaved(false);}}
             />
           </div>
-          {legal ? <LegalNameBlock state={legal} onRetry={() => setLookupAttempt((count) => count + 1)} /> : null}
+          {legal ? <DgiiRegistryStatus state={legal} onRetry={retryLookup} testId="legal-name" label={t("business.dgii.legal_name.label")} /> : null}
           {footerTarget === undefined ? actions : footerTarget ? createPortal(actions,footerTarget) : null}
           {problem ? (
             <div role="alert" className="flex items-start gap-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
@@ -299,34 +272,4 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
       ) : null}
     </div>
   );
-}
-
-function LegalNameBlock({ state, onRetry }: { state: LegalNameState; onRetry: () => void }) {
-  const { t } = useTranslation();
-  const labelId = useId();
-  const label = <span id={labelId} className="text-[15px] font-medium">{t("business.dgii.legal_name.label")}</span>;
-  if (state.status === "checking") {
-    return <div data-testid="legal-name" data-legal-name-status="checking" aria-busy="true" aria-labelledby={labelId} className="space-y-1">{label}<div aria-hidden="true" className="h-5 w-2/3 animate-pulse rounded-item bg-black/5 dark:bg-white/10" /></div>;
-  }
-  if (state.status === "failed") {
-    return <div data-testid="legal-name" data-legal-name-status="failed" className="min-w-0 space-y-1">{label}
-      {state.name ? <p data-testid="legal-name-value" className="text-[16px] [overflow-wrap:anywhere]">{state.name}</p> : null}
-      <div role="alert" className="flex items-start gap-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
-        <AlertCircle className="mt-[3px] h-4 w-4 shrink-0" aria-hidden="true" />
-        <div className="min-w-0"><p>{t("common.error_occurred")} <ReferenceCode reference={state.reference} /></p><button type="button" onClick={onRetry} className={`${quietButtonClass} -ml-1`}>{t("common.retry")}</button></div>
-      </div>
-    </div>;
-  }
-  const tag = state.status === "verified"
-    ? <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.verified}`}><Check className="h-3 w-3" aria-hidden="true" />{t("business.dgii.legal_name.tag_verified")}</span>
-    : state.status === "inactive"
-      ? <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.inactive}`}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{t("business.dgii.legal_name.tag_inactive")}</span>
-      : <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.neutral}`}>{t(state.status === "pending" ? "business.dgii.legal_name.tag_pending" : "business.dgii.legal_name.tag_unverified")}</span>;
-  // Sin verificar names no source: the registry copy is loaded by hand and can be stale.
-  const source = state.status === "unverified" ? null : state.status === "inactive" ? t("business.dgii.legal_name.source_status", { status: state.registryStatus }) : t("business.dgii.legal_name.source");
-  return <div data-testid="legal-name" data-legal-name-status={state.status} aria-live="polite" className="min-w-0 space-y-1">
-    <div className="flex flex-wrap items-center gap-2">{label}{tag}</div>
-    {state.name ? <p data-testid="legal-name-value" className="text-[16px] [overflow-wrap:anywhere]">{state.name}</p> : <p className="text-[16px] text-[#56635e] dark:text-white/70">-</p>}
-    {source ? <p className="text-[14px] text-[#56635e] dark:text-white/70">{source}</p> : null}
-  </div>;
 }
