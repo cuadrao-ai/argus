@@ -546,3 +546,43 @@ def test_frontend_imported_reader_rejects_a_shadowed_process_caller(
         "export function config(env: Record<string, string>) { return env.CUADRAO_UNUSED; }"
     )
     assert scan(tmp_path) == ({}, [])
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            "from env_keys import DeletionSetting\n"
+            "for setting in DeletionSetting:\n"
+            '    os.getenv(setting.value, "")\n',
+            {"CUADRAO_SAMPLE", "ARGUS_SAMPLE"},
+        ),
+        (
+            "from env_keys import DeletionSetting as Keys\n"
+            '[os.getenv(setting.value, "") for setting in Keys]\n',
+            {"CUADRAO_SAMPLE", "ARGUS_SAMPLE"},
+        ),
+        (
+            "from env_keys import DeletionSetting\n"
+            "for setting in DeletionSetting:\n"
+            "    str(setting.value)\n",
+            set(),
+        ),
+    ],
+)
+def test_python_enum_values_reach_environment_reads(
+    tmp_path: Path, source: str, expected: set[str]
+) -> None:
+    root = _tree(tmp_path, "import os\n" + source, [])
+    (root / "src/env_keys.py").write_text(
+        "from enum import Enum\n"
+        "class DeletionSetting(Enum):\n"
+        '    CURRENT = "CUADRAO_SAMPLE"\n'
+        '    LEGACY = "ARGUS_SAMPLE"\n'
+        "class UnusedSetting(Enum):\n"
+        '    UNUSED = "CUADRAO_UNUSED"\n'
+    )
+    assert scan(root) == (
+        {name: (Read("", "src/app.py"),) for name in expected},
+        [],
+    )
