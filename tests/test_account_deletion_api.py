@@ -191,6 +191,72 @@ def test_service_unavailability_preserves_deletion_state(
     assert response.headers.get("Retry-After") == ("5" if started else None)
 
 
+def _records_build_failure(monkeypatch, message: str):  # noqa: ANN001, ANN202
+    from argus.api import account_deletion_runtime as runtime
+    from argus.api import state as api_state
+
+    monkeypatch.setattr(api_state, "PERSISTENCE_MODE", "supabase")
+    monkeypatch.setattr(api_state, "DATABASE_URL", "postgresql://deletion@db/argus")
+    monkeypatch.setattr(api_state, "supabase_gateway", MagicMock())
+
+    def fail_build(**kwargs):  # noqa: ANN003, ANN202
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(runtime, "build_service", fail_build)
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [("post", URL), ("get", CHECK_URL)],
+)
+def test_a_build_failure_is_logged_and_the_caller_gets_the_public_503(
+    enabled, monkeypatch, method, path
+) -> None:  # noqa: ANN001
+    from loguru import logger
+
+    reason = "deletion configuration missing"
+    _records_build_failure(monkeypatch, reason)
+    lines: list[str] = []
+    sink = logger.add(lambda message: lines.append(str(message)), level="ERROR")
+    try:
+        with patch.object(account_route, "deletion_requester", _registered):
+            response = client.request(method, path, json={"confirm": True})
+    finally:
+        logger.remove(sink)
+    body = response.json()
+    assert response.status_code == 503
+    assert body["code"] == "account_deletion_unavailable"
+    assert body["detail"] == "Account deletion is not available right now."
+    assert reason not in response.text
+    assert USER_ID not in response.text
+    logged = "\n".join(lines)
+    assert "RuntimeError" in logged
+    assert reason in logged
+
+
+def test_a_build_failure_log_keeps_credentials_out(
+    enabled, monkeypatch
+) -> None:  # noqa: ANN001
+    from loguru import logger
+
+    secret = "postgresql://deletion:super-secret-password@db/argus"
+    _records_build_failure(monkeypatch, secret)
+    lines: list[str] = []
+    sink = logger.add(lambda message: lines.append(str(message)), level="ERROR")
+    try:
+        with patch.object(account_route, "deletion_requester", _registered):
+            response = client.post(URL, json={"confirm": True})
+    finally:
+        logger.remove(sink)
+    logged = "\n".join(lines)
+    assert "super-secret-password" not in logged
+    assert "[redacted]" in logged
+    assert "super-secret-password" not in response.text
+    assert response.status_code == 503
+    assert response.json()["code"] == "account_deletion_unavailable"
+    assert response.json()["detail"] == "Account deletion is not available right now."
+
+
 def test_feedback_still_takes_deletion_requests_while_the_command_is_off() -> None:
     """Marcus S4: with the flag off the route is 404 and the web files the old
     support ticket instead (tests/test_alpha_api_supabase.py covers the
