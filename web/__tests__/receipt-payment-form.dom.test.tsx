@@ -6,6 +6,7 @@ import type { BusinessDossier } from "@/lib/business-dossier";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 
 const accounts: BusinessAccount[] = [{ id: "acct-ops", nickname: "Cuenta corriente", currency: "DOP", type: "checking" }];
+const unknown = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } as const;
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -19,51 +20,61 @@ async function approvedPurchase(change: (dossier: BusinessDossier) => void) {
   const dossier = await createDossierFixtures(accounts).dossier(dossierFixtureIds.fiscal);
   dossier.review_state = "accepted";
   dossier.capabilities = ["read"];
+  dossier.dgii = { form: "606", category: "01", payment_method: "01" };
   change(dossier);
   return dossier;
 }
 
-async function paymentRow(dossier: BusinessDossier, language: "es-419" | "en" = "es-419") {
+async function recordScreen(dossier: BusinessDossier) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { createInstance } = await import("i18next");
   const { I18nextProvider } = await import("react-i18next");
   const { dgiiChoiceLabel } = await import("@/lib/dgii-labels");
   const { default: Facts } = await import("@/components/business-app/ReceiptRecordFacts");
-  const catalog = language === "en" ? (await import("@/public/locales/en/common.json")).default : (await import("@/public/locales/es-419/common.json")).default;
+  const { default: OwnerChoices } = await import("@/components/business-app/ReceiptOwnerChoices");
+  const catalog = (await import("@/public/locales/es-419/common.json")).default;
   const i18n = createInstance().use(dgiiChoiceLabel);
-  await i18n.init({ lng: language, resources: { [language]: { translation: catalog } }, postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true, interpolation: { escapeValue: false } });
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: catalog } }, postProcess: dgiiChoiceLabel.name, postProcessPassResolved: true, interpolation: { escapeValue: false } });
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  await act(async () => root.render(<I18nextProvider i18n={i18n}><Facts dossier={dossier} accounts={accounts} /></I18nextProvider>));
-  const row = host.querySelector('[data-testid="receipt-facts-payment"] [data-fact="funding"]');
-  const shown = { label: row?.querySelector("dt")?.textContent, value: row?.querySelector("dd")?.textContent };
+  const choices = <OwnerChoices dossier={dossier} fields={null} failed={false} disabled readOnly saves={{}} onChoose={() => {}} onRetry={() => {}} onCancel={() => {}} onReload={() => {}} />;
+  await act(async () => root.render(<I18nextProvider i18n={i18n}><Facts dossier={dossier} accounts={accounts} choices={choices} /></I18nextProvider>));
+  const text = host.textContent ?? "";
+  const screen = {
+    headings: [...host.querySelectorAll("h3")].map((heading) => heading.textContent),
+    rows: Object.fromEntries([...host.querySelectorAll("dl > div")].map((row) => [row.querySelector("dt")?.textContent, row.querySelector("dd")?.textContent])),
+    count: (needle: string) => text.split(needle).length - 1,
+  };
   await act(async () => root.unmount());
   host.remove();
-  return shown;
+  return screen;
 }
 
-test("an approved purchase says how it was paid with the 606 forma de pago the export writes", async () => {
-  const dossier = await approvedPurchase((record) => {
-    record.facts.funding = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
-    record.dgii = { form: "606", category: "01", payment_method: "01" };
-  });
-  assert.deepEqual(await paymentRow(dossier), { label: "Cómo se pagó", value: "01 - Efectivo" });
-  assert.deepEqual(await paymentRow(dossier, "en"), { label: "How it was paid", value: "01 - Cash" });
+test("an approved purchase with no paying account shows its forma de pago once, under Para el 606", async () => {
+  const screen = await recordScreen(await approvedPurchase((record) => {
+    record.facts.funding = unknown;
+  }));
+  assert.equal(screen.count("01 - Efectivo"), 1);
+  assert.equal(screen.rows["Forma de pago"], "01 - Efectivo");
+  assert.equal(screen.count("Cómo se pagó"), 0);
+  assert.deepEqual(screen.headings.slice(-2), ["Para el 606", "Pago"]);
+  assert.equal(screen.rows["Parte del negocio"], "Todo para el negocio");
 });
 
-test("the forma de pago wins over a funding account the record also carries", async () => {
-  const dossier = await approvedPurchase((record) => {
-    record.dgii = { form: "606", category: "02", payment_method: "03" };
-  });
-  assert.equal(dossier.facts.funding.state, "known");
-  assert.deepEqual(await paymentRow(dossier), { label: "Cómo se pagó", value: "03 - Tarjeta crédito/débito" });
+test("a known paying account shows as Cómo se pagó, beside the forma de pago", async () => {
+  const screen = await recordScreen(await approvedPurchase(() => {}));
+  assert.match(screen.rows["Cómo se pagó"] ?? "", /^Cuenta corriente/);
+  assert.equal(screen.count("01 - Efectivo"), 1);
 });
 
-test("a purchase with no forma de pago yet shows it as missing, never as an account or a default", async () => {
-  const dossier = await approvedPurchase((record) => {
-    record.dgii = { form: "606", category: "01", payment_method: null };
-  });
-  assert.deepEqual(await paymentRow(dossier), { label: "Cómo se pagó", value: "-" });
+test("a Pago section with nothing known hides its heading", async () => {
+  const screen = await recordScreen(await approvedPurchase((record) => {
+    record.facts.funding = unknown;
+    record.facts.business_share = unknown;
+  }));
+  assert.equal(screen.headings.at(-1), "Para el 606");
+  assert.equal(screen.headings.includes("Pago"), false);
+  assert.equal(screen.count("Parte del negocio"), 0);
 });

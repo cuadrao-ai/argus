@@ -139,14 +139,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, tag, match);
   };
 
-  // A 606 purchase is paid by its forma de pago, the code the export writes, not by a ledger account.
-  const purchase = dossier.dgii?.form === "606" ? dossier.dgii : null;
-  const paymentField = (key: BusinessFactField) => {
-    if (key !== "funding" || !purchase) return recordField(key);
-    const code = purchase.payment_method;
-    return field(key, t("business.dossier.field.funding"), typeof code === "string" && code ? t(`business.dgii.option.payment_method.${code}`, { defaultValue: code }) : UNKNOWN_VALUE);
-  };
-
   const noNumber = (form: FactsReview) => {
     const state = dossier.facts.receipt_state;
     const marked = state.state === "known" && state.value === "no_receipt";
@@ -192,14 +184,14 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   // A Compra/Venta control already says the kind; the kind row returns while it needs a person.
   const kindShown = !typeRow || kind.state !== "known" || kindRow?.blocked || kindRow?.asked || flagged("kind");
   const choicesSection = choices ? section("choices", t("business.dossier.placeholder.section_choices", "For the 606"), choices) : null;
+  const waits = (key: BusinessFactField) => Boolean(rows.get(key)?.blocked || rows.get(key)?.asked);
   if (review) {
-    const waiting = (keys: readonly BusinessFactField[]) => keys.filter((key) => rows.get(key)?.blocked || rows.get(key)?.asked);
-    const payment = waiting(PAYMENT_FIELDS);
+    const payment = PAYMENT_FIELDS.filter(waits);
     return (
       <div data-testid="receipt-current-facts" className="space-y-5">
         {section("activity", kind.state === "known" ? t(`business.dossier.kind.${kind.value}`, kind.value) : t("business.dossier.field.kind", "Activity"), <>
           {typeRow}
-          {waiting(["kind"]).map(recordField)}
+          {waits("kind") ? recordField("kind") : null}
           {recordField("counterparty")}
           {recordField("occurred_on")}
           {recordField("amount")}
@@ -225,6 +217,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
       ? [field("fiscal_number", `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`, t("business.marks.no_fiscal_chip", "No fiscal receipt number")), shown]
       : [shown];
   });
+  const paid = PAYMENT_FIELDS.filter((key) => dossier.facts[key].state === "known" || waits(key));
 
   return (
     <div data-testid="receipt-current-facts" className="space-y-5">
@@ -237,7 +230,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
         {fiscalFields}
       </>)}
       {choicesSection}
-      {section("payment", paymentTitle, PAYMENT_FIELDS.map(paymentField))}
+      {paid.length ? section("payment", paymentTitle, paid.map(recordField)) : null}
     </div>
   );
 }
