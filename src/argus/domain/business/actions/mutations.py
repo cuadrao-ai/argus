@@ -602,10 +602,10 @@ def prepare_attachment(
     facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
     read_facts = BusinessFacts.model_validate(facts)
     facts = read_facts.model_dump(mode="json")
-    no_currency_read = (
-        values["currency"] is None
-        and "currency" not in uncertain
-        and not getattr(batch.receipt, "currency", None)
+    # The read projection marks a missing currency uncertain too, so the test
+    # is whether any currency value was read, not whether it was uncertain.
+    no_currency_read = values["currency"] is None and not getattr(
+        batch.receipt, "currency", None
     )
     if (
         no_currency_read

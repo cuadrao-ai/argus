@@ -315,8 +315,9 @@ def test_extracted_currency_replaces_unsourced_dop_default(currency):
         ("USD", {"ncf": "B0100000001"}, "USD", False, ()),
         ("DOP", {"ncf": "B0100000001"}, "DOP", False, ()),
         ("USD", {"ncf": "B0100000001"}, None, False, ("currency",)),
+        (None, {"ncf": "B0100000001"}, "DOP", True, ("currency",)),
     ],
-    ids=["unknown-ncf", "unknown-ecf", "no-ncf", "malformed-ncf", "usd", "dop", "uncertain-usd"],
+    ids=["unknown-ncf", "unknown-ecf", "no-ncf", "malformed-ncf", "usd", "dop", "uncertain-usd", "absent-marked-uncertain"],
 )
 def test_fiscal_receipt_defaults_only_unknown_currency_before_save(
     checked, monkeypatch, currency, fiscal, expected_currency, fires, uncertain
