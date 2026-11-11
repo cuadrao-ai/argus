@@ -6,6 +6,13 @@ from typing import Any
 class BusinessInterpreterMethods:
     model_name: str | None
 
+
+class BusinessTurnInterpreter(BusinessInterpreterMethods):
+    """The interpreter a Business turn constructs when the caller does not inject one."""
+
+    def __init__(self, model_name: str | None = None) -> None:
+        self.model_name = model_name
+
     async def ainterpret_business(self, payload: dict[str, Any]) -> Any:
         from argus.agent_runtime.business.interpretation import interpret_business_turn
 

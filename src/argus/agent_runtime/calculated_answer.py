@@ -189,7 +189,7 @@ def calculated_answer(
     prose = voiced.as_markdown()
     if not voiced.calculations:
         return None if "{{" in prose else CalculatedAnswer(prose, {}, None, None, None)
-    from argus.domain.capability_registry import get_tool_catalog
+    from argus.domain.personal_tool_catalog import personal_tool_catalog
 
     calculations = (
         completed_pending(pending, voiced.calculations, notes)
@@ -200,7 +200,7 @@ def calculated_answer(
         calculations,
         template=prose,
         language=language,
-        catalog=get_tool_catalog(),
+        catalog=personal_tool_catalog(),
         retrieved=retrieved,
         currency=user.currency,
         subject_symbol=subject_symbol,

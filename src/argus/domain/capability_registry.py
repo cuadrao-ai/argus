@@ -72,14 +72,7 @@ def indicator_template(key: str) -> str | None:
 def get_tool_catalog(
     *, include_unavailable: bool = False, surface: str = "personal"
 ) -> ToolCatalog:
-    """Assemble real declarations only when a catalog consumer asks for them.
-
-    Each declaration lives beside its typed callable and card presenter. This
-    is the sole catalog assembly point: schemas, execution, discovery and
-    capability answers consume the same immutable declarations. Completion and
-    receipt readers may resolve an already admitted binding with
-    ``include_unavailable``; new calls always use the effective catalog.
-    """
+    """Business declarations. Personal declarations live in personal_tool_catalog."""
     if surface == "business":
         from argus.domain.business.tools import get_business_declarations
 
@@ -90,27 +83,4 @@ def get_tool_catalog(
                 if surface in declaration.surfaces
             )
         )
-    if surface != "personal":
-        raise ValueError("Unknown tool surface")
-
-    from argus.agent_runtime.research_tools import get_research_declarations
-    from argus.agent_runtime.tools.registered_backtest import get_backtest_declaration
-    from argus.domain.calculations import get_calculation_declarations
-    from argus.domain.research.config import research_rail_enabled
-
-    research = (
-        get_research_declarations()
-        if include_unavailable or research_rail_enabled()
-        else ()
-    )
-    return ToolCatalog(
-        tuple(
-            declaration
-            for declaration in (
-                get_backtest_declaration(),
-                *get_calculation_declarations(),
-                *research,
-            )
-            if surface in declaration.surfaces
-        )
-    )
+    raise ValueError("Unknown tool surface")

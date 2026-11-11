@@ -352,7 +352,7 @@ async def refresh_computed_answer(
         claim_research_provider_attempt,
         release_research_provider_claim,
     )
-    from argus.domain.capability_registry import get_tool_catalog
+    from argus.domain.personal_tool_catalog import personal_tool_catalog
     from argus.domain.research.admission import (
         claim_current_research_attempt,
         research_attempt_admission_context,
@@ -363,7 +363,7 @@ async def refresh_computed_answer(
     answer = owned_computed_answer(
         user=user, conversation_id=conversation_id, message_id=message_id
     )
-    catalog = get_tool_catalog()
+    catalog = personal_tool_catalog()
     declarations = [catalog.get(card.tool_name) for card in answer.cards]
     cited = [_cited_inputs(card) for card in answer.cards]
     if not any(cited) or any(declaration is None for declaration in declarations):

@@ -38,7 +38,7 @@ router = APIRouter(prefix="/api/v1", tags=["tool-results"])
 
 
 def get_tool_catalog() -> ToolCatalog:
-    from argus.domain.capability_registry import get_tool_catalog as catalog
+    from argus.domain.personal_tool_catalog import personal_tool_catalog as catalog
 
     return catalog()
 

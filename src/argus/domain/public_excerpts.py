@@ -36,8 +36,8 @@ from argus.api.schemas import EvidenceArtifact
 # an exit rule is absent the compiler mirrors the entry by flipping its direction, and
 # a second opinion about what "mirrored" means is how a receipt ends up describing an
 # exit that never ran.
-from argus.domain.backtesting.rules.signals import (
-    _opposite_moving_average_crossover_rule as engine_mirrored_exit_rule,
+from argus.domain.crossover_mirror import (
+    mirrored_moving_average_crossover_rule as engine_mirrored_exit_rule,
 )
 from argus.domain.result_figures import shown_benchmark_gap
 from argus.domain.result_readout_facts import (

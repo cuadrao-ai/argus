@@ -119,7 +119,7 @@ async def test_factual_followup_survives_live_and_persisted_readers(
     from argus.agent_runtime.stages.interpret_internal.latest_result_answer import (
         latest_result_answer_stage_result_if_applicable,
     )
-    from argus.api.artifact_presentation import reader_chat_result
+    from argus.api.artifact_chat_presentation import reader_chat_result
     from argus.api.routers.conversations import _public_message_projection
     from argus.domain.conversation_previews import project_conversation_preview
 

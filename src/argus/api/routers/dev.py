@@ -32,6 +32,8 @@ def dev_reset(request: Request) -> SuccessResponse:
             if not dev_memory_fallback_enabled():
                 raise
     if api_state.CHECKPOINTER_MODE != "postgres":
-        api_state.reset_agent_runtime_workflow(request.app)
+        from argus.api.chat.agent_runtime_host import reset_agent_runtime_workflow
+
+        reset_agent_runtime_workflow(request.app)
     api_state.store.get_or_create_dev_user()
     return SuccessResponse(success=True)
