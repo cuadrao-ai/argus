@@ -6,10 +6,10 @@
     "aws-1-us-east-2.pooler.supabase.com"
   ],
   "database": "postgres",
-  "candidate_sha": "FILL_AFTER_LUCAS_GO",
+  "candidate_sha": "7ecadc5e7cba5a78526743dae1eee8c05452b862",
   "versions_sha256": "86bf59c7006dc1a9e08657622d9029880887886ccd201e54fa179f864729a5f9",
-  "issued_at": "FILL_AFTER_LUCAS_GO",
-  "expires_at": "FILL_AFTER_LUCAS_GO",
-  "approved_by": "NOT APPROVED",
-  "approval_reference": "NOT APPROVED. Fill the candidate SHA, issue time, expiry (at most three days), approver, and approval reference only after Lucas gives the go for this production reset and baseline apply. Both versions run and are recorded. No record-only migration. This draft grants no hosted authority."
+  "issued_at": "2026-11-11T02:50:47Z",
+  "expires_at": "2026-11-13T02:50:47Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas approved the production reset and baseline apply on 2026-11-11 (\"if this is good to run now, i approve it\"). This one record covers both: the founder-run reset in docs/runbooks/production-reset.md and the apply of 20261110160000 cuadrao_baseline and 20261110160100 drop_unowned_objects, both run and recorded, on production lgdhvepyrzbnscqssgqq only. Candidate 7ecadc5e7cba5a78526743dae1eee8c05452b862 is the integration tip after PR 1941."
 }
