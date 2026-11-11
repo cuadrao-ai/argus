@@ -1,0 +1,14 @@
+2026-11-10 19:13:40.859 | INFO     | __main__:refuse:39 - wrong database: refused (Reset requires database postgres and role postgres)
+2026-11-10 19:13:41.066 | INFO     | __main__:refuse:43 - wrong database: whole schema and data counts unchanged
+2026-11-10 19:13:41.285 | INFO     | __main__:refuse:39 - missing project marker: refused (Missing independently approved database project marker)
+2026-11-10 19:13:41.493 | INFO     | __main__:refuse:43 - missing project marker: whole schema and data counts unchanged
+Traceback (most recent call last):
+  File "/Users/garces/Documents/projects/repos/argus-production-reset-runbook/docs/reports/evidence/production-reset/controls.py", line 58, in <module>
+    main()
+    ~~~~^^
+  File "/Users/garces/Documents/projects/repos/argus-production-reset-runbook/docs/reports/evidence/production-reset/controls.py", line 50, in main
+    db.execute("alter database postgres set cuadrao.reset_project_ref='wrong-project'")
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/garces/Documents/projects/repos/argus-production-reset-runbook/.venv/lib/python3.14/site-packages/psycopg/connection.py", line 300, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.InsufficientPrivilege: permission denied to set parameter "cuadrao.reset_project_ref"

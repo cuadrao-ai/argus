@@ -1,0 +1,28 @@
+BEGIN
+SET
+SET
+DO
+    version
+----------------
+ 20261110160000
+ 20261110160100
+(2 rows)
+
+  schema_name  | rls_tables
+---------------+------------
+ argus_private |         18
+ public        |        148
+(2 rows)
+
+  schema_name  | non_extension_functions
+---------------+-------------------------
+ argus_private |                      99
+ public        |                      63
+(2 rows)
+
+ result | migration_versions | auth_users | storage_objects | storage_buckets | application_policies
+--------+--------------------+------------+-----------------+-----------------+----------------------
+ PASS   |                  2 |          0 |               0 |               2 |                  134
+(1 row)
+
+COMMIT

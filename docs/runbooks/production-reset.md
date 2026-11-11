@@ -50,10 +50,11 @@ checked through a signed-in browser in this local-only task.
 1. Return to the confirmed project.
 2. Open **SQL Editor**.
 3. Click **New query**.
-4. Select the **postgres** role and the primary database.
-5. Paste the complete file `scripts/ops/production_reset/inventory.sql`.
-6. Click **Run**.
-7. Compare the result sets with the expectations below.
+4. Select the **postgres** role.
+5. Select the primary database.
+6. Paste the complete file `scripts/ops/production_reset/inventory.sql`.
+7. Click **Run**.
+8. Compare the result sets with the expectations below.
 
 The database must be `postgres`. User and row counts may be nonzero, but every
 row must be known test data. The two normal buckets are
@@ -125,7 +126,8 @@ and [bucket operations](https://supabase.com/docs/reference/self-hosting-storage
 ## 5. Run the reset
 
 1. In **SQL Editor**, open a new query as **postgres**.
-2. Paste and run this project marker statement after rechecking the Dashboard address:
+2. Recheck that the Dashboard address contains `/project/lgdhvepyrzbnscqssgqq/`.
+3. Paste this project marker statement:
 
    ```sql
    begin;
@@ -139,10 +141,11 @@ and [bucket operations](https://supabase.com/docs/reference/self-hosting-storage
    does not depend on SQL Editor reusing a connection. The marker is consumed
    by a successful reset. The database name alone cannot identify the project.
 
-3. Open a new query as **postgres**.
-4. Paste the complete file `scripts/ops/production_reset/reset.sql`.
-5. Click **Run** once.
-6. Check that the query completes without an error.
+4. Click **Run** to create the marker.
+5. Open a new query as **postgres**.
+6. Paste the complete file `scripts/ops/production_reset/reset.sql`.
+7. Click **Run** once.
+8. Check that the query completes without an error.
 
 The reset uses one transaction. It retains the `public` schema shell and its
 extensions, removes app objects in `public` and `argus_private`, deletes users

@@ -1,0 +1,2 @@
+2026-11-10 19:38:19.949 | INFO     | __main__:seed:69 - Seeded 3 Faker users, 3 identities, 3 sessions, 3 profiles, 3 spaces, 3 accounts, 2 real Storage API uploads, a legacy public auth handler, and extra legacy table/view/type/function
+2026-11-10 19:38:23.688 | INFO     | __main__:empty:90 - Storage API empty/delete completed for both buckets; uploaded files no longer readable

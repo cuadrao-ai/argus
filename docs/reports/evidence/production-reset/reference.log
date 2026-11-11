@@ -1,0 +1,5 @@
+2026-11-10 19:38:20.483 | INFO     | __main__:main:42 - Verifier refused mutation: Expected table is missing or lacks RLS: public.profiles
+2026-11-10 19:38:20.488 | INFO     | __main__:main:42 - Verifier refused mutation: Expected 63 public functions, got 64
+2026-11-10 19:38:20.531 | INFO     | __main__:main:85 - Baseline reference: 166 RLS tables, 134 policies, 63 public/99 private functions
+2026-11-10 19:38:20.532 | INFO     | __main__:main:86 - Trigger inventory: 1462 drop candidates, 20 retained/review rows
+2026-11-10 19:38:20.532 | INFO     | __main__:main:89 - Approval draft rejected; versions digest matches both migrations executing

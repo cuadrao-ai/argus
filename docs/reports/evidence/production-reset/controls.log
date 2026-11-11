@@ -1,0 +1,12 @@
+2026-11-10 19:38:21.310 | INFO     | __main__:refuse:38 - wrong database: refused (Reset requires database postgres and role postgres)
+2026-11-10 19:38:21.515 | INFO     | __main__:refuse:42 - wrong database: whole schema and data counts unchanged
+2026-11-10 19:38:21.730 | INFO     | __main__:refuse:38 - missing project marker: refused (Missing independently approved database project marker)
+2026-11-10 19:38:21.943 | INFO     | __main__:refuse:42 - missing project marker: whole schema and data counts unchanged
+2026-11-10 19:38:22.172 | INFO     | __main__:refuse:38 - wrong project marker: refused (Wrong independently approved database project marker)
+2026-11-10 19:38:22.387 | INFO     | __main__:refuse:42 - wrong project marker: whole schema and data counts unchanged
+2026-11-10 19:38:22.610 | INFO     | __main__:refuse:38 - storage still populated: refused (Storage buckets and objects must be empty)
+2026-11-10 19:38:22.821 | INFO     | __main__:refuse:42 - storage still populated: whole schema and data counts unchanged
+2026-11-10 19:38:24.780 | INFO     | controls:refuse:38 - protected external view: refused (Reset refused collateral drop of view reset_protected_probe.external_view)
+2026-11-10 19:38:24.997 | INFO     | controls:refuse:42 - protected external view: whole schema and data counts unchanged
+2026-11-10 19:38:25.640 | INFO     | controls:refuse:38 - protected automatic foreign key: refused (Reset refused collateral drop of table constraint external_fk_id_fkey on reset_protected_probe.external_fk)
+2026-11-10 19:38:25.853 | INFO     | controls:refuse:42 - protected automatic foreign key: whole schema and data counts unchanged
