@@ -2,8 +2,46 @@
 
 from __future__ import annotations
 
+import shlex
+import subprocess
+from pathlib import Path
+
+import pytest
+from faker import Faker
+from loguru import logger
+
 import scripts.ops.settings_drift as drift
 from scripts.ops.staging_env import load_manifest
+
+
+@pytest.mark.parametrize("service", ["api", "web"])
+def test_documented_command_help_runs_from_repo_root(
+    service: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = Path(__file__).resolve().parents[1]
+    runbook = (root / "docs/PRIVATE_LAUNCH_RUNBOOK.md").read_text()
+    command = next(
+        line
+        for line in runbook.splitlines()
+        if "settings_drift" in line and line.endswith(f" {service}")
+    )
+    argv = shlex.split(command)
+    assert argv.pop(0) == "RENDER_API_KEY=..."
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    monkeypatch.delenv("RENDER_API_KEY", raising=False)
+
+    result = subprocess.run(
+        [*argv, "--help"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "--token-env" in result.stdout
 
 
 def _service() -> dict:
@@ -93,3 +131,68 @@ def test_run_reads_the_staging_service_and_does_not_write(monkeypatch) -> None:
     assert reader.reads == 1
     assert reader.puts == []
     assert "read-only-token" not in "\n".join(lines)
+
+
+@pytest.mark.parametrize("use_callback", [False, True])
+def test_run_redacts_token_from_plain_values(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    faker: Faker,
+    use_callback: bool,
+) -> None:
+    token = faker.pystr()
+    monkeypatch.setenv("CUSTOM_DRIFT_TOKEN", token)
+    service = _service()
+    monkeypatch.setattr(drift, "load_manifest", lambda: {"services": {"api": service}})
+    monkeypatch.setattr(drift, "staging_services", lambda manifest: manifest["services"])
+    monkeypatch.setattr(
+        drift,
+        "read_live",
+        lambda _client, _service: {"CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED": token},
+    )
+    tokens: list[str] = []
+    lines: list[str] = []
+    kwargs = {"out": lines.append} if use_callback else {}
+
+    code = drift.run(
+        ["api", "--token-env", "CUSTOM_DRIFT_TOKEN"],
+        client_factory=tokens.append,
+        **kwargs,
+    )
+
+    captured = capsys.readouterr()
+    output = "\n".join(lines) + captured.out + captured.err
+    assert code == 1
+    assert tokens == [token]
+    assert token not in output
+    assert "actual=<redacted>" in output
+
+
+@pytest.mark.parametrize("failure", ["load_manifest", "client_factory", "read_live"])
+def test_run_diagnostics_do_not_disclose_token(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    faker: Faker,
+    failure: str,
+) -> None:
+    token = faker.pystr()
+    monkeypatch.setenv("RENDER_API_KEY", token)
+    errors: list[str] = []
+
+    def fail(*_args: object) -> None:
+        raise drift.RenderError(f"request rejected with Authorization: Bearer {token}")
+
+    factory = fail if failure == "client_factory" else lambda _token: object()
+    if failure != "client_factory":
+        monkeypatch.setattr(drift, failure, fail)
+    sink = logger.add(errors.append, format="{message}")
+    try:
+        code = drift.run(["api"], client_factory=factory)
+    finally:
+        logger.remove(sink)
+
+    captured = capsys.readouterr()
+    output = "\n".join(errors) + captured.out + captured.err
+    assert code == 2
+    assert token not in output
+    assert errors
