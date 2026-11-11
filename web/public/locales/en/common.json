@@ -4401,7 +4401,7 @@
       "retry": "Read again",
       "retry_consent": "Trying again sends this receipt to our AI provider.",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",
-      "reading_off": "Turn on Read my documents automatically in your WhatsApp settings, then try again.",
+      "reading_off": "Turn on Read my documents automatically in Document reading, then try again.",
       "saved_title": "Saved expense",
       "title": "Review receipt",
       "prepare": "Prepare with AI",
