@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import re
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -191,67 +193,108 @@ def test_service_unavailability_preserves_deletion_state(
     assert response.headers.get("Retry-After") == ("5" if started else None)
 
 
-def _records_build_failure(monkeypatch, message: str):  # noqa: ANN001, ANN202
+@pytest.fixture
+def durable_builder(monkeypatch, faker):  # noqa: ANN001, ANN201
     from argus.api import account_deletion_runtime as runtime
     from argus.api import state as api_state
 
     monkeypatch.setattr(api_state, "PERSISTENCE_MODE", "supabase")
-    monkeypatch.setattr(api_state, "DATABASE_URL", "postgresql://deletion@db/argus")
+    monkeypatch.setattr(
+        api_state, "DATABASE_URL", f"postgresql://{faker.user_name()}@localhost/test"
+    )
     monkeypatch.setattr(api_state, "supabase_gateway", MagicMock())
+    monkeypatch.setattr(runtime, "deletion_pool", MagicMock())
+    monkeypatch.setattr(runtime, "household_repository", MagicMock())
+    monkeypatch.setattr(runtime, "standalone_revoker", MagicMock())
+    monkeypatch.setattr(runtime, "standalone_apple", MagicMock())
+    return runtime
+
+
+@pytest.fixture
+def failure_logs():  # noqa: ANN201
+    from loguru import logger
+
+    lines: list[str] = []
+    sink = logger.add(
+        lambda message: lines.append(str(message)),
+        level="ERROR",
+        format="{message} {extra}",
+    )
+    try:
+        yield lines
+    finally:
+        logger.remove(sink)
+
+
+@pytest.mark.parametrize("method,path", [("post", URL), ("get", CHECK_URL)])
+@pytest.mark.parametrize("setting", ["HOST", "PROJECT_ID", "API_KEY"])
+@pytest.mark.parametrize("bad", [False, True], ids=["missing", "malformed"])
+def test_a_bad_setting_is_named_without_its_value_in_build_failure_logs(
+    enabled, durable_builder, monkeypatch, faker, failure_logs, method, path, setting, bad
+) -> None:  # noqa: ANN001
+    name = f"CUADRAO_POSTHOG_DELETION_{setting}"
+    values = {
+        "HOST": f"https://{faker.domain_name()}",
+        "PROJECT_ID": str(faker.random_int(min=1)),
+        "API_KEY": faker.password(),
+    }
+    monkeypatch.setenv("CUADRAO_ANALYTICS_DELETION_ENABLED", "true")
+    for field, value in values.items():
+        monkeypatch.setenv(f"CUADRAO_POSTHOG_DELETION_{field}", value)
+    if bad:
+        value = " " if setting == "API_KEY" else faker.password()
+        if setting == "HOST":
+            value = f"https://[{value}"
+        values[setting] = value
+        monkeypatch.setenv(name, value)
+    else:
+        monkeypatch.delenv(name)
+
+    with patch.object(account_route, "deletion_requester", _registered):
+        response = client.request(method, path, json={"confirm": True})
+    logged = "\n".join(failure_logs)
+    assert name in logged
+    for value in values.values():
+        if value.strip() and not value.isdecimal():
+            assert value not in logged
+            assert value not in response.text
+    assert response.status_code == 503
+    assert response.json()["code"] == "account_deletion_unavailable"
+    assert response.json()["detail"] == "Account deletion is not available right now."
+    assert name not in response.text
+
+
+@pytest.mark.parametrize("method,path", [("post", URL), ("get", CHECK_URL)])
+def test_an_unknown_build_failure_logs_its_origin_without_exception_text(
+    enabled, durable_builder, monkeypatch, faker, failure_logs, method, path
+) -> None:  # noqa: ANN001
+    jwt = ".".join(
+        base64.urlsafe_b64encode(faker.pystr().encode()).decode().rstrip("=")
+        for _ in range(3)
+    )
+    secrets = [
+        f"https://{faker.user_name()}:{faker.password()}@{faker.domain_name()}",
+        jwt,
+        f"password={faker.password()}",
+        faker.sha256(),
+        f"-----BEGIN PRIVATE KEY-----\n{faker.sha256()}",
+    ]
 
     def fail_build(**kwargs):  # noqa: ANN003, ANN202
-        raise RuntimeError(message)
+        try:
+            raise ValueError(faker.password())
+        except ValueError as cause:
+            raise RuntimeError(" ".join(secrets)) from cause
 
-    monkeypatch.setattr(runtime, "build_service", fail_build)
-
-
-@pytest.mark.parametrize(
-    ("method", "path"),
-    [("post", URL), ("get", CHECK_URL)],
-)
-def test_a_build_failure_is_logged_and_the_caller_gets_the_public_503(
-    enabled, monkeypatch, method, path
-) -> None:  # noqa: ANN001
-    from loguru import logger
-
-    reason = "deletion configuration missing"
-    _records_build_failure(monkeypatch, reason)
-    lines: list[str] = []
-    sink = logger.add(lambda message: lines.append(str(message)), level="ERROR")
-    try:
-        with patch.object(account_route, "deletion_requester", _registered):
-            response = client.request(method, path, json={"confirm": True})
-    finally:
-        logger.remove(sink)
-    body = response.json()
-    assert response.status_code == 503
-    assert body["code"] == "account_deletion_unavailable"
-    assert body["detail"] == "Account deletion is not available right now."
-    assert reason not in response.text
-    assert USER_ID not in response.text
-    logged = "\n".join(lines)
+    monkeypatch.setattr(durable_builder, "build_service", fail_build)
+    with patch.object(account_route, "deletion_requester", _registered):
+        response = client.request(method, path, json={"confirm": True})
+    logged = "\n".join(failure_logs)
     assert "RuntimeError" in logged
-    assert reason in logged
-
-
-def test_a_build_failure_log_keeps_credentials_out(
-    enabled, monkeypatch
-) -> None:  # noqa: ANN001
-    from loguru import logger
-
-    secret = "postgresql://deletion:super-secret-password@db/argus"
-    _records_build_failure(monkeypatch, secret)
-    lines: list[str] = []
-    sink = logger.add(lambda message: lines.append(str(message)), level="ERROR")
-    try:
-        with patch.object(account_route, "deletion_requester", _registered):
-            response = client.post(URL, json={"confirm": True})
-    finally:
-        logger.remove(sink)
-    logged = "\n".join(lines)
-    assert "super-secret-password" not in logged
-    assert "[redacted]" in logged
-    assert "super-secret-password" not in response.text
+    for secret in secrets:
+        assert secret not in logged
+        assert secret not in response.text
+    assert re.search(r"test_account_deletion_api\.fail_build:[1-9][0-9]*", logged)
     assert response.status_code == 503
     assert response.json()["code"] == "account_deletion_unavailable"
     assert response.json()["detail"] == "Account deletion is not available right now."
