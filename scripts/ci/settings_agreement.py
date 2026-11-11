@@ -516,6 +516,14 @@ class _Python:
             and node.func.attr == "get"
         ):
             return self._names(node.func.value, seen)
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr == "value"
+            and isinstance(node.value, ast.Name)
+        ):
+            enum_names = self._enum_read_names(node)
+            if enum_names:
+                return enum_names
         if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
             scope = self._scope(node)
             parsers = set()
@@ -612,6 +620,59 @@ class _Python:
                     and len(call.args) > position
                     for name in self._names(call.args[position], seen)
                 ]
+        return []
+
+    def _enum_read_names(self, node: ast.Attribute) -> list[str]:
+        member = node.value.id
+        parent = node
+        while parent in self.parents:
+            parent = self.parents[parent]
+            loops = (
+                [parent]
+                if isinstance(parent, ast.For)
+                else parent.generators
+                if isinstance(
+                    parent, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+                )
+                else []
+            )
+            for loop in loops:
+                if (
+                    not isinstance(loop.target, ast.Name)
+                    or loop.target.id != member
+                    or not isinstance(loop.iter, ast.Name)
+                ):
+                    continue
+                name = loop.iter.id
+                if self._shadowed(loop.iter, name):
+                    return []
+                tree = self.tree
+                for statement in self.tree.body:
+                    if not isinstance(statement, ast.ImportFrom) or not statement.module:
+                        continue
+                    for alias in statement.names:
+                        if (alias.asname or alias.name) == name:
+                            path = (
+                                self.root
+                                / "src"
+                                / Path(*statement.module.split(".")).with_suffix(".py")
+                            )
+                            if not path.is_file():
+                                return []
+                            tree, name = ast.parse(path.read_text()), alias.name
+                for statement in tree.body:
+                    if (
+                        isinstance(statement, ast.ClassDef)
+                        and statement.name == name
+                        and any(_call_name(base) == "Enum" for base in statement.bases)
+                    ):
+                        return [
+                            child.value.value
+                            for child in statement.body
+                            if isinstance(child, (ast.Assign, ast.AnnAssign))
+                            and isinstance(child.value, ast.Constant)
+                            and isinstance(child.value.value, str)
+                        ]
         return []
 
     def _import_names(self, module: str, name: str) -> list[str]:

@@ -2137,6 +2137,10 @@
           "owner": "web/lib/supabase-client.ts"
         },
         {
+          "default": null,
+          "owner": "web/lib/supabase-server.ts"
+        },
+        {
           "default": "true",
           "owner": "web/playwright.config.ts"
         },
