@@ -602,18 +602,12 @@ def prepare_attachment(
     facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
     read_facts = BusinessFacts.model_validate(facts)
     facts = read_facts.model_dump(mode="json")
-    # Default only when no currency was read anywhere: not on the chosen
-    # purchase, not on any purchase row (rows that disagree are conflicting
-    # evidence, not absence), and not on the receipt details. The read
-    # projection marks an absent currency uncertain, so uncertainty alone
-    # does not count as evidence.
-    no_currency_read = not any(
-        (
-            values["currency"],
-            getattr(batch.receipt, "currency", None),
-            *(getattr(purchase, "currency", None) for purchase in purchases),
-        )
-    )
+    # Default only when the read names no currency at all. One owner scans the
+    # evidence (rows, accounts, receipt details); disagreeing currencies are
+    # conflicting evidence, not absence, and stay unknown.
+    from argus.domain.ingestion.documents.extractor import named_currencies
+
+    no_currency_read = not values["currency"] and not named_currencies(batch)
     if (
         no_currency_read
         and not isinstance(read_facts.currency, Known)

@@ -213,7 +213,9 @@ def _priced_currency(
     return own or agreed
 
 
-def _named_currencies(batch: ExtractionBatch) -> set[str]:
+def named_currencies(batch: ExtractionBatch) -> set[str]:
+    """Every currency the read names: rows, accounts and the receipt details."""
+
     named: set[str] = set()
     for row in (*batch.observations, *batch.candidates):
         for raw in (row.currency, row.account.currency):
@@ -231,7 +233,7 @@ def _named_currencies(batch: ExtractionBatch) -> set[str]:
 def _agreed_currency(batch: ExtractionBatch) -> str | None:
     """The one currency named on the read, when every named currency agrees."""
 
-    named = _named_currencies(batch)
+    named = named_currencies(batch)
     if len(named) == 1:
         return named.pop()
     return None
