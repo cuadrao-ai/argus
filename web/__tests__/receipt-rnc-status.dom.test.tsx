@@ -56,6 +56,16 @@ for (const [value, formatted] of [["101123456", "1-01-12345-6"], ["00112345678",
   assert.equal(row.querySelector('[role="status"]'), null); assert.equal(row.querySelector("button"), null);
   await env.close();
 });
+test("a recorded RNC with a wrong check digit keeps its tag and reason, with no revisar and no action", async () => {
+  const env = await setup(); const { default: Facts } = await import("@/components/business-app/ReceiptRecordFacts");
+  const dossier = await fixture("199990022"); dossier.review_flags = [{ code: "rnc_check_digit", field: "rnc", confirm: true }];
+  await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><Facts dossier={dossier} accounts={accounts} /></env.I18nextProvider>));
+  const row = env.host.querySelector('[data-fact="rnc"]')!;
+  assert.equal(row.querySelector('[role="status"]')?.textContent, "RNC con error");
+  assert.ok(row.textContent?.includes("El dígito verificador de este RNC no coincide."));
+  assert.equal(row.textContent?.includes("revisar"), false); assert.equal(row.querySelector("button"), null);
+  await env.close();
+});
 test("optional actions use 44px targets, valid values have none", async () => {
   const env = await setup(); const { default: Block } = await import("@/components/business-app/RncStatusBlock"); let edits = 0;
   for (const [fact, label] of [[undefined, "Agregar RNC"], [known("123"), "Editar RNC"]] as const) {

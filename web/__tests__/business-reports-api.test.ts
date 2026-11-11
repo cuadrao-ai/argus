@@ -95,7 +95,7 @@ describe("Business report transport", () => {
   });
   test("previews the export from the table's request and saves the file under the server's name", async () => {
     const report = reportRequestSchema.parse({ schema_version: 2, page: 4, filters: { record_families: ["purchase"], currencies: ["DOP"] } });
-    const preview = { table: { columns: [{ key: "counterparty", shown: true }], current: { record_count: 3, currencies: ["DOP"] }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [] } };
+    const preview = { table: { columns: [{ key: "counterparty", shown: true }], current: { record_count: 3, currencies: ["DOP"] }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [] } };
     const previewCalls = respond(preview);
     expect(await previewRecordsExport(scope, report)).toEqual(preview);
     expect(previewCalls[0].path).toEndWith("/business/reports/export/preview");

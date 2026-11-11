@@ -89,9 +89,10 @@ export function createBusinessReportHttpFixture() {
       const bounded = report.filters.amount_min !== null || report.filters.amount_max !== null;
       const family = records.filter((row) => row.family === report.filters.record_families[0]);
       const foreign = family.filter((row) => row.fiscal_data && row.currency && row.currency !== controls.dgiiCurrency);
+      const pendingFiscal = family.filter((row) => row.fiscal_data === "missing" && row.currency === controls.dgiiCurrency).length;
       return Response.json({
         table: { columns: presentation.order.filter((key) => !sale || (key !== "expense_type" && key !== "payment_form")).map((key) => ({ key, shown: !presentation.hidden.includes(key) })), current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } })) },
-        dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_fiscal_count: family.filter((row) => row.fiscal_data === "missing" && row.currency === controls.dgiiCurrency).length, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort() },
+        dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort() },
       });
     }
     if (path.endsWith("/reports/export")) {

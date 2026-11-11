@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { chromium, expect } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "../e2e/support/breakpoint-fixture";
-import { monthCloseWire } from "../e2e/support/month-close-wire";
+import { monthCloseWire, OPEN_ITEMS_WIRE } from "../e2e/support/month-close-wire";
 import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
 import { designServerFieldsReception } from "../e2e/support/design-server-fields-reception";
 import { supportEmail } from "../lib/support-email";
@@ -18,8 +18,9 @@ const output = resolve(process.env.EVIDENCE_OUTPUT ?? "../temp/lucas-design-serv
 mkdirSync(output, { recursive: true });
 const cases = process.env.EVIDENCE_CASE === "receipt" ? ["inicio-receipts-failed"] : ["inicio-business-refused", "inicio-month-500", "inicio-open-items-refused", "inicio-month-refused", "bandeja-al-dia", "bandeja-mixed", "bandeja-refused", "inicio-receipts-failed", "inicio-known-zero", "inicio-receipts-loading", "inicio-receipts-refused", "inicio-receipts-unknown", "inicio-receipts-tasks"];
 const receiptChecks: { state: string; width: number; retry: boolean; recovered?: boolean; reads_before?: number; reads_after?: number }[] = [];
+const monthChecks: { width: number; reads_before: number; reads_after: number }[] = [];
 const retryChecks: { width: number; notes_before: number; notes_after: number; emails_before: number; emails_after: number }[] = [];
-const evidence: { file: string; sha256: string; state: string; width: number; ready: boolean; close: boolean }[] = [];
+const evidence: { file: string; sha256: string; state: string; width: number }[] = [];
 const browser = await chromium.launch({ headless: true });
 try {
   for (const state of cases) {
@@ -35,18 +36,21 @@ try {
       await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
       const source = createFixtureBusinessDataSource({ chatAvailable: false });
       const spaces = (await source.spaces()).slice(0, 1);
-      const calls = { notes: 0, emails: 0, receipts: 0 };
+      const calls = { notes: 0, emails: 0, receipts: 0, month: 0 };
       let receiptsDown = true;
       let releaseReceipts = () => {};
       const receiptRead = new Promise<void>((resolve) => { releaseReceipts = resolve; });
       let emailsDown = true;
+      let monthDown = true;
+      // Por cobrar and Por pagar exist only while the server's settlement is on.
+      const settles = state === "inicio-open-items-refused" || state === "inicio-receipts-tasks";
       await page.route("**/api/v1/business/**", async (route) => {
         const url = new URL(route.request().url());
         const path = url.pathname.split("/business/")[1];
         const refuse = (status = 404, code = "business_unavailable") => route.fulfill({ status, json: { code, request_id: "4ea79978-ce17-4853-b232-b2a72f4c9ce7" } });
         if (state === "inicio-business-refused" && path === "overview") return refuse();
         if (state === "inicio-month-refused" && path === "month-close") return refuse();
-        if (state === "inicio-month-500" && path === "month-close") return refuse(500, "internal_error");
+        if (state === "inicio-month-500" && path === "month-close") { calls.month += 1; if (monthDown) return refuse(500, "internal_error"); }
         if (state === "inicio-open-items-refused" && path === "open-items") return refuse();
         if (path === "receipts") {
           calls.receipts += 1;
@@ -58,7 +62,7 @@ try {
         if ((state === "bandeja-refused" || state === "bandeja-mixed") && path === "captures") { calls.notes += 1; return refuse(); }
         if (state === "bandeja-refused" && path === "email/deliveries") return refuse(503, "email_capture_unavailable");
         if (state === "bandeja-mixed" && path === "email/deliveries") { calls.emails += 1; return emailsDown ? refuse(500, "internal_error") : route.fulfill({ json: { items: [] } }); }
-        if (path === "workspace") return route.fulfill({ json: await source.workspace() });
+        if (path === "workspace") return route.fulfill({ json: settles ? { ...await source.workspace(), settlement_available: true } : await source.workspace() });
         if (path === "space/name-prompt") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba", name_required: false, name_prompt_seen: true, show_prompt: false } });
         if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba" } });
         if (path === "spaces") return route.fulfill({ json: { spaces } });
@@ -75,6 +79,7 @@ try {
           return route.fulfill({ json: { ...wire, cuentas_por_cobrar: [], currencies: wire.currencies.map((block) => ({ ...block, net_result_final: true, by_status: { invoices: { pendiente: { count: 0, before_itbis_minor: 0 }, cobrado: { count: 1, before_itbis_minor: 5000000 } }, receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } } })) } });
         }
         if (path === "open-items") {
+          if (state === "inicio-receipts-tasks") return route.fulfill({ json: OPEN_ITEMS_WIRE });
           const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] };
           return route.fulfill({ json: { today: "2026-10-21", cuentas_por_cobrar: none, cuentas_por_pagar: none } });
         }
@@ -93,15 +98,29 @@ try {
       const reception = page.locator(designServerFieldsReception.root);
       const receptionViews = reception.locator(designServerFieldsReception.views);
       const receptionAlert = reception.locator(designServerFieldsReception.alert);
+      const attention = page.getByTestId("home-attention");
+      const attentionError = page.getByTestId("home-attention-error");
+      const attentionRetry = attentionError.getByRole("button", { name: "Reintentar", exact: true });
+      const attentionClear = page.getByTestId("home-attention-clear");
+      const attentionLoading = page.getByTestId("home-attention-loading");
+      const monthBody = page.getByTestId("home-month-body");
+      const monthRetry = monthBody.getByRole("button", { name: "Reintentar", exact: true });
+      const moneyError = page.getByTestId("month-close-money-error");
+      const receiptsFail = state === "inicio-receipts-failed" || state === "inicio-receipts-tasks";
+      const attentionFails = receiptsFail || state === "inicio-business-refused" || state === "inicio-receipts-refused";
+      const monthFails = state === "inicio-month-refused" || state === "inicio-month-500";
+      // Inicio never claims a count, "Todo al día" or a first day the server did not send.
+      const noAttentionClaim = async () => {
+        for (const id of ["home-attention-count", "home-attention-clear", "home-attention-first-day", "home-attention-rows"]) await expect(page.getByTestId(id)).toHaveCount(0);
+      };
       if (state.startsWith("bandeja")) {
         await expect(reception).toBeVisible();
         await expect(receptionViews).toBeVisible();
       } else {
-        await expect(page.getByTestId("month-close")).toBeVisible();
+        await expect(page.getByTestId("home-overview")).toBeVisible();
+        await expect(attention).toBeVisible();
+        await expect(page.getByTestId("home-month")).toBeVisible();
       }
-      if (state === "inicio-business-refused" || state === "inicio-receipts-failed") await expect(page.getByTestId("inicio-error")).toBeVisible();
-      if (state === "inicio-month-refused" || state === "inicio-month-500") await expect(page.getByTestId("month-close-error")).toBeVisible();
-      if (state === "inicio-open-items-refused") await expect(page.getByTestId("month-close-money-error")).toBeVisible();
       if (state === "bandeja-al-dia") {
         const all = receptionViews.locator(designServerFieldsReception.tabs.all);
         const listos = receptionViews.locator(designServerFieldsReception.tabs.listos);
@@ -141,50 +160,66 @@ try {
         await expect(receptionAlert).not.toContainText("conexión");
         await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
       }
-      if (state === "inicio-receipts-failed") {
-        await expect(page.getByTestId("month-close-checklist")).toBeVisible();
-        await expect(page.getByTestId("month-close-checklist-ready")).toHaveCount(stage === "before" ? 1 : 0);
-        await expect(page.getByTestId("month-close-close")).toHaveCount(stage === "before" ? 1 : 0);
-      }
-      if (state.startsWith("inicio-receipts-") && stage !== "before") {
-        const status = page.getByTestId("month-close-receipts-status");
-        await expect(status).toBeVisible();
-        const retry = status.getByRole("button", { name: "Reintentar", exact: true });
-        const failed = state === "inicio-receipts-failed" || state === "inicio-receipts-tasks";
-        await expect(retry).toHaveCount(failed ? 1 : 0);
-        await expect(status).toContainText(state === "inicio-receipts-loading" ? "Cargando el conteo de recibos." : state === "inicio-receipts-refused" ? "Cuadrao Business aún no está disponible para tu cuenta." : state === "inicio-receipts-unknown" ? "El conteo de recibos no está disponible." : "No pudimos cargar el conteo de recibos.");
-        await expect(page.getByTestId("month-close-close")).toHaveCount(0);
-        await expect(page.getByTestId("month-close-checklist-ready")).toHaveCount(0);
-        if (width === 390) {
-          const box = await status.boundingBox();
-          expect(box).not.toBeNull();
-          expect(box!.y).toBeGreaterThanOrEqual(0);
-          expect(box!.y + box!.height, "receipt reason and retry stay on the first phone screen").toBeLessThanOrEqual(780);
+      if (state.startsWith("inicio")) {
+        if (attentionFails) {
+          await expect(attentionError).toBeVisible();
+          await expect(attentionError).toHaveAttribute("role", "alert");
+          await expect(attentionError).toContainText("No pudimos cargar lo pendiente.");
+          await expect(attentionRetry).toHaveCount(receiptsFail ? 1 : 0);
+          if (receiptsFail) await expect(attentionError).not.toContainText("hola@cuadrao.ai");
+          else {
+            await expect(attentionError).toContainText("Si crees que es un error, escríbenos a hola@cuadrao.ai.");
+            await expect(attentionError).not.toContainText("conexión");
+          }
+          await expect(attentionLoading).toHaveCount(0);
+          await noAttentionClaim();
+          if (width === 390) {
+            const box = await attentionError.boundingBox();
+            expect(box).not.toBeNull();
+            expect(box!.y).toBeGreaterThanOrEqual(0);
+            expect(box!.y + box!.height, "the failed read and its way out stay on the first phone screen").toBeLessThanOrEqual(780);
+          }
+          receiptChecks.push({ state, width, retry: receiptsFail });
+        } else await expect(attentionError).toHaveCount(0);
+        if (state === "inicio-receipts-loading" || state === "inicio-receipts-unknown") {
+          await expect(attentionLoading).toBeVisible();
+          await expect(attentionLoading).toHaveAttribute("aria-busy", "true");
+          await expect(attentionLoading).toContainText("Cargando la Bandeja");
+          await noAttentionClaim();
+          receiptChecks.push({ state, width, retry: false });
         }
-        if (failed) await expect(page.getByTestId("inicio-error")).toHaveCount(1);
-        if (state === "inicio-receipts-tasks") {
-          const checklist = page.getByTestId("month-close-checklist");
-          const disclosure = checklist.getByRole("button", { name: "Ver cuáles", exact: true });
-          await expect(disclosure).toHaveAttribute("aria-expanded", "false");
-          await disclosure.click();
-          await expect(checklist.getByRole("button", { name: "Ocultar", exact: true })).toHaveAttribute("aria-expanded", "true");
-          await expect(page.getByTestId("month-close-task-settle")).toBeVisible();
-          await expect(page.getByTestId("month-close-steps-note")).toHaveCount(0);
+        if (state === "inicio-known-zero" || monthFails || state === "inicio-open-items-refused") {
+          await expect(attentionClear).toBeVisible();
+          await expect(attentionClear).toContainText("Todo al día");
+          await expect(attentionLoading).toHaveCount(0);
+          await expect(page.getByTestId("home-attention-count")).toHaveCount(0);
         }
-        receiptChecks.push({ state, width, retry: failed });
-      }
-      if (state === "inicio-known-zero") {
-        await expect(page.getByTestId("month-close-checklist-ready")).toBeVisible();
-        await expect(page.getByTestId("month-close-close")).toBeVisible();
-      }
-      for (const id of ["inicio-error", "month-close-error", "month-close-money-error"]) {
-        const error = page.getByTestId(id);
-        if (state.includes("refused") && await error.count()) {
-          await expect(error).not.toContainText("conexión");
-          await expect(error.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
+        if (monthFails) {
+          await expect(monthBody).toHaveAttribute("data-state", "error");
+          await expect(monthBody.getByRole("alert")).toContainText("No pudimos cargar el mes");
+          await expect(page.getByTestId("home-month-net")).toHaveCount(0);
+          await expect(monthRetry).toHaveCount(state === "inicio-month-500" ? 1 : 0);
+          if (state === "inicio-month-refused") {
+            await expect(monthBody).toContainText("Si crees que es un error, escríbenos a hola@cuadrao.ai.");
+            await expect(monthBody).not.toContainText("conexión");
+          } else await expect(monthBody).toContainText("Tus datos siguen guardados. Revisa tu conexión e inténtalo otra vez.");
+        } else {
+          await expect(monthBody).toHaveAttribute("data-state", "ready");
+          await expect(page.getByTestId("home-month-income")).toHaveAttribute("data-amount", "48500.00");
+          await expect(page.getByTestId("home-month-expenses")).toHaveAttribute("data-amount", "12300.00");
+          // The server's net: final once nothing is left to mark, unknown (never a guess) while a document waits.
+          if (state === "inicio-receipts-tasks") await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-state", "unknown");
+          else await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-amount", "36200.00");
         }
+        if (state === "inicio-open-items-refused") {
+          await expect(moneyError).toBeVisible();
+          await expect(moneyError.getByRole("alert")).toContainText("No pudimos cargar lo que falta por cobrar y por pagar");
+          await expect(moneyError).toContainText("Si crees que es un error, escríbenos a hola@cuadrao.ai.");
+          await expect(moneyError).not.toContainText("conexión");
+          await expect(moneyError.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
+          for (const id of ["month-close-receivable", "month-close-payable", "month-close-nothing-open"]) await expect(page.getByTestId(id)).toHaveCount(0);
+        } else await expect(page.getByTestId("month-close-money")).toHaveCount(0);
       }
-      if (state === "inicio-month-500") await expect(page.getByTestId("month-close-error").getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
       if (state === "bandeja-refused" || state === "bandeja-mixed") {
         for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
           await expect(receptionViews.locator(designServerFieldsReception.tabs[key])).toHaveText(new RegExp(`^${label}\\s*-$`));
@@ -199,28 +234,52 @@ try {
       }, `Synthetic fixture proof · ${head.slice(0, 7)}`);
       const file = `${state}-${width}.png`;
       await page.screenshot({ path: resolve(output, file), fullPage: true });
-      evidence.push({ file, sha256: createHash("sha256").update(readFileSync(resolve(output, file))).digest("hex"), state, width, ready: await page.getByTestId("month-close-checklist-ready").count() > 0, close: await page.getByTestId("month-close-close").count() > 0 });
+      evidence.push({ file, sha256: createHash("sha256").update(readFileSync(resolve(output, file))).digest("hex"), state, width });
       if (state === "inicio-receipts-failed") {
-        await page.getByTestId("inicio-error").scrollIntoViewIfNeeded();
+        await attentionError.scrollIntoViewIfNeeded();
         const detail = `${state}-${width}-error-detail.png`;
         await page.screenshot({ path: resolve(output, detail), fullPage: true });
-        evidence.push({ file: detail, sha256: createHash("sha256").update(readFileSync(resolve(output, detail))).digest("hex"), state, width, ready: await page.getByTestId("month-close-checklist-ready").count() > 0, close: await page.getByTestId("month-close-close").count() > 0 });
+        evidence.push({ file: detail, sha256: createHash("sha256").update(readFileSync(resolve(output, detail))).digest("hex"), state, width });
       }
-      if (state === "inicio-receipts-failed" && stage !== "before") {
+      if (receiptsFail) {
         const before = calls.receipts;
         receiptsDown = false;
-        await page.getByTestId("month-close-receipts-status").getByRole("button", { name: "Reintentar", exact: true }).click();
-        await expect(page.getByTestId("month-close-receipts-status")).toHaveCount(0);
-        await expect(page.getByTestId("month-close-checklist-ready")).toBeVisible();
-        await expect(page.getByTestId("month-close-close")).toBeVisible();
+        await attentionRetry.click();
+        await expect(attentionError).toHaveCount(0);
+        await expect(attentionClear).toBeVisible();
         expect(calls.receipts).toBeGreaterThan(before);
+        if (state === "inicio-receipts-tasks") {
+          // The same read brings the workspace: with settlement on, the document still to mark shows once it lands.
+          const receivable = page.getByTestId("month-close-receivable");
+          await expect(receivable.getByTestId("month-close-row")).toHaveCount(1);
+          await expect(receivable).toContainText("Colmado La Esquina");
+          await expect(receivable.getByTestId("month-close-receivable-total")).toHaveAttribute("data-currency", "DOP");
+          await expect(moneyError).toHaveCount(0);
+          await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-state", "unknown");
+        }
         receiptChecks.push({ state, width, retry: true, recovered: true, reads_before: before, reads_after: calls.receipts });
         const recovered = `${state}-${width}-recovered.png`;
         await page.screenshot({ path: resolve(output, recovered), fullPage: true });
-        evidence.push({ file: recovered, sha256: createHash("sha256").update(readFileSync(resolve(output, recovered))).digest("hex"), state: "inicio-receipts-recovered", width, ready: true, close: true });
+        evidence.push({ file: recovered, sha256: createHash("sha256").update(readFileSync(resolve(output, recovered))).digest("hex"), state: `${state}-recovered`, width });
+      }
+      if (state === "inicio-month-500") {
+        const before = calls.month;
+        monthDown = false;
+        await monthRetry.click();
+        await expect(monthBody).toHaveAttribute("data-state", "ready");
+        await expect(monthBody.getByRole("alert")).toHaveCount(0);
+        await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-amount", "36200.00");
+        expect(calls.month).toBeGreaterThan(before);
+        monthChecks.push({ width, reads_before: before, reads_after: calls.month });
+        const recovered = `${state}-${width}-recovered.png`;
+        await page.screenshot({ path: resolve(output, recovered), fullPage: true });
+        evidence.push({ file: recovered, sha256: createHash("sha256").update(readFileSync(resolve(output, recovered))).digest("hex"), state: "inicio-month-recovered", width });
       }
       releaseReceipts();
-      if (state === "inicio-receipts-loading") await expect(page.getByTestId("month-close-checklist-ready")).toBeVisible();
+      if (state === "inicio-receipts-loading") {
+        await expect(attentionLoading).toHaveCount(0);
+        await expect(attentionClear).toBeVisible();
+      }
       if (state === "bandeja-mixed") {
         await selectedSources;
         const before = { ...calls };
@@ -244,6 +303,6 @@ try {
   throw error;
 } finally {
   await browser.close();
-  writeFileSync(resolve(output, "manifest.json"), JSON.stringify({ head, stage, proof: "synthetic fixture proof", generated_at: new Date().toISOString(), retryChecks, receiptChecks, evidence }, null, 2));
+  writeFileSync(resolve(output, "manifest.json"), JSON.stringify({ head, stage, proof: "synthetic fixture proof", generated_at: new Date().toISOString(), retryChecks, receiptChecks, monthChecks, evidence }, null, 2));
 }
 console.log(`Captured ${evidence.length} synthetic screenshots at ${head}`);
