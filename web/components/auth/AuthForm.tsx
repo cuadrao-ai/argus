@@ -201,7 +201,7 @@ export default function AuthForm({
   onEmailConfirmed,
   onResendEmailCode,
 }: AuthFormProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -269,7 +269,7 @@ export default function AuthForm({
   const [resendSeconds, setResendSeconds] = useState(30);
   const confirmationHeadingRef = useRef<HTMLHeadingElement>(null);
   const isSignup = mode === "signup";
-  const acceptance = acceptanceLinks();
+  const acceptance = acceptanceLinks(i18n.language);
   const labels = {
     email: t("auth.login.email_placeholder"),
     password: t("auth.login.password_placeholder"),

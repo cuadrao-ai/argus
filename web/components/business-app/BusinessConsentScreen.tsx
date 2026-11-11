@@ -14,9 +14,9 @@ import { primaryButtonClass, quietButtonClass } from "./business-ui";
 export type ConsentSave = { kind: "idle" } | { kind: "saving" } | { kind: "failed"; reference: string };
 
 export function BusinessConsentScreen({ save, onContinue }: { save: ConsentSave; onContinue: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const online = useOnline();
-  const privacyUrl = cuadraoLegalLinks().privacy;
+  const privacyUrl = cuadraoLegalLinks(i18n.language).privacy;
   const checkboxId = useId();
   const errorId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);

@@ -1,7 +1,5 @@
-import { redirect } from "next/navigation";
+import { LegalRedirect } from "@/components/legal/LegalRedirect";
 
-import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
-
-export default function PrivacyPage(): never {
-  redirect(cuadraoLegalLinks().privacy);
+export default function PrivacyPage() {
+  return <LegalRedirect document="privacy" />;
 }

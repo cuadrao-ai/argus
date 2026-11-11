@@ -1,0 +1,292 @@
+{
+  "privacidad": {
+    "title": "Aviso de privacidad de la app Cuadrao",
+    "blocks": [
+      {
+        "kind": "paragraph",
+        "text": "Vigente desde: 10 de noviembre de 2026"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Última actualización: 10 de noviembre de 2026"
+      },
+      {
+        "kind": "heading",
+        "text": "1. Quiénes somos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Este aviso es de **Cuadrao LLC**, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU. Contacto: hola@cuadrao.ai."
+      },
+      {
+        "kind": "heading",
+        "text": "2. Qué cubre este aviso"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Cubre la app Cuadrao Business: tu cuenta, los documentos y datos de tu negocio, y la lectura con inteligencia artificial. No cubre el sitio de marketing (cuadrao.ai), que tiene su propia política."
+      },
+      {
+        "kind": "heading",
+        "text": "3. Qué datos recogemos"
+      },
+      {
+        "kind": "list",
+        "items": [
+          "**Cuenta:** tu correo y una contraseña. Para registrarte o entrar, te enviamos un código por correo.",
+          "**Tu negocio:** el nombre y los datos de perfil que completes.",
+          "**Documentos y registros:** los archivos que subes, los datos que contienen, los borradores, las aprobaciones y lo que exportas. Cuando estén disponibles, también pueden llegar por correo o por WhatsApp.",
+          "**Personas que invitas:** su correo y el rol que les das.",
+          "**Datos técnicos:** por ejemplo tu IP, datos del navegador y cookies de sesión, para el funcionamiento y la seguridad.",
+          "**Uso de la app:** medimos el uso en nuestros servidores, de forma seudónima. No rastreamos tu actividad en el navegador ni usamos esos datos para publicidad.",
+          "**Mensajes a hola@cuadrao.ai:** tu correo y lo que nos cuentes, para responderte."
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "text": "No pedimos más datos de los necesarios para el servicio."
+      },
+      {
+        "kind": "heading",
+        "text": "4. Para qué los usamos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Para mantener tu cuenta, organizar los registros de tu negocio, preparar borradores cuando la lectura con IA está activa, mostrártelos a ti y a las personas que invites, generar las exportaciones que descargas, enviarte correos del servicio y proteger la app. No vendemos tus datos ni los usamos para publicidad."
+      },
+      {
+        "kind": "heading",
+        "text": "5. Lectura con inteligencia artificial"
+      },
+      {
+        "kind": "paragraph",
+        "text": "La lectura empieza apagada. Solo el dueño del negocio puede activarla. Un servicio de inteligencia artificial externo procesa el documento para preparar el borrador; lo configuramos para que no guarde tus documentos ni los use para entrenar. El borrador puede tener errores. Puedes apagar la lectura cuando quieras."
+      },
+      {
+        "kind": "heading",
+        "text": "6. Datos de otras personas en tus documentos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Tus documentos pueden traer datos de clientes, proveedores u otras personas. Al compartirlos, y al activar la lectura, confirmas que puedes hacerlo con Cuadrao para este fin. En los registros del negocio, el dueño es el responsable del tratamiento y Cuadrao los trata por su encargo."
+      },
+      {
+        "kind": "heading",
+        "text": "7. Con quién los compartimos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "No los compartimos para publicidad. Tus datos, tu inicio de sesión y tus documentos se guardan y se alojan en Estados Unidos. También los tratan, para operar la app, un proveedor de envío de correo, un servicio de medición de uso, el control de que no eres un robot al entrar, y, si activas la lectura, el servicio de inteligencia artificial. Personas del equipo de Cuadrao solo acceden a tus datos cuando es necesario para dar soporte, operar la app o por seguridad."
+      },
+      {
+        "kind": "paragraph",
+        "text": "También podemos revelarlos si la ley lo exige."
+      },
+      {
+        "kind": "heading",
+        "text": "8. Transferencia internacional"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Cuadrao LLC está en Estados Unidos. Se guardan en Estados Unidos. La lectura con IA puede procesarse fuera de la República Dominicana. Esa transferencia es necesaria para el servicio. La aceptas al crear tu cuenta y, si activas la lectura con IA, al activarla, después de ver este aviso."
+      },
+      {
+        "kind": "heading",
+        "text": "9. Cuánto tiempo los guardamos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Los guardamos mientras tu cuenta o el negocio estén activos, o hasta que pidas borrarlos. Conservar los registros fiscales es deber del dueño del negocio. Si la ley nos obliga a conservar algún dato, lo bloqueamos y solo lo usamos para cumplir esa obligación. El borrado se pide como indica la sección 11."
+      },
+      {
+        "kind": "heading",
+        "text": "10. Tus derechos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Puedes pedir acceder, corregir o suprimir tus datos, u oponerte a su uso. Escríbenos a hola@cuadrao.ai. Es gratis. Te damos acceso en 5 días hábiles y corregimos o suprimimos en 10 días hábiles. También puedes acudir a un juez con una acción de hábeas data."
+      },
+      {
+        "kind": "heading",
+        "text": "11. Cómo borrar tu cuenta y tus datos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Puedes borrar tu cuenta desde la app (Ajustes) o escribirnos a hola@cuadrao.ai."
+      },
+      {
+        "kind": "heading",
+        "text": "12. Seguridad"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Usamos medidas razonables para proteger tus datos, como conexiones cifradas y acceso limitado. Ningún sistema es totalmente seguro."
+      },
+      {
+        "kind": "heading",
+        "text": "13. Menores"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Esta app es solo para mayores de 18 años y no está dirigida a niños. Si sabemos que un menor nos envió datos, los borramos."
+      },
+      {
+        "kind": "heading",
+        "text": "14. Cambios"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Si cambiamos este aviso, publicamos la nueva versión aquí con su fecha. Si el cambio es para usar tus datos con un fin nuevo, te avisamos antes y te pedimos permiso de nuevo; si no lo das, seguimos usándolos solo como dice esta versión."
+      },
+      {
+        "kind": "heading",
+        "text": "15. Idioma y contacto"
+      },
+      {
+        "kind": "paragraph",
+        "text": "En caso de diferencia, prevalece la versión en español. Preguntas: hola@cuadrao.ai."
+      },
+      {
+        "kind": "heading",
+        "text": "16. Residentes de EE. UU."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Este aviso se aplica a todos los usuarios, estén donde estén. No vendemos tus datos ni los usamos para publicidad. Si la ley de tu estado te da derechos sobre tus datos, escríbenos a hola@cuadrao.ai."
+      }
+    ]
+  },
+  "terminos": {
+    "title": "Términos de uso de la app Cuadrao",
+    "blocks": [
+      {
+        "kind": "paragraph",
+        "text": "Vigente desde: 10 de noviembre de 2026"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Última actualización: 10 de noviembre de 2026"
+      },
+      {
+        "kind": "heading",
+        "text": "1. Quiénes somos"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Esta app es de **Cuadrao LLC**, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU. Contacto: hola@cuadrao.ai."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Estos Términos rigen la app Cuadrao Business. El sitio de marketing tiene términos propios. Si firmas un acuerdo escrito con nosotros, ese acuerdo prevalece en lo que se aparte de estos Términos."
+      },
+      {
+        "kind": "heading",
+        "text": "2. Qué es la app"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Cuadrao Business te ayuda a guardar los documentos de un negocio, preparar borradores y exportar información para que tú o las personas que invites la usen."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Cuadrao no presenta declaraciones ante la DGII ni otras autoridades, y no da asesoría financiera, contable, tributaria ni legal. Los borradores pueden tener errores. Un registro queda anotado solo cuando una persona autorizada lo aprueba. Tú eres responsable de revisar esos datos y de lo que presentes a la DGII."
+      },
+      {
+        "kind": "paragraph",
+        "text": "El uso de la app en el piloto no tiene un pago. La app es solo para mayores de 18 años."
+      },
+      {
+        "kind": "heading",
+        "text": "3. Tu cuenta"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Para usar la app necesitas una cuenta con tu correo. Conserva tu contraseña y no la compartas. La cuenta es personal."
+      },
+      {
+        "kind": "heading",
+        "text": "4. Roles en un negocio"
+      },
+      {
+        "kind": "paragraph",
+        "text": "El dueño decide quién entra e invita a otras personas, por ejemplo a su contador. Cada persona usa su propia cuenta. El dueño es el responsable de los documentos y registros del negocio. Cuadrao los trata por su encargo."
+      },
+      {
+        "kind": "heading",
+        "text": "5. Documentos y lectura con IA"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Puedes subir documentos a tu negocio. Cuando estén disponibles, también puedes enviarlos a una dirección de recepción o por WhatsApp. Solo debes compartir documentos que tengas derecho a usar en tu negocio."
+      },
+      {
+        "kind": "paragraph",
+        "text": "La lectura con inteligencia artificial empieza apagada. Solo el dueño puede activarla. Entonces se leen los documentos y se prepara un borrador para que lo revises. Puedes apagarla cuando quieras. Los detalles están en el Aviso de privacidad."
+      },
+      {
+        "kind": "heading",
+        "text": "6. Uso aceptable"
+      },
+      {
+        "kind": "paragraph",
+        "text": "No uses la app para nada ilegal ni para dañarla. No intentes atacarla, acceder sin permiso, extraer su contenido de forma automatizada, enviar información falsa o de otra persona, ni subir documentos que no tengas derecho a compartir."
+      },
+      {
+        "kind": "heading",
+        "text": "7. Contenido y licencia"
+      },
+      {
+        "kind": "paragraph",
+        "text": "El contenido de la app y el nombre Cuadrao pertenecen a Cuadrao LLC. Tú conservas los derechos sobre lo que subes o nos envías. Nos das permiso para guardarlo, tratarlo y mostrarlo, y, si se activa la lectura, para enviarlo a un servicio de inteligencia artificial, solo para prestarte el servicio."
+      },
+      {
+        "kind": "heading",
+        "text": "8. Suspensión y cierre"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Podemos suspender o cerrar una cuenta, o dejar de prestar el servicio, si se incumplen estos Términos de forma grave, si la ley nos obliga, o si dejamos de ofrecer la app. Cuando sea razonable, te avisaremos antes. Puedes exportar tus registros mientras tu cuenta esté activa."
+      },
+      {
+        "kind": "heading",
+        "text": "9. Responsabilidad"
+      },
+      {
+        "kind": "paragraph",
+        "text": "**En la medida que la ley lo permita, no damos garantías implícitas, incluidas las de comerciabilidad e idoneidad para un fin determinado. La responsabilidad total de Cuadrao LLC frente a ti por cualquier reclamo no supera lo que nos pagaste en los 12 meses anteriores o US$100, lo que sea mayor. Estos límites no se aplican a daños causados con dolo o culpa grave, ni a lo que la ley no permita limitar.**"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Si eres consumidor en la República Dominicana, un tope de responsabilidad no te quita los derechos que la ley te da y que no se pueden renunciar."
+      },
+      {
+        "kind": "heading",
+        "text": "10. Ley aplicable y disputas"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Estos Términos se rigen por las leyes del estado de Nuevo México, EE. UU., sin quitarte los derechos que te da la ley de tu país y que no se pueden renunciar. Puedes presentar un reclamo ante las autoridades o los tribunales de tu país o ante los tribunales de Nuevo México."
+      },
+      {
+        "kind": "paragraph",
+        "text": "En la República Dominicana, puedes reclamar ante Pro Consumidor o los tribunales dominicanos."
+      },
+      {
+        "kind": "heading",
+        "text": "11. Cambios"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Si cambiamos estos Términos, publicamos la nueva versión aquí con su fecha y, si el cambio es importante, lo avisamos en la app antes de que entre en vigor."
+      },
+      {
+        "kind": "heading",
+        "text": "12. Idioma y contacto"
+      },
+      {
+        "kind": "paragraph",
+        "text": "En caso de diferencia, prevalece la versión en español. Preguntas: hola@cuadrao.ai."
+      }
+    ]
+  }
+}

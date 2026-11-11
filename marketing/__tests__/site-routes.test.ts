@@ -24,11 +24,15 @@ describe("public URL map", () => {
       "/privacidad",
       "/terminos",
       "/eliminar-datos",
+      "/app/privacidad",
+      "/app/terminos",
       "/en",
       "/en/contact",
       "/en/privacy",
       "/en/terms",
       "/en/delete-data",
+      "/en/app/privacy",
+      "/en/app/terms",
     ]);
   });
 
@@ -51,11 +55,22 @@ describe("public URL map", () => {
     },
   );
 
+  test("app legal pages live one segment under /app", () => {
+    expect(slugSegments("es", "appPrivacy")).toEqual(["app", "privacidad"]);
+    expect(pageFromSlug("en", ["app", "terms"])).toBe("appTerms");
+    expect(pageFromSlug("es", ["app"])).toBeNull();
+    expect(rewritesFor("/app/privacidad")).toBe("/es/app/privacidad");
+  });
+
   test("the English contact slug is not a Spanish page", () => {
     expect(pageFromSlug("es", ["contact"])).toBeNull();
     expect(pageFromSlug("en", ["contacto"])).toBeNull();
   });
 });
+
+function rewritesFor(source: string): string | undefined {
+  return nextRewrites().find((rewrite) => rewrite.source === source)?.destination;
+}
 
 describe("case handling", () => {
   test.each([

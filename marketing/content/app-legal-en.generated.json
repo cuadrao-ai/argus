@@ -1,0 +1,292 @@
+{
+  "privacidad": {
+    "title": "Cuadrao app privacy notice",
+    "blocks": [
+      {
+        "kind": "paragraph",
+        "text": "Effective: November 10, 2026"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Last updated: November 10, 2026"
+      },
+      {
+        "kind": "heading",
+        "text": "1. Who we are"
+      },
+      {
+        "kind": "paragraph",
+        "text": "This notice is from **Cuadrao LLC**, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, USA. Contact: hola@cuadrao.ai."
+      },
+      {
+        "kind": "heading",
+        "text": "2. What this notice covers"
+      },
+      {
+        "kind": "paragraph",
+        "text": "It covers the Cuadrao Business app: your account, your business’s documents and data, and AI reading. It does not cover the marketing website (cuadrao.ai), which has its own policy."
+      },
+      {
+        "kind": "heading",
+        "text": "3. What we collect"
+      },
+      {
+        "kind": "list",
+        "items": [
+          "**Account:** your email and a password. To sign up or sign in, we email you a code.",
+          "**Your business:** the name and the profile details you complete.",
+          "**Documents and records:** files you upload, the data they contain, drafts, approvals, and what you export. When those channels are available, they may also arrive by email or WhatsApp.",
+          "**People you invite:** their email and the role you give them.",
+          "**Technical data:** for example your IP address, browser details and session cookies, for operation and security.",
+          "**App use:** we measure use on our servers, in a pseudonymous way. We do not track your activity in the browser or use that data for advertising.",
+          "**Messages to hola@cuadrao.ai:** your email and what you tell us, so we can reply."
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "text": "We ask for no more data than the service needs."
+      },
+      {
+        "kind": "heading",
+        "text": "4. How we use it"
+      },
+      {
+        "kind": "paragraph",
+        "text": "To keep your account, organize your business records, prepare drafts when AI reading is on, show them to you and to people you invite, generate the exports you download, send service emails and protect the app. We do not sell your data or use it for advertising."
+      },
+      {
+        "kind": "heading",
+        "text": "5. AI reading"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Reading starts off. Only the business owner can turn it on. An outside artificial intelligence service processes the document to prepare the draft; we set it up so it doesn’t keep your documents or use them for training. The draft can be wrong. You can turn reading off at any time."
+      },
+      {
+        "kind": "heading",
+        "text": "6. Other people’s data in your documents"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Your documents may include data about clients, suppliers or other people. By sharing them, and by turning reading on, you confirm that you may share them with Cuadrao for this purpose. For the business’s records, the owner is the controller and Cuadrao processes them on the owner’s behalf."
+      },
+      {
+        "kind": "heading",
+        "text": "7. Who we share it with"
+      },
+      {
+        "kind": "paragraph",
+        "text": "We do not share it for advertising. Your data, sign-in and documents are stored and hosted in the United States. To run the app they are also handled by an email-sending provider, a usage-measurement service, the check at sign-in that you are not a robot, and, if you turn reading on, the artificial intelligence service. People on the Cuadrao team only access your data when needed to give support, run the app or for security."
+      },
+      {
+        "kind": "paragraph",
+        "text": "We may also disclose it if the law requires it."
+      },
+      {
+        "kind": "heading",
+        "text": "8. International transfers"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Cuadrao LLC is in the United States. It is stored in the United States. AI reading may be processed outside the Dominican Republic. That transfer is needed for the service. You accept it when you create your account and, if you turn AI reading on, when you turn it on, after seeing this notice."
+      },
+      {
+        "kind": "heading",
+        "text": "9. How long we keep it"
+      },
+      {
+        "kind": "paragraph",
+        "text": "We keep it while your account or the business is active, or until you ask us to delete it. The duty to keep tax records belongs to the business owner. If the law requires us to keep any data, we block it and use it only to meet that obligation. Deletion is requested as section 11 describes."
+      },
+      {
+        "kind": "heading",
+        "text": "10. Your rights"
+      },
+      {
+        "kind": "paragraph",
+        "text": "You can ask to access, correct or delete your data, or object to its use. Email hola@cuadrao.ai. It is free. We give access within 5 business days and correct or delete within 10 business days. You may also go to a judge with a habeas data action."
+      },
+      {
+        "kind": "heading",
+        "text": "11. How to delete your account and your data"
+      },
+      {
+        "kind": "paragraph",
+        "text": "You can delete your account from the app (Settings) or email us at hola@cuadrao.ai."
+      },
+      {
+        "kind": "heading",
+        "text": "12. Security"
+      },
+      {
+        "kind": "paragraph",
+        "text": "We use reasonable measures to protect your data, such as encrypted connections and limited access. No system is completely secure."
+      },
+      {
+        "kind": "heading",
+        "text": "13. Children"
+      },
+      {
+        "kind": "paragraph",
+        "text": "This app is only for people 18 and older and is not directed to children. If we learn that a child sent us data, we delete it."
+      },
+      {
+        "kind": "heading",
+        "text": "14. Changes"
+      },
+      {
+        "kind": "paragraph",
+        "text": "If we change this notice, we post the new version here with its date. If the change is to use your data for a new purpose, we tell you first and ask for permission again; if you don’t give it, we keep using your data only as this version says."
+      },
+      {
+        "kind": "heading",
+        "text": "15. Language and contact"
+      },
+      {
+        "kind": "paragraph",
+        "text": "In case of any difference, the Spanish version prevails. Questions: hola@cuadrao.ai."
+      },
+      {
+        "kind": "heading",
+        "text": "16. US residents"
+      },
+      {
+        "kind": "paragraph",
+        "text": "This notice applies to every user, wherever they are. We don't sell your data or use it for advertising. If your state's law gives you rights over your data, email hola@cuadrao.ai."
+      }
+    ]
+  },
+  "terminos": {
+    "title": "Cuadrao app Terms of Use",
+    "blocks": [
+      {
+        "kind": "paragraph",
+        "text": "Effective: November 10, 2026"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Last updated: November 10, 2026"
+      },
+      {
+        "kind": "heading",
+        "text": "1. Who we are"
+      },
+      {
+        "kind": "paragraph",
+        "text": "This app is run by **Cuadrao LLC**, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, USA. Contact: hola@cuadrao.ai."
+      },
+      {
+        "kind": "paragraph",
+        "text": "These Terms govern the Cuadrao Business app. The marketing site has its own terms. If you sign a written agreement with us, that agreement prevails where it differs from these Terms."
+      },
+      {
+        "kind": "heading",
+        "text": "2. What the app is"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Cuadrao Business helps you keep a business’s documents, prepare drafts and export information for you or the people you invite to use."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Cuadrao does not file returns with the DGII or other authorities, and does not give financial, accounting, tax or legal advice. Drafts can have errors. A record is entered only when an authorized person approves it. You are responsible for reviewing that data and for what you file with the DGII."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Use of the app in the pilot involves no payment. The app is only for people 18 and older."
+      },
+      {
+        "kind": "heading",
+        "text": "3. Your account"
+      },
+      {
+        "kind": "paragraph",
+        "text": "To use the app you need an account with your email. Keep your password safe and do not share it. The account is personal."
+      },
+      {
+        "kind": "heading",
+        "text": "4. Roles in a business"
+      },
+      {
+        "kind": "paragraph",
+        "text": "The owner decides who has access and invites others, for example their accountant. Each person uses their own account. The owner is responsible for the business’s documents and records. Cuadrao processes them on the owner’s behalf."
+      },
+      {
+        "kind": "heading",
+        "text": "5. Documents and AI reading"
+      },
+      {
+        "kind": "paragraph",
+        "text": "You may upload documents to your business. When those channels are available, you may also send them to an intake address or by WhatsApp. You should only share documents you have the right to use in your business."
+      },
+      {
+        "kind": "paragraph",
+        "text": "AI reading starts off. Only the owner can turn it on. Documents are then read and a draft is prepared for you to review. You can turn it off at any time. Details are in the Privacy notice."
+      },
+      {
+        "kind": "heading",
+        "text": "6. Acceptable use"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Do not use the app for anything illegal or to harm it. Do not try to attack it, access it without permission, extract its content by automated means, submit false information or someone else’s information, or upload documents you do not have the right to share."
+      },
+      {
+        "kind": "heading",
+        "text": "7. Content and license"
+      },
+      {
+        "kind": "paragraph",
+        "text": "The app’s content and the Cuadrao name belong to Cuadrao LLC. You keep your rights in what you upload or send us. You give us permission to store, process and display it, and, if reading is on, to send it to an artificial-intelligence service, only to provide the service."
+      },
+      {
+        "kind": "heading",
+        "text": "8. Suspension and termination"
+      },
+      {
+        "kind": "paragraph",
+        "text": "We may suspend or close an account, or stop providing the service, if these Terms are seriously breached, if the law requires it, or if we stop offering the app. When it is reasonable, we will tell you first. You can export your records while your account is active."
+      },
+      {
+        "kind": "heading",
+        "text": "9. Liability"
+      },
+      {
+        "kind": "paragraph",
+        "text": "**To the extent the law allows, we give no implied warranties, including merchantability and fitness for a particular purpose. Cuadrao LLC's total liability to you for any claim is no more than what you paid us in the previous 12 months or US$100, whichever is greater. These limits don't apply to harm caused intentionally or by gross negligence, or to anything the law doesn't allow us to limit.**"
+      },
+      {
+        "kind": "paragraph",
+        "text": "If you are a consumer in the Dominican Republic, a liability cap does not take away the rights the law gives you, which cannot be waived."
+      },
+      {
+        "kind": "heading",
+        "text": "10. Governing law and disputes"
+      },
+      {
+        "kind": "paragraph",
+        "text": "These Terms are governed by the laws of the State of New Mexico, USA, without taking away any rights your country's law gives you that can't be waived. You may bring a claim before the authorities or courts of your country or before the courts of New Mexico."
+      },
+      {
+        "kind": "paragraph",
+        "text": "In the Dominican Republic, you may complain to Pro Consumidor or the Dominican courts."
+      },
+      {
+        "kind": "heading",
+        "text": "11. Changes"
+      },
+      {
+        "kind": "paragraph",
+        "text": "If we change these Terms, we post the new version here with its date and, if the change is significant, we announce it in the app before it takes effect."
+      },
+      {
+        "kind": "heading",
+        "text": "12. Language and contact"
+      },
+      {
+        "kind": "paragraph",
+        "text": "In case of any difference, the Spanish version prevails. Questions: hola@cuadrao.ai."
+      }
+    ]
+  }
+}
