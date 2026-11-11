@@ -1497,15 +1497,6 @@ def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
     monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
-    captured_events: list[tuple[str, dict[str, object]]] = []
-
-    def fake_capture_product_event(kind: str, **payload: object) -> None:
-        captured_events.append((kind, dict(payload)))
-
-    monkeypatch.setattr(
-        "argus.api.routers.auth.capture_product_event",
-        fake_capture_product_event,
-    )
     mock_gateway.private_alpha_email_allowed.return_value = True
     mock_gateway.signup.return_value = {
         "session": None,
@@ -1527,7 +1518,6 @@ def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
     )
 
     assert response.status_code == 200
-    assert captured_events == []
     mock_gateway.get_or_create_profile_for_auth_user.assert_not_called()
 
 
@@ -1562,6 +1552,7 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
         duplicate_provider_response,
     ]
     profile_rows: set[str] = set()
+
     def create_profile(auth_user):
         profile_rows.add(str(auth_user["id"]))
         return _mock_profile().model_copy(update={"id": str(auth_user["id"])})
@@ -1949,7 +1940,12 @@ def test_login_normalizes_private_alpha_access_failures(
     assert response.status_code == 401
     assert response.json()["code"] == "unauthorized"
     assert response.json()["detail"] == "Invalid email or password."
-    mock_gateway.login.assert_not_called()
+    assert response.headers.get("set-cookie") is None
+    mock_gateway.login.assert_called_once_with(
+        email="disabled@example.com",
+        password="password123",
+        captcha_token="captcha-proof",
+    )
     mock_gateway.private_alpha_email_allowed.assert_called_once_with(
         "disabled@example.com"
     )

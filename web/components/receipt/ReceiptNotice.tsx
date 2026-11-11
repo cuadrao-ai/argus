@@ -54,7 +54,6 @@ export default function ReceiptNotice({ kind, copy }: ReceiptNoticeProps) {
       {/* A tombstone gets the bar too. Someone who followed a link has already
           shown intent, and the caveat is as true of a dead link as a live one. */}
       <ReceiptActionBar
-        kind={null}
         framing={copy.framing.headline}
         action={copy.cta.action}
       />
