@@ -8,9 +8,12 @@ The command does not write.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from typing import Any, Callable
+
+from loguru import logger
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from scripts.ops.staging_env import (
     SECRETISH_NAME,
@@ -70,30 +73,41 @@ def drifted(lines: list[str]) -> bool:
     return any(line.startswith("drift ") for line in lines)
 
 
+def _write_report(line: str) -> None:
+    sys.stdout.write(f"{line}\n")
+
+
 def run(
     argv: list[str],
     client_factory: Callable[[str], Any] | None = None,
-    out: Callable[[str], None] = print,
+    out: Callable[[str], None] = _write_report,
 ) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("service", choices=["api", "web"])
     parser.add_argument("--token-env", default=TOKEN_ENV)
     args = parser.parse_args(argv)
-    token = os.environ.get(args.token_env, "")
+
+    class TokenSettings(BaseSettings):
+        model_config = SettingsConfigDict(case_sensitive=True, env_file=None)
+        token: SecretStr = Field(default=SecretStr(""), validation_alias=args.token_env)
+
+    token = TokenSettings().token.get_secret_value()
     if not token:
-        print(f"{args.token_env} is not set", file=sys.stderr)
+        logger.error("{} is not set", args.token_env)
         return 2
-    manifest = load_manifest()
-    service = staging_services(manifest)[args.service]
-    client = (client_factory or _client)(token)
     try:
+        manifest = load_manifest()
+        service = staging_services(manifest)[args.service]
+        client = (client_factory or _client)(token)
         live = read_live(client, service)
-    except (RenderError, ManifestError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    except (RenderError, ManifestError):
+        logger.error(
+            "Could not compare staging settings. Check the manifest and read-only access."
+        )
         return 2
     lines = compare(service, live)
     for line in lines:
-        out(line)
+        out(line.replace(token, "<redacted>"))
     return 1 if drifted(lines) else 0
 
 
@@ -104,11 +118,7 @@ def _client(token: str) -> Any:
 
 
 def main() -> int:
-    try:
-        return run(sys.argv[1:])
-    except (RenderError, ManifestError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+    return run(sys.argv[1:])
 
 
 if __name__ == "__main__":

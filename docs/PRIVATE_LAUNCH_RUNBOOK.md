@@ -299,11 +299,11 @@ Do not copy `cuadrao-api-staging` or `cuadrao-app-staging` onto production. `scr
 
 #### Staging drift check
 
-Compare a staging service with the manifest before changing anything. Put a read-only token in the environment for that run. The command reads the live settings and prints names. A plain setting the manifest pins shows the expected value and the live value. A secret shows present or missing, and the value is never printed. Exit 1 means the service differs from the manifest. The command does not write, and it is not part of CI. It only accepts the staging api and web services.
+Compare a staging service with the manifest before changing anything. Run these commands from the repository root after installing the locked Python dependencies with Poetry. Put a read-only token in the environment for that run. The command reads the live settings and prints names. A plain setting the manifest pins shows the expected value and the live value. A secret shows present or missing, and the value is never printed. Exit 1 means the service differs from the manifest. The command does not write, and it is not part of CI. It only accepts the staging api and web services. Add `--help` to either command to check usage without a token or a service call.
 
 ```
-RENDER_API_KEY=... python3 scripts/ops/settings_drift.py api
-RENDER_API_KEY=... python3 scripts/ops/settings_drift.py web
+RENDER_API_KEY=... poetry run python -m scripts.ops.settings_drift api
+RENDER_API_KEY=... poetry run python -m scripts.ops.settings_drift web
 ```
 
 `release-config-audit` fails a live key whose production rule is `not_set`, or that the manifest does not name, with `unexpected_live_env`. It also fails a missing or different value for every production `value` rule, and a missing value for every required `enter` or `copy_from` rule.
