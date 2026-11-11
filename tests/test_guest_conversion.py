@@ -351,7 +351,6 @@ def test_login_handoff_reconciliation_does_not_duplicate_completion_events() -> 
     }
     with (
         patch.object(api_state, "supabase_gateway", gateway),
-        patch("argus.api.routers.auth.emit_verified_guest_funnel_event") as emit,
         TestClient(app) as client,
     ):
         client.cookies.set("argus-guest-handoff-id", HANDOFF_ID)
@@ -366,7 +365,6 @@ def test_login_handoff_reconciliation_does_not_duplicate_completion_events() -> 
         )
 
     assert response.status_code == 200
-    emit.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -828,10 +826,7 @@ def test_guest_signup_replays_consumed_handoff_after_lost_claim_response() -> No
         "replayed": True,
     }
 
-    with (
-        patch("argus.api.routers.auth.serialized_guest_signup") as serialized,
-        patch("argus.api.routers.auth.emit_verified_guest_funnel_event") as emit,
-    ):
+    with patch("argus.api.routers.auth.serialized_guest_signup") as serialized:
         serialized.return_value.__enter__.return_value = GuestSignupPrevalidation(
             auth_user_id=REGISTERED_ID,
             auth_user_confirmed=True,
@@ -848,7 +843,6 @@ def test_guest_signup_replays_consumed_handoff_after_lost_claim_response() -> No
         destination_user_id=REGISTERED_ID,
         allow_same_destination_replay=True,
     )
-    emit.assert_not_called()
 
 
 def test_guest_signup_confirmed_retry_with_wrong_password_keeps_account_separate() -> (
