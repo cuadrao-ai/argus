@@ -66,8 +66,7 @@ import {
 } from "@/lib/profile-names";
 import {
   AVATAR_THEMES,
-  avatarThemeClassName,
-  avatarThemeStyle,
+  personAvatarAppearance,
   type AvatarTheme,
 } from "@/lib/avatar-theme";
 import {
@@ -143,7 +142,7 @@ export default function ProfileMenu({
   const [localInvitations, setLocalInvitations] = useState<LocalInvitation[]>([]);
   const previousInvitationRequest = useRef(invitationOpenRequest?.id);
   const invitationReturnFocusRef = useRef<HTMLElement | null>(null);
-  const legalHref = cuadraoLegalLinks();
+  const legalHref = cuadraoLegalLinks(i18n.language);
   const { isBelowDesktop } = useResponsiveLayout();
   const asSheet = isBelowDesktop;
   const isDrawerPlacement = placement === "drawer";
@@ -607,14 +606,10 @@ export default function ProfileMenu({
   const currentLanguage = normalizeEnabledLanguage(
     profile?.language ?? i18n.language,
   );
-  const avatarClassName =
-    accountKind === "registered"
-      ? avatarThemeClassName(profile?.avatar_theme)
-      : "bg-[#191c1f] text-white dark:bg-white/10";
-  const avatarStyle =
-    accountKind === "registered"
-      ? avatarThemeStyle(profile?.avatar_theme)
-      : undefined;
+  const { className: avatarClassName, style: avatarStyle } = personAvatarAppearance(
+    profile?.preferred_name,
+    accountKind === "registered" ? profile?.avatar_theme : "ocean",
+  );
   const handleAvatarThemeSelect = useCallback(
     async (avatarTheme: AvatarTheme) => {
       if (!profile || accountKind !== "registered" || isSavingAvatarTheme) return;

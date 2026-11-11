@@ -1,12 +1,13 @@
+import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { describe, expect, test } from "bun:test";
 import { businessReportRow, createBusinessReportController, defaultReportRequest, recipeFromRequest, recordsPresentationToReport, reportPresentationToRecords, reportFailure, reportLocation, restoreReportLocation, type ReportingTransport } from "@/lib/business-reporting-wire";
 import type { ReportAnswer, ReportRequest, ReportViewCommand, SavedReportView } from "@/lib/business-reports-api";
 import { reportRequestSchema } from "@/lib/business-reports-api";
 
-const answer = (request: ReportRequest, count = 125): ReportAnswer => ({ items: [], matching_count: count, page: request.page, page_size: request.page_size, page_count: Math.ceil(count / request.page_size), totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
+const answer = (request: ReportRequest, count = 125): ReportAnswer => ({ ...recordedReportAnswer, items: [], matching_count: count, page: request.page, page_size: request.page_size, page_count: Math.ceil(count / request.page_size), totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
 const scope = { userId: "person", businessId: "business-a", grantId: null };
 const problem = (status: number, code: string) => Object.assign(new Error(code), { status, code });
-const transport = (overrides: Partial<ReportingTransport> = {}): ReportingTransport => ({ query: async (_scope, request) => answer(request), export: async () => new Blob(["archive"]), listViews: async () => [], mutateView: async () => null, ...overrides });
+const transport = (overrides: Partial<ReportingTransport> = {}): ReportingTransport => ({ query: async (_scope, request) => answer(request), exportPreview: async () => { throw new Error("unused"); }, exportFile: async () => { throw new Error("unused"); }, listViews: async () => [], mutateView: async () => null, ...overrides });
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done; }); return { promise, resolve }; }
 
 describe("Business report controller", () => {
@@ -42,7 +43,7 @@ describe("Business report controller", () => {
     expect(requests.at(-1)?.page).toBe(1);
   });
   test("a v2 saved recipe preserves relative period, presentation, intended sort and saved size at page one", async () => {
-    const request = reportRequestSchema.parse({ schema_version: 2, page: 4, page_size: 100, filters: { period: { kind: "last_month" } }, sort: "name_asc", presentation: { density: 40, hidden: ["attachment"] } });
+    const request = reportRequestSchema.parse({ schema_version: 2, page: 4, page_size: 100, filters: { period: { kind: "last_month" } }, sort: "name_asc", presentation: { ...recordedReportAnswer.presentation, density: 40, hidden: ["attachment"] } });
     const recipe = recipeFromRequest(request);
     const controller = createBusinessReportController(scope, undefined, transport());
     await controller.openView({ id: "saved", name: "Compras", recipe, version: 3, created_at: "now", updated_at: "now" });
@@ -50,8 +51,8 @@ describe("Business report controller", () => {
     expect(recipe).not.toHaveProperty("page");
   });
   test("presentation round trips all columns and changes density without another query or page reset", async () => {
-    const request = reportRequestSchema.parse({ schema_version: 2, page: 4 });
-    if (request.schema_version !== 2) throw new Error("Expected v2 request");
+    const request = reportRequestSchema.parse({ schema_version: 2, page: 4, presentation: recordedReportAnswer.presentation });
+    if (request.schema_version !== 2 || !request.presentation) throw new Error("Expected v2 request");
     const preferences = reportPresentationToRecords(request.presentation, "name_desc");
     expect(recordsPresentationToReport(preferences)).toEqual(request.presentation);
     let reads = 0;
@@ -63,7 +64,28 @@ describe("Business report controller", () => {
     expect(controller.getSnapshot().request.page).toBe(4);
     expect(controller.getSnapshot().load).toBe(before);
     const updated = controller.getSnapshot().request;
-    expect(updated.schema_version === 2 && updated.presentation.density).toBe(56);
+    expect(updated.schema_version === 2 && updated.presentation?.density).toBe(56);
+  });
+  test.each([{ known: [] }, { known: ["fiscal_number"] }] as const)("saved layouts append missing server columns hidden and retain later edits: %j", async ({ known }) => {
+    const original = recordedReportAnswer.presentation;
+    const oldOrder = original.order.filter((key) => key !== "fiscal_number" && key !== "itbis_amount");
+    const presentation = { order: [oldOrder[0], ...oldOrder.slice(1).reverse(), ...known], hidden: ["date" as const, "attachment" as const], density: 40 as const };
+    const request = reportRequestSchema.parse({ schema_version: 2, presentation });
+    const serverOrder = [...oldOrder, "itbis_amount" as const, "fiscal_number" as const];
+    const pending = deferred<ReportAnswer>();
+    let reads = 0;
+    const controller = createBusinessReportController(scope, undefined, transport({ query: async (_scope, query) => ++reads === 1 ? { ...answer(query), presentation: { ...original, order: serverOrder } } : pending.promise }));
+    await controller.openView({ id: "old", name: "Old layout", recipe: recipeFromRequest(request), version: 1, created_at: "now", updated_at: "now" });
+    const missing = serverOrder.filter((key) => !presentation.order.includes(key));
+    const reconciled = { ...presentation, order: [...presentation.order, ...missing], hidden: [...presentation.hidden, ...missing] };
+    expect(recipeFromRequest(controller.getSnapshot().request)).toMatchObject({ presentation: reconciled });
+    const refresh = controller.refresh();
+    const edited = { order: [reconciled.order[0], ...reconciled.order.slice(1).reverse()], hidden: ["attachment" as const], density: 56 as const };
+    controller.setPresentation(edited);
+    pending.resolve({ ...answer(request), presentation: reconciled });
+    await refresh;
+    expect(recipeFromRequest(controller.getSnapshot().request)).toMatchObject({ presentation: edited });
+    controller.dispose();
   });
   test("late query and disposed Business responses cannot replace current scope", async () => {
     const first = deferred<ReportAnswer>();
@@ -81,21 +103,16 @@ describe("Business report controller", () => {
     expect(other.getSnapshot().load.kind).toBe("failed");
     expect(other.getSnapshot().views.kind).toBe("failed");
   });
-  test("a removed last page has explicit current-page recovery and missing anchor state", async () => {
-    const controller = createBusinessReportController(scope, { ...defaultReportRequest(), page: 8 }, transport({ query: async (_scope, request) => answer(request, 30) }));
+  test("a removed page quietly opens the last available page and keeps missing anchor state", async () => {
+    const pages: number[] = [];
+    const controller = createBusinessReportController(scope, { ...defaultReportRequest(), page: 8 }, transport({ query: async (_scope, request) => { pages.push(request.page); return answer(request, 30); } }));
     controller.rememberAnchor("draft:removed"); await controller.load();
-    expect(controller.getSnapshot().load.kind).toBe("invalid-page");
-    expect(controller.getSnapshot().missingAnchor).toBe(true);
-    await controller.recoverPage();
+    const load = controller.getSnapshot().load;
+    expect(load.kind).toBe("ready");
+    expect(load.kind === "ready" && load.answer.page).toBe(2);
     expect(controller.getSnapshot().request.page).toBe(2);
-  });
-  test("export 409 stays failed until explicit refresh; it never retries with a new set", async () => {
-    let exports = 0; let reads = 0;
-    const controller = createBusinessReportController(scope, undefined, transport({ query: async (_scope, request) => { reads++; return answer(request); }, export: async () => { exports++; throw problem(409, "business_report_changed"); } }));
-    await controller.load(); await controller.export();
-    expect(controller.getSnapshot().export).toEqual({ kind: "failed", problem: { kind: "changed", code: "business_report_changed", requestId: undefined } });
-    expect([reads, exports]).toEqual([1, 1]);
-    await controller.refresh(); expect(reads).toBe(2);
+    expect(controller.getSnapshot().missingAnchor).toBe(true);
+    expect(pages).toEqual([8, 2]);
   });
   test("an uncertain view write replays the frozen command/key, while stale versions require reconciliation", async () => {
     const commands: ReportViewCommand[] = [];
@@ -115,9 +132,21 @@ describe("Business report controller", () => {
     await controller.load(); await controller.listViews(); forbidden = true; await controller.refresh();
     expect(controller.getSnapshot().load.kind).toBe("failed"); expect(controller.getSnapshot().views.kind).toBe("failed");
   });
-  test("URL restores later numbered page and stable row; malformed or unsupported state reports recovery", () => {
+  test("URL restores later numbered page and stable row; malformed or unsupported state falls back to the default", () => {
     const request = { ...defaultReportRequest(), page: 4, page_size: 50 as const };
-    expect(restoreReportLocation(new URLSearchParams(reportLocation(request, "draft:one")))).toEqual({ request, anchor: "draft:one", invalid: false });
-    expect(restoreReportLocation(new URLSearchParams({ report: JSON.stringify({ ...request, sort: "amount_desc" }) })).invalid).toBe(true);
+    expect(restoreReportLocation(new URLSearchParams(reportLocation(request, "draft:one")))).toEqual({ request, anchor: "draft:one" });
+    expect(restoreReportLocation(new URLSearchParams({ report: JSON.stringify({ ...request, sort: "amount_desc" }), report_row: "draft:one" }))).toEqual({ request: defaultReportRequest(), anchor: null });
   });
+});
+
+for (const record_families of [[], ["sale", "purchase"], ["purchase", "sale"]]) test(`legacy URL and saved view ${JSON.stringify(record_families)} restore one purchase type`, async () => {
+  const legacy = { schema_version: 2, filters: { record_families, currencies: ["USD"] } };
+  const restored = restoreReportLocation(new URLSearchParams({ report: JSON.stringify(legacy) }));
+  expect(restored.request.filters.record_families).toEqual(["purchase"]);
+  const { reportRecipeSchema } = await import("@/lib/business-reports-api");
+  const controller = createBusinessReportController(scope, defaultReportRequest(), transport());
+  await controller.openView({ id: "saved", name: "Legacy", recipe: reportRecipeSchema.parse(legacy), version: 1, created_at: "now", updated_at: "now" });
+  expect(controller.getSnapshot().request.filters.record_families).toEqual(["purchase"]);
+  expect(controller.getSnapshot().request.filters.currencies).toEqual(["USD"]);
+  controller.dispose();
 });

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
+import i18next from "i18next";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 
@@ -14,8 +15,15 @@ const SHARED_CONTEXTS = new Map([
   ["business.notifications.times.recent", "5 min"],
   ["business.dossier.section.fiscal", "Fiscal"],
   ["business.dossier.tab_original", "Original"],
+  ["business.dgii.option.id_type.1", "1 - RNC"],
+  ["business.dgii.option.id_type.2", "2 - Cédula"],
+  // A review marker, not copy: both languages wait on the same review.
+  ["business.home_setup.copy_review", "pending_lucas"],
+  ["business.inicio.copy_review", "pending_lucas"],
+  ["business.intake.write_type.copy_review", "pending_lucas"],
+  ["business.month_close.placeholder.copy_review", "pending_lucas"],
 ]);
-const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Personal", "Normal", "No", "Ref."]);
+const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Personal", "Normal", "No", "Ref.", "Excel", "CSV"]);
 
 type Tree = { [key: string]: string | Tree };
 
@@ -26,12 +34,16 @@ function leaves(tree: Tree, prefix = ""): [string, string][] {
   });
 }
 
-test("no English Business text is still the Spanish source, apart from names both languages share", () => {
+test("no English Business text is still the Spanish source, apart from names both languages share", async () => {
+  const translated = i18next.createInstance();
+  await translated.init({ lng: "en", resources: { en: { translation: english }, "es-419": { translation: spanish } } });
   const es = new Map(leaves((spanish as unknown as { business: Tree }).business, "business"));
   const untranslated = leaves((english as unknown as { business: Tree }).business, "business")
-    .filter(([key, value]) => {
+    .filter(([key, raw]) => {
+      const value = raw.startsWith("$t(") ? translated.t(key, { lng: "en" }) : raw;
+      const source = es.get(key)?.startsWith("$t(") ? translated.t(key, { lng: "es-419" }) : es.get(key);
       const words = value.replace(/\{\{\w+\}\}/g, "").trim();
-      return es.get(key) === value && /\p{L}{2,}/u.test(words) && !SAME_IN_BOTH.has(words) && SHARED_CONTEXTS.get(key) !== value;
+      return source === value && /\p{L}{2,}/u.test(words) && !SAME_IN_BOTH.has(words) && SHARED_CONTEXTS.get(key) !== value;
     })
     .map(([key]) => key);
   assert.deepEqual(untranslated, []);

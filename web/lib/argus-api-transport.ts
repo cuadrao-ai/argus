@@ -1,5 +1,5 @@
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
-import { chosenGrantHeader } from "./business-grant";
+import { getChosenGrant, grantHeader } from "./business-grant";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { publicApiUrl } from "./public-env";
 
@@ -32,10 +32,18 @@ export function carriesChosenGrant(path?: string): boolean {
   return path.startsWith("/conversations") && /[?&]surface=business(?:&|$)/.test(path);
 }
 
+/**
+ * The headers of one request. `grant` is the Business the request is for, as
+ * the grant that admits the person; the server proves it on every Business
+ * request. The caller reads it before its first await, or carries it from the
+ * moment the person acted, so a Business switch while authentication is
+ * pending never redirects the request. Null means the own Business, or a
+ * route that never sees the grant (`carriesChosenGrant`).
+ */
 export function argusApiRequestHeaders(
-  optionsHeaders?: HeadersInit,
-  authHeaders: Record<string, string> = {},
-  path?: string,
+  optionsHeaders: HeadersInit | undefined,
+  authHeaders: Record<string, string>,
+  grant: string | null,
 ): Headers {
   const headers = new Headers({
     "Content-Type": "application/json",
@@ -46,12 +54,7 @@ export function argusApiRequestHeaders(
     "X-Argus-Client-Capabilities",
     ARGUS_CLIENT_CAPABILITIES.join(","),
   );
-  // The Business the person chose to work in, as the grant that admits them;
-  // the server proves it on every Business request. Absent for the own
-  // Business, and never on Personal chat.
-  if (carriesChosenGrant(path)) {
-    for (const [key, value] of Object.entries(chosenGrantHeader())) headers.set(key, value);
-  }
+  for (const [key, value] of Object.entries(grantHeader(grant))) headers.set(key, value);
   return headers;
 }
 
@@ -67,6 +70,8 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const { expectedUserId, ...requestOptions } = options ?? {};
   const generation = browserAuthGeneration();
+  // Read before the auth await: a Business switch in that gap must not redirect the request.
+  const grant = carriesChosenGrant(path) ? getChosenGrant() : null;
   const authHeaders = await authenticatedRequestHeaders(expectedUserId);
   requireBrowserAuthGeneration(generation);
   requestOptions.signal?.throwIfAborted();
@@ -74,7 +79,7 @@ export async function apiFetch<T>(
   const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, {
     ...requestOptions,
     credentials: expectedUserId === undefined && (authHeaders.Authorization || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") ? "include" : "omit",
-    headers: argusApiRequestHeaders(requestOptions.headers, authHeaders, path),
+    headers: argusApiRequestHeaders(requestOptions.headers, authHeaders, grant),
   });
   requireBrowserAuthGeneration(generation);
   if (!response.ok) {
@@ -108,7 +113,7 @@ export async function unauthenticatedApiFetch<T>(
   const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, {
     credentials: "include",
     ...options,
-    headers: argusApiRequestHeaders(options?.headers),
+    headers: argusApiRequestHeaders(options?.headers, {}, getChosenGrant()),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));

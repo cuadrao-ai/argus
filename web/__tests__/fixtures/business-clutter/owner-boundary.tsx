@@ -6,7 +6,8 @@ import type { GrantedSpace } from "@/lib/business-api";
 let owner = "owner-a";
 const listeners = new Set<(event: string, session: { user: { id: string } }) => void>();
 mock.module("@/lib/supabase-client", () => ({ getSupabaseClient: () => ({ auth: {
-  getSession: async () => ({ data: { session: { user: { id: owner } } }, error: null }),
+  getSession: async () => ({ data: { session: { user: { id: owner }, access_token: `${owner}-token` } }, error: null }),
+  getUser: async () => ({ data: { user: { id: owner } }, error: null }),
   onAuthStateChange: (listener: (event: string, session: { user: { id: string } }) => void) => { listeners.add(listener); return { data: { subscription: { unsubscribe: () => listeners.delete(listener) } } }; },
 } }) }));
 mock.module("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push() {}, replace() {} }), usePathname: () => "/biz" }));
@@ -37,25 +38,43 @@ test("actual BusinessApp owner boundary rejects delayed prior-owner dismissal an
   const spaces = (actor: string): GrantedSpace[] => [{ space_id: "same-business", name: actor, grant_id: `${actor}-grant`, role: "accountant", capabilities: ["read", "prepare"], access_seen: seen.has(actor) }];
   Object.assign(liveBusinessDataSource, createFixtureBusinessDataSource(), {
     spaces: async () => { const result = spaces(owner); if (holdListing) { holdListing = false; await new Promise<void>((done) => { releaseListing = done; }); } return result; },
+    spaceDirectory: async () => ({ spaces: await liveBusinessDataSource.spaces(), closed_spaces: [], invitations_available: true }),
     markAccessSeen: async () => { const actor = owner; await new Promise<void>((done) => { releaseDismissal = done; }); seen.add(actor); },
   });
   let api!: BusinessContextValue;
   Probe = function AccessProbe() { api = useBusiness(); return <BusinessContextCue />; };
   const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
+  const render = (key: string) => act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessApp key={key} /></I18nextProvider>));
   const settle = () => act(async () => { await new Promise((done) => setTimeout(done, 250)); });
   const banner = () => host.querySelector('[data-testid="business-access-line"]');
+  const originalFetch = globalThis.fetch;
+  const replace = window.location.replace;
+  let navigation: string | null = null;
+  window.location.replace = url => { navigation = String(url); };
+  globalThis.fetch = mock(async (url, options) => {
+    assert.ok(String(url).endsWith("/business/spaces"));
+    assert.equal(new Headers(options?.headers).get("Authorization"), "Bearer owner-b-token");
+    return Response.json({ spaces: spaces("owner-b") });
+  }) as typeof fetch;
   try {
     setChosenGrant("owner-a-grant");
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessApp /></I18nextProvider>)); await settle();
+    await render("first"); await settle();
     assert.ok(banner());
     await act(async () => { (banner()!.querySelector("button") as HTMLButtonElement).click(); });
     holdListing = true; await act(async () => api.reload());
-    await act(async () => { owner = "owner-b"; setChosenGrant("owner-b-grant"); for (const listener of listeners) listener("SIGNED_IN", { user: { id: owner } }); });
+    await act(async () => { owner = "owner-b"; for (const listener of listeners) listener("SIGNED_IN", { user: { id: owner } }); });
+    assert.equal(banner(), null, "the previous owner's view is gone before B can enter");
+    assert.equal(navigation, null);
+    const home = host.querySelector<HTMLButtonElement>('[data-testid="session-recovery-screen"] button')!;
+    assert.equal(home.disabled, false);
+    await act(async () => home.click());
+    assert.equal(navigation, "/biz");
+    await render("new document");
     await settle();
     assert.equal(api.chosen?.grant_id, "owner-b-grant", "the real app must remount its provider for the new authenticated owner");
     assert.ok(banner());
     await act(async () => { releaseDismissal(); releaseListing(); }); await settle();
     assert.equal(api.chosen?.grant_id, "owner-b-grant"); assert.ok(banner()); assert.equal(seen.has("owner-b"), false);
-  } finally { await act(async () => root.unmount()); host.remove(); Object.assign(liveBusinessDataSource, original); setChosenGrant(null); }
+  } finally { globalThis.fetch = originalFetch; window.location.replace = replace; await act(async () => root.unmount()); host.remove(); Object.assign(liveBusinessDataSource, original); setChosenGrant(null); }
 });

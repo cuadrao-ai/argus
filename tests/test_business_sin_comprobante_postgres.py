@@ -38,6 +38,13 @@ from tests.test_business_scope_switch_routes_postgres import (
 actions = bridge.actions
 users = bridge.users
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 FIXTURES = Path(__file__).parent / "dgii/fixtures"
 PRACTICE = {
     row["record_id"]: row["input"]

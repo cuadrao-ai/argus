@@ -16,6 +16,8 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from argus.domain import resend_email
+from argus.domain.business.space_name import spanish_name
+from argus.settings_names import setting_value
 
 _TIME_ZONE = "America/Santo_Domingo"
 _RETRY_WINDOW = timedelta(hours=23)
@@ -42,9 +44,7 @@ def render_transfer_mail(variant: str, context: dict[str, str]) -> dict[str, str
     artifact = json.loads(_ARTIFACT.read_text())
     if artifact["schemaVersion"] != 1:
         raise ValueError("Unsupported transfer mail artifact")
-    app_origin = _origin(
-        os.getenv("CUADRAO_APP_ORIGIN") or os.getenv("ARGUS_APP_ORIGIN") or ""
-    )
+    app_origin = _origin(setting_value("APP_ORIGIN") or "")
     from zoneinfo import ZoneInfo
 
     local = ZoneInfo(_TIME_ZONE)
@@ -106,7 +106,7 @@ def enqueue_transfer_mail(db: Connection, transfer_id: str, status: str) -> None
         (transfer_id,),
     ).fetchone()
     context = dict(
-        businessName=row[3],
+        businessName=spanish_name(row[3]),
         ownerName=row[4],
         targetName=row[5],
         occurredAt=row[6].isoformat(),

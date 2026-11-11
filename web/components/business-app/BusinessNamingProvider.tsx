@@ -2,72 +2,57 @@
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
-import { claimBusinessNamePrompt, getBusinessName, type BusinessNamePrompt, type BusinessNamingState } from "@/lib/business-naming-api";
+import { getBusinessName, type BusinessNamingState } from "@/lib/business-naming-api";
 import BusinessNameDialog from "./BusinessNameDialog";
 import { useBusiness } from "./BusinessWorkspace";
+import { canManageBusiness } from "./business-ui";
 
 type Naming = { canEdit: boolean; requireName: () => Promise<boolean> };
 const NamingContext = createContext<Naming | null>(null);
 export const useBusinessNaming = () => useContext(NamingContext);
-type Prompt = { business: BusinessNamingState; required: boolean; resolve?: (ready: boolean) => void };
+type Prompt = { business: BusinessNamingState; resolve: (ready: boolean) => void };
 
+/**
+ * The name a step needs before it can go on (an invitation, an export). It asks only then: a new Business gets
+ * no prompt of its own, because Inicio's setup guide holds its first steps.
+ */
 export default function BusinessNamingProvider({ children }: { children: ReactNode }) {
   const { chosen, source, reload } = useBusiness();
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const pending = useRef<Prompt | null>(null);
-  const claims = useRef(new Map<string, Promise<BusinessNamePrompt>>());
-  const ownerId = chosen?.role === "owner" && source.mode === "live" ? chosen.space_id : null;
-  const current = useRef(ownerId);
+  const namerId = canManageBusiness(chosen) && source.mode === "live" ? chosen?.space_id ?? null : null;
+  const current = useRef(namerId);
   useLayoutEffect(() => {
-    current.current = ownerId;
+    current.current = namerId;
     return () => { current.current = null; };
-  }, [ownerId]);
+  }, [namerId]);
 
-  useEffect(() => {
-    let active = true;
-    pending.current?.resolve?.(false);
-    pending.current = null;
-    setPrompt(null);
-    if (!ownerId) return;
-    const generation = browserAuthGeneration();
-    let claim = claims.current.get(ownerId);
-    if (!claim) {
-      claim = claimBusinessNamePrompt(ownerId);
-      claims.current.set(ownerId, claim);
-    }
-    void claim.then(result => {
-      requireBrowserAuthGeneration(generation);
-      if (active && current.current === result.id) {
-        claims.current.set(ownerId, Promise.resolve({ ...result, show_prompt: false }));
-        if (result.show_prompt && !pending.current) setPrompt({ business: result, required: false });
-      }
-    }).catch(() => undefined);
-    return () => { active = false; pending.current?.resolve?.(false); pending.current = null; };
-  }, [ownerId]);
+  // Another Business answers no question asked for this one.
+  useEffect(() => () => { pending.current?.resolve(false); pending.current = null; setPrompt(null); }, [namerId]);
 
   const requireName = useCallback(async () => {
-    if (!ownerId) return true;
+    if (!namerId) return true;
     const generation = browserAuthGeneration();
     const state = await getBusinessName();
     requireBrowserAuthGeneration(generation);
-    if (current.current !== ownerId || state.id !== ownerId) return false;
+    if (current.current !== namerId || state.id !== namerId) return false;
     if (!state.name_required) return true;
     return new Promise<boolean>(resolve => {
-      pending.current?.resolve?.(false);
-      const next = { business: state, required: true, resolve };
+      pending.current?.resolve(false);
+      const next = { business: state, resolve };
       pending.current = next;
       setPrompt(next);
     });
-  }, [ownerId]);
+  }, [namerId]);
 
-  return <NamingContext.Provider value={{ canEdit: !!ownerId, requireName }}>
+  return <NamingContext.Provider value={{ canEdit: !!namerId, requireName }}>
     {children}
-    {prompt && prompt.business.id === ownerId ? <BusinessNameDialog key={prompt.business.id + String(prompt.required)} business={prompt.business} required={prompt.required} onClose={() => setPrompt(null)} onSaved={next => {
+    {prompt && prompt.business.id === namerId ? <BusinessNameDialog key={prompt.business.id} business={prompt.business} required onClose={() => setPrompt(null)} onSaved={next => {
       if (current.current !== next.id) return;
       setPrompt(null);
       pending.current = null;
       reload();
-      prompt.resolve?.(true);
+      prompt.resolve(true);
     }} /> : null}
   </NamingContext.Provider>;
 }

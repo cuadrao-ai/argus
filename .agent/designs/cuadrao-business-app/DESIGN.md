@@ -70,14 +70,14 @@ the code, named after it, and every screen uses that owner.
   header lists one total per currency, the header's currency first. Owner:
   `openItemsHeaderCurrency` in `business-month-close.ts`. A single amount with
   no header, such as a Bandeja row, keeps its symbol.
-- **Short headline figures.** Only the big summary figures (Ingresos, Gastos,
-  Resultado neto, ITBIS a pagar) shorten, and only from 10,000 up: "RD$ 58.4 mil",
-  "RD$ 1.3 M". Spanish uses "mil" and "M", never "k". One decimal, rounded half
-  up. The exact amount shows in a tooltip on hover and on keyboard focus, and
-  is what a screen reader reads. The row shortens together: when its largest
-  figure is 10,000 or more, every figure in it uses that unit ("RD$ 9.6 mil"
-  beside "RD$ 58.4 mil"), and below that every figure is exact. Owner:
-  `formatHeadlineMoney`.
+- **Whole units on Inicio.** Inicio's overview totals (Ingresos, Gastos,
+  Resultado neto, ITBIS en ventas, ITBIS en compras) show whole currency units:
+  "RD$ 1,444,210", "RD$ 41,830". No cents and no compact "mil" or "M" form.
+  Rounding is half up from the decimal text, never through a float. Detail
+  screens (Registros, Bandeja, invoices, a record) keep exact cents. A negative
+  Resultado neto is a plain minus sign in the normal text color. ITBIS shows as
+  those two totals, never a balance between them (Lucas, 2026-11-09). Owner:
+  `formatMoney` with `{ decimals: 0 }` in `business-format.ts`.
 - **Relative time when recent.** Under 7 days a time reads relative: "hace 15
   minutos", "ayer", "hace 3 días". From 7 days on it reads as a short date,
   "12 oct", with the year only when it is not this year: "24 dic 2025". Owner:
@@ -271,27 +271,29 @@ The preview demonstrates them; this section does not certify backend wiring.
 
 ### Guide readiness and progress
 
-- After creation or joining, the header says the workspace is ready. Its supporting
-  line states that the remaining actions are optional. Readiness never depends on
-  finishing invoicing, uploading a document or inviting another person.
+- Setup lives in a small card at the foot of the sidebar, just above the Cuadrao
+  mark: the ring, "Configurar negocio" and the steps left. Only someone who may
+  manage the Business sees it, only while a required step remains, for the selected
+  Business; it leaves when the last required step is done, with no dismiss. It opens
+  the setup dossier and stays highlighted while the dossier is open. Phones have no
+  setup entry in the pilot. Readiness never depends on finishing invoicing,
+  uploading a document or inviting another person.
 - A compact neutral progress ring shows `n / n` in its center. It counts confirmed
   guide outcomes, including workspace creation; it does not measure readiness.
   Keep it visible when collapsed. Give screen readers a translated description
   of completed guide actions. Do not add another progress bar or percentage.
-- Each unfinished optional row retains its Optional label beside any current status.
-  For later and awaiting review remain unfinished. Neither earns a completion check.
+- Optional steps sit under one "Opcional" label, after the open required steps.
   An invitation that was created counts as complete even while acceptance is pending;
   the owner has finished the guide action.
-- The completed creation row becomes Your workspace. It remains expandable for
-  review and name correction. Its completion check remains visible while editing.
-- Every row puts its chevron in the same trailing column. On narrow screens, status
-  wraps below the title while the chevron stays at the far edge. Keep normal type.
-- A ready workspace starts with the guide collapsed unless the person explicitly
-  expanded it. Keep that choice through refresh. The phone's existing Add action
-  stays above the optional guide. Guide state belongs to the selected Business;
-  local preview state must never leak to another Business.
-- Use the header to collapse or expand the guide. Remove the duplicate Done for now
-  footer. Deferring a specific task still preserves its draft and optional status.
+- Finished steps sit last in the dossier as muted cards with a check.
+- Each step is a card: its icon and title on one line, its description below.
+- The dossier is the side panel, a full sheet on a phone, with no header bar: a
+  close X at the top right, a large centered ring with `done/total`, the centered
+  title "Configurar negocio" and one lead line, then the step cards. On the closed
+  rail the sidebar card is the ring alone, named "Configurar negocio, n de n pasos
+  listos" for screen readers.
+- The steps, which are required and whether each is done come only from
+  `GET /business/setup`. A step whose feature is off is not sent and not shown.
 
 ### Workspace forms and recovery
 
@@ -616,11 +618,12 @@ Which container, screen by screen (Lucas, October 20, 2026):
   that opens in the shared modal bottom sheet and returns to the same list
   position when closed (October 25, 2026). The desktop record tray remains
   non-modal.
-- **Sheets:** Agregar, Exportar registros, forms and lists.
+- **Sheets:** Agregar, forms and lists.
 - **Window:** Ajustes, the person's own settings (Lucas, November 2, 2026).
   This reverses settings as sheets for user settings only; Business settings
   stay on Negocio. See [Ajustes](#ajustes-approved-november-2-2026).
-- **Centered dialog, sheet on a phone:** Comentarios.
+- **Centered dialog, sheet on a phone:** Comentarios, Exportar registros
+  (Lucas, November 8, 2026).
 - **Popovers:** pickers (a date, a month, a menu, the period's Personalizado
   range, which opens under its segment and in a sheet on a phone).
 - **Alerts:** closing a month, deleting, removing someone's access.
@@ -725,35 +728,26 @@ Regression coverage lives in `business-canvas.dom.test.tsx`,
 `web/__tests__/`. Browser checks must also cover the open tray, both rail modes,
 both themes and narrow viewports; DOM tests alone do not prove pixel geometry.
 
-### Page heading, approved October 27, 2026
+### Page heading, updated November 8, 2026
 
-Each top-level screen (Bandeja, Registros, Facturación, Actividad, and Negocio
-from Configurar negocio) has one
-heading group: its title and one sentence that says what the screen is for. Nested
-sections, trays and dialogs have no sentence.
+Bandeja, Registros, Facturación and Actividad keep their page titles without a
+supporting sentence or intro icon. This replaces the October 27 intro rule for
+those four screens. Negocio (Configurar negocio) keeps its title, sentence and
+briefcase icon. Nested sections, trays and dialogs have no intro sentence.
 
-- **The sentence** is supporting text, not a second heading: 16px body, regular
-  weight, 24px line height, secondary ink `#56635e` (white at 70% in dark). Weight,
-  colour and spacing keep it below the title, never low contrast. Aim for one line
-  on desktop and at most two on a narrow phone. It wraps and never truncates or
-  shrinks.
-- **The icon** before the sentence is the screen's own rail icon, at 1em (16px), in
-  the same stroke style. It sits on the first line's middle when the sentence wraps
-  and never shrinks.
-- **Desktop and tablet:** the top bar holds the group. The title is followed by the
-  sentence 4px below it. The bar grows to fit the group plus 21px above and below,
-  at any width or wrap. Its fade and the content offset grow with it, so the
-  sentence is never washed out. Screens without a sentence keep the 80px bar.
-  The heading carries no Agregar; Negocio has none, since adding documents is not
-  a settings task. Negocio's icon is the briefcase of the business mark.
-  Search and the bar's actions align to the group's first row. Inicio has no
-  sentence (Lucas, October 27): its date, Business and greeting stand alone in the
-  bar, which grows to fit them as it does a sentence.
-- **Phone:** the title and sentence open the content, 8px apart, with 34px before
-  the filters or the first card.
-- Copy lives in `business.page_intro.<screen>`. Owner: `PageHeading.tsx` and
-  `BusinessHeader.tsx` under `web/components/business-app/foundation/`; the screen
-  icons come from `SCREEN_ICON` in `nav-glyphs.tsx`, the same owner as the rail.
+- **Desktop and tablet:** the top bar holds the title. Screens without a sentence
+  keep the 80px bar. Search and the existing actions stay beside the title.
+  Negocio's sentence stays 4px below its title; its bar, fade and content offset
+  grow to fit that group plus 21px above and below. Negocio has no Agregar.
+  Inicio's date, Business and greeting remain unchanged, with no intro sentence.
+- **Phone:** existing page titles remain. Activity's heading keeps 34px before
+  its content. Negocio keeps 8px between its title and sentence and 34px before
+  the settings content.
+- **Settings intro:** 16px regular body text, 24px line height, secondary ink
+  `#56635e` (white at 70% in dark). It wraps without truncating or shrinking. Its
+  briefcase icon stays at 1em (16px), centered on the first line and never shrinks.
+- `PageHeading.tsx` owns titles and the sole intro key,
+  `business.page_intro.business`; `BusinessHeader.tsx` renders them in the top bar.
 
 ### Top bar, canvas and search, approved October 28, 2026
 
@@ -765,7 +759,7 @@ sections, trays and dialogs have no sentence.
 - **One bar, one order:** heading · Buscar ⌘K · Agregar · invitation, privacy,
   notifications · avatar. The title takes the 44px line of the controls, so all sit on
   one center line. Agregar appears once per screen, in the bar, never on Negocio. A
-  screen's toolbar keeps only its own tools (Registros: views, period, filters,
+  screen's toolbar keeps only its own tools (Registros: views, period, currency, filters,
   Export, table settings).
 - **Search field:** "Buscar ⌘K", 200px, a field and never a hover expansion. When
   the bar has no room beside the heading and Agregar it becomes the 44px search
@@ -870,10 +864,18 @@ top right is who you are.
   search opens below the field with aligned right edges, and expands left from
   that fixed edge within the viewport. Without the field, it uses the same header
   region as its anchor. Personal search and phone search keep their own layouts.
-  **Agregar ▾**, with Exportar registros and Copiar dirección de reenvío, belongs
-  beside each content heading on desktop. On Inicio it sits beside Pendiente hoy;
-  in Transacciones it keeps Igualar sugerencias beside it. Phones keep Agregar ▾
-  at the top of each screen instead.
+  **Agregar** belongs beside each content heading on desktop. On Inicio it sits
+  in the top bar; in Transacciones it keeps Igualar sugerencias beside it.
+  Phones keep Agregar at the top of each screen instead. Its dropdown segment
+  exists only when it has an available secondary action. Copiar dirección de
+  reenvío requires the owner's address and the server-owned
+  `receivingChannels.email.available`, read through `useForwardAddress`. With no
+  secondary action, Agregar is one rounded pill with no chevron or focus stop.
+  Its width shrinks naturally; height, padding, alignment, order and gaps stay.
+  Agregar offers no export item. Registros keeps Exportar registros in its
+  toolbar, including phones. Existing export contracts remain in
+  [API_CONTRACT.md](../../../docs/API_CONTRACT.md) and
+  [openapi.yaml](../../../docs/api/openapi.yaml).
   Home greets by the viewer's local time on desktop and phone: 05:00–11:59
   Buenos días / Good morning; 12:00–17:59 Buenas tardes / Good afternoon;
   18:00–22:59 Buenas noches / Good evening; 23:00–04:59 Noche de enfoque /
@@ -1059,7 +1061,7 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
 | Network | The connection dropped | The banner docked at the top ("Estás sin conexión. Lo que hagas ahora no se guarda hasta que vuelva."). It moves the bar and the page down, never covers them, and leaves when the connection is back. |
 | Server | The save failed on our side | Inline where the work is, with Reintentar and the reference code. A failed confirm says so inside its alert, whose button tries again. Never a toast. |
 | Refused | The server said this Business or this part of it is not available: 404 `business_unavailable`, 503 `email_capture_unavailable` | Inline where the work is, with no Reintentar, since asking again gets the same answer, and "Si crees que es un error, escríbenos a hola@cuadrao.ai." Never blames the connection. Only these status and code pairs (owner `refusedForGood` in `failure-screen.ts`); any other 503, `business_bank_unavailable` included, keeps Reintentar. |
-| Permission | Access was removed | A full-page notice with the way back. It is the only error that replaces the page. |
+| Permission | Access was removed | A full-page notice with the way back. Session and identity recovery also replace the page under the contract below. |
 
 - When the surface that failed has closed, send the owner to where the work
   lives. A copy of the forwarding address that fails from the Agregar menu or
@@ -1069,6 +1071,32 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
   hola@cuadrao.ai". A dead end is never shipped.
 - Never "Ocurrió un error". Say what broke and what happens next.
 - A modal is the last resort, for a choice the owner must make before anything else.
+
+### Session recovery, approved November 7, 2026
+
+The missing-session screen uses the approved full-page composition: the complete
+Cuadrao lockup at the top left, the sculpted green doorway above a centered
+heading, one explanation, and one wide pill action. The canvas is cream in light
+mode and uses the existing dark palette in dark mode. The shared
+`BrandedStatusScreen` owns this presentation. It contains no private workspace,
+account name, avatar, sidebar, close button, support address, or invented reference.
+The locale catalogs own the Spanish and English strings from #1846.
+
+- A successful check with no session shows the missing-session screen. Its
+  **Iniciar sesión** action opens login. It does not claim expiry, inactivity,
+  an account change, or lost text.
+- A failed session check shows **No pudimos comprobar tu sesión**. **Reintentar**
+  checks identity again. During that check the action is busy and disabled.
+  A wake or focus error uses this state, never the account-change notice.
+- Only a verified different user shows **Cambió la cuenta activa**. **Ir a Inicio**
+  uses a clean Business route after fresh identity and access checks. Old account
+  data and pending mutations never follow the new user.
+- Initial identity checks keep the existing delayed startup loader. Starting a
+  background check for the same account leaves the workspace and focus intact.
+  Intentional logout keeps its normal flow.
+- Each settled recovery state focuses its heading once and uses a public document
+  title. Retrying the same state does not refocus it. Progress is announced politely.
+  Both themes preserve contrast, keyboard focus, narrow reflow, and reduced motion.
 
 ### Success
 
@@ -1218,15 +1246,15 @@ frame, such as readable names, tax numbers or amounts.
 
 ### Inicio
 
-Local Home checkpoint, October 24, 2026: preserve the current implementation and the month bounds below. The proposed separation of invoicing and collaboration remains unapplied. Pending navigation, progress and color decisions, verification limits and evidence are recorded in `docs/reports/home-checkpoint-20261024.md`. This is a local design baseline, not backend or release acceptance.
+Inicio redesign, approved by Lucas on November 9, 2026. The header stays: date, greeting and Business name, with no "Resumen del negocio" heading.
 
-The month is a 16px control above the checklist, not a second title. On desktop the greeting lives only in the top bar. A phone keeps the month beside its content greeting and wraps it underneath when needed. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
+The month is a control in the month card's header band, "‹ Mes Año ›" at the card-title size. On desktop the greeting lives only in the top bar; a phone shows it above the cards. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
 
-Order: the month control, with the content greeting on phones only; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
+Order: Necesita atención, then the month card. While settlement is on, Cobros y pagos (Por cobrar and Por pagar) follows below the two cards; those cover every month, so they sit apart from the month card.
 
-Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the month control on the left, "Pendiente hoy" and Agregar on the right, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together, including empty states. Keep the label at the shared top edge and center a compact empty-state group in the available body height. Do not shorten one card in isolation or leave a hole above the figures row. Narrower, one column in the order above.
+Two columns once the canvas is 56rem or wider: Necesita atención on the left, flexible, and the month card on the right at a fixed 440px, 24px apart. Both cards have a 57px header band in the same tint over one divider, so their tops and dividers line up; their bottoms keep their natural heights. Narrower, one column in the order above.
 
-"Cerrar <mes>" shows only when the month can close. While steps remain, one quiet line takes its place: "Cuando termines los 3 pasos, podrás cerrar octubre."
+Necesita atención shows the server's Bandeja count (the sidebar's), "Ver todo", and up to six rows of about 62px, problems first: the source's icon, the supplier or the source, the Bandeja's reason as a tag with when it arrived, and Resolver or Revisar for someone who may prepare. A row never shows an amount. The month card shows Ingresos and Gastos, then Resultado neto (the largest figure, right-aligned), then ITBIS en ventas and ITBIS en compras, and a footer: "Incluye n de total documentos", "n en la Bandeja · Revisar" and "Faltan datos fiscales en n registros · Ver", which names compras or ventas when both tabs hold documents. Each label has a dotted-underline definition on hover and focus. The currency pill shows the ISO code whenever the Business holds documents in more than one currency in some month; its list holds this month's currencies, and the choice holds per Business for the session. There is no month close on Inicio.
 
 - A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
 - A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
@@ -1241,7 +1269,7 @@ Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr an
   as the review-ready count or imply the groups are its breakdown.
 - Floating preview diagnostics are opt-in through `?devtools=1`. They must not
   cover Home actions in the normal review URL.
-- The phone Add action stays above the optional guide and below the header fade.
+- The phone Add action stays below the header fade.
   At rest, the fade must not tint or blur the action.
 - Both money cards keep the same label and total header in populated and empty
   states. A confirmed empty list with a known Business currency shows a formatted
@@ -1255,11 +1283,10 @@ Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr an
   flow. Keep its outer card aligned with the row and its content grouped,
   without a large illustration. When both balances are settled, keep the shared passive summary.
   First-run empty states retain their useful next action.
-- Home uses the shared 16px body/control, 14px secondary and 21px section roles.
-  Its summary figures keep the explicit 22px exception. A known reading state
-  blocks a ready-to-close claim without displaying an unknown-value placeholder.
-  While reading continues, omit the promise that completing the listed tasks is
-  enough to close. Render the checklist footer only when it has a status or action.
+- Inicio's two cards use one type set, a step above the dense screens: labels and
+  row titles 16px, tags 13px, times and secondary lines 14px, figures 22px, ITBIS
+  figures 19px, Resultado neto 34px, footer lines 15px and the "Incluye" line 14px.
+  Owner: `HOME_TYPE` in `components/business-app/inicio/HomeCard.tsx`.
 
 **Behavior rules (pending from Product).**
 
@@ -1326,14 +1353,18 @@ A month without receipts shows as empty, never as a closed month at RD$0.00.
 This guide sets the screen's presentation only, not the file formats. The
 screen shows amounts in RD$ and never converts currency.
 
-Exportar registros is one sheet, from the Agregar menu on every screen. The period is a
-segmented control with this month, last month and this year by name, and
-"Otras fechas" for a typed range of up to 366 days. Under it, one line gives
-the exact dates. "Incluye" lists what the ZIP holds: records (Excel and CSV),
-originals, and the 606 and 607, whose line says whether they come with this
-period: included, close the month first, or whole month only. Exportar is the
-green action pinned at the bottom. A finished download closes the sheet and
-says so in a toast.
+Registros keeps its Exportar registros toolbar button, and the search command
+of that name opens Registros with the same dialog (Lucas, November 8, 2026).
+The dialog holds only the title, one summary line, the two option cards (Lo que
+ves; Formato DGII 606 or 607), the Columnas line, Monedas and Formato as
+segmented controls, the DGII line "La DGII define las columnas. Solo en pesos.",
+notices only when their count is above zero, and the green action with its
+count. Editar opens the column choice inside the same dialog with a back arrow. Revisar on
+the DGII notice shows exactly the records it counted: the tab, the period, pesos
+and Faltan datos fiscales, with the other filters and the search cleared.
+A finished download closes the dialog and says so in a toast with "Descargar de
+nuevo". The period ZIP sheet stays for the sample and bank-matching Registros
+screen and the close-a-Business copy.
 
 **Behavior rules (pending from Product).**
 
@@ -1437,30 +1468,62 @@ shared delayed shimmer and reduced-motion behavior, not generic list placeholder
 Command-K focuses the mounted Records search and must not steal focus from an open
 overlay; Home retains its existing global search.
 
-### Registros metric shelf, 26 October 2026
+### Registros metric shelf, 2026-11-06
 
-The sales and expense summary uses three compact metric cards, with the rounded
-shape, icon placement and neutral text of the overview cards. Use quieter neutral,
-sage and cream surfaces, with dark-theme equivalents. The cards remain read-only
-until the amount drill-down contract is connected. Todos still hides this summary.
+Approved by Lucas, reviewed with Iris. This replaces the 26 October 2026 metric
+shelf layout and presentation. The [field dictionary, Score cards](../../../docs/specs/field-dictionary.md#score-cards)
+owns card meanings and number rules; this section owns their visual presentation
+and interaction.
 
-Show at most two currency rows in each metric, in the same order across all three
-cards. Do not add currencies together or create a second currency filter. When
-more than two currencies occur, one shared action opens every currency in the
-existing dossier. Group that breakdown by currency, with total, settled amount
-and balance inside each group. Phone uses the shared sheet. Close or Escape
-returns focus to the trigger. Retain the dossier gradient and privacy masking.
+Keep the existing compact content width. Show six separate, equal summary cards
+in two rows of three: Total, ITBIS and Cantidad in the first row; Bienes,
+Servicios and Faltan datos fiscales in the second. Below them, keep the existing
+filters, active filter chips and column picker, then the table. Total and payment
+subcards do not show.
 
-On narrow containers, stack the three cards with labels on the left and amounts
-aligned on the right. Keep unknown settlement values unknown. Exclusions remain
-available through the first card's information control. Existing financial
-eligibility and filters retain their current meaning.
+Every card places its icon at the top left, metric label at the top right, large
+value below left and footer or helper at the bottom left. Make the cards shallower
+while keeping the same readability. Use Cuadrao's own typography, soft fills,
+rounded corners and colors, with the corresponding dark-theme treatment.
 
-Financial summaries appear automatically for the Sales or Expenses record filter.
-The mixed Todos view has no financial summary. There is no summary visibility
-preference or separate Summary settings tab. Desktop table settings contain
-Columns and Row height. Phone retains Filters and Sort without an empty settings
-shortcut. A display preference must never change record eligibility or totals.
+Faltan datos fiscales is the only action card. Clicking it or pressing Enter or
+Space applies its table filter. A second activation restores the prior status
+selection. The active filter remains
+visible and clearable. A mixed status selection is not an active Fiscal card.
+An inactive Fiscal card with zero matches is disabled; an active card remains
+clearable at zero. Editing statuses directly, clearing their chip, choosing a
+saved view or navigating history discards the previous status selection saved by
+the card. Changing other filters keeps it.
+The Fiscal card shows a directional cue at the bottom right, hover feedback, a
+visible focus state, and an active state. Do not add a "Ver..." label or make the
+arrow a separate target.
+
+Total, ITBIS, Cantidad, Bienes, and Servicios are static: no card click, directional
+cue, hover action, pointer cursor, or card-level tab stop. Compras and Ventas are
+tabs above the cards, reusing Bandeja's tab component and style. Exactly one is active, Compras by default.
+Optional filters are shared across tabs, as in Bandeja. A compact, always-visible
+Moneda selector beside the period offers DOP, USD and EUR without search.
+Registro and Moneda are absent from Filtros. Its count and group dots represent
+only optional filters; no active optional filters means no count or dots.
+Limpiar filtros clears only those optional filters, preserves the tab, currency,
+period and search, and is disabled in the editor when none are active. The table
+and all six cards follow the selected type. Ventas uses the existing server values;
+its cards have not had their design round yet. Missing sales Bienes or Servicios
+stay unknown.
+Switching currency clears both amount limits and their validation state.
+
+For money, make fractional digits smaller and raised. Preserve the decimal
+separator, precision, rounding and currency identity, and keep the full amount
+readable by screen readers. Retain the existing card layout, colors, copy, return focus and privacy masking.
+Registros opens with the workspace server default, currently DOP, unless a valid
+single-currency URL or view supplies DOP, USD or EUR. The first request already
+carries exactly one currency. The table, six cards and export use that request.
+
+Actual fit is still unverified. Before build sign-off, render at the real compact
+content width and actual size with filters, headers and first table rows visible.
+Check long amounts, ES/EN labels, zero, empty and partial values, and the action
+card's default, hover, keyboard-focus and active-filter states. This decision
+does not establish that those checks have passed.
 
 ### Invoicing: customers, schedules and empty states
 

@@ -16,6 +16,7 @@ from argus.domain.business.authority import (
     Authorization,
     BusinessAuthority,
 )
+from argus.domain.business.contracts.actions import NOTE_MAX_LENGTH
 from argus.domain.business.reporting_query import Contract
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
@@ -23,7 +24,7 @@ from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 class EditCurrentNote(Contract):
     expected_version: int = Field(ge=1, strict=True)
-    note: str = Field(max_length=500)
+    note: str = Field(max_length=NOTE_MAX_LENGTH)
 
     @field_validator("note")
     @classmethod

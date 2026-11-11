@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isLeavingSession } from "@/lib/logout-flow";
 import { getSupabaseClient } from "@/lib/supabase-client";
+import { synchronizeBusinessAccount } from "@/lib/business-grant";
+import { createSessionRecovery, type SessionRecoveryState } from "@/lib/session-recovery";
 import FullscreenLoading, { FullscreenLoadingBoundary } from "@/components/FullscreenLoading";
+import { SessionRecoveryScreen } from "@/components/status/SessionRecoveryScreen";
+import { SessionRecoveryContext, useSessionRecoveryState } from "@/components/status/session-recovery-context";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ConversationShellGuard from "@/components/chat/ConversationShellGuard";
 import BusinessNamingProvider from "./BusinessNamingProvider";
@@ -20,8 +24,21 @@ import BusinessLifecycleControls, { BusinessClosedAccess } from "./BusinessLifec
 import BusinessLifecycleEntry from "./BusinessLifecycleEntry";
 import BusinessTransferEntry from "./BusinessTransferEntry";
 import { primaryButtonClass } from "./business-ui";
+import { formatBusinessName } from "./business-format";
 
 type BusinessAppProps = { sample?: FixtureOptions; transferId?: string; lifecycle?: { action: "close" | "transfer"; spaceId: string }; manageLifecycle?: boolean };
+type LifecycleHome = "workspace" | "closed" | "member_closed" | "unavailable";
+type DirectoryState = { scope: SessionRecoveryState; attempt: number; home: LifecycleHome; closed: ClosedGrantedSpace[] };
+
+async function verifyBusinessAccess(userId: string, signal: AbortSignal): Promise<"allowed" | "missing" | "error"> {
+  const identity = await getSupabaseClient()?.auth.getUser();
+  if (!identity || identity.error) return "error";
+  if (!identity.data.user) return "missing";
+  if (identity.data.user.id !== userId || identity.data.user.is_anonymous) return "error";
+  signal.throwIfAborted();
+  await getBusinessDirectory(signal, userId);
+  return "allowed";
+}
 
 export default function BusinessApp(props: BusinessAppProps) {
   return <FullscreenLoadingBoundary><BusinessAppContent {...props} /></FullscreenLoadingBoundary>;
@@ -32,70 +49,58 @@ function BusinessAppContent({ sample, transferId, lifecycle, manageLifecycle }: 
   const [source] = useState<BusinessDataSource>(() =>
     sample ? createFixtureBusinessDataSource(sample) : liveBusinessDataSource,
   );
-  const [lifecycleHome, setLifecycleHome] = useState<"loading" | "workspace" | "closed" | "member_closed" | "unavailable">(source.mode === "fixture" || lifecycle || transferId || manageLifecycle ? "workspace" : "loading");
-  const [closedMemberships, setClosedMemberships] = useState<ClosedGrantedSpace[]>([]);
+  const [recovery] = useState(() => createSessionRecovery({ onIdentityChange: synchronizeBusinessAccount, verifyAccess: verifyBusinessAccess }));
+  const checkSession = !sample && process.env.NEXT_PUBLIC_MOCK_AUTH !== "true";
+  const session = useSessionRecoveryState(recovery, checkSession);
+  const owner = session.kind === "same-owner" ? session.userId : undefined;
+  const scopeKey = session.kind === "same-owner" ? `${session.userId}/${session.scope}` : "fixture";
+  const discoverDirectory = source.mode === "live" && !lifecycle && !transferId && !manageLifecycle;
+  const [directory, setDirectory] = useState<DirectoryState | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [lifecycleActor, setLifecycleActor] = useState<string | null | undefined>(undefined);
-  const [owner, setOwner] = useState<string | null | undefined>(undefined);
   useEffect(() => {
-    if (sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return;
-    const client = getSupabaseClient();
-    if (!client) return;
-    let active = true;
-    let observed = false;
-    const { data } = client.auth.onAuthStateChange((_event, session) => {
-      observed = true;
-      if (active) setOwner(session?.user.id ?? null);
-    });
-    void client.auth.getSession().then(({ data, error }) => {
-      if (active && !observed && !error) setOwner(data.session?.user.id ?? null);
-    }).catch(() => undefined);
-    return () => { active = false; data.subscription.unsubscribe(); };
-  }, [sample]);
-  useEffect(() => {
-    if (source.mode === "fixture" || lifecycle || transferId || manageLifecycle || (process.env.NEXT_PUBLIC_MOCK_AUTH !== "true" && !owner)) return;
-    setLifecycleHome("loading");
+    if (!discoverDirectory || (checkSession && !owner)) return;
     const controller = new AbortController();
-    void getBusinessDirectory(controller.signal).then(directory => {
-      if (!controller.signal.aborted) {
-        setClosedMemberships(directory.closed_spaces);
-        setLifecycleActor(owner);
-        setLifecycleHome(directory.spaces.length ? "workspace" : directory.closed_spaces.some(space => space.role === "owner") ? "closed" : directory.closed_spaces.length ? "member_closed" : "workspace");
-      }
+    const stop = recovery.onRetire(() => { controller.abort(); setDirectory(null); });
+    const current = () => !controller.signal.aborted && recovery.getSnapshot() === session;
+    void getBusinessDirectory(controller.signal, owner).then(({ spaces, closed_spaces: closed }) => {
+      const home = spaces.length ? "workspace" : closed.some(space => space.role === "owner") ? "closed" : closed.length ? "member_closed" : "workspace";
+      if (current()) setDirectory({ scope: session, attempt, home, closed });
     }).catch((error: unknown) => {
-      if (!controller.signal.aborted) { setLifecycleActor(owner); setLifecycleHome(((error as { code?: string }).code === "business_unavailable" || (error as { status?: number }).status === 404) ? "workspace" : "unavailable"); }
+      const problem = error as { code?: string; status?: number } | null;
+      const home = problem?.code === "business_unavailable" || problem?.status === 404 ? "workspace" : "unavailable";
+      if (current()) setDirectory({ scope: session, attempt, home, closed: [] });
     });
-    return () => controller.abort();
-  }, [source, lifecycle, transferId, manageLifecycle, owner, attempt]);
-  if (!sample && process.env.NEXT_PUBLIC_MOCK_AUTH !== "true") {
-    if (owner === undefined) return <FullscreenLoading />;
-    if (owner === null && isLeavingSession()) return null;
-    if (owner === null) return <main className="flex h-[100dvh] flex-col items-center justify-center gap-4 p-6 text-center">
-      <p role="alert">{t("chat.account_changed")}</p>
-      <button type="button" className={primaryButtonClass} onClick={() => window.location.assign("/?auth=login")}>{t("chat.account_changed_reload")}</button>
-    </main>;
+    return () => { stop(); controller.abort(); };
+  }, [discoverDirectory, checkSession, recovery, session, owner, attempt]);
+  if (checkSession && session.kind !== "same-owner") {
+    if (session.kind === "pending") return <FullscreenLoading />;
+    if (isLeavingSession()) return null;
+    return <SessionRecoveryScreen state={session.kind} busy={session.busy} onRetry={recovery.retry} continueDisabled={session.kind === "different-owner" && !session.canContinue} onContinue={() => recovery.continueTo(() => window.location.replace("/biz"))} />;
   }
-  if (lifecycle) return <BusinessLifecycleEntry key={`${owner}/${lifecycle.action}/${lifecycle.spaceId}`} {...lifecycle} />;
-  if (source.mode === "live" && !transferId && !manageLifecycle && lifecycleActor !== owner) return <FullscreenLoading />;
-  if (lifecycleHome === "member_closed") return <BusinessClosedAccess returnHome businessName={closedMemberships[0].name} onReturn={() => window.location.assign("/")} />;
-  if (manageLifecycle || lifecycleHome === "closed") return <main className="mx-auto max-w-xl p-6"><h1 className="font-display text-xl">{t("business.overview.title", "My business")}</h1><BusinessLifecycleControls key={owner ?? "fixture"} /></main>;
+  if (lifecycle) return <BusinessLifecycleEntry key={`${scopeKey}/${lifecycle.action}/${lifecycle.spaceId}`} {...lifecycle} />;
+  const currentDirectory = directory?.scope === session && directory.attempt === attempt ? directory : null;
+  const lifecycleHome = discoverDirectory ? currentDirectory?.home ?? "loading" : "workspace";
+  if (currentDirectory?.home === "member_closed") return <BusinessClosedAccess returnHome businessName={formatBusinessName(currentDirectory.closed[0].name, t("business.overview.title", "My business"))} onReturn={() => window.location.assign("/")} />;
+  if (manageLifecycle || lifecycleHome === "closed") return <main className="mx-auto max-w-xl p-6"><h1 className="font-display text-xl">{t("business.overview.title", "My business")}</h1><BusinessLifecycleControls key={scopeKey} /></main>;
   if (lifecycleHome === "loading") return <FullscreenLoading />;
   if (lifecycleHome === "unavailable") return <main className="space-y-4 p-6"><p role="alert">{t("business.lifecycle.errors.discovery")}</p><button type="button" className={primaryButtonClass} onClick={() => setAttempt(value => value + 1)}>{t("common.retry")}</button></main>;
   const consentUserId = sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner;
   const workspace = (
-    <BusinessWorkspaceProvider key={owner ?? "fixture"} userId={process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner ?? null} source={source}>
-      <BusinessNamingProvider>
-      <ConversationShellGuard />
-      <ConversationUnavailableNotice />
-      <ChatInterface />
-      {!sample && transferId ? <BusinessTransferEntry transferId={transferId} /> : null}
-      </BusinessNamingProvider>
-    </BusinessWorkspaceProvider>
+    <SessionRecoveryContext.Provider value={recovery}>
+      <BusinessWorkspaceProvider key={scopeKey} userId={process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner ?? null} source={source}>
+        <BusinessNamingProvider>
+          <ConversationShellGuard />
+          <ConversationUnavailableNotice />
+          <ChatInterface />
+          {!sample && transferId ? <BusinessTransferEntry transferId={transferId} /> : null}
+        </BusinessNamingProvider>
+      </BusinessWorkspaceProvider>
+    </SessionRecoveryContext.Provider>
   );
   if (sample) return <BusinessConsentTestProvider accepted>{workspace}</BusinessConsentTestProvider>;
   if (!consentUserId) return workspace;
   return (
-    <BusinessConsentGate key={consentUserId} source={source}>
+    <BusinessConsentGate key={scopeKey} source={source}>
       {workspace}
     </BusinessConsentGate>
   );

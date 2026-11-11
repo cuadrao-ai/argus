@@ -91,13 +91,13 @@ async function mount(overrides: (fixture: BusinessDataSource) => Partial<Busines
 }
 
 describe("one receipt review page", () => {
-  test("prepared and unread receipts show the saved English default in Spanish", async () => {
+  test("prepared and unread receipts name an unnamed Business in Spanish", async () => {
     const page = await mount((fixture) => ({
-      dossier: async (id) => ({ ...await fixture.dossier(id), space_name: "My business" }),
+      dossier: async (id) => ({ ...await fixture.dossier(id), space_name: null }),
       receipt: async (id, signal) => {
         const found = await fixture.receipt(id, signal);
         assert.ok(found.record_context);
-        return { ...found, email_original: false, record_context: { ...found.record_context, space_name: "My business" } };
+        return { ...found, email_original: false, record_context: { ...found.record_context, space_name: null } };
       },
     }));
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
-import { defaultRecordsPreferences, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
+import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
+import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
+import { toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
 import { previewRecordMetadata, summarizePreviewRecords } from "@/components/business-app/transacciones/records-results-preview";
 import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
 import es from "@/public/locales/es-419/common.json";
@@ -9,13 +11,13 @@ import en from "@/public/locales/en/common.json";
 const record = (id: string, kind: RecordRow["kind"], amount: string, currency: string): RecordRow => ({ id, kind, occurredOn: "2026-10-25", counterparty: "Sample", money: { amount, currency }, categoryId: null, account: null, hasProof: null, marks: { personal: false, markedBy: null, fiscal: null }, opens: null });
 const rows = [record("exp-gas", "gasto", "-2100.00", "DOP"), record("exp-hosting", "gasto", "-24.00", "USD"), record("exp-lunch", "gasto", "-1250.00", "DOP"), record("exp-gas", "venta", "2100.00", "DOP"), record("exp-hosting", "venta", "24.00", "USD"), record("exp-lunch", "venta", "1250.00", "DOP")];
 
-test("preview defaults add status, currency and notes while keeping account optional", () => {
-  const prefs = defaultRecordsPreferences();
-  assert.equal(prefs.order.length, 11);
-  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["contraparte", "fecha", "monto", "moneda", "detalle", "tipo_gasto", "estado", "notas", "comprobante"]);
-  assert.deepEqual(prefs.hidden, ["cuenta", "forma_pago"]);
-  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "cuenta")).length, 10);
-  assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(prefs, "forma_pago")).map(({ key }) => key).slice(5, 7), ["tipo_gasto", "forma_pago"], "Forma de pago shows beside Tipo de gasto once chosen");
+test("preview defaults keep six columns with optional purchase and account fields", () => {
+  const prefs = sampleRecordsPreferences();
+  assert.equal(prefs.order.length, recordedReportAnswer.presentation.order.length);
+  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["contraparte", "fecha", "monto", "estado", "notas", "comprobante"]);
+  assert.deepEqual(prefs.hidden, ["cuenta", "forma_pago", "tipo_gasto", "ncf", "itbis"]);
+  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "cuenta")).length, 7);
+  assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(toggleRecordsColumn(prefs, "tipo_gasto"), "forma_pago")).map(({ key }) => key).slice(6, 8), ["tipo_gasto", "forma_pago"], "Forma de pago shows beside Tipo de gasto once chosen");
   assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "estado")).some(({ key }) => key === "estado"), false);
 });
 
@@ -58,7 +60,7 @@ test("summary labels are available at the same EN and ES layout paths", () => {
   for (const locale of [es, en]) {
     assert.ok(locale.business.transactions.layout.results.title);
     assert.ok(locale.business.transactions.layout.settings.columns);
-    assert.deepEqual(Object.keys(locale.business.transactions.layout.results.metrics), ["collected", "expenses", "invoiced", "paid", "payable", "receivable"]);
+    assert.deepEqual(Object.keys(locale.business.transactions.layout.results.metrics), ["expenses", "invoiced"]);
     assert.ok(locale.business.transactions.layout.column_state);
     assert.ok(locale.business.transactions.layout.workflow.unknown);
     assert.equal("results" in locale.business.transactions.layout.filters, false);
@@ -90,17 +92,15 @@ test("partial settlements stay linked to their record and use exact currency tot
   assert.deepEqual(summarizeSettlementPreview(changed, "fixture-space", "gasto").currencies, [{ currency: "DOP", total: "3000.00", settled: null, balance: null }]);
 });
 
-test("overview workflow filters match the same metadata and unknown counts stay unavailable", async () => {
-  const { overviewPreviewCounts, matchesPreviewWorkflow } = await import("@/components/business-app/transacciones/records-results-preview");
-  assert.deepEqual(overviewPreviewCounts(rows, "fixture-space"), { review: 0, fiscal: 1, export: 4, exported: 1 });
-  assert.deepEqual(overviewPreviewCounts(rows, "fixture-client"), { review: null, fiscal: null, export: null, exported: null });
+test("workflow filters preserve fiscal and export stages", async () => {
+  const { matchesPreviewWorkflow } = await import("@/components/business-app/transacciones/records-results-preview");
   assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["export"])).length, 4);
   assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["fiscal", "exported"])).length, 2);
   assert.equal(matchesPreviewWorkflow(rows[0], "fixture-client", ["fiscal"]), false);
 });
 
 
-test("the overview period uses inclusive activity dates and never substitutes missing dates", async () => {
+test("the record period uses inclusive activity dates and never substitutes missing dates", async () => {
   const { matchesPreviewPeriod } = await import("@/components/business-app/transacciones/records-results-preview");
   const period = { key: "custom", from: "2026-10-24", to: "2026-10-25" } as const;
   assert.equal(matchesPreviewPeriod(rows[0], period), true);

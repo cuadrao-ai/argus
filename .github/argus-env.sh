@@ -5,38 +5,25 @@ ARGUS_PRIVATE_LAUNCH_APP_URL="https://arguschat.ai"
 ARGUS_PRIVATE_LAUNCH_API_URL="https://api.arguschat.ai"
 ARGUS_PRIVATE_LAUNCH_API_SERVICE_ID="srv-d78tanmuk2gs73e17nn0"
 ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID="srv-d7ap6bmslomc73eqp8m0"
-ARGUS_RENDER_BACKTESTS_WORKFLOW_ID="wfl-d8hpsmuq1p3s73duv3q0"
+CUADRAO_PRIVATE_LAUNCH_APP_SERVICE_ID="srv-dbid9lflk1mc73fvkqgg"
+CUADRAO_PRIVATE_LAUNCH_DOCUMENTS_WORKER_SERVICE_ID="srv-dbm1pf5g1s2s73bs5a1g"
 ARGUS_BACKTEST_WORKFLOW_TASK_DEFAULT="argus-backtests/workflow_proof"
 ARGUS_BACKTEST_REAL_WORKFLOW_TASK_DEFAULT="argus-backtests/run_backtest_job"
 ARGUS_RENDER_POETRY_VERSION="2.1.3"
 ARGUS_RENDER_API_BUILD_COMMAND="poetry config virtualenvs.create false && poetry install --only main --no-interaction"
 ARGUS_RENDER_API_START_COMMAND="poetry run uvicorn argus.api.main:app --host 0.0.0.0 --port \$PORT"
-ARGUS_RENDER_WORKFLOW_BUILD_COMMAND="poetry config virtualenvs.create false && poetry install --only main,workflows --no-interaction"
-ARGUS_RENDER_WORKFLOW_START_COMMAND="poetry run python workflows/main.py"
-
-ARGUS_QA_REQUIRED_ENV=(
-  SUPABASE_PROJECT_URL
-  SUPABASE_ANON_PUBLIC_KEY
-  SUPABASE_SERVICE_ROLE_KEY
-  SUPABASE_JWT_SECRET
-  SUPABASE_POSTGRES_SESSION_POOLER_URL
-  ALPACA_API_KEY
-  ALPACA_SECRET_KEY
-  OPENROUTER_API_KEY
-  CUADRAO_UTILITY_MODEL
-  CUADRAO_UTILITY_FALLBACK_MODEL
-  CUADRAO_CHAT_MODEL
-  CUADRAO_CHAT_FALLBACK_MODEL
-  CUADRAO_STRUCTURED_MODEL
-  CUADRAO_STRUCTURED_FALLBACK_MODEL
-  CUADRAO_CONTEXT_MODEL
-  CUADRAO_CONTEXT_FALLBACK_MODEL
-  CUADRAO_READOUT_MODEL
-  CUADRAO_READOUT_FALLBACK_MODEL
-)
 
 # scripts/ops/staging_env_manifest.json owns every hosted setting; this reads its production rules.
 ARGUS_SETTINGS_TOOL="${BASH_SOURCE[0]%/*}/../scripts/ops/staging_env.py"
+
+if ! _qa_names="$(python3 "$ARGUS_SETTINGS_TOOL" names local api required)"; then
+  exit 1
+fi
+ARGUS_QA_REQUIRED_ENV=()
+while IFS= read -r name; do
+  [ -n "$name" ] && ARGUS_QA_REQUIRED_ENV+=("$name")
+done <<< "$_qa_names"
+unset _qa_names name
 
 ARGUS_RENDER_API_ENV_KEYS="$(python3 "$ARGUS_SETTINGS_TOOL" names production api allowed)" || exit 1
 ARGUS_RENDER_API_ENV=()
@@ -55,18 +42,6 @@ while IFS= read -r _argus_web_env_key; do
 done <<< "$_argus_web_env_keys"
 unset _argus_web_env_keys _argus_web_env_key
 
-if ! _workflow_keys="$(
-  python3 "$ARGUS_SETTINGS_TOOL" print production workflow &&
-    python3 "$ARGUS_SETTINGS_TOOL" names production workflow required
-)"; then
-  exit 1
-fi
-ARGUS_RENDER_WORKFLOW_PROOF_ENV=()
-while IFS= read -r key; do
-  [ -n "$key" ] && ARGUS_RENDER_WORKFLOW_PROOF_ENV+=("${key%%=*}")
-done <<< "$_workflow_keys"
-unset _workflow_keys key
-
 ARGUS_FORBIDDEN_LEGACY_ENV=(
   NEXT_PUBLIC_API_URL
   NEXT_PUBLIC_MOCK_API
@@ -75,6 +50,13 @@ ARGUS_FORBIDDEN_LEGACY_ENV=(
 )
 
 argus_load_root_env() {
+  if [ -n "${CUADRAO_LOCAL_ENV_STORE:-}" ]; then
+    python3 "$ARGUS_SETTINGS_TOOL" local "$PWD" || exit 1
+  fi
+  if [ -L .env ]; then
+    echo ".env: symlink refused" >&2
+    exit 1
+  fi
   if [ -f .env ]; then
     set -a
     set +u
@@ -117,6 +99,7 @@ argus_require_qa_env() {
 }
 
 argus_export_dev_mode() {
+  export APP_ENV="${APP_ENV:-local}"
   export CUADRAO_PERSISTENCE_MODE=memory
   export ARGUS_DEV_MEMORY_FALLBACK=true
   export ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture

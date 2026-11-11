@@ -10,7 +10,6 @@ import type { BusinessDataSource } from "./business-data";
 import BusinessSearchDossier, { type BusinessSearchRecord } from "./BusinessSearchDossier";
 import { searchKindGroups } from "./business-search-groups";
 import { formatDay } from "./business-format";
-import { useCategoryLabel } from "./business-ui";
 import type { BusinessPanelState } from "./BusinessWorkspace";
 import { copyText } from "./foundation/CopyButton";
 import { SEARCHABLE_LISTS, type SearchableList } from "./foundation/list-search";
@@ -33,7 +32,7 @@ export function useBusinessSearch({
   accounts,
   openPanel,
   actions,
-  owner,
+  canAdd,
   scope,
   canExport,
   openExport,
@@ -45,8 +44,8 @@ export function useBusinessSearch({
   accounts: readonly BusinessAccount[];
   openPanel: (panel: BusinessPanelState) => void;
   actions: BusinessActions;
-  /** Only the owner adds records and hands out the forwarding address, as on Inicio. */
-  owner: boolean;
+  /** The server's prepare capability: who may add records and hand out the forwarding address. */
+  canAdd: boolean;
   /** Which Business the recent searches belong to. */
   scope: string;
   /** The export permission, as the server grants it; a member without it is not offered Exportar. */
@@ -59,8 +58,7 @@ export function useBusinessSearch({
 }): WorkspaceSearch {
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
-  const categoryLabel = useCategoryLabel();
-  const forwardAddress = useSourceForwardAddress(owner && emailAvailable ? source : null);
+  const forwardAddress = useSourceForwardAddress(canAdd && emailAvailable ? source : null);
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
 
   const recentsServer = useMemo<WorkspaceRecentSearchesServer | undefined>(() => {
@@ -76,8 +74,8 @@ export function useBusinessSearch({
     const action = t("business.search.badge_action", "Action");
     const go = (id: string, icon: WorkspaceSearchHit["icon"], title: string, panel: BusinessPanelState, keywords?: string): WorkspaceSearchHit =>
       ({ id, icon, title, detail: "", amount: null, badge: screen, keywords, open: () => openPanel(panel) });
-    const add = owner ? actions.create.find((item) => item.id === "upload_receipt") : undefined;
-    const copyAddress = owner && forwardAddress ? async () => {
+    const add = canAdd ? actions.create.find((item) => item.id === "upload_receipt") : undefined;
+    const copyAddress = canAdd && forwardAddress ? async () => {
       const copied = await copyText(forwardAddress);
       if (copied) showToast({ kind: "success", text: t("business.email.copied", "Address copied.") });
       else openPanel({ kind: "business", tab: "correo" });
@@ -146,7 +144,7 @@ export function useBusinessSearch({
       find: async (query) => {
         const [records, captures] = await Promise.allSettled([source.search(query), source.captures(query)]);
         if (records.status === "rejected") throw records.reason;
-        const kinds = searchKindGroups({ t, locale, source, accounts, openPanel, stateWord, categoryLabel }, query, records.value);
+        const kinds = searchKindGroups({ t, locale, source, accounts, openPanel, stateWord }, query, records.value);
         const notes: WorkspaceSearchGroup = {
           id: "captures",
           label: t("business.capture.notes", "Original notes"),
@@ -165,5 +163,5 @@ export function useBusinessSearch({
         return [kinds.expenses, kinds.ventas, kinds.receipts, notes, kinds.accounts, kinds.email_deliveries, ...(emailAvailable ? [kinds.email_senders] : [])];
       },
     };
-  }, [emailAvailable, accounts, actions.create, adaptive, canExport, categoryLabel, forwardAddress, listScope, locale, openExport, openPanel, owner, recentsServer, scope, source, stateWord, t]);
+  }, [emailAvailable, accounts, actions.create, adaptive, canExport, forwardAddress, listScope, locale, openExport, openPanel, canAdd, recentsServer, scope, source, stateWord, t]);
 }

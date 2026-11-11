@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import * as guestCaptcha from "../lib/guest-captcha";
-import { applyGuestBootstrapError } from "../lib/guest-entry-error";
 
 const globalRestores: Array<() => void> = [];
 
@@ -478,22 +477,6 @@ describe("shared CAPTCHA acquisition UX", () => {
     );
   });
 
-  test("captcha_unavailable clears the guest entry retry; other errors keep it", () => {
-    const coded = Object.assign(new Error("Browser CAPTCHA could not be verified."), {
-      code: "captcha_unavailable",
-    });
-    const captchaRetry = { current: { text: "retry me" } };
-    expect(applyGuestBootstrapError(coded, captchaRetry)).toBe(
-      "captcha_unavailable",
-    );
-    expect(captchaRetry.current).toBeNull();
-
-    const genericRetry = { current: { text: "keep me" } };
-    expect(applyGuestBootstrapError(new Error("network"), genericRetry)).toBe(
-      "generic",
-    );
-    expect(genericRetry.current).toEqual({ text: "keep me" });
-  });
   test("captcha copy stays on the signed-in page after the guest chat surfaces are gone", () => {
     const emptyChat = readFileSync(
       join(root, "components/chat/EmptyChatSurface.tsx"),

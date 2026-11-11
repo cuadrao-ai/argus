@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 import { formatRecordActivityDate, previewAmountColumnSize } from "@/components/business-app/transacciones/records-row-preview";
-import { defaultRecordsPreferences, moveRecordsColumn, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
+import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
+import { moveRecordsColumn, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
 
 test("activity dates show a year in the selected language and reject missing or impossible days", () => {
   assert.equal(formatRecordActivityDate("2026-10-25", "es-419"), "25 oct 2026");
@@ -9,15 +10,16 @@ test("activity dates show a year in the selected language and reject missing or 
   for (const invalid of [null, "", "2026-02-30", "2026-13-01", "2026-10-25T00:00:00Z"]) assert.equal(formatRecordActivityDate(invalid, "en"), "-");
 });
 
-test("amount and currency are required and adjacent only by default", () => {
-  const initial = defaultRecordsPreferences();
-  for (const key of ["contraparte", "monto", "moneda"] as const) assert.equal(toggleRecordsColumn(initial, key), initial);
-  const keys = visibleRecordsColumns(initial).map(({ key }) => key);
-  assert.equal(keys[keys.indexOf("monto") + 1], "moneda");
+test("counterparty and amount stay visible while optional columns follow defaults", () => {
+  const initial = sampleRecordsPreferences();
+  for (const key of ["contraparte", "monto"] as const) assert.equal(toggleRecordsColumn(initial, key), initial);
+  const keys: string[] = visibleRecordsColumns(initial).map(({ key }) => key);
+  assert.equal(keys.includes("moneda"), false);
+  assert.equal(keys.includes("detalle"), false);
   assert.ok(keys.includes("notas"));
-  const hiddenRequired = { ...initial, hidden: [...initial.hidden, "monto" as const, "moneda" as const] };
+  const hiddenRequired = { ...initial, hidden: [...initial.hidden, "monto" as const, "contraparte" as const] };
   assert.ok(visibleRecordsColumns(hiddenRequired).some(({ key }) => key === "monto"));
-  assert.ok(visibleRecordsColumns(hiddenRequired).some(({ key }) => key === "moneda"));
+  assert.ok(visibleRecordsColumns(hiddenRequired).some(({ key }) => key === "contraparte"));
 });
 
 test("numeric column sizing uses the exact number without a currency symbol", () => {
@@ -38,9 +40,9 @@ test("preview labels exist at their exact EN and ES paths without renaming the o
   assert.equal(es.layout.overview.export.title, "Listos para exportar");
 });
 
-test("amount and currency move independently and rendered columns keep their chosen order", () => {
-  const initial = defaultRecordsPreferences();
-  for (const key of ["monto", "moneda"] as const) {
+test("visible columns move independently and rendered columns keep their chosen order", () => {
+  const initial = sampleRecordsPreferences();
+  for (const key of ["monto", "fecha"] as const) {
     for (const target of [1, initial.order.indexOf(key), initial.order.indexOf(key) + 1, initial.order.length - 1]) {
       const moved = moveRecordsColumn(initial, key, target);
       assert.equal(moved.order[target], key);
@@ -52,9 +54,9 @@ test("amount and currency move independently and rendered columns keep their cho
 });
 
 test("column movement clamps after fixed counterparty and preserves required visibility", () => {
-  const initial = defaultRecordsPreferences();
+  const initial = sampleRecordsPreferences();
   assert.equal(moveRecordsColumn(initial, "contraparte", initial.order.length - 1), initial);
-  for (const key of ["monto", "moneda", "detalle"] as const) {
+  for (const key of ["monto", "fecha", "notas"] as const) {
     const first = moveRecordsColumn(initial, key, -5);
     assert.equal(first.order[0], "contraparte");
     assert.equal(first.order[1], key);

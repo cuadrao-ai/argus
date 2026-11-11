@@ -6,13 +6,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
-bash scripts/qa/assert-nonprod-target.sh
 
 # shellcheck disable=SC1091
 source .github/argus-env.sh
 argus_load_root_env
 argus_require_qa_env
 argus_export_qa_mode
+bash scripts/qa/assert-nonprod-target.sh
 
 EVIDENCE_DIR="$ROOT_DIR/temp/qa-evidence-248"
 mkdir -p "$EVIDENCE_DIR"

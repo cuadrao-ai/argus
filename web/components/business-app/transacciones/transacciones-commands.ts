@@ -2,6 +2,7 @@
 
 import { Check, CircleSlash, Plus, Undo2, X, type LucideIcon } from "lucide-react";
 import { useBusiness } from "../BusinessWorkspace";
+import { canAddRecords } from "../business-ui";
 import type { Decision, Movement } from "./transacciones-model";
 import type { TransaccionesController } from "./useTransacciones";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -23,7 +24,7 @@ const COMMANDS: Record<CommandId, { key: string; icon: LucideIcon }> = {
 export function useRowCommands(controller: TransaccionesController) {
   const { t } = useTransaccionesWords();
   const { actions, chosen } = useBusiness();
-  const upload = chosen?.role !== "accountant" ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
+  const upload = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   return (movement: Movement): Command[] => {
     const make = (id: CommandId, run: () => void): Command => ({ id, label: t(`business.transactions.actions.${id}`), ...COMMANDS[id], run });
     const match = movement.match;

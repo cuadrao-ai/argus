@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/argus-env.sh"
 
 if ! argus_load_root_env; then
   echo "⚠️  Root .env missing. Dev mode can still start with synthetic assets,"
-  echo "   but copy .env.example to .env when you need provider/LLM credentials."
+  echo "   select CUADRAO_LOCAL_ENV_STORE when you need credentials."
   set -u
 fi
 

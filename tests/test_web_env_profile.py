@@ -64,7 +64,7 @@ def test_web_contract_lists_every_name_production_may_hold(
     manifest = json.loads(path.read_text())
     key = "ARGUS_SYNTHETIC_PROFILE_KEY"
     web = manifest["services"]["web"]["entries"]
-    expected = {e["name"] for e in web if "not_set" not in e["production"]}
+    expected = {e["name"] for e in web if not e.get("local_only") and "not_set" not in e["production"]}
     web.append({"name": key, "kind": "plain", "production_only": True, "production": rule})
     path.write_text(json.dumps(manifest))
 

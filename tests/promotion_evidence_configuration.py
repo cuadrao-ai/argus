@@ -126,7 +126,7 @@ def _production_api_values(manifest_source: str | None) -> dict[str, str] | None
     return {
         entry["name"]: entry["production"]["value"]
         for entry in entries
-        if "value" in entry["production"]
+        if not entry.get("local_only") and "value" in entry["production"]
     }
 
 

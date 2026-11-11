@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from uuid import uuid4
 
+import pytest
 from psycopg import Connection
 
 from tests import test_financial_accounts_postgres as shared
@@ -51,6 +52,13 @@ from tests.test_business_scope_switch_routes_postgres import (
 )
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 #: A second supplier RNC whose check digit holds, so the fix is a real one.
 CORRECTED_SUPPLIER = "199990031"
 
@@ -114,6 +122,7 @@ def _txt_lines(files: dict[str, str]) -> list[str]:
     return files["606"].strip().split("\r\n")[1:] if "606" in files else []
 
 
+@pytest.mark.usefixtures("activity_on")
 def test_approve_export_reopen_fix_reapprove_export_counts_once(world) -> None:  # noqa: ANN001, F811
     """The full cycle on one purchase whose supplier RNC was wrong: the first
     TXT carries the wrong RNC, the reopened record leaves every read while it

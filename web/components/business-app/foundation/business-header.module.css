@@ -36,6 +36,17 @@
   white-space: nowrap;
 }
 
+/* The Business under Inicio's greeting: secondary text, one line. */
+.business {
+  overflow: hidden;
+  margin-top: 2px;
+  color: #56635e;
+  font-size: 14px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .intro {
   margin-top: 4px;
 }
@@ -104,4 +115,5 @@
 :global(.dark) .scopedClear { color: rgb(255 255 255 / 70%); }
 
 :global(.dark) .date { color: rgb(255 255 255 / 0.6); }
+:global(.dark) .business { color: rgb(255 255 255 / 0.7); }
 :global(.dark) .greeting { color: white; }

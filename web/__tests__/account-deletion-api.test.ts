@@ -189,6 +189,13 @@ describe("the server's delete rule, read before the alert offers Eliminar", () =
     expect(calls[0].url).toEndWith("/account/deletion");
   });
 
+  test("an unnamed Business keeps its blocker and its notice with a null name", async () => {
+    const blocker = { kind: "business_owner", business_id: "b-3", business_name: null };
+    const notice = { kind: "closed_business", business_id: "b-4", business_name: null, purge_at: "2026-11-20T17:45:00Z" };
+    respond([{ status: 200, body: { allowed: false, blockers: [blocker], notices: [notice] } }]);
+    expect(await getAccountDeletionEligibility()).toEqual({ allowed: false, blockers: [blocker], notices: [notice] });
+  });
+
   test("an owner is blocked by name, and a reason the web does not know still refuses", async () => {
     respond([{ status: 200, body: { allowed: false, blockers: [{ kind: "business_owner", business_id: "b-2", business_name: "Taller Luna" }, { kind: "something_new" }] } }]);
     expect(await getAccountDeletionEligibility()).toEqual({

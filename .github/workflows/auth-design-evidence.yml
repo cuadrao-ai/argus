@@ -13,6 +13,13 @@ on:
       - web/scripts/auth-design-evidence.ts
       - web/scripts/invite-only-evidence.ts
       - web/scripts/recovery-design-evidence.ts
+      - web/scripts/session-recovery-evidence.ts
+      - web/components/status/**
+      - web/components/business-app/BusinessApp.tsx
+      - web/components/chat/useChatAccountBoundary.ts
+      - web/lib/session-recovery.ts
+      - web/app/dev/error-screen/**
+      - web/public/brand/session-door.png
       - .github/workflows/auth-design-evidence.yml
 
 permissions:
@@ -46,7 +53,9 @@ jobs:
           bunx playwright install --with-deps chromium
       - name: Prepare local-only recovery component fixture
         working-directory: web
-        run: bun scripts/recovery-design-evidence.ts prepare
+        run: |
+          bun scripts/recovery-design-evidence.ts prepare
+          bun scripts/session-recovery-evidence.ts prepare
       - name: Build synthetic local app
         working-directory: web
         run: bun run build
@@ -65,10 +74,13 @@ jobs:
           bun scripts/auth-design-evidence.ts
           bun scripts/invite-only-evidence.ts
           bun scripts/recovery-design-evidence.ts capture
+          bun scripts/session-recovery-evidence.ts capture
       - name: Remove local-only recovery component fixture
         if: always()
         working-directory: web
-        run: bun scripts/recovery-design-evidence.ts cleanup
+        run: |
+          bun scripts/recovery-design-evidence.ts cleanup
+          bun scripts/session-recovery-evidence.ts cleanup
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

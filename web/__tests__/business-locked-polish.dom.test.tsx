@@ -98,10 +98,10 @@ const overviewTitle = (page: Mounted) => page.host.querySelector("#business-over
 const markName = (page: Mounted) => page.host.querySelector('[data-testid="business-current-name"]')?.textContent ?? null;
 
 describe("§1.8 line 100: the Business is named by its name, and Argus is not named", () => {
-  const ownSpace = (name: string): Partial<BusinessDataSource> => ({
+  const ownSpace = (name: string | null): Partial<BusinessDataSource> => ({
     spaces: async () => [{ space_id: "own", name, grant_id: "own-grant", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true }],
   });
-  const mountMark = async (name: string) => {
+  const mountMark = async (name: string | null) => {
     const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
     function Mark() {
       const workspace = useChatWorkspace();
@@ -118,14 +118,14 @@ describe("§1.8 line 100: the Business is named by its name, and Argus is not na
     assert.equal(markName(mark), "Colmado Lucía");
     await mark.close();
     const page = await mount(() => <BusinessOverviewPanel />, ownSpace("Colmado Lucía"));
-    await page.settle(() => page.business().spaces !== null && page.host.querySelector('[data-testid="month-close-cards"]') !== null);
+    await page.settle(() => page.business().spaces !== null && page.host.querySelector('[data-testid="home-month-body"][data-state="ready"]') !== null);
     assert.equal(overviewTitle(page), null, "the desktop greeting belongs to the top bar");
     assert.equal(page.host.querySelector('[data-testid="home-heading"]'), null);
     assert.equal(page.host.querySelector('[data-testid="inicio-greeting-row"]'), null, "the old greeting row is gone");
-    const head = page.host.querySelector('[data-testid="month-close-month-block"] > [data-testid="month-close-head"]');
-    assert.ok(head?.querySelector('[data-testid="month-close-switcher"]'), "the month heads its own block");
-    const cards = page.host.querySelector('[data-testid="month-close-cards"]')!;
-    assert.ok((head!.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, "the month stays above its figures and checklist");
+    const head = page.host.querySelector('[data-testid="home-month-band"]');
+    assert.ok(head?.querySelector('[data-testid="month-close-switcher"]'), "the month heads its own card");
+    const cards = page.host.querySelector('[data-testid="home-month-body"]')!;
+    assert.ok((head!.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, "the month stays above its figures");
     await page.close();
   });
 
@@ -137,8 +137,8 @@ describe("§1.8 line 100: the Business is named by its name, and Argus is not na
     await page.close();
   });
 
-  test("a saved English default uses the Spanish fallback without changing a custom name", async () => {
-    for (const [saved, displayed] of [["My business", "Mi negocio"], ["My business supplies", "My business supplies"]]) {
+  test("an unnamed Business from the server reads Mi negocio and a custom name stays as saved", async () => {
+    for (const [saved, displayed] of [[null, "Mi negocio"], ["My business supplies", "My business supplies"]] as const) {
       const page = await mountMark(saved);
       assert.equal(markName(page), displayed);
       assert.equal(page.business().chosen?.name, saved, "the saved name remains unchanged");
@@ -183,12 +183,12 @@ describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the
   test("the Resumen leads with what to review, ahead of the month figures", async () => {
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const page = await mount(() => <BusinessOverviewPanel />);
-    const needs = () => page.host.querySelector('[data-testid="home-needs-attention"]');
-    await page.settle(() => page.host.querySelector('[data-testid="month-close-cards"]') !== null && (needs()?.querySelectorAll("li button").length ?? 0) > 0);
+    const needs = () => page.host.querySelector('[data-testid="home-attention"]');
+    await page.settle(() => page.host.querySelector('[data-testid="home-month"]') !== null && (needs()?.querySelectorAll("li button").length ?? 0) > 0);
     assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
     assert.equal(page.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old card is gone");
     const action = needs();
-    const cards = page.host.querySelector('[data-testid="month-close-cards"]');
+    const cards = page.host.querySelector('[data-testid="home-month"]');
     assert.ok(action && cards && (action.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
     await page.close();
   });
@@ -239,6 +239,8 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
     for (const sidebarCollapsed of [false, true]) {
       const page = await mount(() => <BusinessSidebarNav shell={shell({ sidebarCollapsed })} />);
+      // Actividad shows once the server's workspace answer says it is on.
+      await page.settle(() => page.business().activity === "available");
       const nav = page.host.querySelector('[data-testid="business-sidebar-nav"]');
       assert.equal(nav?.getAttribute("aria-label"), "Negocio");
       const items = [...(nav?.querySelectorAll("button") ?? [])];
@@ -323,7 +325,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const page = await mount(() => {
       function Probe() {
         const { source } = useBusinessContext();
-        built = useBusinessSearch({ source, accounts: [], openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, owner: true, scope: "own" });
+        built = useBusinessSearch({ source, accounts: [], openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, canAdd: true, scope: "own" });
         return null;
       }
       return <Probe />;

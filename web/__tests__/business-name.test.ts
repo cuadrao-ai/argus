@@ -3,19 +3,15 @@ import { describe, test } from "bun:test";
 import { formatBusinessName } from "@/components/business-app/business-format";
 
 describe("business display name", () => {
-  test("uses the existing localized fallback for absent names and the English default", () => {
-    for (const name of [null, undefined, "", "  ", "My business"]) {
+  test("an unnamed Business, which the server sends as null, takes the reader's localized title", () => {
+    for (const name of [null, undefined, "", "  "]) {
       assert.equal(formatBusinessName(name, "Mi negocio"), "Mi negocio");
     }
   });
 
-  test("preserves custom names verbatim", () => {
-    for (const name of ["Colmado Lucía", "My business supplies", "Mi negocio", "Business", "  Taller  "]) {
+  test("a name the server sends is shown verbatim", () => {
+    for (const name of ["Colmado Lucía", "My business supplies", "My business", "Business", "  Taller  "]) {
       assert.equal(formatBusinessName(name, "Mi negocio"), name);
     }
-  });
-
-  test("keeps the English default for the English locale", () => {
-    assert.equal(formatBusinessName("My business", "My business"), "My business");
   });
 });

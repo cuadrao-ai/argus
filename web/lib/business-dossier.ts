@@ -63,7 +63,7 @@ export type BusinessDraftRevision = {
 
 export type BusinessRecordContext = {
   space_id: string;
-  space_name: string;
+  space_name: string | null;
   accounts: BusinessAccount[];
   capabilities: ("read" | "prepare" | "approve")[];
 };
@@ -136,6 +136,7 @@ export type BusinessDossier = BusinessRecordContext & {
   fiscal_value?: "ncf" | "ecf" | null;
   /** Always present on the dossier: no comprobante fiscal stated and no NCF or e-CF. */
   sin_comprobante?: boolean;
+  fiscal_question_applies?: boolean;
   include_606?: boolean | null;
   /** Who gave the 606 answer, while one applies. */
   include_606_by?: string | null;

@@ -1,0 +1,1342 @@
+{
+ "argus_private.account_deletion_placeholders": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.account_deletion_revocations": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.account_deletion_runs": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.account_placeholders": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.backtest_job_result_hydrateable(j backtest_jobs)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.bind_guest_signup_handoff()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.business_ai_consent_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_attachment_receipt_binding()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_auth_retention_guard()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_bank_account_in_space(target_space uuid, target_account uuid)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_bank_account_scope_guard()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_bank_has_capability(target_space uuid, capability text)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_bank_line_outcomes_guard()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_bank_lines_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_bank_suggestions_guard()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_consent_transfer_complete()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_country_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_custody_asset_actor(p_custodian uuid, p_actor uuid)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_custody_before_fiscal_identity_change(p_table text, p_old jsonb, p_new jsonb)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_custody_changes": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_custody_client_allowed()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_custody_deferred_keys": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_custody_graph_identity_change(p_table text, p_old jsonb, p_new jsonb)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_custody_identity_change(p_table text, p_old jsonb, p_new jsonb)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_custody_identity_json(v jsonb, u text, p text, a text)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_custody_moves": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_custody_objects": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_custody_reservations": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_departure_aliases": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_document_binding_guard()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_fiscal_actor_retained()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_fiscal_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_fiscal_number(ecf text, ncf text)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_grant_approve_owner_only()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_historical_actor()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_historical_owner()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_immutable_evidence()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_initial_owner()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_invitation_auth_retention()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_invitation_commands": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_invitation_recipient()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_invite_terminal()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_invoice_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_membership_owner_required()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_membership_serialize()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_owner_consent_revoked()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_plan_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_purge_marked(space uuid)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_purge_objects": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_purge_runs": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_receipt_plan_required()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_report_view_commands": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_revision_sources_scoped()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_rnc_digits(value text)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_saved_report_views": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_settlement_delete_guard()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_settlement_follows_match()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_settlement_revision_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_transfer_deadline()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_transfer_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_whatsapp_consent_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.business_workspace_assets": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_workspace_commands": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "argus_private.business_workspace_revision()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.claim_guest_workspace_handoff(p_handoff_id uuid, p_secret_hash text, p_destination_user_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.claim_guest_workspace_handoff_by_email(p_handoff_id uuid, p_secret_hash text, p_destination_user_id uuid, p_allow_same_destination_replay boolean)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.conversation_is_personal(p_conversation_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.defer_deletion_keys()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_activity_household(p_activity_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_auth_blockers(p_user_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_drop_binding(p_binding_id uuid, p_owner uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_finish(p_user_id uuid, p_actor_hash text)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_hand_over_plans(p_user_id uuid, p_household_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_pass_on_archives(p_user_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_place_unit(p_user_id uuid, p_unit_kind text, p_unit_id uuid, p_placeholder_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_placeholder_units(p_user_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_rekey_binding(p_binding_id uuid, p_from uuid, p_to uuid, p_to_membership_id uuid, p_debt_account_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.deletion_rewrite_ids(p_doc jsonb, p_from uuid[], p_to uuid[])": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.enforce_registered_memory_owner()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.fill_sender_link_space()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.finalize_linked_guest_identity()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.financial_activity_is_personal(p_activity_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.forget_invite_party(p_user_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.freeze_business_email_destination()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.guard_guest_memory_zero_state()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.guard_locked_owner_columns()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.guard_memory_record_delete()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.invite_code_digests": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "argus_private.is_account_placeholder(p_id uuid, p_app_metadata jsonb)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.is_registered_memory_owner(p_owner_id uuid)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.lock_memory_record_lifecycle()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.memory_categories_are_valid(p_categories text[], p_require_nonempty boolean)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.memory_sensitivity_flags_are_valid(p_flags text[])": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.prepare_guest_workspace_handoff(p_source_user_id uuid, p_destination_email_hash text, p_source_conversation_id uuid, p_pending_action jsonb, p_secret_hash text, p_existing_secret_hash text, p_handoff_kind text)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.protect_memory_child_identity()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.protect_memory_provider_cleanup_lifecycle()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.protect_memory_record_update()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.refuse_business_account_grant()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.refuse_placeholder_email()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.reject_immutable_memory_update()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.reject_retired_recipient()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.require_deletion_writer()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.require_import_observation_same_space()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.require_whatsapp_capture_same_space()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.reserve_deleted_route_alias()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.reserve_memory_provider_ref()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.reset_plan_participant_seniority()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.retention_policies": {
+  "class": "removed",
+  "kind": "table"
+ },
+ "argus_private.retention_sweeps": {
+  "class": "removed",
+  "kind": "table"
+ },
+ "argus_private.stamp_archived_claim_created_at()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.tombstone_business_email_source()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.valid_guest_pending_action(p_action jsonb, p_conversation_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "argus_private.validate_memory_consent_action()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.validate_memory_reconciliation_lifecycle()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.validate_memory_record_consent()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.validated_usage_windows(p_user_id uuid, p_resource text, p_usage_limits jsonb, p_now timestamp with time zone)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.whatsapp_capture_consent_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.whatsapp_outbox_immutable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "argus_private.whatsapp_transport_original()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.accept_chat_turn(p_user_id uuid, p_conversation_id uuid, p_message_id uuid, p_role text, p_content text, p_metadata jsonb, p_created_at timestamp with time zone, p_preview text, p_request_id text, p_expected_source_assistant_id uuid, p_expected_source_metadata jsonb, p_option_id text, p_replacement_values jsonb, p_request_message_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.admit_backtest_job(p_user_id uuid, p_operation_scope text, p_idempotency_key text, p_identity_hash text, p_payload_hash text, p_launch_payload jsonb, p_initial_status text, p_conversation_id uuid, p_request_message_id uuid, p_confirmation_message_id uuid, p_execution_metadata jsonb, p_user_running_limit integer, p_user_queued_limit integer, p_global_running_limit integer, p_global_queued_limit integer, p_allowance_limits jsonb)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.append_conversation_message(p_user_id uuid, p_conversation_id uuid, p_message_id uuid, p_role text, p_content text, p_metadata jsonb, p_created_at timestamp with time zone, p_preview text, p_expected_source_assistant_id uuid, p_expected_source_metadata jsonb, p_option_id text, p_replacement_values jsonb)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.append_conversation_message_settling_usage(p_user_id uuid, p_conversation_id uuid, p_message_id uuid, p_role text, p_content text, p_metadata jsonb, p_created_at timestamp with time zone, p_preview text, p_usage_resource text, p_usage_limits jsonb)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.apple_sign_in_credentials": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.argus_memory_vectors": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.argus_search_symbol_casefold(source_text text)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.avatar_theme": {
+  "class": "kept",
+  "kind": "type"
+ },
+ "public.backtest_jobs": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.backtest_runs": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.baseline_conversation_activity_read_states(p_cutoff timestamp with time zone, p_after_id uuid, p_limit integer)": {
+  "class": "removed",
+  "kind": "function"
+ },
+ "public.beta_admissions": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.beta_invitations": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.beta_invite_quota_grants": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.bind_guest_conversation(p_user_id uuid, p_conversation_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.bind_new_guest_conversation()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.business_access_invites": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_action_receipts": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_ai_consents": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_bank_accounts": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_bank_imports": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_bank_line_outcomes": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_bank_lines": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_bank_suggestions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_client_grants": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_close_mail_outbox": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_consent_acceptances": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_customers": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_dgii_export_lines": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_document_settlement_revisions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_document_settlements": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_draft_revisions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_draft_sources": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_email_address_events": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_email_daily_usage": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_email_deliveries": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_email_parts": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_email_retired_aliases": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_email_routes": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_email_senders": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_fiscal_observations": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_fiscal_operations": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_guide_dismissals": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_invoice_commands": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_invoice_revisions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_invoices": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_lifecycle_commands": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_logos": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_notifications": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_ownership_transfers": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_questions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_read_daily_usage": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_receipt_activity_baseline": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_receipt_consent_commands": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_receipt_read_states": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_receipt_reading_consents": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_search_opens": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_search_recents": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_sender_leases": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_sources": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_space_of(p_owner uuid)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.business_transfer_mail_outbox": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_turns": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.business_whatsapp_ai_consents": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.chat_turn_lifecycles": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.check_business_receipt_reading_consent()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.checkpoint_blobs": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.checkpoint_migrations": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.checkpoint_writes": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.checkpoints": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.claim_expired_guest_workspaces(p_limit integer, p_dry_run boolean)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.claim_guest_compute_usage(p_visitor_key text, p_session_key text, p_resource text, p_visitor_limit integer, p_session_limit integer)": {
+  "class": "removed",
+  "kind": "function"
+ },
+ "public.claim_guest_funnel_milestone(p_subject_key text, p_milestone text, p_expires_at timestamp with time zone)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.claim_guest_workspace_handoff(p_handoff_id uuid, p_secret_hash text, p_destination_user_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.claim_guest_workspace_handoff_by_email(p_handoff_id uuid, p_secret_hash text, p_destination_user_id uuid, p_allow_same_destination_replay boolean)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.claim_private_alpha_access_welcome(p_email text, p_language text, p_content_version text, p_subject text)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.claim_registered_compute_usage(p_account_key text, p_resource text, p_limit integer)": {
+  "class": "removed",
+  "kind": "function"
+ },
+ "public.claim_research_usage(p_guest_visitor_key text, p_resource text, p_global_visitor_key text, p_global_limit integer, p_guest_limit integer)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.close_profile_name_initialization()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.collection_strategies": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.collections": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.complete_private_alpha_access_welcome(p_email text, p_language text, p_content_version text, p_subject text, p_provider_receipt text, p_claim_token uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.context_packets": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.conversation_read_states": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.conversations": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.cost_ledger_entries": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.create_feedback_settling_usage(p_feedback_id uuid, p_user_id uuid, p_feedback_type text, p_message text, p_context jsonb, p_usage_resource text, p_usage_limits jsonb)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.create_financial_account(p_user_id uuid, p_idempotency_key text, p_identity_hash text, p_type text, p_currency text, p_nickname text, p_ownership_share_bps integer, p_opening_amount_minor bigint, p_opening_as_of timestamp with time zone, p_opening_zone text, p_owner_space_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.decision_notes": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.default_activity_record_owner()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.default_plan_activity_owner()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.delete_private_alpha_access_welcome_artifacts(p_email text)": {
+  "class": "removed",
+  "kind": "function"
+ },
+ "public.delete_withheld_backtest_result(p_user_id uuid, p_run_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.dgii_rnc": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.dgii_rnc_load": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.dgii_rnc_lookup(p_rnc text)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.dgii_rnc_swap(min_rows integer)": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.enforce_public_excerpt_source_is_live()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.evidence_artifacts": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.feedback": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.finalize_backtest_completion(p_user_id uuid, p_execution_identity text, p_run jsonb, p_idea jsonb, p_idea_version jsonb, p_evidence_artifact jsonb)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.finalize_chat_turn(p_user_id uuid, p_conversation_id uuid, p_turn_id uuid, p_request_id text, p_message_id uuid, p_role text, p_content text, p_metadata jsonb, p_created_at timestamp with time zone, p_preview text, p_to_status text, p_failure_code text, p_retryable boolean, p_usage_resource text, p_usage_limits jsonb, p_visitor_key text)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.finalize_direct_backtest_success(p_user_id uuid, p_job_id uuid, p_execution_identity text, p_run jsonb, p_idea jsonb, p_idea_version jsonb, p_evidence_artifact jsonb)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.financial_account_idempotency": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_accounts": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_activity_groups": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_activity_memberships": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_activity_receipts": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_activity_revisions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_asset_changes": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_asset_details": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_budgets": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_debt_plans": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_document_extractions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_expectations": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_goal_allocation_revisions": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_goal_allocations": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_goals": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_import_account_links": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_import_events": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_import_observations": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_observation_coverage": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_operation_receipts": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_plan_definition_revisions": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_plan_links": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_plan_receipts": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_plan_responsibilities": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_plan_selections": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_record_revisions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_records": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_shortcut_device_tokens": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.financial_source_connections": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.financial_source_gmail_senders": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.guest_funnel_milestones": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.guest_workspace_handoffs": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.guest_workspaces": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.household_account_grants": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_command_receipts": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_deletion_events": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_invitations": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_members": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_plan_archived_activities": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_plan_archived_allocations": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_plan_archived_claims": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_plan_bindings": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_plan_participants": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.household_plan_receipts": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.households": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.idea_versions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.ideas": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.invite_referrals": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.invite_sender_refs": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.is_active_household_member(p_household_id uuid, p_user_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.memory_candidates": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.memory_consent_actions": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.memory_prompt_history": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.memory_provenance": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.memory_provider_cleanup": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.memory_provider_projections": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.memory_reconciliations": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.memory_records": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.memory_settings": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.messages": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.mutate_conversation_activity_read_state(p_user_id uuid, p_conversation_id uuid, p_action text, p_source_kind text, p_source_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.prepare_guest_workspace_handoff(p_source_user_id uuid, p_destination_email_hash text, p_source_conversation_id uuid, p_pending_action jsonb, p_secret_hash text, p_existing_secret_hash text, p_handoff_kind text)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.prevent_evidence_artifact_immutable_update()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.prevent_idea_version_immutable_update()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.prevent_public_excerpt_immutable_update()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.private_alpha_access_welcome_claims": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.private_alpha_access_welcome_deliveries": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.private_alpha_allowlist": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.profile_photos": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.profiles": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.protect_foreign_activity_history()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.protect_guest_workspace_policy_fields()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.protect_profile_age_confirmation()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.protect_profile_name_initialization()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.public_excerpt_snapshots": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.purge_expired_guest_funnel_milestones(p_before timestamp with time zone)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.purge_expired_visitor_usage(p_before timestamp with time zone)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.read_conversation_activity_sources(p_user_id uuid, p_conversation_ids uuid[])": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.reconcile_stale_chat_turns(p_conversation_id uuid, p_user_id uuid)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.reconcile_stale_conversation_activity_turns(p_user_id uuid, p_conversation_ids uuid[])": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.record_goal_allocation_revision()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.record_plan_definition_revision()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.release_expired_private_alpha_access_welcome_claims(p_expired_before timestamp with time zone)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.release_research_usage(p_guest_visitor_key text, p_resource text, p_global_visitor_key text, p_period_start timestamp with time zone)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.replace_empty_guest_conversation(p_user_id uuid, p_title text, p_title_source text, p_language text)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.replace_guest_conversation(p_user_id uuid, p_title text, p_title_source text, p_language text)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.require_private_alpha_access_welcome_delivery()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.revoke_public_excerpts_for_deleted_source()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.rls_auto_enable()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.route_receipts": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.run_context_packets": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.set_updated_at()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.settle_visitor_usage(p_visitor_key text, p_resource text, p_windows jsonb)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.spaces": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.strategies": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.transition_chat_turn(p_turn_id uuid, p_to_status text, p_assistant_message_id uuid, p_reconciled_outcome text, p_failure_code text, p_retryable boolean)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.update_conversation_message_artifact(p_user_id uuid, p_conversation_id uuid, p_message_id uuid, p_content text, p_metadata jsonb, p_expected_source_metadata jsonb, p_expected_latest_message_id uuid, p_preview text)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.upsert_current_decision_note(p_user_id uuid, p_evidence_artifact_id uuid, p_decision_id uuid, p_decision_state text, p_note text)": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.usage_counters": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.validate_financial_asset_types()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.validate_profile_auth_identity()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.validate_shared_allocation_binding()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.validate_shared_claim_binding()": {
+  "class": "unsure",
+  "kind": "function"
+ },
+ "public.visitor_usage_counters": {
+  "class": "unsure",
+  "kind": "table"
+ },
+ "public.whatsapp_inbound_clear_settled_envelope()": {
+  "class": "kept",
+  "kind": "function"
+ },
+ "public.whatsapp_inbound_messages": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.whatsapp_link_codes": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.whatsapp_outbox": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.whatsapp_reply_attempts": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.whatsapp_reply_days": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.whatsapp_reply_groups": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.whatsapp_sender_links": {
+  "class": "kept",
+  "kind": "table"
+ },
+ "public.write_financial_opening(p_user_id uuid, p_account_id uuid, p_expected_revision integer, p_expected_version integer, p_amount_minor bigint, p_as_of timestamp with time zone, p_zone text, p_reason text)": {
+  "class": "unsure",
+  "kind": "function"
+ }
+}

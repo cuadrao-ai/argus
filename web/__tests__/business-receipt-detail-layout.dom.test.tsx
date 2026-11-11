@@ -89,7 +89,7 @@ describe("the receipt detail's top block", () => {
     assert.equal(top.querySelector('[data-testid="status-pill"]')?.textContent, "Listo para revisar");
     assert.doesNotMatch(top.textContent ?? "", /Revisión|Mi negocio/);
     const review = page.host.querySelector('[data-testid="business-record-review"]')!;
-    assert.ok(review.textContent!.indexOf("Ferretería La Esquina") < review.textContent!.indexOf("Fecha de actividad"));
+    assert.ok(review.textContent!.indexOf("Ferretería La Esquina") < review.textContent!.indexOf("Fecha del comprobante"));
     await page.close();
   });
 
@@ -159,7 +159,7 @@ describe("the footer", () => {
     assert.equal(page.button("Aprobar")?.disabled, true);
     assert.equal(page.button("Aprobar y siguiente")?.disabled, true);
     assert.equal(page.footer()!.querySelector('[data-testid="approve-reason"]'), null, "the footer repeats nothing");
-    assert.ok(page.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Fecha de actividad"));
+    assert.ok(page.host.querySelector('[data-testid="dossier-attention"]')?.textContent?.includes("Fecha del comprobante"));
     assert.equal(page.button("Aprobar")?.getAttribute("aria-describedby"), "dossier-attention-title", "the box describes the disabled button");
     assert.equal(page.host.querySelector('[data-fact="occurred_on"]')?.textContent?.includes("Agrega la fecha para aprobar"), false, "nor does the row");
     await page.close();

@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import type { TransaccionesSource } from "@/components/business-app/transacciones/transacciones-model";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
+import { translate, type TestLanguage } from "./support/i18n-instance";
 
 await keepOwnListSearch();
 
@@ -50,14 +52,12 @@ afterEach(async () => {
   search = "";
 });
 
-async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: string; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string } = {}) {
+async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, recordsDefaultCurrency = "DOP", expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: TestLanguage; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string; recordsDefaultCurrency?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   search = view ? `view=${view}` : "";
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
-  const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
-  const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
@@ -68,8 +68,7 @@ async function mount({ enabled = true, width = 1440, language = "es-419", transa
   const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
-  const i18n = i18next.createInstance();
-  await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: (await import("@/public/locales/en/common.json")).default } }, interpolation: { escapeValue: false } });
+  const i18n = await translate(language);
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const source = {
     ...fixture,
@@ -78,6 +77,7 @@ async function mount({ enabled = true, width = 1440, language = "es-419", transa
     workspace: async () => {
       const workspace: Record<string, unknown> = { ...(await fixture.workspace()) };
       delete workspace.currency;
+      workspace.records_default_currency = recordsDefaultCurrency;
       return businessCurrency ? { ...workspace, currency: businessCurrency } : workspace;
     },
     captures: async () => ({ items: [] }),
@@ -142,7 +142,11 @@ async function mount({ enabled = true, width = 1440, language = "es-419", transa
   const click = (node: Element | null) => act(async () => { (node as HTMLElement).click(); });
   const key = (target: Element, value: string) => act(async () => { target.dispatchEvent(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true })); });
   const body = () => document.body.textContent ?? "";
-  return { act, host, screen, grid, row, rows, records, segment, ready, settle, click, key, body, unmount, api: () => api! };
+  return { act, host, screen, grid, row, rows, records, segment, ready, settle, click, key, body, unmount, api: () => api!, setRecordsDefaultCurrency: (currency: "DOP" | "USD" | "EUR") => { recordsDefaultCurrency = currency; } };
+}
+
+async function chooseRecordKind(page: Awaited<ReturnType<typeof mount>>, kind: "gasto" | "venta") {
+  await page.click(document.querySelector(`#records-type-${kind}`));
 }
 
 const EMPTY_OVERVIEW = { from: "2026-10-01", to: "2026-10-20", today: "2026-10-20", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null };
@@ -179,8 +183,10 @@ describe("the gate", () => {
     assert.ok(!rail.textContent?.includes("Gastos"));
     await page.settle(() => page.records().length > 0, "the saved records");
     assert.equal(page.host.querySelector('[data-testid="top-bar"] h1')?.textContent, "Registros");
+    assert.ok(page.records().every((node) => node.dataset.kind === "gasto"));
+    await chooseRecordKind(page, "venta");
     await page.settle(() => page.records().some((node) => node.dataset.kind === "venta"), "the ventas");
-    assert.deepEqual([...new Set(page.records().map((node) => node.dataset.kind))].sort(), ["gasto", "venta"], "the ventas come from the expenses read with kind=income");
+    assert.ok(page.records().every((node) => node.dataset.kind === "venta"), "the ventas come from the expenses read with kind=income");
     for (const absent of ["transacciones-segments", "transacciones-run", "transacciones-grid"]) assert.equal(document.querySelector(`[data-testid="${absent}"]`), null, `${absent} stays behind the flag`);
     assert.doesNotMatch(page.body(), /Banco al día|Por igualar|Igualadas|¿Este\?|Igualar sugerencias/);
     const summary = document.querySelector<HTMLElement>('[data-testid="transacciones-summary"]')!;
@@ -200,7 +206,7 @@ describe("the gate", () => {
     assert.match(row.querySelector('[data-col="monto"]')!.textContent ?? "", /123,456,789,012,345\.67/);
     const account = row.querySelector('[data-col="cuenta"] .truncate')!;
     const detail = row.querySelector('[data-col="detalle"] > span')!;
-    for (const [target, expected] of [[account, /Dinero del dueño/], [detail, /Gasto · Personal · Falta NCF · Marcado por Ana/]] as const) {
+    for (const [target, expected] of [[account, /Dinero del dueño/], [detail, /Compra · Personal · Falta NCF · Marcado por Ana/]] as const) {
       await page.act(async () => { target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 330)); });
       assert.match(document.querySelector('[role="tooltip"]')?.textContent ?? "", expected);
       await page.act(async () => target.dispatchEvent(new MouseEvent("mouseout", { bubbles: true })));
@@ -213,16 +219,16 @@ describe("the gate", () => {
     Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
     try {
       const items = Array.from({ length: 65 }, (_, index) => ({ id: `page-${index}`, merchant: `Sample ${index}`, amount: "24.00", currency: "USD", category_id: null, account_id: null, occurred_on: `2026-10-${String(index % 20 + 1).padStart(2, "0")}`, receipt_id: null }));
-      const page = await mount({ enabled: false, transacciones: await recordsOf(items) });
+      const page = await mount({ enabled: false, recordsDefaultCurrency: "USD", transacciones: await recordsOf(items) });
       await page.settle(() => page.records().length === 25, "first local page");
       const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
       assert.match(footer().textContent ?? "", /1–25 de 65/);
       const resultSummary = () => document.querySelector('[data-testid="records-results-summary"]')?.textContent ?? null;
       const allResults = resultSummary();
-      assert.equal(allResults, null, "Todos hides the financial summary");
+      assert.equal(allResults, null, "Total has no subcard");
       assert.doesNotMatch(allResults ?? "", /0 por revisar/);
       assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
-      assert.equal(document.querySelector('th[data-col="detalle"]')?.textContent, "Tipo");
+      assert.equal(document.querySelector('th[data-col="detalle"]'), null);
       assert.equal(document.querySelector('th[data-col="monto"]')?.textContent, "Monto");
       assert.match(page.records()[0].querySelector('[data-col="estado"]')!.textContent ?? "", /Estado no disponible/);
       await page.click(document.querySelector('button[aria-label="Página siguiente"]'));
@@ -243,15 +249,19 @@ describe("the gate", () => {
       assert.ok(page.records()[0].querySelector('[data-col="forma_pago"]'), "every row gets the Forma de pago cell");
       await page.click(document.querySelector('[data-column-setting="forma_pago"] label'));
       const category = document.querySelector('[data-column-setting="tipo_gasto"] label')!;
+      assert.equal(document.querySelector('th[data-col="tipo_gasto"]'), null, "Tipo de gasto starts hidden");
+      await page.click(category);
+      assert.equal(document.querySelector('th[data-col="tipo_gasto"]')?.textContent, "Tipo de gasto");
+      assert.ok(page.records()[0].querySelector('[data-col="tipo_gasto"]'));
       await page.click(category);
       assert.equal(document.querySelector('th[data-col="tipo_gasto"]'), null);
       assert.equal(page.records()[0].querySelector('[data-col="tipo_gasto"]'), null);
-      assert.equal(document.querySelectorAll('colgroup col').length, 8);
+      assert.equal(document.querySelectorAll('colgroup col').length, 6);
       assert.equal(document.querySelector('[data-column-setting="monto"] input'), null);
       assert.equal(document.querySelector('[data-column-setting="contraparte"] input'), null);
       assert.match(document.querySelector('[data-column-setting="monto"]')!.textContent ?? "", /Siempre visible/);
       assert.equal(document.querySelector('[data-column-setting="contraparte"] button'), null);
-      const categoryGrip = document.querySelector('[data-column-setting="tipo_gasto"] button')!;
+      const categoryGrip = document.querySelector('[data-column-setting="tipo_gasto"] button[draggable]')!;
       assert.equal(categoryGrip.closest("label"), null, "reorder grip is separate from the checkbox label");
       await page.click(categoryGrip);
       assert.equal((category.querySelector("input") as HTMLInputElement).checked, false, "grip click does not toggle visibility");
@@ -265,11 +275,11 @@ describe("the gate", () => {
       };
       const settingOrder = () => [...document.querySelectorAll("[data-column-setting]")].map((node) => node.getAttribute("data-column-setting"));
       const amountIndex = settingOrder().indexOf("monto");
-      await drag("estado", "Moneda");
-      assert.equal(settingOrder().indexOf("monto"), amountIndex, "dragging currency leaves amount in place");
-      assert.ok(settingOrder().indexOf("moneda") > settingOrder().indexOf("estado"));
-      assert.deepEqual([...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col")), settingOrder().filter((key) => key !== "tipo_gasto" && key !== "forma_pago" && key !== "cuenta"));
-      await drag("detalle", "Moneda");
+      await drag("cuenta", "Notas");
+      assert.equal(settingOrder().indexOf("monto"), amountIndex, "dragging notes leaves amount in place");
+      assert.ok(settingOrder().indexOf("notas") > settingOrder().indexOf("cuenta"));
+      assert.deepEqual([...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col")), settingOrder().filter((key) => !sampleRecordsPreferences().hidden.some((hidden) => hidden === key)));
+      await drag("comprobante", "Notas");
       await drag("fecha");
       assert.equal(document.querySelectorAll('thead th')[1].getAttribute("data-col"), "comprobante");
       assert.equal(document.querySelector('th[data-col="comprobante"]')?.getAttribute("data-pinned"), "top");
@@ -286,14 +296,14 @@ describe("the gate", () => {
       await key(" ", true);
       assert.equal(grip.getAttribute("aria-pressed"), "true", "holding Space must not release the column");
       await key("ArrowUp");
-      assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["contraparte", "monto", "fecha", "moneda"]);
+      assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["contraparte", "monto", "fecha", "estado"]);
       await key("Escape");
       assert.ok(document.querySelector('[role="dialog"]'), "Escape restores grabbed order before dismissing");
       assert.equal(document.querySelector('[data-picked-up="true"]'), null);
       assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 3), ["contraparte", "fecha", "monto"]);
       await key(" "); await key("ArrowUp"); await key(" "); await key("Escape");
       assert.equal(document.querySelector('[role="dialog"]'), null);
-      assert.deepEqual([...page.records()[0].querySelectorAll('td')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["contraparte", "monto", "fecha", "moneda"]);
+      assert.deepEqual([...page.records()[0].querySelectorAll('td')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["contraparte", "monto", "fecha", "estado"]);
       const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
       assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
       await clickText("Vistas"); await clickText("Guardar vista");
@@ -333,7 +343,7 @@ describe("the gate", () => {
     } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
 
-  test("fixture results summary follows loaded search and kind while preview amounts describe records", async () => {
+  test("fixture filters keep Total static and sample purchases exclude personal rows", async () => {
     const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
     Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
     try {
@@ -344,29 +354,36 @@ describe("the gate", () => {
       ];
       const page = await mount({ enabled: false, transacciones: await recordsOf(items, {}, items) });
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
-      await page.settle(() => page.records().length === 6, "fixture scope summary");
-      assert.equal(summary(), null, "Todos has no monetary summary");
-      assert.equal(document.querySelectorAll('thead th').length, 9);
+      await page.settle(() => page.records().length === 2, "purchase scope summary");
+      assert.equal(summary(), null, "Total has no subcard");
+      assert.equal(document.querySelectorAll('thead th').length, 6);
       assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
-      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["contraparte", "fecha", "monto", "moneda", "detalle", "tipo_gasto", "estado", "notas", "comprobante"]);
-      assert.equal(document.querySelector('th[data-col="tipo_gasto"]')?.textContent, "Tipo de gasto");
+      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["contraparte", "fecha", "monto", "estado", "notas", "comprobante"]);
+      assert.equal(document.querySelector('th[data-col="tipo_gasto"]'), null);
       const amount = page.records().find((row) => row.dataset.kind === "gasto")!.querySelector('[data-col="monto"]')!;
       assert.equal(amount.textContent, "2,100.00");
-      assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]')!.textContent, "RD$");
+      assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]'), null);
       assert.ok(amount.querySelector(".cuadrao-amount"), "document amount respects privacy masking");
-      assert.equal(page.records()[0].querySelector('[data-col="detalle"]')!.textContent, "Gasto");
-      await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Filtros")!);
-      await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Gasto")!);
-      await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
-      assert.equal(page.records().length, 3);
-      assert.equal(summary()!.querySelectorAll('[data-summary-part]').length, 3);
-      assert.equal(summary()!.querySelectorAll(".cuadrao-amount").length, 6, "three amounts remain separate by currency");
-      const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
-      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nube"); input.dispatchEvent(new Event("input", { bubbles: true })); });
-      assert.equal(page.records().length, 1); assert.match(summary()!.textContent ?? "", /US\$\s*24.00/);
-      await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
+      assert.equal(page.records()[0].querySelector('[data-col="detalle"]'), null);
+      await chooseRecordKind(page, "gasto");
       assert.equal(page.records().length, 2);
-      assert.equal(summary(), null, "removing the type returns to Todos");
+      assert.equal(summary(), null, "family filter reveals no subcards");
+      const total = document.querySelector('[data-overview-card="total"]')!;
+      assert.equal(total.tagName, "DIV");
+      assert.equal(total.querySelector("button, [aria-expanded], [aria-controls]"), null);
+      assert.deepEqual([...total.querySelectorAll(".cuadrao-amount")].map((node) => node.getAttribute("aria-label")), ["DOP 2,100.00"]);
+      assert.doesNotMatch(total.textContent!, /3,350|1,250|Pagado|Por pagar|Cobrado|Por cobrar/);
+      await page.click(total);
+      assert.equal(summary(), null);
+      const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Estación"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+      assert.equal(page.records().length, 1);
+      assert.deepEqual([...total.querySelectorAll(".cuadrao-amount")].map((node) => node.getAttribute("aria-label")), ["DOP 2,100.00"]);
+      await chooseRecordKind(page, "venta");
+      assert.equal(page.records().length, 1);
+      assert.ok(page.records().every((row) => row.dataset.kind === "venta"));
+      assert.equal(summary(), null, "changing type keeps Total static");
+      assert.equal(total.querySelector("button"), null);
       await page.unmount();
     } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
@@ -383,7 +400,7 @@ describe("the gate", () => {
       await page.click(row.matches("tr") ? row : row.querySelector("button"));
       await page.settle(() => Boolean(document.querySelector('[role="dialog"]')), "record sheet");
       assert.ok(document.querySelector('[data-testid="records-page-preview"]'));
-      assert.ok(document.querySelector('[data-testid="loaded-record-glance"]'));
+      assert.deepEqual([...document.querySelectorAll('[data-testid="loaded-record-glance"] dt')].map((term) => term.textContent).filter((term) => term === "Tipo de gasto" || term === "Categoría"), ["Tipo de gasto"]);
       assert.equal(detailReads, 0, "explicit loaded-row preview makes no detail request");
       assert.ok(page.records().some((item) => item.dataset.recordKey === key));
       await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]'));
@@ -399,14 +416,14 @@ describe("the gate", () => {
     const total = page.records().length;
     const summary = document.querySelector('[data-testid="transacciones-summary"]')!.textContent;
     const toolbar = document.querySelector('[data-testid="records-toolbar"]')!;
-    await page.click([...toolbar.querySelectorAll("button")].find((button) => button.getAttribute("aria-label")?.startsWith("Tipo:"))!);
-    await page.click([...toolbar.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent === "Gasto")!);
-    assert.ok(page.records().length < total);
-    assert.ok(page.records().every((row) => row.dataset.kind === "gasto"));
+    await chooseRecordKind(page, "venta");
+    assert.ok(page.records().length > 0);
+    assert.ok(page.records().every((row) => row.dataset.kind === "venta"));
     assert.equal(document.querySelector('[data-testid="transacciones-summary"]')!.textContent, summary);
     assert.match(page.body(), /Resumen del período/);
     assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, `${page.records().length} registros`);
-    await page.click([...toolbar.querySelectorAll("button")].find((button) => button.textContent?.includes("Limpiar filtros"))!);
+    assert.equal([...toolbar.querySelectorAll("button")].find((button) => button.textContent?.includes("Limpiar filtros")), undefined);
+    await chooseRecordKind(page, "gasto");
     assert.equal(page.records().length, total);
     const period = [...toolbar.querySelectorAll("button")].find((button) => button.getAttribute("aria-label")?.startsWith("Período:") || button.getAttribute("aria-label")?.startsWith("Periodo:"))!;
     await page.click(period);
@@ -421,16 +438,21 @@ describe("the gate", () => {
     for (const width of [1440, 390]) {
       const source = await recordsOf([item, { ...item, id: "other-id", merchant: "Comedor" }], {}, [item]);
       const page = await mount({ enabled: false, width, transacciones: source });
-      await page.settle(() => page.records().length === 3, "three saved records");
-      assert.equal(new Set(page.records().map((row) => row.dataset.recordKey)).size, 3);
+      await page.settle(() => page.records().length === 2, "two saved purchases");
+      assert.equal(new Set(page.records().map((row) => row.dataset.recordKey)).size, 2);
       const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
       await page.act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nube");
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
-      assert.equal(page.records().length, 2);
-      assert.deepEqual(page.records().map((row) => row.dataset.kind).sort(), ["gasto", "venta"]);
-      assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, "2 registros");
+      assert.equal(page.records().length, 1);
+      assert.equal(page.records()[0].dataset.kind, "gasto");
+      const purchaseKey = page.records()[0].dataset.recordKey;
+      await chooseRecordKind(page, "venta");
+      assert.equal(page.records().length, 1);
+      assert.equal(page.records()[0].dataset.kind, "venta");
+      assert.notEqual(page.records()[0].dataset.recordKey, purchaseKey);
+      assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, "1 registro");
       await page.unmount();
     }
   });
@@ -464,11 +486,16 @@ describe("the gate", () => {
     await page.settle(() => page.records().length > 0, "the saved records");
   });
 
-  test("an empty period offers a real next step, never a zero list", async () => {
+  test("an empty period names the current tab without suggesting an action", async () => {
     const page = await mount({ enabled: false, transacciones: await recordsOf([]) });
-    await page.settle(() => document.querySelector('[data-testid="transacciones-records-empty"]') !== null, "the empty state");
-    assert.match(page.body(), /Aquí verás tus gastos y ventas/);
-    assert.ok(document.querySelector('[data-testid="transacciones-records-empty"] button'), "one action to add");
+    const empty = () => document.querySelector('[data-testid="transacciones-records-empty"]');
+    await page.settle(() => empty() !== null, "the purchase empty state");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "No hay compras en esta selección");
+    assert.equal(empty()?.querySelector("img")?.getAttribute("src"), "/brand/records-document.webp");
+    assert.equal(empty()?.querySelector("button"), null);
+    await chooseRecordKind(page, "venta");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "No hay ventas en esta selección");
+    assert.equal(empty()?.querySelector("button"), null);
     assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"] dd')?.textContent, "-sin dato", "no row names a currency, so the zero is not shown as pesos");
   });
 
@@ -701,7 +728,7 @@ describe("Transacciones currency", () => {
     assert.equal(menu()?.textContent, "USD");
     assert.match(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"]')?.textContent ?? "", /US\$\s?24\.00/);
     assert.doesNotMatch(document.querySelector('[data-testid="transacciones-summary"]')?.textContent ?? "", /RD\$/, "the totals follow the table");
-    assert.match(localStorage.getItem("cuadrao:business_currency_view:v1") ?? "", /"own":"USD"/, "one kept choice drives Inicio and Transacciones");
+    assert.equal(localStorage.getItem("cuadrao:business_currency_view:v1"), null, "the choice lives for the session, never in the browser's storage");
     await page.click(page.segment("igualadas"));
     await page.settle(() => movementsCalls(calls).at(-1)?.get("segment") === "igualadas", "Igualadas");
     assert.equal(movementsCalls(calls).at(-1)?.get("cursor"), null, "a new segment starts from the top");
@@ -772,12 +799,14 @@ describe("Transacciones currency", () => {
       ],
     );
     const page = await mount({ enabled: false, transacciones: saved, businessCurrency: "DOP" });
-    await page.settle(() => page.records().length === 3, "gastos and ventas");
-    assert.deepEqual(page.records().map((node) => [node.dataset.recordId, node.dataset.kind]), [["venta-2", "venta"], ["venta-1", "venta"], ["exp-1", "gasto"]]);
+    await page.settle(() => page.records().length === 1, "the purchase");
+    assert.deepEqual(page.records().map((node) => [node.dataset.recordId, node.dataset.kind]), [["exp-1", "gasto"]]);
     const amount = (id: string) => document.querySelector(`[data-record-id="${id}"] [data-col="monto"] [aria-hidden="true"]`)?.textContent;
+    assert.equal(amount("exp-1"), "−860.00");
+    await chooseRecordKind(page, "venta");
+    assert.deepEqual(page.records().map((node) => [node.dataset.recordId, node.dataset.kind]), [["venta-2", "venta"], ["venta-1", "venta"]]);
     assert.equal(amount("venta-1"), "+5,000.00", "a venta is money in");
     assert.equal(amount("venta-2"), "+US$ 120.00", "in its own currency");
-    assert.equal(amount("exp-1"), "−860.00");
     assert.match(document.querySelector('[data-record-id="venta-1"]')?.textContent ?? "", /Venta/);
     assert.equal(document.querySelector('[data-record-id="venta-1"]')?.className.includes("cursor-pointer"), false, "a venta with no receipt or draft has no record to open");
     assert.equal(document.querySelector('[data-record-id="venta-2"]')?.className.includes("cursor-pointer"), true);
@@ -970,7 +999,7 @@ test("new local business has no sample sales or bank movements", async () => {
   }
 });
 
-for (const language of ["es-419", "en"]) test(`shared currency filter updates rows, cards, footer and removable chip in ${language}`, async () => {
+for (const language of ["es-419", "en"] as const) test(`shared currency filter updates rows, cards, footer and permanent chip in ${language}`, async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -980,45 +1009,94 @@ for (const language of ["es-419", "en"]) test(`shared currency filter updates ro
       { id: "exp-lunch", merchant: "Comedor Doña Ana", amount: "1250.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-23", receipt_id: null },
     ];
     const page = await mount({ enabled: false, language, transacciones: await recordsOf(items, {}, items) });
-    await page.settle(() => page.records().length === 6, "loaded six records");
+    await page.settle(() => page.records().length === 2, "loaded purchase default-currency records");
     const es = language === "es-419";
     const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
-    const open = async () => {
-      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
-      await page.click(document.querySelector('[data-group="amount"]'));
+    const chooseCurrency = async (currency: string) => {
+      await page.click(document.querySelector(`button[aria-label^="${es ? "Moneda" : "Currency"}:"]`));
+      await clickText(currency);
     };
-    await open(); await clickText("USD"); await clickText(es ? "Aplicar" : "Apply");
-    assert.equal(page.records().length, 2);
+    await chooseCurrency("USD");
+    assert.equal(page.records().length, 1);
     const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
-    assert.match(footer().textContent ?? "", es ? /1–2 de 2/ : /1–2 of 2/);
+    assert.match(footer().textContent ?? "", es ? /1–1 de 1/ : /1–1 of 1/);
     assert.equal(footer().dataset.page, "1");
     assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null, "currency alone does not create a mixed summary");
     const removeCurrency = es ? "Quitar filtro Moneda" : "Remove filter Currency";
-    assert.ok(document.querySelector(`button[aria-label="${removeCurrency}"]`));
-    await page.click(document.querySelector(`button[aria-label="${removeCurrency}"]`));
-    assert.equal(page.records().length, 6);
-    await open(); await clickText("USD");
-    const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
-    await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, "25"); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
-    await clickText(es ? "Aplicar" : "Apply");
-    assert.equal(page.records().length, 0);
-    assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
-    assert.ok(document.querySelector(`button[aria-label="${es ? "Quitar filtro Moneda y monto" : "Remove filter Currency and amount"}"]`));
-    const empty = document.querySelector('[data-empty-kind="filtered"]')!;
-    assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
-    assert.equal(empty.querySelector("p"), null, "a filtered empty state has no body line"); assert.equal(empty.querySelector("button"), null, "and no clear action of its own");
-    const clears = [...document.querySelectorAll("button")].filter((node) => node.textContent === (es ? "Limpiar filtros" : "Clear filters"));
-    assert.equal(clears.length, 1, "the pill row's Limpiar filtros is the only clear action");
-    const clear = clears.at(-1)!;
-    await page.click(clear);
-    assert.equal(page.records().length, 6, "empty-result clear also clears the shared currency/amount filter");
-    assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+    assert.equal(document.querySelector(`button[aria-label="${removeCurrency}"]`), null);
+    assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
+    const query = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input[type="search"]')!;
+    const typeSearch = (value: string) => page.act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(query, value);
+      query.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const clearSearch = es ? "Borrar búsqueda" : "Clear search";
+    const clearFilters = es ? "Limpiar filtros" : "Clear filters";
+    const minimumAmount = async (value: string) => {
+      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
+      await page.click(document.querySelector('[data-group="amount"]'));
+      const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, value); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
+      await clickText(es ? "Aplicar" : "Apply");
+    };
+    const periodButton = (label: string) => [...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((button) => button.textContent === label) ?? null;
+    const periodLabel = es ? "Todas las fechas" : "All dates";
+    await page.click(periodButton(es ? "Este mes" : "This month"));
+    await clickText(periodLabel);
+    await clickText(es ? "Confirmar período" : "Confirm period");
+    assert.ok(periodButton(periodLabel));
+    for (const kind of ["gasto", "venta"] as const) {
+      await chooseRecordKind(page, kind);
+      await typeSearch("comercio inexistente");
+      const noResults = document.querySelector('[data-empty-kind="no_results"]');
+      assert.equal(noResults?.querySelector("h3")?.textContent, es ? "No hay resultados para esta búsqueda" : "No results for this search");
+      assert.deepEqual([...noResults!.querySelectorAll("button")].map((button) => button.textContent), [clearSearch]);
+      await page.click(noResults!.querySelector("button"));
+      assert.equal(query.value, "");
+      assert.equal(page.records().length, 1);
+
+      await typeSearch("Nube");
+      await minimumAmount("25");
+      assert.equal(page.records().length, 0);
+      assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
+      const empty = document.querySelector('[data-empty-kind="filtered"]')!;
+      assert.equal(empty.querySelector("h3")?.textContent, es ? "No hay registros con estos filtros" : "No records match these filters");
+      assert.equal(empty.querySelector("img")?.getAttribute("src"), "/brand/records-search.webp");
+      assert.deepEqual([...empty.querySelectorAll("button")].map((button) => button.textContent), [clearFilters]);
+      await page.click(empty.querySelector("button"));
+      assert.equal(query.value, "Nube", "clearing filters keeps search");
+      assert.equal(page.records().length, 1, "clearing filters keeps currency and clears amount limits");
+      assert.equal(page.records()[0].dataset.kind, kind);
+      assert.ok(document.querySelector(`button[aria-label="${es ? "Moneda" : "Currency"}: USD"]`));
+
+      await minimumAmount("20");
+      await typeSearch("comercio inexistente");
+      const searchEmpty = document.querySelector('[data-empty-kind="no_results"]');
+      assert.equal(searchEmpty?.querySelector("button")?.textContent, clearSearch);
+      await page.click(searchEmpty!.querySelector("button"));
+      assert.equal(query.value, "");
+      assert.equal(page.records().length, 1);
+      assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /20/);
+    }
+    assert.ok(periodButton(periodLabel));
+    await chooseCurrency("EUR");
+    await minimumAmount("25");
+    await typeSearch("comercio inexistente");
+    for (const [kind, title] of [
+      ["gasto", es ? "No hay compras en esta selección" : "No purchases in this selection"],
+      ["venta", es ? "No hay ventas en esta selección" : "No sales in this selection"],
+    ] as const) {
+      await chooseRecordKind(page, kind);
+      const empty = document.querySelector('[data-testid="transacciones-records-empty"]');
+      assert.equal(empty?.querySelector("h3")?.textContent, title);
+      assert.equal(empty?.querySelectorAll("button").length, 0);
+    }
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
 
-for (const width of [1440, 390]) test(`overview filters share chips while counts retain business and period scope at ${width}px`, async () => {
+for (const width of [1440, 390]) test(`fixture overview shows sample purchases and toggles only fiscal expenses at ${width}px`, async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -1028,62 +1106,27 @@ for (const width of [1440, 390]) test(`overview filters share chips while counts
       { id: "exp-lunch", merchant: "Comedor Doña Ana", amount: "1250.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-23", receipt_id: null },
     ];
     const page = await mount({ enabled: false, width, transacciones: await recordsOf(items, {}, items) });
-    await page.settle(() => page.records().length === 6, "six fixture records");
-    const overview = () => document.querySelector('[data-testid="records-overview-preview"]')!;
-    const original = overview().textContent;
-    const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
-    assert.deepEqual([...document.querySelectorAll('[data-testid="records-overview-preview"] [data-overview-filter]')].map((card) => card.getAttribute("data-overview-filter")), ["fiscal", "export", "exported"]);
-    await page.click(document.querySelector('[data-overview-filter="fiscal"]'));
-    assert.equal(page.records().length, 1);
-    assert.equal(document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed"), "true");
-    assert.ok(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
-    const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
-    const fill = async (field: HTMLInputElement, value: string) => page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value); field.dispatchEvent(new Event("input", { bubbles: true })); });
-    await fill(input, "Estación"); assert.equal(page.records().length, 1);
-    assert.equal(overview().textContent, original, "search does not rewrite the overview");
-    await page.click(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
-    assert.equal(page.records().length, 2, "removing the workflow chip keeps the search");
-    await fill(input, "");
-    await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith("Filtros"))!);
-    await page.click(document.querySelector('[data-group="amount"]')); await clickText("USD"); await clickText("Aplicar");
-    await page.click(document.querySelector('[data-overview-filter="export"]'));
-    assert.equal(page.records().length, 1, "currency and overview filters compose");
-    await page.click(document.querySelector('[data-overview-filter="export"]'));
-    assert.equal(page.records().length, 2, "clicking the selected overview card clears only its workflow filter");
-    assert.equal(document.querySelector('[data-overview-filter="export"]')?.getAttribute("aria-pressed"), "false");
-    assert.equal(document.querySelector('button[aria-label="Quitar filtro Revisión"]'), null);
-    assert.ok(document.querySelector('button[aria-label="Quitar filtro Moneda"]'), "currency filter remains selected");
-    await page.click(document.querySelector('[data-overview-filter="fiscal"]'));
-    await page.click(document.querySelector('[data-overview-filter="export"]'));
-    assert.equal(document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed"), "false", "another card replaces the workflow selection");
-    assert.equal(document.querySelector('[data-overview-filter="export"]')?.getAttribute("aria-pressed"), "true");
-    assert.equal(page.records().length, 1);
-    assert.equal(overview().textContent, original, "currency and workflow do not rewrite overview");
-    await page.click(document.querySelector('button[aria-label="Quitar filtro Moneda"]'));
-    await page.click(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
-    await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent === "Este mes")!);
-    const fields = [...document.querySelectorAll<HTMLInputElement>('[data-testid="range-picker"] input')];
-    await fill(fields[0], "24/10/2026"); await fill(fields[1], "24/10/2026"); await clickText("Confirmar período");
-    assert.equal(page.records().length, 2, "page period filters activity dates inclusively");
-    assert.match(document.querySelector('[data-overview-filter="fiscal"]')?.textContent ?? "", /0/);
-    assert.match(document.querySelector('[data-overview-filter="export"]')?.textContent ?? "", /1/);
-    assert.match(document.querySelector('[data-overview-filter="exported"]')?.textContent ?? "", /1/);
-    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
-    const waiting = (await createFixtureBusinessDataSource({ chatAvailable: false }).receiptPage!("inbox")).activity!.pending_review_count;
-    assert.ok(waiting > 1);
-    assert.equal(document.querySelector('[data-testid="records-bandeja-waiting"]')?.textContent, `${waiting} recibos esperan en la Bandeja`, "the sample's Bandeja count, the one the sidebar shows");
-    await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.includes("24 oct"))!);
-    const emptyFields = [...document.querySelectorAll<HTMLInputElement>('[data-testid="range-picker"] input')];
-    await fill(emptyFields[0], "22/10/2026"); await fill(emptyFields[1], "22/10/2026"); await clickText("Confirmar período");
-    assert.equal(page.records().length, 0);
-    const empty = document.querySelector('[data-empty-kind="first_run"]')!;
-    assert.ok(empty, "no filter is applied, so an empty period is the first-run state");
-    assert.match(empty.textContent ?? "", /Cada gasto y cada venta que apruebas en la Bandeja/);
-    assert.equal([...document.querySelectorAll("button")].filter((node) => /Restablecer período|Limpiar filtros/.test(node.textContent ?? "")).length, 0, "no second way out: the period chip is the way back");
-    await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.includes("22 oct"))!);
-    const backFields = [...document.querySelectorAll<HTMLInputElement>('[data-testid="range-picker"] input')];
-    await fill(backFields[0], "01/10/2026"); await fill(backFields[1], "31/10/2026"); await clickText("Confirmar período");
-    assert.equal(page.records().length, 6, "the period chip brings the rows back without API work");
+    await page.settle(() => page.records().length === 2, "two default-currency fixture purchases");
+    const overview = document.querySelector('[data-testid="records-overview-preview"]')!;
+    assert.equal(overview.querySelectorAll("[data-overview-card]").length, 6);
+    assert.deepEqual([...overview.querySelectorAll("button[data-overview-card], [data-overview-card] button")].map((button) => button.getAttribute("data-overview-card")), ["fiscal"]);
+    const total = overview.querySelector('[data-overview-card="total"]')!;
+    assert.deepEqual([...total.querySelectorAll(".cuadrao-amount")].map((node) => node.getAttribute("aria-label")), ["DOP 2,100.00"]);
+    assert.doesNotMatch(total.textContent!, /3,350|1,250/, "personal purchases stay outside sample totals");
+    assert.equal(overview.querySelectorAll(".cuadrao-amount").length, 3, "sample money retains privacy masking");
+    const fiscal = overview.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')!;
+    assert.equal(fiscal.disabled, false);
+    assert.equal(fiscal.querySelector(".font-display")?.textContent, "1");
+    await page.click(fiscal);
+    assert.deepEqual(page.records().map((row) => ({ kind: row.dataset.kind, id: row.dataset.recordId })), [{ kind: "gasto", id: "exp-gas" }], "the same-id sale is outside fiscal review");
+    assert.equal(fiscal.getAttribute("aria-pressed"), "true");
+    assert.ok(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
+    await page.click(fiscal);
+    assert.equal(page.records().length, 2);
+    assert.equal(fiscal.getAttribute("aria-pressed"), "false");
+    assert.equal(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'), null);
+    assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, "1–2 de 2 registros");
+    assert.equal(overview.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "2");
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
@@ -1094,7 +1137,7 @@ test("local header and phone sorts share preference state, reset pages and resto
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
     const items = Array.from({ length: 30 }, (_, index) => ({ id: `sort-${index}`, merchant: `Sample ${String(index).padStart(2, "0")}`, amount: `${index + 1}.00`, currency: "USD", category_id: null, account_id: null, occurred_on: `2026-10-${String(index % 20 + 1).padStart(2, "0")}`, receipt_id: null }));
-    const page = await mount({ enabled: false, transacciones: await recordsOf(items) });
+    const page = await mount({ enabled: false, recordsDefaultCurrency: "USD", transacciones: await recordsOf(items) });
     await page.settle(() => page.records().length === 25, "sorting rows");
     const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
     const count = () => document.querySelector('[data-testid="records-count"]')!.textContent;
@@ -1128,7 +1171,7 @@ test("local header and phone sorts share preference state, reset pages and resto
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
-test("amount sort explains mixed currency and resumes after a single-currency filter", async () => {
+test("amount sort stays available when changing the single currency", async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -1138,33 +1181,38 @@ test("amount sort explains mixed currency and resumes after a single-currency fi
       { id: "dop", merchant: "Pesos", amount: "2000.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-24", receipt_id: null },
     ];
     const page = await mount({ enabled: false, transacciones: await recordsOf(items) });
-    await page.settle(() => page.records().length === 3, "mixed sorting rows");
-    const amountButton = () => document.querySelector('th[data-col="monto"] button')!;
-    assert.equal(amountButton().getAttribute("aria-disabled"), "true");
-    await page.click(amountButton());
-    assert.match(document.querySelector('[data-testid="records-page-preview"] [role="status"]')!.textContent!, /Elige una moneda/);
-    assert.equal(document.querySelector('th[data-col="fecha"]')?.getAttribute("aria-sort"), "descending");
-    const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
-    const chooseUsd = async () => {
-      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith("Filtros"))!);
-      await page.click(document.querySelector('[data-group="amount"]')); await clickText("USD"); await clickText("Aplicar");
-    };
-    await chooseUsd(); await page.click(amountButton());
-    assert.equal(page.records()[0].dataset.recordId, "usd-large");
-    await page.click(document.querySelector('button[aria-label="Quitar filtro Moneda"]'));
-    assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), null);
-    assert.equal(document.querySelector('th[data-col="fecha"]')?.getAttribute("aria-sort"), "descending");
-    assert.match(document.querySelector('[data-testid="records-page-preview"] [role="status"]')!.textContent!, /Ordenados por fecha/);
-    const surface = document.querySelector<HTMLElement>('[data-testid="records-page-preview"] > div')!;
-    await page.act(async () => { surface.style.setProperty("--records-narrow", "1"); window.dispatchEvent(new Event("resize")); });
-    await clickText("Más recientes primero");
-    const amountOption = [...document.querySelectorAll("button")].find((node) => node.textContent === "Monto: mayor primero")!;
-    assert.equal(amountOption.getAttribute("aria-disabled"), "true");
-    await page.click(amountOption);
-    await page.act(async () => { surface.style.setProperty("--records-narrow", "0"); window.dispatchEvent(new Event("resize")); });
-    await chooseUsd();
+    await page.settle(() => page.records().length === 1, "default currency sorting rows");
+    const amountButton = document.querySelector('th[data-col="monto"] button')!;
+    assert.notEqual(amountButton.getAttribute("aria-disabled"), "true");
+    await page.click(amountButton);
+    await page.click(document.querySelector('button[aria-label^="Moneda:"]'));
+    await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "USD")!);
+    assert.equal(page.records().length, 2);
     assert.equal(page.records()[0].dataset.recordId, "usd-large");
     assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), "descending");
+    assert.equal(document.querySelector('button[aria-label="Quitar filtro Moneda"]'), null);
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});
+
+
+test("phone legacy Registros keeps its export button and existing export sheet", async () => {
+  const page = await mount({ enabled: false, width: 390 });
+  await page.settle(() => page.records().length > 0, "saved records");
+  const button = document.querySelector('[data-testid="records-export"]');
+  assert.ok(button);
+  await page.click(button);
+  await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
+});
+
+
+test("the legacy records entry recovers a settled invalid workspace default through Retry", async () => {
+  const page = await mount({ enabled: false, recordsDefaultCurrency: "CAD" });
+  await page.settle(() => document.querySelector('[data-empty-kind="error"]') !== null, "workspace currency error");
+  assert.equal(page.records().length, 0);
+  page.setRecordsDefaultCurrency("DOP");
+  await page.click([...document.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!);
+  await page.settle(() => page.records().length > 0, "records after rereading the workspace");
+  assert.equal(document.querySelector('[data-empty-kind="error"]'), null);
+  await page.unmount();
 });

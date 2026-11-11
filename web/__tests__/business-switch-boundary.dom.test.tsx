@@ -41,7 +41,7 @@ const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_i
 const A: GrantedSpace = { space_id: "s-a", name: "Colmado Peña", grant_id: "g-a", role: "accountant", capabilities: ["read", "prepare"], access_seen: true };
 const B: GrantedSpace = { space_id: "s-b", name: "Taller Brito", grant_id: "g-b", role: "accountant", capabilities: ["read", "prepare"], access_seen: true };
 
-async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
+async function mount(listed: GrantedSpace[] = [OWN, A, B], settlement = false) {
   const React = await import("react");
   const { act, useState } = React;
   const { createRoot } = await import("react-dom/client");
@@ -63,6 +63,8 @@ async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
   const source = {
     ...fixture,
     spaces: async () => listed,
+    // The sample workspace with Por cobrar and Por pagar on, for a test that marks a document.
+    ...(settlement ? { workspace: async () => ({ ...await fixture.workspace(), settlement_available: true }) } : {}),
     // Read the list through receipts so each read names the grant it ran under.
     receiptPage: undefined,
     receipts: async (view: "inbox" | "all") => {
@@ -181,10 +183,10 @@ describe("switching Business inside one signed-in account", () => {
     for (let i = 0; i < 40 && page.text("probe-chosen") !== "Colmado Peña"; i += 1) {
       await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     }
-    const { getChosenGrant, chosenGrantHeader, GRANT_HEADER } = await import("@/lib/business-grant");
+    const { getChosenGrant, grantHeader, GRANT_HEADER } = await import("@/lib/business-grant");
     assert.equal(getChosenGrant(), "g-a");
     assert.equal(page.text("probe-chosen"), "Colmado Peña");
-    assert.deepEqual(chosenGrantHeader(), { [GRANT_HEADER]: "g-a" });
+    assert.deepEqual(grantHeader(getChosenGrant()), { [GRANT_HEADER]: "g-a" });
     await page.act(async () => { page.api().openPanel({ kind: "overview" }); });
     await page.settle();
     assert.ok(page.text("probe-inbox")?.includes("g-a"), page.text("probe-inbox") ?? "");
@@ -216,14 +218,14 @@ test("a newly created local owner business stays selected with empty scoped reco
 test("local selection survives a preview reload without sending a synthetic grant header", async () => {
   const nodeEnv = process.env.NODE_ENV;
   const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
-  const { synchronizeBusinessAccount, setChosenGrant, getChosenGrant, chosenGrantHeader } = await import("@/lib/business-grant");
+  const { synchronizeBusinessAccount, setChosenGrant, getChosenGrant, grantHeader } = await import("@/lib/business-grant");
   const key = "argus:business-grant:v1";
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
     synchronizeBusinessAccount("local-owner");
     setChosenGrant("local-business-persisted");
     const saved = localStorage.getItem(key)!;
-    assert.deepEqual(chosenGrantHeader(), {});
+    assert.deepEqual(grantHeader(getChosenGrant()), {});
     synchronizeBusinessAccount(null);
     localStorage.setItem(key, saved);
     synchronizeBusinessAccount("local-owner");
@@ -245,7 +247,7 @@ test("preview settlement survives switching businesses without leaking to anothe
   const previousEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   const { currentMonthKey } = await import("@/lib/business-month-close");
-  const page = await mount();
+  const page = await mount(undefined, true);
   const month = currentMonthKey();
   try {
     await page.act(async () => page.api().chooseBusiness(A.grant_id));
@@ -265,6 +267,33 @@ test("preview settlement survives switching businesses without leaking to anothe
     const returned = page.monthClose();
     const returnedBook = await returned.client.load(month, returned.scopeKey!);
     assert.equal(returnedBook.documents.find(item => item.id === pending.id)?.status, "pagado");
+  } finally {
+    await page.act(async () => page.root.unmount());
+    page.host.remove();
+    Object.assign(process.env, previousEnv);
+  }
+});
+
+test("two Businesses the same person owns keep their own month: the month close is keyed by the selected Business", async () => {
+  const previousEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  const { currentMonthKey } = await import("@/lib/business-month-close");
+  const second: GrantedSpace = { ...OWN, space_id: "s-own-2", name: "Taller Propio", grant_id: "g-own-2" };
+  const page = await mount([OWN, second, A], true);
+  const month = currentMonthKey();
+  try {
+    await page.act(async () => page.api().chooseBusiness(OWN.grant_id));
+    await page.settle();
+    const first = page.monthClose();
+    const book = await first.client.load(month, first.scopeKey!);
+    const pending = book.documents.find(item => item.kind === "receipt" && item.status === "pendiente")!;
+    await first.client.markPagado(pending.id, first.scopeKey!);
+    await page.act(async () => page.api().chooseBusiness(second.grant_id));
+    await page.settle();
+    const other = page.monthClose();
+    assert.notEqual(other.scopeKey, first.scopeKey, "another owned Business is another month close");
+    const otherBook = await other.client.load(month, other.scopeKey!);
+    assert.equal(otherBook.documents.find(item => item.id === pending.id)?.status, "pendiente", "a mark in one owned Business never shows in the other");
   } finally {
     await page.act(async () => page.root.unmount());
     page.host.remove();

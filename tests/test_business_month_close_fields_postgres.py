@@ -14,6 +14,7 @@ from datetime import timedelta
 from uuid import uuid4
 from zipfile import ZipFile
 
+import pytest
 from argus.domain.business import ledger
 from argus.domain.business.actions import approval
 from psycopg import Connection
@@ -31,6 +32,13 @@ from tests.test_business_open_items_postgres import (  # noqa: F401
 from tests.test_business_open_items_postgres import pytestmark as _local_supabase
 
 pytestmark = _local_supabase
+
+
+@pytest.fixture(autouse=True)
+def _settlement(settlement_on: None) -> None:
+    """These flows read or mark cobrado and pagado: settlement on, as before."""
+
+
 OWN_RNC = "199990013"
 METHODS = ["efectivo", "transferencia", "tarjeta", "credito", "otro"]
 FORMS = ("606", "607")
@@ -259,7 +267,7 @@ def test_a_note_still_in_the_bandeja_keeps_its_arrival_month_open(web) -> None: 
     _send(web, "POST", "/business/captures", {"text": "taxi 300"}, web.alice.headers)
 
     shown = _month(web, month)
-    memory = with_unreviewed(empty_month(month), 1)
+    memory = with_unreviewed(empty_month(month, bandeja={"DOP": 1}))
     assert shown["closed"] is False
     assert shown["unreviewed_movements_count"] == 1
     assert [r for r in shown["reasons"] if r["code"] == "movimientos_sin_revisar"] == (
@@ -286,10 +294,8 @@ def test_ready_for_the_606_follows_the_export_verdict(web) -> None:  # noqa: ANN
     [held] = month["missing_fiscal_data"]
     assert (held["activity_id"], held["status"]) == (activity, "pagado")
     assert held["missing"] == ["expense_type_missing", "payment_method_missing"]
-    assert month["filing_ready"] is False
 
     unpaid._declare(web, draft, category="02", payment_method="01")
     month = _month(web, "2026-09")
     assert month["dgii_forms"]["606"] == "prepared_candidate"
     assert month["missing_fiscal_data"] == []
-    assert month["filing_ready"] is True

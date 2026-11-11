@@ -247,7 +247,7 @@ class PostgresBusinessCustodyGraph:
             if space[1] == departing_user_id and space[2] is None:
                 raise CustodyGraphError("business_owner_must_exit")
             if not db.execute(
-                "select u.id from auth.users u join argus_private.account_placeholders p on p.id=u.id where u.id=%s and not coalesce(u.is_anonymous,false) and u.email_confirmed_at is not null and u.banned_until>clock_timestamp() and u.raw_app_meta_data->>'placeholder'='true' and u.email like 'exmiembro+%%@cuadrao.invalid' and u.phone is null and coalesce(u.encrypted_password,'')='' for share of u,p",
+                "select u.id from auth.users u join argus_private.account_placeholders p on p.id=u.id where u.id=%s and not coalesce(u.is_anonymous,false) and u.email_confirmed_at is not null and u.banned_until>clock_timestamp() and u.raw_app_meta_data->>'placeholder'='true' and u.email like 'exmiembro+%%@cuadrao.invalid' and u.phone is null for share of u,p",
                 (reservation.custodian_id,),
             ).fetchone():
                 raise CustodyGraphError("business_custody_placeholder_invalid")

@@ -8,6 +8,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import ApproveExpense, MarkPersonal
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.reporting import summarize
+from argus.domain.business.reporting_query import Purchase606
 from argus.domain.business.reporting_store import read_recorded
 
 from tests import test_business_actions_postgres as shared
@@ -628,6 +629,10 @@ def test_each_card_counts_its_stage_and_its_filter_matches_it(actions):
     assert matching("ready_for_export") == [str(complete)]
     assert matching("exported") == []
 
+    before_download = read_report(
+        service.authority, context, ReportRequest(filters={"fiscal_data": "complete"})
+    )
+    assert [row.draft_id for row in before_download.items] == [str(complete)]
     export_package(service.authority, context, PERIOD, InMemorySourceObjects())
     assert cards() == (1, 0, 1)
     assert matching("ready_for_export") == []
@@ -641,6 +646,31 @@ def test_each_card_counts_its_stage_and_its_filter_matches_it(actions):
         "exported",
         True,
     )
+
+    def fiscal_matches(choice):
+        answer = read_report(
+            service.authority, context, ReportRequest(filters={"fiscal_data": choice})
+        )
+        return answer, {row.draft_id for row in answer.items}
+
+    complete_answer, complete_ids = fiscal_matches("complete")
+    assert complete_ids == {str(complete)}
+    assert complete_answer.items[0].fiscal_data == "complete"
+    missing_answer, missing_ids = fiscal_matches("missing")
+    assert missing_ids == {str(missing_ncf)}
+    assert missing_answer.overview.needs_fiscal_data == missing_answer.matching_count == 1
+    current = service.dossier(context, complete)
+    changed = declared(service, context, complete, current.version, category=None)
+    assert changed.outcome == "applied"
+    assert fiscal_matches("complete")[1] == set()
+    missing_answer, missing_ids = fiscal_matches("missing")
+    assert missing_ids == {str(complete), str(missing_ncf)}
+    assert missing_answer.overview.needs_fiscal_data == 2
+    edited_exported = next(
+        row for row in missing_answer.items if row.draft_id == str(complete)
+    )
+    assert edited_exported.stage == "exported"
+    assert edited_exported.fiscal_data == "missing"
 
 
 def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, users):
@@ -684,6 +714,7 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
         expense_type=None, payment_form=None
     )
     assert rows[str(personal)].dgii_606 is None
+    assert rows[str(personal)].fiscal_data is None
     assert rows[str(sale.draft_id)].dgii_606 is None
 
     # A tipo de gasto chosen on the recorded record shows in the next read.
@@ -717,6 +748,164 @@ def test_purchase_rows_carry_their_606_answers_and_a_sale_carries_none(actions, 
         ReportRequest(filters={"expense_types": ["missing"]}),
     )
     assert {row.draft_id for row in missing.items} == {str(owner_paid)}
+
+
+def test_expense_detail_and_search_carry_the_606_answers_registros_shows(
+    actions, monkeypatch
+):
+    """A purchase with a tipo de gasto, one missing it, a Personal purchase and
+    a sale: the expense detail and each search hit carry the same `dgii_606`
+    as that record's Registros row."""
+
+    from argus.api import business_search
+    from argus.api.business_drafts import expense_detail
+    from argus.domain.business import reporting_store
+    from argus.domain.business.contracts.actions import ReviewDraft
+    from argus.domain.business.contracts.dgii import PurchaseReview
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+    from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+
+    from tests.test_business_declaration_after_approval_postgres import (
+        account_funding,
+        approved,
+        captured,
+    )
+    from tests.test_business_receipt_views_postgres import _web
+
+    service, context, _ = actions
+    account = cash_account(service, context)
+    draft, version = captured(service, context, "B0100000021", account_funding(account))
+    saved = approved(service, context, draft, version)
+    chosen = service.review(
+        context,
+        draft,
+        ReviewDraft(version=saved.version, purchase=PurchaseReview(category="02")),
+        str(uuid4()),
+    )
+    assert chosen.outcome == "applied", chosen
+    typed = str(saved.approval_result.activity_id)
+    _, missing = record_expense(service, context, owner_funds=True)
+    _, personal = record_personal_expense(service, context)
+    sale = approve(service, context, reviewed(service, context, account, 4))
+    assert sale.outcome == "applied", sale
+    sold = str(sale.activity_id)
+
+    registros = {
+        row.linked_activity_ids[0]: (
+            row.dgii_606.model_dump(mode="json") if row.dgii_606 else None
+        )
+        for row in read_report(service.authority, context, ReportRequest()).items
+    }
+    assert registros[typed]["expense_type"]["code"] == "02"
+    assert registros[missing] == {"expense_type": None, "payment_form": None}
+    assert registros[personal] is registros[sold] is None
+
+    web = _web(service, context)
+    # Ranking by past opens is not under test; another test's store may linger.
+    monkeypatch.setattr(business_search, "business_search_memory", lambda: None)
+
+    def every(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        raise AssertionError("the 606 answers of a few records read only those")
+
+    purchases = (typed, missing, personal)
+    with monkeypatch.context() as narrow:
+        # One expense reads its own approval and drafts, never every one.
+        narrow.setattr(reporting_store, "current_activities", every)
+        narrow.setattr(_PostgresTx, "events", every)
+        for activity in purchases:
+            assert expense_detail(web, activity)["dgii_606"] == registros[activity]
+
+    def hits(q: str) -> dict:
+        found = business_search.search(web, q, kind=None, limit=20, cursor=None)
+        return {item["id"]: item for item in [*found["expenses"], *found["ventas"]]}
+
+    found = {**hits("PRÁCTICA"), **hits("850")}
+    for activity in (*purchases, sold):
+        assert found[activity]["dgii_606"] == registros[activity], activity
+
+
+def test_606_answers_of_one_record_read_only_its_approval_and_draft(actions, monkeypatch):
+    """Among several approved records, the answers of one read that record's
+    approval and draft and no other row."""
+
+    from argus.domain.business import reporting_store
+    from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+
+    service, context, _ = actions
+    asked, *_others = [record_expense(service, context)[1] for _ in range(3)]
+    read: list[str] = []
+
+    class Spy:
+        def __init__(self, cursor):  # noqa: ANN001
+            self._cursor = cursor
+
+        def __getattr__(self, name: str):  # noqa: ANN204
+            return getattr(self._cursor, name)
+
+        def fetchall(self) -> list:
+            rows = self._cursor.fetchall()
+            read.extend(str(row["activity_id"]) for row in rows)
+            return rows
+
+    snapshot = reporting_store.fiscal_snapshot
+    monkeypatch.setattr(
+        reporting_store,
+        "fiscal_snapshot",
+        lambda cursor, *args, **kwargs: snapshot(Spy(cursor), *args, **kwargs),
+    )
+    rows = _PostgresTx._rows
+
+    def drafts(self, statement, params):  # noqa: ANN001, ANN202
+        found = rows(self, statement, params)
+        read.extend(row["activity_id"] for row in found)
+        return found
+
+    monkeypatch.setattr(_PostgresTx, "_rows", drafts)
+    answers = reporting_store.read_606(service.authority, context, [asked])
+    assert answers == {asked: Purchase606(expense_type=None, payment_form=None)}
+    # One approval row and one draft row, both of the record asked for.
+    assert read == [asked, asked]
+
+
+def test_606_answers_never_reach_another_business_of_the_same_owner(actions):
+    """An activity of the owner's other Business has no answers here, and
+    each read below the activity lookup holds its own space condition."""
+
+    from argus.domain.business.dgii_snapshot import fiscal_snapshot
+    from argus.domain.business.reporting_store import _RECORDED_DRAFT_STATES, read_606
+    from argus.domain.business.spaces import PostgresSpaceStore
+    from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+    from argus.domain.recording.postgres_repository import (
+        PostgresFinancialAccountRepository,
+    )
+    from psycopg.rows import dict_row
+
+    service, context, _ = actions
+    _, here = record_expense(service, context)
+    second, _ = PostgresSpaceStore(service.authority.pool).create_additional(
+        context.owner_id, "Segunda", "DO", str(uuid4())
+    )
+    elsewhere = service.resolve_actor(
+        TrustedActor(actor_id=context.owner_id, actor_kind="member", space_id=second.id)
+    )
+    draft, there = record_expense(service, elsewhere)
+    assert elsewhere.owner_id == context.owner_id
+
+    assert read_606(service.authority, context, [here, there]).keys() == {here}
+    assert read_606(service.authority, elsewhere, [there]).keys() == {there}
+
+    foreign = PostgresFinancialAccountRepository(service.authority.pool).get_activity(
+        user_id=elsewhere.owner_id, activity_id=there, scope=elsewhere.scope
+    )
+    with service.authority.pool.connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            [record], _, _ = fiscal_snapshot(cursor, context, [foreign], only_these=True)
+        assert record.draft_id == ""
+        events = _PostgresTx(connection, context.owner_id, context.scope).events_of(
+            _RECORDED_DRAFT_STATES, [str(draft)], [there]
+        )
+        assert events == []
 
 
 def test_each_offered_document_kind_filter_matches_a_record_of_that_kind(actions):

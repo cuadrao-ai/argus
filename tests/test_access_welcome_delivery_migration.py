@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _normalized_sql() -> str:
     migrations = sorted(
-        (ROOT / "supabase" / "migrations").glob("*_add_access_welcome_deliveries.sql")
+        (ROOT / "supabase" / "migrations_archive").glob("*_add_access_welcome_deliveries.sql")
     )
     assert len(migrations) == 1
     return re.sub(r"\s+", " ", migrations[0].read_text()).strip().lower()

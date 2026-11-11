@@ -30,7 +30,6 @@ from argus.domain.business.month_close import (
     Settlement,
     before_itbis,
     formato_totals,
-    itbis_owed,
     month_period,
     net_result,
     open_items,
@@ -144,7 +143,6 @@ def test_rounding_half_up_and_negative_net():
     assert to_minor("-1.005", "DOP") == -101
     assert before_itbis(11800, 1800) == 10000
     assert net_result(100, 250) == -150
-    assert itbis_owed(100, 180) == -80
 
 
 def test_february_period_follows_the_calendar():
@@ -169,7 +167,9 @@ def test_summary_matches_formato_totals_for_the_fixture_month():
     assert dop["expense_before_itbis_minor"] == 3000
     assert dop["net_result_minor"] == 12000
     assert dop["net_result"] == "120.00"
-    assert dop["itbis_owed_minor"] == 2160
+    # Two plain totals, never a balance between them (Lucas, 2026-11-09).
+    assert (dop["itbis_charged_minor"], dop["itbis_paid_minor"]) == (2700, 540)
+    assert not any("owed" in key for key in dop)
     assert dop["cuentas_por_cobrar_minor"] == 5900
     assert dop["cuentas_por_pagar_minor"] == 1000
     assert dop["by_status"]["invoices"]["pendiente"] == {
@@ -363,7 +363,7 @@ def test_sin_comprobante_counts_in_the_totals_and_never_blocks_the_close():
         52000,
     )
     assert dop["net_result_minor"] == -26576
-    assert dop["itbis_owed_minor"] == 4216
+    assert (dop["itbis_charged_minor"], dop["itbis_paid_minor"]) == (4576, 360)
     assert dop["by_status"]["receipts"]["pendiente"] == {
         "count": 1,
         "before_itbis_minor": 50000,
@@ -915,3 +915,41 @@ def test_missing_payment_form_lists_only_purchases_the_606_holds() -> None:
         "paid",
     ]
     assert summarize(documents, DAY, DAY)["missing_payment_form"] == []
+
+
+def _open(**overrides) -> MonthDocument:
+    return document(status="pendiente", settled_on=None, payment_method=None, **overrides)
+
+
+def _held(*documents: MonthDocument) -> list[dict]:
+    start, end = month_period("2026-10")
+    missing = {item.activity_id: ("expense_type_missing",) for item in documents}
+    return summarize(list(documents), start, end, missing=missing, settlement=False)[
+        "missing_fiscal_rows"
+    ]
+
+
+def test_fiscal_rows_are_one_per_registros_tab_in_one_currency():
+    rows = _held(
+        _open(activity_id="p1", role="receipt"),
+        _open(activity_id="p2", role="receipt"),
+        _open(activity_id="s1", role="invoice"),
+    )
+    assert rows == [
+        {"family": "purchase", "currency": "DOP", "count": 2, "by_currency": False},
+        {"family": "sale", "currency": "DOP", "count": 1, "by_currency": False},
+    ]
+
+
+def test_a_tab_split_by_currency_only_when_its_held_documents_span_two():
+    rows = _held(
+        _open(activity_id="p1", role="receipt"),
+        _open(activity_id="p2", role="receipt", currency="USD"),
+        _open(activity_id="s1", role="invoice", currency="USD"),
+    )
+    assert rows == [
+        {"family": "purchase", "currency": "DOP", "count": 1, "by_currency": True},
+        {"family": "purchase", "currency": "USD", "count": 1, "by_currency": True},
+        {"family": "sale", "currency": "USD", "count": 1, "by_currency": False},
+    ]
+    assert sum(row["count"] for row in rows) == 3, "every held document is in one row"

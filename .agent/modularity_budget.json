@@ -112,6 +112,7 @@
     "tests/test_search_postgres.py": 2047,
     "tests/test_supabase_gateway.py": 2695,
     "web/__tests__/alpha-frontend.test.ts": 2959,
+    "web/__tests__/business-reports-connected.dom.test.tsx": 1067,
     "web/__tests__/chat-artifact-history.test.ts": 1296,
     "web/__tests__/chat-backtest-jobs.test.ts": 1147,
     "web/__tests__/chat-message-hydration.test.ts": 1390,

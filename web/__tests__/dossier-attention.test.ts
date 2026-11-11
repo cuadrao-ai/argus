@@ -26,7 +26,7 @@ describe("what stops approval on a dossier", () => {
   test("a missing fact names its row and needs no sentence", async () => {
     const { fixtures, attention } = await setup();
     const blocked = await fixtures.dossier(dossierFixtureIds.fiscalBlocked);
-    assert.deepEqual(attention(blocked).map((item) => [item.field, item.text]), [["occurred_on", "Fecha de actividad"]]);
+    assert.deepEqual(attention(blocked).map((item) => [item.field, item.text]), [["occurred_on", "Fecha del comprobante"]]);
   });
 
   test("a blocker names its reason and its field; one without a field still shows", async () => {

@@ -109,6 +109,21 @@ _UNREAD_ATTENTION: Mapping[str, Attention] = {
     "business_read_budget_day": "read_budget_day",
     "business_read_budget_month": "read_budget_month",
 }
+# A read the model answered that still cannot become a record.
+READ_REFUSAL_ATTENTION: Mapping[str, Attention] = {
+    "unreadable_document": "unreadable",
+    "not_a_receipt": "not_a_receipt",
+    "receipt_requires_review": "check_details",
+}
+
+
+def failure_attention(code: str) -> Attention | None:
+    """The owner's reason for a read that ended on ``code``; None when no
+    reason names it."""
+
+    return READ_REFUSAL_ATTENTION.get(code) or _UNREAD_ATTENTION.get(code)
+
+
 # Another read of the same bytes fails the same way, or cannot be made.
 _NO_RETRY: frozenset[Attention] = frozenset({"unreadable", "source_unavailable"})
 _BUSY = ("queued", "preparing")

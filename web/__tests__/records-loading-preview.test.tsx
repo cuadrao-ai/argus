@@ -7,7 +7,8 @@ import { I18nextProvider } from "react-i18next";
 import i18next from "i18next";
 import RecordsLoadingPreview from "@/components/business-app/transacciones/RecordsLoadingPreview";
 import RecordsOverviewPreview from "@/components/business-app/transacciones/RecordsOverviewPreview";
-import { defaultRecordsPreferences, moveRecordsColumn, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
+import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
+import { moveRecordsColumn, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
 import spanish from "@/public/locales/es-419/common.json";
 
 async function render(children: ReactNode) {
@@ -17,16 +18,16 @@ async function render(children: ReactNode) {
 }
 
 test("pending table follows selected columns, pinned identity, required amounts and density", async () => {
-  let preferences = defaultRecordsPreferences();
+  let preferences = sampleRecordsPreferences();
   preferences = toggleRecordsColumn(preferences, "notas");
   preferences = toggleRecordsColumn(preferences, "monto");
-  preferences = toggleRecordsColumn(preferences, "moneda");
-  preferences = moveRecordsColumn(preferences, "moneda", 1);
+  preferences = toggleRecordsColumn(preferences, "itbis");
+  preferences = moveRecordsColumn(preferences, "itbis", 1);
   const html = await render(<RecordsLoadingPreview preferences={preferences} density="compacto" />);
   const columns = [...html.matchAll(/<th\b[^>]*data-col="([^"]+)"/g)].map((match) => match[1]);
   assert.deepEqual(columns, visibleRecordsColumns(preferences).map(({ key }) => key));
   assert.equal(columns[0], "contraparte");
-  assert.equal(columns[1], "moneda");
+  assert.equal(columns[1], "itbis");
   assert.ok(columns.includes("monto"));
   assert.ok(!columns.includes("notas"));
   assert.match(html, /data-col="contraparte" data-pinned="left"/);
@@ -37,7 +38,7 @@ test("pending table follows selected columns, pinned identity, required amounts 
 });
 
 test("phone skeleton has the loaded list's two-line layout and the same container breakpoint", async () => {
-  const html = await render(<RecordsLoadingPreview preferences={defaultRecordsPreferences()} density="amplio" />);
+  const html = await render(<RecordsLoadingPreview preferences={sampleRecordsPreferences()} density="amplio" />);
   assert.equal([...html.matchAll(/<li\b/g)].length, 8);
   assert.match(html, /<ul[^>]*><li[^>]*><div[^>]*><span[^>]*><span/);
   const css = readFileSync(new URL("../components/business-app/transacciones/records-loading-preview.module.css", import.meta.url), "utf8");
@@ -50,7 +51,7 @@ test("phone skeleton has the loaded list's two-line layout and the same containe
 });
 
 test("unknown overview counts use placeholders only during a pending request", async () => {
-  const props = { counts: { review: null, fiscal: null, export: null, exported: null }, selected: [], onChoose: () => {}, waiting: null, onOpenBandeja: () => {} };
+  const props = { family: "purchase" as const, fiscalCount: null, selected: [], onChoose: () => {} };
   const pending = await render(<RecordsOverviewPreview {...props} loading />);
   const settled = await render(<RecordsOverviewPreview {...props} />);
   assert.match(pending, /visibility:hidden/);

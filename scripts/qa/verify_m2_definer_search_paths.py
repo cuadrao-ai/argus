@@ -13,7 +13,7 @@ from psycopg.rows import dict_row
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs/reports/evidence/cleanup-m2-definer-paths"
-MIGRATION = ROOT / "supabase/migrations/20261018040000_harden_definer_search_paths.sql"
+MIGRATION = ROOT / "supabase/migrations_archive/20261018040000_harden_definer_search_paths.sql"
 QUERY = """
 select n.nspname as schema, p.proname as name,
   pg_get_function_identity_arguments(p.oid) as identity_arguments,

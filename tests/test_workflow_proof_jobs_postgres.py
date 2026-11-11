@@ -33,7 +33,7 @@ psycopg = pytest.importorskip("psycopg")
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (
     ROOT
-    / "supabase/migrations/20260905000000_workflow_proof_jobs_leave_conversations.sql"
+    / "supabase/migrations_archive/20260905000000_workflow_proof_jobs_leave_conversations.sql"
 )
 
 

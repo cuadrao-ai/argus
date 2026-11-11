@@ -110,9 +110,15 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   await expect(upload).toBeVisible();
   await expect(upload).not.toContainText("Upload receipt");
   await expect(upload.getByTestId("intake-choose")).toHaveText("Elegir archivos");
-  await expect(upload.getByTestId("intake-write-open")).toHaveCount(0);
-  await expect(upload.getByTestId("intake-write")).toHaveCount(0);
-  await expect(upload).not.toContainText("Escríbelo");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  await page.getByTestId("business-primary-upload").click();
+  await page.getByTestId("intake-write-open").click();
+  const record = page.getByRole("dialog");
+  await expect(record.getByTestId("intake-write")).toBeVisible();
+  await expect(record).toContainText("Escríbelo");
+  await expect(record).not.toContainText("Write it");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -120,8 +126,8 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   await page.getByTestId("business-inbox-receipts").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   const review = page.getByTestId("side-drawer");
-  await expect(review).toContainText("Comercio o persona");
-  await expect(review).toContainText("Fecha de actividad");
+  await expect(review).toContainText("Contraparte");
+  await expect(review).toContainText("Fecha del comprobante");
   await expect(review).toContainText("Categoría");
   await expect(review).toContainText("Moneda");
   await expect(review).toContainText("Pagado desde");
@@ -149,9 +155,12 @@ test("an English account opens Business in English", async ({ page }) => {
   const upload = page.getByRole("dialog", { name: en("business.intake.add_title") });
   await expect(upload).toBeVisible();
   await expect(upload.getByTestId("intake-choose")).toHaveText(en("business.intake.choose_multiple"));
-  await expect(upload.getByTestId("intake-write-open")).toHaveCount(0);
-  await expect(upload.getByTestId("intake-write")).toHaveCount(0);
-  await expect(upload).not.toContainText(en("business.intake.write"));
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  await page.getByTestId("business-primary-upload").click();
+  await page.getByTestId("intake-write-open").click();
+  await expect(page.getByRole("dialog")).toContainText(en("business.intake.write"));
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -160,10 +169,10 @@ test("an English account opens Business in English", async ({ page }) => {
   const review = page.getByTestId("side-drawer");
   await expect(review).toContainText(en("business.dossier.field.counterparty"));
   await expect(review).toContainText(en("business.dossier.field.occurred_on"));
-  await expect(review).toContainText(en("business.review.category"));
+  await expect(review).toContainText(en("business.dossier.field.category_id"));
   await expect(review).toContainText(en("business.review.currency"));
   await expect(review).toContainText(en("business.review.account"));
-  await expect(review).not.toContainText("Comercio o persona");
+  await expect(review).not.toContainText("Contraparte");
   await expect(review).not.toContainText("Pagado desde");
 });
 

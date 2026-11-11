@@ -183,7 +183,7 @@ describe("the record facts on the review page", () => {
     const dossier = { ...base, facts: { ...base.facts, fiscal: { rnc: { ...known("qr_decoded"), value: "131999888" }, ncf: known("extracted"), ecf: unknown, itbis: known("extracted") } }, fiscal_value: "ncf", blockers: [], questions: [] } as unknown as BusinessDossier;
     const { html } = await render(dossier, "es-419", true, [], true);
     assert.deepEqual([...html.matchAll(/data-fact="([a-z_0-9]+)"/g)].map((match) => match[1]), ["counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis"]);
-    for (const row of ["Comercio", "Fecha", "Monto", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
+    for (const row of ["Contraparte", "Fecha", "Monto", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
   });
 
   test("an open draft brings a row back only while the server waits on it, so a blocker always has a way forward", async () => {
@@ -245,3 +245,20 @@ describe("the record facts on the review page", () => {
     assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));
   });
 });
+
+for (const language of ["es-419", "en"] as const) {
+  for (const documentType of ["recibo", "venta"] as const) {
+    for (const reviewing of [false, true]) {
+      test(`${language} ${documentType} payment wording while reviewing=${reviewing}`, async () => {
+        const base = await fixture();
+        const dossier = { ...base, document_type: documentType, blockers: [{ code: "unknown_funding", field: "funding" }] } as BusinessDossier;
+        const { html } = await render(dossier, language, true, [], reviewing);
+        const sale = documentType === "venta";
+        const title = language === "es-419" ? (sale ? "Cobro" : "Pago") : (sale ? "Collection" : "Payment");
+        const funding = language === "es-419" ? (sale ? "Forma de cobro" : "Cómo se pagó") : (sale ? "Collection method" : "How it was paid");
+        assert.ok(html.includes(`>${title}</h3>`), title);
+        assert.ok(html.includes(`>${funding}</dt>`), funding);
+      });
+    }
+  }
+}

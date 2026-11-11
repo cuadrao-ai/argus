@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Purchase606, RecordsCurrency } from "./business-reports-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
@@ -203,7 +204,7 @@ export async function fetchBusinessExport(draftId: string | undefined, start: st
   const query = new URLSearchParams({ start, end });
   if (draftId) query.set("draft_id", draftId);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/exports?${query}`, {
-    headers: argusApiRequestHeaders(undefined, authHeaders), credentials: "include", cache: "no-store", signal,
+    headers: argusApiRequestHeaders(undefined, authHeaders, grant), credentials: "include", cache: "no-store", signal,
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -342,6 +343,7 @@ export type BusinessWorkspaceInfo = {
   /** The Business's own country and currency. Absent in older payloads. */
   country?: BusinessCountry;
   currency?: CurrencyCode;
+  records_default_currency: RecordsCurrency;
   accounts: BusinessAccount[];
   currencies: CurrencyCode[];
   /** Whether Business conversations can answer questions about saved expenses. */
@@ -350,6 +352,10 @@ export type BusinessWorkspaceInfo = {
   chat_available: boolean;
   /** Whether the server offers Facturación to this person; the one switch. */
   invoicing_available: boolean;
+  /** Whether the server offers Por cobrar and Por pagar; the one switch. Absent in older payloads. */
+  settlement_available?: boolean;
+  /** Whether the server offers Actividad; the one switch. Absent in older payloads. */
+  activity_available?: boolean;
   /** Server-owned channel availability, independent of address or linking state. */
   receiving_channels?: ReceivingChannels;
   /** What a receipt upload accepts. The backend's document settings own it. */
@@ -372,6 +378,16 @@ export function businessChatAvailable(workspace: BusinessWorkspaceInfo | null): 
 /** The one reader of `invoicing_available`: an older payload without the field offers no Facturación. */
 export function businessInvoicingAvailable(workspace: BusinessWorkspaceInfo): boolean {
   return workspace.invoicing_available === true;
+}
+
+/** The one reader of `settlement_available`: an older payload, or none yet, offers no Por cobrar or Por pagar. */
+export function businessSettlementAvailable(workspace: Pick<BusinessWorkspaceInfo, "settlement_available"> | null | undefined): boolean {
+  return workspace?.settlement_available === true;
+}
+
+/** The one reader of `activity_available`: an older payload, or none yet, offers no Actividad. */
+export function businessActivityAvailable(workspace: Pick<BusinessWorkspaceInfo, "activity_available"> | null | undefined): boolean {
+  return workspace?.activity_available === true;
 }
 
 export type ReceiptLimits = {
@@ -407,8 +423,8 @@ export type BusinessExpense = {
   include_606_by?: string | null;
 };
 
-/** One saved expense with when it was recorded and its revision; both null when the money read does not say. */
-export type BusinessExpenseDetail = BusinessExpense & { recorded_at: string | null; revision: number | null };
+/** One saved expense with when it was recorded and its revision; both null when the money read does not say. `dgii_606` is its Registros row's 606 answers, null for a record the 606 never lists; absent from an older backend. */
+export type BusinessExpenseDetail = BusinessExpense & { recorded_at: string | null; revision: number | null; dgii_606?: Purchase606 | null };
 
 export type BusinessOverview = {
   from: string;
@@ -449,12 +465,15 @@ export type BusinessCapture = {
 /** One page of notes. `has_more` says more exist past the limit; the route has no cursor. */
 export type BusinessCapturePage = { items: BusinessCapture[]; has_more?: boolean };
 
-export async function captureBusinessNote(input: BusinessCaptureInput, key: string): Promise<BusinessDossier> {
+/** `grant` is the Business the note was written in; a queued or retried note passes its own, bound when the person acted. */
+export async function captureBusinessNote(input: BusinessCaptureInput, key: string, grant: string | null = getChosenGrant()): Promise<BusinessDossier> {
+  const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders();
+  requireBrowserAuthGeneration(generation);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/captures`, {
     method: "POST",
     credentials: "include",
-    headers: argusApiRequestHeaders({ "Idempotency-Key": key }, authHeaders),
+    headers: argusApiRequestHeaders({ "Idempotency-Key": key }, authHeaders, grant),
     body: JSON.stringify(input),
   });
   if (!response.ok) {
@@ -478,7 +497,8 @@ export type BusinessCountry = "DO" | "US" | "CA";
 /** The owner's one Business space. Business records live only inside it. */
 export type BusinessSpace = {
   id: string;
-  name: string;
+  /** Null while the Business keeps its starting name. */
+  name: string | null;
   /** Absent in older payloads. */
   country?: BusinessCountry;
   currency?: CurrencyCode;
@@ -507,7 +527,7 @@ export async function startBusinessSpace(language: ArgusLanguage): Promise<Busin
 /** One Business the person may enter, through one live grant of theirs; the server's answer, names included. */
 export type GrantedSpace = {
   space_id: string;
-  name: string;
+  name: string | null;
   logo_url?: string | null;
   grant_id: string;
   role: "owner" | "accountant";
@@ -519,7 +539,7 @@ export type GrantedSpace = {
 };
 
 const directorySpace = z.object({
-  space_id: z.string(), name: z.string(), grant_id: z.string(),
+  space_id: z.string(), name: z.string().nullable(), grant_id: z.string(),
   role: z.enum(["owner", "accountant"]),
   business_role: z.enum(["owner", "admin", "editor", "viewer"]).optional(),
   permissions: z.array(z.enum(["read", "prepare", "approve", "manage", "assign_owner", "download", "export"])).optional(),
@@ -529,13 +549,21 @@ const directorySpace = z.object({
 const closedDirectorySpace = directorySpace.pick({ space_id: true, name: true, grant_id: true, role: true }).extend({
   closed_at: z.iso.datetime({ offset: true }), reopen_until: z.iso.datetime({ offset: true }),
 });
-const businessDirectory = z.object({ spaces: z.array(directorySpace), closed_spaces: z.array(closedDirectorySpace).default([]) });
+const businessDirectory = z.object({
+  spaces: z.array(directorySpace),
+  closed_spaces: z.array(closedDirectorySpace).default([]),
+  invitations_available: z.boolean().optional().default(false),
+});
 export type ClosedGrantedSpace = z.infer<typeof closedDirectorySpace>;
-export type BusinessDirectory = { spaces: GrantedSpace[]; closed_spaces: ClosedGrantedSpace[] };
+export type BusinessDirectory = {
+  spaces: GrantedSpace[];
+  closed_spaces: ClosedGrantedSpace[];
+  invitations_available?: boolean;
+};
 
 /** Live and held-closed grants, distinguished by the server. */
-export async function getBusinessDirectory(signal?: AbortSignal): Promise<BusinessDirectory> {
-  return businessDirectory.parse(await apiFetch<unknown>("/business/spaces", { signal }));
+export async function getBusinessDirectory(signal?: AbortSignal, expectedUserId?: string): Promise<BusinessDirectory> {
+  return businessDirectory.parse(await apiFetch<unknown>("/business/spaces", { signal, expectedUserId }));
 }
 
 /** Every Business the person may enter, their own first. */
@@ -545,11 +573,14 @@ export async function getBusinessSpaces(): Promise<GrantedSpace[]> {
 
 /** The person dismissed the one-time access line for one of their grants; remembered server side. */
 export async function markBusinessAccessSeen(grantId: string): Promise<void> {
+  const generation = browserAuthGeneration();
+  const grant = getChosenGrant();
   const authHeaders = await authenticatedRequestHeaders();
+  requireBrowserAuthGeneration(generation);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/spaces/${encodeURIComponent(grantId)}/seen`, {
     method: "POST",
     credentials: "include",
-    headers: argusApiRequestHeaders(undefined, authHeaders),
+    headers: argusApiRequestHeaders(undefined, authHeaders, grant),
   });
   if (!response.ok) throw new Error(`API error ${response.status}`);
 }
@@ -660,8 +691,12 @@ export async function uploadBusinessReceipt(
   /** Null leaves the header out so the server detects the type; a picked type turns detection off. */
   documentType: "recibo" | "venta" | null = null,
   onProgress?: UploadProgressListener,
+  /** The Business the file was added in; the queue passes it, so a file sent or retried after a switch still lands there. */
+  grant: string | null = getChosenGrant(),
 ): Promise<ReceiptSummary> {
+  const generation = browserAuthGeneration();
   const authHeaders = await authenticatedRequestHeaders();
+  requireBrowserAuthGeneration(generation);
   const headers = argusApiRequestHeaders(
     {
       "Content-Type": file.type,
@@ -671,6 +706,7 @@ export async function uploadBusinessReceipt(
       ...(consentToPrepare ? { "X-Extraction-Consent": "true" } : {}),
     },
     authHeaders,
+    grant,
   );
   const url = `${CUADRAO_API_BASE_URL}/business/receipts`;
   if (onProgress && typeof XMLHttpRequest !== "undefined") {
@@ -710,10 +746,13 @@ export async function uploadBusinessReceipt(
 export const RECEIPT_SOURCE_TIMEOUT_MS = 30_000;
 
 export async function fetchBusinessReceiptSource(id: string, options: { timeoutMs?: number } = {}): Promise<Blob> {
+  const generation = browserAuthGeneration();
+  const grant = getChosenGrant();
   const authHeaders = await authenticatedRequestHeaders();
+  requireBrowserAuthGeneration(generation);
   const response = await fetch(
     `${CUADRAO_API_BASE_URL}/business/receipts/${encodeURIComponent(id)}/source`,
-    { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders), signal: AbortSignal.timeout(options.timeoutMs ?? RECEIPT_SOURCE_TIMEOUT_MS) },
+    { credentials: "include", headers: argusApiRequestHeaders(undefined, authHeaders, grant), signal: AbortSignal.timeout(options.timeoutMs ?? RECEIPT_SOURCE_TIMEOUT_MS) },
   );
   if (!response.ok) throw new Error(`API error ${response.status}`);
   return response.blob();
@@ -774,13 +813,19 @@ export type BusinessAccessGrant = {
   permissions?: BusinessPermission[];
 };
 export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string; state: "pending" | "expired"; requested_role?: BusinessRole };
-export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[]; invite_delivery?: "not_configured" | "accepted" | "failed" | "uncertain" | null };
+export type BusinessAccess = {
+  grants: BusinessAccessGrant[];
+  invites: BusinessAccessInvite[];
+  invite_delivery?: "not_configured" | "accepted" | "failed" | "uncertain" | null;
+  invitations_available?: boolean;
+};
 const businessRole = z.enum(["owner","admin","editor","viewer"]);
 const permission = z.enum(["read","prepare","approve","manage","download","export","assign_owner"]);
 const accessProjection = z.object({
   grants:z.array(z.object({id:z.string(),email:z.string().nullable(),display_name:z.string(),capabilities:z.array(z.enum(["read","prepare","approve"])),created_at:z.string(),owner:z.boolean(),business_role:businessRole.optional(),permissions:z.array(permission).optional()}).passthrough()),
   invites:z.array(z.object({id:z.string(),email:z.string(),created_at:z.string(),expires_at:z.string(),state:z.enum(["pending","expired"]),requested_role:businessRole.optional()})),
   invite_delivery:z.enum(["not_configured","accepted","failed","uncertain"]).nullable().optional(),
+  invitations_available: z.boolean().optional().default(false),
 });
 
 export async function getBusinessAccess(): Promise<BusinessAccess> {
@@ -809,8 +854,8 @@ export async function revokeBusinessAccessInvite(id: string): Promise<void> {
 }
 
 export const changeBusinessRole = async (id: string, role: BusinessRole): Promise<BusinessAccess> => accessProjection.parse(await businessSettingsRequest(`/business/access/grants/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ role }) }));
-export type RecipientInvitation = { id: string; space_id: string; name: string; requested_role: BusinessRole; expires_at: string };
-const recipientInvitation=z.object({id:z.string(),space_id:z.string(),name:z.string(),requested_role:businessRole,expires_at:z.string()});
+export type RecipientInvitation = { id: string; space_id: string; name: string | null; requested_role: BusinessRole; expires_at: string };
+const recipientInvitation=z.object({id:z.string(),space_id:z.string(),name:z.string().nullable(),requested_role:businessRole,expires_at:z.string()});
 export const getBusinessInvitations = async (): Promise<RecipientInvitation[]> => z.array(recipientInvitation).parse(await businessSettingsRequest("/business/invitations"));
 export const acceptBusinessInvitation = async (invitation: RecipientInvitation): Promise<{ space_id: string; grant_id: string }> => z.object({space_id:z.string(),grant_id:z.string()}).parse(await businessSettingsRequest(`/business/invitations/${encodeURIComponent(invitation.id)}/accept`, { method: "POST", body: JSON.stringify({ space_id: invitation.space_id }) }));
 export type BusinessInvitationCommand = { email: string; role: BusinessRole; command_key: string };

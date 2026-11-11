@@ -39,7 +39,7 @@ services:
       - key: CUADRAO_BETA_INVITE_GATE_ENABLED
         value: "false"
       - key: CUADRAO_ACCOUNT_DELETION_ENABLED
-        value: "false"
+        value: "true"
       - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED
@@ -56,6 +56,14 @@ services:
         sync: false
       - key: POSTHOG_REGION
         value: us
+      - key: CUADRAO_ANALYTICS_DELETION_ENABLED
+        value: "true"
+      - key: CUADRAO_POSTHOG_DELETION_HOST
+        sync: false
+      - key: CUADRAO_POSTHOG_DELETION_PROJECT_ID
+        sync: false
+      - key: CUADRAO_POSTHOG_DELETION_API_KEY
+        sync: false
       - key: CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING
         value: "100"
       - key: CUADRAO_REGISTERED_DAILY_TURN_CEILING
@@ -73,8 +81,6 @@ services:
       - key: CUADRAO_OPENROUTER_API_KEY_PROD
         sync: false
       - key: CUADRAO_PROD_OPENROUTER_API_KEY
-        sync: false
-      - key: CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY
         sync: false
       - key: CUADRAO_UTILITY_MODEL
         value: google/gemini-2.5-flash-lite
@@ -110,17 +116,17 @@ services:
         value: "true"
       - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
         value: "true"
-      - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
-        value: "210"
-      - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
-        value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT
         value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
         value: "60"
+      - key: CUADRAO_BUSINESS_ACTIVITY_ENABLED
+        value: "false"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_SETTLEMENT_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_READS_PER_DAY
         value: "300"
@@ -141,7 +147,7 @@ services:
       - key: CUADRAO_WHATSAPP_OUTBOUND_ENABLED
         value: "false"
   - type: web
-    name: cuadrao-web
+    name: cuadrao-marketing
     runtime: node
     repo: https://github.com/lagarcess/argus
     branch: main
@@ -151,6 +157,41 @@ services:
     autoDeployTrigger: "off"
     buildCommand: bun install --frozen-lockfile && bun run build --webpack
     startCommand: bun run start -- -p $PORT
+
+  - type: web
+    name: cuadrao-app
+    runtime: node
+    repo: https://github.com/lagarcess/argus
+    branch: main
+    rootDir: web
+    region: virginia
+    plan: 0.5c-512mb
+    autoDeployTrigger: "off"
+    buildCommand: bun install --frozen-lockfile && bun run build
+    startCommand: bun run start -- -p $PORT
+    healthCheckPath: /health
+
+  - type: worker
+    name: cuadrao-documents-worker
+    runtime: python
+    repo: https://github.com/lagarcess/argus
+    branch: main
+    rootDir: .
+    region: virginia
+    plan: starter
+    autoDeployTrigger: "off"
+    buildCommand: poetry install
+    startCommand: poetry run python -m workflows.document_worker
+    maxShutdownDelaySeconds: 240
+    envVars:
+      - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
+        value: "210"
+      - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
+        value: "3"
+      - key: POSTHOG_PROJECT_TOKEN
+        sync: false
+      - key: POSTHOG_REGION
+        value: us
 
   - type: web
     name: cuadrao-api-staging
@@ -166,6 +207,10 @@ services:
     healthCheckPath: /health
     envVars:
       - key: APP_ENV
+        sync: false
+      - key: CUADRAO_ACCOUNT_DELETION_ENABLED
+        value: "true"
+      - key: CUADRAO_ANALYTICS_DELETION_ENABLED
         sync: false
       - key: CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD
         sync: false
@@ -183,8 +228,6 @@ services:
         sync: false
       - key: CUADRAO_PROD_OPENROUTER_API_KEY
         sync: false
-      - key: CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY
-        sync: false
       - key: CUADRAO_APP_ORIGIN
         sync: false
       - key: CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED
@@ -201,9 +244,13 @@ services:
         value: "true"
       - key: CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_ACTIVITY_ENABLED
+        value: "true"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_SETTLEMENT_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_READS_PER_DAY
         value: "300"
@@ -213,10 +260,6 @@ services:
         value: "false"
       - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
         value: "true"
-      - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
-        value: "210"
-      - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
-        value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT
         value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
@@ -247,6 +290,12 @@ services:
         value: "true"
       - key: CUADRAO_INGESTION_ENABLED
         value: "true"
+      - key: CUADRAO_POSTHOG_DELETION_API_KEY
+        sync: false
+      - key: CUADRAO_POSTHOG_DELETION_HOST
+        sync: false
+      - key: CUADRAO_POSTHOG_DELETION_PROJECT_ID
+        sync: false
       - key: CUADRAO_VISION_MODEL
         sync: false
       - key: CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
@@ -259,6 +308,10 @@ services:
         value: "true"
       - key: DATABASE_URL
         sync: false
+      - key: POSTHOG_PROJECT_TOKEN
+        sync: false
+      - key: POSTHOG_REGION
+        value: us
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
@@ -297,16 +350,18 @@ services:
 
   # Existing staging service: srv-db5ihr7lot8c73f3b3h0.
   - type: web
-    name: cuadrao-web-staging
+    name: cuadrao-app-staging
     runtime: node
     repo: https://github.com/lagarcess/argus
     branch: codex/private-alpha-next
     rootDir: web
+    region: virginia
+    plan: 0.5c-512mb
     autoDeployTrigger: "off"
     buildCommand: bun install --frozen-lockfile && bun run build
     startCommand: bun run start -- -p $PORT
     envVars:
-      - key: ARGUS_APP_ORIGIN
+      - key: CUADRAO_APP_ORIGIN
         value: https://cuadrao-web-staging.onrender.com
       - key: CUADRAO_AUTH_EMAIL_HOOK_ENABLED
         value: "false"
@@ -341,29 +396,27 @@ services:
       - key: NEXT_PUBLIC_ENABLE_SPANISH
         value: "true"
 
-  # Staging only. It stays off until DGII_RNC_LOAD_ENABLED is true.
-  - type: cron
-    name: cuadrao-dgii-rnc-staging
+  - type: worker
+    name: cuadrao-documents-worker-staging
     runtime: python
     repo: https://github.com/lagarcess/argus
     branch: codex/private-alpha-next
     rootDir: .
+    region: virginia
     plan: starter
-    schedule: "0 7 * * *"
     autoDeployTrigger: "off"
-    buildCommand: "true"
-    startCommand: bash scripts/ops/dgii_rnc_daily.sh
+    buildCommand: poetry install
+    startCommand: poetry run python -m workflows.document_worker
+    maxShutdownDelaySeconds: 240
     envVars:
-      - key: DGII_RNC_LOAD_ENABLED
+      - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
+        value: "210"
+      - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
+        value: "3"
+      - key: POSTHOG_PROJECT_TOKEN
         sync: false
-      - key: SUPABASE_STAGING_DB_URL
-        sync: false
-      - key: DGII_RNC_STATEMENT_TIMEOUT
-        sync: false
-      - key: DGII_RNC_LOAD_HEADROOM_FLOOR
-        sync: false
-      - key: DGII_RNC_SIZE_LIMIT
-        sync: false
+      - key: POSTHOG_REGION
+        value: us
 
   - type: web
     name: cuadrao-marketing-staging

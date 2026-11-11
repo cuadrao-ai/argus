@@ -164,6 +164,52 @@ test("a failed send keeps the draft, shows its reference and retries the same co
  }finally{await page.unmount();}
 });
 
+for(const language of ["en","es-419"] as const){
+ for(const partial of [false,true]){
+ test(`${language} invitation availability refusal blocks ${partial?"partial-batch retry":"first-send retry"} without blaming an email`,async()=>{
+  const sent=serve({send:(recipients,attempt)=>partial&&attempt===1
+   ?Response.json({results:recipients.map((recipient,index)=>outcome(recipient,index===0?"pending":"refused"))})
+   :Response.json({code:"business_invitations_unavailable",detail:"Untranslated server detail"},{status:409})});
+  const page=await mountForm({language});
+  const translations=language==="en"?english:spanish;
+  try{
+   await page.typeEmail(0,"available@example.test");
+   if(partial){await page.addRow();await page.typeEmail(1,"pending@example.test");}
+   await page.submit();
+   if(partial){
+    expect(page.sendButton().disabled).toBe(false);
+    await page.submit();
+   }
+   await page.settle(()=>document.querySelector('form [role="alert"]')!==null);
+   expect(page.sendButton().disabled).toBe(true);
+   expect(page.sendButton().textContent).toBe(translations.workspace_setup_preview.batch_retry);
+   expect(page.emails().every(field=>field.disabled)).toBe(true);
+   expect(document.querySelector('[data-recipient-email][aria-invalid="true"]')).toBeNull();
+   expect(document.body.textContent).toContain(translations.workspace_setup_preview.batch_unavailable_placeholder);
+   expect(document.body.textContent).not.toContain(translations.workspace_setup_preview.batch_send_error);
+   expect(document.body.textContent).not.toContain("Untranslated server detail");
+   expect(document.querySelector('[data-testid="error-reference"]')).not.toBeNull();
+   expect(page.refusals).toHaveLength(0);
+   const attempts=sent.length;
+   await page.submit();
+   expect(sent).toHaveLength(attempts);
+  }finally{await page.unmount();}
+ });
+ }
+}
+
+test("another conflict remains retryable rather than claiming invitations are off",async()=>{
+ const sent=serve({send:(recipients,attempt)=>attempt===1?Response.json({code:"invitation_conflict"},{status:409}):sendAll(recipients)});
+ const page=await mountForm();
+ try{
+  await page.typeEmail(0,"conflict@example.test");await page.submit();
+  expect(page.sendButton().disabled).toBe(false);
+  expect(document.body.textContent).toContain(copy.batch_send_error);
+  await page.submit();
+  expect(sent).toHaveLength(2);
+ }finally{await page.unmount();}
+});
+
 test("a refused send says so, offers the contact line, and its draft never comes back",async()=>{
  serve({send:()=>Response.json({code:"permission_denied"},{status:403})});
  const page=await mountForm();
@@ -340,6 +386,24 @@ test("the desktop dialog is centered and a long list scrolls inside it",async()=
  }finally{await page.unmount();}
 });
 
+test.each([1440,390])("the add action stays left-aligned directly below the last invite row at %s px",async width=>{
+ const viewport=(width:number)=>(window as unknown as {happyDOM:{setViewport:(size:{width:number;height:number})=>void}}).happyDOM.setViewport({width,height:900});
+ viewport(width);serve();
+ const page=await mountForm();
+ try{
+  for(const count of [1,2]){
+   const add=page.button(copy.batch_add_short)!;
+   const list=document.querySelector("form ul")!;
+   expect(list.children).toHaveLength(count);
+   expect(list.nextElementSibling).toBe(add.parentElement);
+   expect(add.parentElement?.className).toBe("flex justify-start");
+   expect(add.classList.contains("-ml-1")).toBe(true);
+   expect(add.classList.contains("justify-self-end")).toBe(false);
+   if(count===1)await page.addRow();
+  }
+ }finally{await page.unmount();viewport(1280);}
+});
+
 test("the X keeps the draft for the next time the dialog opens",async()=>{
  serve();
  const page=await mountForm();
@@ -351,7 +415,7 @@ test("the X keeps the draft for the next time the dialog opens",async()=>{
  try{expect(again.emails()[0]!.value).toBe("borrador@example.test");}finally{await again.unmount();}
 });
 
-test("a send refreshes the open Acceso list, whichever door opened the form",async()=>{
+test("dismissing send results refreshes the open Acceso list, whichever door opened the form",async()=>{
  let invites:Record<string,unknown>[]=[];
  serve({access:()=>({grants:[grant("miembro@example.test")],invites}),send:recipients=>{invites=[invite(recipients[0]!.email,"pending")];return sendAll(recipients);}});
  const {BusinessContext}=await import("@/components/business-app/BusinessWorkspace");
@@ -364,6 +428,9 @@ test("a send refreshes the open Acceso list, whichever door opened the form",asy
   await page.settle(()=>page.host.textContent?.includes("miembro@example.test")===true);
   expect(page.host.querySelector("details")).toBeNull();
   await page.typeEmail(0,"nueva@example.test");await page.submit();
+  expect(document.body.textContent).toContain(copy.batch_sent_pending);
+  expect(page.host.querySelector("details")).toBeNull();
+  await page.click(page.button(copy.batch_done));
   await page.settle(()=>page.host.querySelector("details")!==null);
   expect(page.host.querySelector("details")?.textContent).toContain("nueva@example.test");
  }finally{await page.unmount();}
@@ -371,7 +438,7 @@ test("a send refreshes the open Acceso list, whichever door opened the form",asy
 
 const shell={currentView:"workspace",conversationId:null,isBelowTablet:false,sidebarCollapsed:false,memberEmail:"owner@example.test",showWorkspace:()=>undefined,newChat:()=>undefined,prepareQuestion:()=>undefined} as unknown as ChatShellBridge;
 
-async function mountWorkspace(permissions:string[]){
+async function mountWorkspace(permissions:string[],invitationsAvailable=false){
  const {BusinessWorkspaceProvider,useBusiness}=await import("@/components/business-app/BusinessWorkspace");
  const {BusinessConsentTestProvider}=await import("@/components/business-app/business-consent-context");
  const {createFixtureBusinessDataSource}=await import("@/components/business-app/fixture-data");
@@ -379,7 +446,7 @@ async function mountWorkspace(permissions:string[]){
  const {setChosenGrant}=await import("@/lib/business-grant");
  setChosenGrant(null);
  const chosen=space(permissions);
- const source={...createFixtureBusinessDataSource({chatAvailable:false}),mode:"live",spaces:async()=>[chosen],spaceDirectory:async()=>({spaces:[chosen],closed_spaces:[]})};
+ const source={...createFixtureBusinessDataSource({chatAvailable:false}),mode:"live",spaces:async()=>[chosen],spaceDirectory:async()=>({spaces:[chosen],closed_spaces:[],invitations_available:invitationsAvailable})};
  const state:{panel:string;ready:boolean}={panel:"",ready:false};
  function Probe(){
   const workspace=useChatWorkspace();const business=useBusiness();
@@ -396,7 +463,7 @@ async function mountWorkspace(permissions:string[]){
 
 test("the live Business menu opens the dialog and stays on the current screen",async()=>{
  const sent=serve();
- const page=await mountWorkspace(OWNER);
+ const page=await mountWorkspace(OWNER,true);
  try{
   await page.click(page.button(copy.batch_title));
   await page.settle(()=>document.querySelector("[data-invitation-modal]")!==null);
@@ -409,6 +476,24 @@ test("the live Business menu opens the dialog and stays on the current screen",a
 
 test("the menu offers no invitation without the manage permission",async()=>{
  serve();
- const page=await mountWorkspace(["read"]);
+ const page=await mountWorkspace(["read"],true);
  try{expect(page.button(copy.batch_title)).toBeUndefined();}finally{await page.unmount();}
+});
+
+test("the menu offers no invitation when capability is false",async()=>{
+ serve();
+ const page=await mountWorkspace(OWNER,false);
+ try{expect(page.button(copy.batch_title)).toBeUndefined();}finally{await page.unmount();}
+});
+
+test("the menu offers no invitation while capability is loading",async()=>{
+ serve();
+ const page=await mountWorkspace(OWNER,false);
+ try{expect(page.button(copy.batch_title)).toBeUndefined();}finally{await page.unmount();}
+});
+
+test("manage and capability true enables the invitation menu entry",async()=>{
+ serve();
+ const page=await mountWorkspace(OWNER,true);
+ try{expect(page.button(copy.batch_title)).toBeDefined();}finally{await page.unmount();}
 });

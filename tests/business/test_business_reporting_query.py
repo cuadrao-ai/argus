@@ -15,6 +15,13 @@ from faker import Faker
 from pydantic import ValidationError
 
 IDENTITY = ReportIdentity("business", "actor", "owner", "grant", "")
+#: The current 606/607 verdict that `with_export_verdicts` pairs with each stage.
+#: An exported line usually stayed complete; edits after download pass "missing".
+FISCAL_DATA_BY_STAGE = {
+    "needs_fiscal_data": "missing",
+    "ready_for_export": "complete",
+    "exported": "complete",
+}
 NOW = datetime(2026, 10, 31, 23, tzinfo=timezone.utc)
 
 
@@ -29,6 +36,8 @@ def record(identifier="draft:one", **changes):
         family="purchase",
         money_kind="expense",
     )
+    if changes.get("stage") in FISCAL_DATA_BY_STAGE:
+        values["fiscal_data"] = FISCAL_DATA_BY_STAGE[changes["stage"]]
     return ReportRecord(**(values | changes))
 
 
@@ -342,7 +351,7 @@ def test_unknown_currency_and_filtered_unknown_date_count_are_explicit():
     assert not any(total.currency == "unknown" for total in unknown)
 
 
-def test_same_tax_identity_keeps_aliases_and_same_name_never_merges_identities():
+def test_same_tax_identity_uses_one_name_and_same_name_never_merges_identities():
     rows = [
         record("a", counterparty="First label", counterparty_key="101234567"),
         record("b", counterparty="Second label", counterparty_key="101234567"),
@@ -350,7 +359,7 @@ def test_same_tax_identity_keeps_aliases_and_same_name_never_merges_identities()
     ]
     result = run(rows, ReportFilters(counterparties=("101234567",)))
     assert {row.row_id for row in result.items} == {"a", "b"}
-    assert result.counterparties[0].labels == ("First label", "Second label")
+    assert result.counterparties[0].labels == ("First label",)
 
 
 def test_unlinked_credit_makes_its_own_document_family_final_incomplete():
@@ -410,3 +419,178 @@ def test_exact_amount_strings_survive_large_values_and_aggregate_over_bigint():
         assert first["known_amount"] == first["amount"] == "92233720368547758.07"
         assert combined["amount_minor"] > 2**63 - 1
         assert combined["known_amount"] == combined["amount"] == "92233720368547759.07"
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        {},
+        {"record_families": []},
+        {"record_families": ["sale", "purchase"]},
+        {"record_families": ["purchase", "sale"]},
+    ],
+)
+def test_omitted_empty_or_both_families_return_purchases_and_sales(filters):
+    rows = [
+        record("purchase"),
+        record("sale", family="sale", money_kind="income"),
+    ]
+    answer = run(rows, ReportFilters.model_validate(filters))
+    assert {row.row_id for row in answer.items} == {"purchase", "sale"}
+    assert answer.matching_count == 2
+    assert {total.kind for total in answer.totals} == {"expense", "income"}
+
+
+@pytest.mark.parametrize("invalid", [("unknown",), ("sale", "unknown"), None, "sale"])
+def test_record_family_rejects_malformed_selection(invalid):
+    with pytest.raises(ValidationError):
+        ReportFilters(record_families=invalid)
+
+
+@pytest.mark.parametrize("family,kind", [("purchase", "expense"), ("sale", "income")])
+def test_single_family_scopes_rows_money_and_fiscal_count_but_not_period_counts(
+    family, kind
+):
+    rows = [
+        record("purchase", stage="needs_fiscal_data"),
+        record("sale", family="sale", money_kind="income", stage="needs_fiscal_data"),
+        record(
+            "exported-sale",
+            family="sale",
+            money_kind="income",
+            stage="exported",
+            export_line=True,
+        ),
+        record("ready-purchase", stage="ready_for_export"),
+    ]
+    answer = run(rows, ReportFilters(record_families=(family,)))
+    assert all(row.family == family for row in answer.items)
+    assert answer.matching_count == 2
+    assert {total.kind for total in answer.totals} == {kind}
+    assert answer.overview.needs_fiscal_data == 1
+    assert answer.overview.exported == answer.overview.ready_for_export == 1
+    assert answer.overview.export_lines == 1
+
+
+@pytest.mark.parametrize(
+    "choice,expected",
+    [
+        (None, {"ready", "exported", "missing", "unresolved", "excluded", "technical"}),
+        ("complete", {"ready", "exported"}),
+        ("missing", {"missing"}),
+    ],
+)
+def test_fiscal_data_filter_uses_export_projection_and_card_predicate(choice, expected):
+    rows = [
+        record(
+            "ready", stage="ready_for_export", export_line=True, fiscal_data="complete"
+        ),
+        record("exported", stage="exported", export_line=True, fiscal_data="complete"),
+        record("missing", stage="needs_fiscal_data"),
+        record("unresolved", stage="needs_review"),
+        record("excluded", stage="exported", export_line=False, fiscal_data=None),
+        record("technical", technical_state="unsupported"),
+    ]
+    answer = run(rows, ReportFilters(fiscal_data=choice))
+    assert {row.row_id for row in answer.items} == expected
+    assert answer.overview.needs_fiscal_data == int("missing" in expected)
+
+
+def test_counterparty_name_uses_latest_date_then_row_id_within_selected_family():
+    rows = [
+        record(
+            "z", counterparty_key="same", counterparty="Old", report_date=date(2025, 1, 1)
+        ),
+        record(
+            "b",
+            counterparty_key="same",
+            counterparty="Other tie",
+            report_date=date(2026, 10, 2),
+        ),
+        record(
+            "a",
+            counterparty_key="same",
+            counterparty="Latest",
+            report_date=date(2026, 10, 2),
+        ),
+        record(
+            "undated", counterparty_key="same", counterparty="Undated", report_date=None
+        ),
+        record("sale", family="sale", counterparty_key="client", counterparty="Client"),
+    ]
+    filters = ReportFilters(record_families=("purchase",), period={"kind": "last_month"})
+    answer = run(list(reversed(rows)), filters)
+    assert [(option.key, option.labels) for option in answer.counterparties] == [
+        ("same", ("Latest",))
+    ]
+    sales = run(rows, ReportFilters(record_families=("sale",)))
+    assert [(option.key, option.labels) for option in sales.counterparties] == [
+        ("client", ("Client",))
+    ]
+
+
+@pytest.mark.parametrize("exported", [False, True])
+@pytest.mark.parametrize(
+    "verdict,expected",
+    [(None, "complete"), (("ncf_missing",), "missing"), ("absent", None)],
+)
+def test_current_fiscal_data_does_not_depend_on_download_history(
+    exported, verdict, expected
+):
+    from argus.domain.business.reporting_projection import with_export_verdicts
+
+    # A projected row has no verdict until `with_export_verdicts` judges it.
+    row = record(
+        "row",
+        stage="ready_for_export",
+        linked_activity_ids=("activity",),
+        fiscal_data=None,
+    )
+    verdicts = {} if verdict == "absent" else {"activity": verdict}
+    [judged] = with_export_verdicts(
+        (row,), verdicts, frozenset({"activity"}) if exported else frozenset()
+    )
+    assert judged.fiscal_data == expected
+    assert judged.stage == (
+        "exported"
+        if exported
+        else "needs_fiscal_data"
+        if expected == "missing"
+        else "ready_for_export"
+    )
+
+
+@pytest.mark.parametrize(
+    "stage,technical",
+    [("needs_review", None), (None, "processing"), (None, "evidence_unavailable")],
+)
+def test_waiting_and_technical_rows_have_no_fiscal_choice(stage, technical):
+    from argus.domain.business.reporting_projection import with_export_verdicts
+
+    row = record(
+        "row", stage=stage, technical_state=technical, linked_activity_ids=("activity",)
+    )
+    [judged] = with_export_verdicts((row,), {"activity": None}, frozenset({"activity"}))
+    assert judged.fiscal_data is None
+
+
+def test_counterparty_uses_latest_nonempty_name_before_falling_back_to_identity():
+    rows = [
+        record(
+            "new",
+            counterparty_key="named",
+            counterparty=None,
+            report_date=date(2026, 10, 20),
+        ),
+        record(
+            "old",
+            counterparty_key="named",
+            counterparty="Known name",
+            report_date=date(2026, 10, 1),
+        ),
+        record("unknown", counterparty_key="unnamed", counterparty=None),
+    ]
+    assert [(option.key, option.labels) for option in run(rows).counterparties] == [
+        ("named", ("Known name",)),
+        ("unnamed", ("unnamed",)),
+    ]

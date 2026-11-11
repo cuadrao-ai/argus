@@ -1,3 +1,4 @@
+import { isEmailOtp } from "./email-otp-contract";
 import { getSupabaseClient } from "./supabase-client";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
 import { parseRetryAfterDelaySeconds } from "./retry-after";
@@ -13,7 +14,6 @@ export const EMAIL_OTP_TYPES = [
 
 export type EmailOtpKind = (typeof EMAIL_OTP_TYPES)[number];
 
-const OTP_PATTERN = /^[0-9]{6,10}$/;
 
 export class EmailOtpError extends Error {
   constructor(
@@ -55,8 +55,8 @@ function safeError(error: unknown): EmailOtpError {
 }
 
 export function normalizeEmailOtp(value: string): string | null {
-  const token = value.replace(/\s+/g, "");
-  return OTP_PATTERN.test(token) ? token : null;
+  const digits = value.replace(/\s+/g, "");
+  return isEmailOtp(digits) ? digits : null;
 }
 
 type EmailOtpVerifyInput = {

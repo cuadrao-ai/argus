@@ -56,7 +56,7 @@ const trayHeading = (page: Page, name: string) => tray(page).getByRole("heading"
 test.describe("Business preview", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test("switching Business twelve times with a receipt open and a draft typed never shows the account-changed screen; the record and its address close on each switch", async ({ page }) => {
+  test("switching Business twelve times closes the receipt and its address without an account-change notice", async ({ page }) => {
     test.setTimeout(180_000);
     const switchTo = async (name: string) => {
       await page.getByTestId("business-switcher").getByRole("button").click();
@@ -65,36 +65,17 @@ test.describe("Business preview", () => {
       await expect(page.getByTestId("business-current-name")).toHaveText(name);
       await expect(page.getByText("Tu cuenta cambió", { exact: false })).toHaveCount(0);
     };
-    await openPreview(page, `${PREVIEW}?chat=on&receipt=rcpt-ferreteria`);
+    await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
     for (let round = 0; round < 6; round += 1) {
-      if (round > 0) await page.goto(`${PREVIEW}?chat=on&receipt=rcpt-ferreteria`);
+      if (round > 0) await page.goto(`${PREVIEW}?receipt=rcpt-ferreteria`);
       await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
       await switchTo("Colmado Peña");
       await expect(page).not.toHaveURL(/receipt=|expense=|draft=/);
       await expect(tray(page)).toHaveCount(0);
-      await expect(page.getByTestId("business-client-cue")).toHaveText("Cliente: Colmado Peña");
-      await page.getByTestId("chat-input").fill(`Pagué 850 en pintura ${round}`);
+      await expect(page.getByTestId("chat-input")).toHaveCount(0);
       await switchTo("Mi negocio");
-      await expect(page.getByTestId("business-client-cue")).toHaveCount(0);
-      await expect(page.getByTestId("chat-input")).toHaveText(`Pagué 850 en pintura ${round}`);
+      await expect(page.getByTestId("chat-input")).toHaveCount(0);
     }
-  });
-
-  test("an Overview draft survives a visit to the Inbox", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?chat=on`);
-    await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
-
-    const composer = page.getByTestId("chat-input");
-    await composer.click();
-    await page.keyboard.type("¿Cuánto gasté en pintura?");
-
-    await nav(page).getByRole("button", { name: /^Bandeja/ }).click();
-    await expect(panelHeading(page, "Bandeja")).toBeVisible();
-    await expect(page.getByTestId("chat-input")).toHaveCount(0);
-
-    await nav(page).getByRole("button", { name: /^Inicio/ }).click();
-    await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
-    await expect(page.getByTestId("chat-input")).toHaveText("¿Cuánto gasté en pintura?");
   });
 
   test("the Agregar menu opens from the collapsed rail inside the viewport", async ({ page }) => {
@@ -105,7 +86,7 @@ test.describe("Business preview", () => {
     await expect(trigger).toHaveAccessibleName("Más acciones");
     const menu = page.getByRole("menu", { name: "Más acciones" });
     await trigger.click();
-    await expect(menu.getByRole("menuitem")).toHaveCount(2);
+    await expect(menu.getByRole("menuitem")).toHaveCount(1);
     await trigger.click();
     await expect(menu).toHaveCount(0);
 
@@ -121,10 +102,10 @@ test.describe("Business preview", () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
 
     const items = menu.getByRole("menuitem");
-    await expect(items).toHaveText(["Exportar registros", "Copiar dirección de reenvío"]);
+    await expect(items).toHaveText(["Copiar dirección de reenvío"]);
     await expect(items.nth(0)).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(items.nth(1)).toBeFocused();
+    await expect(items.nth(0)).toBeFocused();
 
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);
@@ -165,20 +146,6 @@ test.describe("Business preview", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(panelHeading(page, "Bandeja")).toBeVisible();
     await expect(page).toHaveURL(/view=inbox/);
-  });
-
-  test("leaving a conversation for a panel keeps the panel in the address bar", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?chat=on&conversation=conversation-alpha`, { emptyChat: false });
-    await expect(page.getByTestId("workspace-panel-region")).toHaveCount(0);
-    await expect(page.getByTestId("chat-input")).toBeVisible();
-
-    await nav(page).getByRole("button", { name: /^Bandeja/ }).click();
-    await expect(panelHeading(page, "Bandeja")).toBeVisible();
-    await page.waitForLoadState("networkidle");
-    await expect(page).toHaveURL(/\/dev\/business-preview\?(chat=on&)?view=inbox$/);
-
-    await page.reload();
-    await expect(panelHeading(page, "Bandeja")).toBeVisible();
   });
 
   test("an email is how a receipt arrived: emails with no receipt need attention, one being read shows only on Todos, and the old Correos link lands on Negocio", async ({ page }) => {
@@ -263,16 +230,6 @@ test.describe("Business preview", () => {
     await expect(total).toHaveValue("1,250");
   });
 
-  test("a reload of view=chat stays on the chat surface", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?chat=on&view=chat`);
-    const home = page.locator('[data-business-home="new_chat"]');
-    await expect(home).toBeVisible();
-
-    await page.reload();
-    await expect(home).toBeVisible();
-    await expect(page.getByTestId("workspace-panel-region")).toHaveCount(0);
-    await expect(page).toHaveURL(/view=chat/);
-  });
 });
 
 test.describe("Business preview on a comma-decimal device", () => {
@@ -315,31 +272,7 @@ test.describe("Business preview on a phone", () => {
   });
 });
 
-test.describe("Argus chat without a workspace", () => {
-  test.use({ viewport: { width: 1280, height: 800 } });
-  // On a Business build /chat sends everyone to the Business shell by design; this is the consumer build's page.
-  test.skip(BUSINESS_BUILD, "consumer build only: /chat is not a surface on a Business build");
-
-  test("keeps the mention button and the legacy starter pills", async ({ page }) => {
-    await page.route("**/*", (route) => {
-      const { hostname } = new URL(route.request().url());
-      return ["127.0.0.1", "localhost"].includes(hostname)
-        ? route.continue()
-        : route.abort("blockedbyclient");
-    });
-    await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: true });
-    await page.goto("/chat");
-
-    await expect(page.getByTestId("chat-input")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Mention an asset or indicator" })).toBeVisible();
-    for (const pill of ["Test Apple vs SPY", "Test Bitcoin (BTC) hold", "Test weekly Nvidia buys"]) {
-      await expect(page.getByRole("button", { name: pill })).toBeVisible();
-    }
-    await expect(page.getByTestId("business-sidebar-nav")).toHaveCount(0);
-  });
-});
-
-test.describe("A conversation opens in the shell of its own surface", () => {
+test.describe("Business preview rejects retired conversation surfaces", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   /** Full page loads after the first: a reload loop shows up here as a count that keeps growing. */
@@ -371,13 +304,12 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     });
   }
 
-
-  test("a guest session on the Business shell makes at most two page loads and never loops", async ({ page }) => {
+  test("the Business preview does not restore a retired Personal conversation or loop", async ({ page }) => {
     test.skip(!BUSINESS_BUILD, "Business build only");
-    // The evaluator's case: a guest whose latest Personal conversation used to be picked on every load.
+    // A retained Personal conversation must not become the Business starting surface.
     const seen: string[] = [];
     await page.route("**/*", (route) => ["127.0.0.1", "localhost"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
-    await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: false, account: "guest" });
+    await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: false });
     await serveSurface(page, "personal", seen);
     const loads = countDocumentLoads(page);
     await page.goto(PREVIEW);
@@ -408,65 +340,33 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     await expect(page).toHaveURL(/\/dev\/business-preview\?notice=conversation_unavailable$/);
   });
 
-  test("a chat on its own surface stays and renders", async ({ page }) => {
-    test.skip(BUSINESS_BUILD, "consumer build only: /chat hops to /biz on a Business build");
-    const seen: string[] = [];
-    await openPreview(page, "/chat", { emptyChat: false });
-    await serveSurface(page, "personal", seen);
-    await page.goto("/chat?conversation=conversation-alpha");
-
-    await expect(page.getByText("Lunch with the supplier").first()).toBeVisible();
-    await expect(page).toHaveURL(/\/chat\?conversation=conversation-alpha$/);
-  });
-
-  test("a Business chat opened on /chat moves to /biz with its id", async ({ page }) => {
-    const seen: string[] = [];
-    await openPreview(page, "/chat", { emptyChat: false });
-    await serveSurface(page, "business", seen);
-    await page.goto("/chat?conversation=conversation-alpha");
-
-    await expect(page).toHaveURL(/\/biz\?conversation=conversation-alpha$/);
-  });
-
-  test("an old /chat link on a Business build hops once to the Business shell with its id and stops", async ({ page }) => {
-    test.skip(!BUSINESS_BUILD, "Business build only");
-    // The server-side hop. The shell's own handling of a Personal id (the notice, no loop) is
-    // asserted above on the preview page; the live /biz needs the real API, which this fixture cannot serve.
-    const seen: string[] = [];
-    await openPreview(page, "/chat", { emptyChat: false });
-    await serveSurface(page, "personal", seen);
-    const loads = countDocumentLoads(page);
-    await page.goto("/chat?conversation=conversation-alpha");
-
-    await expect(page).toHaveURL(/\/biz\?conversation=conversation-alpha$/);
-    await page.waitForTimeout(3000);
-    expect(loads.length).toBeLessThanOrEqual(2);
-    await expect(page).not.toHaveURL(/\/chat/);
-  });
 });
 
-test.describe("Business preview while its chat is off", () => {
+test.describe("Business preview has no chat entry points", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
-  const CHAT_OFF = `${PREVIEW}?chat=off`;
 
-  async function openLoaded(page: Page, url = CHAT_OFF) {
+  async function openLoaded(page: Page, url = PREVIEW) {
     await openPreview(page, url, { emptyChat: false });
     await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
     await expect(page.getByTestId("home-records-to-review")).toBeVisible();
   }
 
   test("the shell keeps its records and offers no way into a chat", async ({ page }) => {
-    await openLoaded(page, `${PREVIEW}?chat=on`);
-    await expect(page.getByTestId("chat-input")).toHaveCount(1);
-
     await openLoaded(page);
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Nuevo chat/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Recientes/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "¿Cuánto gasté este mes?" })).toHaveCount(0);
 
-    await page.keyboard.press("ControlOrMeta+Shift+Period");
-    await page.keyboard.press("ControlOrMeta+Shift+Comma");
+    const command = await page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.userAgent));
+    await page.keyboard.press(`${command ? "Meta" : "Control"}+Shift+Period`);
+    const intake = page.getByRole("dialog", { name: "Agregar", exact: true });
+    await expect(intake).toBeVisible();
+    await expect(page.getByTestId("chat-input")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    await page.keyboard.press(`${command ? "Meta" : "Control"}+Shift+Comma`);
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
@@ -508,7 +408,7 @@ test.describe("Business preview while its chat is off", () => {
     await expect(page.getByRole("button", { name: /^Preguntar/ })).toHaveCount(0);
   });
 
-  test("a chat link lands on the workspace panel", async ({ page }) => {
+  test("retired conversation and chat-view links cannot show chat content", async ({ page }) => {
     await page.route("**/api/v1/conversations/*/messages?**", (route) =>
       route.fulfill({
         json: {
@@ -527,7 +427,7 @@ test.describe("Business preview while its chat is off", () => {
         },
       }),
     );
-    for (const url of [`${CHAT_OFF}&conversation=conversation-alpha`, `${CHAT_OFF}&view=chat`]) {
+    for (const url of [`${PREVIEW}?conversation=conversation-alpha`, `${PREVIEW}?view=chat`]) {
       await openLoaded(page, url);
       await expect(page.getByTestId("chat-input")).toHaveCount(0);
       await expect(page.getByText("Lunch with the supplier")).toHaveCount(0);
@@ -535,11 +435,11 @@ test.describe("Business preview while its chat is off", () => {
   });
 });
 
-test.describe("Business preview on a phone while its chat is off", () => {
+test.describe("Business preview on a phone has no chat entry points", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test("the bottom tabs keep the destinations and Agregar, with no New chat or Recents", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?chat=off`);
+    await openPreview(page);
     await expect(panelHeading(page, "Buenas tardes")).toBeVisible();
     const tabs = page.getByTestId("business-bottom-tabs");
     for (const label of ["Inicio", "Bandeja", "Registros"]) {

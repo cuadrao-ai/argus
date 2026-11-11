@@ -204,7 +204,14 @@ def test_declarations_are_optional_and_server_only() -> None:
     manifest = json.loads((root / "scripts/ops/staging_env_manifest.json").read_text())
     entries = {entry["name"]: entry for entry in manifest["services"]["api"]["entries"]}
     for name in NEW_NAMES:
-        staging = {k: v for k, v in entries[name].items() if k != "production"}
+        staging = {
+            k: v for k, v in entries[name].items() if k not in {"production", "local"}
+        }
+        assert entries[name].get("local") == (
+            {"enter": "the selected local store", "optional": True}
+            if name == "CUADRAO_OPENROUTER_API_KEY_DEV"
+            else None
+        )
         assert staging == {
             "name": name,
             "kind": "secret",
@@ -216,13 +223,7 @@ def test_declarations_are_optional_and_server_only() -> None:
             assert production["optional"] is True and "enter" in production
         else:
             assert production == {"not_set": True}
-    workflow = {
-        entry["name"]: entry["production"]
-        for entry in manifest["services"]["workflow"]["entries"]
-    }
-    for name in NEW_NAMES:
-        assert workflow[name]["optional"] is True
-    for label in ("web", "marketing"):
+    for label in ("web", "marketing", "documents_worker"):
         names = {entry["name"] for entry in manifest["services"][label]["entries"]}
         assert not set(NEW_NAMES) & names
 

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { PanelLeft, X } from "lucide-react";
-import { SidebarSimple } from "@phosphor-icons/react";
+import { PanelLeft, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CuadraoMark } from "@/components/CuadraoMark";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -126,9 +125,9 @@ export default function SidebarHeader({
             aria-label={isOpen ? t("common.collapse", "Collapse") : t("common.expand", "Expand")}
             aria-expanded={isOpen}
           >
-            {shownOpen ? <SidebarSimple size={20} aria-hidden="true" /> : <>
+            {shownOpen ? <PanelLeftClose size={20} aria-hidden="true" /> : <>
               <span className="transition-opacity duration-150 ease-out group-hover:opacity-0 group-focus-visible:opacity-0">{businessMark ?? brandMark()}</span>
-              <SidebarSimple size={20} className="absolute text-black/60 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60" aria-hidden="true" />
+              <PanelLeftOpen size={20} className="absolute text-black/60 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60" aria-hidden="true" />
             </>}
           </button>
         </Tooltip>

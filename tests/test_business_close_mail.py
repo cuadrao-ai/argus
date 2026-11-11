@@ -1,7 +1,9 @@
 """Lifecycle templates render queued facts without transport calls."""
 
+from datetime import datetime, timezone
+
 import pytest
-from argus.domain.business.close_mail import render_close_mail
+from argus.domain.business.close_mail import enqueue_close_mail, render_close_mail
 
 
 @pytest.fixture
@@ -125,3 +127,30 @@ def test_unknown_kind_and_locale_fail_closed(context):
         render_close_mail(context, kind="unknown")
     with pytest.raises(ValueError):
         render_close_mail(context, locale="unknown")
+
+
+class _Outbox:
+    """Keeps what close mail queues; answers the owner's name lookup."""
+
+    def __init__(self):
+        self.queued = []
+
+    def execute(self, sql, params=None):
+        if "business_close_mail_outbox" in sql:
+            self.queued.append(params)
+        return self
+
+    def fetchone(self):
+        return ("Ana",)
+
+
+@pytest.mark.parametrize(
+    "stored,spoken",
+    [("My business", "Mi negocio"), ("Mi negocio", "Mi negocio"), ("Colmado", "Colmado")],
+)
+def test_close_mail_names_an_unnamed_business_mi_negocio(stored, spoken):
+    outbox = _Outbox()
+    closed_at = datetime(2026, 10, 18, 2, 0, 1, tzinfo=timezone.utc)
+    enqueue_close_mail(outbox, "space", "owner", stored, closed_at)
+    assert outbox.queued
+    assert {mail["context"].obj["businessName"] for mail in outbox.queued} == {spoken}

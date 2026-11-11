@@ -31,6 +31,7 @@ from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.domain.business import ledger
 from argus.domain.business.authority import ActionError
+from argus.domain.business.config import business_settlement_enabled
 from argus.domain.business.month_close import (
     Settlement,
     month_period,
@@ -50,11 +51,40 @@ _GRANT_REFUSALS = {
         "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
     }
 }
+_SETTLEMENT_REFUSAL = {
+    404: {
+        "description": "`business_settlement_unavailable`: Por cobrar and Por pagar are off on this server (`CUADRAO_BUSINESS_SETTLEMENT_ENABLED`).",
+        "content": {
+            "application/json": {"schema": {"$ref": "#/components/schemas/Error"}}
+        },
+    }
+}
+
+
+def require_settlement(request: Request) -> None:
+    """The one refusal every route that only serves settlement answers while
+    it is off; the workspace read says the same as ``settlement_available``."""
+
+    if business_settlement_enabled():
+        return
+    raise problem(
+        request,
+        status_code=404,
+        code="business_settlement_unavailable",
+        title="Not Found",
+        detail="Settlement is not available.",
+        headers=NO_STORE,
+    )
+
+
 router = APIRouter(
     prefix="/business/month-close", tags=["business"], responses=_GRANT_REFUSALS
 )
 open_items_router = APIRouter(
-    prefix="/business/open-items", tags=["business"], responses=_GRANT_REFUSALS
+    prefix="/business/open-items",
+    tags=["business"],
+    responses={**_GRANT_REFUSALS, **_SETTLEMENT_REFUSAL},
+    dependencies=[Depends(require_settlement)],
 )
 
 
@@ -73,18 +103,21 @@ def _unavailable(request: Request):
     )
 
 
-def _bandeja(business: BusinessContext, month: str) -> tuple[int, bool]:
-    """What the Bandeja holds against this month: the drafts dated in it, and
-    whether a read in flight could still land in any month."""
+def _bandeja(business: BusinessContext, month: str) -> dict[str, int]:
+    """The month's drafts the Bandeja still holds, by currency. A draft that
+    names no currency yet (a note nobody reviewed, a read in flight) counts in
+    the Business's own currency."""
 
     from argus.api.business_drafts import receipt_read_dates, receipt_summaries
-    from argus.api.business_receipt_activity import month_unknown, unreviewed_days
+    from argus.api.business_receipt_activity import unreviewed_days
 
     start, end = month_period(month)
     views = receipt_summaries(business, "all")
-    dates = receipt_read_dates(business)
-    days = unreviewed_days(business, views, dates)
-    return unreviewed_in_month(days, start, end), month_unknown(business, views, dates)
+    days = unreviewed_days(business, views, receipt_read_dates(business))
+    own = business.scope.currency
+    return unreviewed_in_month(
+        ((day, currency or own) for day, currency in days), start, end
+    )
 
 
 @router.get("", response_model=MonthClose)
@@ -109,15 +142,21 @@ def month_summary(
             detail="Only month is accepted.",
             headers=NO_STORE,
         )
+    settlement = business_settlement_enabled()
     try:
+        bandeja = _bandeja(business, month)
         summary = (
-            empty_month(month)
+            empty_month(month, settlement, bandeja)
             if context is None
             else read_month(
-                context.service.authority, _owner(request, context, person), month
+                context.service.authority,
+                _owner(request, context, person),
+                month,
+                settlement,
+                bandeja,
             )
         )
-        return with_unreviewed(summary, *_bandeja(business, month))
+        return with_unreviewed(summary)
     except ValueError as error:
         if str(error) != "month_invalid":
             raise
@@ -165,13 +204,15 @@ def open_items(
 @router.patch(
     "/documents/{activity_id}",
     response_model=SettlementResult,
+    dependencies=[Depends(require_settlement)],
     responses={
+        **_SETTLEMENT_REFUSAL,
         409: {
             "description": "`business_document_settlement_conflict`: another first settlement of this document landed, and a fresh retry still collided.",
             "content": {
                 "application/json": {"schema": {"$ref": "#/components/schemas/Error"}}
             },
-        }
+        },
     },
 )
 def update_document(

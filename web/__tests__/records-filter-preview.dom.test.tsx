@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { activeFilterGroups, emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
+import { activeFilterGroups, emptyPreviewFilters, validPreviewAmount, type PreviewFilters } from "@/components/business-app/transacciones/records-filter-preview-model";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 
 await keepOwnListSearch();
@@ -14,7 +14,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 let cleanup = async () => {};
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; });
 
-async function mount(kind: "filters" | "date" | "toolbar", width = 1440) {
+async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initialFilters = emptyPreviewFilters("DOP")) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 844 });
   const { act, useState } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -24,20 +24,22 @@ async function mount(kind: "filters" | "date" | "toolbar", width = 1440) {
   const Filters = (await import("@/components/business-app/transacciones/RecordsFiltersPreview")).default;
   const { RecordsToolbar } = await import("@/components/business-app/transacciones/RecordsToolbar");
   const DatePreview = (await import("@/components/business-app/transacciones/RecordsDatePreview")).default;
+  const RecordsTypeTabs = (await import("@/components/business-app/transacciones/RecordsTypeTabs")).default;
   function FilterHarness() {
-    const [value, setValue] = useState(emptyPreviewFilters);
-    const [recordKind, setRecordKind] = useState<"all" | "gasto" | "venta">("all");
-    return <><Filters options={null} value={value} kind={recordKind} onChange={(next, nextKind) => { setValue(next); setRecordKind(nextKind); }} /><output data-testid="applied-record-kind">{recordKind}</output></>;
+    const [value, setValue] = useState<PreviewFilters>(initialFilters);
+    const recordKind = "gasto";
+    return <><Filters options={null} value={value} onChange={setValue} /><output data-testid="applied-record-kind">{recordKind}</output><output data-testid="applied-filters">{JSON.stringify(value)}</output></>;
   }
   function ToolbarHarness() {
-    const [record, setRecord] = useState<{ query: string; kind: "all" | "gasto" | "venta" }>({ query: "", kind: "all" });
-    return <><RecordsToolbar filter={record} onChange={setRecord} options={null} period={{ key: "custom", from: "2026-10-01", to: "2026-10-25" }} setPeriod={() => {}} /><output data-testid="applied-record-kind">{record.kind}</output></>;
+    const [record, setRecord] = useState<{ query: string; kind: "gasto" | "venta" }>({ query: "", kind: "gasto" });
+    const [filters, setFilters] = useState(initialFilters);
+    return <><RecordsTypeTabs value={record.kind} onChange={(kind) => setRecord({ ...record, kind })} /><RecordsToolbar appliedFilters={filters} onFiltersChange={setFilters} filter={record} onChange={setRecord} options={null} period={{ key: "custom", from: "2026-10-01", to: "2026-10-25" }} setPeriod={() => {}} /><output data-testid="applied-record-kind">{record.kind}</output><output data-testid="applied-filters">{JSON.stringify(filters)}</output></>;
   }
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}>{kind === "toolbar" ? <ToolbarHarness /> : kind === "filters" ? <FilterHarness /> : <DatePreview period={{ key: "custom", from: "2026-10-01", to: "2026-10-25" }} />}</I18nextProvider>));
   cleanup = async () => { await act(async () => root.unmount()); };
   const click = (node: Element | null | undefined) => act(async () => { assert.ok(node); (node as HTMLElement).click(); });
-  const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent === text);
+  const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent?.replaceAll("•", "") === text || text === "Filtros" && node.textContent?.startsWith("Filtros"));
   const escape = () => act(async () => { document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
   return { act, host, click, button, escape };
 }
@@ -45,40 +47,59 @@ async function mount(kind: "filters" | "date" | "toolbar", width = 1440) {
 test("filter draft is discarded on Escape, committed by Apply, and removable by group", async () => {
   const page = await mount("filters");
   await page.click(page.button("Filtros"));
-  await page.click(page.button("Revisión"));
-  await page.click(document.querySelector('input[type="checkbox"]'));
+  await page.click(page.button("Datos fiscales"));
+  await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")?.querySelector("input"));
   await page.escape();
-  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
   await page.click(page.button("Filtros"));
-  await page.click(page.button("Revisión"));
-  assert.equal(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked, false);
-  await page.click(document.querySelector('input[type="checkbox"]'));
+  await page.click(page.button("Datos fiscales"));
+  assert.equal([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")!.querySelector<HTMLInputElement>("input")!.checked, false);
+  await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")?.querySelector("input"));
   await page.click(page.button("Adjunto"));
   await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Sin documento"));
   await page.click(page.button("Aplicar"));
   const chips = document.querySelector('[data-testid="records-preview-filter-chips"]')!;
-  assert.match(chips.textContent ?? "", /Por revisar/);
+  assert.match(chips.textContent ?? "", /Faltan datos/);
   assert.match(chips.textContent ?? "", /Sin documento/);
   assert.equal(page.host.querySelector('button[aria-haspopup="dialog"]')?.textContent, "Filtros2");
-  await page.click(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
-  assert.doesNotMatch(chips.textContent ?? "", /Por revisar/);
+  await page.click(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
+  assert.doesNotMatch(chips.textContent ?? "", /Faltan datos/);
   await page.click(page.button("Limpiar filtros"));
-  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
 });
 
-test("amount controls wait for a currency and exact validation rejects an inverted range", async () => {
-  const page = await mount("filters"); await page.click(page.button("Filtros")); await page.click(page.button("Moneda y monto"));
-  assert.ok([...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')].every((input) => input.disabled));
-  await page.click(page.button("USD"));
+test("amount controls have one currency and exact validation rejects an inverted range", async () => {
+  const page = await mount("filters"); await page.click(page.button("Filtros")); await page.click(page.button("Monto"));
+  assert.ok([...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')].every((input) => !input.disabled));
   assert.ok([...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')].every((input) => !input.disabled));
   assert.equal(validPreviewAmount({ currency: "USD", min: "9007199254740993.01", max: "9007199254740993.00" }), false);
-  assert.deepEqual(activeFilterGroups(emptyPreviewFilters()), []);
+  assert.deepEqual(activeFilterGroups(emptyPreviewFilters("DOP")), []);
   assert.equal(validPreviewAmount({ currency: "USD", min: "1234567890123456", max: "" }), false);
 });
 
+for (const width of [1440, 390]) for (const clearFrom of ["editor", "chips"]) test(`clearing filters from ${clearFrom} keeps one currency and clears amount bounds at ${width}px`, async () => {
+  const page = await mount("filters", width, emptyPreviewFilters("DOP"));
+  await page.click(page.button("Filtros"));
+  await page.click(page.button("Monto"));
+  const fields = [...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')];
+  for (const [index, value] of ["100", "200"].entries()) await page.act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(fields[index], value);
+    fields[index].dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  if (clearFrom === "chips") await page.click(page.button("Aplicar"));
+  await page.click(page.button("Limpiar filtros"));
+  if (clearFrom === "chips") {
+    await page.click(page.button("Filtros"));
+    await page.click(page.button("Monto"));
+  }
+  assert.ok([...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')].every((input) => input.value === ""));
+  await page.click(page.button("Aplicar"));
+  assert.deepEqual(JSON.parse(document.querySelector('[data-testid="applied-filters"]')!.textContent!), emptyPreviewFilters("DOP"));
+});
+
 for (const width of [1440, 390]) test(`amount entry preserves valid values on invalid input at ${width}px`, async () => {
-  const page = await mount("filters", width);
-  await page.click(page.button("Filtros")); await page.click(page.button("Moneda y monto")); await page.click(page.button("USD"));
+  const page = await mount("filters", width, emptyPreviewFilters("USD"));
+  await page.click(page.button("Filtros")); await page.click(page.button("Monto"));
   const fields = [...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')];
   const type = (field: HTMLInputElement, text: string) => page.act(async () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, text);
@@ -163,11 +184,11 @@ test("phone uses the full viewport, vertical months, one Hoy in the list and saf
 
 test("checkbox parents derive mixed/all/none from label clicks and bulk changes", async () => {
   const page = await mount("filters"); await page.click(page.button("Filtros"));
-  await page.click([...document.querySelectorAll('[role="tab"]')].find((node) => node.textContent?.startsWith("Revisión")));
+  await page.click([...document.querySelectorAll('[role="tab"]')].find((node) => node.textContent?.startsWith("Cuenta")));
   const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
   const parent = () => label("Seleccionar todo").querySelector<HTMLInputElement>("input")!;
   assert.equal(parent().checked, false); assert.equal(parent().indeterminate, false);
-  await page.click(label("Por revisar"));
+  await page.click(label("Cuenta corriente"));
   assert.equal(parent().indeterminate, true); assert.equal(parent().getAttribute("aria-checked"), "mixed");
   await page.click(label("Seleccionar todo"));
   assert.equal(parent().checked, true); assert.equal(parent().indeterminate, false);
@@ -192,26 +213,35 @@ test("bulk selection applies only to visible matches and keeps hidden choices", 
   assert.equal(parent.checked, false); assert.equal(parent.indeterminate, false); assert.equal(parent.disabled, true);
 });
 
-test("record kind is drafted and applied with filters, counted and removable independently", async () => {
-  const page = await mount("filters"); await page.click(page.button("Filtros"));
-  assert.equal(document.querySelector('[role="tab"]')?.textContent, "Registro");
-  const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
-  await page.click(label("Gasto"));
-  assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "all");
-  await page.escape(); await page.click(page.button("Filtros"));
-  assert.equal(label("Gasto").querySelector<HTMLInputElement>("input")!.checked, false);
-  await page.click(label("Gasto")); await page.click(page.button("Revisión")); await page.click(label("Por revisar")); await page.click(page.button("Aplicar"));
-  assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
-  assert.equal(page.host.querySelector('button[aria-haspopup="dialog"]')?.textContent, "Filtros2");
-  await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
-  assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "all");
-  assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Por revisar/);
-  await page.click(page.button("Limpiar filtros"));
-  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+for (const width of [1440, 390]) for (const clearFrom of ["editor", "chips"]) test(`tabs share optional filters and Clear keeps sales and USD at ${width}px from ${clearFrom}`, async () => {
+  const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  try {
+    const page = await mount("toolbar", width, emptyPreviewFilters("USD"));
+    assert.equal(document.querySelector('[role="tab"][aria-selected="true"]')?.textContent, "Compras");
+    await page.click(page.button("Ventas"));
+    await page.click(page.button("Filtros")); await page.click(page.button("Adjunto"));
+    await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Sin documento"));
+    await page.click(page.button("Aplicar"));
+    await page.click(page.button("Compras"));
+    assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')!.textContent!, /Sin documento/);
+    await page.click(page.button("Ventas"));
+    if (clearFrom === "editor") await page.click(page.button("Filtros"));
+    await page.click([...document.querySelectorAll<HTMLButtonElement>(clearFrom === "editor" ? '[role="dialog"] button' : '[data-testid="records-preview-filter-chips"] button')].find(node => node.textContent === "Limpiar filtros"));
+    if (clearFrom === "editor") await page.click(page.button("Aplicar"));
+    assert.equal(document.querySelector('[role="tab"][aria-selected="true"]')?.textContent, "Ventas");
+    assert.deepEqual(JSON.parse(document.querySelector('[data-testid="applied-filters"]')!.textContent!), emptyPreviewFilters("USD"));
+    assert.ok(document.querySelector('button[aria-label="Moneda: USD"]'));
+    assert.equal(page.button("Filtros")!.textContent, "Filtros");
+    await page.click(page.button("Filtros"));
+    assert.equal(document.querySelector('[data-group="record"]'), null);
+    assert.equal(document.querySelector('input[name="records-currency"]'), null);
+    assert.equal([...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(node => node.textContent === "Limpiar filtros")!.disabled, true);
+    assert.equal(document.querySelector('[role="dialog"]')!.textContent!.includes("•"), false);
+  } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
-
-test("desktop kind lives in Filters and saved views restore its controlled value", async () => {
+test("desktop kind lives in tabs and saved views restore its controlled value", async () => {
   const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
   try {
@@ -221,19 +251,19 @@ test("desktop kind lives in Filters and saved views restore its controlled value
     const type = (field: HTMLInputElement, value: string) => page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value); field.dispatchEvent(new Event("input", { bubbles: true })); });
     const search = document.querySelector<HTMLInputElement>('input[type="search"]')!;
     await type(search, "Nube");
-    await page.click(page.button("Filtros")); await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Gasto")); await page.click(page.button("Aplicar"));
+    await page.click(page.button("Compras"));
     await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
     await type(document.querySelector<HTMLInputElement>('[role="dialog"] input')!, "Gastos de Nube");
     await page.click(document.querySelector('[role="dialog"] button[type="submit"]'));
-    await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
+    await page.click(page.button("Ventas"));
     assert.equal(search.value, "Nube");
     await page.click(page.button("Vistas")); await page.click(page.button("Gastos de Nube"));
     assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
-    assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Registro · Gasto/);
+    assert.equal(document.querySelector('[role="tab"][aria-selected="true"]')?.textContent, "Compras");
     await page.click(page.button("Limpiar búsqueda"));
     assert.equal(search.value, ""); assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
-    await page.click(page.button("Limpiar filtros"));
-    assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "all");
+    assert.equal(page.button("Limpiar filtros"), undefined);
+    assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
     await cleanup();
     const phone = await mount("toolbar", 390);
     assert.equal(phone.host.querySelector('button[aria-label^="Tipo:"]'), null);
@@ -247,24 +277,55 @@ test("phone filters keep one draft across group navigation and discard it on clo
   const trigger = page.button("Filtros")!;
   await page.click(trigger);
   assert.equal(document.querySelector('[role="tablist"]'), null);
-  await page.click(page.button("Revisión"));
+  await page.click(page.button("Cuenta"));
   assert.equal(document.activeElement, page.button("Todos los filtros"));
   const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
-  await page.click(label("Por revisar"));
+  await page.click(label("Cuenta corriente"));
   assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.indeterminate, true);
   await page.click(page.button("Todos los filtros"));
-  assert.equal(document.activeElement?.getAttribute("data-group"), "review");
-  await page.click(page.button("Registro")); await page.click(label("Gasto"));
-  await page.click(page.button("Todos los filtros")); await page.click(document.querySelector('[data-group="review"]'));
-  assert.equal(label("Por revisar").querySelector<HTMLInputElement>("input")!.checked, true);
+  assert.equal(document.activeElement?.getAttribute("data-group"), "account");
+  await page.click(page.button("Adjunto")); await page.click(label("Sin documento"));
+  await page.click(page.button("Todos los filtros")); await page.click(document.querySelector('[data-group="account"]'));
+  assert.equal(label("Cuenta corriente").querySelector<HTMLInputElement>("input")!.checked, true);
   await page.click(page.button("Aplicar"));
   assert.equal(document.activeElement, trigger);
   assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
-  await page.click(trigger); await page.click(document.querySelector('[data-group="review"]'));
+  await page.click(trigger); await page.click(document.querySelector('[data-group="account"]'));
   await page.click(label("Seleccionar todo"));
   assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.checked, true);
-  await page.escape(); await page.click(trigger); await page.click(document.querySelector('[data-group="review"]'));
+  await page.escape(); await page.click(trigger); await page.click(document.querySelector('[data-group="account"]'));
   assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.indeterminate, true);
   await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Limpiar filtros")); await page.click(page.button("Aplicar"));
-  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
+});
+
+
+for (const width of [1440, 390]) test(`currency selector switches immediately, clears bounds and stays out of Filters at ${width}px`, async () => {
+  const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  try {
+    const page = await mount("toolbar", width, { ...emptyPreviewFilters("USD"), amount: { currency: "USD", min: "200", max: "100" } });
+    await page.click(document.querySelector('button[aria-label="Moneda: USD"]'));
+    const currencyDialog = document.querySelector('[role="dialog"]')!;
+    assert.equal(currencyDialog.querySelector('input[type="search"]'), null);
+    assert.deepEqual([...currencyDialog.querySelectorAll("button")].filter(node => ["DOP", "USD", "EUR"].includes(node.textContent!)).map(node => node.textContent), ["DOP", "USD", "EUR"]);
+    await page.click(page.button("EUR"));
+    assert.deepEqual(JSON.parse(document.querySelector('[data-testid="applied-filters"]')!.textContent!).amount, { currency: "EUR", min: "", max: "" });
+    await page.click(page.button("Filtros"));
+    await page.click(page.button("Monto"));
+    assert.equal(document.querySelector('input[name="records-currency"]'), null);
+    assert.ok([...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')].every(field => field.value === "" && field.getAttribute("aria-invalid") !== "true"));
+    assert.equal(page.button("Aplicar")!.disabled, false);
+  } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});
+
+test("the desktop filter trigger toggles and Escape restores focus", async () => {
+  const page = await mount("filters");
+  const trigger = page.button("Filtros")!;
+  await page.click(trigger); assert.ok(document.querySelector('[role="dialog"]'));
+  await page.click(trigger); assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.activeElement, trigger);
+  await page.click(trigger); await page.escape();
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.activeElement, trigger);
 });

@@ -14,12 +14,12 @@ import {
 const email = "person@example.com";
 
 describe("email confirmation codes", () => {
-  test("forwards every email OTP type to verifyOtp with a normalized code", async () => {
+  test("forwards every email OTP type to verifyOtp without changing the code", async () => {
     const calls: Array<{ email: string; token: string; type: EmailOtpKind }> = [];
 
     for (const type of EMAIL_OTP_TYPES) {
       await verifyEmailOtp(
-        { email: `  ${email}  `, token: "123 456", type },
+        { email: `  ${email}  `, token: "01234567", type },
         async (input) => {
           calls.push(input);
           return { error: null };
@@ -28,11 +28,11 @@ describe("email confirmation codes", () => {
     }
 
     expect(calls).toEqual(
-      EMAIL_OTP_TYPES.map((type) => ({ email, token: "123456", type })),
+      EMAIL_OTP_TYPES.map((type) => ({ email, token: "01234567", type })),
     );
   });
 
-  test("rejects a code that is not 6 to 10 digits before calling verifyOtp", async () => {
+  test("rejects a code that is not exactly eight digits before calling verifyOtp", async () => {
     const rejected = ["12345", "12345678901", "12ab56", "123-456", ""];
 
     for (const token of rejected) {
@@ -49,13 +49,13 @@ describe("email confirmation codes", () => {
 
   test("hides rejected provider failures behind otp_rejected", async () => {
     await expect(
-      verifyEmailOtp({ email, token: "123456", type: "magiclink" }, async () => ({
+      verifyEmailOtp({ email, token: "01234567", type: "magiclink" }, async () => ({
         error: { message: "Token has expired or is invalid", status: 403 },
       })),
     ).rejects.toBeInstanceOf(EmailOtpRejectedError);
 
     await expect(
-      verifyEmailOtp({ email, token: "123456", type: "recovery" }, async () => {
+      verifyEmailOtp({ email, token: "01234567", type: "recovery" }, async () => {
         throw new Error("network down");
       }),
     ).rejects.toMatchObject({ code: "otp_transient", message: "otp_transient" });

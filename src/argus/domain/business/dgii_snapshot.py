@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import TypeAdapter
 
+from argus.domain.business.approved_facts import approved_revision_sql, evidence
 from argus.domain.business.contracts.dgii import DgiiDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
@@ -15,7 +16,10 @@ from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.owner_funds import no_account
 
 
-def fiscal_snapshot(cursor, context, activities):
+def fiscal_snapshot(cursor, context, activities, *, only_these=False):
+    """The approved fiscal record of each activity. ``only_these`` reads the
+    approvals of the given activities alone, for a reader of a few records."""
+
     cursor.execute(
         "select name,business_rnc from public.spaces where id=%s",
         (context.actor.space_id,),
@@ -26,21 +30,28 @@ def fiscal_snapshot(cursor, context, activities):
     # after approval. The Personal mark and the 606 answer come from the
     # draft as it stands now.
     cursor.execute(
-        "select e.id,e.activity_id,e.resolution,v.version,v.after_facts,d.after_dgii,v.source_ids"
+        "select e.id,e.activity_id,e.resolution,v.version,v.after_facts,d.after_dgii"
         " from public.financial_import_events e"
         " join public.business_action_receipts a on a.space_id=e.owner_space_id"
         " and a.actor_id::text=e.resolution->'approval_receipt'->>'actor_id'"
         " and a.idempotency_key=e.resolution->'approval_receipt'->>'key'"
         " and a.command->>'action' in ('approve_expense','approve_income','approve_refund')"
-        " join lateral (select version,after_facts,source_ids"
-        " from public.business_draft_revisions where draft_id=e.id and space_id=e.owner_space_id"
-        " and version<=(a.command->'request'->>'version')::integer order by version desc limit 1) v on true"
+        " join lateral ("
+        + approved_revision_sql(
+            "e.id", "e.owner_space_id", "(a.command->'request'->>'version')::integer"
+        )
+        + ") v on true"
         " join lateral (select after_dgii from public.business_draft_revisions"
         " where draft_id=e.id and space_id=e.owner_space_id"
         " order by version desc limit 1) d on true"
         " where e.user_id=%s and e.owner_space_id=%s and e.state='accepted'"
-        " and e.activity_id is not null and e.accept_key is not null",
-        (context.owner_id, context.actor.space_id),
+        " and e.activity_id is not null and e.accept_key is not null"
+        + (" and e.activity_id = any(%s::uuid[])" if only_these else ""),
+        (
+            context.owner_id,
+            context.actor.space_id,
+            *([[item["activity_id"] for item in activities]] if only_these else []),
+        ),
     )
     approved = {}
     for row in cursor.fetchall():
@@ -58,6 +69,9 @@ def fiscal_snapshot(cursor, context, activities):
             else None
         )
         current = resolution.facts if resolution else BusinessFacts()
+        facts = (
+            BusinessFacts.model_validate(row["after_facts"]) if row else BusinessFacts()
+        )
         records.append(
             FiscalRecord(
                 activity_id=identifier,
@@ -71,17 +85,13 @@ def fiscal_snapshot(cursor, context, activities):
                 document_type=resolution.document_type
                 if resolution
                 else money_document_type(activity["kind"]),
-                facts=BusinessFacts.model_validate(row["after_facts"])
-                if row
-                else BusinessFacts(),
+                facts=facts,
                 declaration=TypeAdapter(DgiiDeclaration).validate_python(
                     row["after_dgii"]
                 )
                 if row and row["after_dgii"]
                 else None,
-                source_ids=tuple(str(value) for value in row["source_ids"])
-                if row
-                else (),
+                source_ids=evidence(facts),
                 no_account=no_account(activity),
                 personal=is_personal(current),
                 include_606=fiscal_inclusion(current),

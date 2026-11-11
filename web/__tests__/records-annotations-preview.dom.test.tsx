@@ -25,7 +25,7 @@ async function mount(width = 1440, readOnly = false) {
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const { RecordsAnnotationsPreview, useRecordPreviewSearch } = await import("@/components/business-app/transacciones/RecordsAnnotationsPreview");
   const { RecordsTable, RecordsNarrowList } = await import("@/components/business-app/transacciones/TransaccionesRecords");
-  const { defaultRecordsPreferences } = await import("@/components/business-app/transacciones/records-view-preferences");
+  const { sampleRecordsPreferences } = await import("@/components/business-app/transacciones/sample-records-preferences");
   const calls = { opens: 0, network: 0, urls: 0, revoked: [] as string[] };
   const originalFetch = globalThis.fetch;
   const originalCreate = URL.createObjectURL;
@@ -45,7 +45,7 @@ async function mount(width = 1440, readOnly = false) {
     const [narrow, setNarrow] = useState(width < 1024);
     const value = { chosen: { space_id: scope, capabilities: read ? prepare ? ["read", "prepare"] : ["read"] : [] }, records: { workspace: { receipt_limits: { max_bytes: 100, media_types: ["application/pdf", "image/png"] } } }, panel: { kind: "transactions" }, openPanel: () => { calls.opens++; } } as unknown as BusinessContextValue;
     const records = filtered ? [record("venta")] : [record("gasto"), record("venta"), record("gasto", "unknown", null), record("gasto", "original", true), { ...record("gasto", "unavailable", true), opens: null }];
-    return <BusinessContext.Provider value={value}><RecordsAnnotationsPreview><SearchProbe /><button onClick={() => setScope(scope === "fixture-space" ? "other" : "fixture-space")}>Business</button><button onClick={() => setPrepare(!prepare)}>Permission</button><button onClick={() => setRead(!read)}>Read</button><button onClick={() => setFiltered(!filtered)}>Filter</button><button onClick={() => setNarrow(!narrow)}>Viewport</button>{narrow ? <RecordsNarrowList records={records} rowRef={() => {}} /> : <RecordsTable records={records} preferences={defaultRecordsPreferences()} density="normal" rowRef={() => {}} />}</RecordsAnnotationsPreview></BusinessContext.Provider>;
+    return <BusinessContext.Provider value={value}><RecordsAnnotationsPreview><SearchProbe /><button onClick={() => setScope(scope === "fixture-space" ? "other" : "fixture-space")}>Business</button><button onClick={() => setPrepare(!prepare)}>Permission</button><button onClick={() => setRead(!read)}>Read</button><button onClick={() => setFiltered(!filtered)}>Filter</button><button onClick={() => setNarrow(!narrow)}>Viewport</button>{narrow ? <RecordsNarrowList records={records} rowRef={() => {}} /> : <RecordsTable records={records} preferences={sampleRecordsPreferences()} density="normal" rowRef={() => {}} />}</RecordsAnnotationsPreview></BusinessContext.Provider>;
   }
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}><Harness /></I18nextProvider>));
@@ -53,23 +53,51 @@ async function mount(width = 1440, readOnly = false) {
   const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent === text)!;
   const click = (node: Element | null | undefined) => act(async () => { assert.ok(node); (node as HTMLElement).click(); });
   const key = (node: Element, key: string) => act(async () => { node.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true })); });
+  const type = (text: string) => act(async () => { const field = document.querySelector("textarea")!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(field, text); field.dispatchEvent(new Event("input", { bubbles: true })); });
+  const note = (kind = "gasto") => host.querySelector(`[data-record-note="${kind}:exp-gas"]`)!;
   const attachment = (kind = "gasto") => host.querySelector(`[data-record-attachment="${kind}:exp-gas"]`)!;
   const choose = async (...files: File[]) => {
     await act(async () => { const input = document.querySelector<HTMLInputElement>('input[type="file"]')!; Object.defineProperty(input, "files", { value: files, configurable: true }); input.dispatchEvent(new Event("change", { bubbles: true })); });
     for (let attempt = 0; attempt < 30 && document.querySelector<HTMLInputElement>('input[type="file"]')?.disabled; attempt++) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 5)); });
     assert.equal(document.querySelector<HTMLInputElement>('input[type="file"]')?.disabled, false);
   };
-  return { act, host, button, click, key, attachment, choose, calls };
+  return { act, host, button, click, key, type, note, attachment, choose, calls };
 }
 
-test("the records table keeps the note column and does not offer a note editor", async () => {
+test("notes save explicitly, cancel discards, and Business/kind/filter/viewport changes keep the right current note", async () => {
   const page = await mount();
-  const notes = page.host.querySelector('[data-record-key="gasto:exp-gas"] [data-col="notas"]')!;
-  assert.ok(notes);
-  assert.equal(notes.querySelector("button"), null);
-  assert.equal(page.host.querySelector("[data-record-note]"), null);
-  assert.equal(document.querySelector("textarea"), null);
-  assert.ok(page.attachment());
+  await page.click(page.note()); await page.type("A current note"); await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]'));
+  await page.click(page.note()); assert.equal(document.querySelector("textarea")!.value, "");
+  await page.type("  Keep this note  "); await page.click(page.button("Guardar"));
+  assert.equal(page.note().textContent, "Keep this note"); assert.notEqual(page.note("venta").textContent, "Keep this note");
+  assert.equal(page.host.querySelector('[data-testid="note-search"]')!.textContent, "true");
+  await page.click(page.button("Filter")); await page.click(page.button("Filter")); assert.equal(page.note().textContent, "Keep this note");
+  await page.click(page.button("Business")); assert.notEqual(page.note().textContent, "Keep this note");
+  assert.equal(page.host.querySelector('[data-testid="note-search"]')!.textContent, "false");
+  await page.click(page.button("Business")); assert.equal(page.note().textContent, "Keep this note");
+  await page.click(page.button("Viewport")); assert.equal(page.host.querySelector("button button"), null);
+  await page.click(page.note());
+  assert.equal(document.querySelector("textarea")!.value, "Keep this note");
+  await page.type("Discard on close"); await page.key(document.querySelector("textarea")!, "Escape");
+  assert.equal(document.querySelector('[role="dialog"]'), null); assert.equal(page.calls.opens, 0); assert.equal(page.calls.network, 0);
+  await page.click(page.note()); await page.type("A replacement"); await page.click(page.button("Guardar"));
+  assert.equal(page.host.querySelector('[data-testid="note-search"]')!.textContent, "false");
+});
+
+test("note counter follows the draft and oversized paste saves only the 500-character limit", async () => {
+  const page = await mount();
+  await page.click(page.note());
+  const field = document.querySelector("textarea")!;
+  assert.equal(field.maxLength, 500);
+  const counter = document.getElementById(field.getAttribute("aria-describedby")!)!;
+  assert.equal(counter.textContent, "0/500");
+  assert.equal(counter.getAttribute("aria-live"), null);
+  await page.type("a".repeat(500) + "overflow");
+  assert.equal(field.value, "a".repeat(500));
+  assert.equal(counter.textContent, "500/500");
+  await page.click(page.button("Guardar"));
+  await page.click(page.note());
+  assert.equal(document.querySelector("textarea")!.value, "a".repeat(500));
   assert.equal(page.calls.network, 0);
 });
 
@@ -79,7 +107,7 @@ test("local files add without replacing, preserve existing evidence, isolate rec
   assert.equal(document.querySelector<HTMLInputElement>('input[type="file"]')!.multiple, true);
   assert.equal(page.button("Guardar"), undefined, "files do not offer a durable Save action");
   assert.match(document.querySelector('[role="dialog"]')!.textContent!, /no se han subido ni vinculado/i);
-  assert.match(document.querySelector('[role="dialog"]')!.textContent!, /documentos recibidos aún no está disponible/);
+  assert.doesNotMatch(document.querySelector('[role="dialog"]')!.textContent!, /no está disponible/, "an off feature is not announced");
   assert.equal(page.button("Cancelar"), undefined);
   assert.equal(page.button("Conservar").disabled, true);
   await page.choose(new File(["first"], "record.pdf", { type: "application/pdf" }), new File(["second"], "other.pdf", { type: "application/pdf" }));
@@ -112,16 +140,16 @@ test("local files add without replacing, preserve existing evidence, isolate rec
   assert.equal(page.calls.opens, 1); assert.equal(page.calls.network, 0);
 });
 
-test("attachment keyboard actions do not open the dossier, and the note column has no editor", async () => {
+test("note and attachment keyboard actions do not open the dossier, dates/money/status have distinct cells", async () => {
   const page = await mount();
-  assert.equal(page.host.querySelector("[data-record-note]"), null);
-  assert.equal(document.querySelector("textarea"), null);
+  await page.key(page.note(), "Enter"); assert.equal(page.calls.opens, 0);
   await page.key(page.attachment(), "Enter"); assert.equal(page.calls.opens, 0);
+  await page.click(page.note()); await page.type("Keep"); await page.click(page.button("Guardar"));
   const row = page.host.querySelector('[data-record-key="gasto:exp-gas"]')!;
   assert.equal(row.querySelector('[data-col="fecha"]')!.textContent, "25 oct 2026");
   assert.equal(row.querySelector('[data-col="monto"]')!.textContent, "9,007,199,254,740,993.01");
   assert.ok(row.querySelector('[data-col="monto"] .cuadrao-amount'));
-  assert.equal(row.querySelector('[data-col="moneda"]')!.textContent, "RD$");
+  assert.equal(row.querySelector('[data-col="moneda"]'), null);
   assert.equal(row.querySelector('[data-record-workflow]')!.textContent, "Falta el tipo de gasto");
   assert.equal(page.host.querySelector('[data-record-key="gasto:unknown"] [data-record-attachment]'), null);
   await page.click(page.host.querySelector('[data-record-attachment="gasto:original"]'));
@@ -137,16 +165,16 @@ test("read-only rows offer no note editor or add-attachment control", async () =
   assert.equal(page.calls.network, 0);
 });
 
-test("phone rows keep the attachment control and do not offer a note entry", async () => {
+test("phone record actions open the shared sheet and keep targets separate from record opening", async () => {
   const page = await mount(390);
-  assert.equal(page.host.querySelector("[data-record-note]"), null);
-  assert.equal(document.querySelector("textarea"), null);
-  assert.ok(page.attachment());
-  await page.click(page.attachment());
+  await page.click(page.note());
   assert.ok(document.querySelector('[role="dialog"]'));
-  assert.equal(document.querySelector("textarea"), null);
-  assert.equal(page.calls.opens, 0);
-  assert.equal(page.host.querySelector("button button"), null);
+  assert.notEqual(document.activeElement?.tagName, "TEXTAREA");
+  assert.equal(document.querySelector('[role="dialog"]')?.getAttribute("data-snap"), "half");
+  await page.type("Phone note"); await page.click(page.button("Guardar"));
+  await page.click(page.note());
+  assert.equal(document.querySelector("textarea")!.value, "Phone note");
+  await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]')); assert.equal(page.calls.opens, 0); assert.equal(page.host.querySelector("button button"), null);
 });
 
 test("attachment names accept ordinary PDF/PNG files and reject path separators and control characters", async () => {
@@ -193,6 +221,21 @@ test("non-preview mode retains direct durable evidence reads and exposes no loca
     assert.equal(page.calls.opens, 1);
     assert.equal(document.querySelector('[role="dialog"]'), null);
     assert.equal(page.calls.network, 0);
+  } finally { process.env.NEXT_PUBLIC_MOCK_AUTH = previous; }
+});
+
+test("outside the local preview, a live row without a server report takes no note that would live only on this screen", async () => {
+  const previous = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
+  try {
+    for (const width of [1440, 390]) {
+      const page = await mount(width);
+      assert.equal(page.note(), null, `${width}px: no note editor on the row`);
+      assert.equal(page.host.querySelector('[data-record-note]'), null, `${width}px: no row offers a note`);
+      assert.equal(document.querySelector('[role="dialog"]'), null);
+      await cleanup();
+      cleanup = async () => {};
+    }
   } finally { process.env.NEXT_PUBLIC_MOCK_AUTH = previous; }
 });
 

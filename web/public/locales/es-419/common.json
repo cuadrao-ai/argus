@@ -942,10 +942,10 @@
       "problem_rate_limited": "Demasiados códigos. Espera unos minutos e inténtalo de nuevo.",
       "problem_failed": "No pudimos conectar con WhatsApp. Inténtalo de nuevo.",
       "problem_stale": "La permisión cambió desde la última vez. Lee el texto de nuevo y vuelve a intentarlo.",
-      "ai_title": "Leer mis recibos con IA",
+      "ai_title": "Leer mis documentos con IA",
       "ai_on": "Activado. Puedes desactivarlo cuando quieras.",
       "ai_replaces": "Otro permiso de IA está activo en este número. Al activar este, lo reemplaza.",
-      "ai_off": "Desactivado. Los recibos que envíes esperan en tu bandeja para que los llenes tú.",
+      "ai_off": "Desactivado. Los documentos que envíes esperan en tu bandeja para que los llenes tú.",
       "ai_approval": "Tú siempre apruebas los registros de dinero en Cuadrao.",
       "ai_reason_unavailable": "Ahora no se puede activar la lectura con IA.",
       "ai_reason_whatsapp_link_required": "Primero vincula tu número.",
@@ -1563,6 +1563,14 @@
       "session_ended": "Tu sesión terminó. Entra de nuevo.",
       "try_again": "Intentar de nuevo"
     },
+    "session_recovery": {
+      "checking": "Comprobando tu sesión…",
+      "different_owner_detail": "Este espacio se cerró para no mezclar información entre cuentas.",
+      "different_owner_title": "Cambió la cuenta activa",
+      "error_title": "No pudimos comprobar tu sesión",
+      "missing_detail": "No hay una sesión activa en este navegador.",
+      "missing_title": "Inicia sesión para continuar"
+    },
     "errors": {
       "generic": "Algo salio mal. Intentalo de nuevo.",
       "captcha_unavailable": "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
@@ -1594,6 +1602,12 @@
     }
   },
   "account_email": {
+    "auth_security": {
+      "email_changed_description": "El correo de tu cuenta de Cuadrao cambió de {{oldEmail}} a {{newEmail}}.",
+      "password_changed_description": "La contraseña de tu cuenta de Cuadrao se cambió.",
+      "recovery_contact": "Si no fuiste tú, escríbenos de inmediato a hola@cuadrao.ai para recuperar tu cuenta.",
+      "safety_warning": "Nunca te pediremos tu contraseña ni tus códigos de acceso por correo o por teléfono. Escríbelos solo en app.cuadrao.ai."
+    },
     "business_lifecycle": {
       "member_reopened": {
         "cta": "Abrir Cuadrao",
@@ -2302,10 +2316,91 @@
       "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
       "details": "Datos fiscales para 606 / 607",
       "review_note": "Usa los montos del comprobante y tu clasificación fiscal. Deja en blanco los datos que no sabes. Guardar crea una revisión; aprobar es otro paso.",
+      "field": {
+        "category": "$t(business.dossier.placeholder.expense_type)",
+        "goods_amount": "Monto Facturado en Bienes",
+        "id_type": "Tipo Id",
+        "income_perceived": "ISR Percibido en compras",
+        "income_withheld": "Monto Retención Renta",
+        "income_withholding_type": "Tipo de Retención en ISR",
+        "itbis": "$t(business.dossier.field.itbis)",
+        "itbis_cost": "ITBIS llevado al Costo",
+        "itbis_perceived": "ITBIS percibido en compras",
+        "itbis_proportionality": "ITBIS sujeto a Proporcionalidad (Art. 349)",
+        "itbis_withheld": "ITBIS Retenido",
+        "legal_tip": "Monto Propina Legal",
+        "modified_ncf": "NCF ó Documento Modificado",
+        "ncf": "$t(business.dossier.field.ncf)",
+        "other_taxes": "Otros Impuesto/Tasas",
+        "paid_on": "Fecha Pago",
+        "payment_method": "$t(business.dossier.placeholder.payment_form)",
+        "rnc": "$t(business.dossier.field.rnc)",
+        "selective_tax": "Impuesto Selectivo al Consumo",
+        "services_amount": "Monto Facturado en Servicios"
+      },
+      "field_607": {
+        "bank": "Cheque·Transferencia·Depósito",
+        "barter": "Permuta",
+        "billed_amount": "Monto Facturado",
+        "card": "Tarjeta",
+        "cash": "Efectivo",
+        "credit": "Venta a Crédito",
+        "gift": "Bonos…",
+        "id_type": "Tipo Identificación",
+        "income_perceived": "ISR Percibido",
+        "income_type": "Tipo de Ingreso",
+        "income_withheld_by_third_parties": "Retención Renta por Terceros",
+        "itbis_perceived": "ITBIS Percibido",
+        "itbis_withheld_by_third_parties": "ITBIS Retenido por Terceros",
+        "modified_ncf": "Número Comprobante Fiscal Modificado",
+        "other_payment": "Otras Formas…",
+        "other_taxes": "Otros Impuestos/Tasas",
+        "withheld_on": "Fecha de Retención"
+      },
       "form": "Formato",
+      "legal_name": {
+        "copy_review": "approved",
+        "confirm_on_save_cedula": "Al guardar, confirmas que esta cédula corresponde a {{business}}.",
+        "confirm_on_save_rnc": "Al guardar, confirmas que este RNC corresponde a {{business}}.",
+        "label": "Razón social",
+        "source": "Según la DGII",
+        "source_status": "Según la DGII: {{status}}",
+        "tag_inactive": "No activo",
+        "tag_pending": "Por confirmar",
+        "tag_unverified": "Sin verificar",
+        "tag_verified": "Verificado"
+      },
       "load_failed": "No se pudieron cargar los campos fiscales.",
       "save_failed": "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aprobar.",
-      "actual_refund": "Se recibió un reembolso de dinero por esta nota de crédito",
+      "actual_refund": "Se recibió un reembolso…",
+      "option": {
+        "category": {
+          "01": "Gastos de personal",
+          "02": "Gastos por trabajos, suministros y servicios",
+          "03": "Arrendamientos",
+          "04": "Gastos de activos fijo",
+          "05": "Gastos de representación",
+          "06": "Otras deducciones admitidas",
+          "07": "Gastos financieros",
+          "08": "Gastos extraordinarios",
+          "09": "Compras y gastos que formarán parte del costo de venta",
+          "10": "Adquisiciones de activos",
+          "11": "Gastos de seguros"
+        },
+        "id_type": {
+          "1": "1 - RNC",
+          "2": "2 - Cédula"
+        },
+        "payment_method": {
+          "01": "Efectivo",
+          "02": "Cheques/transferencias/depósito",
+          "03": "Tarjeta crédito/débito",
+          "04": "Compra a crédito",
+          "05": "Permuta",
+          "06": "Nota de crédito",
+          "07": "Mixto"
+        }
+      },
       "original_purchase": "Compra original",
       "refund_candidate_refused": "Esa compra no se puede usar para este reembolso. Elige otra.",
       "refund_candidates_none": "No hay compras aprobadas para elegir.",
@@ -2331,23 +2426,65 @@
       "profile_load_failed": "No pudimos cargar el nombre y el RNC."
     },
     "activity": {
-      "all_channels": "La lectura de recibos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
+      "all_channels": "La lectura de documentos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
       "change": "Cambiar",
-      "error": "No se pudo actualizar la lectura de recibos. Inténtalo de nuevo.",
+      "error": "No se pudo actualizar la lectura de documentos. Inténtalo de nuevo.",
       "mark_read": "Marcar como leído",
       "open_settings": "Abrir configuración de lectura",
-      "owner_only": "Tus recibos se guardan sin leer. El dueño del negocio puede activar la lectura.",
-      "reading_on": "La lectura de recibos está activada.",
-      "saved_prompt": "Tus recibos están guardados sin leer. Activa la lectura para prepararlos para revisión.",
-      "sheet_title": "Lectura de recibos",
+      "owner_only": "Tus documentos se guardan sin leer. El dueño del negocio puede activar la lectura.",
+      "reading_on": "La lectura de documentos está activada.",
+      "saved_prompt": "Tus documentos están guardados sin leer. Activa la lectura para prepararlos para revisión.",
+      "sheet_title": "Lectura de documentos",
       "state_off": "Desactivada",
       "state_on": "Activada",
       "state_unknown": "No disponible",
-      "switch_label": "Leer mis recibos automáticamente",
-      "turn_on": "Activar lectura de recibos",
-      "turned_off": "Lectura de recibos desactivada.",
-      "turned_on": "Lectura de recibos activada.",
+      "switch_label": "Leer mis documentos automáticamente",
+      "turn_on": "Activar lectura de documentos",
+      "turned_off": "Lectura de documentos desactivada.",
+      "turned_on": "Lectura de documentos activada.",
       "unavailable": "Ahora no se puede activar la lectura con IA."
+    },
+    "activity_feed": {
+      "actions": {
+        "accept_invite": "aceptó una invitación",
+        "append_supporting_file": "adjuntó un archivo de soporte",
+        "approve_expense": "aprobó un gasto",
+        "approve_income": "aprobó un ingreso",
+        "approve_refund": "aprobó un reembolso",
+        "business_ask": "le preguntó a Cuadrao",
+        "business_attach_source": "vinculó un documento",
+        "business_propose_activity": "propuso un registro",
+        "business_propose_allocation": "propuso cómo repartir un pago",
+        "capture_note": "creó un registro desde una nota",
+        "change_role": "cambió un rol",
+        "decide_606": "decidió si un gasto va al 606",
+        "document_read": "leyó un documento",
+        "document_read_failed": "no pudo leer un documento",
+        "edit_current_note": "editó una nota",
+        "grant_access": "dio acceso",
+        "invite_access": "envió una invitación",
+        "invoice_draft_created": "creó un borrador de factura",
+        "invoice_revision_saved": "guardó cambios en una factura",
+        "mark_personal": "marcó un gasto como personal",
+        "other": "hizo un cambio",
+        "owner_grant": "dio acceso de dueño",
+        "ownership_transferred": "aceptó la propiedad del negocio",
+        "prepare_attachment": "preparó un adjunto",
+        "rebind_attachment": "movió un adjunto a otro registro",
+        "receipt_confirm": "confirmó un documento",
+        "receipt_reading_disabled": "desactivó la lectura de documentos",
+        "receipt_reading_enabled": "activó la lectura de documentos",
+        "receipt_review": "revisó un documento",
+        "receipt_upload": "subió un documento",
+        "reopen_draft": "reabrió un registro aprobado",
+        "resolve_duplicate": "resolvió un duplicado",
+        "review_draft": "revisó un registro",
+        "revoke_grant": "quitó un acceso",
+        "revoke_invite": "canceló una invitación",
+        "set_business_legal_name": "confirmó la razón social del negocio",
+        "set_business_rnc": "actualizó el RNC del negocio",
+        "settle_remainder": "saldó el resto de un registro"
+      }
     },
     "bank": {
       "empty": {
@@ -2427,6 +2564,14 @@
       "records_detail": "Excel y CSV",
       "originals": "Originales",
       "originals_detail": "Fotos y PDF de cada recibo",
+      "filename": {
+        "dgii": "DGII",
+        "mixed": "Compras y ventas",
+        "purchases": "Compras",
+        "records": "Registros",
+        "sales": "Ventas",
+        "to": "a"
+      },
       "fiscal": "606 y 607",
       "fiscal_detail": "Para la DGII",
       "included": "Incluido",
@@ -2471,7 +2616,6 @@
           "preview_failed": "No pudimos preparar la vista previa. No se agregó ningún archivo.",
           "preview_file": "Ver archivo",
           "received_document": "Documento recibido",
-          "received_unavailable": "Vincular documentos recibidos aún no está disponible.",
           "record_actions": "Acciones del registro",
           "too_large": "El archivo supera el tamaño permitido.",
           "unsupported": "Este tipo de archivo no está permitido."
@@ -2510,6 +2654,8 @@
             "other": "Otros",
             "transport": "Transporte"
           },
+          "counterparty_short_one": "Contraparte · {{count}}",
+          "counterparty_short_other": "Contraparte · {{count}}",
           "currency": "Moneda",
           "date": {
             "from": "Desde",
@@ -2527,14 +2673,20 @@
             "e31": "E31 · Crédito fiscal electrónico",
             "e32": "E32 · Consumo electrónico"
           },
+          "fiscal_data": {
+            "all": "Todos",
+            "complete": "Completos",
+            "missing": "Faltan datos"
+          },
           "groups": {
             "account": "Cuenta",
-            "amount": "Moneda y monto",
+            "amount": "Monto",
             "attachment": "Adjunto",
             "category": "Categoría",
             "counterparty": "Contraparte",
             "document": "Tipo de documento",
             "fiscal": "Tipo fiscal",
+            "fiscal_data": "Datos fiscales",
             "review": "Revisión"
           },
           "no_matches": "No hay opciones con esa búsqueda.",
@@ -2547,25 +2699,45 @@
           "visible_selection_hint": "Solo cambia los resultados visibles. Las demás selecciones se conservan."
         },
         "no_period_records": "No hay registros en este período.",
-        "no_results": "No hay registros con estos filtros",
         "overview": {
-          "bandeja_waiting_one": "{{count}} recibo espera en la Bandeja",
-          "bandeja_waiting_other": "{{count}} recibos esperan en la Bandeja",
+          "coverage_placeholder": "{{populated}} de {{applicable}} compras",
           "export": {
-            "title": "Listos para exportar",
-            "description": "Puedes incluirlos en tu exportación"
+            "title": "Listos para exportar"
           },
           "exported": {
-            "title": "Ya exportados",
-            "description": "Ya salieron en una exportación"
+            "title": "Ya exportados"
           },
           "fiscal": {
-            "title": "Faltan datos fiscales",
-            "description": "Les falta un dato para el 606 o el 607"
+            "description_purchase": "Complétalos antes del 606",
+            "description_sale": "Complétalos antes del 607",
+            "title": "Faltan datos fiscales"
           },
+          "goods": {
+            "title": "Bienes"
+          },
+          "itbis": {
+            "title": "ITBIS"
+          },
+          "itbis_helper_placeholder": "Solo impuesto",
+          "partial_placeholder": "Parcial",
+          "purchases": "Compras",
+          "quantity": {
+            "title": "Cantidad"
+          },
+          "quantity_helper_placeholder": "Registros con estos filtros",
           "review": {
             "title": "Por revisar"
-          }
+          },
+          "sales": "Ventas",
+          "services": {
+            "title": "Servicios"
+          },
+          "total": {
+            "title": "Total"
+          },
+          "total_helper_placeholder": "Importe bruto",
+          "unsupported_placeholder_one": "{{count}} importe no compatible",
+          "unsupported_placeholder_other": "{{count}} importes no compatibles"
         },
         "period_summary": "Resumen del período · {{period}}",
         "reset_period": "Restablecer período",
@@ -2577,12 +2749,8 @@
           "currencies_other": "Importes en {{count}} monedas",
           "exclusions": "Importes excluidos",
           "metrics": {
-            "collected": "Cobrado",
-            "expenses": "Gastos",
-            "invoiced": "Facturado",
-            "paid": "Pagado",
-            "payable": "Por pagar",
-            "receivable": "Por cobrar"
+            "expenses": "Compras",
+            "invoiced": "Ventas"
           },
           "no_currency": "Sin moneda",
           "partial": "Parcial: {{amount}}",
@@ -2608,6 +2776,8 @@
           "height": "Altura de filas",
           "instructions": "Arrastra para ordenar. Con teclado, enfoca el asa de seis puntos y pulsa Espacio, luego ↑ o ↓. Espacio confirma; Esc cancela.",
           "move": "Mover {{name}}",
+          "move_down": "Bajar {{name}}",
+          "move_up": "Subir {{name}}",
           "position_one": "{{name}}, posición {{position}} de {{count}}",
           "position_other": "{{name}}, posición {{position}} de {{count}}",
           "required": "Siempre visible",
@@ -2645,14 +2815,60 @@
       "coverage": "Banco al día hasta el {{day}}.",
       "reporting": {
         "access_unavailable": "No tienes acceso a esta función.",
+        "export": {
+          "action_one": "Exportar {{count}} registro",
+          "action_other": "Exportar {{count}} registros",
+          "columns_custom_one": "Columnas personalizadas ({{count}})",
+          "columns_custom_other": "Columnas personalizadas ({{count}})",
+          "columns_done": "Listo",
+          "columns_edit": "Editar",
+          "columns_reset": "Usar las de mi tabla",
+          "columns_table_one": "Columnas de tu tabla ({{count}})",
+          "columns_table_other": "Columnas de tu tabla ({{count}})",
+          "columns_title": "Columnas",
+          "copy_review": "approved",
+          "currencies": "Monedas",
+          "currencies_all": "Todas las monedas",
+          "currencies_current": "Solo {{currency}}",
+          "dgii_body": "Listo para la herramienta de la DGII",
+          "dgii_note": "La DGII define las columnas. Solo en pesos.",
+          "dgii_title": "Formato DGII {{form}}",
+          "done": "Listo. Revisa tus descargas",
+          "download_again": "Descargar de nuevo",
+          "empty": "No hay registros para exportar en esta selección.",
+          "error": "No pudimos preparar el archivo. Inténtalo de nuevo.",
+          "format": "Formato",
+          "format_csv": "CSV",
+          "format_xlsx": "Excel",
+          "pending_fiscal_purchases_one": "{{count}} compra tiene datos fiscales pendientes y no se incluye.",
+          "pending_fiscal_purchases_other": "{{count}} compras tienen datos fiscales pendientes y no se incluyen.",
+          "pending_fiscal_sales_one": "{{count}} venta tiene datos fiscales pendientes y no se incluye.",
+          "pending_fiscal_sales_other": "{{count}} ventas tienen datos fiscales pendientes y no se incluyen.",
+          "pending_rate_purchases_one": "{{count}} compra en {{currencies}} necesita tasa y no se incluye.",
+          "pending_rate_purchases_other": "{{count}} compras en {{currencies}} necesitan tasa y no se incluyen.",
+          "pending_rate_sales_one": "{{count}} venta en {{currencies}} necesita tasa y no se incluye.",
+          "pending_rate_sales_other": "{{count}} ventas en {{currencies}} necesitan tasa y no se incluyen.",
+          "preparing": "Preparando…",
+          "review": "Revisar",
+          "summary_currencies_one": "{{count}} moneda",
+          "summary_currencies_other": "{{count}} monedas",
+          "summary_dgii_purchases": "todas las compras listas",
+          "summary_dgii_sales": "todas las ventas listas",
+          "summary_filters_one": "{{count}} filtro",
+          "summary_filters_other": "{{count}} filtros",
+          "summary_records_one": "{{count}} registro",
+          "summary_records_other": "{{count}} registros",
+          "table_body": "Las columnas y filtros de tu tabla",
+          "table_title": "Lo que ves",
+          "title_purchases": "Exportar compras",
+          "title_sales": "Exportar ventas",
+          "what": "Qué exportar"
+        },
         "financial_cards_pending": "Cobros, pagos y saldos pendientes aún no están disponibles.",
-        "invalid_page": "Los registros cambiaron. Abre la última página disponible.",
         "pending_contract": "Esta función aún no está conectada.",
-        "records_only": "El ZIP incluye solo los registros filtrados. No incluye archivos originales.",
         "refresh": "Actualizar",
         "refresh_records": "Actualizar registros",
         "reload": "Recargar",
-        "report_changed": "Los registros cambiaron. Actualiza antes de exportar.",
         "retry": "Reintentar",
         "unavailable": "Esta función no está disponible ahora.",
         "uncertain_view": "No pudimos confirmar si se guardó. Inténtalo de nuevo.",
@@ -2665,7 +2881,7 @@
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
       "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
-      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
+      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "ncf": "NCF", "itbis": "ITBIS", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
       "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of_one": "de {{count}}", "of_other": "de {{count}}" },
       "sign": { "in": "Entrada de", "out": "Salida de" },
       "detail": {
@@ -2705,7 +2921,7 @@
         "record_date": "Fecha: {{date}}",
         "sort": "Ordenar"
       },
-      "records": { "detail": { "gasto": "Gasto", "venta": "Venta" }, "proof": "Recibo adjunto", "empty_title": "Aquí verás tus gastos y ventas", "empty_body": "Cada gasto y cada venta que apruebas en la Bandeja aparece aquí en su fecha.", "filtered_title": "No hay gastos ni ventas en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos y ventas" },
+      "records": { "detail": { "gasto": "Compra", "venta": "Venta" }, "empty_placeholder": { "filters": { "body": "Prueba con otros filtros o limpia los actuales.", "title": "No hay registros con estos filtros" }, "gasto": { "title": "No hay compras en esta selección" }, "search": { "body": "Prueba con otras palabras o borra la búsqueda.", "clear": "Borrar búsqueda", "title": "No hay resultados para esta búsqueda" }, "selection": { "body": "Puedes cambiar el período o la moneda." }, "venta": { "title": "No hay ventas en esta selección" } }, "proof": "Recibo adjunto", "filtered_title": "No hay gastos ni ventas en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos y ventas" },
       "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many_one": "El comprobante es de {{count}} día antes", "date_many_other": "El comprobante es de {{count}} días antes", "date_after_one": "El comprobante es de un día después", "date_after_many_one": "El comprobante es de {{count}} día después", "date_after_many_other": "El comprobante es de {{count}} días después", "name": "El nombre se parece al del banco" },
       "actions": { "igualar": "Igualar", "rechazar": "No es este", "sin_comprobante": "Sin comprobante", "desigualar": "Desigualar", "agregar": "Agregar comprobante", "more": "Más acciones para {{name}}", "add_for": "Agregar comprobante para {{name}}", "open_for": "Abrir {{name}}" },
       "tray": { "title": "Movimiento", "step_one": "Sugerencia {{index}} de {{count}}", "step_other": "Sugerencia {{index}} de {{count}}", "movement": "Movimiento del banco", "suggested": "Comprobante que sugerimos", "matched": "Comprobante", "date": "Fecha", "account": "Cuenta", "bank_text": "Dice el banco", "recibo": "Compra", "venta": "Venta", "rnc": "RNC", "ncf": "NCF", "itbis": "ITBIS", "total": "Total", "move": "moverte", "close": "cerrar", "back": "Volver" },
@@ -2916,9 +3132,10 @@
         "loan_payment": "Pago de préstamo"
       },
       "field": {
+        "collection_method": "Forma de cobro",
         "kind": "Actividad",
-        "counterparty": "Comercio o persona",
-        "occurred_on": "Fecha de actividad",
+        "counterparty": "Contraparte",
+        "occurred_on": "Fecha del comprobante",
         "amount": "Monto",
         "currency": "Moneda",
         "category_id": "Categoría",
@@ -2929,7 +3146,7 @@
         "ncf": "NCF",
         "ecf": "e-CF",
         "itbis": "ITBIS",
-        "include_606": "Incluir en 606"
+        "include_606": "¿Incluir en 606?"
       },
       "standing": {
         "suggestion": "Leído de la fuente · sugerencia sin verificar",
@@ -2971,6 +3188,7 @@
         "no_receipt": "Sin recibo"
       },
       "section": {
+        "collection": "Cobro",
         "fiscal": "Fiscal",
         "payment": "Pago"
       },
@@ -3065,6 +3283,45 @@
       "retry": "Reintentar",
       "account_unknown": "Desconocida"
     },
+    "guide_cards": {
+      "bandeja_intro": {
+        "copy_review": "approved",
+        "pending": {
+          "body": "Vuelve a los documentos que todavía necesitan revisión.",
+          "label": "Retoma lo pendiente"
+        },
+        "review": {
+          "body": "Revisa los datos y corrige lo necesario. Al aprobar, el documento pasa a Registros.",
+          "label": "Revisa y aprueba"
+        },
+        "title": "Del documento al registro",
+        "upload": {
+          "body": "Agrega fotos o PDF de facturas y recibos. Si la lectura está activada, Cuadrao extrae sus datos.",
+          "label": "Sube tus documentos"
+        }
+      },
+      "placeholder": {
+        "dismiss": "Ocultar guía",
+        "read_failed": "No pudimos cargar la guía.",
+        "save_failed": "No pudimos ocultar la guía."
+      },
+      "registros_intro": {
+        "browse": {
+          "body": "Cambia entre Compras y Ventas para revisar los datos de cada registro.",
+          "label": "Consulta tus registros"
+        },
+        "copy_review": "approved",
+        "find": {
+          "body": "Busca un registro o ajusta las fechas, la moneda y los filtros.",
+          "label": "Encuentra lo que buscas"
+        },
+        "pending": {
+          "body": "“Faltan datos fiscales” te muestra cuáles necesitan información para el 606 en Compras o el 607 en Ventas.",
+          "label": "Completa lo pendiente"
+        },
+        "title": "Tus compras y ventas, en orden"
+      }
+    },
     "history": {
       "am": "a.m.",
       "approved": "Aprobado",
@@ -3082,6 +3339,92 @@
     "home": {
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",
       "title": "¿Qué hacemos hoy por tu negocio?"
+    },
+    "home_setup": {
+      "copy_review": "pending_lucas",
+      "done": "Listo, tu negocio está configurado",
+      "lead": "Completa estos pasos para empezar a recibir y revisar documentos.",
+      "optional": "Opcional",
+      "remaining_one": "Falta 1 paso",
+      "remaining_other": "Faltan {{count}} pasos",
+      "ring_label": "Configurar negocio, {{done}} de {{total}} pasos listos",
+      "steps": {
+        "created": {
+          "body": "Nombre y país de operación.",
+          "title": "Crear el negocio"
+        },
+        "first_document": {
+          "body": "Sube un archivo desde este dispositivo.",
+          "title": "Agrega tu primer documento"
+        },
+        "fiscal_identity": {
+          "body": "Identifica a este negocio en sus registros y reportes.",
+          "title": "Agrega el RNC o la cédula"
+        },
+        "receipt_reading": {
+          "body": "Cuadrao lee tus facturas, recibos y PDF y extrae sus datos.",
+          "title": "Activar lectura de documentos"
+        },
+        "receiving_address": {
+          "body": "Reenvía facturas y recibos a una dirección propia.",
+          "title": "Activa el correo de recepción"
+        },
+        "team": {
+          "body": "Da acceso al contador o al equipo.",
+          "title": "Invita al equipo"
+        },
+        "whatsapp": {
+          "body": "Envía documentos desde tu teléfono.",
+          "title": "Conecta WhatsApp"
+        }
+      },
+      "title": "Configurar negocio"
+    },
+    "inicio": {
+      "attention": {
+        "clear_body": "Nada espera tu revisión.",
+        "clear_title": "Todo al día",
+        "error": "No pudimos cargar lo pendiente.",
+        "first_day_add": "Agregar un documento",
+        "first_day_body": "Cada factura o recibo nuevo aparece aquí listo para revisar.",
+        "first_day_title": "Aquí verás lo que espera tu revisión.",
+        "loading": "Cargando la Bandeja",
+        "resolve": "Resolver",
+        "review": "Revisar",
+        "see_all": "Ver todo",
+        "title": "Necesita atención",
+        "untitled": "Documento sin nombre",
+        "whatsapp_photo": "Foto por WhatsApp"
+      },
+      "copy_review": "pending_lucas",
+      "month": {
+        "expenses": "Gastos",
+        "first_day": "Las cifras se llenan cuando apruebes tus primeros documentos.",
+        "fiscal_one": "Faltan datos fiscales en 1 registro",
+        "fiscal_other": "Faltan datos fiscales en {{count}} registros",
+      "fiscal_purchases_one": "Faltan datos fiscales en 1 compra",
+      "fiscal_purchases_other": "Faltan datos fiscales en {{count}} compras",
+      "fiscal_sales_one": "Faltan datos fiscales en 1 venta",
+      "fiscal_sales_other": "Faltan datos fiscales en {{count}} ventas",
+        "in_bandeja_one": "1 en la Bandeja",
+      "in_bandeja_other": "{{count}} en la Bandeja",
+        "included": "Documentos incluidos: {{counted}} de {{total}}",
+        "income": "Ingresos",
+        "itbis_purchases": "ITBIS en compras",
+        "itbis_sales": "ITBIS en ventas",
+        "net": "Resultado neto",
+        "review": "Revisar",
+        "see": "Ver",
+        "terms": {
+          "expenses": "Compras y gastos aprobados del mes, sin ITBIS.",
+          "fiscal": "El RNC o el NCF que el 606 o el 607 necesita.",
+          "income": "Ventas aprobadas del mes, sin ITBIS.",
+          "itbis_purchases": "ITBIS pagado en tus compras aprobadas.",
+          "itbis_sales": "ITBIS cobrado en tus ventas aprobadas.",
+          "net": "Ingresos menos gastos aprobados del mes, sin ITBIS."
+        },
+        "under_one": "menos de {{amount}}"
+      }
     },
     "add_menu": {
       "more": "Más acciones"
@@ -3292,7 +3635,10 @@
       "write_help": "Qué compraste o vendiste, cuánto, cuándo y cómo pagaste. Lo revisas en la Bandeja antes de aprobar.",
       "write_back": "Subir archivos",
       "write_save": "Guardar",
-      "write_empty": "Escribe qué pasó antes de guardar.",
+      "write_type": {
+        "copy_review": "pending_lucas",
+        "label": "¿Es una compra o una venta?"
+      },
       "typed_kind": "Escrito",
       "typed_saving": "Guardando…",
       "typed_saved": "Guardado en la Bandeja",
@@ -3821,7 +4167,6 @@
       "closed_status": "Cerrado",
       "deadline": "Puedes reabrirlo antes del {{purgeDate}} a las {{purgeTime}} (hora de RD).",
       "deletion": {
-        "blocked": "Primero transfiere o cierra tus negocios.",
         "closed_warning": "{{businessName}} está cerrado. Si borras tu cuenta, nadie podrá reabrirlo y sus datos y comprobantes se borrarán el {{purgeDate}} a las {{purgeTime}} (hora de RD).",
         "failed": "No pudimos revisar tus negocios. Intenta otra vez.",
         "warning": "Eres el único dueño de {{businessName}}. Transfiérelo o ciérralo antes de borrar tu cuenta."
@@ -3863,7 +4208,7 @@
       "reopen_access": "Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes.",
       "transfer": {
         "accept": "Aceptar transferencia",
-        "accept_body": "Serás el dueño. Solo tú podrás aprobar, cerrar el negocio y dar o quitar accesos. {{ownerName}} podrá seguir editando. La lectura automática de recibos se apaga hasta que tú la actives. No se puede deshacer.",
+        "accept_body": "Serás el dueño. Solo tú podrás aprobar, cerrar el negocio y dar o quitar accesos. {{ownerName}} podrá seguir editando. La lectura automática de documentos se apaga hasta que tú la actives. No se puede deshacer.",
         "accept_title": "¿Aceptar {{businessName}}?",
         "accepted": "Transferencia completada",
         "cancelled": "Transferencia retirada",
@@ -3890,44 +4235,19 @@
       }
     },
     "month_close": {
-      "checklist_title": "Para cerrar {{month}}",
-      "checklist_left_one": "falta {{count}}",
-      "checklist_left_other": "faltan {{count}}",
-      "checklist_review_one": "{{count}} por revisar en la Bandeja",
-      "checklist_review_other": "{{count}} por revisar en la Bandeja",
-      "checklist_fiscal_one": "Completa el RNC o NCF de {{count}} documento",
-      "checklist_fiscal_other": "Completa el RNC o NCF de {{count}} documentos",
       "placeholder": {
-        "checklist_fiscal_data_one": "Completa los datos del 606 o 607 de {{count}} documento",
-        "checklist_fiscal_data_other": "Completa los datos del 606 o 607 de {{count}} documentos"
+        "copy_review": "pending_lucas",
+        "itbis_purchases_label": "ITBIS en compras",
+        "itbis_sales_label": "ITBIS en ventas"
       },
-      "checklist_settle_one": "Marca {{count}} documento como cobrado o pagado",
-      "checklist_settle_other": "Marca {{count}} documentos como cobrados o pagados",
-      "checklist_overdue_one": "{{count}} vencido",
-      "checklist_overdue_other": "{{count}} vencidos",
       "collections_title": "Cobros y pagos",
-      "finance_title": "Finanzas",
       "overdue_count_one": "{{count}} vencida",
       "overdue_count_other": "{{count}} vencidas",
       "overdue_included_one": "Incluye {{count}} vencida",
       "overdue_included_other": "Incluye {{count}} vencidas",
-      "record_collection": "Registrar cobro",
-      "record_payment": "Registrar pago",
-      "checklist_required": "Necesario para cerrar el mes",
-      "filing_ready": "Ya tienes todo para el 606 y el 607.",
       "nothing_open": "Todo al día",
       "nothing_open_body": "Nadie te debe y no le debes a nadie.",
-      "checklist_ready": "Todo listo para cerrar {{month}}.",
-      "checklist_can_close": "Puedes cerrar {{month}}.",
-      "checklist_rate": "Los montos en {{codes}} pendientes de tasa no se incluyen en el 606/607.",
-      "checklist_rate_plain": "Los montos en moneda extranjera pendientes de tasa no se incluyen en el 606/607.",
       "action_review": "Revisar",
-      "action_see": "Ver",
-      "action_which": "Ver cuáles",
-      "action_hide": "Ocultar",
-      "close_after_steps_one": "Cuando termines el paso que falta, podrás cerrar {{month}}.",
-      "close_after_steps_other": "Cuando termines los {{count}} pasos, podrás cerrar {{month}}.",
-      "close_named": "Cerrar {{month}}",
       "figure_unknown": "Todavía no se puede calcular.",
       "net_waits_one": "Falta marcar {{count}} documento",
       "net_waits_other": "Falta marcar {{count}} documentos",
@@ -3953,8 +4273,10 @@
       "next_month": "Mes siguiente",
       "previous_month": "Mes anterior",
       "itbis_cobrado": "ITBIS cobrado",
-      "itbis_credit_label": "Saldo a favor de ITBIS",
-      "itbis_label": "ITBIS a pagar",
+      "approved_figures": {
+        "copy_review": "approved",
+        "net_detail": "Ingresos menos gastos aprobados"
+      },
       "receipts_failed": "No pudimos cargar el conteo de recibos. Aún no se puede cerrar el mes.",
       "receipts_loading": "Cargando el conteo de recibos. Aún no se puede cerrar el mes.",
       "receipts_unknown": "El conteo de recibos no está disponible. Aún no se puede cerrar el mes.",
@@ -3965,11 +4287,6 @@
       "payable_empty": "Todo pagado",
       "payable_empty_body": "No tienes cuentas esperando pago.",
       "pending_today": "Pendiente hoy",
-      "locked_title": "Documentos de este mes",
-      "status_pendiente": "Pendiente",
-      "status_cobrado": "Cobrado",
-      "status_pagado": "Pagado",
-      "status_vencida": "Vencida",
       "kind_invoice": "Factura",
       "kind_receipt": "Gasto",
       "marked_cobrado": "Factura de {{name}} cobrada.",
@@ -3981,23 +4298,9 @@
       "undo_failed": "No pudimos deshacer el cambio. Inténtalo de nuevo.",
       "mark_cobrado_named": "Marcar cobrado, {{name}}",
       "mark_pagado_named": "Marcar pagado, {{name}}",
-      "close_confirm_title": "¿Cerrar este mes?",
-      "close_confirm_body": "El mes queda solo para consulta. Los estados no se pueden cambiar.",
-      "close_confirm_action": "Sí, cerrar mes",
-      "close_back": "Volver",
-      "closed": "Mes cerrado",
-      "closed_on": "Cerrado el {{date}}.",
-      "reason_permission": "Marcar cobros, marcar pagos y cerrar el mes requiere permiso de aprobación.",
-      "reason_not_month": "Elige un mes de calendario para cerrarlo.",
-      "blocker_rnc": "{{name}} no tiene RNC",
-      "blocker_ncf": "{{name}} no tiene NCF ni e-CF",
-      "unreviewed_movements_one": "Tienes 1 movimiento sin revisar en {{month}}. Revísalo en la Bandeja antes de cerrar el mes.",
-      "unreviewed_movements_other": "Tienes {{count}} movimientos sin revisar en {{month}}. Revísalos en la Bandeja antes de cerrar el mes.",
       "choose_month": "Elegir mes",
       "currency_menu": "Moneda",
       "currency_menu_named": "Moneda: {{currency}}",
-      "currency_business": "Moneda del negocio",
-      "currency_others": "También hay movimientos en {{currencies}}.",
       "currency_announce": "Mostrando cifras en {{currency}}",
       "empty": "No hay facturas ni gastos en este mes.",
       "empty_title": "Este mes no tiene documentos",
@@ -4006,12 +4309,6 @@
       "mark_failed": "No pudimos guardar el cambio. El estado volvió al anterior.",
       "matched_cobrado": "Esta venta ya está igualada con un depósito del banco, así que cuenta como cobrada. Para cambiarlo, desiguálala en Transacciones.",
       "matched_pagado": "Este gasto ya está igualado con un cargo del banco, así que cuenta como pagado. Para cambiarlo, desiguálalo en Transacciones.",
-      "close_failed": "No pudimos cerrar el mes. Reintenta.",
-      "rnc": "RNC {{value}}",
-      "ncf": "NCF {{value}}",
-      "ecf": "e-CF {{value}}",
-      "missing_rnc": "Sin RNC",
-      "missing_ncf": "Sin NCF ni e-CF",
       "ncf_malformed": "NCF con error",
       "loading": "Cargando el mes",
       "open_items_beyond_one": "Y {{count}} más que no se muestra aquí.",
@@ -4031,18 +4328,10 @@
         "late_night": "Noche de enfoque",
         "morning": "Buenos días"
       },
-      "problem_one": "{{count}} con problema",
-      "problem_other": "{{count}} con problema",
-      "reading_one": "{{count}} todavía leyendo",
-      "reading_other": "{{count}} todavía leyendo",
       "title": "Mi negocio"
     },
     "page_intro": {
-      "activity": "Mira quién hizo cada cambio en este negocio y cuándo.",
-      "business": "Configura el perfil, el acceso y la recepción de este negocio.",
-      "inbox": "Todo lo que llega a este negocio, listo para revisar.",
-      "invoicing": "Crea y organiza las facturas de este negocio.",
-      "transactions": "Los gastos y las ventas de este negocio, en un solo lugar."
+      "business": "Configura el perfil, el acceso y la recepción de este negocio."
     },
     "period": {
       "all": "Todo",
@@ -4080,7 +4369,7 @@
       "alias_save": "Guardar dirección",
       "email_title": "Correo de recepción",
       "history_title": "Correos recibidos",
-      "reading_title": "Leer mis recibos automáticamente",
+      "reading_title": "Leer mis documentos automáticamente",
       "senders": {
         "action_error": "No se pudo guardar este remitente. Inténtalo de nuevo.",
         "authorize": "Autorizar",
@@ -4203,7 +4492,6 @@
       "rebind_failed": "No pudimos vincular este recibo. Inténtalo de nuevo.",
       "account": "Pagado desde",
       "amount": "Total",
-      "category": "Categoría",
       "choose": "Elegir",
       "confirm": "Confirmar gasto",
       "currency": "Moneda",
@@ -4215,7 +4503,7 @@
       "merchant": "Comercio",
       "prepare": "Preparar con IA",
       "prepare_failed": "No pudimos iniciar la preparación. Tu recibo está guardado. Reintenta.",
-      "reading_off": "Activa Leer mis recibos automáticamente en los ajustes de WhatsApp y vuelve a intentarlo.",
+      "reading_off": "Activa Leer mis documentos automáticamente en Lectura de documentos y vuelve a intentarlo.",
       "preparing": "Leyendo tu recibo. Puedes salir de esta página; el resultado te esperará en la bandeja.",
       "poll_stopped": "La lectura sigue en curso. Consulta el registro actual para ver el estado más reciente.",
       "saved_prepare_only": "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea.",
@@ -4399,7 +4687,6 @@
       "change": "Cambiar de negocio",
       "choose": "Elige un negocio",
       "client": "Cliente",
-      "client_cue": "Cliente: {{name}}",
       "role_editor": "Editar",
       "role_owner": "Dueño",
       "role_accountant": "Contador",
@@ -4534,6 +4821,7 @@
     "batch_success": "{{count}} invitaciones enviadas",
     "batch_success_one": "1 invitación enviada",
     "batch_title": "Invita a colaboradores",
+    "batch_unavailable_placeholder": "[placeholder] Las invitaciones no están disponibles.",
     "document_not_received": "Sin recibir",
     "document_received": "Recibido",
 

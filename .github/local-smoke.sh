@@ -9,7 +9,7 @@ cd "$ROOT_DIR"
 
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/argus-env.sh"
-argus_load_root_env >/dev/null || true
+argus_load_root_env >/dev/null || [ -z "${CUADRAO_LOCAL_ENV_STORE:-}" ]
 
 usage() {
   cat <<'USAGE'
@@ -70,10 +70,6 @@ done
 
 case "$WORKFLOW_MODE" in
   safe-off|proof-shadow)
-    ;;
-  real-workflow)
-    echo "real-workflow mode is not allowed for local smoke; use Render warmup/canaries for real workflow execution."
-    exit 2
     ;;
   *)
     echo "Unknown local smoke workflow mode: $WORKFLOW_MODE"
@@ -140,7 +136,7 @@ configure_local_smoke_env() {
 
   export NEXT_PUBLIC_MOCK_AUTH=true
   export NEXT_PUBLIC_ENABLE_SPANISH=true
-  export NEXT_PUBLIC_ARGUS_API_URL="${API_URL}/api/v1"
+  export NEXT_PUBLIC_CUADRAO_API_URL="${API_URL}/api/v1"
   export NEXT_PUBLIC_OMNISEARCH_ENABLED=true
 }
 
@@ -171,7 +167,7 @@ local_env_fingerprint() {
       ARGUS_BACKTEST_REAL_WORKFLOW_TASK \
       NEXT_PUBLIC_MOCK_AUTH \
       NEXT_PUBLIC_ENABLE_SPANISH \
-      NEXT_PUBLIC_ARGUS_API_URL \
+      NEXT_PUBLIC_CUADRAO_API_URL \
       NEXT_PUBLIC_OMNISEARCH_ENABLED
     do
       printf "%s=%s\n" "$key" "${!key:-}"

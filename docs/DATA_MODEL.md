@@ -50,6 +50,14 @@ Render/FastAPI owns orchestration and compute, not long-term state. Render
 Workflows own temporary backtest execution, but job lifecycle and result truth
 remain in Supabase.
 
+The schema is built from one baseline migration,
+`supabase/migrations/20261110160000_cuadrao_baseline.sql` (#1890), plus any
+migration after it. The files it replaced are kept, unchanged, in
+`supabase/migrations_archive/` as history; the migration names this document
+cites live there. `docs/reports/evidence/1890-baseline/` holds the inventory of
+every object, its owner, and the schema diff that proves the baseline equals
+the history.
+
 ---
 
 ## Cuadrao record design principles
@@ -537,10 +545,8 @@ marketing-email ledger.
   `requested` row becoming an enabled `user` must already have a matching
   delivery record. No other lifecycle transition can fire it, so it needs no
   backfill for rows that predate it.
-- `delete_private_alpha_access_welcome_artifacts(email)` is the
-  service-role-executable orphan cleanup: it removes claim and delivery rows
-  only when no allowlist row exists for the email. The canary teardown and
-  offboarding repairs use it; it refuses while the email is still listed.
+- `delete_private_alpha_access_welcome_artifacts(email)` was dropped by
+  `20261110160100_drop_unowned_objects.sql` (#1890); no code called it.
 
 ## 6.2 private_alpha_access_welcome_claims
 
@@ -943,11 +949,11 @@ advancing a cursor. Read RPCs accept at most 100 owned conversation ids and the
 activity reconciler settles at most 20 stale turns across that batch using the
 existing lifecycle evidence predicate.
 
-The migration baseline is idempotent and keyset-batched at 500 conversations.
-It marks only the newest eligible terminal boundary at or before the captured
-migration-start cutoff as read. Activity completing after that cutoff remains
-unread. The baseline and later activity reads do not update conversation,
-message, job, Run, artifact, or sort timestamps.
+The one-time read-state backfill, `baseline_conversation_activity_read_states`,
+ran when the table was created and marked only the newest eligible terminal
+boundary at or before its cutoff as read. Nothing called it again, and
+`20261110160100_drop_unowned_objects.sql` dropped it (#1890). Activity reads do
+not update conversation, message, job, Run, artifact, or sort timestamps.
 
 ---
 
@@ -1379,8 +1385,9 @@ Current behavior:
 
 Analytics events. Each is one Pydantic model (`extra="forbid"`, strict) whose
 fields are exactly the properties listed. Every field is a literal value, a
-boolean, a bounded integer, a calculation name checked against the catalog, or
-`cohort`. `tests/test_analytics_events.py`
+boolean, a bounded integer, a calculation name checked against the catalog,
+`cohort`, the hashed Business id `business_hash`, or a bounded tuple of
+literal values. `tests/test_analytics_events.py`
 fails if any field could hold free text or a money-formatted value (A4).
 
 | Event | Properties | Fires (package) |
@@ -1395,7 +1402,36 @@ fails if any field could hold free text or a money-formatted value (A4).
 | `installed_app_opened` | none | standalone launch, once per session (0C-5) |
 | `landing_viewed` | `language`: `en` or `es-419`; `cohort` for guests with a stored cohort only | once per landing view (0C-5) |
 | `receipt_shared` | `calculator`: a registered calculation name, `backtest`, `multiple`, or `none` | a real share-link insert (0C-8) |
+| `business_document_received` | `channel`: `upload`, `note`, `email`, or `whatsapp`; `file_type`: an extension `SOURCE_MEDIA_TYPES` names, absent for a typed note; `page_count`: `1` for an image, absent when not known before the read; `size_bucket`: `under_100kb`, `100kb_to_1mb`, `1mb_to_5mb`, or `5mb_or_more` | a new Business document is saved; a repeat of the same bytes is not counted |
+| `business_document_read` | `result`: `read`, `failed`, or `unsure`; `failure_reason`: a receipt `Attention` value (for example `ai_unavailable`, `interrupted`, `unreadable`, `not_a_receipt`, `check_details`), absent when `read`; `latency_ms`: 0 to 3600000; `model_tier`: an OpenRouter model tier; `input_tokens`, `output_tokens`: 0 to 10000000; `cost_micro_usd`: 0 to 100000000 | a read that reached the model settles, once per provider-admitted attempt |
+| `business_document_needs_review` | `reason_codes`: one or more `BandejaReason` values, in the Listos rule's order | a read leaves a draft that is not Listos, or the model's answer cannot become a draft |
+| `business_record_approved` | `filled_fields` and `filled_count` cover record fields that had no known value in the read and have one at approval. `corrected_fields` and `corrected_count` cover fields whose known value changed or was removed. Lists carry field names (`FactField` and the fiscal fields). All four properties are omitted when there is no extractor read. `seconds_to_approve` measures time from first arrival to approval | a person's approval records the draft, once (not on a replay) |
+| `business_record_recorded` | `direction`: `compra` or `venta`; `document_type`: `recibo` or `venta` | with `business_record_approved` |
+| `business_records_exported` | `format`: `excel` or `csv`; `scope`: `lo_que_ves` or `dgii`; `row_count`: 0 to 1000000 | an Excel or CSV export is built |
 
+- Business events are sent after the work they describe has committed, off the
+  request or read's thread, and never delay or fail it; a send failure logs
+  one warning. Each carries `business_hash`, the one-way hash of the Business
+  id (`argus_business_` and 32 hex digits, the same scheme as the actor hash
+  under its own prefix), so one Business's events group without group
+  analytics. `distinct_id` is the acting person's actor hash, or the owner's
+  for a read. Business events never carry document text or images, document
+  amounts, RNC, cédula, names, emails, phone numbers, addresses, razón social,
+  note text, file names, request bodies or IP addresses. Approval events
+  send the names of filled and corrected fields.
+- `cost_micro_usd` is Cuadrao's own provider cost for one read, summed with
+  `Decimal` from the read's route receipts (`usage_cost_usd`) and rounded half
+  to even to whole micro-dollars. It is absent when any receipt has no cost. It
+  is not a customer amount, so the rule that no customer amount leaves the app
+  still holds. Tokens follow the same rule.
+- Unhandled API exceptions and unhandled document read failures are sent to
+  the same project as PostHog's `$exception` event, behind the same token and
+  region check. The payload holds only the exception class name, the route
+  template or job name (`document_preparation`, `document_read_pull`), the
+  actor hash when known (else `argus_server`), the stack frames as module,
+  function and line number, and `$process_person_profile = false`. The
+  exception message, local variables, request bodies and headers are never
+  read. A refusal the Business rules raise during a read is not an exception.
 - `cohort` is the invite cohort code, `^[a-z]{2,12}-[a-z0-9]{4,8}$` (for
   example `piloto-7kq2`). The pattern is enforced by the model.
 - `calculator` is checked when the event is validated against the names
@@ -1439,7 +1475,8 @@ these objects; do not query them.
 Historical. `public.cuadrao_early_access_signups`, the `public.cuadrao_waitlist_*`
 functions, the `cuadrao_scheduler` schema with its three functions, the
 `cuadrao-waitlist-retention` and `cuadrao-waitlist-reminders` cron jobs, and the
-table's row in `argus_private.retention_policies` were created by
+table's row in `argus_private.retention_policies` (itself dropped by
+`20261110160100_drop_unowned_objects.sql`, #1890) were created by
 `20260920000000_cuadrao_early_access_signups.sql`,
 `20261017010000_personal_waitlist_confirmation.sql`,
 `20261017020000_waitlist_supabase_scheduling.sql`,
@@ -2363,8 +2400,7 @@ subject on `research_searches`.
 - **Window lookup index**:
   `(visitor_key, resource, period_end)`
 - RLS is enabled with no policies. Only `service_role` has table access and may
-  execute `settle_visitor_usage`, `claim_research_usage`,
-  `claim_guest_compute_usage`, `claim_registered_compute_usage`, or
+  execute `settle_visitor_usage`, `claim_research_usage`, or
   `purge_expired_visitor_usage`.
 - Expired rows are disposable operational data, but `period_end` is not a timer
   and nothing in the database acts on it. The row has no owner to cascade from,
@@ -2417,30 +2453,13 @@ subject on `research_searches`.
   thorough-job replays never call the claim. Claim failures degrade to the honest
   research-capacity response and do not enter the provider path.
 
-### Guest compute policy
-- A guest's ordinary chat turns claim one `guest_compute_turns` unit against
-  the visitor digest and one unit against `session:<guest user id>` in the
-  same transaction, at turn start. The guest hits whichever daily ceiling
-  is lower. The visitor ceiling is 300. The session ceiling defaults to 100
-  (`CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING`) so one workspace cannot reset
-  the cap by changing IP. A claim that is admitted stands if the turn later
-  errors; there is no release. A claim RPC error is not treated as
-  exhaustion; the guest sees a short retry, not the daily-cap 429.
-  Migration
-  `20260925120000_claim_guest_compute_usage.sql` adds the claim. The visitor
-  identity is the trusted client IP header (`CF-Connecting-IP` by default,
-  `ARGUS_TRUSTED_CLIENT_IP_HEADER`), never the first `X-Forwarded-For` hop.
-  IPv6 visitor keys group by `/64`.
-
-### Signed-in compute policy
-- A signed-in account's ordinary chat turns claim one
-  `account_compute_turns` unit against `user:<account id>` at turn start.
-  The daily ceiling defaults to 200 (`CUADRAO_REGISTERED_DAILY_TURN_CEILING`).
-  A claim that is admitted stands if the turn later errors; there is no
-  release. A claim RPC error is not treated as exhaustion; the user sees a
-  short retry, not the daily-cap 429. Migration
-  `20260925140000_claim_registered_compute_usage.sql` adds the claim.
-  `GET /me/usage` never projects this counter.
+### Compute ceilings (retired)
+- Nothing claims a `guest_compute_turns` or `account_compute_turns` unit.
+  The guest and signed-in claims
+  (`20260925120000_claim_guest_compute_usage.sql`,
+  `20260925140000_claim_registered_compute_usage.sql`) lost their callers with
+  the chat routes (#1625), and `20261110160100_drop_unowned_objects.sql`
+  dropped both functions (#1890). No row with either resource is written.
 
 ---
 
@@ -3281,7 +3300,7 @@ asset commands until an accepted response or explicit failure resolution.
 ## Apple sign-in credentials
 
 `public.apple_sign_in_credentials`
-(`supabase/migrations/20261003150000_apple_sign_in_credentials.sql`) holds one
+(`supabase/migrations_archive/20261003150000_apple_sign_in_credentials.sql`) holds one
 row per person who signed in with Apple while
 `CUADRAO_APPLE_REVOCATION_CAPTURE_ENABLED` was on: `user_id` (primary key, the
 verified session's user), `client_id` (the Apple client the token was issued
@@ -3464,14 +3483,13 @@ Proven by `tests/test_whatsapp_intake_postgres.py`.
 
 ### Business name prompt
 
-`spaces.business_name_prompt_seen_at` stores the first owner visit that claimed
-its optional naming prompt. Migration `20261016142927_business_name_prompt.sql`
-adds the nullable timestamp without changing existing names, grants or RLS.
-The conditional update requires the authenticated owner, the currently open
-Business, its expected ID, a default name and a null timestamp. Concurrent
-claims produce one winner. Renaming preserves the timestamp. Client roles have
-no direct write grant on this state. Required naming for owner invites and
-exports derives from the current name, independently of this timestamp.
+`spaces.business_name_prompt_seen_at` recorded the first owner visit that
+claimed the optional naming prompt, added by migration
+`20261016142927_business_name_prompt.sql` without changing existing names,
+grants or RLS. The prompt and its claim are gone (#1817): nothing reads or
+writes the column now, and existing values stay. Client roles have no direct
+read or write grant on it. Required naming for owner invites and exports derives
+from the current name.
 
 ### Business saved report views
 
@@ -3596,7 +3614,7 @@ storage.
 
 ### Business receipt reading consent and attention
 
-`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `20261103040226_business_receipt_reading_scope_2.sql` widens the scope check from 1 to 1 or 2 and changes no row. Scope 2 is the one sentence the Recepción card shows; `SCOPE_VERSION` in `src/argus/domain/business/receipt_consent.py` names the current scope. A generation of an earlier scope reads as off, and every read bound to it is refused, until the owner accepts the current sentence. That acceptance revokes the earlier generation and records a new one. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
+`20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `20261103040226_business_receipt_reading_scope_2.sql` widens the scope check from 1 to 1 or 2 and changes no row. `20261109070949_business_receipt_reading_scope_3.sql` widens it to 1, 2 or 3 and changes no row; scope 3 names invoices, receipts and PDFs. `SCOPE_VERSION` in `src/argus/domain/business/receipt_consent.py` names the current scope. The stored disclosure is the record of the words shown; a generation counts by its scope version, not by those words. A generation of an earlier scope reads as off, and every read bound to it is refused, until the owner accepts the current scope. That acceptance revokes the earlier generation and records a new one. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
 
 This table is the only Business reading consent. Two earlier migrations stay in the repo because staging already applied them, so a fresh database and staging run the same files in order and end identical. `20261014090000_business_email_receipt_reading_consent.sql` created a per-address `business_email_ai_consents` table and a unique index `business_email_routes_consent_key` on `business_email_routes(id, space_id, principal_id)`. `20261014120000_business_ai_consents.sql` drops that table, its trigger function and that index, and adds `business_ai_consents`, a per-Business owner setting (service role only, RLS with no policies). No code reads or writes `business_ai_consents`. It is empty, superseded by `business_receipt_reading_consents`, and must not gain a reader.
 
@@ -3747,6 +3765,7 @@ open items read the date from the resolution, not from the revision.
 | `business_client_grants` | Canonical accepted membership: stable ID, Business, grantee, issuer, `business_role` (`owner`, `admin`, `editor`, `viewer`), creation/expiry/revocation and `membership_version`. `capabilities` is a trigger-derived legacy projection, never a second authority. Multiple Owners are allowed; active Owner grants cannot expire. Revocation is terminal. Membership mutations write the Business serialization version and a deferred constraint preserves at least one Owner for an open Business, including concurrent direct SQL under read committed and repeatable read. |
 | `business_access_invites` | Explicit recipient acceptance for all new roles and accounts: Business, actual issuer, lowercased email, optional known `recipient_id`, `requested_role`, seven-day expiry, acceptance/grant and revocation. `target_grant_id`/`target_version` bind a pending upgrade to an unchanged membership. `supersedes_id` binds an expired resend to one new generation. Accepted/revoked rows and expired generations cannot revive. `delivery_state` preserves pending/sending/accepted/failed/not_configured/uncertain independently of membership acceptance. While public account access is closed and `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED` is true (default false), a pending row on an open Business admits exactly its `email` to sign-up and sign-in, and the accepted grant admits it until revoked or the Business closes (section 6). Existing server-only RLS remains. |
 | `business_consent_acceptances` | One row per person (`user_id`) and wording (`copy_version`, 16 hex characters the web derives from the words a person accepts: title, body, opt-in and Continuar, in Spanish and English) with the Business they worked in (`space_id`) and the database's `accepted_at`. Never edited. Row security: a signed-in person reads only their own rows and inserts only their own row, naming a Business they hold a live grant on, without choosing the time; the API writes as the service role. Deleting the person or the space cascades the row. Migration `20261019050000_business_consent_acceptances.sql`. |
+| `business_guide_dismissals` | One row per registered person (`user_id`) and guide (`card_id`, 1 to 64 lowercase letters, digits or hyphens). The database sets `dismissed_at` on the first dismissal. The row follows the person across Businesses and is deleted with the person. Row-level security allows a registered person to read or insert only their own row. Insert privileges cover only `user_id` and `card_id`. The API uses the server pool and keys both operations to the signed-in person. Migration `20261108204256_business_guide_dismissals.sql`. |
 | `business_sources` | Stable source identity and idempotent `(space_id, source_key)` for one original message, attachment, agent proposal or human `web_action`. Web actions require channel `web` and retain immutable canonical submitted command text, with server-derived source key and actual `member_set` provenance. Direct source updates/deletes fail; owning connection/client deletion cascades through source links and answered questions under the existing deletion policy. Message/proposal/web-action text is immutable; attachment references the existing source connection rather than copying bytes or extraction. A composite FK prevents another space's connection. |
 | `business_draft_sources` | Many-to-many source relationships pinned by composite FKs to the same client as the canonical candidate. No facts. |
 | `business_draft_revisions` | Append-only `(draft_id, version)` before/after typed fact snapshots, actual actor and grant/issuer display provenance, source IDs, optional turn key and timestamp. Every source ID is checked and locked against the same client on insertion. They are readable history, never an alternative current draft. Updates and direct deletes fail; deletion of the owning candidate/space cascades. |
@@ -3797,6 +3816,20 @@ retain immutable typed declaration snapshots alongside the existing facts,
 actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
+
+Migration `20261110000127_business_legal_name.sql` adds the Business's legal name
+(razón social) to the same `spaces` row: `business_legal_name` (1 to 250 characters,
+trimmed), `business_legal_name_confirmed_by` (references `auth.users`, ON DELETE SET
+NULL) and `business_legal_name_confirmed_at`. The check `business_legal_name_confirmed`
+requires all three null, or a Business row with a stored tax id, a trimmed name and a
+confirmation time. Only `PUT /business/fiscal-profile/legal-name` writes them, for the
+stored tax id and only when the DGII registry lists it; the name stored is the registry
+row's own, never one the client sends; a change or clear of the tax id
+clears them. The confirmation is also a `set_business_legal_name` action receipt; the
+migration adds it to `business_action_receipts_unplanned_command` and adds
+`business_legal_name_human_commands`, so only a member with no turn records it. The
+columns keep the existing server-only privileges of `spaces`: no client role may read or
+write them. The registry itself is unchanged.
 
 Migration `20261021020000_business_country.sql` adds `spaces.country` (`DO`,
 `US` or `CA`, default `DO`) and `spaces.currency` (ISO 4217, three upper-case
@@ -4385,15 +4418,15 @@ to a database that already holds the table. `docs/runbooks/dgii-rnc-import.md`
 has the size check. Re-running the swap
 with the same load contents produces the same registry. Proven by
 `tests/test_dgii_rnc_postgres.py`. Migrations
-`supabase/migrations/20261018190000_dgii_rnc_registry.sql` and
-`supabase/migrations/20261102204200_dgii_rnc_csv_columns.sql` and
-`supabase/migrations/20261102225200_dgii_rnc_rename_swap.sql`.
+`supabase/migrations_archive/20261018190000_dgii_rnc_registry.sql` and
+`supabase/migrations_archive/20261102204200_dgii_rnc_csv_columns.sql` and
+`supabase/migrations_archive/20261102225200_dgii_rnc_rename_swap.sql`.
 
 ## Tables without a detailed section
 
-These live tables exist in the migrations but have no section above yet. The migration is the schema.
+These live tables exist in the migrations but have no section above yet. The baseline is the schema; the file named here first created the table.
 
-| Table | Area | Created in `supabase/migrations/` |
+| Table | Area | Created in `supabase/migrations_archive/` |
 | --- | --- | --- |
 | `checkpoint_migrations` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:6` |
 | `checkpoints` | Chat runtime checkpointer | `20260608041032_secure_checkpoint_rls.sql:10` |

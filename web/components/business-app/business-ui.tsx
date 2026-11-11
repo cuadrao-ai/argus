@@ -150,12 +150,9 @@ export function canAddRecords(chosen: { capabilities: readonly string[] } | null
   return Boolean(chosen?.capabilities.includes("prepare"));
 }
 
-/**
- * Who may configure the Business (its details, access, reception and setup): the server's `manage` permission
- * on a live Business; in the local preview, which carries no permissions, its owner.
- */
-export function canManageBusiness(chosen: { role: string; permissions?: readonly string[] } | null | undefined, live: boolean): boolean {
-  return live ? Boolean(chosen?.permissions?.includes("manage")) : chosen?.role === "owner";
+/** Who may configure the Business (its name, details, access, reception and setup): the server's `manage` permission. */
+export function canManageBusiness(chosen: { permissions?: readonly string[] } | null | undefined): boolean {
+  return Boolean(chosen?.permissions?.includes("manage"));
 }
 
 /** The owner is looking: their own Business, not a client's opened through a grant. */

@@ -56,17 +56,28 @@ def _choice(names: dict[str, str], code: str | None) -> DgiiChoice | None:
     return DgiiChoice(code=code, label=names[code]) if code else None
 
 
-def purchase_606(
-    approved: FiscalRecord, family: str | None, marks: BusinessFacts
-) -> Purchase606 | None:
+def current_marks(approved: FiscalRecord, draft: BusinessFacts | None) -> BusinessFacts:
+    """The Personal mark and the 606 answer change after approval; every reader
+    takes them from the draft as it stands now, or the approved facts without one."""
+
+    return draft if draft is not None else approved.facts
+
+
+def purchase_606(approved: FiscalRecord, marks: BusinessFacts) -> Purchase606 | None:
     """The 606 answers the export would carry for this record, from the same
     declaration and admission rules, so Registros and the TXT never disagree.
     A suggested tipo de gasto nobody confirmed counts as missing, as in the export."""
 
+    found = direction(approved.document_type)
     admitted = personal_mark_admits(
         is_personal(marks), fiscal_inclusion(marks), sale=False
     )
-    if family != "purchase" or not admitted or is_sin_comprobante(approved.facts):
+    if (
+        found is None
+        or found.family != "purchase"
+        or not admitted
+        or is_sin_comprobante(approved.facts)
+    ):
         return None
     declaration = confirmed_declaration(approved)
     purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
@@ -125,9 +136,7 @@ def project(
 
     approved = recorded.approved
     facts = approved.facts
-    # The Personal mark and the 606 answer change after approval; every reader
-    # takes them from the draft as it stands now.
-    marks = draft.facts if draft else facts
+    marks = current_marks(approved, draft.facts if draft else None)
     activity = json.loads(recorded.activity_json)
     settled = bool(
         approved.draft_id
@@ -216,6 +225,13 @@ def project(
             separators=(",", ":"),
         ).encode()
     ).hexdigest()
+    purchase = purchase_606(approved, marks)
+    declaration = confirmed_declaration(approved)
+    purchase_amounts = (
+        declaration
+        if purchase is not None and isinstance(declaration, PurchaseDeclaration)
+        else None
+    )
     return ReportRecord(
         row_id=f"draft:{draft.event.id}"
         if draft
@@ -231,6 +247,9 @@ def project(
         workflow_blockers=blocked,
         currency=currency,
         gross_amount=gross,
+        itbis_amount=fact_value(approved, "itbis"),
+        goods_amount=purchase_amounts.goods_amount if purchase_amounts else None,
+        services_amount=purchase_amounts.services_amount if purchase_amounts else None,
         recorded_amount=str(activity["amount"]),
         recorded_currency=recorded.row.currency,
         money_kind=recorded.row.kind,
@@ -256,7 +275,7 @@ def project(
         ),
         personal=is_personal(marks),
         include_606=fiscal_inclusion(marks),
-        dgii_606=purchase_606(approved, family, marks),
+        dgii_606=purchase,
         document_kind=document_kind,
         fiscal_classification=fiscal_number[:3]
         if fiscal_number
@@ -284,14 +303,21 @@ def with_export_verdicts(
     verdicts: dict[str, tuple[str, ...] | None],
     exported: frozenset[str],
 ) -> tuple[ReportRecord, ...]:
-    """A recorded row is ready only when the export carries it as a line, and
-    exported once a downloaded TXT froze that line (``exported`` names the
-    activities with a frozen line)."""
+    """Current fiscal data uses the current verdict. Export stage separately
+    keeps the history of downloaded lines."""
 
     def judged(row: ReportRecord) -> ReportRecord:
         if row.stage != "ready_for_export":
             return row
         identifier = row.linked_activity_ids[0]
+        if identifier in verdicts:
+            row = row.model_copy(
+                update={
+                    "fiscal_data": "complete"
+                    if verdicts[identifier] is None
+                    else "missing"
+                }
+            )
         if identifier in exported:
             return row.model_copy(update={"stage": "exported", "export_line": True})
         if identifier not in verdicts:

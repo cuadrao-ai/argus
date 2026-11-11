@@ -8,7 +8,7 @@ import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { businessReceivingAddress } from "@/lib/business-email";
 import { useReceivingChannels } from "../business-context";
 import { useBusiness } from "../BusinessWorkspace";
-import { primaryButtonClass } from "../business-ui";
+import { canAddRecords, primaryButtonClass } from "../business-ui";
 import { copyText, WrappingAddress } from "../foundation/CopyButton";
 import { showToast } from "../foundation/toasts";
 import styles from "./reception.module.css";
@@ -29,7 +29,7 @@ export default function ReceptionAddMenu({ addInBar = false }: { addInBar?: bool
   const open = emailAvailable && position !== null;
   const current = loaded?.source === source && loaded.revision === revision ? loaded : null;
   const address = current?.address;
-  const add = !addInBar && chosen?.role !== "accountant" ? actions.create.find(action => action.id === "upload_receipt") : undefined;
+  const add = !addInBar && canAddRecords(chosen) ? actions.create.find(action => action.id === "upload_receipt") : undefined;
   const close = () => { setPosition(null); trigger.current?.focus(); };
   useEffect(() => {
     if (!add || !emailAvailable) { setLoaded(null); setPosition(null); return undefined; }

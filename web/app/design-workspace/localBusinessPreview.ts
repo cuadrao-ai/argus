@@ -161,12 +161,16 @@ export function withLocalBusinessPreview(
       country: current()!.country,
     }),
     workspace: async () => ({
+      records_default_currency: "DOP",
       country: current()!.country,
       accounts: [],
       currencies: [],
       assistant_available: false,
       chat_available: false,
       invoicing_available: false,
+      // The server's default: Por cobrar and Por pagar are off.
+      settlement_available: false,
+      activity_available: true,
       receipt_limits: {
         max_bytes: 10 * 1024 * 1024,
         media_types: ["application/pdf", "image/jpeg", "image/png"],
@@ -202,6 +206,7 @@ export function withLocalBusinessPreview(
     fiscalProfile: async () => ({
       name: current()!.name,
       tax_id: null,
+      legal_name: null,
       can_edit: true,
     }),
   };

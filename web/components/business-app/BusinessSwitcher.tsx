@@ -168,7 +168,7 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
     </button>
     {held.length ? <div className="mt-2 border-t border-black/10 pt-2 dark:border-white/10">
       <p className="px-2 py-1 text-[12px]">{t("business.lifecycle.closed_group")}</p>
-      {held.map(space => <a key={space.grant_id} role="menuitem" href={`/biz?lifecycle=manage&business=${encodeURIComponent(space.space_id)}`} className="block min-h-11 rounded-item px-2 py-2 text-[14px] text-[#56635e] dark:text-white/70">{space.name}<span className="block text-[12px]">{t("business.lifecycle.deadline", businessDeadlineParts(space.reopen_until, i18n.resolvedLanguage ?? resolveLanguage({})))}</span></a>)}
+      {held.map(space => <a key={space.grant_id} role="menuitem" href={`/biz?lifecycle=manage&business=${encodeURIComponent(space.space_id)}`} className="block min-h-11 rounded-item px-2 py-2 text-[14px] text-[#56635e] dark:text-white/70">{formatBusinessName(space.name, fallback)}<span className="block text-[12px]">{t("business.lifecycle.deadline", businessDeadlineParts(space.reopen_until, i18n.resolvedLanguage ?? resolveLanguage({})))}</span></a>)}
     </div> : null}
     {canSwitch ? (
       <button

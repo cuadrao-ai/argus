@@ -1,0 +1,7 @@
+{
+  "smtp_sender_name": "Cuadrao",
+  "rate_limit_email_sent": 30,
+  "mailer_notifications_password_changed_enabled": true,
+  "mailer_notifications_email_changed_enabled": true,
+  "mailer_notifications_phone_changed_enabled": false
+}

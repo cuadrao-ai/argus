@@ -65,6 +65,75 @@ function intersect(element: Element) {
   for (const callback of intersections) callback([entry], observerInstance);
 }
 
+const refreshStates = [
+  { active: false, reading: false, hidden: false, requests: 0, delay: null },
+  { active: false, reading: true, hidden: false, requests: 1, delay: 5000 },
+  { active: true, reading: false, hidden: false, requests: 1, delay: 15000 },
+  { active: true, reading: true, hidden: false, requests: 1, delay: 5000 },
+  { active: false, reading: false, hidden: true, requests: 0, delay: null },
+  { active: false, reading: true, hidden: true, requests: 0, delay: null },
+  { active: true, reading: false, hidden: true, requests: 0, delay: null },
+  { active: true, reading: true, hidden: true, requests: 0, delay: null },
+];
+
+test.each(["focus", "visibilitychange"].flatMap((event) => refreshStates.map((state) => ({ event, ...state }))))(
+  "$event refresh with active=$active reading=$reading hidden=$hidden",
+  async ({ event, active, reading, hidden: pageHidden, requests, delay }) => {
+    hidden = pageHidden;
+    const timer = clock();
+    let asked = 0;
+    const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async () => { asked++; return { items: [], activity: counts }; } };
+    function Harness() { useReceiptInboxRefresh({ source, active, reading, businessKey: "A", clock: timer.schedule, onRefresh: () => {} }); return null; }
+    const page = await host();
+    try {
+      await act(async () => page.root.render(<Harness />));
+      assert.equal(asked, 0);
+      assert.equal(timer.delay(), delay);
+      await act(async () => (event === "focus" ? window : document).dispatchEvent(new Event(event)));
+      assert.equal(asked, requests);
+      assert.equal(timer.delay(), delay);
+      await timer.tick();
+      assert.equal(asked, requests * 2);
+    } finally {
+      await act(async () => page.root.unmount());
+      page.element.remove();
+      hidden = false;
+    }
+  },
+);
+
+test.each([
+  { active: true, reading: false, delay: 15000 },
+  { active: false, reading: true, delay: 5000 },
+])("refresh follows changes to active=$active reading=$reading and back to idle", async ({ active, reading, delay }) => {
+  hidden = false;
+  const timer = clock();
+  let asked = 0;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async () => { asked++; return { items: [], activity: counts }; } };
+  function Harness({ active, reading }: { active: boolean; reading: boolean }) { useReceiptInboxRefresh({ source, active, reading, businessKey: "A", clock: timer.schedule, onRefresh: () => {} }); return null; }
+  const page = await host();
+  try {
+    await act(async () => page.root.render(<Harness active={false} reading={false} />));
+    assert.equal(timer.delay(), null);
+    await act(async () => page.root.render(<Harness active={active} reading={reading} />));
+    assert.equal(timer.delay(), delay);
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    assert.equal(asked, 1);
+    await timer.tick();
+    assert.equal(asked, 2);
+    await act(async () => page.root.render(<Harness active={false} reading={false} />));
+    assert.equal(timer.delay(), null);
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    await timer.tick();
+    assert.equal(asked, 2);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+    hidden = false;
+  }
+});
+
 test("visible idle discovery uses 15 seconds, reading uses 5, and hidden/unmounted views stop", async () => {
   hidden = false;
   const timer = clock();
@@ -186,7 +255,7 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => ({ ...reading, disclosure: "Business B disclosure" }) };
   const page = await host();
   const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={context(source, () => { reloads++; })}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
-  const turnOn = () => [...page.element.querySelectorAll("button")].find((button) => button.textContent === "Turn receipt reading on");
+  const turnOn = () => [...page.element.querySelectorAll("button")].find((button) => button.textContent === "Turn on document reading");
   await act(async () => page.root.render(render(sourceA)));
   await act(async () => turnOn()?.click());
   assert.ok(document.body.textContent?.includes("Business A disclosure"), "the words agreed to sit beside the switch");

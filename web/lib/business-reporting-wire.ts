@@ -1,5 +1,5 @@
 import {
-  exportBusinessReport, listBusinessReportViews, mutateBusinessReportView, queryBusinessReport,
+  downloadRecordsExport, listBusinessReportViews, mutateBusinessReportView, previewRecordsExport, queryBusinessReport,
   reportRecipeSchema, reportRequestSchema,
   type ReportAnswer, type ReportProblem, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand, type SavedReportView, type ReportPresentation,
 } from "./business-reports-api";
@@ -20,8 +20,8 @@ export function reportSortToRecords(sort: ReportSort): RecordsSort {
   const key = (Object.keys(SORT_KEYS) as RecordsSort["key"][]).find((key) => sort.startsWith(`${SORT_KEYS[key]}_`))!;
   return { key, direction: sort.endsWith("_asc") ? "asc" : "desc" };
 }
-const COLUMN_KEYS: Record<RecordsColumnKey, ReportPresentation["order"][number]> = { contraparte: "counterparty", fecha: "date", monto: "gross_amount", moneda: "currency", detalle: "family", tipo_gasto: "expense_type", forma_pago: "payment_form", estado: "stage", notas: "note", comprobante: "attachment", cuenta: "funding" };
-const recordColumnKey = (key: ReportPresentation["order"][number]): RecordsColumnKey => (Object.keys(COLUMN_KEYS) as RecordsColumnKey[]).find((column) => COLUMN_KEYS[column] === key)!;
+const COLUMN_KEYS: Record<RecordsColumnKey, ReportPresentation["order"][number]> = { contraparte: "counterparty", fecha: "date", monto: "gross_amount", tipo_gasto: "expense_type", forma_pago: "payment_form", estado: "stage", notas: "note", comprobante: "attachment", cuenta: "funding", ncf: "fiscal_number", itbis: "itbis_amount" };
+export const recordColumnKey = (key: ReportPresentation["order"][number]): RecordsColumnKey => (Object.keys(COLUMN_KEYS) as RecordsColumnKey[]).find((column) => COLUMN_KEYS[column] === key)!;
 export function reportPresentationToRecords(presentation: ReportPresentation, sort: ReportSort): RecordsViewPreferences {
   return { order: presentation.order.map(recordColumnKey), hidden: presentation.hidden.map(recordColumnKey), density: DENSITIES.find((density) => DENSITY_ROW_PX[density] === presentation.density)!, sort: reportSortToRecords(sort) };
 }
@@ -52,17 +52,16 @@ export function reportSummary(answer: ReportAnswer | undefined, kind: RecordRow[
 }
 
 export const defaultReportRequest = (): ReportRequest => reportRequestSchema.parse({});
-export const recipeFromRequest = (request: ReportRequest): ReportRecipe => {
+export const recipeFromRequest = (request: ReportRequest, presentation?: ReportPresentation): ReportRecipe => {
   const recipe = { schema_version: request.schema_version, filters: request.filters, columns: request.columns, sort: request.sort };
-  return reportRecipeSchema.parse(request.schema_version === 2 ? { ...recipe, presentation: request.presentation, page_size: request.page_size } : recipe);
+  return reportRecipeSchema.parse(request.schema_version === 2 ? { ...recipe, presentation: request.presentation ?? presentation, page_size: request.page_size } : recipe);
 };
-export type ReportFailure = { kind: "access" | "changed" | "version" | "conflict" | "unavailable" | "uncertain" | "failed"; code: string; requestId?: string };
+export type ReportFailure = { kind: "access" | "version" | "conflict" | "unavailable" | "uncertain" | "failed"; code: string; requestId?: string };
 export function reportFailure(error: unknown, mutation = false): ReportFailure {
   const problem = error as ReportProblem | null;
   const code = typeof problem?.code === "string" ? problem.code : "unknown";
   const status = problem?.status;
   const kind = status === 401 || status === 403 || problem?.name === "ChatAccountChangedError" || problem?.message === "Browser session changed" || ["business_closed", "business_grant_not_live", "business_report_scope_changed"].includes(code) ? "access"
-    : code === "business_report_changed" ? "changed"
     : code === "business_report_view_changed" || code === "stale_version" ? "version"
     : ["idempotency_conflict", "business_action_conflict", "supporting_file_already_linked"].includes(code) ? "conflict"
     : ["business_report_too_large", "business_pilot_disabled", "business_reports_unavailable", "business_annotation_unavailable", "business_annotation_unsupported", "document_source_unavailable"].includes(code) ? "unavailable"
@@ -73,21 +72,20 @@ export function reportFailure(error: unknown, mutation = false): ReportFailure {
 export type ReportLoad =
   | { kind: "idle" | "loading" }
   | { kind: "ready"; answer: ReportAnswer }
-  | { kind: "invalid-page"; answer: ReportAnswer; recoveryPage: number }
   | { kind: "failed"; problem: ReportFailure };
 export type ViewLoad = { kind: "idle" | "loading" } | { kind: "ready"; items: SavedReportView[] } | { kind: "failed"; problem: ReportFailure };
 export type ReportOperation = { kind: "idle" | "busy" } | { kind: "failed"; problem: ReportFailure } | { kind: "done" };
 export type ViewOperation = ReportOperation & { command?: ReportViewCommand };
-export type ReportState = Readonly<{ request: ReportRequest; load: ReportLoad; views: ViewLoad; export: ReportOperation; viewOperation: ViewOperation; anchor: string | null; missingAnchor: boolean }>;
+export type ReportState = Readonly<{ request: ReportRequest; load: ReportLoad; views: ViewLoad; viewOperation: ViewOperation; anchor: string | null; missingAnchor: boolean }>;
 export type ReportingTransport = {
-  query: typeof queryBusinessReport; export: typeof exportBusinessReport;
+  query: typeof queryBusinessReport; exportPreview: typeof previewRecordsExport; exportFile: typeof downloadRecordsExport;
   listViews: typeof listBusinessReportViews; mutateView: typeof mutateBusinessReportView;
 };
-const liveTransport: ReportingTransport = { query: queryBusinessReport, export: exportBusinessReport, listViews: listBusinessReportViews, mutateView: mutateBusinessReportView };
+export const liveReportingTransport: ReportingTransport = { query: queryBusinessReport, exportPreview: previewRecordsExport, exportFile: downloadRecordsExport, listViews: listBusinessReportViews, mutateView: mutateBusinessReportView };
 
 /** An instance belongs to one person, Business and selected grant. Replace it when any changes. */
-export function createBusinessReportController(scope: ReportScope, initial = defaultReportRequest(), transport: ReportingTransport = liveTransport) {
-  let state: ReportState = { request: reportRequestSchema.parse(initial), load: { kind: "idle" }, views: { kind: "idle" }, export: { kind: "idle" }, viewOperation: { kind: "idle" }, anchor: null, missingAnchor: false };
+export function createBusinessReportController(scope: ReportScope, initial = defaultReportRequest(), transport: ReportingTransport = liveReportingTransport) {
+  let state: ReportState = { request: reportRequestSchema.parse(initial), load: { kind: "idle" }, views: { kind: "idle" }, viewOperation: { kind: "idle" }, anchor: null, missingAnchor: false };
   const listeners = new Set<() => void>();
   let generation = 0;
   let queryVersion = 0;
@@ -99,27 +97,35 @@ export function createBusinessReportController(scope: ReportScope, initial = def
   const revoke = (problem: ReportFailure) => {
     generation += 1;
     abortOperations();
-    publish({ load: { kind: "failed", problem }, views: { kind: "failed", problem }, export: { kind: "idle" }, viewOperation: { kind: "idle" }, anchor: null });
+    publish({ load: { kind: "failed", problem }, views: { kind: "failed", problem }, viewOperation: { kind: "idle" }, anchor: null });
   };
   const controller = {
     getSnapshot: () => state,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); },
     dispose: () => { generation += 1; abortOperations(); },
     revoke: () => revoke({ kind: "access", code: "business_report_scope_changed" }),
-    async load(request = state.request) {
+    async load(request = state.request): Promise<void> {
       const report = reportRequestSchema.parse(request);
       queryAbort?.abort();
       const abort = new AbortController();
       queryAbort = abort;
       const version = ++queryVersion;
       const currentGeneration = generation;
-      publish({ request: report, load: { kind: "loading" }, export: { kind: "idle" }, missingAnchor: false });
+      publish({ request: report, load: { kind: "loading" }, missingAnchor: false });
       try {
         const answer = await transport.query(scope, report, abort.signal);
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
         if (answer.page !== report.page || answer.page_size !== report.page_size || answer.items.length > report.page_size) throw new Error("Invalid report page response");
-        const invalid = report.page > Math.max(1, answer.page_count);
-        publish({ load: invalid ? { kind: "invalid-page", answer, recoveryPage: Math.max(1, answer.page_count) } : { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
+        // A page the records no longer have opens the last one that exists.
+        const lastPage = Math.max(1, answer.page_count);
+        if (report.page > lastPage) return controller.load({ ...state.request, page: lastPage });
+        let request = state.request;
+        if (request.schema_version === 2 && request.presentation) {
+          const presentation = request.presentation;
+          const missing = answer.presentation.order.filter((key) => !presentation.order.includes(key));
+          if (missing.length) request = { ...request, presentation: { ...presentation, order: presentation.order.concat(missing), hidden: Array.from(new Set(presentation.hidden.concat(missing))) } };
+        }
+        publish({ request, load: { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
       } catch (error) {
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
         const problem = reportFailure(error);
@@ -134,30 +140,14 @@ export function createBusinessReportController(scope: ReportScope, initial = def
       if (state.request.schema_version !== 2) throw new Error("Report presentation requires schema version 2");
       publish({ request: reportRequestSchema.parse({ ...state.request, presentation }) });
     },
-    refresh: () => controller.load(),
-    recoverPage: () => state.load.kind === "invalid-page" ? controller.setPage(state.load.recoveryPage) : Promise.resolve(),
-    rememberAnchor: (rowId: string | null) => publish({ anchor: rowId, missingAnchor: false }),
-    async export(): Promise<Blob | null> {
-      if (state.load.kind !== "ready" || state.export.kind === "busy" || state.export.kind === "failed" && state.export.problem.kind === "changed") return null;
-      const { request, load } = state;
-      const currentGeneration = generation;
-      const currentQuery = queryVersion;
-      const abort = new AbortController();
-      operations.add(abort);
-      publish({ export: { kind: "busy" } });
-      try {
-        const blob = await transport.export(scope, request, load.answer.fingerprint, abort.signal);
-        if (abort.signal.aborted || currentGeneration !== generation || currentQuery !== queryVersion) return null;
-        publish({ export: { kind: "done" } });
-        return blob;
-      } catch (error) {
-        if (abort.signal.aborted || currentGeneration !== generation || currentQuery !== queryVersion) return null;
-        const problem = reportFailure(error);
-        if (problem.kind === "access") revoke(problem);
-        else publish({ export: { kind: "failed", problem } });
-        return null;
-      } finally { operations.delete(abort); }
+    restorePresentation() {
+      if (state.request.schema_version !== 2) throw new Error("Report presentation requires schema version 2");
+      const request = { ...state.request };
+      delete request.presentation;
+      return controller.load(request);
     },
+    refresh: () => controller.load(),
+    rememberAnchor: (rowId: string | null) => publish({ anchor: rowId, missingAnchor: false }),
     async listViews() {
       const currentGeneration = generation;
       const version = ++viewsVersion;
@@ -218,9 +208,9 @@ export function writeReportLocation(request: ReportRequest, anchor: string | nul
   const step = push && !consumeOverlayEntriesForNavigation();
   window.history[step ? "pushState" : "replaceState"](null, "", `${url.pathname}${url.search}`);
 }
-export function restoreReportLocation(params: URLSearchParams): { request: ReportRequest; anchor: string | null; invalid: boolean } {
+export function restoreReportLocation(params: URLSearchParams): { request: ReportRequest; anchor: string | null } {
   try {
     const encoded = params.get("report");
-    return { request: encoded ? reportRequestSchema.parse(JSON.parse(encoded)) : defaultReportRequest(), anchor: params.get("report_row"), invalid: false };
-  } catch { return { request: defaultReportRequest(), anchor: null, invalid: true }; }
+    return { request: encoded ? reportRequestSchema.parse(JSON.parse(encoded)) : defaultReportRequest(), anchor: params.get("report_row") };
+  } catch { return { request: defaultReportRequest(), anchor: null }; }
 }

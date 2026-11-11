@@ -70,7 +70,7 @@ async function mount() {
 }
 
 const SCREENS = [
-  { kind: "overview", column: "canvas", ready: '[data-testid="month-close"]' },
+  { kind: "overview", column: "canvas", ready: '[data-testid="home-month"]' },
   { kind: "inbox", column: "canvas", ready: '[data-testid="reception-row"]' },
   { kind: "transactions", column: "canvas", ready: '[data-testid="transacciones"]' },
   { kind: "business", column: "canvas", ready: '[data-testid="business-settings"]' },

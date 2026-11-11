@@ -8,7 +8,6 @@
   .label { flex-shrink: 0; padding-top: 8px; white-space: nowrap; }
 }
 
-/* A row keeps its body and its action on one line while the card has room; a narrow card moves the action under it. */
+/* A row's body takes the line. */
 .row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; }
 .row > :first-child { flex: 1 1 14rem; }
-.action { margin-left: auto; }

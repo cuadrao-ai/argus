@@ -32,10 +32,13 @@ export function getSupabaseClient(): SupabaseClient | null {
       detectSessionInUrl: false,
     },
   });
-  cachedClient.auth.onAuthStateChange((_event, session) => {
+  let observedIdentity = false;
+  cachedClient.auth.onAuthStateChange((event, session) => {
+    if (event === "INITIAL_SESSION" && (observedIdentity || !session)) return;
+    observedIdentity = true;
     const userId = session?.user.id ?? null;
     observeBrowserAuth(userId);
-    synchronizeBusinessAccount(userId);
+    if (userId) synchronizeBusinessAccount(userId);
   });
   return cachedClient;
 }

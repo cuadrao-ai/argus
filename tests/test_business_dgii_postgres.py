@@ -411,6 +411,7 @@ def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, u
         assert profile.status_code == 200 and profile.json() == {
             "name": "PRÁCTICA José",
             "tax_id": None,
+            "legal_name": None,
             "can_edit": True,
         }
         assert profile.headers["cache-control"] == "no-store"
@@ -673,6 +674,26 @@ def test_an_income_draft_without_a_declaration_does_not_gain_a_606(actions):
     assert dossier.dgii is None and dossier.version == capture.version
 
 
+def test_an_unnamed_business_saves_its_first_name_from_an_empty_field(actions):
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    service, context, _ = actions
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, "My business")
+    assert read_profile(service.authority, context)["name"] == "My business"
+    saved = set_profile(
+        service.authority,
+        context,
+        FiscalProfileChange(
+            name="Taller Norte",
+            previous_name=None,
+            tax_id=None,
+            previous_tax_id=None,
+        ),
+        "profile-first-name",
+    )
+    assert saved["name"] == "Taller Norte"
+
+
 def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(
     actions, users
 ):
@@ -691,6 +712,7 @@ def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(
     assert saved == {
         "name": "Taller Norte",
         "tax_id": {"type": "rnc", "value": "199990013"},
+        "legal_name": None,
         "can_edit": True,
     }
     cedula = set_profile(

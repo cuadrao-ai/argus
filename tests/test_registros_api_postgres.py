@@ -9,6 +9,7 @@ from argus.api.business_reports import router as reports_router
 from argus.api.documents import require_saved_documents
 from argus.domain.business.reporting_preferences import ReportRecipeV2
 from argus.domain.business.reporting_views import list_views
+from argus.domain.business.spaces import PostgresSpaceStore
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -43,7 +44,7 @@ def client(actions, documents):
         selected[0].grant_id,
     )
     app.dependency_overrides[require_business_person] = lambda: SimpleNamespace(
-        spaces=None
+        spaces=PostgresSpaceStore(service.authority.pool)
     )
     app.dependency_overrides[require_saved_documents] = lambda: documents[0]
     with TestClient(app) as http:
@@ -186,7 +187,11 @@ def test_v2_layout_does_not_change_export_fingerprint(client, actions):
     assert second["matching_count"] == 26 and len(second["items"]) == 1
     response = http.post(
         "/business/reports/export",
-        json={"report": changed, "expected_fingerprint": answer["fingerprint"]},
+        json={
+            "report": {**changed, "filters": {"record_families": ["purchase"]}},
+            "mode": "table",
+            "columns": ["note"],
+        },
     )
     assert response.status_code == 200, response.text
 

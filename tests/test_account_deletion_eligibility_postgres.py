@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -68,10 +69,10 @@ class SqlAuth:
     def create_placeholder(self, *, user_id: str, email: str) -> None:
         with psycopg.connect(DSN) as db:
             db.execute(
-                "insert into auth.users(id,email,is_anonymous,email_confirmed_at,"
-                "banned_until,raw_app_meta_data) values(%s,%s,false,now(),"
+                "insert into auth.users(id,email,encrypted_password,is_anonymous,email_confirmed_at,"
+                "banned_until,raw_app_meta_data) values(%s,%s,%s,false,now(),"
                 "now()+interval '100 years','{\"placeholder\":true}')",
-                (user_id, email),
+                (user_id, email, sha256(b"synthetic placeholder password").hexdigest()),
             )
 
     def lock_user(self, user_id: str) -> None:
@@ -351,6 +352,36 @@ def test_the_command_agrees_with_the_pre_check(world, case):
         assert world.service.deletion_eligibility(person).blockers
     else:
         assert world.service.delete_account(user_id=person).status == "done"
+
+
+def test_closed_business_owner_deletion_finishes_with_a_password_hash(world):
+    person = world.person()
+    space = closed_notice(world, person, "Colmado Cerrado", days_ago=3)
+
+    outcome = world.service.delete_account(user_id=person)
+
+    assert outcome.status == "done"
+    assert outcome.pending == []
+    with world.pool.connection() as db:
+        assert not db.execute(
+            "select 1 from auth.users where id=%s", (person,)
+        ).fetchone()
+        custodian, password_hash, banned, closed_at = db.execute(
+            "select u.id::text,u.encrypted_password,"
+            "u.banned_until>clock_timestamp(),s.closed_at"
+            " from public.spaces s join auth.users u on u.id=s.created_by"
+            " join argus_private.account_placeholders p on p.id=u.id"
+            " where s.id=%s",
+            (space,),
+        ).fetchone()
+        assert custodian != person
+        assert password_hash == sha256(b"synthetic placeholder password").hexdigest()
+        assert banned and closed_at is not None
+        assert db.execute(
+            "select status,user_id,subject_hash,analytics_distinct_id"
+            " from argus_private.account_deletion_runs where id=%s",
+            (outcome.run_id,),
+        ).fetchone() == ("done", None, None, None)
 
 
 def requester(person: str):

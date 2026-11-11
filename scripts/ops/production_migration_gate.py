@@ -44,14 +44,19 @@ _RENDER_PATH = "render.yaml"
 _MIGRATION_APPLY = "never"
 # Production history was hand-reconciled through this pre-gate migration.
 _LEDGER_RECONCILIATION_THROUGH = "20260811210000"
+# The candidate tree holds no file at or below the threshold since the baseline
+# (#1890) moved them to supabase/migrations_archive/: the catalog digest of an empty
+# history, sha256 of the JSON list "[]".
 _RECONCILED_CANDIDATE_CATALOG_SHA256 = (
-    "f05cf5738ce8b6e0ad74ce2b4b77d773387bc5421bab3a101448241b5431e2c2"
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
 )
 _RECONCILED_PRODUCTION_LEDGER_SHA256S = (
     # The hand-reconciled 63-row history production held on 2026-08-13.
     "e352a2c003572611f0fb201305e085e3736eefbfae0d62ef29f4322a18062032",
     # The 61-row history a Supabase CLI push of main 980d56ba3 records.
     "b46b42afac8c07b413c436bb90c448b4eb60d8325340d1117d266ebd28654c03",
+    # The empty history a reset production (#1789) holds below the threshold.
+    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
 )
 
 
@@ -992,11 +997,17 @@ def _is_supabase_tag_character(character: str) -> bool:
 
 
 def _ends_begin_atomic(source: str, index: int) -> bool:
-    if source[index] not in {"c", "C"}:
+    """Does `begin <whitespace> atomic` end at index? Scans back, so a long file stays linear."""
+
+    if source[max(0, index - 5) : index + 1].lower() != "atomic":
         return False
-    prefix = source[: index + 1]
-    match = re.search(r"(?i)(?<![\w$])begin\s+atomic$", prefix)
-    return match is not None
+    begin_end = index - 6
+    while begin_end >= 0 and source[begin_end].isspace():
+        begin_end -= 1
+    if begin_end == index - 6 or source[max(0, begin_end - 4) : begin_end + 1].lower() != "begin":
+        return False
+    before = begin_end - 5
+    return before < 0 or not (source[before].isalnum() or source[before] in "_$")
 
 
 def _top_level_statements(source: str) -> list[str]:
@@ -1231,11 +1242,11 @@ def _project_ref_from_supabase_url(supabase_url: str) -> str:
         host = (parsed.hostname or "").lower()
         _ = parsed.port
     except ValueError as exc:
-        raise MigrationGateError("candidate argus-api SUPABASE_URL is malformed") from exc
+        raise MigrationGateError("candidate cuadrao-api SUPABASE_URL is malformed") from exc
     host_match = re.fullmatch(r"([a-z0-9]{20})\.supabase\.co", host)
     if parsed.scheme.lower() != "https" or host_match is None:
         raise MigrationGateError(
-            "candidate argus-api SUPABASE_URL must identify one Supabase project"
+            "candidate cuadrao-api SUPABASE_URL must identify one Supabase project"
         )
     return host_match.group(1)
 

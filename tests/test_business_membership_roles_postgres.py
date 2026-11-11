@@ -436,7 +436,7 @@ def test_legacy_zero_history_backfill_never_heals_revoked_or_demoted_owners(pool
     from tests.test_business_spaces_migration_postgres import space as legacy_space
 
     sql = Path(
-        "supabase/migrations/20261025182039_business_membership_roles.sql"
+        "supabase/migrations_archive/20261025182039_business_membership_roles.sql"
     ).read_text()
     backfill = sql[
         sql.index(

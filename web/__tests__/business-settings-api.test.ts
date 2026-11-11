@@ -45,6 +45,23 @@ test("appearance failure retries the same new Business without another create", 
   expect((await command.run()).grant_id).toBe("grant-2");
   expect(creates).toBe(1);
 });
+test("creating a Business that keeps a starting name records it and finishes its appearance", async () => {
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  const unnamed = { ...profile, name: null };
+  let saves = 0;
+  globalThis.fetch = async (url, init) => {
+    const path = String(url);
+    if (path.endsWith("/spaces") && init?.method === "POST") return Response.json({ id: "second", name: null, country: "DO", currency: "DOP", logo_url: null });
+    if (path.endsWith("/spaces")) return Response.json({ spaces: [{ space_id: "second", name: null, grant_id: "grant-2", role: "owner", business_role: "owner", permissions: ["read", "manage"], capabilities: ["read", "prepare", "approve"], access_seen: true }] });
+    if (init?.method === "PATCH") saves++;
+    return Response.json(unnamed);
+  };
+  let recorded: string | undefined;
+  const command = createBusinessCommand({ name: "Mi negocio", country: "DO", appearance: { kind: "avatar", token: "teal", mark: "initials" } }, undefined, state => { recorded = state.created?.id; });
+  expect(await command.run()).toMatchObject({ id: "second", name: null, grant_id: "grant-2" });
+  expect(recorded).toBe("second");
+  expect(saves).toBe(1);
+});
 test("selection change before auth completion prevents any request",async()=>{
  process.env.NEXT_PUBLIC_MOCK_AUTH="true";setChosenGrant("grant-one");
  let requests=0;globalThis.fetch=async()=>{requests++;return Response.json(profile);};

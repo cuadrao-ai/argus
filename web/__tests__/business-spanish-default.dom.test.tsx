@@ -73,6 +73,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
     const { setChosenGrant } = await import("@/lib/business-grant");
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const ReceiptIntakeDialog = (await import("@/components/business-app/ReceiptIntakeDialog")).default;
+    const { TypedNoteQueue } = await import("@/components/business-app/typed-note-queue");
     const ReceiptReviewPanel = (await import("@/components/business-app/ReceiptReviewPanel")).default;
     const { ReceiptUploadQueue } = await import("@/components/business-app/receipt-upload-queue");
     const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
@@ -108,7 +109,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
             <BusinessWorkspaceProvider source={source as never}>
               <BusinessMark />
               <BusinessOverviewPanel />
-              <ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} />
+              <ReceiptIntakeDialog target="inbox" notes={new TypedNoteQueue(() => undefined)} queue={queue} onClose={() => undefined} onReview={() => undefined} />
               <ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-ferreteria" }} />
             </BusinessWorkspaceProvider>
           </BusinessConsentTestProvider>
@@ -126,27 +127,25 @@ describe("Business stays in Spanish for an en-US browser", () => {
     return visible;
   }
 
-  const spanishCopy = ["Mi negocio", "Resumen del negocio", "Necesita atención", "Ingresos", "Agregar", "Se guardan como", "Compra", "Comercio", "Fecha"];
-  const englishCopy = ["Business overview", "Needs attention", "Income", "Add", "Saved as", "Purchase", "Merchant", "Activity date"];
+  const spanishCopy = ["Mi negocio", "Resultado neto", "Necesita atención", "Ingresos", "Agregar", "Escríbelo", "Se guardan como", "Compra", "Contraparte", "Fecha"];
+  const englishCopy = ["Net result", "Needs attention", "Income", "Add", "Write it", "Saved as", "Purchase", "Counterparty", "Receipt date"];
   const retiredEnglishCopy = ["Upload receipts", "Record expense", "Open inbox", "Actual expenses", "to review"];
 
   test("an en-US browser with a Spanish account sees overview, the Agregar sheet, and receipt review in Spanish", async () => {
     const greeting = spanish.business.overview.greetings[greetingPeriod(new Date().getHours())];
-    const visible = await renderShown("es-419", [greeting, "Necesita atención", "Ingresos", "Agregar", "Se guardan como", "Comercio"]);
+    const visible = await renderShown("es-419", [greeting, "Necesita atención", "Ingresos", "Agregar", "Se guardan como", "Contraparte"]);
     assert.ok(visible.includes(greeting), greeting);
     for (const spanishText of spanishCopy) assert.ok(visible.includes(spanishText), spanishText);
-    for (const englishText of [...englishCopy, ...retiredEnglishCopy, "Write it"]) assert.equal(visible.includes(englishText), false, englishText);
-    assert.equal(visible.includes("Escríbelo"), false);
+    for (const englishText of [...englishCopy, ...retiredEnglishCopy]) assert.equal(visible.includes(englishText), false, englishText);
     assert.equal(window.navigator.language, "en-US");
   });
 
   test("an English account sees the same surfaces in English", async () => {
     const greeting = english.business.overview.greetings[greetingPeriod(new Date().getHours())];
-    const visible = await renderShown("en", [greeting, "Needs attention", "Income", "Merchant", "Saved as"]);
+    const visible = await renderShown("en", [greeting, "Needs attention", "Income", "Counterparty", "Saved as"]);
     assert.ok(visible.includes(greeting), greeting);
     for (const englishText of englishCopy) assert.ok(visible.includes(englishText), englishText);
-    // The record names the sample Business and shows DGII's own field names; neither is translated.
-    for (const spanishText of [...spanishCopy.filter((text) => text !== "Mi negocio" && text !== "Fecha"), "Escríbelo"]) assert.equal(visible.includes(spanishText), false, spanishText);
-    assert.equal(visible.includes("Write it"), false);
+    // The sample Business name is shared across languages.
+    for (const spanishText of [...spanishCopy.filter((text) => text !== "Mi negocio" && text !== "Fecha")]) assert.equal(visible.includes(spanishText), false, spanishText);
   });
 });

@@ -18,6 +18,7 @@ from argus.domain.business.spaces import SpaceStore
 from argus.domain.owner_scope import BusinessSpace
 
 Role = Literal["owner", "accountant"]
+RECORDS_DEFAULT_CURRENCY = "DOP"
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,10 @@ class BusinessScope:
                 "business_role",
                 BusinessRole.OWNER if self.role == "owner" else BusinessRole.EDITOR,
             )
+
+    @property
+    def records_default_currency(self) -> str:
+        return RECORDS_DEFAULT_CURRENCY
 
     @property
     def acting_person_id(self) -> str:

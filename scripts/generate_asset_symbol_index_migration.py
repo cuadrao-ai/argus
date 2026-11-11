@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (
     ROOT
     / "supabase"
-    / "migrations"
+    / "migrations_archive"
     / "20260730070000_add_asset_symbol_prefix_indexes.sql"
 )
 FUNCTION_NAME = "public.argus_search_symbol_casefold"

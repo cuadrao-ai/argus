@@ -58,3 +58,47 @@ test("an identity switch during session lookup cannot dispatch old headers", asy
   expect(dispatched).toBe(false);
   readSession = previous;
 });
+
+test("Business admission reads only the expected account's grants", async () => {
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
+  session = { user: { id: "owner-b" }, access_token: "b-token" };
+  const send = mock(async (_input, init) => {
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer b-token");
+    expect(init?.credentials).toBe("omit");
+    return Response.json({ spaces: [], closed_spaces: [] });
+  }) as typeof fetch;
+  globalThis.fetch = send;
+  const { getBusinessDirectory } = await import("@/lib/business-api");
+  await expect(getBusinessDirectory(undefined, "owner-a")).rejects.toThrow("Chat account changed");
+  expect(send).not.toHaveBeenCalled();
+  await expect(getBusinessDirectory(undefined, "owner-b")).resolves.toEqual({
+    spaces: [],
+    closed_spaces: [],
+    invitations_available: false,
+  });
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+test("retirement after credentials resolve blocks direct Business dispatch", async () => {
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
+  const { captureBusinessNote, markBusinessAccessSeen, uploadBusinessReceipt, fetchBusinessReceiptSource } = await import("@/lib/business-api");
+  const send = mock(async () => Response.json({}));
+  globalThis.fetch = send as typeof fetch;
+  const previous = readSession;
+  try {
+    for (const dispatch of [
+      () => captureBusinessNote({ text: "private note" }, "capture-key"),
+      () => markBusinessAccessSeen("old-grant"),
+      () => uploadBusinessReceipt(new File(["receipt"], "receipt.pdf", { type: "application/pdf" }), false, "upload-key"),
+      () => fetchBusinessReceiptSource("old-receipt"),
+    ]) {
+      const lookup = Promise.withResolvers<Awaited<ReturnType<typeof readSession>>>();
+      readSession = () => lookup.promise;
+      const request = dispatch();
+      lookup.resolve({ data: { session }, error: null });
+      queueMicrotask(invalidateBrowserAuth);
+      await expect(request).rejects.toThrow("Browser session changed");
+    }
+    expect(send).not.toHaveBeenCalled();
+  } finally { readSession = previous; }
+});

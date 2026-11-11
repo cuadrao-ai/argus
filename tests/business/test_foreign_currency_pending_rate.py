@@ -188,7 +188,10 @@ def test_foreign_lines_never_reach_peso_totals_and_both_forms_stay_in_review():
     }
 
 
-def test_a_paid_dollar_bill_on_the_606_is_never_a_final_net():
+def test_a_paid_dollar_bill_waits_for_a_rate_on_the_606_while_its_dollar_net_is_final():
+    """The 606 converts to pesos, so it waits for a rate. The dollar block's
+    net is shown in dollars: no conversion, so no rate holds it."""
+
     expense = next(r for r in practice_records() if r.kind == "expense")
     manifest, _rows = fiscal_manifest((replace(expense, currency="USD"),), **SEPTEMBER)
     assert foreign_currency(manifest["forms"])["606"] == {
@@ -205,7 +208,7 @@ def test_a_paid_dollar_bill_on_the_606_is_never_a_final_net():
         for block in summarize(bills, SEPTEMBER["start"], SEPTEMBER["end"])["currencies"]
     }
     assert blocks["USD"]["by_status"]["receipts"]["pendiente"]["count"] == 0
-    assert blocks["USD"]["net_result_final"] is False
+    assert blocks["USD"]["net_result_final"] is True
     assert blocks["DOP"]["net_result_final"] is True
     [peso] = summarize(bills[:1], SEPTEMBER["start"], SEPTEMBER["end"])["currencies"]
     assert peso == blocks["DOP"]

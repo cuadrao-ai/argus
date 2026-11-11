@@ -8,12 +8,9 @@ from pathlib import Path
 import pytest
 
 from tests.test_environment_scripts import (
-    _real_workflow_api_env_payload,
     _render_env_payload,
-    _run_isolated_sync,
     _run_render_release_audit,
     _source,
-    _workflow_env_payload,
 )
 
 
@@ -21,47 +18,23 @@ from tests.test_environment_scripts import (
 def test_release_audit_preserves_optional_registered_keys_without_disclosure(
     tmp_path: Path, provisioned: bool
 ) -> None:
-    keys = {
-        f"CUADRAO_OPENROUTER_API_KEY_{suffix}": f"synthetic-hosted-{suffix}"
-        for suffix in ("DEV", "STG", "PROD")
-    }
+    key = "CUADRAO_OPENROUTER_API_KEY_PROD"
+    value = "synthetic-hosted-PROD"
     result = _run_render_release_audit(
         tmp_path,
-        expect_mode="real-workflow",
-        api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(extra=keys if provisioned else {}),
+        api_env_json=_render_env_payload(
+            "cuadrao-api",
+            omit=set() if provisioned else {key},
+            overrides={key: value},
+        ),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
         isolate=True,
     )
     output = result.stdout + result.stderr
-    assert all(value not in output for value in keys.values())
-    assert "Unsupported workflow env key" not in output
+    assert value not in output
     assert result.returncode == 0, output
-    assert "workflow_env_status=ready" in result.stdout
     assert "status=ready" in result.stdout
     assert "-X PUT" not in (tmp_path / "curl-requests.log").read_text()
-
-
-@pytest.mark.parametrize("exported", [False, True])
-def test_workflow_sync_leaves_manually_provisioned_optional_keys_untouched(
-    tmp_path: Path, exported: bool
-) -> None:
-    keys = {
-        f"CUADRAO_OPENROUTER_API_KEY_{suffix}": f"synthetic-manual-{suffix}"
-        for suffix in ("DEV", "STG", "PROD")
-    }
-    values = {
-        "RENDER_API_KEY": "synthetic-token",
-        "CUADRAO_PROD_OPENROUTER_API_KEY": "synthetic-registered",
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY": "synthetic-guest",
-        **(keys if exported else {}),
-    }
-    result, requests = _run_isolated_sync(tmp_path, "workflow-proof", values)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert requests
-    assert all(name not in request for name in keys for request in requests)
-    assert all(value not in result.stdout + result.stderr for value in keys.values())
-    assert "Unsupported workflow env key" not in result.stderr
 
 
 @pytest.mark.parametrize("suffix", ["DEV", "STG", "PROD"])

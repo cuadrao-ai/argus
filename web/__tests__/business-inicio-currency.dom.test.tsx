@@ -13,9 +13,9 @@ afterAll(async () => {
 
 const now = new Date(2026, 9, 18);
 
-function block(currency: string, income: number, expense: number, itbisOwed: number, pending = 0) {
+function block(currency: string, income: number, expense: number, itbisPaid: number, pending = 0) {
   const byStatus = { invoices: { pendiente: { count: pending, before_itbis_minor: 0 }, cobrado: { count: 0, before_itbis_minor: 0 } }, receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } };
-  return { currency, income_before_itbis_minor: income, expense_before_itbis_minor: expense, net_result_minor: income - expense, itbis_owed_minor: itbisOwed, by_status: byStatus, net_result_final: pending === 0 };
+  return { currency, income_before_itbis_minor: income, expense_before_itbis_minor: expense, net_result_minor: income - expense, itbis_charged_minor: itbisPaid, itbis_paid_minor: 0, by_status: byStatus, net_result_final: pending === 0 };
 }
 
 function line(id: string, kind: "invoice" | "receipt", currency: string | undefined, totalMinor: number, extra: Record<string, unknown> = {}) {
@@ -28,7 +28,7 @@ function serverWith(currencies: unknown[], lists: { cobrar?: unknown[]; pagar?: 
   const open = (items: unknown[]) => ({ count: items.length, totals: [], items });
   return createHttpMonthCloseClient(async (path) => path === "/business/open-items"
     ? { today: "2026-10-18", cuentas_por_cobrar: open(cobrar), cuentas_por_pagar: open(pagar) }
-    : { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed: true, reasons: [], payment_methods: ["efectivo", "otro"], currencies, missing_rnc: [], missing_ncf: [], cuentas_por_cobrar: cobrar, cuentas_por_pagar: pagar });
+    : { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed: true, reasons: [], payment_methods: ["efectivo", "otro"], currencies, missing_rnc: [], missing_ncf: [], missing_fiscal_rows: [], cuentas_por_cobrar: cobrar, cuentas_por_pagar: pagar });
 }
 
 const DOP_AND_USD = [block("DOP", 400000, 150000, 18000), block("USD", 120000, 2400, 21600)];
@@ -50,7 +50,7 @@ async function renderView(client: MonthCloseClient, options: { scopeKey: string;
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessMonthCloseView client={client} now={now} scopeKey={options.scopeKey} businessCurrency={options.businessCurrency ?? null} />
+        <BusinessMonthCloseView settlement client={client} now={now} scopeKey={options.scopeKey} businessCurrency={options.businessCurrency ?? null} />
       </I18nextProvider>,
     );
   });
@@ -69,10 +69,10 @@ describe("Inicio figures in every currency the month holds", () => {
   test("a USD-only month shows its own figures, not unknown, with no menu", async () => {
     const view = await renderView(serverWith([block("USD", 120000, 2400, 21600)]), { scopeKey: "usd-only" });
     assert.equal(view.host.querySelector('[data-testid="month-close-income"]')?.getAttribute("data-state"), "final");
-    assert.match(view.text("month-close-income"), /US\$ 1,200\.00/);
-    assert.match(view.text("month-close-expenses"), /US\$ 24\.00/);
-    assert.match(view.text("month-close-net"), /US\$ 1,176\.00/);
-    assert.match(view.text("month-close-itbis"), /US\$ 216\.00/);
+    assert.match(view.text("month-close-income"), /US\$ 1,200(?![.\d])/);
+    assert.match(view.text("month-close-expenses"), /US\$ 24(?![.\d])/);
+    assert.match(view.text("month-close-net"), /US\$ 1,176(?![.\d])/);
+    assert.match(view.text("month-close-itbis-sales"), /US\$ 216(?![.\d])/);
     assert.equal(view.host.querySelector('[data-testid="month-close-currency"]'), null, "one currency needs no menu");
     assert.doesNotMatch(view.host.textContent ?? "", /RD\$/);
     await view.unmount();
@@ -80,43 +80,42 @@ describe("Inicio figures in every currency the month holds", () => {
 
   test("a DOP and USD month shows DOP by default, then USD once the person chooses it, and remembers it for this Business", async () => {
     const view = await renderView(serverWith(DOP_AND_USD), { scopeKey: "two-currencies" });
-    assert.match(view.text("month-close-income"), /RD\$ 4,000\.00/);
+    assert.match(view.text("month-close-income"), /RD\$ 4,000(?![.\d])/);
     const button = view.host.querySelector('[data-testid="month-close-currency"]');
     assert.ok(button instanceof HTMLButtonElement);
     assert.equal(button.getAttribute("aria-haspopup"), "listbox");
     assert.equal(button.getAttribute("aria-label"), "Moneda: DOP");
-    assert.equal(view.text("month-close-currency-others"), "También hay movimientos en US$.");
+    assert.equal(view.host.querySelector('[data-testid="month-close-currency-others"]'), null, "no line names the other currencies");
     await view.act(async () => button.click());
     const options = [...document.querySelectorAll('[data-testid="month-close-currency-picker"] [role="option"]')];
     assert.deepEqual(options.map((option) => option.getAttribute("data-currency")), ["DOP", "USD"]);
     assert.equal(options[0]?.getAttribute("aria-selected"), "true");
     await view.act(async () => (options[1] as HTMLElement).click());
     assert.equal(document.querySelector('[data-testid="month-close-currency-picker"]'), null, "the menu closes on a choice");
-    assert.match(view.text("month-close-income"), /US\$ 1,200\.00/);
-    assert.match(view.text("month-close-expenses"), /US\$ 24\.00/);
-    assert.match(view.text("month-close-net"), /US\$ 1,176\.00/);
-    assert.match(view.text("month-close-itbis"), /US\$ 216\.00/);
+    assert.match(view.text("month-close-income"), /US\$ 1,200(?![.\d])/);
+    assert.match(view.text("month-close-expenses"), /US\$ 24(?![.\d])/);
+    assert.match(view.text("month-close-net"), /US\$ 1,176(?![.\d])/);
+    assert.match(view.text("month-close-itbis-sales"), /US\$ 216(?![.\d])/);
     assert.doesNotMatch(view.text("month-close-cards-month"), /RD\$/);
     assert.equal(view.host.querySelector('[data-testid="month-close-currency"]')?.getAttribute("aria-label"), "Moneda: USD");
-    assert.equal(view.text("month-close-currency-others"), "También hay movimientos en RD$.");
     assert.match(view.text("month-close-currency-announce"), /USD/);
     await view.unmount();
 
     const again = await renderView(serverWith(DOP_AND_USD), { scopeKey: "two-currencies" });
-    assert.match(again.text("month-close-income"), /US\$ 1,200\.00/, "the choice is kept for this Business");
+    assert.match(again.text("month-close-income"), /US\$ 1,200(?![.\d])/, "the choice is kept for this Business");
     await again.unmount();
     const other = await renderView(serverWith(DOP_AND_USD), { scopeKey: "another-business" });
-    assert.match(other.text("month-close-income"), /RD\$ 4,000\.00/, "another Business keeps its own default");
+    assert.match(other.text("month-close-income"), /RD\$ 4,000(?![.\d])/, "another Business keeps its own default");
     await other.unmount();
   });
 
   test("the Business currency is the default when the month holds it", async () => {
     const view = await renderView(serverWith(DOP_AND_USD), { scopeKey: "us-business", businessCurrency: "USD" });
-    assert.match(view.text("month-close-income"), /US\$ 1,200\.00/);
+    assert.match(view.text("month-close-income"), /US\$ 1,200(?![.\d])/);
     await view.act(async () => (view.host.querySelector('[data-testid="month-close-currency"]') as HTMLButtonElement).click());
     const options = [...document.querySelectorAll('[data-testid="month-close-currency-picker"] [role="option"]')];
     assert.deepEqual(options.map((option) => option.getAttribute("data-currency")), ["USD", "DOP"], "the Business currency leads the list");
-    assert.match(options[0]?.textContent ?? "", /Moneda del negocio/);
+    assert.equal(options[0]?.textContent, "USD · Dólar estadounidense", "each currency by its code and name");
     await view.unmount();
   });
 
@@ -124,7 +123,7 @@ describe("Inicio figures in every currency the month holds", () => {
     const view = await renderView(serverWith([DOP_AND_USD[0], block("USD", 120000, 2400, 21600, 1)], { cobrar: [line("usd-pending", "invoice", "USD", 5000)] }), { scopeKey: "pending-usd" });
     const net = view.host.querySelector('[data-testid="month-close-net"]');
     assert.equal(net?.getAttribute("data-state"), "final");
-    assert.match(net?.textContent ?? "", /RD\$ 2,500\.00/);
+    assert.match(net?.textContent ?? "", /RD\$ 2,500(?![.\d])/);
     await view.act(async () => (view.host.querySelector('[data-testid="month-close-currency"]') as HTMLButtonElement).click());
     await view.act(async () => (document.querySelector('[data-testid="month-close-currency-picker"] [data-currency="USD"]') as HTMLElement).click());
     assert.equal(view.host.querySelector('[data-testid="month-close-net"]')?.getAttribute("data-state"), "pending");
@@ -132,14 +131,15 @@ describe("Inicio figures in every currency the month holds", () => {
     await view.unmount();
   });
 
-  test("zero and three decimal currencies show exactly", async () => {
+  test("zero and three decimal currencies show in whole units, like every Inicio total", async () => {
     const view = await renderView(serverWith([block("BHD", 12345678, 1050, 50), block("JPY", 1500, 25, 0)]), { scopeKey: "odd-digits", businessCurrency: "JPY" });
     assert.match(view.text("month-close-income"), /¥ 1,500(?![.\d])/);
     assert.match(view.text("month-close-expenses"), /¥ 25(?![.\d])/);
     await view.act(async () => (view.host.querySelector('[data-testid="month-close-currency"]') as HTMLButtonElement).click());
     await view.act(async () => (document.querySelector('[data-testid="month-close-currency-picker"] [data-currency="BHD"]') as HTMLElement).click());
-    assert.match(view.text("month-close-expenses"), /BHD 1\.050(?!\d)/);
-    assert.equal(view.host.querySelector('[data-testid="month-close-income"] [data-exact]')?.getAttribute("data-exact"), "BHD 12,345.678");
+    assert.match(view.text("month-close-expenses"), /BHD 1(?![.\d])/);
+    assert.match(view.text("month-close-income"), /BHD 12,346(?![.\d])/, "12,345.678 rounds half up");
+    assert.equal(view.host.querySelector('[data-testid="month-close-income"]')?.getAttribute("data-amount"), "12345.678", "the exact amount stays on the figure");
     await view.unmount();
   });
 

@@ -2,8 +2,8 @@
 
 import { Fragment, useContext, useState, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, FileText } from "lucide-react";
-import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { currencySymbol } from "@/lib/money-entry";
+import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { useBusiness } from "../BusinessWorkspace";
 import { formatAmount, formatMoney, formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
 import { isOpenRecord } from "../record-tray";
@@ -44,7 +44,7 @@ function Proof({ row }: { row: RecordRow }) {
  * igualar state. A row opens its record in the record tray; a venta has no
  * record screen yet, so its row is plain.
  */
-export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange, preferences, sort, onSortChange, amountSortAvailable = false, sortNoticeId, serverSorted = false }: { serverSorted?: boolean; sort?: RecordsSort; onSortChange?: (sort: RecordsSort) => void; amountSortAvailable?: boolean; sortNoticeId?: string; preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
+export function RecordsTable({ purchase = true, records, density, rowRef, order: controlledOrder, onOrderChange, preferences, sort, onSortChange, amountSortAvailable = false, sortNoticeId, serverSorted = false }: { purchase?: boolean; serverSorted?: boolean; sort?: RecordsSort; onSortChange?: (sort: RecordsSort) => void; amountSortAvailable?: boolean; sortNoticeId?: string; preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
   const owner = useOwnerView();
   const openGlance = useContext(RecordGlanceContext);
@@ -55,7 +55,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
   const toggleOrder = () => { const next = order === "desc" ? "asc" : "desc"; if (onOrderChange) onOrderChange(next); else setLocalOrder(next); };
   const header = preferences ? null : headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
   const amountSize = preferences ? previewAmountColumnSize(records.map((row) => row.money), locale) : amountColumnSize(records.map((row) => row.money), header, locale);
-  const columns = preferences ? visibleRecordsColumns(preferences) : COLUMNS;
+  const columns = preferences ? visibleRecordsColumns(preferences, purchase) : COLUMNS;
   const proofPinned = columns.at(-1)?.key === "comprobante";
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -115,7 +115,8 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
               contraparte: (<td data-col="contraparte" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}><Truncated text={nameOf(row)} className="font-medium" /></td>),
               fecha: (<td data-col="fecha" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{preferences ? formatRecordActivityDate(row.occurredOn, locale) : formatRelativeDay(row.occurredOn, today, locale)}</td>),
               monto: (<td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : preferences ? <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report ? row.money.amount : magnitude(row.money).amount, row.money.currency, locale)}</span> : <SignedAmount money={row.money} header={header} />}</td>),
-              moneda: (<td data-col="moneda" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{row.report && row.report.currency === null ? <Unknown /> : currencySymbol(row.money.currency)}</td>),
+              ncf: (<td data-col="ncf" className={`${CELL} text-left`}>{row.report?.fiscal_number ? <Truncated text={row.report.fiscal_number} /> : <Unknown />}</td>),
+              itbis: (<td data-col="itbis" className={`${CELL} text-right font-normal tabular-nums`}>{row.report?.itbis_amount == null || row.report.currency === null ? <Unknown /> : <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report.itbis_amount, row.report.currency, locale)}</span>}</td>),
               notas: (<td data-col="notas" className={`${CELL} text-left`}><RecordNotePreview row={row} /></td>),
               detalle: (<td data-col="detalle" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}>
                   {row.report?.family === null ? <Unknown /> : preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>

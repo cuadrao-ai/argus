@@ -1,4 +1,4 @@
-"""Registros queries, complete answer exports, and private saved recipes."""
+"""Registros queries, one-file exports, and private saved recipes."""
 
 from __future__ import annotations
 
@@ -17,12 +17,21 @@ from argus.api.business import (
     require_business_surface,
 )
 from argus.api.business_drafts import DraftContext, action_problem, require_drafts
-from argus.api.business_reporting_schemas import DeleteReportView, ExportReport
+from argus.api.business_reporting_schemas import DeleteReportView
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.routers.business_export import ExportRoute
-from argus.domain.business.authority import ActionError
-from argus.domain.business.reporting_export import export_report
+from argus.domain.business import analytics as business_analytics
+from argus.domain.business.authority import ActionContext, ActionError
+from argus.domain.business.reporting_file import (
+    ExportPreview,
+    ExportPreviewRequest,
+    RecordsExport,
+    RecordsFile,
+    content_disposition,
+    export_file,
+    preview_export,
+)
 from argus.domain.business.reporting_preferences import ReportInput
 from argus.domain.business.reporting_query import ReportAnswer
 from argus.domain.business.reporting_store import read_report
@@ -92,42 +101,86 @@ def query_report(
     )
 
 
+@router.post("/reports/export/preview", response_model=ExportPreview)
+def preview_report_export(
+    request: Request,
+    response: Response,
+    body: ExportPreviewRequest,
+    context: Context,
+    person: Person,
+) -> ExportPreview:
+    return _run(
+        request,
+        response,
+        lambda: preview_export(
+            context.service.authority,
+            context.for_space(request, person.spaces),
+            body.report,
+        ),
+    )
+
+
 @router.post(
     "/reports/export",
     response_class=Response,
     responses={
         200: {
-            "content": {"application/zip": {}},
-            "description": "Complete filtered records, CSV, XLSX and scope manifest; originals excluded.",
-        },
-        409: {
-            "description": "business_report_changed; explicitly refresh the query before retrying."
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+                "text/csv": {},
+            },
+            "description": "One Excel or CSV file: the table's records or the 606/607 lines.",
+            "headers": {
+                "Content-Disposition": {
+                    "description": "Attachment with an ASCII filename fallback and a UTF-8 filename*.",
+                    "schema": {"type": "string"},
+                },
+            },
         },
     },
 )
 def download_report(
     request: Request,
     response: Response,
-    body: ExportReport,
+    body: RecordsExport,
     context: Context,
     person: Person,
-) -> Response:
-    data = _run(
-        request,
-        response,
-        lambda: export_report(
-            context.service.authority,
-            context.for_space(request, person.spaces),
-            body.report,
-            body.expected_fingerprint,
+    language: Annotated[
+        str | None,
+        Header(
+            alias="Accept-Language",
+            description="Language for the filename and table text. Send en or es-419 (default).",
         ),
+    ] = None,
+) -> Response:
+    first_language = (language or "").split(",", 1)[0].split(";", 1)[0].strip().lower()
+    locale = "en" if first_language.split("-", 1)[0] == "en" else "es-419"
+
+    def build() -> tuple[ActionContext, RecordsFile]:
+        actor = context.for_space(request, person.spaces)
+        space = person.spaces.get(str(actor.actor.space_id))
+        return actor, export_file(
+            context.service.authority,
+            actor,
+            body,
+            business_name=space.name if space else None,
+            locale=locale,
+        )
+
+    actor, built = _run(request, response, build)
+    business_analytics.records_exported(
+        business_id=str(actor.actor.space_id),
+        user_id=str(actor.actor.actor_id),
+        file_format=body.format,
+        mode=body.mode,
+        row_count=built.row_count,
     )
     return Response(
-        data,
-        media_type="application/zip",
+        built.content,
+        media_type=built.media_type,
         headers={
             **NO_STORE,
-            "Content-Disposition": 'attachment; filename="business-records.zip"',
+            "Content-Disposition": content_disposition(built.filename),
         },
     )
 

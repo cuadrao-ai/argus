@@ -91,17 +91,17 @@ test("a turned-on reading stays off the first screen, and a turned-off reading s
   try {
     await on.settle(() => on.host.querySelector('[data-testid="reception-row"]') !== null);
     assert.equal(on.host.querySelector('[data-testid="receipt-reading-control"]'), null);
-    assert.equal(on.host.textContent?.includes("La lectura de recibos está activada."), false);
+    assert.equal(on.host.textContent?.includes("La lectura de documentos está activada."), false);
   } finally { await on.close(); }
 
   const off = await mountInbox({ receiptReading: async () => reading(false) });
   try {
     await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null);
-    assert.equal(off.host.querySelector('[data-testid="receipt-reading-control"]')?.textContent?.includes("Activar lectura de recibos"), true);
+    assert.equal(off.host.querySelector('[data-testid="receipt-reading-control"]')?.textContent?.includes("Activar lectura de documentos"), true);
   } finally { await off.close(); }
 });
 
-test("reading off is one line under the title with an outlined action; the words agreed to and the switch live in Lectura de recibos", async () => {
+test("reading off is one line under the title with an outlined action; the words agreed to and the switch live in Lectura de documentos", async () => {
   const turnedOn: boolean[] = [];
   const off = await mountInbox({
     receiptReading: async () => reading(false),
@@ -112,10 +112,10 @@ test("reading off is one line under the title with an outlined action; the words
     const notice = off.host.querySelector('[data-testid="receipt-reading-control"]')!;
     const tabs = off.host.querySelector('[role="tablist"]')!;
     assert.ok(tabs.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING, "the notice sits under the views");
-    assert.deepEqual([...notice.querySelectorAll("p")].map((line) => line.textContent), ["Tus recibos están guardados sin leer. Activa la lectura para prepararlos para revisión."]);
+    assert.deepEqual([...notice.querySelectorAll("p")].map((line) => line.textContent), ["Tus documentos están guardados sin leer. Activa la lectura para prepararlos para revisión."]);
     assert.equal(off.host.textContent?.includes("Permiso de prueba"), false, "the consent words are not repeated on the page");
     const action = notice.querySelector("button")!;
-    assert.equal(action.textContent, "Activar lectura de recibos");
+    assert.equal(action.textContent, "Activar lectura de documentos");
     assert.ok(action.className.includes("border") && !action.className.includes("bg-[var(--cuadrao-green)]"), "secondary, not the page's primary");
     await off.act(async () => action.click());
     const sheet = document.querySelector('[data-testid="receipt-reading-sheet"]')!;
@@ -165,23 +165,27 @@ test("Entendido hides the access line after a reload, and only for that person a
   const { setChosenGrant } = await import("@/lib/business-grant");
   const seen = new Map<string, Set<string>>();
   const fixture = createFixtureBusinessDataSource();
-  const sourceFor = (owner: string) => ({
-    ...fixture,
-    spaces: async () => ["one", "two"].map((business): GrantedSpace => ({
+  const sourceFor = (owner: string) => {
+    const spaces = async () => ["one", "two"].map((business): GrantedSpace => ({
       space_id: business,
       name: business === "one" ? "Colmado Peña" : "Taller Brito",
       grant_id: `${owner}-${business}`,
       role: "accountant",
       capabilities: ["read", "prepare"],
       access_seen: seen.get(owner)?.has(business) ?? false,
-    })),
-    markAccessSeen: async (grant: string) => {
-      const business = grant.slice(owner.length + 1);
-      const items = seen.get(owner) ?? new Set<string>();
-      items.add(business);
-      seen.set(owner, items);
-    },
-  });
+    }));
+    return {
+      ...fixture,
+      spaces,
+      spaceDirectory: async () => ({ spaces: await spaces(), closed_spaces: [], invitations_available: true }),
+      markAccessSeen: async (grant: string) => {
+        const business = grant.slice(owner.length + 1);
+        const items = seen.get(owner) ?? new Set<string>();
+        items.add(business);
+        seen.set(owner, items);
+      },
+    };
+  };
   const sources = { a: sourceFor("a"), b: sourceFor("b") };
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
@@ -244,9 +248,11 @@ async function mountCueThatFails() {
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   const fixture = createFixtureBusinessDataSource();
+  const spaces = async () => [{ space_id: "one", name: "Colmado Peña", grant_id: "a-one", role: "accountant" as const, capabilities: ["read" as const, "prepare" as const], access_seen: false }];
   const source = {
     ...fixture,
-    spaces: async () => [{ space_id: "one", name: "Colmado Peña", grant_id: "a-one", role: "accountant" as const, capabilities: ["read" as const, "prepare" as const], access_seen: false }],
+    spaces,
+    spaceDirectory: async () => ({ spaces: await spaces(), closed_spaces: [], invitations_available: true }),
     markAccessSeen: async () => { throw new Error("synthetic failure"); },
   };
   const i18n = i18next.createInstance();

@@ -94,7 +94,8 @@ proposal names (`FiscalSchema`): `version`, `regions`, `business_tax_ids`
 and `gst_hst_account` for CA), `profile_questions` (US: "do you collect
 sales tax?"), `document_fields`, `receipt_states`, `declaration` (DO's
 `dgii_606_607`, null elsewhere), `document_checks` (DO's `ecf_qr`),
-`ledger_column`, `no_receipt_reasons`, `marks`, `tax_figure` (DO `itbis_owed`,
+`ledger_column`, `no_receipt_reasons`, `marks`, `tax_figure` (DO
+`itbis_charged` and `itbis_paid`, two totals and never a balance between them,
 US `sales_tax_collected`, CA `gst_hst_owed`), `filings`, `exports` (DO `606`
 and `607`, none for US and CA in v1) and `bank_sources` (DO
 `statement_import`; US and CA `provider` and `statement_import`). Labels are
@@ -220,8 +221,9 @@ which re-keys the one-Business rule on `current_owner_id` and rewrites
   blocks_close, target}]` and `next_filing: {code, due_on}`. A US Business
   has no `missing_rnc` or `missing_ncf` step. The web stops turning reason
   codes into steps (`common.json:2891-2915`, `business-month-close.ts:405-412`).
-- `tax_figure` is served by key: DO `itbis_owed`, US `sales_tax_collected`
-  (the "collected" figure), CA `gst_hst_owed`.
+- `tax_figure` is served by key: DO `itbis_charged` and `itbis_paid` (two
+  totals, never a balance), US `sales_tax_collected` (the "collected" figure),
+  CA `gst_hst_owed`.
 - `dgii_export.py` and `export.py:403` produce only the exports the registry
   lists; the manifest names what the sheet shows as "Incluye".
   `decide_606` (`actions/service.py:427-455`) answers

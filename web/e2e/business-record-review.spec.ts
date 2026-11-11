@@ -271,12 +271,12 @@ test.describe("Server authority and uncertain outcomes", () => {
 
   test("a save with no answer keeps its correction, holds approval and retries once", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.saveUnknown);
-    await editField(page, "Comercio o persona").click();
-    const merchant = page.getByRole("textbox", { name: "Comercio o persona", exact: true });
+    await editField(page, "Contraparte").click();
+    const merchant = page.getByRole("textbox", { name: "Contraparte", exact: true });
     await merchant.fill("My retained correction");
-    await saveRow(page, "Comercio o persona").click();
+    await saveRow(page, "Contraparte").click();
     const failure = page.getByTestId("row-save-failed");
-    await expect(failure).toContainText("No pudimos confirmar si Comercio o persona se guardó.");
+    await expect(failure).toContainText("No pudimos confirmar si Contraparte se guardó.");
     await expect(failure.getByText(/^Ref\./)).toBeVisible();
     await expect(merchant).toHaveValue("My retained correction");
     await expect(approveButton(page)).toBeDisabled();
@@ -284,40 +284,40 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(failure).toHaveCount(0);
     await expect(page.getByTestId("receipt-current-facts")).toContainText("My retained correction");
     const history = await openHistory(page);
-    await expect(history.locator("li", { hasText: "Comercio o persona cambiado de Ferretería La Esquina a My retained correction" })).toHaveCount(1);
+    await expect(history.locator("li", { hasText: "Contraparte cambiado de Ferretería La Esquina a My retained correction" })).toHaveCount(1);
     await expect(approveButton(page)).toBeEnabled();
     await capture(page, "uncertain-saveUnknown-spanish");
   });
 
   test("a save another person overtook keeps its correction beside the current record", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.saveConcurrent);
-    await editField(page, "Comercio o persona").click();
-    const merchant = page.getByRole("textbox", { name: "Comercio o persona", exact: true });
+    await editField(page, "Contraparte").click();
+    const merchant = page.getByRole("textbox", { name: "Contraparte", exact: true });
     await merchant.fill("My retained correction");
-    await saveRow(page, "Comercio o persona").click();
+    await saveRow(page, "Contraparte").click();
     const failure = page.getByTestId("row-save-failed");
-    await expect(failure).toContainText("No pudimos confirmar si Comercio o persona se guardó.");
+    await expect(failure).toContainText("No pudimos confirmar si Contraparte se guardó.");
     await expect(approveButton(page)).toBeDisabled();
     await failure.getByRole("button", { name: "Reintentar", exact: true }).click();
     await expect(failure).toContainText("Este registro cambió mientras editabas.");
     await expect(merchant).toHaveValue("My retained correction");
     await expect(approveButton(page)).toBeDisabled();
     const history = await openHistory(page);
-    await expect(history).toContainText("Comercio o persona cambiado de Ferretería La Esquina a Corrección de otra persona");
+    await expect(history).toContainText("Contraparte cambiado de Ferretería La Esquina a Corrección de otra persona");
     await expect(history).toContainText("Elena Reyes");
     await capture(page, "uncertain-saveConcurrent-spanish");
   });
 
   test("an acknowledged save settles and the next one builds on its revision", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.ready);
-    await editField(page, "Comercio o persona").click();
-    await page.getByRole("textbox", { name: "Comercio o persona", exact: true }).fill("Acknowledged correction");
-    await saveRow(page, "Comercio o persona").click();
+    await editField(page, "Contraparte").click();
+    await page.getByRole("textbox", { name: "Contraparte", exact: true }).fill("Acknowledged correction");
+    await saveRow(page, "Contraparte").click();
     await expect(page.getByTestId("receipt-current-facts")).toContainText("Acknowledged correction");
     await expect(approveButton(page)).toBeEnabled();
-    await editField(page, "Comercio o persona").click();
-    await page.getByRole("textbox", { name: "Comercio o persona", exact: true }).fill("New correction");
-    await saveRow(page, "Comercio o persona").click();
+    await editField(page, "Contraparte").click();
+    await page.getByRole("textbox", { name: "Contraparte", exact: true }).fill("New correction");
+    await saveRow(page, "Contraparte").click();
     await expect(page.getByTestId("receipt-current-facts")).toContainText("New correction");
   });
 
@@ -333,7 +333,7 @@ test.describe("Server authority and uncertain outcomes", () => {
   test("the same current facts and approval action are localized", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.ready);
     await expect(approveButton(page)).toBeVisible();
-    await expect(page.getByTestId("receipt-current-facts")).toContainText("Fecha de actividad");
+    await expect(page.getByTestId("receipt-current-facts")).toContainText("Fecha del comprobante");
   });
 
   test("a correction to a suggestion saves that one value as the reviewer's at a new revision", async ({ page }) => {
@@ -341,14 +341,14 @@ test.describe("Server authority and uncertain outcomes", () => {
     const merchant = fact(page, "counterparty");
     await expect(merchant).toHaveAttribute("data-standing", "suggestion");
 
-    await editField(page, "Comercio o persona").click();
-    await page.getByRole("textbox", { name: "Comercio o persona", exact: true }).fill("Ferretería La Esquina SRL");
-    await saveRow(page, "Comercio o persona").click();
+    await editField(page, "Contraparte").click();
+    await page.getByRole("textbox", { name: "Contraparte", exact: true }).fill("Ferretería La Esquina SRL");
+    await saveRow(page, "Contraparte").click();
 
     await expect(merchant).toHaveAttribute("data-standing", "person");
     await expect(merchant).toContainText("Ferretería La Esquina SRL");
     const history = await openHistory(page);
-    await expect(history.locator("li").first()).toContainText("Comercio o persona cambiado de Ferretería La Esquina a Ferretería La Esquina SRL");
+    await expect(history.locator("li").first()).toContainText("Contraparte cambiado de Ferretería La Esquina a Ferretería La Esquina SRL");
     await expect(history.locator("li").first()).toContainText("Ana Peña");
   });
 });
@@ -416,4 +416,58 @@ test("after approving from the inbox, the inbox count changes without a reload",
   await expect(nav.getByRole("button", { name: `Bandeja ${badge - 1}`, exact: true })).toBeVisible();
   await nav.getByRole("button", { name: /^Registros/ }).click();
   await expect(panel.locator("[data-record-id]").filter({ hasText: "Ferretería La Esquina" })).toBeVisible();
+});
+
+test.describe("pilot dictionary labels", () => {
+  test.use({ viewport: { width: 1440, height: 1000 } });
+  for (const language of ["es-419", "en"] as const) {
+    test(`review, 606 choices and Registros headers in ${language}`, async ({ page }, testInfo) => {
+      const external: string[] = [];
+      await installBreakpointFixture(page, { language, theme: "light", emptyChat: true });
+      await page.route("**/*", (route) => {
+        const url = new URL(route.request().url());
+        if (["localhost", "127.0.0.1"].includes(url.hostname)) return route.fallback();
+        external.push(url.origin);
+        return route.abort("blockedbyclient");
+      });
+      await page.clock.setFixedTime(new Date("2026-10-20T15:00:00Z"));
+      await page.goto(`/dev/business-preview?draft=${dossierFixtureIds.fiscal}`);
+      const review = page.getByTestId("business-record-review");
+      await expect(review).toBeVisible();
+      const es = language === "es-419";
+      await expect(review.locator('[data-fact="counterparty"] dt')).toHaveText(es ? "Contraparte" : "Counterparty");
+      await expect(review.locator('[data-fact="occurred_on"] dt')).toHaveText(es ? "Fecha del comprobante" : "Receipt date");
+      const capture = async (name: string) => {
+        const path = testInfo.outputPath(`${language}-${name}.png`);
+        await page.screenshot({ path });
+        await testInfo.attach(`${language}-${name}`, { path, contentType: "image/png" });
+      };
+      for (const [field, text] of [["category", es ? "01 - Gastos de personal" : "01 - Personnel expenses"], ["payment_method", es ? "01 - Efectivo" : "01 - Cash"]]) {
+        const select = review.locator(`[data-fact="${field}"] select`);
+        await expect(select.locator('option[value="01"]')).toHaveText(text);
+        await select.selectOption("01");
+        await expect(select).toHaveValue("01");
+      }
+      await review.locator('[data-fact="counterparty"]').scrollIntoViewIfNeeded();
+      await capture("review-chosen-options");
+      await page.goto("/dev/business-preview");
+      await page.getByTestId("business-sidebar-nav").getByRole("button", { name: es ? /^Registros/ : /^Records/ }).click();
+      await page.getByRole("button", { name: es ? "Opciones de vista" : "View options", exact: true }).click();
+      for (const key of ["tipo_gasto", "forma_pago"]) await page.locator(`[data-column-setting="${key}"] input`).check();
+      await page.keyboard.press("Escape");
+      for (const label of es ? ["Contraparte", "Fecha", "Monto", "Tipo de gasto", "Estado", "Adjunto"] : ["Counterparty", "Date", "Amount", "Expense type", "Status", "Attachment"]) {
+        await expect(page.getByRole("columnheader", { name: label, exact: true })).toBeVisible();
+      }
+      await expect(page.locator('[data-col="tipo_gasto"]').filter({ hasText: /^09 - / })).toBeVisible();
+      await expect(page.locator('[data-col="forma_pago"]').filter({ hasText: /^02 - / })).toBeVisible();
+      await capture("records-headers");
+      await page.getByRole("button", { name: es ? "Filtros" : "Filters", exact: true }).click();
+      await page.getByRole("tab", { name: es ? "Tipo de gasto" : "Expense type", exact: true }).click();
+      await page.getByRole("checkbox", { name: /^09 - / }).check();
+      await capture("expense-type-filter");
+      await page.getByRole("button", { name: es ? "Aplicar" : "Apply", exact: true }).click();
+      await expect(page.getByTestId("records-preview-filter-chips")).toContainText("09 - ");
+      expect(external, "the proof never contacts a hosted service").toEqual([]);
+    });
+  }
 });

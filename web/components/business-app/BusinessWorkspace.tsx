@@ -25,6 +25,7 @@ import {
   businessChatAvailable,
   businessReceivingChannels,
   type ReceivingChannels,
+  businessActivityAvailable,
   businessInvoicingAvailable,
   type BusinessCapture,
   type BusinessOverview,
@@ -33,17 +34,18 @@ import {
   type ReceiptSummary,
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
-import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
+import { enteredIn, getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
 import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
-import { withBusinessSpace, type BusinessDataSource } from "./business-data";
+import { browserAuthGeneration } from "@/lib/browser-auth-generation";
+import { withBusinessSession, withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { BusinessContext } from "./business-context";
 import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
-import BusinessInvitationForm from "./BusinessInvitationForm";
+import BusinessInvitationForm, { clearInvitationDraft } from "./BusinessInvitationForm";
 import BusinessSwitcher, { BusinessMark } from "./BusinessSwitcher";
 import { BusinessClosedAccess, BusinessClosedOwnerBanner } from "./BusinessLifecycleControls";
 import type { ClosedGrantedSpace } from "@/lib/business-api";
@@ -58,7 +60,10 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
+import { intakeWork } from "./intake-work";
+import { TypedNoteQueue } from "./typed-note-queue";
 import ExportRecordsPanel from "./ExportRecordsPanel";
+import { openRecordsExport } from "./transacciones/records-export-request";
 import { HandHeart } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AmountsToggle } from "./foundation/AmountsToggle";
@@ -69,11 +74,12 @@ import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
 import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
+import type { RecordsFocus } from "./transacciones/records-focus";
 import { useEmailDeliveries } from "./useEmailDeliveries";
 import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
-import { quietButtonClass } from "./business-ui";
+import { canAddRecords, canManageBusiness, quietButtonClass } from "./business-ui";
 import { applyListSearch, useLendingList } from "./foundation/list-search";
 import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, publishBusinessAppearance } from "@/lib/business-profile-api";
@@ -85,7 +91,8 @@ export type BusinessPanelState =
   // Actividad: the history of changes in this Business, live from the server.
   | { kind: "activity" }
   // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
-  | { kind: "transactions"; expenseId?: string }
+  // `focus` opens Registros on one list, as a count elsewhere counted it.
+  | { kind: "transactions"; expenseId?: string; focus?: RecordsFocus }
   | { kind: "expense"; expenseId: string }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
@@ -136,12 +143,22 @@ export function invoicingShown(state: InvoicingState | undefined): boolean {
   return state === "available" || state === "sample";
 }
 
+/** What Actividad is here. The server's workspace answer decides; `null` until it answers, when no entry point shows. */
+export type ActivityState = "available" | "unavailable" | null;
+
+/** Whether any Actividad entry point shows: the screen, its sidebar item and the phone menu's row. */
+export function activityShown(state: ActivityState | undefined): boolean {
+  return state === "available";
+}
+
 export type BusinessContextValue = Readonly<{
   userId?: string|null;
   source: BusinessDataSource;
   records: Records;
   /** Absent means the server has not answered, so nothing shows. */
   invoicing?: InvoicingState;
+  /** Absent means the server has not answered, so nothing shows. */
+  activity?: ActivityState;
   receivingChannels?: ReceivingChannels;
   directoryStatus?: BusinessDirectoryStatus;
   /** Every Business the person may enter, the server's list; null until read. */
@@ -151,6 +168,8 @@ export type BusinessContextValue = Readonly<{
   chosen: GrantedSpace | null;
   chooseBusiness: (grantId: string | null) => void;
   renamePreviewBusiness?: (name: string) => void;
+  /** The server offers Business invitations: its last directory answer. */
+  invitationsAvailable?: boolean;
   /** The one-time access line for the chosen client Business was dismissed. */
   markAccessSeen: () => Promise<void>;
   /** The chosen grant stopped being live mid-session; the person is back in their own Business. */
@@ -170,7 +189,7 @@ export type BusinessContextValue = Readonly<{
   bridge: ChatShellBridge | null;
   attachedReceipt: ReceiptSummary | null;
   clearAttachedReceipt: () => void;
-  /** Opens Exportar registros over whatever screen is showing. */
+  /** Opens the period ZIP export; only the sample and bank-matching Registros screen uses it. */
   openExport: () => void;
   /** Asks the server for the emails again; the Negocio history shows it working. */
   emailRefresh: Readonly<{ refresh: () => void; refreshing: boolean; stalled: boolean }>;
@@ -297,9 +316,11 @@ function BusinessWorkspaceContent({
   // flips it, so a record's effects do not refetch on every address-bar write.
   // A desktop shows the record beside its list, so the list loads from the start.
   const [directRecord, setDirectRecord] = useState(() => (searchParams.has("draft") || searchParams.has("receipt")) && responsiveLayoutSnapshot().isBelowDesktop);
+  const [sessionGeneration] = useState(browserAuthGeneration);
+  const sessionSource = useMemo(() => apiSource.mode === "live" ? withBusinessSession(apiSource, sessionGeneration) : apiSource, [apiSource, sessionGeneration]);
   const workspaceSource = useMemo(
-    () => withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
-    [apiSource, i18n],
+    () => withBusinessSpace(sessionSource, () => normalizeEnabledLanguage(i18n.language)),
+    [sessionSource, i18n],
   );
   const [panel, setPanel] = useState<BusinessPanelState>(() =>
     panelFromSearch(new URLSearchParams(searchParams.toString())),
@@ -307,7 +328,7 @@ function BusinessWorkspaceContent({
   // Derived, not the latch: the moment the person leaves the record the
   // workspace-scoped source is in effect, so the first fetch is already scoped.
   const onRecord = directRecord && (panel.kind === "receipt" || panel.kind === "draft");
-  const scopedSource = onRecord ? apiSource : workspaceSource;
+  const scopedSource = onRecord ? sessionSource : workspaceSource;
   const previewSourceFor = useMemo(() => createLocalBusinessPreviewSource(scopedSource), [scopedSource]);
   const source = localPreview ? previewSourceFor(chosenGrant) : scopedSource;
   const [initialView] = useState<ChatShellView>(() =>
@@ -332,6 +353,7 @@ function BusinessWorkspaceContent({
   const [lostAccess, setLostAccess] = useState(false);
   const clearLostAccess = useCallback(() => setLostAccess(false), []);
   const [invitationBusiness, setInvitationBusiness] = useState<string | null>(null);
+  const [invitationsAvailable, setInvitationsAvailable] = useState(false);
   const [previewNames, setPreviewNames] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!localPreview) return;
@@ -356,25 +378,27 @@ function BusinessWorkspaceContent({
     return()=>controller.abort();
   },[source.mode,appearanceBusinessId,chosenGrant]);
   const renamePreviewBusiness = useCallback((name: string) => {
-    if (!localPreview || !chosen || chosen.role !== "owner" || !name.trim() || [...name.trim()].length > 80) return;
+    if (!localPreview || !chosen || !canManageBusiness(chosen) || !name.trim() || [...name.trim()].length > 80) return;
     setPreviewNames(current => {
       const next = { ...current, [chosen.space_id]: name.trim() };
       writeStored("cuadrao-preview-business-names-v1", JSON.stringify(next));
       return next;
     });
   }, [chosen, localPreview]);
-  const closedAccessName = closedAccess ? closedSpaces.find(space => space.grant_id === chosenGrant)?.name ?? chosen?.name ?? t("business.overview.title") : null;
+  const businessTitle = formatBusinessName(chosen?.name, t("business.overview.title", "My business"));
+  const closedAccessName = closedAccess ? formatBusinessName(closedSpaces.find(space => space.grant_id === chosenGrant)?.name, businessTitle) : null;
   // The listing is the server's; a remembered choice it no longer holds falls back to the own Business.
   useEffect(() => {
     let cancelled = false;
     setDirectoryStatus("loading");
-    const directory = source.mode === "live" && source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [] }));
+    const directory = source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [], invitations_available: false }));
     directory.then(
-      ({ spaces: listed, closed_spaces: closed }) => {
+      ({ spaces: listed, closed_spaces: closed, invitations_available: capability }) => {
         if (cancelled) return;
         setSpaces(listed);
         setDirectoryStatus("ready");
         setClosedSpaces(closed);
+        setInvitationsAvailable(capability === true);
         const grant = getChosenGrant();
         const selected = listed.find(space => space.grant_id === grant);
         if (grant && !selected) {
@@ -390,7 +414,7 @@ function BusinessWorkspaceContent({
           }
         }
       },
-      () => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); } },
+      () => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); setInvitationsAvailable(false); } },
     );
     return () => { cancelled = true; };
   }, [source, revision, accessRevision]);
@@ -412,7 +436,23 @@ function BusinessWorkspaceContent({
     panelGuard.current = guard;
     return () => { if (panelGuard.current === guard) panelGuard.current = null; };
   }, []);
+  const canInvite =
+    directoryStatus === "ready"
+    && invitationsAvailable
+    && chosen?.permissions?.includes("manage") === true;
+  useEffect(() => {
+    if (!canInvite) {
+      if (invitationBusiness) clearInvitationDraft(invitationBusiness);
+      else if (chosen?.space_id) clearInvitationDraft(chosen.space_id);
+      setInvitationBusiness(null);
+    }
+  }, [canInvite, chosen?.space_id, invitationBusiness]);
+  const openInvitation = useCallback(() => {
+    if (canInvite && chosen) setInvitationBusiness(chosen.space_id);
+  }, [canInvite, chosen]);
   const chooseBusiness = useCallback((grantId: string | null) => {
+    if (invitationBusiness) clearInvitationDraft(invitationBusiness);
+    else if (chosen?.space_id) clearInvitationDraft(chosen.space_id);
     setInvitationBusiness(null);
     setCreatingBusiness(false);
     if (!canEnterBusiness(consent.accepted, grantId)) {
@@ -436,11 +476,14 @@ function BusinessWorkspaceContent({
     };
     if (panelGuard.current) panelGuard.current({ kind: "overview" }, choose);
     else choose();
-  }, [consent]);
+  }, [consent, chosen, invitationBusiness]);
   const drafts = useRef(new Map<string, string>());
   const [draftRevision, setDraftRevision] = useState(0);
 
-  const reload = useCallback(() => setRevision((value) => value + 1), []);
+  const reload = useCallback(() => {
+    setDirectoryStatus("loading");
+    setRevision((value) => value + 1);
+  }, []);
   const [reloadWaits] = useState(createReloadWaits);
   useEffect(() => reloadWaits.committed(revision), [reloadWaits, revision]);
   const refresh = useCallback(() => {
@@ -457,7 +500,7 @@ function BusinessWorkspaceContent({
 
   // One queue outlives the dialog: closing it never drops a running upload.
   const [uploadQueue] = useState(() => new ReceiptUploadQueue(
-    (file, consent, key, documentType, onProgress) => runQuietRetries(() => source.uploadReceipt(file, consent, key, documentType, onProgress)),
+    (file, consent, key, documentType, onProgress, grant) => runQuietRetries(() => source.uploadReceipt(file, consent, key, documentType, onProgress, grant)),
     reload,
   ));
   useLayoutEffect(() => {
@@ -469,17 +512,23 @@ function BusinessWorkspaceContent({
     });
   }, [uploadQueue, reload, conversationId, intakeTarget]);
   const uploads = useSyncExternalStore(uploadQueue.subscribe, uploadQueue.snapshot, uploadQueue.snapshot);
+  const [typedNotes] = useState(() => new TypedNoteQueue(reload));
+  // Every way Agregar closes forgets finished typed notes; one still saving or unconfirmed waits for its retry.
+  useEffect(() => { if (!intakeTarget) typedNotes.clearSettled(chosenGrant); }, [intakeTarget, typedNotes, chosenGrant]);
+  // Leaving the page asks first while anything Agregar took is still being sent, or a typed note is not saved yet.
+  const [inFlight] = useState(() => intakeWork([uploadQueue, typedNotes]));
+  const unfinishedIntake = useSyncExternalStore(inFlight.subscribe, inFlight.unfinished, () => false);
   useEffect(() => {
-    if (!uploadQueue.unfinished) return;
+    if (!unfinishedIntake) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [uploadQueue, uploads]);
+  }, [unfinishedIntake]);
   const openIntake = useCallback((target: IntakeTarget) => {
-    // A new composer upload starts clean unless one is still in flight.
-    if (target === "composer" && !uploadQueue.snapshot().some((item) => item.target === target && item.status !== "saved" && item.status !== "rejected")) uploadQueue.clear(target);
+    // A new composer upload starts clean unless one of this Business's is still in flight.
+    if (target === "composer" && !uploadQueue.snapshot().filter(enteredIn(chosenGrant)).some((item) => item.target === target && item.status !== "saved" && item.status !== "rejected")) uploadQueue.clear(target, chosenGrant);
     setIntakeTarget(target);
-  }, [uploadQueue]);
+  }, [uploadQueue, chosenGrant]);
 
   useEffect(() => {
     let cancelled = false;
@@ -606,8 +655,15 @@ function BusinessWorkspaceContent({
   );
 
   const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
-  // The top bar's heading follows the screen, except Facturación's waits for the server's answer like its screen does.
-  const headerScreen = panel.kind === "invoicing" && !invoicingShown(invoicing) ? undefined : panel.kind;
+  const activity: ActivityState = records.workspace ? (businessActivityAvailable(records.workspace) ? "available" : "unavailable") : null;
+  // The top bar's heading follows the screen, except Facturación's and Actividad's wait for the server's answer like their screens do.
+  const headerScreen = (panel.kind === "invoicing" && !invoicingShown(invoicing)) || (panel.kind === "activity" && !activityShown(activity)) ? undefined : panel.kind;
+  // A deep link to Actividad the server does not offer lands on Inicio, never on a refusal.
+  useEffect(() => {
+    if (panel.kind !== "activity" || activity !== "unavailable") return;
+    setPanel({ kind: "overview" });
+    writePanelToUrl("workspace", { kind: "overview" });
+  }, [activity, panel.kind]);
   // A deep link to Facturación the server does not offer lands on Inicio, never on a refusal.
   useEffect(() => {
     if (panel.kind !== "invoicing" || invoicing !== "unavailable") return;
@@ -624,6 +680,8 @@ function BusinessWorkspaceContent({
 
   const [exportOpen, setExportOpen] = useState(false);
   const openExport = useCallback(() => setExportOpen(true), []);
+  // Exportar registros from search opens Registros and its own export dialog.
+  const exportRegistros = useCallback(() => openRecordsExport(openPanel), [openPanel]);
 
   const value = useMemo<BusinessContextValue>(
     () => ({
@@ -631,12 +689,14 @@ function BusinessWorkspaceContent({
       source,
       records: workspaceRecords,
       invoicing,
+      activity,
       receivingChannels,
       spaces,
       closedSpaces,
       chosen,
       chooseBusiness,
       renamePreviewBusiness: localPreview ? renamePreviewBusiness : undefined,
+      invitationsAvailable,
       markAccessSeen,
       lostAccess,
       clearLostAccess,
@@ -656,7 +716,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, activity, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, invitationsAvailable, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
@@ -670,10 +730,10 @@ function BusinessWorkspaceContent({
     accounts: records.workspace?.accounts ?? NO_ACCOUNTS,
     openPanel,
     actions,
-    owner: chosen?.role !== "accountant",
+    canAdd: canAddRecords(chosen),
     scope: chosen?.space_id ?? "own",
     canExport: chosen?.permissions?.includes("export") === true,
-    openExport,
+    openExport: exportRegistros,
     listScope,
     adaptive: true,
     emailAvailable: receivingChannels.email.available,
@@ -696,10 +756,10 @@ function BusinessWorkspaceContent({
       bottomNavigation: (shell) => !closedAccessName && shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview" && !closedAccessName,
       sidebarNav: (shell) => closedAccessName ? null : <BusinessSidebarNav shell={shell} />,
-      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={() => setInvitationBusiness(chosen?.space_id ?? null)} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
-      sidebarMark: () => <BusinessMark businessId={chosen?.space_id} name={chosen?.name} />,
+      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
+      sidebarMark: () => <BusinessMark businessId={chosen?.space_id} name={businessTitle} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={() => setInvitationBusiness(chosen?.space_id ?? null)} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={activityShown(activity) ? () => openPanel({ kind: "activity" }) : undefined} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
         {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
@@ -711,9 +771,9 @@ function BusinessWorkspaceContent({
           </button>
         </Tooltip> : null}
         <AmountsToggle />
-        <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen?.name} emailAvailable={receivingChannels.email.available} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} />
+        <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen ? businessTitle : undefined} emailAvailable={receivingChannels.email.available} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} />
       </>,
-      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
+      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} business={businessTitle} title={shell.currentView === "workspace" && !closedAccessName ? headerScreen === "transactions" ? t("business.transactions.title") : headerScreen === "inbox" ? t("business.inbox.title") : headerScreen === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} screen={shell.currentView === "workspace" && !closedAccessName ? headerScreen : undefined} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
@@ -737,19 +797,20 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId]);
+  }, [activity, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>
       <ChatWorkspaceProvider value={workspace}>
         {children}
-        {creatingBusiness?<CreateBusinessPreview accountKey={source.mode==="live"?userId??"":"preview"} live={source.mode==="live"} onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.grant_id??business.id);reload();openPanel({kind:"business",tab:"datos"});showToast({kind:"success",text:t("identity.business_created",{name:business.name})});}}/>:null}
-        {chosen?.permissions?.includes("manage") && invitationBusiness === chosen.space_id ? <BusinessInvitationForm onClose={() => setInvitationBusiness(null)} /> : null}
+        {creatingBusiness?<CreateBusinessPreview accountKey={source.mode==="live"?userId??"":"preview"} live={source.mode==="live"} onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.grant_id??business.id);reload();openPanel({kind:"overview"});showToast({kind:"success",text:t("identity.business_created",{name:formatBusinessName(business.name,t("business.overview.title","My business"))})});}}/>:null}
+        {canInvite && invitationBusiness === chosen?.space_id ? <BusinessInvitationForm onClose={() => setInvitationBusiness(null)} /> : null}
         <ReceiptIntakeDialog
           target={intakeTarget}
           queue={uploadQueue}
+          notes={typedNotes}
           onClose={() => {
-            if (intakeTarget) uploadQueue.clearSettled(intakeTarget);
+            if (intakeTarget) uploadQueue.clearSettled(intakeTarget, chosenGrant);
             setIntakeTarget(null);
           }}
           onReview={(saved) => {
@@ -768,7 +829,7 @@ export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; c
   return <BusinessReviewShortcutsProvider><BusinessWorkspaceContent {...props} /></BusinessReviewShortcutsProvider>;
 }
 
-/** The one Exportar registros, opened from the top bar's menu or from search over any screen. */
+/** The period ZIP export, opened from the sample and bank-matching Registros screen. */
 function WorkspaceExport({ onClose }: { onClose: () => void }) {
   const monthClose = useMonthCloseSource();
   return <ExportRecordsPanel monthClose={monthClose} onClose={onClose} />;

@@ -9,7 +9,7 @@ const crop = z.object({ mode: z.enum(["fit", "fill"]), zoom: z.number().min(1).m
 const appearance = z.discriminatedUnion("kind", [z.object({ kind: z.literal("default") }), z.object({ kind: z.literal("avatar"), token: z.enum(["ocean", "ember", "gold", "slate", "teal", "indigo", "plum"]), mark: z.enum(["initials", "icon"]) }), z.object({ kind: z.literal("image"), asset_id: z.string(), crop })]);
 const image = z.object({ asset_id: z.string(), width: z.number(), height: z.number(), source_url: z.string().nullable(), rendered_url: z.string().nullable() });
 const details = z.object({ address: z.string().default(""), province: z.string().default(""), municipality: z.string().default(""), email: z.string().default(""), phone: z.string().default(""), website: z.string().default(""), description: z.string().default("") });
-const profile = z.object({ space_id: z.string(), name: z.string(), country: z.enum(["DO", "US", "CA"]), currency: z.string(), revision: z.number().int().nonnegative(), details, appearance, image: image.nullable() });
+const profile = z.object({ space_id: z.string(), name: z.string().nullable(), country: z.enum(["DO", "US", "CA"]), currency: z.string(), revision: z.number().int().nonnegative(), details, appearance, image: image.nullable() });
 export type BusinessProfile = z.infer<typeof profile>;
 export type BusinessProfilePatch = { expected_revision: number; name?: string; details?: Partial<BusinessProfile["details"]>; appearance?: BusinessProfile["appearance"] };
 type Scope = { selection: string | null; grant: string | null; userId?:string };
@@ -21,9 +21,7 @@ export async function businessSettingsRequest<T>(path: string, options: RequestI
   const check = () => { options.signal?.throwIfAborted(); requireBrowserAuthGeneration(generation); if (getChosenGrant() !== scope.selection) throw new Error("Business selection changed"); };
   const auth = await authenticatedRequestHeaders(scope.userId);
   check();
-  const headers = argusApiRequestHeaders(options.headers, auth, path);
-  if (scope.grant) headers.set("X-Business-Grant", scope.grant);
-  else headers.delete("X-Business-Grant");
+  const headers = argusApiRequestHeaders(options.headers, auth, scope.grant);
   const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, { ...options, headers, credentials: "include", cache: "no-store" });
   check();
   const text = await response.text();
@@ -129,7 +127,7 @@ export function appearanceCommand(id: string, value: IdentityAppearance, saved?:
     catch(error){if(error&&typeof error==="object"&&"status" in error&&error.status===409){state.revision=undefined;state.save=crypto.randomUUID();onProgress?.();}throw error;}
   };
 }
-const createdSpace = z.object({ id: z.string(), name: z.string(), country: z.enum(["DO", "US", "CA"]), currency: z.string(), logo_url: z.string().nullable() });
+const createdSpace = z.object({ id: z.string(), name: z.string().nullable(), country: z.enum(["DO", "US", "CA"]), currency: z.string(), logo_url: z.string().nullable() });
 export const businessCreationState = z.object({key:z.string().min(1),upload:z.string().min(1),save:z.string().min(1),asset_id:z.string().optional(),crop:crop.optional(),revision:z.number().int().nonnegative().optional(),created:z.object({id:z.string()}).optional()});
 export type BusinessCreationState = z.infer<typeof businessCreationState>;
 export function createBusinessCommand(input: { name: string; country: "DO" | "US" | "CA"; appearance: IdentityAppearance;userId?:string }, restored?: BusinessCreationState, onProgress?: (state:BusinessCreationState)=>void) {

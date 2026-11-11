@@ -71,8 +71,8 @@ describe("the Business mark menu", () => {
     await client.act(async () => client.root.unmount());
   });
 
-  test("the English default is Spanish in the collapsed label and open options", async () => {
-    const unnamed = { ...CLIENT, name: "My business" };
+  test("an unnamed Business is Mi negocio in the collapsed label and open options", async () => {
+    const unnamed = { ...CLIENT, name: null };
     const page = await mountSwitcher([OWN, unnamed], unnamed, true);
     const button = page.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement;
     assert.equal(page.host.querySelector('[data-testid="business-current-name"]')?.textContent, "Mi negocio");
@@ -84,7 +84,6 @@ describe("the Business mark menu", () => {
     await page.settle();
     assert.ok([...document.querySelectorAll('[role="option"]')][1].textContent?.includes("Mi negocio"));
     assert.ok(!document.body.textContent?.includes("My business"));
-    assert.equal(unnamed.name, "My business");
     await page.act(async () => page.root.unmount());
   });
 
@@ -205,8 +204,8 @@ describe("the Business mark menu", () => {
   });
 });
 
-describe("inside a client's Business every screen says so", () => {
-  async function mountCue(chosen: GrantedSpace | null, lostAccess = false) {
+describe("the one-time access line belongs to invitations", () => {
+  async function mountCue(chosen: GrantedSpace | null, lostAccess = false, invitationsAvailable = true) {
     const env = await setup();
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { BusinessContextCue } = await import("@/components/business-app/BusinessPanel");
@@ -219,6 +218,7 @@ describe("inside a client's Business every screen says so", () => {
       const value = {
         chosen: current,
         lostAccess,
+        invitationsAvailable,
         clearLostAccess: () => undefined,
         markAccessSeen: async () => { seen.push(current?.grant_id ?? ""); setCurrent(current ? { ...current, access_seen: true } : current); },
       } as unknown as BusinessContextValue;
@@ -235,9 +235,9 @@ describe("inside a client's Business every screen says so", () => {
     return { ...env, seen, setChosen: (next: GrantedSpace | null) => env.act(async () => setChosenOutside(next)) };
   }
 
-  test("the client cue and the one-time line show on first landing; Entendido records it once and it never returns; the owner sees neither", async () => {
+  test("the one-time line shows on first landing; Entendido records it once and it never returns; the owner never sees it", async () => {
     const page = await mountCue(CLIENT);
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]')?.textContent, "Cliente: Colmado Peña");
+    assert.doesNotMatch(page.host.textContent ?? "", /Cliente:/, "the switcher already names the Business");
     const line = page.host.querySelector('[data-testid="business-access-line"]')!;
     assert.equal(line.getAttribute("role"), "status");
     assert.ok(line.textContent?.includes("Ahora tienes acceso a Colmado Peña · Ver y preparar"));
@@ -247,21 +247,26 @@ describe("inside a client's Business every screen says so", () => {
     await page.settle();
     assert.deepEqual(page.seen, ["g-client"]);
     assert.equal(page.host.querySelector('[data-testid="business-access-line"]'), null, "dismissed");
-    assert.ok(page.host.querySelector('[data-testid="business-client-cue"]'), "the cue stays");
-    // Another client whose line was already seen: cue only.
+    // Another client whose line was already seen.
     await page.setChosen(OTHER);
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]')?.textContent, "Cliente: Taller Brito");
     assert.equal(page.host.querySelector('[data-testid="business-access-line"]'), null);
-    // The own Business: nothing at all.
+    // The own Business.
     await page.setChosen(OWN);
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]'), null);
     assert.equal(page.host.querySelector('[data-testid="business-access-line"]'), null);
+    assert.equal(page.host.textContent, "");
     await page.act(async () => page.root.unmount());
   });
 
-  test("the client cue and access banner localize the saved English default", async () => {
-    const page = await mountCue({ ...CLIENT, name: "My business" });
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]')?.textContent, "Cliente: Mi negocio");
+  test("with invitations off a new client Business shows no access line", async () => {
+    const page = await mountCue(CLIENT, false, false);
+    assert.equal(page.host.querySelector('[data-testid="business-access-line"]'), null);
+    assert.equal(page.host.textContent, "");
+    assert.deepEqual(page.seen, []);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("the access banner names an unnamed Business Mi negocio", async () => {
+    const page = await mountCue({ ...CLIENT, name: null });
     assert.ok(page.host.querySelector('[data-testid="business-access-line"]')?.textContent?.includes("Ahora tienes acceso a Mi negocio"));
     assert.ok(!page.host.textContent?.includes("My business"));
     await page.act(async () => page.root.unmount());
@@ -271,29 +276,31 @@ describe("inside a client's Business every screen says so", () => {
     const page = await mountCue(OWN, true);
     assert.equal(page.host.querySelector("h1")?.textContent, "No tienes acceso a este negocio.");
     assert.equal(page.host.querySelector("button")?.textContent, "Ir a mis negocios");
-    assert.equal(page.host.querySelector('[data-testid="business-client-cue"]'), null);
     await page.act(async () => page.root.unmount());
   });
 });
 
 describe("the chosen grant rides on every API call", () => {
-  test("the header is present only while a grant is chosen, and the memory survives a re-read", async () => {
-    const { getChosenGrant, setChosenGrant, GRANT_HEADER, chosenGrantHeader } = await import("@/lib/business-grant");
-    const { argusApiRequestHeaders } = await import("@/lib/argus-api-transport");
+  test("the header carries the grant a call was bound to, and only Business calls carry one", async () => {
+    const { getChosenGrant, setChosenGrant, GRANT_HEADER, grantHeader } = await import("@/lib/business-grant");
+    const { argusApiRequestHeaders, carriesChosenGrant } = await import("@/lib/argus-api-transport");
     setChosenGrant(null);
-    assert.equal(argusApiRequestHeaders(undefined, {}).get(GRANT_HEADER), null);
+    assert.deepEqual(grantHeader(getChosenGrant()), {});
     setChosenGrant("4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
     assert.equal(getChosenGrant(), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
-    assert.deepEqual(chosenGrantHeader(), { [GRANT_HEADER]: "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b" });
-    assert.equal(argusApiRequestHeaders({ "Idempotency-Key": "k" }, {}).get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    assert.deepEqual(grantHeader(getChosenGrant()), { [GRANT_HEADER]: "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b" });
+    assert.equal(argusApiRequestHeaders({ "Idempotency-Key": "k" }, {}, getChosenGrant()).get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    // The builder sends the grant it is given, not the one chosen now: a request bound to A stays A's after a switch to B.
+    setChosenGrant("8c7d6e5f-4a3b-4c2d-9e1f-0a9b8c7d6e5f");
+    assert.equal(argusApiRequestHeaders(undefined, {}, "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b").get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    assert.equal(argusApiRequestHeaders(undefined, {}, null).get(GRANT_HEADER), null);
     // Only Business calls carry it: Personal chat and the rest never see the chosen grant.
-    assert.equal(argusApiRequestHeaders(undefined, {}, "/business/receipts?view=inbox").get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
-    assert.equal(argusApiRequestHeaders(undefined, {}, "/conversations?surface=business").get(GRANT_HEADER), "4b2a1f0e-9c3d-4e5f-8a7b-6c5d4e3f2a1b");
+    assert.equal(carriesChosenGrant("/business/receipts?view=inbox"), true);
+    assert.equal(carriesChosenGrant("/conversations?surface=business"), true);
     for (const path of ["/conversations/c1/messages", "/conversations?surface=personal", "/conversations", "/chat/stream", "/backtests/run", "/me"]) {
-      assert.equal(argusApiRequestHeaders(undefined, {}, path).get(GRANT_HEADER), null, path);
+      assert.equal(carriesChosenGrant(path), false, path);
     }
     setChosenGrant(null);
-    assert.equal(argusApiRequestHeaders(undefined, {}).get(GRANT_HEADER), null);
   });
 });
 

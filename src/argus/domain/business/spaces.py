@@ -21,6 +21,7 @@ from argus.domain.business.lifecycle import (
     BusinessLifecycleError,
     require_ownership_admission,
 )
+from argus.domain.business.space_name import given_name
 from argus.domain.business.workspace import (
     BusinessDetails,
     SaveWorkspace,
@@ -41,8 +42,6 @@ from argus.domain.profile_images.objects import (
     ProfileImageStorageUnavailable,
 )
 
-# Founder-approved October 8: the name a space starts with until renamed.
-DEFAULT_SPACE_NAMES = {"es": "Mi negocio", "en": "My business"}
 MAX_NAME_LENGTH = 80
 
 
@@ -51,19 +50,12 @@ class Space:
     id: str
     name: str
     custodian_id: str
-    name_prompt_seen: bool = False
     country: str = DEFAULT_COUNTRY
     currency: str = COUNTRIES[DEFAULT_COUNTRY].currency
 
     @property
     def name_required(self) -> bool:
-        return self.name in DEFAULT_SPACE_NAMES.values()
-
-
-def default_space_name(language: str | None) -> str:
-    """English when the person's language is English, else Spanish."""
-
-    return DEFAULT_SPACE_NAMES["en" if language == "en" else "es"]
+        return given_name(self.name) is None
 
 
 class SpaceStore(Protocol):
@@ -112,8 +104,6 @@ class SpaceStore(Protocol):
         objects: ProfileImageObjects,
     ) -> WorkspaceAsset: ...
 
-    def claim_naming_visit(self, person_id: str, space_id: str) -> bool: ...
-
     def rename(
         self, person_id: str, name: str, space_id: str | None = None
     ) -> Space | None: ...
@@ -135,8 +125,7 @@ class PostgresSpaceStore:
     def open_space(self, person_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name, created_by::text, business_name_prompt_seen_at is not null,"
-                " country, currency from public.spaces"
+                "select id::text, name, created_by::text, country, currency from public.spaces"
                 " where id = public.business_space_of(%s)",
                 (person_id,),
             ).fetchone()
@@ -145,8 +134,7 @@ class PostgresSpaceStore:
     def get(self, space_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name, created_by::text, business_name_prompt_seen_at is not null,"
-                " country, currency from public.spaces"
+                "select id::text, name, created_by::text, country, currency from public.spaces"
                 " where id = %s and kind = 'business' and closed_at is null",
                 (space_id,),
             ).fetchone()
@@ -166,8 +154,7 @@ class PostgresSpaceStore:
                 "insert into public.spaces (kind, name, created_by, current_owner_id, country, currency)"
                 " values ('business', %s, %s, %s, %s, %s)"
                 " on conflict (current_owner_id) where kind = 'business' and closed_at is null and business_legacy_default"
-                " do nothing returning id::text, name, created_by::text,"
-                " business_name_prompt_seen_at is not null, country, currency",
+                " do nothing returning id::text, name, created_by::text, country, currency",
                 (name, person_id, person_id, country, business_country(country).currency),
             ).fetchone()
             if created is not None:
@@ -230,18 +217,6 @@ class PostgresSpaceStore:
             self._pool, person_id, space_id, content, media_type, key, objects
         )
 
-    def claim_naming_visit(self, person_id: str, space_id: str) -> bool:
-        from argus.domain.business.memberships import require_manager
-
-        with self._pool.connection() as connection, connection.transaction():
-            require_manager(connection, space_id, person_id)
-            row = connection.execute(
-                "update public.spaces set business_name_prompt_seen_at=now() where id=%s"
-                " and business_name_prompt_seen_at is null and name=any(%s) returning id",
-                (space_id, list(DEFAULT_SPACE_NAMES.values())),
-            ).fetchone()
-        return row is not None
-
     def rename(
         self, person_id: str, name: str, space_id: str | None = None
     ) -> Space | None:
@@ -257,8 +232,8 @@ class PostgresSpaceStore:
                 return None
             require_manager(connection, space_id, person_id)
             row = connection.execute(
-                "update public.spaces set name=%s where id=%s returning id::text,name,created_by::text,"
-                " business_name_prompt_seen_at is not null,country,currency",
+                "update public.spaces set name=%s where id=%s"
+                " returning id::text,name,created_by::text,country,currency",
                 (name, space_id),
             ).fetchone()
         return Space(*row) if row else None
@@ -488,22 +463,6 @@ class InMemorySpaceStore:
             self._assets[asset.id] = asset
             self._commands[(person_id, "upload", key)] = (payload, asset.id)
             return asset
-
-    def claim_naming_visit(self, person_id: str, space_id: str) -> bool:
-        with self._lock:
-            space = self._spaces.get(self._defaults.get(person_id, ""))
-            if self.access is not None:
-                self.access._manager(space_id, person_id)
-                space = self._spaces.get(space_id)
-            if (
-                space is None
-                or space.id != space_id
-                or space.name_prompt_seen
-                or not space.name_required
-            ):
-                return False
-            self._spaces[space.id] = replace(space, name_prompt_seen=True)
-            return True
 
     def rename(
         self, person_id: str, name: str, space_id: str | None = None

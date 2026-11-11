@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { BusinessExpense, BusinessExpenseDetail } from "@/lib/business-api";
+import type { BusinessExpense, BusinessExpenseDetail, BusinessWorkspaceInfo } from "@/lib/business-api";
 import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 
 // A real DOM: the workspace shows one panel at a time, so closing the detail
@@ -18,7 +18,7 @@ const expense = (over: Partial<BusinessExpenseDetail>): BusinessExpenseDetail =>
   ({ id: "exp-gas", merchant: "Estación Ruta 3", amount: "2100.00", currency: "DOP", category_id: "transport", account_id: "acct-ops", occurred_on: "2026-10-09", receipt_id: null, draft_id: null, recorded_at: "2026-10-09T15:00:00Z", revision: 1, ...over } as BusinessExpenseDetail);
 
 const LIST: BusinessExpense[] = [
-  { id: "exp-hosting", merchant: "Nube Hosting", amount: "24.00", currency: "USD", category_id: "other", account_id: "acct-card", occurred_on: "2026-10-07", receipt_id: "rcpt-confirmed", draft_id: null } as BusinessExpense,
+  { id: "exp-hosting", merchant: "Nube Hosting", amount: "24.00", currency: "DOP", category_id: "other", account_id: "acct-card", occurred_on: "2026-10-07", receipt_id: "rcpt-confirmed", draft_id: null } as BusinessExpense,
   { id: "exp-gas", merchant: "Estación Ruta 3", amount: "2100.00", currency: "DOP", category_id: "transport", account_id: "acct-ops", occurred_on: "2026-10-09", receipt_id: null, draft_id: null } as BusinessExpense,
 ];
 
@@ -35,6 +35,10 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
   const { createRecordsTransaccionesSource } = await import("@/components/business-app/transacciones/transacciones-adapter");
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  const workspace: Pick<BusinessWorkspaceInfo, "accounts" | "records_default_currency"> = {
+    accounts: [{ id: "acct-ops", nickname: "Cuenta corriente", type: "bank", currency: "DOP" }],
+    records_default_currency: "DOP",
+  };
   const opened: BusinessPanelState[] = [];
   let setPanelOutside: (next: BusinessPanelState) => void = () => undefined;
   let reloadOutside: () => void = () => undefined;
@@ -48,18 +52,19 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
     const source = useRef({
       expense: typeof options.detail === "function" ? options.detail : async () => options.detail as BusinessExpenseDetail,
       expenses: async () => options.list ?? LIST,
+      workspace: async () => workspace,
     }).current;
     const saved = useRef(createRecordsTransaccionesSource({
       expenses: source.expenses,
       ventas: async () => [],
       overview: async () => ({ from: "2026-10-01", to: "2026-10-20", today: "2026-10-20", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null }),
-      workspace: async () => ({ accounts: [] }),
+      workspace: source.workspace,
       month: async (month) => ({ month, from: `${month}-01`, to: `${month}-28`, currency: "DOP", closed_at: null, earliest_month: null, documents: [] }),
       ownerFunds: "Dinero del dueño",
     })).current;
     const value = {
       source,
-      records: { workspace: { accounts: [{ id: "acct-ops", nickname: "Cuenta corriente", type: "bank", currency: "DOP" }] }, overview: null },
+      records: { workspace, overview: null },
       revision,
       period: { key: "this_month", from: "2026-10-01", to: null },
       setPeriod: () => undefined,
@@ -94,6 +99,23 @@ describe("the expense detail panel", () => {
     assert.ok(page.host.textContent?.includes("Sin recibo adjunto"));
     assert.deepEqual(page.opened, []);
     await page.act(async () => page.root.unmount());
+  });
+
+  test("an expense entered by hand shows its Tipo de gasto as Registros does, and no Categoría", async () => {
+    const services = { code: "02", label: "Gastos por trabajos, suministros y servicios" };
+    const cases: [BusinessExpenseDetail["dgii_606"], string][] = [
+      [{ expense_type: services, payment_form: null }, services.label],
+      [{ expense_type: null, payment_form: null }, "Falta"],
+      [null, "No aplica"],
+    ];
+    for (const [dgii_606, word] of cases) {
+      const page = await mountWorkspace({ detail: expense({ dgii_606 }) });
+      const terms = [...page.host.querySelectorAll('[data-testid="business-expense-detail"] dt')];
+      assert.deepEqual(terms.filter((term) => term.textContent === "Categoría"), []);
+      const answer = terms.find((term) => term.textContent === "Tipo de gasto")?.nextElementSibling;
+      assert.ok(answer?.textContent?.includes(word), `${word} in ${answer?.textContent}`);
+      await page.act(async () => page.root.unmount());
+    }
   });
 
   test("closing returns to Transacciones naming the expense; after the real remount the list focuses that row", async () => {

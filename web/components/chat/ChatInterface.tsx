@@ -3,7 +3,7 @@
 import {SavedIdentityMark} from "@/components/identity/IdentityMark";
 import { Avatar } from "@/components/ui/Avatar";
 import { BANNER_HEIGHT_PX, ConnectionBanner, useOnline } from "@/components/ui/ConnectionBanner";
-import { useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useContext, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
 import { useProfileUpdates } from "@/components/chat/useProfileUpdates";
@@ -58,7 +58,10 @@ import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-dele
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
 import { commitShellLanguage } from "@/lib/language-features";
 import { businessPilotEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
-import { leaveSession } from "@/lib/logout-flow";
+import { isLeavingSession, leaveSession } from "@/lib/logout-flow";
+import { createSessionRecovery } from "@/lib/session-recovery";
+import { SessionRecoveryScreen } from "@/components/status/SessionRecoveryScreen";
+import { SessionRecoveryContext, useSessionRecoveryState } from "@/components/status/session-recovery-context";
 import {
   useTranscriptTurnAnchor,
   type PendingMessageAnchor,
@@ -251,6 +254,30 @@ export function ChatHeaderHeading({ children }: { children: ReactNode }) {
 }
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ChatInterface() {
+  const sharedRecovery = useContext(SessionRecoveryContext);
+  return sharedRecovery || process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <ChatInterfaceContent /> : <StandaloneChatInterface />;
+}
+
+function ChatStartup({ business = false }: { business?: boolean }) {
+  return <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
+    <InitialConversationRetrievalState business={business} />
+  </div>;
+}
+
+function StandaloneChatInterface() {
+  const [recovery] = useState(() => createSessionRecovery({ allowAnonymous: true }));
+  const state = useSessionRecoveryState(recovery, true);
+  if (state.kind === "pending") return <ChatStartup />;
+  if (state.kind !== "same-owner") {
+    if (isLeavingSession()) return null;
+    return <SessionRecoveryScreen state={state.kind} busy={state.busy} onRetry={recovery.retry} continueDisabled={state.kind === "different-owner" && !state.canContinue} onContinue={() => recovery.continueTo(() => window.location.assign(signedInHomePath()))} />;
+  }
+  return <SessionRecoveryContext.Provider value={recovery}>
+    <ChatInterfaceContent key={`${state.userId}/${state.scope}`} />
+  </SessionRecoveryContext.Provider>;
+}
+
+function ChatInterfaceContent() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const [account, setAccount] = useState<Awaited<
@@ -436,15 +463,6 @@ export default function ChatInterface() {
   }, [activityTranscriptReadiness, clearColdTranscriptRetrieval, transcriptSessionCache]);
 
   useLayoutEffect(() => {
-    requestSessions.synchronizeAccountScope(account?.user.id ?? null);
-    requestSessions.updateRouteContext({
-      activeConversationId: conversationId,
-      currentView,
-      routeState: readActiveConversationRouteState(),
-    });
-  }, [account?.user.id, conversationId, currentView, requestSessions]);
-
-  useLayoutEffect(() => {
     synchronizeConversationViewRefs(activeConversationIdRef, currentViewRef, conversationId, currentView);
   }, [conversationId, currentView]);
 
@@ -481,6 +499,22 @@ export default function ChatInterface() {
     clearHistory();
     resetToEmptyChatSurface();
   });
+
+  useEffect(() => {
+    if (accountBoundary.recovery.takeLogoutFailure()) {
+      showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error");
+    }
+  }, [accountBoundary.recovery, showToast, t]);
+
+  useLayoutEffect(() => {
+    if (accountBoundary.invalidated.current || accountBoundary.conversionPending.current) return;
+    requestSessions.synchronizeAccountScope(account?.user.id ?? null);
+    requestSessions.updateRouteContext({
+      activeConversationId: conversationId,
+      currentView,
+      routeState: readActiveConversationRouteState(),
+    });
+  }, [account?.user.id, accountBoundary.invalidated, accountBoundary.conversionPending, conversationId, currentView, requestSessions]);
 
   useLayoutEffect(() => {
     authenticatedUserIdRef.current = account?.user.id ?? null;
@@ -1893,6 +1927,7 @@ export default function ChatInterface() {
     isStreamingResponse,
     isChatViewActive: currentView === "chat",
     placeholder: t("chat.new_chat", "New chat"),
+    retired: accountBoundary.invalidated,
   });
 
   const handleStartHeaderRename = () => {
@@ -2032,18 +2067,8 @@ export default function ChatInterface() {
   });
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (accountBoundary.expired) {
-    return <main className="flex h-[100dvh] flex-col items-center justify-center gap-4 bg-[#f9f9f9] p-6 text-center text-black dark:bg-[#141517] dark:text-white">
-      <p role="alert" className="max-w-lg">{t("chat.account_changed")}</p>
-      <button className="min-h-11 rounded-full bg-black px-6 py-3 text-base font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25 dark:bg-white dark:text-black dark:focus-visible:ring-white/30" onClick={() => window.location.assign(signedInHomePath())}>{t("chat.account_changed_reload")}</button>
-    </main>;
-  }
   if (profileState === "probing" || profileState === "unavailable") {
-    return (
-      <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
-        <InitialConversationRetrievalState business={workspace?.id === "business"} />
-      </div>
-    );
+    return <ChatStartup business={workspace?.id === "business"} />;
   }
 
   return (
@@ -2122,7 +2147,7 @@ export default function ChatInterface() {
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
         showProfileMenu={!isGuest}
-        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} headerMark={workspace?.sidebarMark?.(shellBridge)} profileAvatar={workspace?.id === "business" ? <SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} fallback={<Avatar name={greetingName} size={40} testId="header-avatar"/>}/> : undefined} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
+        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} headerMark={workspace?.sidebarMark?.(shellBridge)} profileAvatar={workspace?.id === "business" ? <SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} fallback={<Avatar name={greetingName} theme={account?.user.avatar_theme} size={40} testId="header-avatar"/>}/> : undefined} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
         isGuest={isEstablishedGuest}
         guestExpiresAt={account?.guest?.expires_at}
       />
@@ -2178,7 +2203,7 @@ export default function ChatInterface() {
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
         {/* Content scrolls under the bar through a soft fade, on every screen the bar is on. */}
         {currentView === "workspace" || (currentView === "chat" && !showEmptyChatSurface) ? (
-          <div data-testid="header-fade" className={`workspace-bar-fade pointer-events-none absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[40] h-32 tablet:h-[calc(var(--workspace-bar,5rem)*1.6)] backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
+          <div data-testid="header-fade" className={`workspace-bar-fade pointer-events-none absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[40] h-32 tablet:h-[calc(var(--workspace-bar,5rem)+2rem)] backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
         ) : null}
         {currentView !== "settings" && (
           // A workspace with a search field in its bar spans its one canvas, so search and avatar sit on the canvas's edges on every screen.
@@ -2243,7 +2268,7 @@ export default function ChatInterface() {
                   memoryChrome={memoryChrome}
                 />
               ) : null}
-              {layout.businessPhone && !isGuest ? <BusinessPhoneAccount avatar={<SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} size={32} fallback={<Avatar name={greetingName} size={32}/>}/>} onLogout={(options) => { void handleLogout(options); }} onFeedback={(type) => setFeedbackState({ isOpen: true, type, context: { surface: "sidebar", conversation_id: conversationId } })} onHistoryMutated={refreshHistory} onProfileUpdated={onProfileUpdated} onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)} settingsOpenRequest={keyboardShortcuts.settingsOpenRequest} /> : null}
+              {layout.businessPhone && !isGuest ? <BusinessPhoneAccount avatar={<SavedIdentityMark scope={account?.user.id?`person:${account.user.id}`:""} name={greetingName??undefined} size={32} fallback={<Avatar name={greetingName} theme={account?.user.avatar_theme} size={32}/>}/>} onLogout={(options) => { void handleLogout(options); }} onFeedback={(type) => setFeedbackState({ isOpen: true, type, context: { surface: "sidebar", conversation_id: conversationId } })} onHistoryMutated={refreshHistory} onProfileUpdated={onProfileUpdated} onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)} settingsOpenRequest={keyboardShortcuts.settingsOpenRequest} /> : null}
               {workspace?.profileInHeader && !mobileShell.isBelowTablet ? <div ref={setProfileSlot} className="relative" /> : null}
             </div>
           </header>

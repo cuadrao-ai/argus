@@ -96,14 +96,6 @@ BEGIN
     '{}','{}','{}','{}') IS NULL;
   ASSERT NOT public.delete_withheld_backtest_result(owner_id,gen_random_uuid());
 
-  ASSERT public.claim_guest_compute_usage('m2-visitor','m2-session','compute',1,1)
-    ->>'available'='true';
-  ASSERT public.claim_guest_compute_usage('m2-visitor','m2-session','compute',1,1)
-    ->>'visitor_exhausted'='true';
-  ASSERT public.claim_registered_compute_usage('m2-account','compute',1)
-    ->>'available'='true';
-  ASSERT public.claim_registered_compute_usage('m2-account','compute',1)
-    ->>'available'='false';
   result := public.claim_research_usage('m2-guest','research','m2-global',2,1);
   ASSERT result->>'available'='true';
   ASSERT public.claim_research_usage('m2-guest','research','m2-global',2,1)

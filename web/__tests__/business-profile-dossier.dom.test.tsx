@@ -18,7 +18,7 @@ async function mount(locale="es-419",live=false) {
   const messages=locale === "en" ? (await import("../public/locales/en/common.json")).default : (await import("../public/locales/es-419/common.json")).default;
   const i18n=i18next.createInstance();await i18n.init({lng:locale,resources:{[locale]:{translation:messages}}});
   const fixture=createFixtureBusinessDataSource({chatAvailable:true});
-  const context={invoicing:"sample" as const,source:live?{...fixture,mode:"live"}:fixture,chosen:{space_id:live?"55555555-5555-4555-8555-555555555555":"profile-test",name:"La Palma",role:"owner",permissions:live?["read","manage"]:undefined},records:{workspace:{country:"DO"}},reload:()=>{},actions:{create:[]}} as unknown as BusinessContextValue;
+  const context={invoicing:"sample" as const,source:live?{...fixture,mode:"live"}:fixture,chosen:{space_id:live?"55555555-5555-4555-8555-555555555555":"profile-test",name:"La Palma",role:"owner",permissions:["read","prepare","approve","manage"],capabilities:["read","prepare","approve"]},records:{workspace:{country:"DO"}},reload:()=>{},actions:{create:[]}} as unknown as BusinessContextValue;
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   await act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Profile/></BusinessContext.Provider></I18nextProvider>));
   const button=(text:string,container:ParentNode=host)=>[...container.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent?.includes(text))!;
@@ -137,4 +137,27 @@ test.each([["es-419","Ubicación y contacto","Guardar cambios"],["en","Location 
     await page.type("profile-email","team@example.com");await page.click(save);
     expect(page.button(section).textContent).toContain("team@example.com");expect(footer.querySelector('[role="status"]')).toBe(live);expect(live?.textContent).not.toBe("");expect(save.disabled).toBe(true);
   }finally{await page.close();}
+});
+
+test("live Datos shows the server's confirmed legal name and its checklist item, and never one from browser storage",async()=>{
+ const previousFetch=globalThis.fetch,previousAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;
+ process.env.NEXT_PUBLIC_MOCK_AUTH="true";
+ let legalName:{value:string;confirmed_at:string}|null=null;
+ globalThis.fetch=async(url)=>{
+  if(String(url).endsWith("/profile"))return Response.json({space_id:"55555555-5555-4555-8555-555555555555",name:"La Palma",country:"DO",currency:"DOP",revision:1,details:{},appearance:{kind:"default"},image:null});
+  return Response.json({name:"La Palma",tax_id:{type:"rnc",value:"131245678"},legal_name:legalName,can_edit:true});
+ };
+ const {invitationStorageKeys}=await import("../app/design-workspace/businessAccessPreviewState");
+ window.localStorage.setItem(invitationStorageKeys("55555555-5555-4555-8555-555555555555").guide,JSON.stringify({registryResult:{status:"match",confirmedAt:"2026-10-24",queriedRnc:"131245678",record:{rnc:"131245678",legalName:"Nombre del navegador"}}}));
+ const unconfirmed=await mount("es-419",true);
+ try{
+  expect(unconfirmed.host.textContent).not.toContain("Nombre del navegador");
+  expect(unconfirmed.host.querySelector('[data-profile-checklist="legalName"] [aria-hidden="true"] svg')).toBeNull();
+ }finally{await unconfirmed.close();}
+ legalName={value:"Taller Palma de Ejemplo SRL",confirmed_at:"2026-11-09T12:00:00Z"};
+ const confirmed=await mount("es-419",true);
+ try{
+  expect(confirmed.button("Identidad y datos fiscales").textContent).toContain("Taller Palma de Ejemplo SRL");
+  expect(confirmed.host.querySelector('[data-profile-checklist="legalName"] [aria-hidden="true"] svg')).not.toBeNull();
+ }finally{await confirmed.close();globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;}
 });

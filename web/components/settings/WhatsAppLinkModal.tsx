@@ -86,8 +86,8 @@ export function WhatsAppLinkView({
         </section>
       ) : null}
       {status?.linked ? <section className="rounded-xl border border-black/10 p-4 dark:border-white/10">
-        <p>{t("business.activity.all_channels", "Receipt reading is managed for your Business across email, WhatsApp and uploads.")}</p>
-        <a href="/biz?view=inbox" className={`${button} mt-3 inline-flex items-center`}>{t("business.activity.open_settings", "Open receipt reading settings")}</a>
+        <p>{t("business.activity.all_channels")}</p>
+        <a href="/biz?view=inbox" className={`${button} mt-3 inline-flex items-center`}>{t("business.activity.open_settings")}</a>
       </section> : null}
       <div className="flex flex-wrap gap-2">
         {!status?.linked ? (

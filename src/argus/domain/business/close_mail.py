@@ -22,7 +22,9 @@ from psycopg.types.json import Jsonb
 
 from argus.domain import resend_email
 from argus.domain.business.lifecycle import REOPEN_WINDOW
+from argus.domain.business.space_name import spanish_name
 from argus.domain.business.transfer_mail import _origin
+from argus.settings_names import setting_value
 
 MailKind = Literal["member_closed", "owner_closed", "purge_reminder", "member_reopened"]
 _ARTIFACT = Path(__file__).with_name("business_closed_email.generated.json")
@@ -71,7 +73,7 @@ def _local_timestamp(value: str) -> datetime:
 
 
 def _application_link(context: dict[str, str], kind: MailKind) -> str:
-    origin = os.getenv("CUADRAO_APP_ORIGIN") or os.getenv("ARGUS_APP_ORIGIN") or ""
+    origin = setting_value("APP_ORIGIN") or ""
     if any(character in origin for character in "\\?#"):
         raise ValueError("Email origin must be an HTTPS origin")
     origin = _origin(origin)
@@ -167,7 +169,7 @@ def _context(db, space_id: str, owner_id: str, name: str, closed_at: datetime) -
         (owner_id,),
     ).fetchone()
     return {
-        "businessName": name,
+        "businessName": spanish_name(name),
         "ownerName": owner[0] if owner else "Member",
         "closedAt": closed_at.isoformat(),
         "purgeAt": (closed_at + REOPEN_WINDOW).isoformat(),

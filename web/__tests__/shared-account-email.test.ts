@@ -31,6 +31,18 @@ describe("shared account email layout", () => {
     expect(result.text).toContain("¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai");
     expect(result.html).not.toMatch(/width="1"|tracking|unsubscribe/);
   });
+  test("sign-off defaults on and disabling it preserves the header, contact and legal footer", () => {
+    const content = { title: "Cuenta", paragraphs: ["Aviso"] };
+    const enabled = renderAccountEmail(content);
+    expect(renderAccountEmail({ ...content, signOff: true })).toEqual(enabled);
+    const disabled = renderAccountEmail({ ...content, signOff: false });
+    const signOff = '<p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p>';
+    expect(disabled.html).toBe(enabled.html.replace(signOff, ""));
+    expect(disabled.text).toBe(enabled.text.replace("Saludos,\nCuadrao\n\n", ""));
+    expect(enabled.html).toContain('alt="Cuadrao"');
+    expect(enabled.html).toContain('href="mailto:hola@cuadrao.ai"');
+    expect(enabled.text).toContain("Cuadrao LLC");
+  });
   test("keeps signup codes unbroken and rejects codes in waitlist messages", () => {
     const rendered = renderAccountEmail({title: "Tu código", paragraphs: [], code: "55070219", expiryNote: "Vence en 60 minutos."});
     expect(rendered.html).toContain('white-space:nowrap">55070219</p>');
@@ -74,6 +86,7 @@ describe("shared account email layout", () => {
   });
   test("the deployed web copy derives exactly from the canonical marketing renderer", () => {
     const canonical = readFileSync(new URL("../../marketing/lib/email/account-layout.ts", import.meta.url),"utf8")
+      .replace('"./email-otp-contract.generated"', '"../../lib/email-otp-contract"')
       .replace('import accountCopy from "./account-copy.generated.json";', `import spanish from "../../public/locales/es-419/common.json";
 import english from "../../public/locales/en/common.json";
 const accountCopy = { "es-419": spanish.account_email, en: english.account_email };`);

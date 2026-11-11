@@ -19,7 +19,6 @@ const SERVICES = expenseType("02");
 const COST_OF_SALES = expenseType("09");
 const CARD = paymentForm("03");
 const TRANSFER = paymentForm("02");
-// Every sample row is an approved record. The gastos cover the three cards: a missing tipo de gasto, a missing forma de pago, an exported line, and a Personal purchase the 606 never lists.
 const FIXTURE_METADATA: Readonly<Record<string, PreviewRecordMetadata>> = {
   "gasto:exp-gas": { workflow: "fiscal", financialEligibility: "confirmed", dgii606: { expense_type: null, payment_form: TRANSFER }, missing: { export_missing: "expense_type_missing" } },
   "gasto:exp-hosting": { workflow: "exported", financialEligibility: "confirmed", documentNumbers: ["B0100000042"], dgii606: { expense_type: SERVICES, payment_form: CARD } },
@@ -88,17 +87,6 @@ export function matchesPreviewWorkflow(row: RecordRow, businessId: string | null
   const metadata = previewRecordMetadata(row, businessId);
   return metadata !== null && selected.includes(WORKFLOW_FILTER[metadata.workflow]);
 }
-const UNKNOWN_COUNTS: Record<ReviewFilter, number | null> = { review: null, fiscal: null, export: null, exported: null };
-export function overviewPreviewCounts(rows: readonly RecordRow[] | null, businessId: string | null): Record<ReviewFilter, number | null> {
-  const counts: Record<ReviewFilter, number | null> = { review: 0, fiscal: 0, export: 0, exported: 0 };
-  if (!rows) return UNKNOWN_COUNTS;
-  for (const row of rows) {
-    const metadata = previewRecordMetadata(row, businessId);
-    if (!metadata) return UNKNOWN_COUNTS;
-    counts[WORKFLOW_FILTER[metadata.workflow]]! += 1;
-  }
-  return counts;
-}
 
 type PreviewAllocation = { currency: string; total: string; payments: readonly string[] };
 const FIXTURE_ALLOCATIONS: Readonly<Record<string, PreviewAllocation>> = {
@@ -140,4 +128,11 @@ export function summarizeSettlementPreview(rows: readonly RecordRow[], businessI
 export function matchesPreviewPeriod(row: RecordRow, period: Period): boolean {
   if (period.key === "all") return true;
   return customPeriod(row.occurredOn, row.occurredOn) !== null && row.occurredOn >= period.from && row.occurredOn <= (period.to ?? todayIso());
+}
+
+export function matchesPreviewFiscalData(row: RecordRow, businessId: string | null, choice: "complete" | "missing" | null): boolean {
+  if (choice === null) return true;
+  const metadata = previewRecordMetadata(row, businessId);
+  if (!metadata || row.marks.personal || metadata.financialEligibility !== "confirmed") return false;
+  return choice === "missing" ? metadata.workflow === "fiscal" : metadata.workflow === "ready" || metadata.workflow === "exported";
 }

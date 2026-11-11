@@ -24,6 +24,7 @@ function liveMonth(month: string) {
     currencies: [{ currency: "DOP", by_status: { invoices: { pendiente: pendingInvoice, cobrado: cell }, receipts: { pendiente: cell, pagado: cell } } }],
     missing_rnc: [],
     missing_ncf: [],
+    missing_fiscal_rows: [],
     cuentas_por_cobrar: [],
     cuentas_por_pagar: [],
   };
@@ -55,7 +56,7 @@ async function inicioFor(env: { NODE_ENV: string; NEXT_PUBLIC_MOCK_AUTH: string 
   }
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
-  const value = { source: { mode: "live" }, chosen: { grant_id: "own-grant", capabilities: ["approve"], role: "owner", name: "Taller" }, actions: { create: [] } } as unknown as BusinessContextValue;
+  const value = { source: { mode: "live" }, chosen: { grant_id: "own-grant", capabilities: ["approve"], role: "owner", name: "Taller" }, actions: { create: [] }, records: { workspace: { settlement_available: true } } } as unknown as BusinessContextValue;
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);

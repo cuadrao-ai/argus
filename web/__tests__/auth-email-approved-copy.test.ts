@@ -1,22 +1,24 @@
 import { installEmailFixture } from "./helpers/email-fixture";
 installEmailFixture();
-import { expect, test, spyOn } from "bun:test";
+import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { parseAuthMail, renderAuthMail, type AuthMail } from "../server/emails/auth-actions";
 import { renderAccountEmail } from "../server/emails/account-layout.generated";
 import { assertEmailPresentation } from "./helpers/email-presentation";
 import { emailExpiry } from "../server/emails/expiry";
-import { DISABLED_SECURITY_NOTICES } from "../server/emails/security-notices";
+import spanish from "../public/locales/es-419/common.json";
+import english from "../public/locales/en/common.json";
+import { DISABLED_SECURITY_NOTICES, renderSecurityMail } from "../server/emails/security-notices";
 
 const base = { recipient: "old@example.test", tokenHash: "a".repeat(64), redirectTo: "https://app.example.test/" };
 const signin: AuthMail[] = [
-  { ...base, action: "signup", token: "123456" },
-  { ...base, action: "magiclink", token: "123456" },
+  { ...base, action: "signup", token: "01234567" },
+  { ...base, action: "magiclink", token: "01234567" },
   { ...base, action: "recovery" },
   { ...base, action: "invite" },
   { ...base, action: "email_change", audience: "old_address", newEmail: "new@example.test" },
   { ...base, action: "email_change", audience: "new_address", recipient: "new@example.test", newEmail: "new@example.test" },
-  { action: "reauthentication", recipient: base.recipient, token: "123456" },
+  { action: "reauthentication", recipient: base.recipient, token: "01234567" },
 ];
 const security: AuthMail[] = [
   { action: "password_changed_notification", recipient: base.recipient },
@@ -30,13 +32,13 @@ for (const [index, mail] of [...signin, ...security].entries()) {
     expect(rendered).toMatchSnapshot();
     assertEmailPresentation(rendered.html, rendered.text);
     expect(rendered.html).toContain('<div class="preheader" style="display:none;');
-    expect(rendered.text).toContain("Hola,");
-    expect(rendered.text).toContain("Saludos,\nCuadrao");
+    expect(rendered.html).not.toContain(">Hola,</p>");
+    expect(rendered.text).not.toContain("Hola,");
+    expect(rendered.html).not.toContain("Saludos,<br>Cuadrao");
+    expect(rendered.text).not.toContain("Saludos,\nCuadrao");
     expect(rendered.html).not.toMatch(/Argus|get-argus|onrender\.com/);
     if ("token" in mail) {
-      expect(rendered.subject).toStartWith("123456 ");
-      expect(rendered.html.indexOf("Hola,")).toBeLessThan(rendered.html.indexOf('class="code"'));
-      expect(rendered.text.indexOf("Hola,")).toBeLessThan(rendered.text.indexOf("123456"));
+      expect(rendered.subject).toStartWith("01234567 ");
     }
   });
 }
@@ -98,20 +100,22 @@ test("local 60-second configuration produces truthful expiry in all sign-in mail
   for (const value of [0, -1, NaN, Infinity, 1.5]) expect(() => emailExpiry(value)).toThrow();
 });
 
-test("security notices show send time in RD and old-address notice has no reset or action link", async () => {
+test("security notices omit send time and show the full new address without action links", async () => {
   const password = await renderAuthMail(security[0], "https://app.example.test", 3600, sentAt);
-  expect(password.text).toContain("16 de octubre de 2026");
-  expect(password.text).toMatch(/10:05.*p\.?\s*m\.?/);
+  expect(password.text).toContain("La contraseña de tu cuenta de Cuadrao se cambió.");
   expect(password.text).toContain('"¿Olvidaste tu contraseña?"');
   const changed = await renderAuthMail(security[1], "https://app.example.test", 3600, sentAt);
-  expect(changed.text).toContain("de old@example.test a n***@example.test");
-  expect(changed.text).toContain("respondiendo a este correo para recuperar tu cuenta.");
+  expect(changed.text).toContain("de old@example.test a new@example.test.");
+  expect(changed.text).toContain("Si no fuiste tú, escríbenos de inmediato a hola@cuadrao.ai para recuperar tu cuenta.");
   for (const part of [changed.html, changed.text]) {
-    expect(part).not.toContain("new@example.test");
     expect(part).not.toContain("contraseña?");
     expect(part).not.toContain("/auth/");
+    expect(part).not.toContain("***");
   }
-  expect(changed.html).not.toContain('class="button"');
+  for (const rendered of [password, changed]) {
+    expect(rendered.text).not.toMatch(/2026|10:05|hora de RD/);
+    expect(rendered.html).not.toContain('class="button"');
+  }
 });
 
 test("committed notification flags enable exactly the two approved notices", () => {
@@ -133,17 +137,45 @@ test("notification recipients derive from signed documented fields and disabled 
 });
 
 
-test("security send time normalizes ICU day-period spaces", async () => {
-  const original = Intl.DateTimeFormat;
-  for (const space of [" ", "\u00a0", "\u202f"]) {
-    const formatter = spyOn(Intl, "DateTimeFormat").mockImplementation((locale, options) => {
-      const value = new original(locale, options);
-      return { format: (date: Date) => value.format(date).replace(/p\.[\s\u00a0\u202f]+m\./g, `p.${space}m.`) } as Intl.DateTimeFormat;
-    });
-    try {
-      const rendered = await renderAuthMail(security[0], "https://app.example.test", 3600, sentAt);
-      expect(rendered.text).toContain("10:05 p. m. (hora de RD).");
-      expect(rendered.text).not.toMatch(/[\u00a0\u202f]/);
-    } finally { formatter.mockRestore(); }
+test("Auth security catalogs have matching keys and placeholders", () => {
+  const spanishCopy = spanish.account_email.auth_security;
+  const englishCopy = english.account_email.auth_security;
+  const keys = ["email_changed_description", "password_changed_description", "recovery_contact", "safety_warning"] as const;
+  expect(Object.keys(spanishCopy)).toEqual([...keys]);
+  expect(Object.keys(englishCopy)).toEqual([...keys]);
+  for (const key of keys) {
+    expect(englishCopy[key].trim()).not.toBe("");
+    const placeholders = (value: string) => [...value.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]).sort();
+    expect(placeholders(englishCopy[key])).toEqual(placeholders(spanishCopy[key]));
+  }
+  expect(spanishCopy.email_changed_description).toContain("{{oldEmail}}");
+  expect(spanishCopy.email_changed_description).toContain("{{newEmail}}");
+});
+
+test("security rendering reads Spanish catalog values and preserves literal address replacements", () => {
+  const copy = spanish.account_email.auth_security;
+  const original = { ...copy };
+  try {
+    for (const key of Object.keys(copy) as Array<keyof typeof copy>) copy[key] = `Synthetic ${key} <&>`;
+    const password = renderSecurityMail({ action: "password_changed_notification", recipient: base.recipient }, sentAt);
+    const changed = renderSecurityMail({ action: "email_changed_notification", recipient: base.recipient, newEmail: "new@example.test" }, sentAt);
+    for (const [rendered, keys] of [
+      [password, ["password_changed_description", "safety_warning"]],
+      [changed, ["email_changed_description", "recovery_contact", "safety_warning"]],
+    ] as const) {
+      for (const key of keys) {
+        expect(rendered.text).toContain(`Synthetic ${key} <&>`);
+        expect(rendered.html).toContain(`Synthetic ${key} &lt;&amp;&gt;`);
+      }
+    }
+    copy.email_changed_description = original.email_changed_description;
+    for (const [recipient, newEmail] of [["old$&{{newEmail}}@example.test", "new$'@example.test"], ["{{ .OldEmail }}", "{{ .Email }}"]]) {
+      const rendered = renderSecurityMail({ action: "email_changed_notification", recipient, newEmail }, sentAt);
+      expect(rendered.text).toContain(`de ${recipient} a ${newEmail}.`);
+      expect(rendered.html).toContain(recipient.replaceAll("&", "&amp;"));
+      expect(rendered.html).toContain(newEmail.replace("'", "&#39;"));
+    }
+  } finally {
+    Object.assign(copy, original);
   }
 });

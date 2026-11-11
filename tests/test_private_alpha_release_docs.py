@@ -722,13 +722,11 @@ def test_private_launch_runbook_documents_ci_cd_release_gate() -> None:
     assert "release manifest" in runbook
     assert "rollback target" in runbook
     assert "api_web_env_fingerprint" in runbook
-    assert "workflow_env_fingerprint" in runbook
-    assert "workflow_env_status" in runbook
-    assert "workflow_runtime_provider_mode=live_provider" in runbook
-    assert "workflow_runtime_proof=ready" in runbook
+    for retired in ("workflow_env_fingerprint", "workflow_env_status", "workflow_runtime_proof"):
+        assert retired not in runbook
     assert "never\n  visits the signup or login page" in runbook
     assert "Canary identity, session rotation, and revocation" in runbook
-    assert "workflow-service proof" in runbook
+    assert "workflow-service proof" not in runbook
     assert "approver" in runbook
 
 
@@ -792,14 +790,14 @@ def test_production_migration_gate_is_executable_and_precedes_service_deploy() -
         "Confirm the approved workflow controls"
     )
     assert runbook_landed_gate_index < tester_gate.index(
-        "Deploy production `cuadrao-api`, then **`argus-backtests`**"
+        "Deploy production `cuadrao-api`, then **`cuadrao-documents-worker`**"
     )
     assert runbook_gate_index < tester_gate.index("sync the Blueprint")
     assert runbook_gate_index < tester_gate.index(
         "Confirm the approved workflow controls"
     )
     assert runbook_gate_index < tester_gate.index(
-        "Deploy production `cuadrao-api`, then **`argus-backtests`**"
+        "Deploy production `cuadrao-api`, then **`cuadrao-documents-worker`**"
     )
     assert "rerun the gate against the landed SHA" in " ".join(tester_gate.split())
     assert "Production Migration Gate" in manifest
@@ -934,7 +932,7 @@ def test_public_alpha_waitlist_rollback_floor_is_durable_and_ordered() -> None:
     assert "061ba50e" in runbook_text
     assert "serviceDetails.maintenanceMode.enabled=true" in runbook_text
     assert "exact maintenance status and page fingerprint" in runbook_text
-    assert "`argus-app` onrender URL" in runbook_text
+    assert "`cuadrao-marketing` onrender URL" in runbook_text
     assert "https://argus-ohr5.onrender.com` must return HTTP `404`" in runbook_text
     assert "Never front the API with a Cloudflare Worker" in runbook_text
     assert "same-SHA restart" in runbook_text
@@ -953,7 +951,7 @@ def test_waitlist_exposure_waits_for_paid_render_rollback_controls() -> None:
     runbook = " ".join(_source("docs/PRIVATE_LAUNCH_RUNBOOK.md").split())
     blueprint = _source("render.yaml")
     api_service = blueprint.split("name: cuadrao-api", 1)[1].split("\n  - type:", 1)[0]
-    app_service = blueprint.split("name: cuadrao-web", 1)[1]
+    app_service = blueprint.split("name: cuadrao-marketing\n", 1)[1].split("\n  - type:", 1)[0]
 
     assert "plan: standard" in api_service
     assert "plan: starter" in app_service
@@ -1000,8 +998,8 @@ def test_waitlist_exposure_waits_for_paid_render_rollback_controls() -> None:
     )
     assert paid_plan_index < maintenance_index < private_surface_index < exposure_index
 
-    assert "The live `argus-api` plan is `standard`" in runbook
-    assert "The live `argus-app` plan is `starter`" in runbook
+    assert "The live `cuadrao-api` plan is `standard`" in runbook
+    assert "The live `cuadrao-marketing` plan is `starter`" in runbook
     assert "requested-role migration and access-request exposure are complete" in runbook
     assert "paid API instance type" in runbook
     assert "maintenance and private/SSH/local verification controls" in runbook
@@ -1101,7 +1099,7 @@ def test_private_launch_runbook_assigns_app_origin_and_smtp_secret_correctly() -
     )[0]
     ownership_text = " ".join(ownership.split())
 
-    assert "Both `argus-app` and `argus-api`" in ownership_text
+    assert "Both `cuadrao-app` and `cuadrao-api`" in ownership_text
     assert "password-recovery redirects" in ownership_text
     assert "approval signup links" in ownership_text
     assert "`CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD`" in ownership_text

@@ -43,7 +43,7 @@ async function mount(overrides: Overrides = {}) {
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const opened: BusinessPanelState[] = [];
   function Harness() {
-    const search = useBusinessSearch({ emailAvailable: true, source, accounts: [], openPanel: (panel) => opened.push(panel), actions, owner: true, scope: "own", openExport: () => undefined });
+    const search = useBusinessSearch({ emailAvailable: true, source, accounts: [], openPanel: (panel) => opened.push(panel), actions, canAdd: true, scope: "own", openExport: () => undefined });
     const [open, setOpen] = useState(false);
     const workspace = { id: "business", conversationSurface: "business", chatAvailable: false, search } as unknown as ChatWorkspace;
     return (

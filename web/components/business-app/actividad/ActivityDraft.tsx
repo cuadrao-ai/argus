@@ -2,7 +2,8 @@
 
 // Actividad: the live history reads GET /business/activity (#1407) and shows only what that feed returns. The local
 // preview (sample data, `?activity=contract|empty|loading|error`) also shows the fields #1410 and ACT-2a add.
-// Copy still lives here, draft, until the copy pass moves it to the locale files.
+// The action labels live in the locale files (`business.activity_feed`); the rest of the copy still lives here,
+// draft, until the copy pass moves it.
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,7 +31,7 @@ type LedgerAction =
   | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "reopen_draft" | "capture_note" | "prepare_attachment"
   | "rebind_attachment" | "settle_remainder" | "mark_personal" | "decide_606" | "resolve_duplicate" | "edit_current_note"
   | "append_supporting_file" | "receipt_upload" | "receipt_review" | "receipt_confirm" | "business_ask"
-  | "set_business_rnc" | "business_propose_activity" | "business_attach_source" | "business_propose_allocation"
+  | "set_business_rnc" | "set_business_legal_name" | "business_propose_activity" | "business_attach_source" | "business_propose_allocation"
   | "owner_grant" | "grant_access" | "invite_access" | "accept_invite" | "revoke_grant" | "revoke_invite" | "change_role" | "other";
 type ActivityItem = {
   id: string;
@@ -83,6 +84,7 @@ const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   invoice_draft_created: { area: "invoicing", group: "invoices" },
   invoice_revision_saved: { area: "invoicing", group: "invoices" },
   set_business_rnc: { area: "business", group: "settings" },
+  set_business_legal_name: { area: "business", group: "settings" },
   receipt_reading_enabled: { area: "business", group: "settings" },
   receipt_reading_disabled: { area: "business", group: "settings" },
   ownership_transferred: { area: "business", group: "access" },
@@ -105,19 +107,6 @@ const COPY = {
     filters: { title: "Filtros", date: "Fecha", person: "Persona", area: "Área", action: "Acción", clear: "Limpiar filtros", clearGroup: "Limpiar", remove: "Quitar filtro:", all: "Todas las fechas", today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días" },
     areas: { documents: "Documentos", records: "Registros", invoicing: "Facturación", business: "Negocio" },
     groups: { uploads: "Subidas", reading: "Lecturas", reviews: "Revisiones", approvals: "Aprobaciones", edits: "Cambios en registros", files: "Adjuntos", invoices: "Facturas", access: "Accesos", settings: "Datos del negocio", other: "Otros" },
-    actions: {
-      receipt_upload: "subió un documento", document_read: "leyó un documento", document_read_failed: "no pudo leer un documento",
-      receipt_review: "revisó un documento", receipt_confirm: "confirmó un documento", resolve_duplicate: "resolvió un duplicado",
-      append_supporting_file: "adjuntó un archivo de soporte", prepare_attachment: "preparó un adjunto", rebind_attachment: "movió un adjunto a otro registro",
-      business_attach_source: "vinculó un documento", review_draft: "revisó un registro", approve_expense: "aprobó un gasto",
-      approve_income: "aprobó un ingreso", approve_refund: "aprobó un reembolso", reopen_draft: "reabrió un registro aprobado", capture_note: "creó un registro desde una nota",
-      edit_current_note: "editó una nota", settle_remainder: "saldó el resto de un registro", mark_personal: "marcó un gasto como personal",
-      decide_606: "decidió si un gasto va al 606", business_propose_activity: "propuso un registro", business_propose_allocation: "propuso cómo repartir un pago",
-      invoice_draft_created: "creó un borrador de factura", invoice_revision_saved: "guardó cambios en una factura",
-      set_business_rnc: "actualizó el RNC del negocio", receipt_reading_enabled: "activó la lectura de recibos", receipt_reading_disabled: "desactivó la lectura de recibos", ownership_transferred: "aceptó la propiedad del negocio", business_ask: "le preguntó a Cuadrao",
-      owner_grant: "dio acceso de dueño", grant_access: "dio acceso", invite_access: "envió una invitación", accept_invite: "aceptó una invitación",
-      revoke_grant: "quitó un acceso", revoke_invite: "canceló una invitación", change_role: "cambió un rol", other: "hizo un cambio",
-    } as Record<DraftItem["action"], string>,
     viaChat: "desde el chat",
     formerMember: "Exmiembro",
     unmarkPersonal: "devolvió un gasto al negocio",
@@ -141,19 +130,6 @@ const COPY = {
     filters: { title: "Filters", date: "Date", person: "Person", area: "Area", action: "Action", clear: "Clear filters", clearGroup: "Clear", remove: "Remove filter:", all: "All dates", today: "Today", week: "Last 7 days", month: "Last 30 days" },
     areas: { documents: "Documents", records: "Records", invoicing: "Invoicing", business: "Business" },
     groups: { uploads: "Uploads", reading: "Reading", reviews: "Reviews", approvals: "Approvals", edits: "Record changes", files: "Attachments", invoices: "Invoices", access: "Access", settings: "Business details", other: "Other" },
-    actions: {
-      receipt_upload: "uploaded a document", document_read: "read a document", document_read_failed: "could not read a document",
-      receipt_review: "reviewed a document", receipt_confirm: "confirmed a document", resolve_duplicate: "resolved a duplicate",
-      append_supporting_file: "attached a supporting file", prepare_attachment: "prepared an attachment", rebind_attachment: "moved an attachment to another record",
-      business_attach_source: "linked a document", review_draft: "reviewed a record", approve_expense: "approved an expense",
-      approve_income: "approved an income", approve_refund: "approved a refund", reopen_draft: "reopened an approved record", capture_note: "created a record from a note",
-      edit_current_note: "edited a note", settle_remainder: "settled a record's remainder", mark_personal: "marked an expense as personal",
-      decide_606: "decided whether an expense goes in the 606", business_propose_activity: "proposed a record", business_propose_allocation: "proposed how to split a payment",
-      invoice_draft_created: "created an invoice draft", invoice_revision_saved: "saved changes to an invoice",
-      set_business_rnc: "updated the business RNC", receipt_reading_enabled: "turned on receipt reading", receipt_reading_disabled: "turned off receipt reading", ownership_transferred: "accepted ownership of the business", business_ask: "asked Cuadrao",
-      owner_grant: "gave owner access", grant_access: "gave access", invite_access: "sent an invitation", accept_invite: "accepted an invitation",
-      revoke_grant: "removed access", revoke_invite: "cancelled an invitation", change_role: "changed a role", other: "made a change",
-    } as Record<DraftItem["action"], string>,
     viaChat: "from chat",
     formerMember: "Former member",
     unmarkPersonal: "moved an expense back to the business",
@@ -228,7 +204,7 @@ const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase() + text.s
 const fromFeed = (item: ActivityItem | (Omit<ActivityItem, "action"> & { action: string })): DraftItem => ({ ...item, action: item.action in ACTION_META ? (item.action as LedgerAction) : "other" });
 
 export default function ActivityDraft() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { openPanel, source, chosen, invoicing } = useBusiness();
   // Live: the feed as it is, no filters, no Registro column, no record links (those need #1410). Preview: samples.
   const live = source.mode === "live";
@@ -320,7 +296,7 @@ export default function ActivityDraft() {
     };
   };
   const what = (item: DraftItem, sentenceStart = false) => {
-    const phrase = item.action === "mark_personal" && item.missing?.personal === false ? c.unmarkPersonal : c.actions[item.action];
+    const phrase = item.action === "mark_personal" && item.missing?.personal === false ? c.unmarkPersonal : t(`business.activity_feed.actions.${item.action}`);
     const words = sentenceStart ? capitalize(phrase) : phrase;
     const failed = item.action === "document_read_failed";
     return <span className={failed ? "text-[#9e2f39] dark:text-[#ec9aa0]" : undefined}>{failed ? <span aria-hidden="true" className="mr-1.5 inline-block h-1.5 w-1.5 -translate-y-0.5 rounded-full bg-current" /> : null}{words}</span>;

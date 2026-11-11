@@ -57,7 +57,7 @@ CANNOT_HOLD_A_BUSINESS_ROW = {
     "profiles",
 }
 LIMITED_BEFORE_THIS_PROOF = {"financial_import_events", "financial_import_observations"}
-THE_READERS_OWN_ACT = {"business_consent_acceptances"}
+THE_READERS_OWN_ACT = {"business_consent_acceptances", "business_guide_dismissals"}
 
 
 def _seed(db, person: str, space: str | None) -> dict[str, set[str]]:  # noqa: ANN001

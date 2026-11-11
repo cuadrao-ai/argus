@@ -35,7 +35,7 @@ async function mount(canExport = true) {
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const opened: (BusinessPanelState | "export")[] = [];
   function Harness() {
-    const search = useBusinessSearch({ emailAvailable: true, source, accounts: [], openPanel: (panel) => opened.push(panel), actions, owner: true, scope: "own", canExport, openExport: () => opened.push("export") });
+    const search = useBusinessSearch({ emailAvailable: true, source, accounts: [], openPanel: (panel) => opened.push(panel), actions, canAdd: true, scope: "own", canExport, openExport: () => opened.push("export") });
     const [open, setOpen] = useState(false);
     const workspace = { id: "business", conversationSurface: "business", chatAvailable: false, search } as unknown as ChatWorkspace;
     return (
@@ -154,7 +154,7 @@ test("screens and actions match the query without accents or case, and open wher
     await view.openSearch();
     await type(view.input(), "exportar");
     await act(async () => (group("Acciones")!.querySelector("button") as HTMLButtonElement).click());
-    assert.equal(view.opened.at(-1), "export", "Exportar opens the one export sheet over the current screen");
+    assert.equal(view.opened.at(-1), "export", "Exportar asks Registros for its export dialog");
     await view.openSearch();
     await type(view.input(), "correos");
     await act(async () => (group("Ir a")!.querySelector("button") as HTMLButtonElement).click());

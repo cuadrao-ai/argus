@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, describe, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, mock, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
@@ -118,6 +118,8 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(search.getAttribute("aria-label"), "Busca comercio, monto o nota", "named even when the bar is narrow and only the icon shows");
     await page.act(async () => search.click());
     assert.deepEqual(page.searches, ["open"]);
+    // Agregar waits for the chosen Business: the server's prepare capability decides it.
+    await page.ready();
     const order = [...page.bar().querySelectorAll("[data-testid]")].map((node) => node.getAttribute("data-testid")).filter((id) => ["header-search", "add-menu-header", "amounts-toggle"].includes(id!));
     assert.deepEqual(order, ["header-search", "add-menu-header", "amounts-toggle"]);
     const greeting = page.bar().querySelector("h1")!;
@@ -126,22 +128,71 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(page.screen().querySelector("#business-overview-title"), null, "no duplicate desktop greeting");
   });
 
-  test("the owner's Agregar opens the upload, and its menu offers Exportar registros and Copiar dirección de reenvío", async () => {
+  test("the owner's Agregar opens the upload, and its menu offers only Copiar dirección de reenvío", async () => {
     const page = await mount();
     await page.ready();
     const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
     const add = menu.querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]')!;
     assert.equal(add.textContent, "Agregar");
     await page.ready();
-    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros", "Copiar dirección de reenvío"]);
+    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Copiar dirección de reenvío"]);
     const copied: string[] = [];
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
-    await page.act(async () => page.menuItems()[1].click());
+    await page.act(async () => page.menuItems()[0].click());
     assert.equal(copied.length, 1);
     assert.match(copied[0], /@/);
     await page.act(async () => add.click());
     await page.settle(() => (document.body.textContent ?? "").includes("Elegir archivos"), "the upload sheet");
   });
+
+  for (const status of [429, 503]) {
+    test(`session recovery stops a ${status} upload retry and the file behind it`, async () => {
+      const { observeBrowserAuth } = await import("@/lib/browser-auth-generation");
+      const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+      observeBrowserAuth("test-upload-owner");
+      const [receipt] = await createFixtureBusinessDataSource().receipts("inbox");
+      const reply = Promise.withResolvers<typeof receipt>();
+      const sent: string[] = [];
+      const noNetwork = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected network request"));
+      let page: Awaited<ReturnType<typeof mount>> | undefined;
+      try {
+        page = await mount({ overrides: {
+          mode: "live",
+          ensureSpace: async () => ({ id: "fixture-space", name: "Mi negocio" }),
+          uploadReceipt: async (file) => {
+            sent.push(file.name);
+            return sent.length === 1 ? reply.promise : receipt;
+          },
+        } });
+        await page.ready();
+        const add = page.bar().querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]');
+        assert.ok(add);
+        await page.act(async () => add.click());
+        const picker = () => document.querySelector<HTMLInputElement>('input[type="file"]:not([capture])');
+        await page.settle(() => picker() !== null, "the file picker");
+        const input = picker();
+        assert.ok(input);
+        const transfer = new DataTransfer();
+        for (const name of ["first.jpg", "waiting.jpg"]) transfer.items.add(new File([name], name, { type: "image/jpeg" }));
+        await page.act(async () => {
+          input.files = transfer.files;
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        assert.deepEqual(sent, ["first.jpg"]);
+        await page.act(async () => { reply.reject(Object.assign(new Error("try again"), { status, retryAfterMs: 250 })); });
+
+        observeBrowserAuth(null);
+        await page.unmount();
+        observeBrowserAuth("test-upload-owner");
+        await new Promise((resolve) => setTimeout(resolve, status === 429 ? 300 : 2_100));
+        assert.deepEqual(sent, ["first.jpg"]);
+      } finally {
+        await page?.unmount();
+        observeBrowserAuth(null);
+        noNetwork.mockRestore();
+      }
+    });
+  }
 
   test("a copy the browser refuses opens Negocio, Correo de recibos, where the address is, and shows no toast", async () => {
     const page = await mount();
@@ -151,7 +202,7 @@ describe("the Business top bar on a desktop", () => {
     await page.openMenu(menu);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("refused"); } } });
     document.execCommand = () => false;
-    await page.act(async () => page.menuItems()[1].click());
+    await page.act(async () => page.menuItems()[0].click());
     await page.settle(() => (page.api().panel as { tab?: string }).tab === "correo", "Correo de recibos");
     assert.deepEqual(page.api().panel, { kind: "business", tab: "correo" });
     assert.equal(document.querySelector('[data-testid="toast"]'), null, "a failed copy is not a toast");
@@ -160,18 +211,29 @@ describe("the Business top bar on a desktop", () => {
   test("an owner without a forwarding address gets no Copiar dirección", async () => {
     const page = await mount({ overrides: { emailIntake: async () => ({ enabled: false, receiving_address: null }) as never } });
     await page.ready();
-    assert.deepEqual((await page.openMenu(page.bar())).map((item) => item.textContent), ["Exportar registros"]);
+    assert.equal(page.bar().querySelector('[data-testid="add-menu-more"]'), null);
   });
 
-  test("a contador gets the menu alone, with no Agregar and no copy of the owner's address", async () => {
+  test("a client grant with prepare gets Agregar, as the server's capability says", async () => {
     const page = await mount({ grant: "fixture-grant-client" });
-    await page.settle(() => page.api().chosen?.role === "accountant", "the client business");
-    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
-    assert.equal(menu.querySelector('[data-testid="business-primary-upload"]'), null);
-    const trigger = menu.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!;
-    assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
-    assert.ok(trigger.textContent?.trim(), "the lone trigger names itself");
-    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros"]);
+    await page.settle(() => page.api().chosen?.grant_id === "fixture-grant-client", "the client business");
+    await page.wait(400);
+    assert.deepEqual(page.api().chosen?.capabilities, ["read", "prepare"]);
+    assert.ok(page.bar().querySelector('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]'));
+  });
+
+  test("server email availability hides an existing address and restores its copy action", async () => {
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const fixture = createFixtureBusinessDataSource();
+    let available = false;
+    const page = await mount({ overrides: { workspace: async () => ({ ...await fixture.workspace(), receiving_channels: { email: { available }, whatsapp: { available: false } } }) } });
+    await page.ready();
+    assert.equal(page.bar().querySelector('[data-testid="add-menu-more"]'), null);
+    assert.ok(page.bar().querySelector('[data-testid="business-primary-upload"]'));
+    available = true;
+    await page.act(async () => { void page.api().refresh(); });
+    await page.settle(() => page.bar().querySelector('[data-testid="add-menu-more"]') !== null, "email copy action restored");
+    assert.deepEqual((await page.openMenu(page.bar())).map((item) => item.textContent), ["Copiar dirección de reenvío"]);
   });
 
   test("a Viewer, whose grant lacks the export permission, gets no menu trigger at all", async () => {
@@ -197,19 +259,6 @@ describe("the Business top bar on a desktop", () => {
     assert.ok(ownerBand?.querySelector('[data-testid="add-menu-page"]'), "an owner's band holds the menu");
   });
 
-  for (const kind of ["overview", "inbox", "transactions"] as const) test(`Exportar registros from the menu opens the one export sheet over ${kind}`, async () => {
-    const page = await mount();
-    await page.ready();
-    await page.open({ kind });
-    assert.equal(document.querySelector('[data-testid="export-records-panel"]'), null);
-    const items = await page.openMenu(page.bar());
-    const exportItem = items.find((item) => item.textContent === "Exportar registros")!;
-    await page.act(async () => exportItem.click());
-    await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
-    assert.equal(page.api().panel.kind, kind, "the screen underneath stays");
-    assert.equal(document.querySelectorAll('[data-testid="export-records-panel"]').length, 1);
-  });
-
   test("Agregar sits once in the bar after search on every screen but Negocio, and no content heading carries it", async () => {
     const page = await mount();
     await page.ready();
@@ -225,6 +274,7 @@ describe("the Business top bar on a desktop", () => {
       const add = tools.querySelector<HTMLElement>('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]')!;
       assert.match(add.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
       assert.equal(add.getAttribute("data-primary"), "true", kind);
+      await page.settle(() => tools.querySelector('[data-testid="add-menu-more"]') !== null, "forwarding address");
       assert.match(tools.querySelector('[data-testid="add-menu-more"]')!.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
       assert.equal(page.screen().querySelector('[data-testid="business-primary-upload"]'), null, `${kind}: Agregar appears once, in the bar`);
       assert.equal(page.screen().querySelector('[data-testid="add-menu-header"]'), null, kind);
@@ -279,83 +329,70 @@ describe("Ocultar montos", () => {
   });
 });
 
+/** The fixture workspace with Por cobrar and Por pagar on, for a test of the settlement step or the Cobros y pagos section. */
+async function settlementOn(): Promise<Partial<BusinessDataSource>> {
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
+  return { workspace: async () => ({ ...await fixture.workspace(), settlement_available: true }) };
+}
+
 describe("the Business top bar on a phone", () => {
-  test("a receipt failure keeps the settlement task reachable through Ver cuáles on a phone", async () => {
+  test("a receipt failure leaves the workspace unknown, so Cobros y pagos does not show", async () => {
     const page = await mount({ width: 390, overrides: {
+      ...await settlementOn(),
       receiptPage: async () => { throw new Error("Receipt count unavailable"); },
     } });
-    await page.settle(() => page.screen().querySelector('[data-testid="inicio-error"]') !== null && page.screen().querySelector('[data-testid="month-close-checklist"]') !== null && page.screen().querySelector('[data-testid="month-close-payable"]') !== null, "the receipt failure, checklist, and money cards");
+    await page.settle(() => page.screen().querySelector('[data-testid="home-attention-error"]') !== null && page.screen().querySelector('[data-testid="home-month"]') !== null, "the receipt failure and the month");
     await page.act(async () => window.dispatchEvent(new Event("resize")));
-    assert.equal(page.screen().querySelector('[data-testid="inicio-error"]')?.getAttribute("role"), "alert");
-    assert.equal(page.screen().querySelector('[data-testid="month-close-close"]'), null, "a receipt failure prevents closing the month");
-    const toggle = page.screen().querySelector<HTMLButtonElement>('[data-testid="month-close-tasks-toggle"]')!;
-    assert.equal(toggle.textContent, "Ver cuáles");
-    assert.equal(toggle.getAttribute("aria-expanded"), "false");
-    assert.equal(page.screen().querySelector('[data-testid="month-close-task-settle"]'), null);
-    await page.act(async () => toggle.click());
-    assert.equal(page.screen().querySelector('[data-testid="month-close-tasks-toggle"]')?.getAttribute("aria-expanded"), "true");
-    const task = page.screen().querySelector('[data-testid="month-close-task-settle"]');
-    assert.ok(task, "the disclosure reveals the settlement task");
-    const see = task.querySelector<HTMLButtonElement>("button")!;
-    assert.equal(see.textContent, "Ver");
-    assert.equal(see.disabled, false);
-    const money = page.screen().querySelector<HTMLElement>("#month-close-money");
-    assert.ok(money, "the task has a mounted destination");
-    assert.equal(money.querySelector("h3")?.textContent, "Cobros y pagos");
-    assert.ok(money.querySelector('[data-testid="month-close-receivable"]'));
-    assert.ok(money.querySelector('[data-testid="month-close-payable"]'));
-    assert.ok(money.querySelector('[data-testid="month-close-row"]'), "the destination contains real open-item rows");
-    const scroll = mock(() => undefined);
-    money.scrollIntoView = scroll;
-    await page.act(async () => see.click());
-    assert.equal(scroll.mock.calls.length, 1, "Ver scrolls to the real money section");
-    assert.ok(page.screen().querySelector('[data-testid="inicio-error"]'), "settlement remains reachable while the receipt failure persists");
-    assert.equal(page.screen().querySelector('[data-testid="month-close-close"]'), null);
+    assert.equal(page.screen().querySelector('[data-testid="home-attention-error"]')?.getAttribute("role"), "alert");
+    // Only the workspace's answer turns settlement on, and the failed read left it unknown.
+    assert.equal(page.screen().querySelector("#month-close-money"), null);
   });
 
-  test("Inicio keeps one receipt failure after the phone greeting, preserves the desktop footer, and retries the source", async () => {
+  test("with settlement on, Cobros y pagos follows the month card on a phone", async () => {
+    const page = await mount({ width: 390, overrides: await settlementOn() });
+    await page.settle(() => page.screen().querySelector('[data-testid="home-month"]') !== null && page.screen().querySelector('[data-testid="month-close-payable"]') !== null, "the month and the money cards");
+    await page.act(async () => window.dispatchEvent(new Event("resize")));
+    const money = page.screen().querySelector<HTMLElement>("#month-close-money");
+    assert.ok(money);
+    assert.equal(money.querySelector("h3")?.textContent, "Cobros y pagos");
+    assert.ok(money.querySelector('[data-testid="month-close-row"]'), "real open-item rows");
+    const month = page.screen().querySelector('[data-testid="home-month"]')!;
+    assert.ok(month.compareDocumentPosition(money) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  test("Inicio keeps one receipt failure after the phone greeting, on every width, and retries the source", async () => {
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
     const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
     const receiptReads: string[] = [];
     const page = await mount({ width: 390, overrides: {
+      ...await settlementOn(),
       receiptPage: async (...args) => {
         receiptReads.push(args[0]);
         if (receiptReads.length === 1) throw Object.assign(new Error("Receipt count temporarily unavailable"), { requestId: "req-mobile-receipts" });
         return fixture.receiptPage!(...args);
       },
     } });
-    await page.settle(() => page.screen().querySelector('[data-testid="inicio-error"]') !== null && page.screen().querySelector('[data-testid="month-close-checklist"]') !== null, "the receipt failure and month checklist");
+    await page.settle(() => page.screen().querySelector('[data-testid="home-attention-error"]') !== null && page.screen().querySelector('[data-testid="home-month"]') !== null, "the receipt failure and the month");
     // Happy DOM initializes each media-query listener's match state on resize.
     await page.act(async () => window.dispatchEvent(new Event("resize")));
-    const statuses = () => page.screen().querySelectorAll<HTMLElement>('[data-testid="month-close-receipts-status"]');
-    const status = statuses()[0];
-    assert.equal(statuses().length, 1);
-    assert.equal(status.querySelector('[data-testid="inicio-error"]')?.getAttribute("role"), "alert");
-    assert.equal(status.querySelector("p")?.textContent, "No pudimos cargar el conteo de recibos. Aún no se puede cerrar el mes.");
-    assert.deepEqual([...status.querySelectorAll("button")].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent), ["Reintentar"]);
+    const errors = () => page.screen().querySelectorAll<HTMLElement>('[data-testid="home-attention-error"]');
+    assert.equal(errors().length, 1);
+    assert.match(errors()[0].textContent ?? "", /No pudimos cargar lo pendiente\./);
+    assert.deepEqual([...errors()[0].querySelectorAll("button")].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent), ["Reintentar"]);
     const greeting = page.screen().querySelector('[data-testid="home-heading"]')!;
-    const firstSection = page.screen().querySelector('[data-home-section]')!;
-    const mobilePlacement = {
-      followsGreeting: Boolean(greeting.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING),
-      precedesSections: Boolean(status.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING),
-      outsideChecklist: status.closest('[data-testid="month-close-checklist"]') === null,
-    };
-    assert.deepEqual([...page.screen().querySelectorAll('[data-home-section]')].map((section) => section.getAttribute("data-home-section")), ["work", "month", "money"]);
+    assert.ok(greeting.compareDocumentPosition(errors()[0]) & Node.DOCUMENT_POSITION_FOLLOWING, "the failure follows the phone greeting");
     for (const width of [1440, 390, 1440, 390]) {
       await page.act(async () => (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 }));
-      assert.equal(statuses().length, 1, `one receipt status after resizing to ${width}px`);
+      assert.equal(errors().length, 1, `one receipt failure after resizing to ${width}px`);
       assert.equal(page.screen().querySelector('[data-testid="home-heading"]') !== null, width === 390);
-      assert.deepEqual([...page.screen().querySelectorAll('[data-home-section]')].map((section) => section.getAttribute("data-home-section")), ["work", "month", "money"]);
-      if (width === 1440) assert.ok(statuses()[0].closest('[data-testid="month-close-checklist-footer"]'), "desktop keeps the receipt status in the checklist footer");
     }
     assert.deepEqual(receiptReads, ["inbox"], "resizing does not refetch receipts");
-    const retry = [...statuses()[0].querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
+    const retry = [...errors()[0].querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
     await page.act(async () => retry.click());
     await page.settle(() => page.api().records.inbox !== null && !page.api().records.error, "the receipt source recovery");
     assert.deepEqual(receiptReads, ["inbox", "inbox"], "Reintentar reaches the receipt source again");
-    assert.equal(statuses().length, 0, "a recovered receipt count removes the failure");
-    assert.equal(page.screen().querySelector('[data-testid="inicio-error"]'), null);
-    assert.deepEqual(mobilePlacement, { followsGreeting: true, precedesSections: true, outsideChecklist: true }, "the phone receipt status belongs after the greeting and before every customizable section, outside the checklist");
+    assert.equal(errors().length, 0, "a recovered receipt count removes the failure");
   });
 
   test("the top bar has no Agregar; Inicio, the Bandeja and Transacciones each start with their own", async () => {

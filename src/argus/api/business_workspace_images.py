@@ -17,6 +17,7 @@ from argus.api.profile_images import (
 from argus.domain.business.authority import ActionError
 from argus.domain.business.lifecycle import BusinessLifecycleError
 from argus.domain.business.memberships import MembershipError
+from argus.domain.business.space_name import GivenName
 from argus.domain.business.workspace import WorkspaceError, WorkspaceSnapshot
 from argus.domain.business.workspace_images import (
     MAX_UPLOAD_BYTES,
@@ -50,6 +51,7 @@ class WorkspaceImageLinks(BaseModel):
 
 
 class BusinessProfile(WorkspaceSnapshot):
+    name: GivenName
     image: WorkspaceImageLinks | None = None
 
 

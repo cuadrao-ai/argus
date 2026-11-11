@@ -3,8 +3,8 @@ begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
--- Strict acceptance for the requested revocation. It currently fails on the
--- supported Supabase image because supabase_admin owns the extension grants.
+-- Strict acceptance for #1227. The baseline (#1890) no longer installs pg_net,
+-- so a database without the net schema passes; one with it must grant no client.
 do $$
 declare v_exposed text;
 begin
@@ -29,9 +29,6 @@ begin
     where grantee in (0, 'anon'::regrole::oid, 'authenticated'::regrole::oid);
     if v_exposed is not null then
         raise exception 'BLOCKED: net still grants client or PUBLIC privileges: %', v_exposed;
-    end if;
-    if to_regnamespace('net') is null then
-        raise exception 'BLOCKED: net extension schema is missing';
     end if;
 end;
 $$;

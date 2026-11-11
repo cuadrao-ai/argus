@@ -2,11 +2,12 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/brows
 import * as api from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
 import { getChosenGrant } from "@/lib/business-grant";
+import { getBusinessSetup } from "@/lib/business-setup-api";
 import * as searchApi from "@/lib/business-search-api";
 import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
 import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
-import { getDgiiFields, getFiscalProfile, reviewDgii, reviewPurchase, setFiscalProfile, type DgiiFields, type DgiiReview, type FiscalProfile, type FiscalProfileInput, type PurchaseChoice } from "@/lib/business-dgii";
+import { getDgiiFields, getFiscalProfile, lookupRegistry, reviewDgii, reviewPurchase, setFiscalProfile, setLegalName, type DgiiFields, type DgiiReview, type FiscalProfile, type FiscalProfileInput, type LegalNameInput, type PurchaseChoice, type RegistryAnswer, type TaxId } from "@/lib/business-dgii";
 import type {
   GrantedSpace,
   BusinessAccount,
@@ -43,6 +44,8 @@ export type BusinessDataSource = Readonly<{
   receiptPage?: typeof api.getBusinessReceiptPage;
   receiptReading?: typeof api.getReceiptReading;
   setReceiptReading?: typeof api.setReceiptReading;
+  /** The selected Business's setup steps, for whoever may manage it. */
+  setup?: typeof getBusinessSetup;
   markReceiptRead?: typeof api.markReceiptRead;
   overview: (from: string, to: string | null) => Promise<BusinessOverview>;
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
@@ -75,9 +78,10 @@ export type BusinessDataSource = Readonly<{
   clearSearchRecents?: () => Promise<void>;
   /** A result was opened, so it ranks first next time. Best effort. */
   recordSearchOpen?: (kind: BusinessSearchKind, id: string) => Promise<void>;
-  captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
+  /** `grant` is the Business the note was written in; omitted, the call binds the chosen Business before it awaits. */
+  captureNote: (input: BusinessCaptureInput, key: string, grant?: string | null) => Promise<BusinessDossier>;
   captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapturePage>;
-  uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener) => Promise<ReceiptSummary>;
+  uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener, grant?: string | null) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;
   confirmReceipt: (id: string, version: number, key: string) => Promise<ReceiptDetail>;
@@ -85,6 +89,9 @@ export type BusinessDataSource = Readonly<{
   /** The business's name and tax id as the 606, 607 and exports print them. */
   fiscalProfile: (draftId?: string) => Promise<FiscalProfile>;
   saveFiscalProfile: (input: FiscalProfileInput, key: string) => Promise<FiscalProfile>;
+  /** Only the live source checks the registry and stores a legal name; elsewhere the Razón social block is absent. */
+  lookupRegistry?: (taxId: TaxId, signal?: AbortSignal) => Promise<RegistryAnswer>;
+  saveLegalName?: (input: LegalNameInput, key: string) => Promise<FiscalProfile>;
   createEmailAddress: () => Promise<BusinessEmailIntake>;
   emailDeliveries: () => Promise<BusinessEmailDelivery[]>;
   emailDelivery: (id: string) => Promise<BusinessEmailDetail>;
@@ -106,6 +113,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receiptPage: api.getBusinessReceiptPage,
   receiptReading: api.getReceiptReading,
   setReceiptReading: api.setReceiptReading,
+  setup: getBusinessSetup,
   markReceiptRead: api.markReceiptRead,
   overview: api.getBusinessOverview,
   receipts: api.listBusinessReceipts,
@@ -141,6 +149,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   emailIntake: api.getBusinessEmailIntake,
   fiscalProfile: getFiscalProfile,
   saveFiscalProfile: setFiscalProfile,
+  lookupRegistry,
+  saveLegalName: setLegalName,
   createEmailAddress: api.createBusinessEmailAddress,
   emailDeliveries: api.listBusinessEmailDeliveries,
   emailDelivery: api.getBusinessEmailDelivery,
@@ -154,6 +164,25 @@ export const liveBusinessDataSource: BusinessDataSource = {
   spaceDirectory: api.getBusinessDirectory,
   markAccessSeen: api.markBusinessAccessSeen,
 };
+
+/** A retired workspace's callbacks cannot send requests or receive results under a new session. */
+export function withBusinessSession(source: BusinessDataSource, generation: number): BusinessDataSource {
+  const bound = { ...source };
+  for (const [name, method] of Object.entries(source)) {
+    if (typeof method !== "function") continue;
+    Object.defineProperty(bound, name, {
+      value: async (...args: unknown[]) => {
+        requireBrowserAuthGeneration(generation);
+        try {
+          return await Reflect.apply(method, source, args);
+        } finally {
+          requireBrowserAuthGeneration(generation);
+        }
+      },
+    });
+  }
+  return bound;
+}
 
 export function withBusinessSpace(
   source: BusinessDataSource,
@@ -200,6 +229,7 @@ export function withBusinessSpace(
     receiptActivity: source.receiptActivity ? after(source.receiptActivity) : undefined,
     receiptPage: source.receiptPage ? after(source.receiptPage) : undefined,
     receiptReading: source.receiptReading ? after(source.receiptReading) : undefined,
+    setup: source.setup ? after(source.setup) : undefined,
     setReceiptReading: source.setReceiptReading,
     markReceiptRead: source.markReceiptRead,
     overview: after(source.overview),
@@ -236,6 +266,8 @@ export function withBusinessSpace(
     emailIntake: after(source.emailIntake),
     fiscalProfile: after(source.fiscalProfile),
     saveFiscalProfile: source.saveFiscalProfile,
+    lookupRegistry: source.lookupRegistry,
+    saveLegalName: source.saveLegalName,
     createEmailAddress: after(source.createEmailAddress),
     emailDeliveries: after(source.emailDeliveries),
     emailDelivery: source.emailDelivery,

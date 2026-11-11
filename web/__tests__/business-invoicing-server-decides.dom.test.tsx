@@ -50,7 +50,6 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz", over
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { default: BusinessSidebarNav } = await import("@/components/business-app/BusinessSidebarNav");
   const { default: BusinessPanel } = await import("@/components/business-app/BusinessPanel");
-  const { HomeWork } = await import("@/components/business-app/inicio/HomeOverviewDraft");
   const { setChosenGrant } = await import("@/lib/business-grant");
   const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
   setChosenGrant(null);
@@ -87,7 +86,6 @@ async function mount(answer: { available: boolean } | "hold", url = "/biz", over
             <Probe />
             <Bar />
             <BusinessSidebarNav shell={shell} />
-            <HomeWork />
             <BusinessPanel />
           </BusinessWorkspaceProvider>
         </BusinessConsentTestProvider>
@@ -124,17 +122,15 @@ test("server says unavailable: no entry point anywhere, and the deep link lands 
   assert.ok(!page.navItems().includes("Facturación"), page.navItems().join("|"));
   assert.ok(!page.text().includes("No tienes acceso"), "the no-access line must never show");
   assert.ok(!page.text().includes("Facturación"), "nothing on screen names Facturación");
-  assert.equal(page.host.querySelector('[data-testid="home-invoice-drafts"]'), null);
   assert.equal(new URLSearchParams(window.location.search).get("view"), null);
 });
 
-test("server says available: the sidebar item, Inicio's rows and the deep link all show", async () => {
+test("server says available: the sidebar item and the deep link show", async () => {
   const page = await mount({ available: true }, "/biz?view=invoicing");
   await page.settle(() => page.api().invoicing === "available");
   assert.ok(page.navItems().includes("Facturación"), page.navItems().join("|"));
   assert.equal(page.api().panel.kind, "invoicing");
   assert.equal(new URLSearchParams(window.location.search).get("view"), "invoicing");
-  assert.ok(page.host.querySelector('[data-testid="home-invoice-drafts"]'), "Inicio keeps its invoice drafts row");
 });
 
 test("while the server has not answered nothing shows for Facturación, and its answer then decides", async () => {

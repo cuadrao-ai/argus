@@ -122,12 +122,12 @@ describe("WhatsApp AI permission", () => {
 
   test("an old enabled permission never appears as the new reading switch", () => {
     const html = render({ status: linked, consent: { ...consent, enabled: true } });
-    expect(html).toContain("Open receipt reading settings");
+    expect(html).toContain("Open document reading settings");
     expect(html).not.toContain('role="switch"');
   });
 
-  test("an unlinked number does not show receipt reading controls", () => {
-    expect(render({ consent })).not.toContain("Open receipt reading settings");
+  test("an unlinked number does not show document reading controls", () => {
+    expect(render({ consent })).not.toContain("Open document reading settings");
   });
 
   test("the new setting link is localized in Spanish", () => {

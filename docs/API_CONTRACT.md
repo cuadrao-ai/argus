@@ -142,44 +142,13 @@ Unauthenticated `/auth/login` and `/auth/signup` attempts are also protected by
 short-window alpha throttles before allowlist or provider calls. These limits
 return the same `429` Problem Details shape with `code: "too_many_requests"`.
 
-Guest conversation turns carry a silent anti-abuse ceiling per visitor per
-UTC day and a second daily ceiling per authenticated guest session. Both
-use `guest_compute_turns` in `visitor_usage_counters`: the visitor row is
-keyed on a digest of the trusted client IP, and the session row is keyed
-on `session:<guest user id>`. The visitor ceiling defaults to 300. The
-session ceiling defaults to 100 (`CUADRAO_GUEST_SESSION_DAILY_TURN_CEILING`)
-so one workspace hopping IPs cannot inherit the shared-NAT headroom. A
-guest hits whichever remaining count is lower. The unit is claimed
-atomically before model work (`claim_guest_compute_usage`); a failed turn
-keeps the claim. The claim runs after the conversation is resolved and
-after stale or replayed actions and retest state are validated, so those
-rejections come first and cost nothing: an unknown conversation answers
-`404` `not_found` even at the ceiling, and a rejected replay answers its
-`409` without using a unit. The visitor IP comes from `CF-Connecting-IP`
-by default (`ARGUS_TRUSTED_CLIENT_IP_HEADER`), never from
-`X-Forwarded-For`. A trusted value of `ip:port` has its port stripped. A
-dotted IPv4 value with leading zeros is rejected, and the socket peer is
-used with the `client_ip_rejected_non_canonical` log line. IPv4 keys stay
-per-address. IPv6 keys group by the address `/64` so rotating
-addresses inside one prefix cannot mint a fresh visitor row. These
-ceilings are not an allowance: `GET /me/usage` reports conversation as
-unbounded and never projects this counter, and no product surface names
-it. At either ceiling `POST /chat/stream` answers the same `429` shape
-with `code: "too_many_requests"` and `Retry-After` set to the seconds
-until the UTC day resets. A claim that cannot run (missing RPC,
-persistence error) is not a daily cap: `POST /chat/stream` answers
-`503` with `code: "guest_compute_claim_unavailable"` and a short
-`Retry-After`. Run actions are execution and do not count.
-Signed-in accounts carry their own daily chat ceiling, default 200
-(`CUADRAO_REGISTERED_DAILY_TURN_CEILING`), claimed atomically before
-model work (`claim_registered_compute_usage`) against `user:<account id>`
-on `account_compute_turns`, at the same point in the turn as the guest
-claim, so a `404` or a rejected replay costs nothing. A failed turn
-keeps the claim. At the
-ceiling `POST /chat/stream` answers the same `429` copy and shape
-guests get. A claim that cannot run answers `503` with
-`code: "registered_compute_claim_unavailable"` and the same short
-`Retry-After`. `GET /me/usage` still reports conversation as unbounded.
+There is no daily chat turn ceiling. The guest and signed-in compute
+claims (`claim_guest_compute_usage`, `claim_registered_compute_usage`)
+left with the chat routes (#1625) and were dropped from the database by
+`20261110160100_drop_unowned_objects.sql` (#1890). No endpoint claims a
+`guest_compute_turns` or `account_compute_turns` unit, and no `429` or
+`503` is answered for one. `GET /me/usage` reports conversation as
+unbounded and never projects such a counter.
 
 Supported rate-limit headers where applicable:
 - `X-RateLimit-Limit`
@@ -2971,13 +2940,20 @@ Supabase Auth without logging or persistence.
 }
 ```
 
-**Private-alpha blocked response:** login intentionally returns the same generic
-`401 unauthorized` shape used for invalid credentials, so a caller cannot tell a
-denied email from a listed email with a wrong password. Denial means an
+**Uniform login failure response:** private-alpha denial, invalid credentials,
+and a failed or unfinished server-side browser check all return the same generic
+`401 unauthorized` shape so a caller cannot tell a denied email from a listed
+email with a wrong password or from a rejected Turnstile token. Denial means an
 explicitly disabled row while the public gate is open, and, when it is closed,
 an email that is not listed and, while
 `CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED=true`, not named by a live Business
 invitation or grant either.
+
+Supabase Auth still runs the Turnstile siteverify for admitted emails. When it
+rejects the token, or the provider call does not finish within 30 seconds, login
+returns the same `401 unauthorized` problem and does not create a session. The
+check is not skipped. Response parity does not hide timing differences between
+failures.
 
 ```json
 {
@@ -2986,22 +2962,6 @@ invitation or grant either.
   "status": 401,
   "detail": "Invalid email or password.",
   "code": "unauthorized",
-  "request_id": "uuid"
-}
-```
-
-A failed or unfinished browser check is a different response. Supabase Auth
-runs the Turnstile siteverify. When it rejects the token, or the provider
-call does not finish within 30 seconds, login returns `400`
-`captcha_unavailable` and does not create a session. The check is not skipped.
-
-```json
-{
-  "type": "https://api.argus.app/problems/captcha-unavailable",
-  "title": "Browser Check Failed",
-  "status": 400,
-  "detail": "The browser check did not complete. Try again.",
-  "code": "captcha_unavailable",
   "request_id": "uuid"
 }
 ```
@@ -3530,7 +3490,7 @@ once, on the result; closing the confirmation only clears local state.
 { "status": "in_progress", "pending": ["plaid"] }
 ```
 
-The default-off `ARGUS_ANALYTICS_DELETION_ENABLED` adapter submits a project-scoped
+The default-off `CUADRAO_ANALYTICS_DELETION_ENABLED` adapter submits a project-scoped
 personless event deletion request using the durable run UUID as its submission
 UUID. Acceptance keeps `analytics` pending. Only a separate provider read with
 matching request and submission UUIDs and status `completed` completes that step.
@@ -9281,11 +9241,24 @@ HTTP request already sent. Model/composition/send unknown outcomes retain the
 existing no-blind-retry rule. Business checkpoint persistence remains disabled
 pending proof of its authorization and deletion lifecycle.
 
+### Business guide cards
+
+`GET /api/v1/business/guide-cards/{card_id}` returns `{dismissed: boolean}`
+for the signed-in person. `POST /api/v1/business/guide-cards/{card_id}/dismiss`
+takes no body. After a dismissal commits, it returns `{dismissed: true}`.
+Repeating the request keeps the first dismissal time.
+
+The card IDs are `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
+follows the registered person across Businesses and sessions. The server takes
+the person ID from the session and ignores `X-Business-Grant` for these routes.
+Both responses use `Cache-Control: no-store`. If storage is unavailable, both
+routes return 503 `business_guide_unavailable` with a request reference.
+
 ### Business receipt automatic reading and attention
 
-A Business owner explicitly enables scope version 2 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
+A Business owner explicitly enables scope version 3 `business_receipt_reading` for email, WhatsApp and upload together. The server stores the affirmative owner's identity, Business, consent generation and acceptance time. Existing WhatsApp consent does not satisfy it. Turning reading off revokes that generation and prevents new dispatch and result use. Receipt intake still saves the source unread. Reading never approves financial records.
 
-`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new wording is a new scope version. An owner who accepted an earlier scope reads `enabled: false` and is asked again; until they accept, their receipts are saved unread and no read runs. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the one the `GET` returned (2); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
+`GET /business/receipt-reading?language=en|es-419` returns the current permission and disclosure. It changes nothing. The disclosure is the one sentence the Recepción card shows under its title, and the web shows it as the server sends it. `DISCLOSURES` in `src/argus/domain/business/receipt_consent.py` owns its words. A new scope version is required when the processing changes; scope 3 names invoices, receipts and PDFs. The consent stores the exact words shown, but `enabled` depends only on the scope version, the current route and the consent not being revoked, so new words for the same scope keep reading on. An owner who accepted an earlier scope reads `enabled: false` and is asked again; until they accept, their documents are saved unread and no read runs. `POST /business/receipt-reading` takes `{enabled,scope_version,disclosure_token,language}` and `Idempotency-Key` from the owner. `scope_version` is the one the `GET` returned (3); any other version is refused with 422 `business_receipt_consent_changed`. The displayed disclosure and current processor/model route bind acceptance. Every enable, no-op enable and disable command is replay-safe; a delayed command cannot reverse a later choice. Enable queues saved unread receipts with no prior failure or extraction under the newly accepted generation. Failed and provider-unknown outcomes require explicit recovery. The existing document job and preparation binding remain the only reader. Email originals with attached receipt files provide context and are not read or counted twice.
 
 The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
@@ -9554,7 +9527,8 @@ history read is an error, never an empty successful history.
 A recorded `approval_result` carries `activity_id`, the approving `actor`,
 `reviewed_version` (the draft version the approval named, which also counts
 approvals and settlements), `approved_revision` (the latest `history` version
-at or below `reviewed_version`: the facts revision the person approved) and
+at or below `reviewed_version`: the facts revision the person approved, the
+same revision the DGII export reads its facts and evidence from) and
 `approved_at` (when the approval receipt was written). Marks and 606 answers
 after approval add `history` revisions without changing either field. So does
 an expense approval whose draft holds no 606 declaration, or whose saved
@@ -9717,20 +9691,32 @@ month, as a document line plus `missing`, the export's own words for what it
 still needs, first fix first: `expense_type_missing`, `rnc_missing`,
 `rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`,
 `payment_method_missing` or `detail_missing`, the same words Registros shows as
-`export_missing`) and `filing_ready` (bool: the one fact "ready for the 606 and
-607", true only when both `dgii_forms` stand by the export's verdict
-(`prepared_candidate`, `no_operations` or `summary_only`) and no step of the
-month remains: `unreviewed_movements_count` zero, no read in flight with no
-date (a receipt being read for the first time, or an email being read, holds
-every month until it lands), `missing_fiscal_data` empty, `cuentas_por_cobrar`
-and `cuentas_por_pagar` empty; the web shows that sentence
-from this field alone, never from `closed`, which stays month completion). Each
-currency block adds `itbis_cobrado_minor` and
+`export_missing`) and `missing_fiscal_rows` (those documents counted for
+Inicio's "Faltan datos fiscales" rows as `{family, currency, count,
+by_currency}`, Compras then Ventas: one row per family, split by currency only
+when that family's held documents span more than one, so each row opens exactly
+the Registros list it counts). `filing_ready` is removed. Each currency block
+carries `documents_counted`, `documents_total` and `documents_in_bandeja`
+(ints): of the month's documents in that currency, from the same list as the
+figures, how many the figures count, how many there are in all (approved ones
+the close admits, so not those marked personal and left out, plus the drafts
+the Bandeja still holds in the month), and how many the Bandeja still holds. A
+Bandeja draft counts in the currency its read or review named; one that names
+none yet (a note nobody reviewed, a read in flight) counts in the Business's own. A currency only the Bandeja holds gets its
+own block, with zero figures. `unreviewed_movements_count` is the sum of the
+blocks' `documents_in_bandeja`. `more_than_one_currency` (bool) says the
+Business holds documents in more than one currency in some month (approved ones
+it admits in any month, or this month's Bandeja drafts), so Inicio keeps the
+currency choice in view in a month of one currency. Each currency block carries `itbis_charged`
+(ITBIS on the month's approved sales)
+and `itbis_paid` (ITBIS on its approved purchases, the 606 lines) as two plain
+totals, with no balance between them: the real ITBIS position needs facts the
+server does not hold. It adds `itbis_cobrado_minor` and
 `itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
 `net_result_final` (true while no document of that currency in the month is
-`pendiente` and, for a currency other than DOP, while that currency has no
-document waiting for an exchange rate; a non-DOP block with any document that
-is not sin comprobante is never final, because no rate exists yet). Each open-items list adds `overdue: {count, totals}` over every
+`pendiente`, and always while settlement is off; a block's net is in its own
+currency, so no exchange rate holds it: a rate matters only where the 606 and
+607 convert to pesos, as `dgii_foreign_currency` says). Each open-items list adds `overdue: {count, totals}` over every
 pending document in it, not only the page: pending with `due_on` before
 `today`; no due date is never overdue. Every document counts in its own
 currency's block; only the DGII files and `dgii_forms` are DOP-only.
@@ -9788,6 +9774,13 @@ validation issues. Prepared candidates use `606|RNC|AAAAMM|count` or
 as amended by NG 05-2019 and the current DGII templates. The review workbook
 uses the same detail column order. All candidates explicitly state that official
 prevalidation is `NOT RUN` and no tax return has been submitted.
+A record's fiscal facts are those of its approved revision (the one
+`approved_revision` names), and its evidence (`source_ids` in the manifest
+`reconciliation` and the `Conciliación` sheet) is every source those facts
+name. A note edit, a reopen, the approval's own 606 revision and its undo after
+a failed money write attach no document and change no fact, so none of them
+removes evidence. A record with no approval, or whose approved facts name no
+source, is held with `fiscal_approval_evidence_missing`.
 
 Human `PATCH /business/drafts/{id}/review` accepts `dgii: FiscalReview` alongside
 or instead of `facts`. It holds explicitly entered fiscal identity and ITBIS plus
@@ -9846,6 +9839,14 @@ Spanish copy for these codes is `dgii_line.COPY`.
 
 ### Business activity feed
 
+Actividad sits behind one server switch, `CUADRAO_BUSINESS_ACTIVITY_ENABLED`
+(`argus.domain.business.config.business_activity_enabled`), off by default; staging
+sets it true and the production pilot false. `GET /api/v1/business/workspace` says
+the same as `activity_available`. While it is off, `GET /business/activity` is refused
+with `404` `business_activity_disabled` before authentication, and the web shows no
+Actividad entry, sends no request, and sends a direct link to Inicio. Actions keep
+recording their entries either way, so turning it on later shows the whole history.
+
 `GET /business/activity?limit=25|50|100&cursor=<opaque>` lists who changed what
 and when in the working Business (the chosen `X-Business-Grant`'s Business, else
 the caller's own), newest first. It is read-only and additive: no existing route
@@ -9877,9 +9878,9 @@ grant history exists (the extractor, an erased account).
 `prepare_attachment`, `rebind_attachment`, `settle_remainder`, `mark_personal`,
 `decide_606`, `resolve_duplicate`, `edit_current_note`,
 `append_supporting_file`, `receipt_upload`, `receipt_review`,
-`receipt_confirm`, `set_business_rnc`, `business_propose_activity`,
-`business_attach_source`, `business_propose_allocation`, `business_ask`,
-`owner_grant`, `grant_access`, `invite_access`, `accept_invite`,
+`receipt_confirm`, `set_business_rnc`, `set_business_legal_name`,
+`business_propose_activity`, `business_attach_source`,
+`business_propose_allocation`, `business_ask`, `owner_grant`, `grant_access`, `invite_access`, `accept_invite`,
 `revoke_grant`, `revoke_invite`, `change_role`), two events read from other
 tables (`ownership_transferred`: an accepted ownership transfer, the new owner
 as actor at its acceptance; `receipt_reading_enabled`: the owner turning
@@ -9894,7 +9895,8 @@ does not list yet: the consent table records when, not who.
 `records` (`review_draft`, the approvals, `capture_note`, `settle_remainder`,
 `mark_personal`, `decide_606`, `edit_current_note`, `receipt_review`,
 `receipt_confirm`, `business_propose_activity`, `business_propose_allocation`,
-`business_ask`), `business` (`set_business_rnc`, the access changes,
+`business_ask`), `business` (`set_business_rnc`, `set_business_legal_name`,
+the access changes,
 `ownership_transferred`, `receipt_reading_enabled`); `invoicing` is reserved
 and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
@@ -9926,8 +9928,8 @@ approvals, `receipt_confirm`, `decide_606`; `edits` for `capture_note`,
 `business_propose_activity`, `business_propose_allocation`; `files` for
 `rebind_attachment`, `append_supporting_file`, `business_attach_source`;
 `invoices`, reserved and empty; `access` for the access changes and
-`ownership_transferred`; `settings` for `set_business_rnc` and
-`receipt_reading_enabled`). Values of one filter are OR'ed and the filters are
+`ownership_transferred`; `settings` for `set_business_rnc`,
+`set_business_legal_name` and `receipt_reading_enabled`). Values of one filter are OR'ed and the filters are
 AND'ed. An unknown value is 422 `validation_error`. An `area` or
 `action_group` filter matches catalog actions only, so `other` never matches
 a filter, for any reader.
@@ -10096,18 +10098,21 @@ Unknown, mismatched, unsupported or post-purge events remain quarantined. Authen
 failure is 401; oversized body 413; invalid JSON 422; failed durable persistence 503.
 Probe JSON is exactly `{message:"Test message"}` and creates no fiscal observation.
 
-`GET /business/fiscal-profile` returns `{name, tax_id, can_edit}` under the same live read
+`GET /business/fiscal-profile` returns `{name, tax_id, legal_name, can_edit}` under the same live read
 grant. Optional `draft_id` supplies the existing canonical Business anchor.
-`name` is the Business name the switcher lists. `tax_id` is null until the owner sets one.
+`name` is the Business name the switcher lists, null while the Business keeps a default name.
+`tax_id` is null until the owner sets one.
 A set tax id is `{type, value}` where `type` is `rnc` or `cedula` and `value` is digits only.
-An RNC is 9 digits. A cédula is 11 digits. Leading zeros stay. `can_edit` is true only for
+An RNC is 9 digits. A cédula is 11 digits. Leading zeros stay. `legal_name` is null until a
+person who manages the Business confirms one, else `{value, confirmed_at}`: the razón social
+and when it was confirmed. `can_edit` is true only for
 the space owner. Another member of that Business receives the same profile with `can_edit`
 false. The route does not take a space id, so another Business is not addressable here.
 
 `PATCH /business/fiscal-profile` requires the space owner, approve permission, and
 `Idempotency-Key`. The body is `{name, previous_name, tax_id, previous_tax_id}`.
 `name` is 1 to 80 characters after trimming. `previous_name` and `previous_tax_id` must
-match the stored profile. A mismatch is 409 `stale_version`. Spaces and hyphens in
+match the stored profile. `previous_name` is null for a Business that keeps a default name, and a default name sent there is read as null. A mismatch is 409 `stale_version`. Spaces and hyphens in
 `value` are removed before storage. `tax_id: null` clears the filer id. The 606 and 607
 header and file name use the stored digits. The switcher reads the stored name on the
 next space list.
@@ -10124,7 +10129,33 @@ A member who is not the owner and holds approve receives 403 `business_owner_req
 A member without approve receives 403 `business_permission_denied`. Each accepted change
 is an immutable action receipt with the actor and the time. Replaying the same key returns
 the saved profile and does not write again. A change of tax id types no existing draft
-again: only documents read after it are compared with it.
+again: only documents read after it are compared with it. A change of tax id, or clearing it,
+clears the stored legal name; a change of name alone keeps it.
+
+`POST /business/fiscal-profile/registry` checks a tax id against the DGII registry, through
+the same registry reader that verifies counterparties. The body is `{tax_id: {type, value}}`,
+validated and cleaned as in `PATCH`, with the same 422 codes. Only a member whose live grant
+allows `manage` may ask; a member without it receives 403 `business_permission_denied`.
+It writes nothing. The answer is
+`{tax_id, verification, record, checked_at}`. `verification` uses the counterparty words:
+`verificado` (the registry lists it as active), `no_activo` (listed with any other status) or
+`sin_verificar` (not listed; `record` is null). `record` is `{rnc, name, trade_name, status,
+file_date}` from the registry row; `status` is the registry's own text. A registry failure is
+the standard 500 problem with its reference.
+
+`PUT /business/fiscal-profile/legal-name` stores the registry's name for the stored tax id
+and requires the same `manage` permission and an `Idempotency-Key`. The body is
+`{legal_name, previous_legal_name, tax_id, confirmed}`. `legal_name` is the name the person
+saw, 1 to 250 characters after trimming, or null to clear the stored one. A non-null
+`legal_name` needs `confirmed: true`, else 422 `legal_name_confirmation_required`, and the
+registry must list the stored tax id, else 422 `legal_name_not_in_registry`. The server
+stores the registry row's own name, never the client's: a `legal_name` that differs from it
+(the registry was refreshed in between, or the name was never the registry's) is 409
+`stale_version`, as is a `previous_legal_name` other than the stored legal name or a
+`tax_id` other than the stored tax id. A blank or too long name is 422 `legal_name_invalid`. The server stores
+who confirmed it and when, and writes one `set_business_legal_name` action receipt, listed in
+the activity feed. Replaying the same key returns the saved profile and does not write again.
+The response is the fiscal profile.
 
 `GET /business/fiscal-profile/fields` supplies the form controls from the same
 typed declaration and annex column definitions used by the exporter. Each field
@@ -10157,8 +10188,9 @@ Existing `ARGUS_BUSINESS_PILOT_ENABLED`, `ARGUS_INGESTION_ENABLED` and `ARGUS_DO
 `{text, draft?: {draft_id, version}, document_type?: "recibo" | "venta"}` and
 `Idempotency-Key`, returning the existing
 `BusinessDossier`. This foundation supplies its command and receipt constraints;
-route/service implementation is a separate owned slice. `text` is 1–20,000
-characters, rejects whitespace-only input and U+0000 (NUL), and is retained
+route/service implementation is a separate owned slice. `text` is 1–500
+characters, the same limit as a record's current note (`NOTE_MAX_LENGTH`),
+rejects whitespace-only input and U+0000 (NUL), and is retained
 verbatim without rewriting accepted text. The optional `draft.version` must be
 an exact JSON integer of at least 1; booleans, numeric strings and floats are
 rejected for this capture command. The body
@@ -10281,7 +10313,12 @@ person starts their space, every route below except POST `/space` answers 404
   unavailable or revoked default Business returns `404 business_record_not_found`;
   replay neither restores membership nor creates a second Business.
   Without `name` the space is named "Mi negocio", or "My business" when
-  `language` is `en`. Concurrent calls create one space. A name is 1 to 80
+  `language` is `en`. Either one is a default name. Every response that names a
+  Business sends `null` in place of a default name: the space and its naming
+  state, the space list and closed spaces, the Business profile, the fiscal profile, the record
+  context `space_name`, recipient invitations, transfers, owned and closed
+  lifecycle spaces and account deletion. Each client shows its own localized
+  title for an unnamed Business. Concurrent calls create one space. A name is 1 to 80
   characters after trimming, else 422.
   `country` is `DO`, `US` or `CA`, default `DO`, else 422. It is set once: a
   later call with another country returns the existing space unchanged. The
@@ -10294,7 +10331,7 @@ person starts their space, every route below except POST `/space` answers 404
   data or restore revoked access. The legacy POST above remains first bootstrap.
   Creation and creator Owner membership commit together. Response is the existing
   `{id, name, country, currency, logo_url}` shape, 201 on first commit and 200 on
-  replay. Reuse of a key with different normalized input is `409 idempotency_conflict`.
+  replay. `name` is null when the name sent is a default name. Reuse of a key with different normalized input is `409 idempotency_conflict`.
   Distinct keys may create more Businesses. Replay checks current access to the
   returned Business and never restores grants. To select the returned ID, refresh GET `/spaces`, match `space_id`, and send
   that row's `grant_id` as `X-Business-Grant`, including for Owner rows. An Owner
@@ -10372,16 +10409,33 @@ person starts their space, every route below except POST `/space` answers 404
   or 404 `business_space_missing` before the space is started.
 - Business naming is owner-only and uses the currently open Business.
   GET `/api/v1/business/space/name` returns `{id, name, country, currency,
-  name_required, name_prompt_seen}`. `name_required` means the persisted name is a default.
-  POST `/api/v1/business/space/name-prompt` takes `{space_id}` and returns the
-  same state plus `show_prompt`. Its atomic server claim allows one first-visit
-  prompt per Business. A different or closed Business returns 404.
+  name_required}`. `name_required` means the persisted name is a default.
   PATCH `/api/v1/business/space/name` takes `{space_id, name}` and returns that
-  naming state after an owner-scoped write. Names use the existing 1–80 limit.
+  naming state after an owner-scoped write. A different or closed Business
+  returns 404. Names use the existing 1–80 limit.
   Owners must save a nondefault name before inviting an accountant or exporting.
   Both routes return 409 `business_name_required` while the name is default.
   Accountant exports retain their existing permission checks and never prompt.
-  Dismissing the optional prompt does not affect the required action check.
+  There is no first-visit name prompt: a new Business names itself through the
+  setup guide's fiscal identity step (GET `/api/v1/business/setup`).
+- GET `/api/v1/business/setup` returns `{steps: [{key, required, done}]}` for
+  the selected Business, in display order. Only someone with `manage` on the
+  Business reads it; anyone else gets 403. `key` is one of `created`,
+  `fiscal_identity`, `receiving_address`, `receipt_reading`, `first_document`,
+  `team` and `whatsapp`; the first four are required, `first_document`, `team`
+  and `whatsapp` are optional.
+  `created` is always done. `fiscal_identity` is done when the RNC or cédula is
+  saved and the name is not a default. `receiving_address` is done when the
+  receiving address can receive, as GET `/api/v1/business/email` says.
+  `receipt_reading` is done when the owner turned reading on, as GET
+  `/api/v1/business/receipt-reading` says. `first_document` is done once the
+  Business received a document by any channel; opening upload, copying the
+  address or linking a phone does not complete it. `team` is done once someone was
+  invited or holds access besides the owner. `whatsapp` is done when a number is
+  linked. A step whose feature is off on this server is absent: email receiving,
+  receipt reading (no reading route), invitations, WhatsApp. Setup is complete
+  when every required step sent is done; the web then shows no guide. The route
+  needs the Postgres store and answers 503 without it, like the fiscal profile.
 - GET `/api/v1/business/consent?version=<16 hex>` answers `{version,
   accepted_at}`: when the caller accepted that wording of the Business consent
   screen, or null. It needs no space, and a chosen grant does not change the
@@ -10407,7 +10461,10 @@ person starts their space, every route below except POST `/space` answers 404
     GET `/api/v1/business/spaces` lists every Business the caller may enter
     through a live grant, their own first: `{spaces: [{space_id, name,
     logo_url, grant_id, role: owner|accountant, capabilities, business_role,
-    permissions, access_seen}]}`; names come from the spaces. Listing, profile
+    permissions, access_seen}], closed_spaces, invitations_available}`; names
+    come from the spaces. `invitations_available` is the server's pure readiness
+    for owner invitation actions: Business invite email on, invitation admission
+    on, and a configured app origin. It is false while any prerequisite is off. Listing, profile
     reads and sign-in never accept invitations. `access_seen` is the server's memory of the one-time
     "you now have access" line, per grant: POST
     `/api/v1/business/spaces/{grant_id}/seen` (204, idempotent, one
@@ -10505,7 +10562,10 @@ person starts their space, every route below except POST `/space` answers 404
     present and true, since a saved expense's fiscal standing is settled (the
     same split the overview's totals make). So an absent `fiscal_value` with
     `fiscal_known` true means no fiscal number; all read by one
-    server function so a list row and its record always agree; receipt
+    server function so a list row and its record always agree. The dossier
+    also carries `fiscal_question_applies` (boolean, default false), computed
+    only by the canonical facts rule: Personal with an NCF or e-CF, never
+    income. The web shows the entire 606 block only when this is true. Receipt
     summaries add
     `personal_editable` for anyone with prepare on a receipt that has a
     draft. They also carry `sin_comprobante`, true when a person stated the
@@ -10527,7 +10587,14 @@ person starts their space, every route below except POST `/space` answers 404
     lists. Grants add `business_role` and `permissions`; invitations add
     `requested_role`. Legacy `owner`, `capabilities`, profile photo and timestamp
     fields remain. Pending invitations expose the same shape for known and
-    unknown recipient accounts.
+    unknown recipient accounts. `invitations_available` matches
+    `GET /business/spaces`.
+  - POST `/api/v1/business/access`, POST `/api/v1/business/access/invitations`,
+    and POST `/api/v1/business/access/invites/{id}/resend` answer 409
+    `business_invitations_unavailable` with `Cache-Control: no-store` while
+    `invitations_available` is false, before any invitation, idempotency,
+    expiry, supersedes, or delivery mutation. Auth, standing, tenant, and
+    manager checks still run first.
   - POST `/api/v1/business/access` takes `{email, role?}`; omitted `role` is
     `editor` for old clients. Every new invitation remains pending for seven
     days, including confirmed accounts. It confers no access until explicit
@@ -10637,10 +10704,24 @@ accept path recorded.
   invitation expiry time, preserving the 30-day history window. Notification failure logs a safe classification and
   never fails the source action. This backend slice enables no hosted setting.
 
-- GET `/api/v1/business/workspace` returns `{country, currency, accounts,
+- GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  receipt_limits: {max_bytes, media_types}, logo_url}`. `country` and `currency` are the Business's own,
-  the same values `GET /business/space` returns. `accounts` lists unarchived cash, checking, savings and credit
+  settlement_available, activity_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
+  is on (default off). While it is false the month close carries no settlement state, its net result
+  is final, the open items read and the settlement PATCH are refused with 404
+  `business_settlement_unavailable` before authentication (a malformed PATCH body can answer 422
+  first, as it does while the switch is on), and the web shows no Por cobrar, Por pagar or mark, and shows
+  ITBIS charged ("ITBIS en ventas") where ITBIS cobrado stood (see the
+  [month-close contract](contracts/business-month-close.md)). `country` and `currency` are the Business's own,
+  the same values `GET /business/space` returns. `records_default_currency` is the
+  server-owned initial Registros selection, currently DOP, independent of the
+  Business currency. Its supported values are DOP, USD and EUR. The web waits for
+  the current grant's workspace before the first report request. A valid singleton
+  URL or view takes precedence. Registros always sends exactly one code in
+  `filters.currencies`; table, cards and export share that request. Clear keeps
+  the selected currency; switching clears amount bounds without conversion.
+  The generic report API retains its broader currency-array contract. `accounts` lists unarchived cash, checking, savings and credit
   card accounts. `currencies` lists their currencies. The limits come from the
   document settings. `chat_available` is true only while
   `ARGUS_BUSINESS_CHAT_ENABLED` is on; while it is false `/biz` shows no
@@ -10656,13 +10737,13 @@ accept path recorded.
   no Facturación entry point (sidebar, Inicio, search, Negocio, the top bar's
   heading) and a `?view=invoicing` link lands on Inicio. The web keeps no
   switch of its own.
-- Logo. `logo_url` on `/space`, `/space/name`, `/space/name-prompt`, `/spaces`
+- Logo. `logo_url` on `/space`, `/space/name`, `/spaces`
   and `/workspace` is a signed URL to the Business's 256 px logo, valid for
   about an hour, or null. PUT `/api/v1/business/logo` replaces it with the
   raw picture in the body (`image/jpeg`, `image/png` or `image/webp`, at most
   5 MiB, re-encoded to a 256 px WebP square with its metadata dropped;
   transparency is kept) and answers `{id, name, logo_url}` for the Business in
-  scope; DELETE `/api/v1/business/logo` removes it (204, also when absent).
+  scope, `name` null while it keeps a default name; DELETE `/api/v1/business/logo` removes it (204, also when absent).
   Both take the grant header like every Business route and are allowed to the
   owner and to a member whose live grant holds `prepare` (Editar); otherwise
   403 `business_permission_denied`. Picture errors are those of `PUT /me/photo`.
@@ -10965,7 +11046,8 @@ accept path recorded.
   the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
   statement period. An NCF due notice is that one expense, marked
-  `Factura por pagar` on the dossier as `bill_mark`. When the same record
+  `Factura por pagar` on the dossier as `bill_mark` (null while settlement is
+  off; the draft keeps the mark). When the same record
   is prepared again as paid, the mark becomes `Factura pagada`. The draft
   id does not change and a second expense is not opened. A paid purchase
   that is not a due notice carries `bill_mark: null`. Other interrupted
@@ -11162,7 +11244,10 @@ accept path recorded.
   `recorded_at` and `revision` from the money read; 404 `expense_not_found`
   for any other id, including another Business's. An expense entered by hand
   has `receipt_id` and `draft_id` null: the web shows a plain detail that says
-  no receipt is attached, with when it was recorded and its revision.
+  no receipt is attached, with when it was recorded and its revision. It
+  carries `dgii_606`, the same value as its Registros row (below), read for
+  this one record without reading every activity; null when Registros does not
+  list it yet.
 - POST `/api/v1/business/expenses` (`Idempotency-Key` required) takes
   `{account_id, amount, occurred_on, merchant, category_id}` and records one
   expense through `MoneyService`, in the account's currency. A retry with the
@@ -11215,7 +11300,21 @@ accept path recorded.
   characters) across the appropriate approved/current counterparty label,
   canonical note, explicit counterparty tax identity and NCF/e-CF only. Original
   text, private messages and OCR are not searched. Structured groups combine with
-  AND; each multiselect combines with OR: `record_families` (`sale`, `purchase`),
+  AND; each multiselect combines with OR. `record_families` accepts `sale` and
+  `purchase`. Omitted or empty selections leave the type unrestricted, so server
+  callers receive both types. The Registros screen selects one type explicitly,
+  defaulting to `["purchase"]`, and normalizes old empty or both-type selections
+  to that screen default. Its selected type scopes the table, all six cards,
+  expanded Total and export. Malformed or unknown values are rejected.
+  The nullable `fiscal_data` filter accepts `complete`, `missing` or null (all).
+  Each row's `fiscal_data` comes from its current 606/607 verdict, independently
+  of downloads. `complete` means the current report carries a complete fiscal line;
+  `missing` means that verdict lists missing fiscal data. Rows outside the report,
+  unresolved rows and technical failures have null and match only all. Existing
+  admission rules remain unchanged. The fiscal card and this filter use the same
+  missing predicate, including when a downloaded line has since been edited.
+  The screen offers one fiscal choice and keeps old `review_stages` saved views
+  readable with a clearable legacy chip. The remaining multiselects are
   `review_stages` (`needs_review`, `needs_fiscal_data`, `ready_for_export`,
   `exported`),
   `currencies`, `counterparties`, `categories`, `expense_types`, `funding_sources`,
@@ -11240,12 +11339,19 @@ accept path recorded.
   purchase the owner said has no comprobante. An answer written in Bandeja or on
   the recorded record shows in the next read. The answer's `expense_types` lists
   the tipos de gasto the records carry, `{code, label}` by code; `missing` is
-  always a valid filter value and is never listed.
+  always a valid filter value and is never listed. The screen offers tipo de gasto
+  only on Compras and clears it when changing to Ventas or opening a saved sales
+  recipe; forma de pago is an optional purchase column, not a filter.
   Categories use activity IDs plus
   `uncategorized`; funding uses `account:<id>` or `owner_funds` and returns the
   source account type/name, never a balance. Counterparty keys are exact normalized
   tax identities within this Business. Aliases share a key; equal names never
-  merge identities. A Venta uses its explicit client identity; the Business's
+  merge identities. Counterparty options follow the selected family across all dates.
+  Each option retains the `labels` array with exactly one name, chosen from the
+  latest report date with a nonempty name, then stable row ID ascending; undated
+  records sort last. A tax identity is the fallback only when no name exists.
+  Selecting all options clears the counterparty filter. The chip shows only its
+  count. A Venta uses its explicit client identity; the Business's
   own issuer RNC is not a customer. Unidentified records remain searchable by
   label and remain in unfiltered totals. Generic income and refunds do not imply
   Venta; a linked credit retains its original family. A trusted standalone manual
@@ -11310,22 +11416,108 @@ accept path recorded.
   amounts. `coverage_notes` explicitly includes absent legal-cancellation coverage,
   unknown source subtype and evidence separation.
 
-- POST `/api/v1/business/reports/export` takes `{report, expected_fingerprint}`
-  and returns a no-store ZIP of the full filtered answer: `records.csv`,
-  `records.xlsx`, and `manifest.json`. It includes unresolved matching rows with
-  honest workflow and effect fields. Selected columns preserve order; identity,
-  workflow and effect columns always remain, and so do `personal` and
-  `include_606`, which say why a listed row is in or out of the manifest totals.
-  Spreadsheet cells are literal text.
-  XLSX includes server-computed Records, Totals and Scope sheets with no formulas.
-  The manifest states trusted Business/actor/grant, query, resolved dates,
-  captured/generated time, matching count, semantic totals, coverage limitations
-  and fingerprint. It is records-only; evidence downloads and existing period/DGII
-  packages remain separate and unchanged. The server recomputes the authorized
-  whole-result fingerprint, then checks authority and source/result dependencies
-  again after building bytes. Changed facts, visible dependencies, query or relative
-  date rollover returns 409 `business_report_changed`; explicitly refresh before
-  retrying. Page, selected columns and generation time are not result authority.
+  `fiscal_totals` is separate from those existing gross/activity totals. It is
+  reduced on the server over the same full filtered records, before pagination,
+  with the same Personal admission rule. Entries partition by nullable `currency`,
+  family `kind` (`income` for sales, `expense` for purchases), and `basis`:
+  `itbis`, `goods`, or `services`. No currency conversion or cross-currency sum
+  occurs, and gross is never reconciled to the three fiscal amounts.
+
+  ITBIS has one source: the known `facts.fiscal.itbis` read through `fact_value`,
+  as in both 606 and 607 export. Neither declaration has another billed-ITBIS
+  field. Goods and services read the populated `goods_amount` and
+  `services_amount` of the existing confirmed purchase declaration, including
+  hand-entered values. No new split or fiscal mapping is computed. Each row
+  carries nullable decimal `itbis_amount`, `goods_amount`, and `services_amount`.
+
+  For each metric, `applicable_count` counts records where it can have a value;
+  `populated_count` counts those whose source field is present, including an
+  explicit zero. Missing values are never treated as populated zeroes. ITBIS
+  applies to every admitted matching record. Goods/services apply only where
+  the existing `dgii_606` projection is non-null: an admitted purchase not
+  explicitly sin comprobante, even if its declaration or amount is missing.
+  Sales have no goods/services fields and contribute to neither denominator.
+  A metric with no applicable records has no entry; an empty result has no
+  fiscal totals. Currency eligibility for a filed TXT does not remove foreign
+  purchases from their own currency's coverage.
+
+  `known_amount_minor` is the exact signed sum of known effects, with decimal
+  `known_amount` for display. Missing values, unknown currency/family, or unknown
+  effects increment `unknown_count`; unsupported effects increment
+  `unsupported_count`. Fiscal amounts with only redundant fractional zeroes
+  are normalized exactly to the currency's precision and counted. A populated
+  fiscal amount that the exact minor-unit parser cannot represent, including
+  real extra precision such as DOP `1.234`, contributes no money and increments
+  `unsupported_count` without failing the query or changing other records.
+  It is never rounded. `complete` requires both counts to be zero, otherwise
+  final `amount_minor` and `amount` are null. A zero known subtotal with no
+  populated values is not a complete zero amount. Coverage counts field presence
+  even when an effect cannot be included safely. A validated linked credit is
+  negative, using the existing document adjustment effect; an unresolved credit
+  leaves the sum incomplete. Unknown currency is null and has no display amount.
+  The web accepts these server fields without computing totals or coverage.
+
+- POST `/api/v1/business/reports/export/preview` takes `{report}`, the request
+  Registros sends for its table, and returns what the export modal shows before
+  any file is built. Both routes need the live `export` capability and the
+  report's one selected type (`business_export_family_required` otherwise).
+  `table.columns` lists the table columns the selected tab offers
+  (`reporting_preferences.py` owns them), in the table's order, each with `shown`
+  for the table's current visibility; expense type and payment form are offered
+  on Compras only. `table.current` counts the records the table's request
+  matches, with their currencies; `table.all` counts the same request in every
+  currency, and is null while an amount range ties the request to one currency.
+  `dgii` counts by the tab and period only, whatever the other filters say:
+  `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
+  currency (`DOP`), `record_count` the records whose
+  current `fiscal_data` is `complete` (a line on its month's form),
+  `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing` (the
+  Faltan datos fiscales card for the same tab, period and DOP), and
+  `pending_rate_count` with `pending_rate_currencies` the foreign-currency
+  records the form holds until they have a rate. No count is computed on the web.
+  The notice's Revisar queries exactly those records: the tab, the period,
+  `currency` and `fiscal_data: missing`, with every other filter and the search
+  cleared.
+
+- POST `/api/v1/business/reports/export` takes `{report, mode, columns, currencies,
+  format}` and returns one no-store file. `Content-Disposition`, exposed to
+  the web origin, carries an ASCII `filename` and a UTF-8 `filename*` with
+  accents. The server uses the selected Business name, the tab, the period,
+  the export mode, and the time in `America/Santo_Domingo`. An example is
+  `Café Unión - Compras 2026-11 - Registros - 2026-12-01 0915.xlsx`.
+  An unnamed Business uses the localized default. The period uses `YYYY-MM`
+  for a full month, `YYYY-MM a YYYY-MM` for several full months, and
+  `YYYY-MM-DD a YYYY-MM-DD` for a partial range. With no date filter the file
+  uses the earliest and latest exported dates and omits the period when
+  there are none. `Accept-Language` selects English (`en`) or Spanish
+  (`es-419`, the default) for the filename and table text.
+  `format` is `xlsx` (default, one sheet, frozen header row) or `csv`
+  (UTF-8 with a BOM). There is no ZIP, manifest, totals row or original.
+  `mode: "table"` writes what the table shows: the report's every filter, the
+  chosen `columns` in the table's order with Contraparte always first, and
+  `currencies` `current` (the screen's currency) or `all` (the same request in
+  every currency, with a Moneda column after Monto; refused with
+  `business_export_currency_required` while an amount range is set). A column
+  the tab does not offer is refused with `business_export_column_unavailable`.
+  Table headers and values use the web locales through
+  `records_file_words.generated.json`, generated by
+  `scripts/generate_records_file_words.py`. Expense type and payment method
+  use `NN - NAME` with the uppercase name from the selected locale. The table
+  also shows stage, `Falta` or `No aplica`, attachment, and account. Amounts
+  are exact numbers shown with two decimals, or the currency's own precision
+  when it has more. An amount past Excel's 15 significant digits stays exact
+  text. Dates are real dates (`dd/mm/yyyy` in CSV).
+  `mode: "dgii"` takes no `columns` and `currencies` `all`. It follows the tab
+  and period, uses the annex columns in `dgii_columns.py`, and sorts lines by
+  `Fecha Comprobante` ascending. Amounts are numbers. Identities and
+  `AAAAMMDD` dates stay text. For the 606 file, expense type and payment method
+  use the exact choices from the official workbook. Empty or zero ITBIS and
+  income withholding amounts are numeric zero. The period ZIP
+  (`GET /business/exports`) still writes the official TXT codes and amount
+  fields through `dgii_export.line_values`.
+  A cell that starts with `=`, `+`, `-` or `@` is text in both formats
+  (a quote prefix in Excel, a leading `'` in CSV). The grant is checked again
+  after the file is built and before it is released.
 
 - GET/POST `/api/v1/business/report-views` and PATCH/DELETE
   `/api/v1/business/report-views/{view_id}` manage private Business+actor recipes.
@@ -11350,25 +11542,50 @@ accept path recorded.
   Version-2 input bounds allow at most 15 significant whole digits and currency
   precision; historical version-1 bounds and exact response strings remain valid.
 
-  Version-2 recipes also save `page_size` (25/50/100) and `presentation`.
-  `presentation.order` contains each of `counterparty`, `date`, `gross_amount`,
-  `currency`, `family`, `expense_type`, `payment_form`, `stage`, `note`,
-  `attachment`, `funding` once. Counterparty stays first. `hidden` cannot hide
-  counterparty, amount or currency. The default order is that sequence, with
-  funding and payment form hidden. A saved presentation from before the 606
-  columns is read as current: `category` becomes `expense_type` in place, and
-  `payment_form` joins the order after it, hidden. `category` is no longer a
-  table column. Density is 40/48/56,
-  default 48. Amount and currency move independently. `columns` remains the
-  separate export field selection. No summary or widget preference is accepted.
-  Page, page size, columns and presentation do not alter the result fingerprint.
+  Version-2 recipes also save `page_size` (25/50/100) and optional
+  `presentation`. The backend `Presentation` in
+  `src/argus/domain/business/reporting_preferences.py` owns the default table
+  layout. Every answer's `presentation` is the explicitly requested layout when
+  supplied, or that backend default when omitted. Version 1 still rejects
+  `presentation` in its request. Both versions return the effective typed
+  `presentation` in every answer. The web leaves omitted
+  request presentation absent and renders the answer; it defines no table defaults.
+  Before the answer, it shows pending UI without invented columns or options.
+  Restore omits presentation and queries again. Saving a view records the effective
+  layout, including when the original request omitted it. Explicit saved layouts
+  keep their order, hidden columns and density. Missing `fiscal_number` and
+  `itbis_amount` columns append to saved orders hidden.
+
+  `presentation.order` contains each supported table key once, with counterparty
+  first. The default visible order is counterparty, date, amount, stage, note,
+  attachment. Fiscal number follows counterparty and ITBIS follows amount, both
+  hidden by default; expense type, payment form and account are also hidden.
+  Expense type and payment form are offered and rendered only on Compras.
+  `family` and `currency` are removed from table order and hidden keys when reading
+  old saved presentations. `hidden` cannot hide counterparty or amount. A saved
+  presentation
+  from before the 606 columns is read as current: `category` becomes `expense_type`
+  in place, and `payment_form` joins the order after it, hidden. `category` is no
+  longer a table column. Optional `fiscal_number` (NCF or e-CF) and
+  `itbis_amount` columns are hidden by default. ITBIS uses the row currency;
+  missing amounts or currency remain unknown, and zero remains numeric.
+  Density is 40/48/56, default 48. Reordering supports drag and up/down buttons.
+  Amount uses heavier text; ITBIS uses regular text. `columns` is a retained
+  recipe field; the Registros export reads its own `columns` choice instead. No summary or widget preference is accepted. Page, page size, columns and presentation do
+  not alter the result fingerprint. The preview reads the recorded empty answer
+  `web/test-fixtures/records-default-report-answer.json`; it is not a live fallback.
+  `test_query_returns_backend_default_presentation`,
+  `test_recorded_preview_answer_matches_backend`, `records-default-authority.test.ts`
+  and `business-reports-connected.dom.test.tsx` enforce these boundaries.
 
   Every report answer adds `overview` with `needs_review`, `needs_fiscal_data`,
-  `ready_for_export`, `exported` and `export_lines` counts from the same
-  authorized projection scoped only to Business and period. The three Registros
-  cards read `needs_fiscal_data`, `ready_for_export` and `exported`; the
-  Bandeja line beside them reads `pending_review_count` from receipt activity,
-  never this answer. Table search and filters never change these counts.
+  `ready_for_export`, `exported` and `export_lines` counts from the authorized
+  projection. `needs_fiscal_data` counts rows whose current `fiscal_data` is
+  `missing`, matching every table filter, including search, fiscal choice and
+  legacy review stages, before pagination. A row can count here while its
+  historical stage is `exported`. The Fiscal card renders this count. The other overview counts remain scoped to
+  Business and period only. The Bandeja line reads `pending_review_count` from
+  receipt activity, never this answer.
   Literal search ignores case and accents, and covers counterparty, current note,
   tax identity, fiscal/document identifiers and authorized attachment filenames.
   It does not search file contents, private text, amounts or dates.
@@ -11418,9 +11635,14 @@ accept path recorded.
   Received-document selection and unlink remain unavailable.
 
 - GET `/api/v1/business/search?q&limit&kind&cursor` returns
-  `{expenses: BusinessExpense[], ventas: BusinessExpense[], receipts:
-  ReceiptSummary[], accounts: BusinessAccount[], email_deliveries:
-  EmailDeliveryHit[], email_senders: EmailSenderHit[], next_cursors}`. `q` is
+  `{expenses: ExpenseHit[], ventas: ExpenseHit[], receipts: ReceiptHit[],
+  accounts: BusinessAccount[], email_deliveries: EmailDeliveryHit[],
+  email_senders: EmailSenderHit[], next_cursors}`. `ExpenseHit` is a
+  `BusinessExpense` and `ReceiptHit` a `ReceiptSummary`, each with `dgii_606`:
+  the value the Registros row of its approved record carries (above), read
+  for the page's records only. A receipt names that record by `expense_id`;
+  a receipt not yet approved has `expense_id` and `dgii_606` null, and the web
+  shows no Tipo de gasto for it. `q` is
   1 to 512 characters and `limit` is 1 to 20 (default 5), applied to each
   list. There is no index of its own: every request reads the records from
   their owners. Expenses, ventas and accounts are the space's hits from the
@@ -11533,7 +11755,9 @@ custody, account-deletion retention and full-purge work plus root acceptance.
   person, independently of the selected Business grant.
 - `POST /business/spaces/{space_id}/close` requires `Idempotency-Key` and
   `{confirmation: string}`. The body rejects extra fields and preserves exact
-  whitespace and case for the domain's current-name comparison.
+  whitespace and case for the domain's current-name comparison. A Business that
+  keeps a default name also accepts either default name, since its name is null
+  on the wire. A transfer request confirms the name by the same rule.
 - `POST /business/spaces/{space_id}/reopen` requires `Idempotency-Key`.
 - Each result contains `space_id`, `name`, `closed_at` and `reopen_until`. The
   server owns the dates. Responses and domain refusals use `Cache-Control: no-store`.

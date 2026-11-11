@@ -14,7 +14,7 @@ argus_load_root_env >/dev/null || true
 usage() {
   cat <<'USAGE'
 Usage:
-  .github/warmup-render.sh [--expect-mode <safe-off|proof-shadow|real-workflow>]
+  .github/warmup-render.sh [--expect-mode <safe-off|proof-shadow>]
 
 Options:
   --expect-mode  Verify release config/env fingerprint without mutating Render config.
@@ -108,7 +108,7 @@ assert_api_mode() {
   fi
 
   case "$mode" in
-    safe-off|proof-shadow|real-workflow)
+    safe-off|proof-shadow)
       ;;
     *)
       echo "Unknown expected API mode: $mode"
@@ -134,65 +134,8 @@ assert_api_mode() {
     echo "ERROR: release config audit did not emit env_fingerprint."
     return 1
   fi
-  if [ "$mode" = "real-workflow" ]; then
-    if ! grep -Eq '^workflow_env_fingerprint=[0-9a-f]{64}$' <<< "$status"; then
-      echo "ERROR: release config audit did not emit workflow_env_fingerprint."
-      return 1
-    fi
-    require_status_line "$status" "workflow_env_status=ready"
-  elif grep -q '^workflow_env_status=drift$' <<< "$status"; then
-    echo "ERROR: release config audit reported workflow_env_status=drift for $mode."
-    return 1
-  fi
 
   echo "OK: release config matched $mode"
-  run_workflow_runtime_proof "$mode"
-}
-
-workflow_proof_job_id() {
-  WORKFLOW_PROOF_SEED="$1" python3 - <<'PY'
-import json
-import os
-
-payload = json.loads(os.environ["WORKFLOW_PROOF_SEED"])
-job_id = str(payload.get("job_id") or "").strip()
-if not job_id:
-    raise SystemExit("workflow proof seed did not return job_id")
-print(job_id)
-PY
-}
-
-run_workflow_runtime_proof() {
-  local mode="$1"
-  if [ "$mode" != "real-workflow" ]; then
-    return 0
-  fi
-
-  local nonce
-  local seed_output
-  local job_id
-  nonce="warmup-$(date +%s)-${RANDOM:-0}"
-
-  echo "Checking Render workflow runtime proof"
-  if ! seed_output="$(.github/workflow-proof.sh seed --nonce "$nonce")"; then
-    echo "ERROR: failed to seed Render workflow proof job."
-    return 1
-  fi
-  if ! job_id="$(workflow_proof_job_id "$seed_output")"; then
-    echo "ERROR: failed to parse Render workflow proof job."
-    return 1
-  fi
-  if ! .github/workflow-proof.sh remote --job-id "$job_id" --nonce "$nonce" >/dev/null; then
-    echo "ERROR: Render workflow proof task failed."
-    return 1
-  fi
-  if ! .github/workflow-proof.sh verify --job-id "$job_id" --expect-nonce "$nonce" --expect-provider-mode live_provider >/dev/null; then
-    echo "ERROR: Render workflow runtime did not confirm live_provider."
-    return 1
-  fi
-
-  echo "workflow_runtime_provider_mode=live_provider"
-  echo "workflow_runtime_proof=ready"
 }
 
 echo "Argus private-launch warmup"

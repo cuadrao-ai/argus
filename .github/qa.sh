@@ -12,12 +12,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/argus-env.sh"
 
-if [ ! -f .env ]; then
-  echo "❌ Root .env missing. Copy .env.example to .env and fill QA credentials."
+if ! argus_load_root_env; then
+  echo "Root .env missing; select CUADRAO_LOCAL_ENV_STORE first." >&2
   exit 1
 fi
-
-argus_load_root_env
+bash "$SCRIPT_DIR/../scripts/qa/assert-nonprod-target.sh"
 argus_require_qa_env
 argus_export_qa_mode
 # SUPABASE_POSTGRES_DIRECT_URL and SUPABASE_POSTGRES_TRANSACTION_POOLER_URL may
@@ -34,7 +33,7 @@ echo "   - Receipt reads: python -m workflows.document_worker (the only reader)"
 echo ""
 echo "Frontend QA reminder:"
 echo "   web/.env.local should use NEXT_PUBLIC_MOCK_AUTH=false for real auth"
-echo "   and NEXT_PUBLIC_ARGUS_API_URL=http://127.0.0.1:8000/api/v1"
+echo "   and NEXT_PUBLIC_CUADRAO_API_URL=http://127.0.0.1:8000/api/v1"
 echo ""
 echo "Starting the document worker and FastAPI backend on http://127.0.0.1:8000"
 echo ""

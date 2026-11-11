@@ -1,5 +1,4 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import psycopg
@@ -40,30 +39,18 @@ def naming():
         connection.execute("delete from auth.users where id = any(%s::uuid[])", (owners,))
 
 
-def test_concurrent_claims_have_one_winner_and_survive_new_store(naming):
+def test_rename_clears_the_default_and_refuses_another_owner(naming):
     store, owners, spaces = naming
-    with ThreadPoolExecutor(max_workers=8) as workers:
-        claimed = list(
-            workers.map(
-                lambda _: store.claim_naming_visit(owners[0], spaces[0]), range(16)
-            )
-        )
-    assert sum(claimed) == 1
-    with ConnectionPool(DSN, min_size=1, max_size=1) as pool:
-        persisted = PostgresSpaceStore(pool).open_space(owners[0])
-        assert persisted.name_prompt_seen
-        assert persisted.name_required
-    store.rename(owners[0], "Colmado La Esquina", spaces[0])
-    assert store.open_space(owners[0]).name_prompt_seen
-    assert not store.open_space(owners[0]).name_required
-
-
-def test_wrong_owner_and_closed_business_cannot_claim_or_rename(naming):
-    store, owners, spaces = naming
-    with pytest.raises(MembershipError):
-        store.claim_naming_visit(owners[1], spaces[0])
+    assert store.open_space(owners[0]).name_required
     with pytest.raises(MembershipError):
         store.rename(owners[1], "Changed", spaces[0])
+    store.rename(owners[0], "Colmado La Esquina", spaces[0])
+    with ConnectionPool(DSN, min_size=1, max_size=1) as pool:
+        assert not PostgresSpaceStore(pool).open_space(owners[0]).name_required
+
+
+def test_closed_business_cannot_be_renamed(naming):
+    store, owners, spaces = naming
     with psycopg.connect(DSN) as connection:
         connection.execute(
             "update public.spaces set closed_at = now() where id = %s", (spaces[0],)
@@ -76,10 +63,7 @@ def test_wrong_owner_and_closed_business_cannot_claim_or_rename(naming):
         )
         ensure_owner_grant(connection, new, owners[0])
     with pytest.raises(MembershipError):
-        store.claim_naming_visit(owners[0], spaces[0])
-    with pytest.raises(MembershipError):
         store.rename(owners[0], "Changed", spaces[0])
-    assert store.claim_naming_visit(owners[0], new)
     assert store.open_space(owners[0]).id == new
 
 

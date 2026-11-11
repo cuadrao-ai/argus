@@ -32,7 +32,7 @@ export default function Preview() {
       <button className={secondaryButtonClass} onClick={() => { setClient(null); setRun(value => value + 1); }}>Reset preview</button>
     </header>
     <div className="mx-auto max-w-[1440px]">
-      {client ? <BusinessMonthCloseView key={run} client={client} now={now} businessCurrency="DOP" onAdd={() => setAddRequested(true)} review={{ detail: null, count: 4, attention: 2, reading: 1, open: () => {} }} /> : null}
+      {client ? <BusinessMonthCloseView key={run} client={client} now={now} settlement businessCurrency="DOP" onAdd={() => setAddRequested(true)} review={{ count: 4, reading: 1 }} /> : null}
     </div>
     <ToastViewport />
   </main>;

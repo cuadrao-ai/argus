@@ -22,7 +22,7 @@ export function useReceptionPreview(businessId: string) {
   },[businessId]);
   return snapshot?.businessId === businessId ? snapshot.value : {address:null,linked:false,last4:null,reading:false};
 }
-export default function BusinessEmailAliasPreview({businessId,businessName,defaultAddress,canEdit}:{businessId:string;businessName:string;defaultAddress:string;canEdit:boolean}) {
+export default function BusinessEmailAliasPreview({businessId,businessName,defaultAddress,canEdit}:{businessId:string;businessName:string|null;defaultAddress:string;canEdit:boolean}) {
   const {t}=useTranslation();
   const saved=useReceptionPreview(businessId);
   const [open,setOpen]=useState(false);
@@ -30,7 +30,7 @@ export default function BusinessEmailAliasPreview({businessId,businessName,defau
   const [failed,setFailed]=useState(false);
   const id=useId();
   const domain=defaultAddress.slice(defaultAddress.lastIndexOf("@")+1);
-  const suggestions=suggestedReceptionAliases(businessName,t("workspace_setup_preview.alias_example"));
+  const suggestions=suggestedReceptionAliases(businessName??"",t("workspace_setup_preview.alias_example"));
   const issue=()=>aliasError(storage(),businessId,alias.trim().toLowerCase(),domain);
   const checks=useFieldChecks({alias:()=>{const error=issue();return error ? t(error === "locked" ? "business.reception.alias_locked" : `workspace_setup_preview.alias_${error}`) : null;}},{alias});
   if(saved.address) return <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/70">{t("business.reception.alias_locked")}</p>;

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
@@ -48,4 +49,14 @@ test("the eye is a toggle with one name: pressing it flips aria-pressed, and its
     await act(async () => root.unmount());
     host.remove();
   }
+});
+
+test("hidden amounts blur in proportion to their size, never below the 10px floor, with one radius for light and dark", () => {
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  const rule = (selector: string) => css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+  const light = rule(':root[data-amounts-hidden="true"] .cuadrao-amount');
+  const dark = rule(':root.dark[data-amounts-hidden="true"] .cuadrao-amount');
+  assert.match(light, /text-shadow:\s*0 0 max\(10px,\s*0?\.\d+em\)/, "the radius is em-based so a 44px card total blurs as hard as 14px text");
+  assert.match(dark, /--cuadrao-amount-blur-ink:/, "dark mode keeps its own blur ink");
+  assert.doesNotMatch(dark, /text-shadow/, "dark mode changes only the ink, so the radius has one owner");
 });

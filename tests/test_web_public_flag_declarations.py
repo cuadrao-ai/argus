@@ -56,8 +56,8 @@ def _hosted_flag_declarations() -> dict[str, set[str]]:
     return {
         ".env.example": env_assignments,
         "render.yaml": render_keys,
-        "manifest production": {e["name"] for e in web if "not_set" not in e["production"]},
-        "manifest staging": {e["name"] for e in web if not e.get("production_only")},
+        "manifest production": {e["name"] for e in web if not e.get("local_only") and "not_set" not in e["production"]},
+        "manifest staging": {e["name"] for e in web if not e.get("production_only") and not e.get("local_only")},
     }
 
 
@@ -89,7 +89,7 @@ def test_private_alpha_web_flags_are_declared_for_hosted_settings() -> None:
     render_web = {
         service["name"]: {item["key"]: item for item in service["envVars"]}
         for service in yaml.safe_load(_text("render.yaml"))["services"]
-        if service["name"] == "cuadrao-web-staging"
+        if service["name"] == "cuadrao-app-staging"
     }
     for name in BUSINESS_DEFAULT_OFF_FLAGS:
         assert re.search(rf"^{name}=false$", env_example, re.M)

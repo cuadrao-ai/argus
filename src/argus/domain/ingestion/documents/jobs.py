@@ -40,6 +40,8 @@ from argus.domain.ingestion.documents.service import (
     DocumentsService,
     lease_live,
 )
+from argus.observability.envelope import capture_exception
+from argus.observability.product_events import actor_hash_for_user
 
 MAX_ATTEMPTS = 3
 MAX_RERUNS = 1
@@ -365,6 +367,12 @@ async def run_attempt(
             )
         return error.code
     except Exception as error:
+        from argus.domain.business.authority import ActionError
+
+        if not isinstance(error, ActionError):
+            capture_exception(
+                error, job="document_preparation", actor_hash=actor_hash_for_user(user_id)
+            )
         logger.warning(
             "Document preparation attempt failed",
             connection_id=connection_id,

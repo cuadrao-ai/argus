@@ -285,7 +285,7 @@ def test_link_write_callers_are_enumerated() -> None:
     )
 
 
-MIGRATIONS = REPO / "supabase" / "migrations"
+MIGRATIONS = REPO / "supabase"
 
 
 def _recreated_backtest_writers_are_contained(source: str) -> None:
@@ -351,7 +351,10 @@ EXPECTED_MIGRATION_WRITERS = {
 
 def test_every_migration_writer_is_classified_and_contained() -> None:
     writers: dict[str, str] = {}
-    for path in sorted(MIGRATIONS.glob("*.sql")):
+    for path in sorted(MIGRATIONS.glob("migrations*/*.sql"), key=lambda path: path.name):
+        # The baseline restates the archived writers; the #1890 schema diff proves it adds none.
+        if path.name.endswith("_cuadrao_baseline.sql"):
+            continue
         text = path.read_text()
         if (
             "update public.backtest_jobs" in text

@@ -19,7 +19,7 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_MOCK_AUTH: "true",
       NEXT_PUBLIC_ENABLE_SPANISH: "true",
-      NEXT_PUBLIC_ARGUS_API_URL: "http://127.0.0.1:3999/api/v1",
+      NEXT_PUBLIC_CUADRAO_API_URL: "http://127.0.0.1:3999/api/v1",
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-fixture-anon",
     },

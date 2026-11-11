@@ -28,7 +28,8 @@ import re
 import subprocess
 import sys
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -48,9 +49,13 @@ _ADVISORY_LOCK_KEY = 7_340_118_221_605
 _BEGIN = {"begin", "start"}
 _COMMIT = {"commit", "end"}
 _REFUSED_CONTROL = {"rollback", "abort", "savepoint", "release"}
+_LEDGER_TABLE = "supabase_migrations.schema_migrations"
 _LEDGER_INSERT = (
-    "insert into supabase_migrations.schema_migrations (version, statements, name)"
-    " values (%s, %s, %s)"
+    f"insert into {_LEDGER_TABLE} (version, statements, name) values (%s, %s, %s)"
+)
+_LEDGER_DDL = (
+    "create schema if not exists supabase_migrations; "
+    f"create table {_LEDGER_TABLE} (version text primary key, statements text[], name text)"
 )
 
 
@@ -97,9 +102,11 @@ def versions_digest(
     approved: Sequence[str],
     unrecorded: Sequence[str] = (),
     mid_file_commit: Sequence[str] = (),
+    record_only: Sequence[str] = (),
 ) -> str:
-    """One digest for the exact run: what is recorded, what runs without a ledger row, and
-    which files are allowed to commit in several transactions."""
+    """One digest for the exact run: what is recorded, what runs without a ledger row,
+    which files are allowed to commit in several transactions, and which are recorded
+    without running."""
 
     text = (
         "recorded:"
@@ -109,6 +116,8 @@ def versions_digest(
         + "|mid-file-commit:"
         + ",".join(sorted(mid_file_commit))
     )
+    if record_only:
+        text += "|record-only:" + ",".join(sorted(record_only))
     return hashlib.sha256(text.encode()).hexdigest()
 
 
@@ -119,6 +128,7 @@ def parse_hosted_approval(
     unrecorded: Sequence[str],
     now: datetime,
     mid_file_commit: Sequence[str] = (),
+    record_only: Sequence[str] = (),
 ) -> HostedApproval:
     """Validate a hosted approval record against this exact run, or refuse."""
 
@@ -158,7 +168,9 @@ def parse_hosted_approval(
         raise ApplyError(
             "the hosted approval was issued for a different candidate commit"
         )
-    if raw["versions_sha256"] != versions_digest(approved, unrecorded, mid_file_commit):
+    if raw["versions_sha256"] != versions_digest(
+        approved, unrecorded, mid_file_commit, record_only
+    ):
         raise ApplyError(
             "the hosted approval was issued for a different list of versions"
         )
@@ -377,6 +389,7 @@ def plan_steps(
     approved: Sequence[str],
     unrecorded: Sequence[str] = (),
     allow_mid_file_commit: Sequence[str] = (),
+    record_only: Sequence[str] = (),
 ) -> list[Step]:
     """Validate the approved list against the ledger and return ordered steps.
 
@@ -393,6 +406,8 @@ def plan_steps(
     threshold = gate._LEDGER_RECONCILIATION_THROUGH
     if len(set(approved)) != len(approved) or len(set(unrecorded)) != len(unrecorded):
         raise ApplyError("a version is listed more than once")
+    if not set(record_only) <= set(approved):
+        raise ApplyError("a version recorded without running must be in the approved list")
     overlap = set(approved) & set(unrecorded)
     if overlap:
         raise ApplyError(
@@ -427,8 +442,8 @@ def plan_steps(
     steps: list[Step] = []
     for version in sorted({*approved, *unrecorded}):
         migration = by_version[version]
-        segments = split_segments(migration.statements)
-        if not segments:
+        segments = () if version in record_only else split_segments(migration.statements)
+        if not segments and version not in record_only:
             raise ApplyError(
                 f"version {version} has no runnable statement, so it could not be recorded"
             )
@@ -491,9 +506,47 @@ def check_unrecorded_effects(connection: object, steps: Sequence[Step]) -> None:
             )
 
 
+def check_history_recorded(ledger: Sequence[str], archived: Sequence[str]) -> None:
+    """A baseline is recorded without running only where every file it replaced already ran."""
+
+    missing = sorted(set(archived) - set(ledger))
+    if not archived or missing:
+        raise ApplyError(
+            f"recording without running needs every archived version in the ledger; missing {missing[:5]}"
+        )
+
+
+def archived_versions(root: Path, candidate_sha: str) -> list[str]:
+    listing = gate._run_git(
+        root, "ls-tree", "--name-only", candidate_sha, "--", "supabase/migrations_archive/"
+    ).decode()
+    return [Path(path).name[:14] for path in listing.splitlines() if path.endswith(".sql")]
+
+
+def check_ledger_table(connection: object) -> None:
+    """A reset database (#1789) brings the empty ledger back before anything is recorded."""
+
+    # Two reads: has_table_privilege raises on a missing schema where to_regclass returns null.
+    row = connection.execute(  # type: ignore[attr-defined]
+        "select to_regclass(%s)", (_LEDGER_TABLE,)
+    ).fetchone()
+    if not row or row[0] is None:
+        raise ApplyError(
+            f"the migration ledger table {_LEDGER_TABLE} is missing; create it first: {_LEDGER_DDL}"
+        )
+    row = connection.execute(  # type: ignore[attr-defined]
+        "select has_table_privilege(%s, 'insert')", (_LEDGER_TABLE,)
+    ).fetchone()
+    if not row or not row[0]:
+        raise ApplyError(
+            f"the connected user cannot insert into {_LEDGER_TABLE}; create the ledger table as"
+            " the user this tool connects with, or grant it insert"
+        )
+
+
 def read_ledger_versions(connection: object) -> list[str]:
     rows = connection.execute(  # type: ignore[attr-defined]
-        "select version from supabase_migrations.schema_migrations order by version"
+        f"select version from {_LEDGER_TABLE} order by version"
     ).fetchall()
     return [str(row[0]) for row in rows]
 
@@ -504,6 +557,17 @@ def check_lock_timeout(value: str) -> str:
     if _LOCK_TIMEOUT.fullmatch(value) is None:
         raise ApplyError("the lock timeout must look like 500ms, 5s or 1min")
     return value
+
+
+@contextmanager
+def _transaction(connection: object, lock_timeout: str) -> Iterator[None]:
+    """Every transaction this tool opens waits for a lock at most ``lock_timeout``."""
+
+    with connection.transaction():  # type: ignore[attr-defined]
+        connection.execute(  # type: ignore[attr-defined]
+            "select set_config('lock_timeout', %s, true)", (lock_timeout,)
+        )
+        yield
 
 
 def apply_steps(
@@ -523,11 +587,13 @@ def apply_steps(
     check_lock_timeout(lock_timeout)
     done: list[str] = []
     for step in steps:
-        for index, segment in enumerate(step.segments):
-            with connection.transaction():  # type: ignore[attr-defined]
+        if not step.segments:
+            with _transaction(connection, lock_timeout):
                 connection.execute(  # type: ignore[attr-defined]
-                    "select set_config('lock_timeout', %s, true)", (lock_timeout,)
+                    _LEDGER_INSERT, (step.version, list(step.statements), step.name)
                 )
+        for index, segment in enumerate(step.segments):
+            with _transaction(connection, lock_timeout):
                 for statement in segment:
                     connection.execute(statement)  # type: ignore[attr-defined]
                 if step.record and index == len(step.segments) - 1:
@@ -559,6 +625,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         default=[],
         help="version whose file commits inside itself, applied in several transactions",
+    )
+    parser.add_argument(
+        "--record-only",
+        action="append",
+        default=[],
+        help="approved version to record without running, once every archived version ran",
     )
     parser.add_argument("--database-url-env", default="ARGUS_APPLY_DATABASE_URL")
     parser.add_argument("--allow-host", action="append", required=True)
@@ -608,7 +680,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         hosted = parse_hosted_approval(
             read_committed_record(Path.cwd(), args.hosted_approval, args.candidate_sha),
             args.candidate_sha, approved, args.unrecorded, datetime.now(timezone.utc),
-            args.allow_mid_file_commit,
+            args.allow_mid_file_commit, args.record_only,
         )  # fmt: skip
         if not args.ssl_root_cert or not Path(args.ssl_root_cert).is_file():
             raise ApplyError(
@@ -645,16 +717,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         ).fetchone()
         if not locked or not locked[0]:
             raise ApplyError("another run of this tool holds the migration lock")
+        check_ledger_table(connection)
+        ledger = read_ledger_versions(connection)
+        if args.record_only:
+            check_history_recorded(ledger, archived_versions(Path.cwd(), args.candidate_sha))
         steps = plan_steps(
             candidates,
-            read_ledger_versions(connection),
+            ledger,
             approved,
             args.unrecorded,
             args.allow_mid_file_commit,
+            args.record_only,
         )
         check_unrecorded_effects(connection, steps)
         for step in steps:
-            label = "RECORD" if step.record else "NO-LEDGER"
+            label = "RECORD-ONLY" if not step.segments else "RECORD" if step.record else "NO-LEDGER"
             print(f"{label:9} {step.version} {step.name} [{step.classification}]")
         if not args.execute:
             print(f"dry run: {len(steps)} step(s); nothing applied")

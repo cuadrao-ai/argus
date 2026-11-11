@@ -63,7 +63,7 @@ for (const width of [1440, 390] as const) {
       }
 
       const facts = page.getByTestId("receipt-current-facts");
-      for (const label of ["Fecha de actividad", "Monto", "Fiscal", "RNC", "NCF / e-CF", "ITBIS"]) {
+      for (const label of ["Fecha del comprobante", "Monto", "Fiscal", "RNC", "NCF / e-CF", "ITBIS"]) {
         await expect(facts.getByText(label, { exact: true }).first()).toBeVisible();
       }
       const labelsBeside = await facts.locator("[data-fact]").evaluateAll((rows) => rows.every((row) => {
@@ -144,7 +144,7 @@ for (const width of [1440, 390] as const) {
       await expect(approve).toBeDisabled();
       await expect(approve).toHaveAttribute("aria-describedby", "dossier-attention-title");
       await expect(page.locator("#dossier-attention-title")).toBeVisible();
-      await expect(page.getByTestId("dossier-attention")).toContainText("Fecha de actividad");
+      await expect(page.getByTestId("dossier-attention")).toContainText("Fecha del comprobante");
       await noHorizontalScroll(page);
       await page.screenshot({ path: `${SHOT_DIR}/disabled-aprobar-${width}.png` });
     });

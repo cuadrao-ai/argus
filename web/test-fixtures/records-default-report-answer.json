@@ -1,0 +1,63 @@
+{
+  "presentation": {
+    "order": [
+      "counterparty",
+      "fiscal_number",
+      "date",
+      "gross_amount",
+      "itbis_amount",
+      "stage",
+      "note",
+      "attachment",
+      "expense_type",
+      "payment_form",
+      "funding"
+    ],
+    "hidden": [
+      "funding",
+      "payment_form",
+      "expense_type",
+      "fiscal_number",
+      "itbis_amount"
+    ],
+    "density": 48
+  },
+  "items": [],
+  "overview": {
+    "needs_review": 0,
+    "ready_for_export": 0,
+    "needs_fiscal_data": 0,
+    "exported": 0,
+    "export_lines": 0
+  },
+  "effective_sort": "date_desc",
+  "sort_unavailable_reason": null,
+  "matching_count": 0,
+  "page": 1,
+  "page_size": 25,
+  "page_count": 0,
+  "totals": [],
+  "fiscal_totals": [],
+  "fingerprint": "e5513eecbbf0cbe3d6450123abedd7f75ae21572c5f98c1b1c3b70b74d85b73c",
+  "captured_at": "2026-11-06T00:00:00Z",
+  "resolved_period": {
+    "from_date": null,
+    "to_date": null,
+    "calendar": "America/Santo_Domingo"
+  },
+  "excluded_unknown_dates": 0,
+  "excluded_personal": {
+    "income": 0,
+    "expense": 0
+  },
+  "counterparties": [],
+  "categories": [],
+  "expense_types": [],
+  "funding_sources": [],
+  "coverage_notes": [
+    "records_only_evidence_separate",
+    "legal_cancellation_coverage_unavailable",
+    "source_document_subtype_may_be_unknown",
+    "counterparty_identity_requires_explicit_tax_id"
+  ]
+}

@@ -147,7 +147,7 @@ async function businessSearch(partial: Partial<BusinessSearchResult>, notes: Bus
       accounts: [{ id: "acct-1", nickname: "Caja", type: "cash", currency: "DOP" }],
       openPanel: (panel) => opened.push(panel),
       actions,
-      owner: true,
+      canAdd: true,
       scope: "own",
       canExport: true,
       openExport: noop,
@@ -252,6 +252,44 @@ describe("original note search", () => {
     assert.ok(html.includes("Notes are unavailable"));
     assert.ok(html.includes(expense.merchant));
     assert.ok(!html.includes("private server details"));
+  });
+});
+
+describe("Tipo de gasto in the results", () => {
+  const services = { code: "02", label: "Gastos por trabajos, suministros y servicios" };
+  const receipt = { id: "rcpt-saved", channel: "web" as const, filename: "factura-7.pdf", media_type: "application/pdf", size_bytes: 1, received_at: "2026-10-07T14:00:00Z", status: "confirmed" as const, error_code: null, expense_id: "exp-7", merchant: "Imprenta Sol", occurred_on: "2026-10-07", amount: "500.00", currency: "DOP", category_id: null, account_id: null, attention: null, preparable: false, enterable: false };
+
+  test("each hit and its preview say the server's 606 answer as Registros does, and never Categoría", async () => {
+    const typed = { ...expense, id: "exp-typed", dgii_606: { expense_type: services, payment_form: null } };
+    const missing = { ...expense, id: "exp-missing", dgii_606: { expense_type: null, payment_form: null } };
+    const personal = { ...expense, id: "exp-personal", personal: true, dgii_606: null };
+    const sale = { ...expense, id: "venta-1", receipt_id: null, dgii_606: null };
+    const saved = { ...receipt, dgii_606: { expense_type: services, payment_form: null } };
+    const pending = { ...receipt, id: "rcpt-pending", status: "review_ready" as const, expense_id: null, dgii_606: null };
+    const { groups } = await businessSearch({ expenses: [typed, missing, personal], ventas: [sale], receipts: [saved, pending], accounts: [] }, [], "es-419");
+    const hits = (id: string) => groups.find((group) => group.id === id)!.hits;
+    const [typedHit, missingHit, personalHit] = hits("expenses");
+    expect(typedHit.detail).toContain(services.label);
+    expect(missingHit.detail).toContain("Falta");
+    for (const hit of [personalHit, hits("ventas")[0]]) {
+      expect(hit.detail).not.toContain("No aplica");
+      expect(hit.detail).not.toContain("Falta");
+    }
+    for (const hit of [...hits("expenses"), ...hits("ventas")]) expect(hit.detail).not.toContain("Sin categoría");
+
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", fallbackLng: false, interpolation: { escapeValue: false }, resources: { "es-419": { translation: es419 } } });
+    const html = (hit: { preview?: unknown }) => renderToStaticMarkup(<I18nextProvider i18n={i18n}>{hit.preview as React.ReactNode}</I18nextProvider>);
+    const answer = (markup: string) => markup.split("Tipo de gasto</dt><dd>")[1]?.split("</dd>")[0] ?? null;
+    const shown = [typedHit, missingHit, personalHit, hits("ventas")[0], ...hits("receipts")].map(html);
+    for (const markup of shown) expect(markup).not.toContain("Categoría");
+    expect(answer(shown[0])).toContain(services.label);
+    expect(answer(shown[1])).toContain("Falta");
+    expect(answer(shown[2])).toContain("No aplica");
+    expect(answer(shown[3])).toContain("No aplica");
+    expect(answer(shown[4])).toContain(services.label);
+    // A receipt still in review has no approved record: no Tipo de gasto yet.
+    expect(answer(shown[5])).toBeNull();
   });
 });
 

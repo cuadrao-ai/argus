@@ -22,9 +22,9 @@ from argus.domain.job_settlement import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "supabase/migrations/20260822000000_research_job_activity_settles.sql"
+MIGRATION = ROOT / "supabase/migrations_archive/20260822000000_research_job_activity_settles.sql"
 ORIGINAL = (
-    ROOT / "supabase/migrations/20260801000000_add_conversation_activity_read_states.sql"
+    ROOT / "supabase/migrations_archive/20260801000000_add_conversation_activity_read_states.sql"
 )
 OWNER_CALL = f"{SQL_FUNCTION_NAME}(j)"
 INLINE_PREDICATE = re.compile(

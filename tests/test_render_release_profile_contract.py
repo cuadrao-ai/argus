@@ -1,19 +1,16 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 from tests.test_environment_scripts import (
     _contract_array,
-    _real_workflow_api_env_payload,
     _render_env,
     _render_env_payload,
     _run_render_release_audit,
-    _workflow_env_payload,
 )
 from tests.test_staging_default_off_flags import APPROVED_STAGING_OVERRIDES
 
@@ -25,6 +22,7 @@ def _source(path: str) -> str:
 
 
 BLUEPRINT_DECLARES_STAGING_OVERRIDE = {
+    "CUADRAO_BUSINESS_ACTIVITY_ENABLED",
     "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
     "CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED",
     "CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED",
@@ -82,16 +80,18 @@ def test_phantom_maintenance_surface_is_absent_but_operator_job_remains() -> Non
     assert (ROOT / "scripts" / "ops" / "scheduled_maintenance.py").is_file()
 
 
-def test_release_docs_name_three_live_services_without_a_cron_surface() -> None:
+def test_release_docs_name_the_live_services_without_a_cron_surface() -> None:
     runbook = _source("docs/PRIVATE_LAUNCH_RUNBOOK.md")
     data_model = _source("docs/DATA_MODEL.md")
     release_contract = _source("docs/specs/private-alpha-ci-cd-sota.md")
     manifest = _source("docs/release-manifests/TEMPLATE.md")
+    profile = json.loads(_source(".github/private-alpha-release-profile.json"))
 
-    for service in ("argus-api", "argus-app", "argus-backtests"):
-        assert service in runbook
-        assert service in release_contract
-        assert service in manifest
+    for service in profile["services"].values():
+        assert f"`{service['name']}`" in runbook
+    for retired in ("`argus-api`", "`argus-app`", "`argus-backtests`", "`cuadrao-web`"):
+        assert retired not in runbook
+    assert "cuadrao-dgii-rnc-staging" not in runbook
     for source in (runbook, data_model, release_contract, manifest):
         assert "argus-maintenance" not in source
         assert "cron-deploy-status" not in source
@@ -99,7 +99,7 @@ def test_release_docs_name_three_live_services_without_a_cron_surface() -> None:
     assert "operator-run" in runbook
 
 
-def test_release_contract_keeps_all_three_services_on_manual_deploys() -> None:
+def test_release_contract_keeps_every_service_on_manual_deploys() -> None:
     profile = json.loads(_source(".github/private-alpha-release-profile.json"))
     render_config = yaml.safe_load(_source("render.yaml"))
     render_by_name = {service["name"]: service for service in render_config["services"]}
@@ -107,21 +107,22 @@ def test_release_contract_keeps_all_three_services_on_manual_deploys() -> None:
 
     # Founder decision, 2026-09-13 (#614): a Blueprint sync must not enable
     # autodeploy, so render.yaml carries the quoted string rather than YAML false.
-    for surface in ("api", "web", "workflow", "marketing"):
-        assert profile["services"][surface]["auto_deploy_trigger"] == "off"
-    assert render_by_name["cuadrao-api"]["autoDeployTrigger"] == "off"
-    assert render_by_name["cuadrao-web"]["autoDeployTrigger"] == "off"
+    for service in profile["services"].values():
+        assert service["auto_deploy_trigger"] == "off"
+        assert render_by_name[service["name"]]["autoDeployTrigger"] == "off"
+    assert all(
+        service["autoDeployTrigger"] == "off" for service in render_by_name.values()
+    )
     assert "argus-backtests" not in render_by_name
+    # The older boolean autoDeploy field could turn deploys back on beside the trigger.
+    assert not [name for name, service in render_by_name.items() if "autoDeploy" in service]
     assert "`autoDeployTrigger: off`" in runbook
-    assert "argus-api" in runbook
-    assert "argus-app" in runbook
-    assert "argus-backtests" in runbook
 
 
 def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
     render_config = yaml.safe_load(_source("render.yaml"))
     services = {service["name"]: service for service in render_config["services"]}
-    web = services["cuadrao-web"]
+    web = services["cuadrao-marketing"]
     assert (
         web["rootDir"],
         web["branch"],
@@ -153,11 +154,11 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
     assert declared == {
         entry["name"]: _blueprint_env_item(entry)
         for entry in manifest["services"]["api"]["entries"]
-        if not entry.get("production_only")
+        if not entry.get("production_only") and not entry.get("local_only")
     }
     assert services["cuadrao-marketing-staging"]["branch"] == "main"
     assert "NEXT_PUBLIC_CUADRAO_API_URL" in _contract_array("ARGUS_RENDER_WEB_ENV")
-    assert "NEXT_PUBLIC_CUADRAO_API_URL" in _render_env("argus-app")
+    assert "NEXT_PUBLIC_CUADRAO_API_URL" in _render_env("cuadrao-app")
 
 
 def test_argus_api_disables_the_default_render_subdomain() -> None:
@@ -167,7 +168,7 @@ def test_argus_api_disables_the_default_render_subdomain() -> None:
     waitlist_floor = runbook.split("### Waitlist rollback floor", 1)[1]
 
     assert render_by_name["cuadrao-api"]["renderSubdomainPolicy"] == "disabled"
-    assert "renderSubdomainPolicy" not in render_by_name["cuadrao-web"]
+    assert "renderSubdomainPolicy" not in render_by_name["cuadrao-marketing"]
     assert render_by_name["cuadrao-api-staging"]["renderSubdomainPolicy"] == "enabled"
     assert "https://argus-ohr5.onrender.com" in waitlist_floor
     assert "HTTP `404`" in waitlist_floor
@@ -179,98 +180,59 @@ def test_argus_api_disables_the_default_render_subdomain() -> None:
     assert "#694" in waitlist_floor
 
 
-def test_workflow_version_status_derives_proof_from_ready_version(
-    tmp_path: Path,
-) -> None:
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    fake_render = bin_dir / "render"
-    fake_render.write_text(
-        "#!/bin/bash\n"
-        'printf \'%s\' \'[{"createdAt":"2026-08-12T15:00:00Z",'
-        '"id":"wfv-current","name":"d67cef9",'
-        '"status":"ready","workflowId":"wfl-test"}]\'\n',
-        encoding="utf-8",
-    )
-    fake_render.chmod(0o755)
-    fake_curl = bin_dir / "curl"
-    fake_curl.write_text(
-        "#!/bin/bash\n"
-        'printf \'%s\' \'[{"envVar":{"key":'
-        '"STALE_COMMIT","value":"stale000"}},'
-        '{"envVar":{"key":"STALE_VERSION",'
-        '"value":"wfv-stale"}}]\'\n',
-        encoding="utf-8",
-    )
-    fake_curl.chmod(0o755)
-    env = os.environ.copy()
-    env.update(
-        {
-            "PATH": f"{bin_dir}:{env['PATH']}",
-            "RENDER_API_KEY": "fake-render-token",
-            "ARGUS_RENDER_WORKFLOW_SERVICE_ID": "wfl-test",
-        }
-    )
-
-    result = subprocess.run(
-        [str(ROOT / ".github" / "render-env-sync.sh"), "workflow-version-status"],
-        cwd=ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "workflow_version_id=wfv-current" in result.stdout
-    assert "status=ready" in result.stdout
-    assert "commit=d67cef9" in result.stdout
-    assert "stale000" not in result.stdout
-    assert "expected_workflow_version_id" not in result.stdout
-
-
+@pytest.mark.parametrize(
+    ("surface", "argument"),
+    [
+        ("api", "api_service_json"),
+        ("marketing", "web_service_json"),
+        ("web", "app_service_json"),
+        ("documents_worker", "worker_service_json"),
+    ],
+)
 def test_render_env_sync_audit_reports_a_service_that_leaves_manual_deploys(
-    tmp_path: Path,
+    tmp_path: Path, surface: str, argument: str
 ) -> None:
     profile = json.loads(_source(".github/private-alpha-release-profile.json"))
-    expected = profile["services"]["workflow"]["auto_deploy_trigger"]
+    service = profile["services"][surface]
 
     result = _run_render_release_audit(
         tmp_path,
-        expect_mode="real-workflow",
-        api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(),
-        workflow_service_json=json.dumps({"autoDeployTrigger": "checksPass"}),
+        api_env_json=_render_env_payload("cuadrao-api"),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
+        **{argument: json.dumps({"autoDeployTrigger": "checksPass"})},
     )
 
     assert result.returncode == 1
     assert (
-        "drift argus-backtests:autoDeployTrigger "
-        f"expected={expected} actual=checksPass" in result.stdout
+        f"drift {service['name']}:autoDeployTrigger "
+        f"expected={service['auto_deploy_trigger']} actual=checksPass" in result.stdout
     )
     assert "autodeploy_status=drift" in result.stdout
     assert "status=drift" in result.stdout
 
 
-def test_render_env_sync_audit_accepts_manual_deploys_on_all_three(
+def test_render_env_sync_audit_accepts_manual_deploys_on_the_audited_services(
     tmp_path: Path,
 ) -> None:
     manual = json.dumps({"autoDeployTrigger": "off"})
 
     result = _run_render_release_audit(
         tmp_path,
-        expect_mode="real-workflow",
-        api_env_json=_real_workflow_api_env_payload(),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(),
+        api_env_json=_render_env_payload("cuadrao-api"),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
         api_service_json=manual,
         web_service_json=manual,
-        workflow_service_json=manual,
+        app_service_json=manual,
+        worker_service_json=manual,
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
-    for service in ("argus-api", "cuadrao-web", "argus-backtests"):
+    for service in (
+        "cuadrao-api",
+        "cuadrao-marketing",
+        "cuadrao-app",
+        "cuadrao-documents-worker",
+    ):
         assert f"ok {service}:autoDeployTrigger=off" in result.stdout
     assert "autodeploy_status=ready" in result.stdout
     assert "status=ready" in result.stdout
@@ -281,18 +243,16 @@ def test_render_env_sync_audit_flags_open_public_account_access(
 ) -> None:
     result = _run_render_release_audit(
         tmp_path,
-        expect_mode="real-workflow",
         api_env_json=_render_env_payload(
             "cuadrao-api",
             overrides={"CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "true"},
         ),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
     )
 
     assert result.returncode == 1
     assert (
-        "drift argus-api:CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED expected=false actual=true"
+        "drift cuadrao-api:CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED expected=false actual=true"
         in result.stdout
     )
     assert "status=drift" in result.stdout
@@ -303,17 +263,15 @@ def test_render_env_sync_audit_flags_a_live_name_production_must_not_set(
 ) -> None:
     result = _run_render_release_audit(
         tmp_path,
-        expect_mode="real-workflow",
         api_env_json=_render_env_payload(
             "cuadrao-api", extra={"CUADRAO_INGESTION_SECRET_KEY": "fake-key"}
         ),
-        web_env_json=_render_env_payload("cuadrao-web"),
-        workflow_env_json=_workflow_env_payload(),
+        web_env_json=_render_env_payload("cuadrao-marketing"),
     )
 
     assert result.returncode == 1
     assert (
-        "forbidden argus-api:CUADRAO_INGESTION_SECRET_KEY unexpected_live_env"
+        "forbidden cuadrao-api:CUADRAO_INGESTION_SECRET_KEY unexpected_live_env"
         in result.stdout
     )
     assert "fake-key" not in result.stdout

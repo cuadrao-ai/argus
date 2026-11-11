@@ -25,7 +25,7 @@ from workflows.proof import PROOF_SEED_CREATED_BY
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (
     ROOT
-    / "supabase/migrations/20260905000000_workflow_proof_jobs_leave_conversations.sql"
+    / "supabase/migrations_archive/20260905000000_workflow_proof_jobs_leave_conversations.sql"
 )
 
 

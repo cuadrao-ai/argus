@@ -162,3 +162,69 @@ def summarize(
         page_number=page_number,
         page_size=page_size,
     )
+
+
+@dataclass(frozen=True)
+class FiscalAmount:
+    currency: str | None
+    kind: str
+    basis: Literal["itbis", "goods", "services"]
+    amount_minor: int | None
+    populated: bool
+    effect: Literal["known", "unknown", "unsupported"]
+    sign: Literal[-1, 1]
+
+
+@dataclass(frozen=True)
+class FiscalTotal:
+    currency: str | None
+    kind: str
+    basis: Literal["itbis", "goods", "services"]
+    applicable_count: int
+    populated_count: int
+    known_amount_minor: int
+    unknown_count: int
+    unsupported_count: int
+
+    @property
+    def complete(self) -> bool:
+        return self.unknown_count == self.unsupported_count == 0
+
+    @property
+    def amount_minor(self) -> int | None:
+        return self.known_amount_minor if self.complete else None
+
+
+def summarize_fiscal(amounts: Iterable[FiscalAmount]) -> tuple[FiscalTotal, ...]:
+    """Reduce applicable fields from the same admitted, filtered table records.
+
+    Populated coverage is independent of whether an effect can be signed safely.
+    Missing values contribute no money and keep the final amount incomplete.
+    """
+    grouped: dict[tuple[str | None, str, str], list[FiscalAmount]] = {}
+    for amount in amounts:
+        grouped.setdefault((amount.currency, amount.kind, amount.basis), []).append(
+            amount
+        )
+    totals = []
+    for key in sorted(grouped, key=lambda key: (key[0] or "", key[1], key[2])):
+        members = grouped[key]
+        totals.append(
+            FiscalTotal(
+                currency=members[0].currency,
+                kind=members[0].kind,
+                basis=members[0].basis,
+                applicable_count=len(members),
+                populated_count=sum(member.populated for member in members),
+                known_amount_minor=sum(
+                    member.sign * member.amount_minor
+                    for member in members
+                    if member.effect == "known" and member.amount_minor is not None
+                ),
+                unknown_count=sum(member.effect == "unknown" for member in members),
+                unsupported_count=sum(
+                    member.effect == "unsupported" for member in members
+                ),
+            )
+        )
+    return tuple(totals)

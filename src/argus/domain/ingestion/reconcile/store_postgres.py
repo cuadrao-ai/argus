@@ -116,6 +116,29 @@ class _PostgresTx:
             )
         ]
 
+    def events_of(
+        self, states: tuple[str, ...], event_ids: list[str], activity_ids: list[str]
+    ) -> list[ImportEvent]:
+        """The events in ``states`` that are one of ``event_ids`` or recorded
+        one of ``activity_ids``."""
+
+        return [
+            _event(r)
+            for r in self._rows(
+                f"""select {_EVENT} from public.financial_import_events
+                where user_id = %s and state = any(%s) and {self._in_scope}
+                and (id = any(%s::uuid[]) or activity_id = any(%s::uuid[]))
+                order by created_at, id""",
+                (
+                    self._user,
+                    list(states),
+                    *self._scope_params,
+                    event_ids,
+                    activity_ids,
+                ),
+            )
+        ]
+
     def activity_links(self) -> dict[str, str]:
         rows = self._rows(
             f"""select activity_id::text as activity_id, id::text as event_id

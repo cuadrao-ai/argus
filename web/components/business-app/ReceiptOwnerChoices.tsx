@@ -13,14 +13,14 @@ import type { RowSave, SaveRow } from "./receipt-review-save";
 type Choice = keyof PurchaseChoice;
 
 /**
- * Tipo de gasto and forma de pago, from the server's codes and labels. Neither
+ * Tipo de gasto and forma de pago, from the server's codes and the locale's text. Neither
  * blocks approval. A suggested tipo de gasto stays a suggestion until a person
  * takes it, because only a person's write reaches the 606.
  */
 export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled, readOnly = false, saves, onChoose, onRetry, onCancel, onReload }: {
   dossier: BusinessDossier;
   fields: DgiiFields | null;
-  /** The labels could not be loaded. */
+  /** The codes could not be loaded. */
   failed: boolean;
   disabled: boolean;
   /** The values as text, with no control. */
@@ -35,7 +35,7 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
   const row = (choice: Choice, label: string) => {
     const field: DgiiField | undefined = fields?.["606"].find((item) => item.name === choice);
     const value = String(dossier.dgii?.[choice] ?? "");
-    const name = (code: string) => field?.labels?.[code] ?? code;
+    const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code }) || code;
     const suggestion = choice === "category" && !value ? dossier.expense_type_suggestion : null;
     if (readOnly) return (
       <div key={choice} data-fact={choice} className={FACT_ROW_CLASS}>

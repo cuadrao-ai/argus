@@ -1,6 +1,7 @@
 import { apiFetch } from "./argus-api-transport";
 import type { BusinessAccount, BusinessExpense, ReceiptSummary } from "./business-api";
 import type { BusinessEmailDelivery } from "./business-email";
+import type { Purchase606 } from "./business-reports-api";
 
 /**
  * The Business search over `/business/search`. The backend owns what matches
@@ -27,11 +28,16 @@ export type BusinessSearchSender = {
   status: "authorized" | "blocked";
 };
 
+/** The 606 answers of the approved record behind a hit, as its Registros row carries them: null for a record the 606 never lists, and for a receipt not yet approved. Absent from an older backend. */
+type Answers606 = { dgii_606?: Purchase606 | null };
+export type BusinessSearchExpense = BusinessExpense & Answers606;
+export type BusinessSearchReceipt = ReceiptSummary & Answers606;
+
 type Lists = {
-  expenses: BusinessExpense[];
+  expenses: BusinessSearchExpense[];
   /** In a venta, `merchant` holds the client. */
-  ventas: BusinessExpense[];
-  receipts: ReceiptSummary[];
+  ventas: BusinessSearchExpense[];
+  receipts: BusinessSearchReceipt[];
   accounts: BusinessAccount[];
   email_deliveries: BusinessSearchEmail[];
   email_senders: BusinessSearchSender[];

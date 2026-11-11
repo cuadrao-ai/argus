@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from argus.domain.business.document_type import DocumentType
+from argus.domain.business.space_name import GivenName
 
 from .actions import ApprovalAction
 from .authority import ActorProvenance, Capability
@@ -147,7 +148,7 @@ class AccountChoice(Contract):
 
 class RecordContext(Contract):
     space_id: UUID
-    space_name: str
+    space_name: GivenName
     accounts: tuple[AccountChoice, ...]
     capabilities: frozenset[Capability]
 
@@ -215,6 +216,7 @@ class BusinessDossier(RecordContext):
     personal_marked_by: str | None = None
     fiscal_known: bool = False
     fiscal_value: Literal["ncf", "ecf"] | None = None
+    fiscal_question_applies: bool = False
     include_606: bool | None = None
     include_606_by: str | None = None
     sin_comprobante: bool = False

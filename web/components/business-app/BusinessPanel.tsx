@@ -7,7 +7,7 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
 import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
 import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
-import { invoicingShown, useBusiness, type BusinessPanelState, type RecordList } from "./BusinessWorkspace";
+import { activityShown, invoicingShown, useBusiness, type BusinessPanelState, type RecordList } from "./BusinessWorkspace";
 import { useAccessBanner } from "./useAccessBanner";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
@@ -27,24 +27,18 @@ import { RecordTrayContext, recordList } from "./record-tray";
 import { primaryButtonClass } from "./business-ui";
 
 /**
- * Inside a client's Business every screen says so, and the first landing
- * carries a one-line welcome the person dismisses once; the server remembers
- * the dismissal per grant. A grant that died mid-session says so, once.
+ * While invitations are on, the first landing in a client's Business carries a
+ * one-line welcome the person dismisses once; the server remembers the
+ * dismissal per grant. A grant that died mid-session says so, once.
  */
 export function BusinessContextCue() {
   const { t } = useTranslation();
   const { chosen, lostAccess, clearLostAccess } = useBusiness();
   const access = useAccessBanner();
-  const client = chosen && chosen.role !== "owner" ? chosen : null;
-  const clientName = formatBusinessName(client?.name, t("business.overview.title", "My business"));
+  const clientName = formatBusinessName(chosen?.name, t("business.overview.title", "My business"));
   return (
     <>
       {lostAccess ? <RemovedMemberScreen onReturn={clearLostAccess} /> : null}
-      {client ? (
-        <p data-testid="business-client-cue" className="mb-3 text-[13px] font-medium text-[var(--cuadrao-green)]">
-          {t("business.switcher.client_cue", "Client: {{name}}", { name: clientName })}
-        </p>
-      ) : null}
       {access.visible ? (
         <div role="status" data-testid="business-access-line" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-item border border-[var(--cuadrao-green)]/30 bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/80 dark:bg-white/[0.06] dark:text-white/85">
           <span>{t("business.switcher.access_line", "You now have access to {{name}} · View and prepare", { name: clientName })}</span>
@@ -128,7 +122,7 @@ const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as co
 const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", inbox: "canvas", transactions: "canvas", invoicing: "canvas", activity: "canvas", receipt: "canvas", draft: "canvas", business: "canvas", expense: "form" };
 
 export default function BusinessPanel() {
-  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus, invoicing } = useBusiness();
+  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus, invoicing, activity } = useBusiness();
   const previewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const scope = chosen?.space_id ?? "own";
   const [glance, setGlance] = useState<{ scope: string; row: RecordRow } | null>(null);
@@ -178,7 +172,7 @@ export default function BusinessPanel() {
         {shown === "inbox" ? <BusinessInboxPanel /> : null}
         {shown === "transactions" ? <TransaccionesPanel /> : null}
         {shown === "invoicing" && invoicingShown(invoicing) ? <InvoiceWorkspaceEntry directoryStatus={directoryStatus} onRetry={reload} scope={userId && chosen?.permissions?.includes("read") === true ? { userId, businessId: chosen.space_id, grantId: chosen.grant_id } : null} business={chosen?.name ?? ""} capabilities={{ prepare: chosen?.permissions?.includes("prepare") === true, issue: chosen?.permissions?.includes("approve") === true, download: chosen?.permissions?.includes("download") === true }} sample={invoicing === "sample"} /> : null}
-        {shown === "activity" ? <ActivityDraft /> : null}
+        {shown === "activity" && activityShown(activity) ? <ActivityDraft /> : null}
         {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
         {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>

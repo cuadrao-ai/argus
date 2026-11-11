@@ -9,7 +9,7 @@ import pytest
 import scripts.ops.staging_env as se
 
 AUDIT_API = """APP_ENV ARGUS_BUSINESS_PILOT_ENABLED CUADRAO_CHECKPOINTER_MODE ARGUS_DEV_MEMORY_FALLBACK
-CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD ARGUS_DOCUMENT_EXTRACTION_ENABLED ARGUS_FINANCIAL_ACCOUNTS_ENABLED CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY
+CUADRAO_APPROVAL_EMAIL_SMTP_PASSWORD ARGUS_DOCUMENT_EXTRACTION_ENABLED ARGUS_FINANCIAL_ACCOUNTS_ENABLED
 ARGUS_INGESTION_ENABLED CUADRAO_MOCK_AUTH CUADRAO_PERSISTENCE_MODE CUADRAO_PROD_OPENROUTER_API_KEY ARGUS_VISION_MODEL
 CUADRAO_APP_ORIGIN CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED CUADRAO_BUSINESS_EMAIL_DOMAIN
 CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED CUADRAO_BUSINESS_PILOT_ENABLED CUADRAO_DOCUMENT_EXTRACTION_ENABLED
@@ -39,7 +39,7 @@ class FakeClient:
     def service_name(self, service_id):
         return self.names.get(
             service_id,
-            "cuadrao-api-staging" if "mrr" in service_id else "cuadrao-web-staging",
+            "cuadrao-api-staging" if "mrr" in service_id else "cuadrao-app-staging",
         )
 
     def list_env(self, service_id):
@@ -63,7 +63,6 @@ def live_for(manifest, label, audit):
         live["NEXT_PUBLIC_CUADRAO_API_URL"] = "https://canonical.example.test/api/v1"
     if label == "api":
         live["CUADRAO_PROD_OPENROUTER_API_KEY"] = SECRET_VALUES[0]
-        live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = "guest-different-EEEE5555"
         live["SUPABASE_SERVICE_ROLE_KEY"] = SECRET_VALUES[2]
     return live
 
@@ -159,13 +158,24 @@ def test_web_preserves_canonical_api_url_without_managing_the_old_name(manifest)
     assert "CUADRAO_RESEND_WEBHOOK_SECRET" not in plan.final
 
 
-def test_distinct_openrouter_keys(manifest):
+def test_api_plan_allows_missing_live_guest_openrouter_key(manifest):
     live = live_for(manifest, "api", AUDIT_API)
-    live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = live[
-        "CUADRAO_PROD_OPENROUTER_API_KEY"
-    ]
     plan = se.compute_plan(manifest["services"]["api"], live, {})
-    assert any("must differ" in p for p in plan.problems)
+    assert "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" not in plan.final
+    assert not any(
+        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY" in problem for problem in plan.problems
+    )
+
+
+def test_api_plan_allows_guest_key_matching_registered_on_legacy_live_state(
+    manifest,
+):
+    live = live_for(manifest, "api", AUDIT_API)
+    shared_value = live["CUADRAO_PROD_OPENROUTER_API_KEY"]
+    live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] = shared_value
+    plan = se.compute_plan(manifest["services"]["api"], live, {})
+    assert not any("must differ" in problem for problem in plan.problems)
+    assert live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"] == shared_value
 
 
 def full_secrets():
@@ -562,24 +572,6 @@ def test_live_generated_value_beats_a_different_file_value(manifest):
     assert "CUADRAO_INGESTION_SECRET_KEY" not in plan.generated
 
 
-@pytest.mark.parametrize("shared", [False, True])
-def test_staging_registered_key_must_differ_from_guest(manifest, shared):
-    live = live_for(manifest, "api", AUDIT_API)
-    guest = live["CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY"]
-    live["CUADRAO_OPENROUTER_API_KEY_STG"] = guest if shared else "synthetic-staging-key"
-    plan = se.compute_plan(manifest["services"]["api"], live, {})
-    problem = (
-        "CUADRAO_OPENROUTER_API_KEY_STG and "
-        "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY must differ"
-    )
-    assert (problem in plan.problems) is shared
-    assert (
-        plan.final["CUADRAO_OPENROUTER_API_KEY_STG"]
-        == live["CUADRAO_OPENROUTER_API_KEY_STG"]
-    )
-    assert guest not in "\n".join(plan.problems)
-
-
 def _offline(capsys, *argv):
     assert se.run(list(argv)) == 0
     return capsys.readouterr().out
@@ -588,6 +580,9 @@ def _offline(capsys, *argv):
 def test_every_entry_has_a_production_rule(manifest):
     for label, service in manifest["services"].items():
         for entry in service["entries"]:
+            if entry.get("local_only"):
+                assert "local" in entry and "production" not in entry
+                continue
             modes = set(entry["production"]) & set(se.PRODUCTION_MODES)
             assert len(modes) == 1, f"{label}:{entry['name']}"
     entry = manifest["services"]["web"]["entries"][0]
@@ -598,7 +593,11 @@ def test_every_entry_has_a_production_rule(manifest):
 
 @pytest.mark.parametrize("kind", ["secret", "generated"])
 def test_a_secret_cannot_hold_a_production_value(manifest, kind):
-    entry = next(e for e in manifest["services"]["api"]["entries"] if e["kind"] == kind)
+    entry = next(
+        e
+        for e in manifest["services"]["api"]["entries"]
+        if e["kind"] == kind and not e.get("local_only")
+    )
     entry["production"] = {"value": "plain-looking"}
     with pytest.raises(se.ManifestError, match="looks like a secret"):
         se.validate_manifest(manifest)
@@ -611,9 +610,13 @@ def test_paste_ready_files_carry_plain_names_only(manifest, environment, capsys)
     for label, service in manifest["services"].items():
         if environment == "staging" and "service_id" not in service:
             continue
+        if environment == "local" and label not in ("api", "web"):
+            continue
         kinds = {e["name"]: e["kind"] for e in service["entries"]}
         lines = _offline(capsys, "print", environment, label).splitlines()
-        assert lines and all(re.fullmatch(r"[A-Z][A-Z0-9_]*=\S.*", line) for line in lines)
+        assert lines and all(
+            re.fullmatch(r"[A-Z][A-Z0-9_]*=\S.*", line) for line in lines
+        )
         names = [line.split("=", 1)[0] for line in lines]
         assert {kinds[name] for name in names} == {"plain"}
         assert not any(se.SECRETISH_NAME.search(name) for name in names)
@@ -636,7 +639,7 @@ def test_offline_commands_never_read_secrets(monkeypatch, tmp_path, capsys):
         ["print", "production", "api"],
         ["print", "production", "web", "--to-fill"],
         ["print", "staging", "api", "--live-names", str(live)],
-        ["names", "production", "workflow", "required"],
+        ["names", "production", "documents_worker", "required"],
     ):
         _offline(capsys, *argv)
 
@@ -649,7 +652,8 @@ def test_to_fill_lists_each_supplied_name_blank_with_its_source(manifest, capsys
     assert all(line.startswith("# ") and len(line) > 2 for line in comments)
     assert all(re.fullmatch(r"[A-Z][A-Z0-9_]*=", line) for line in assignments)
     production = {
-        e["name"]: e["production"] for e in manifest["services"]["api"]["entries"]
+        e["name"]: e["production"]
+        for e in se.entries_for(manifest["services"]["api"], "production")
     }
     supplied = sorted(n for n, r in production.items() if {"enter", "copy_from"} & set(r))
     assert [line[:-1] for line in assignments] == supplied
@@ -674,7 +678,9 @@ def test_live_names_lists_deletions_and_waits_on_copied_legacy_names(tmp_path, c
 
 def test_staging_commands_skip_production_only_entries(manifest, capsys):
     production_only = {
-        e["name"] for e in manifest["services"]["api"]["entries"] if e.get("production_only")
+        e["name"]
+        for e in manifest["services"]["api"]["entries"]
+        if e.get("production_only")
     }
     assert "CUADRAO_CHAT_MODEL" in production_only
     staging = _offline(capsys, "print", "staging", "api") + _offline(

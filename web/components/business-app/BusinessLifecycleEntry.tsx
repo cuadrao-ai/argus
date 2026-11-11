@@ -15,6 +15,7 @@ import BusinessCloseDialog, { useBusinessCloseCopy, type BusinessCloseState } fr
 import BusinessTransferDialog, { useBusinessTransferCopy } from "./BusinessTransferDialog";
 import BusinessCloseExport, { type BusinessCloseExportJournal } from "./BusinessCloseExport";
 import { secondaryButtonClass } from "./business-ui";
+import { formatBusinessName } from "./business-format";
 
 type Entry = { kind: "loading" | "unavailable" } | { kind: "failed"; reference: string | null } | { kind: "ready"; business: OwnedBusiness };
 
@@ -84,6 +85,6 @@ export default function BusinessLifecycleEntry({ spaceId, action }: { spaceId: s
       }
     }
   };
-  if (action === "transfer") return <BusinessTransferDialog businessName={business.name} copy={transferCopy} view={{ kind: "request", members: business.members, onRequest: (grant, confirmation) => { void execute(confirmation, grant); } }} state={state} onDismiss={dismiss} />;
-  return <BusinessCloseDialog businessName={business.name} preview={business} copy={closeCopy} state={state} onConfirm={confirmation => { void execute(confirmation); }} onCancel={dismiss} exportControl={<BusinessCloseExport key={business.space_id} business={business} label={closeCopy.download} journal={exportJournal} setJournal={setExportJournal} />} />;
+  if (action === "transfer") return <BusinessTransferDialog businessName={formatBusinessName(business.name, t("business.overview.title", "My business"))} copy={transferCopy} view={{ kind: "request", members: business.members, onRequest: (grant, confirmation) => { void execute(confirmation, grant); } }} state={state} onDismiss={dismiss} />;
+  return <BusinessCloseDialog businessName={formatBusinessName(business.name, t("business.overview.title", "My business"))} preview={business} copy={closeCopy} state={state} onConfirm={confirmation => { void execute(confirmation); }} onCancel={dismiss} exportControl={<BusinessCloseExport key={business.space_id} business={business} label={closeCopy.download} journal={exportJournal} setJournal={setExportJournal} />} />;
 }

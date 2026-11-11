@@ -80,14 +80,15 @@ for (const [language, copy] of [
   });
 
   test(`${language}: the settings menu ends with Términos and Privacidad, opening the published pages in a new tab`, async () => {
-    const { PUBLISHED_PRIVACY_URL, PUBLISHED_TERMS_URL } = await import("@/lib/cuadrao-legal-links");
+    const { PUBLISHED_LEGAL_URLS } = await import("@/lib/cuadrao-legal-links");
+    const published = PUBLISHED_LEGAL_URLS[language === "en" ? "en" : "es"];
     await openMenu(language);
     const footer = document.body.querySelector('[data-testid="settings-legal-footer"]');
     assert.ok(footer, "the footer shows on Business");
     const links = [...footer.querySelectorAll("a")].map((link) => ({ text: link.textContent, href: link.getAttribute("href"), target: link.getAttribute("target"), rel: link.getAttribute("rel") }));
     assert.deepEqual(links, [
-      { text: copy.terms, href: PUBLISHED_TERMS_URL, target: "_blank", rel: "noreferrer" },
-      { text: copy.privacy, href: PUBLISHED_PRIVACY_URL, target: "_blank", rel: "noreferrer" },
+      { text: copy.terms, href: published.terms, target: "_blank", rel: "noreferrer" },
+      { text: copy.privacy, href: published.privacy, target: "_blank", rel: "noreferrer" },
     ]);
     const surface = document.body.querySelector("[data-profile-menu-surface]")!;
     assert.equal(surface.lastElementChild, footer, "it is the last row of the menu");

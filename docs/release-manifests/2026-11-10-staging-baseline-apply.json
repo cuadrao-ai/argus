@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-1890-baseline",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "50885d2f844bb681b3cc04b543bb92811378a7bb",
+  "versions_sha256": "ae463d391aa0aaa2ad17f6cf5601f5e9b051e62eb308f60a839a05236ff693ea",
+  "issued_at": "2026-11-10T20:42:47Z",
+  "expires_at": "2026-11-12T20:42:47Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas approved staging alignment on 2026-11-10 (\"The staging database record. Got it. APPROVED\"). Candidate 50885d2f844bb681b3cc04b543bb92811378a7bb is the merge of PR 1929 (#1890). 20261110160000 cuadrao_baseline is recorded without running (--record-only); 20261110160100 drop_unowned_objects runs and is recorded. Staging skedzwocnmrhfigiwyzi only; this record does not authorize production changes."
+}

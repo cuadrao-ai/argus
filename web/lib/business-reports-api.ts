@@ -1,4 +1,5 @@
 import { z } from "zod";
+import i18n from "i18next";
 import { CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { getChosenGrant, subscribeChosenGrant } from "./business-grant";
@@ -14,17 +15,18 @@ const family = z.enum(["sale", "purchase"]);
 const stage = z.enum(["needs_review", "needs_fiscal_data", "ready_for_export", "exported"]);
 export type ReportStage = z.infer<typeof stage>;
 const documentKind = z.enum(["invoice", "receipt", "credit_note", "unknown"]);
+export const recordsCurrencySchema = z.enum(["DOP", "USD", "EUR"]);
+export type RecordsCurrency = z.infer<typeof recordsCurrencySchema>;
 /** The document kinds the server's projection names on a row, so Filtros offers only kinds a record can match. The contract still accepts the others. */
 export const REPORT_DOCUMENT_KINDS = ["credit_note", "unknown"] as const satisfies readonly z.infer<typeof documentKind>[];
 const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
-export const REPORT_PRESENTATION_KEYS = ["counterparty", "date", "gross_amount", "currency", "family", "expense_type", "payment_form", "stage", "note", "attachment", "funding"] as const;
-const presentationKey = z.enum(REPORT_PRESENTATION_KEYS);
+export const REPORT_PRESENTATION_KEYS = ["counterparty", "fiscal_number", "date", "gross_amount", "itbis_amount", "stage", "note", "attachment", "expense_type", "payment_form", "funding"] as const;
 export const reportPresentationSchema = z.strictObject({
-  order: z.array(presentationKey).length(REPORT_PRESENTATION_KEYS.length).refine((values) => values[0] === "counterparty" && new Set(values).size === REPORT_PRESENTATION_KEYS.length).default([...REPORT_PRESENTATION_KEYS]),
-  hidden: z.array(presentationKey).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount", "currency"].includes(key))).default(["funding", "payment_form"]),
-  density: z.union([z.literal(40), z.literal(48), z.literal(56)]).default(48),
+  order: z.array(z.enum([...REPORT_PRESENTATION_KEYS, "currency", "family"])).transform((values) => values.filter((key): key is typeof REPORT_PRESENTATION_KEYS[number] => key !== "currency" && key !== "family")).refine((values) => values[0] === "counterparty" && new Set(values).size === values.length && REPORT_PRESENTATION_KEYS.every((key) => key === "fiscal_number" || key === "itbis_amount" || values.includes(key))),
+  hidden: z.array(z.enum([...REPORT_PRESENTATION_KEYS, "currency", "family"])).transform((values) => values.filter((key): key is typeof REPORT_PRESENTATION_KEYS[number] => key !== "currency" && key !== "family")).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount"].includes(key))),
+  density: z.union([z.literal(40), z.literal(48), z.literal(56)]),
 });
 const pageSize = z.union([z.literal(25), z.literal(50), z.literal(100)]);
 const column = z.enum(["date", "family", "stage", "counterparty", "currency", "gross_amount", "recorded_amount", "proposed_amount", "category", "funding", "document_kind", "fiscal_classification", "note"]);
@@ -34,9 +36,10 @@ export const reportPeriodSchema = z.discriminatedUnion("kind", [
 ]);
 export const reportFiltersSchema = z.strictObject({
   q: z.string().refine((value) => Array.from(value).length <= 200).default(""), period: reportPeriodSchema.default({ kind: "all" }),
-  record_families: z.array(family).default([]),
+  record_families: z.preprocess((value) => Array.isArray(value) && (value.length === 0 || value.length === 2 && value.includes("sale") && value.includes("purchase")) ? ["purchase"] : value, z.tuple([family]).default(["purchase"])),
   // A saved view or address bar may still name a stage the server dropped when drafts left Registros; it reads as no stage filter, never as a 422.
   review_stages: z.array(z.string()).default([]).transform((values): ReportStage[] => values.filter((value): value is ReportStage => stage.safeParse(value).success)),
+  fiscal_data: z.enum(["complete", "missing"]).nullable().default(null),
   has_document: z.boolean().nullable().default(null), currencies: z.array(z.string().regex(/^[A-Z]{3}$/)).max(200).default([]),
   amount_min: decimal.nullable().default(null), amount_max: decimal.nullable().default(null),
   counterparties: z.array(z.string().min(1).max(128)).max(200).default([]),
@@ -45,7 +48,7 @@ export const reportFiltersSchema = z.strictObject({
   expense_types: z.array(z.string().min(1).max(16)).max(20).default([]),
   funding_sources: z.array(z.string().min(1).max(128)).max(200).default([]), document_kinds: z.array(documentKind).default([]),
   fiscal_classifications: z.array(z.string().min(1).max(128)).max(100).default([]),
-});
+}).transform((filters) => filters.record_families[0] === "sale" ? { ...filters, expense_types: [] } : filters);
 const reportRecipeV1Schema = z.strictObject({
   schema_version: z.literal(1).default(1), filters: reportFiltersSchema.default(() => reportFiltersSchema.parse({})),
   columns: z.array(column).min(1).refine((values) => new Set(values).size === values.length).default(["date", "family", "stage", "counterparty", "currency", "gross_amount"]),
@@ -53,7 +56,7 @@ const reportRecipeV1Schema = z.strictObject({
 });
 const reportRecipeV2Schema = reportRecipeV1Schema.extend({
   schema_version: z.literal(2), sort: reportSortSchema.default("date_desc"),
-  presentation: reportPresentationSchema.default(() => reportPresentationSchema.parse({})), page_size: pageSize.default(25),
+  presentation: reportPresentationSchema.optional(), page_size: pageSize.default(25),
 });
 export const reportRecipeSchema = z.union([reportRecipeV1Schema, reportRecipeV2Schema]);
 export const reportRequestSchema = z.union([
@@ -69,8 +72,9 @@ export const dgiiChoiceSchema = z.object({ code: z.string().min(1), label: z.str
 export const purchase606Schema = z.object({ expense_type: dgiiChoiceSchema.nullable(), payment_form: dgiiChoiceSchema.nullable() });
 export const reportRecordSchema = z.object({
   row_id: z.string().min(1), draft_id: z.string().nullable(), linked_activity_ids: z.array(z.string()), revision: count,
-  report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), export_missing: z.string().nullable().optional(), export_missing_several: z.boolean().optional(), export_line: z.boolean().optional(),
+  report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), fiscal_data: z.enum(["complete", "missing"]).nullable().optional(), export_missing: z.string().nullable().optional(), export_missing_several: z.boolean().optional(), export_line: z.boolean().optional(),
   technical_state: z.string().nullable(), workflow_blockers: z.array(z.string()), currency: z.string().nullable(), gross_amount: decimal.nullable(),
+  itbis_amount: decimal.nullable().optional(), goods_amount: decimal.nullable().optional(), services_amount: decimal.nullable().optional(),
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),
   money_effect: effect, adjustment_effect: effect.nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),
   category_key: z.string(), funding_key: z.string().nullable(), funding_label: z.string().nullable(), funding_kind: z.string().nullable(),
@@ -83,8 +87,16 @@ export const reportTotalSchema = z.object({
   matching_count: count, known_amount_minor: minorNumber, unknown_count: count, unsupported_count: count, complete: z.boolean(),
   amount_minor: minorNumber.nullable(), known_amount: decimal.nullable(), amount: decimal.nullable(),
 });
+export const reportFiscalTotalSchema = z.object({
+  currency: z.string().nullable(), kind: z.string(), basis: z.enum(["itbis", "goods", "services"]),
+  applicable_count: count, populated_count: count, known_amount_minor: minorNumber,
+  unknown_count: count, unsupported_count: count, complete: z.boolean(),
+  amount_minor: minorNumber.nullable(), known_amount: decimal.nullable(), amount: decimal.nullable(),
+});
 export const reportAnswerSchema = z.object({
+  presentation: reportPresentationSchema,
   items: z.array(reportRecordSchema), matching_count: count, page: z.number().int().positive(), page_size: z.union([z.literal(25), z.literal(50), z.literal(100)]), page_count: count,
+  fiscal_totals: z.array(reportFiscalTotalSchema).optional(),
   totals: z.array(reportTotalSchema), fingerprint: z.string().regex(/^[0-9a-f]{64}$/), captured_at: z.string(),
   resolved_period: z.object({ from_date: day.nullable(), to_date: day.nullable(), calendar: z.literal("America/Santo_Domingo") }),
   excluded_unknown_dates: count, excluded_personal: z.object({ income: count, expense: count }).optional(),
@@ -105,6 +117,7 @@ export type ReportRequest = z.infer<typeof reportRequestSchema>;
 export type ReportRecord = z.infer<typeof reportRecordSchema>;
 export type DgiiChoice = z.infer<typeof dgiiChoiceSchema>;
 export type Purchase606 = z.infer<typeof purchase606Schema>;
+export type ReportFiscalTotal = z.infer<typeof reportFiscalTotalSchema>;
 export type ReportTotal = z.infer<typeof reportTotalSchema>;
 export type ReportAnswer = z.infer<typeof reportAnswerSchema>;
 export type SavedReportView = z.infer<typeof savedReportViewSchema>;
@@ -131,7 +144,7 @@ async function request<T>(scope: ReportScope, path: string, options: RequestInit
     assertScope();
     const deadline = AbortSignal.timeout(30_000);
     const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
-    const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, { ...options, signal, cache: "no-store", credentials: "omit", headers: argusApiRequestHeaders(options.headers, auth, path) });
+    const response = await fetch(`${CUADRAO_API_BASE_URL}${path}`, { ...options, signal, cache: "no-store", credentials: "omit", headers: argusApiRequestHeaders(options.headers, auth, scope.grantId) });
     assertScope();
     if (!response.ok) {
       const raw: unknown = await response.json().catch(() => ({}));
@@ -157,11 +170,37 @@ async function json<T>(scope: ReportScope, path: string, schema: z.ZodType<T>, o
 export async function queryBusinessReport(scope: ReportScope, report: ReportRequest, signal?: AbortSignal): Promise<ReportAnswer> {
   return json(scope, "/business/reports/query", reportAnswerSchema, { method: "POST", body: JSON.stringify(reportRequestSchema.parse(report)), signal });
 }
-export async function exportBusinessReport(scope: ReportScope, report: ReportRequest, fingerprint: string, signal?: AbortSignal): Promise<Blob> {
-  const body = z.strictObject({ report: reportRequestSchema, expected_fingerprint: z.string().regex(/^[0-9a-f]{64}$/) }).parse({ report, expected_fingerprint: fingerprint });
-  return request(scope, "/business/reports/export", { method: "POST", body: JSON.stringify(body), signal }, async (response) => {
-    if (response.headers.get("Content-Type")?.split(";")[0].trim() !== "application/zip") throw new Error("Invalid Business report archive");
-    return response.blob();
+const currencySelectionSchema = z.object({ record_count: count, currencies: z.array(z.string()) });
+/** What the Registros export would hold, counted by the server before any file is built. */
+export const exportPreviewSchema = z.object({
+  table: z.object({
+    columns: z.array(z.object({ key: z.enum(REPORT_PRESENTATION_KEYS), shown: z.boolean() })).min(1),
+    current: currencySelectionSchema,
+    /** Null while an amount range ties the export to the screen's currency. */
+    all: currencySelectionSchema.nullable(),
+  }),
+  dgii: z.object({ form: z.enum(["606", "607"]), currency: z.string(), record_count: count, pending_fiscal_count: count, pending_rate_count: count, pending_rate_currencies: z.array(z.string()) }),
+});
+export type ExportPreview = z.infer<typeof exportPreviewSchema>;
+export type ExportColumnKey = typeof REPORT_PRESENTATION_KEYS[number];
+export type RecordsExportChoice =
+  | { mode: "table"; columns: ExportColumnKey[]; currencies: "all" | "current"; format: "xlsx" | "csv" }
+  | { mode: "dgii"; format: "xlsx" | "csv" };
+export type RecordsExportFile = { blob: Blob; filename: string };
+const FILE_TYPES = new Set(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/csv"]);
+
+export function previewRecordsExport(scope: ReportScope, report: ReportRequest, signal?: AbortSignal): Promise<ExportPreview> {
+  return json(scope, "/business/reports/export/preview", exportPreviewSchema, { method: "POST", body: JSON.stringify({ report: reportRequestSchema.parse(report) }), signal });
+}
+export async function downloadRecordsExport(scope: ReportScope, report: ReportRequest, choice: RecordsExportChoice, signal?: AbortSignal): Promise<RecordsExportFile> {
+  return request(scope, "/business/reports/export", { method: "POST", headers: { "Accept-Language": (i18n.resolvedLanguage || i18n.language)?.startsWith("en") ? "en" : "es-419" }, body: JSON.stringify({ report: reportRequestSchema.parse(report), ...choice }), signal }, async (response) => {
+    const type = response.headers.get("Content-Type")?.split(";")[0].trim() ?? "";
+    // The server names the file; the web saves it under that name.
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+    const filename = encoded ? decodeURIComponent(encoded) : /filename="([^"]+)"/.exec(disposition)?.[1];
+    if (!FILE_TYPES.has(type) || !filename) throw new Error("Invalid Registros export file");
+    return { blob: await response.blob(), filename };
   });
 }
 export function listBusinessReportViews(scope: ReportScope, signal?: AbortSignal): Promise<SavedReportView[]> {

@@ -7,158 +7,51 @@ import json
 import unicodedata
 from dataclasses import asdict, replace
 from datetime import date, datetime, timedelta
-from typing import Any, Literal
+from typing import Literal
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
-from argus.domain.business.contracts.dgii import ExpenseType
 from argus.domain.business.contracts.facts import personal_mark_admits
-from argus.domain.business.reporting import ReportIdentity, ReportRow, summarize
+from argus.domain.business.reporting import (
+    FiscalAmount,
+    ReportIdentity,
+    ReportRow,
+    summarize,
+    summarize_fiscal,
+)
+from argus.domain.business.reporting_preferences import (
+    DEFAULT_COLUMNS as DEFAULT_COLUMNS,
+)
+from argus.domain.business.reporting_preferences import (
+    Column as Column,
+)
+from argus.domain.business.reporting_preferences import (
+    Contract,
+    DocumentKind,
+    Family,
+    FiscalData,
+    Period,
+    Presentation,
+    ReportFilters,
+    ReportRequest,
+    ReportRequestV2,
+    Stage,
+)
+from argus.domain.business.reporting_preferences import (
+    ReportRecipe as ReportRecipe,
+)
 from argus.domain.recording.currency import (
     format_minor_units,
-    normalize_currency,
     parse_minor_units,
 )
 from argus.domain.recording.errors import RecordingInputError
 
 CALENDAR = "America/Santo_Domingo"
-Family = Literal["sale", "purchase"]
-#: A recorded row's place on the way to the DGII. Registros lists approved
-#: records only; a draft waits in the Bandeja and is no stage here.
-Stage = Literal["needs_review", "needs_fiscal_data", "ready_for_export", "exported"]
-DocumentKind = Literal["invoice", "receipt", "credit_note", "unknown"]
-Column = Literal[
-    "date",
-    "family",
-    "stage",
-    "counterparty",
-    "currency",
-    "gross_amount",
-    "recorded_amount",
-    "proposed_amount",
-    "category",
-    "funding",
-    "document_kind",
-    "fiscal_classification",
-    "note",
-]
-DEFAULT_COLUMNS: tuple[Column, ...] = (
-    "date",
-    "family",
-    "stage",
-    "counterparty",
-    "currency",
-    "gross_amount",
-)
-
-
-class Contract(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-
-class Period(Contract):
-    kind: Literal[
-        "all", "custom", "this_month", "last_month", "this_year", "latest_month"
-    ] = "all"
-    from_date: date | None = None
-    to_date: date | None = None
-
-    @model_validator(mode="after")
-    def bounds(self) -> Period:
-        if self.kind == "custom":
-            if (
-                self.from_date is None
-                or self.to_date is None
-                or self.from_date > self.to_date
-            ):
-                raise ValueError("custom period requires ordered inclusive dates")
-        elif self.from_date is not None or self.to_date is not None:
-            raise ValueError("only custom periods accept dates")
-        return self
 
 
 class ResolvedPeriod(Contract):
     from_date: date | None
     to_date: date | None
     calendar: Literal["America/Santo_Domingo"] = CALENDAR
-
-
-class ReportFilters(Contract):
-    q: str = Field(default="", max_length=200)
-    period: Period = Period()
-    record_families: tuple[Family, ...] = ()
-    review_stages: tuple[Stage, ...] = ()
-    has_document: bool | None = None
-    currencies: tuple[str, ...] = Field(default=(), max_length=200)
-    amount_min: str | None = None
-    amount_max: str | None = None
-    counterparties: tuple[str, ...] = Field(default=(), max_length=200)
-    categories: tuple[str, ...] = Field(default=(), max_length=200)
-    #: 606 tipo de gasto codes, or `missing` for a purchase that still needs one.
-    expense_types: tuple[ExpenseType | Literal["missing"], ...] = ()
-    funding_sources: tuple[str, ...] = Field(default=(), max_length=200)
-    document_kinds: tuple[DocumentKind, ...] = ()
-    fiscal_classifications: tuple[str, ...] = Field(default=(), max_length=100)
-
-    @field_validator("review_stages", mode="before")
-    @classmethod
-    def drop_removed_stage(cls, value: Any) -> Any:
-        """Registros no longer lists open drafts, so a saved view or an old tab
-        that still names `awaiting_approval` keeps its other stages."""
-
-        if isinstance(value, (list, tuple)):
-            return [stage for stage in value if stage != "awaiting_approval"]
-        return value
-
-    @model_validator(mode="after")
-    def amounts(self) -> ReportFilters:
-        try:
-            for currency in self.currencies:
-                if normalize_currency(currency) != currency:
-                    raise ValueError("currency must use its canonical code")
-            if self.amount_min is not None or self.amount_max is not None:
-                if len(set(self.currencies)) != 1:
-                    raise ValueError("amount range requires one currency")
-                values = [
-                    parse_minor_units(value, self.currencies[0])
-                    if value is not None
-                    else None
-                    for value in (self.amount_min, self.amount_max)
-                ]
-                if any(value is not None and value < 0 for value in values):
-                    raise ValueError("amount range uses gross magnitude")
-                if all(value is not None for value in values) and values[0] > values[1]:
-                    raise ValueError("amount range must be ordered")
-        except RecordingInputError as error:
-            raise ValueError(error.code) from None
-        for values in (
-            self.counterparties,
-            self.categories,
-            self.funding_sources,
-            self.fiscal_classifications,
-        ):
-            if any(not value or len(value) > 128 for value in values):
-                raise ValueError("invalid filter key")
-        return self
-
-
-class ReportRecipe(Contract):
-    schema_version: Literal[1] = 1
-    filters: ReportFilters = ReportFilters()
-    columns: tuple[Column, ...] = DEFAULT_COLUMNS
-    sort: Literal["date_desc"] = "date_desc"
-
-    @model_validator(mode="after")
-    def unique_columns(self) -> ReportRecipe:
-        if not self.columns or len(set(self.columns)) != len(self.columns):
-            raise ValueError("columns must be nonempty and unique")
-        return self
-
-
-class ReportRequest(ReportRecipe):
-    page: int = Field(default=1, ge=1, strict=True)
-    page_size: Literal[25, 50, 100] = 25
 
 
 class ReportAttachment(Contract):
@@ -197,6 +90,8 @@ class ReportRecord(Contract):
     date_basis: Literal["document_issue", "activity_effective"]
     family: Family | None = None
     stage: Stage | None = None
+    #: Current 606/607 verdict, independent of downloaded export history.
+    fiscal_data: FiscalData | None = None
     export_missing: str | None = None
     export_missing_several: bool = False
     export_line: bool = False
@@ -204,6 +99,9 @@ class ReportRecord(Contract):
     workflow_blockers: tuple[str, ...] = ()
     currency: str | None = None
     gross_amount: str | None = None
+    itbis_amount: str | None = None
+    goods_amount: str | None = None
+    services_amount: str | None = None
     recorded_amount: str | None = None
     recorded_currency: str | None = None
     proposed_amount: str | None = None
@@ -252,6 +150,21 @@ class Total(Contract):
     amount: str | None
 
 
+class FiscalReportTotal(Contract):
+    currency: str | None
+    kind: str
+    basis: Literal["itbis", "goods", "services"]
+    applicable_count: int
+    populated_count: int
+    known_amount_minor: int
+    unknown_count: int
+    unsupported_count: int
+    complete: bool
+    amount_minor: int | None
+    known_amount: str | None
+    amount: str | None
+
+
 class FilterOption(Contract):
     key: str
     labels: tuple[str, ...]
@@ -264,8 +177,8 @@ class FundingOption(Contract):
 
 
 class ReportOverview(Contract):
-    """The period's recorded rows by stage. The three Registros cards read
-    `needs_fiscal_data`, `ready_for_export` and `exported`."""
+    """Fiscal count uses all table filters before pagination.
+    Other counts cover the period's recorded rows."""
 
     needs_review: int = 0
     ready_for_export: int = 0
@@ -283,6 +196,7 @@ class ExcludedPersonal(Contract):
 
 
 class ReportAnswer(Contract):
+    presentation: Presentation
     items: tuple[ReportRecord, ...]
     overview: ReportOverview = ReportOverview()
     effective_sort: str = "date_desc"
@@ -292,6 +206,7 @@ class ReportAnswer(Contract):
     page_size: int
     page_count: int
     totals: tuple[Total, ...]
+    fiscal_totals: tuple[FiscalReportTotal, ...] = ()
     fingerprint: str
     captured_at: datetime
     resolved_period: ResolvedPeriod
@@ -354,11 +269,17 @@ def _expense_type_key(row: ReportRecord) -> str | None:
     return row.dgii_606.expense_type.code if row.dgii_606.expense_type else "missing"
 
 
+def _matches_period(row: ReportRecord, period: ResolvedPeriod) -> bool:
+    return period.from_date is None or (
+        row.report_date is not None
+        and period.from_date <= row.report_date <= period.to_date
+    )
+
+
 def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) -> bool:
-    if period.from_date is not None and (
-        row.report_date is None
-        or not period.from_date <= row.report_date <= period.to_date
-    ):
+    if filters.fiscal_data is not None and row.fiscal_data != filters.fiscal_data:
+        return False
+    if not _matches_period(row, period):
         return False
     if filters.q and not any(
         _text(filters.q) in _text(value or "")
@@ -492,6 +413,63 @@ def _totals(
     return tuple(result)
 
 
+def _fiscal_minor_units(amount: str, currency: str) -> int:
+    """Discard only redundant fractional zeroes, then use the exact money parser."""
+    whole, dot, fraction = amount.strip().partition(".")
+    if dot and fraction:
+        fraction = fraction.rstrip("0")
+        amount = whole + ("." + fraction if fraction else "")
+    return parse_minor_units(amount, currency)
+
+
+def _fiscal_totals(rows: tuple[ReportRecord, ...]) -> tuple[FiscalReportTotal, ...]:
+    components = []
+    for row in filter(_admitted, rows):
+        kind = {"sale": "income", "purchase": "expense"}.get(row.family, "unknown")
+        credit = row.document_kind == "credit_note"
+        for basis, amount in (
+            ("itbis", row.itbis_amount),
+            ("goods", row.goods_amount),
+            ("services", row.services_amount),
+        ):
+            if basis != "itbis" and row.dgii_606 is None:
+                continue
+            effect = (row.adjustment_effect or "unknown") if credit else row.money_effect
+            if amount is None or row.currency is None or kind == "unknown":
+                effect = "unknown"
+            amount_minor = None
+            if amount is not None and row.currency is not None:
+                try:
+                    amount_minor = _fiscal_minor_units(amount, row.currency)
+                except RecordingInputError:
+                    effect = "unsupported"
+            components.append(
+                FiscalAmount(
+                    currency=row.currency,
+                    kind=kind,
+                    basis=basis,
+                    amount_minor=amount_minor,
+                    populated=amount is not None,
+                    effect=effect,
+                    sign=-1 if credit else 1,
+                )
+            )
+    return tuple(
+        FiscalReportTotal(
+            **asdict(total),
+            complete=total.complete,
+            amount_minor=total.amount_minor,
+            known_amount=format_minor_units(total.known_amount_minor, total.currency)
+            if total.currency
+            else None,
+            amount=format_minor_units(total.amount_minor, total.currency)
+            if total.currency and total.amount_minor is not None
+            else None,
+        )
+        for total in summarize_fiscal(components)
+    )
+
+
 def _document_totals(
     components: list[Total], rows: tuple[ReportRecord, ...]
 ) -> list[Total]:
@@ -527,7 +505,7 @@ def _document_totals(
 
 def matching_records(
     records: tuple[ReportRecord, ...] | list[ReportRecord],
-    request: ReportRequest,
+    request: ReportRequest | ReportRequestV2,
     observed_at: datetime,
 ) -> tuple[ReportRecord, ...]:
     period = resolve_period(request.filters.period, records, observed_at)
@@ -565,7 +543,7 @@ def effective_sort(
 def run_query(
     identity: ReportIdentity,
     records: tuple[ReportRecord, ...] | list[ReportRecord],
-    request: ReportRequest,
+    request: ReportRequest | ReportRequestV2,
     observed_at: datetime,
 ) -> ReportAnswer:
     ids = [row.row_id for row in records]
@@ -605,12 +583,27 @@ def run_query(
         for row in records
         if row.dgii_606 and row.dgii_606.expense_type
     }
-    options = {
-        "counterparties": sorted(
-            (row.counterparty_key, row.counterparty or "")
-            for row in records
-            if row.counterparty_key
+    family_records = [
+        row
+        for row in records
+        if not request.filters.record_families
+        or row.family in request.filters.record_families
+    ]
+    parties: dict[str, str] = {}
+    for row in sorted(
+        family_records,
+        key=lambda row: (
+            -(row.report_date.toordinal() if row.report_date else 0),
+            row.row_id,
         ),
+    ):
+        if row.counterparty_key and row.counterparty:
+            parties.setdefault(row.counterparty_key, row.counterparty)
+    for row in family_records:
+        if row.counterparty_key:
+            parties.setdefault(row.counterparty_key, row.counterparty_key)
+    options = {
+        "counterparties": sorted(parties.items()),
         "categories": sorted({row.category_key for row in records}),
         "expense_types": [
             expense_types[code].model_dump(mode="json") for code in sorted(expense_types)
@@ -634,24 +627,14 @@ def run_query(
             payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode()
     ).hexdigest()
-    parties: dict[str, set[str]] = {}
-    for row in records:
-        if row.counterparty_key:
-            parties.setdefault(row.counterparty_key, set()).add(
-                row.counterparty or row.counterparty_key
-            )
     offset = (request.page - 1) * request.page_size
-    overview_rows = [
-        row
-        for row in records
-        if _matches(row, ReportFilters(period=request.filters.period), period)
-    ]
+    overview_rows = [row for row in records if _matches_period(row, period)]
     overview = ReportOverview(
+        needs_fiscal_data=sum(row.fiscal_data == "missing" for row in rows),
         **{
             stage: sum(row.stage == stage for row in overview_rows)
             for stage in (
                 "needs_review",
-                "needs_fiscal_data",
                 "ready_for_export",
                 "exported",
             )
@@ -661,6 +644,9 @@ def run_query(
     chosen_sort, reason = effective_sort(rows, request.sort)
     left_out = [row for row in rows if not _admitted(row)]
     return ReportAnswer(
+        presentation=request.presentation
+        if isinstance(request, ReportRequestV2)
+        else Presentation(),
         excluded_personal=ExcludedPersonal(
             income=sum(row.family == "sale" for row in left_out),
             expense=sum(row.family == "purchase" for row in left_out),
@@ -674,13 +660,14 @@ def run_query(
         page_size=request.page_size,
         page_count=(len(rows) + request.page_size - 1) // request.page_size,
         totals=_totals(rows, identity, observed_at),
+        fiscal_totals=_fiscal_totals(rows),
         fingerprint=fingerprint,
         captured_at=observed_at,
         resolved_period=period,
         excluded_unknown_dates=excluded_unknown_dates,
         counterparties=tuple(
-            FilterOption(key=key, labels=tuple(sorted(labels)))
-            for key, labels in sorted(parties.items())
+            FilterOption(key=key, labels=(label,))
+            for key, label in sorted(parties.items())
         ),
         categories=tuple(sorted({row.category_key for row in records})),
         expense_types=tuple(expense_types[code] for code in sorted(expense_types)),

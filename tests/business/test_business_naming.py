@@ -1,59 +1,42 @@
-from concurrent.futures import ThreadPoolExecutor
-
 import pytest
 from argus.domain.business.spaces import InMemorySpaceStore
 
 
-def test_prompt_is_claimed_once_for_each_business():
+def test_default_name_is_required_until_renamed():
     store = InMemorySpaceStore()
-    first, _ = store.create("owner", "Mi negocio")
-    with ThreadPoolExecutor(max_workers=4) as workers:
-        claims = list(
-            workers.map(lambda _: store.claim_naming_visit("owner", first.id), range(8))
-        )
-    assert sum(claims) == 1
-    assert store.open_space("owner").name == "Mi negocio"
-    assert store.open_space("owner").name_prompt_seen is True
-
-
-def test_prompt_uses_current_owned_business():
-    store = InMemorySpaceStore()
-    own, _ = store.create("owner", "Mi negocio")
-    other, _ = store.create("other", "Mi negocio")
-    assert not store.claim_naming_visit("owner", other.id)
-    assert not store.open_space("owner").name_prompt_seen
-    assert store.claim_naming_visit("owner", own.id)
-
-
-def test_custom_name_does_not_trigger_prompt_and_rename_preserves_seen():
-    store = InMemorySpaceStore()
-    space, _ = store.create("owner", "Colmado La Esquina")
-    assert not store.claim_naming_visit("owner", space.id)
-    assert not space.name_required
     default, _ = store.create("new-owner", "My business")
     assert default.name_required
-    assert store.claim_naming_visit("new-owner", default.id)
     renamed = store.rename("new-owner", "Colmado La Esquina")
-    assert renamed.name_prompt_seen
     assert not renamed.name_required
+    custom, _ = store.create("owner", "Colmado La Esquina")
+    assert not custom.name_required
 
 
-def test_owner_prompt_persists_and_invite_requires_custom_name(biz, identities):
+@pytest.fixture
+def invitations_configured(monkeypatch):
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
+    monkeypatch.setattr(
+        "argus.domain.business.invite_email.send_resend_email",
+        lambda **message: "fake-receipt",
+    )
+
+
+def test_invite_requires_custom_name_and_no_first_visit_prompt_exists(
+    biz, identities, invitations_configured
+):
     from tests.business.conftest import ALICE
 
     headers = {"Authorization": f"Bearer {ALICE}"}
     base = "/api/v1/business"
     started = biz.post(base + "/space", headers=headers, json={}).json()
-    claim = biz.post(
-        base + "/space/name-prompt", headers=headers, json={"space_id": started["id"]}
-    )
-    assert claim.status_code == 200
-    assert claim.json()["show_prompt"] is True
+    # A new Business's first steps live in Inicio's setup guide; nothing claims a first-visit prompt.
     assert (
         biz.post(
             base + "/space/name-prompt", headers=headers, json={"space_id": started["id"]}
-        ).json()["show_prompt"]
-        is False
+        ).status_code
+        == 404
     )
     blocked = biz.post(
         base + "/access", headers=headers, json={"email": "accountant@example.test"}
@@ -67,7 +50,6 @@ def test_owner_prompt_persists_and_invite_requires_custom_name(biz, identities):
     )
     assert renamed.status_code == 200
     assert renamed.json()["name"] == "Colmado La Esquina"
-    assert renamed.json()["name_prompt_seen"] is True
     assert renamed.json()["name_required"] is False
     assert (
         biz.post(
@@ -75,14 +57,6 @@ def test_owner_prompt_persists_and_invite_requires_custom_name(biz, identities):
         ).status_code
         == 201
     )
-
-
-@pytest.mark.parametrize("name", ["Mi negocio", "My business"])
-def test_default_name_remains_required_after_skip(name):
-    store = InMemorySpaceStore()
-    space, _ = store.create("owner", name)
-    store.claim_naming_visit("owner", space.id)
-    assert store.open_space("owner").name_required
 
 
 @pytest.mark.parametrize("name", ["", " " * 4, "x" * 81])
@@ -101,7 +75,7 @@ def test_invalid_name_does_not_replace_current_name(biz, name):
     assert biz.get(base + "/space/name", headers=headers).json()["name"] == space["name"]
 
 
-def test_accountant_never_claims_or_renames_another_business(biz, identities):
+def test_accountant_never_renames_another_business(biz, identities):
     from argus.api.business_spaces import business_access
 
     from tests.business.conftest import ALICE, BOB
@@ -118,27 +92,16 @@ def test_accountant_never_claims_or_renames_another_business(biz, identities):
     grant = access.spaces_for(identities[BOB]["id"])[0]
     accountant = {"Authorization": f"Bearer {BOB}", "X-Business-Grant": grant.grant_id}
     assert biz.get(base + "/space/name", headers=accountant).status_code == 200
-    for response, expected in zip(
-        [
-            biz.post(
-                base + "/space/name-prompt",
-                headers=accountant,
-                json={"space_id": space["id"]},
-            ),
-            biz.patch(
-                base + "/space/name",
-                headers=accountant,
-                json={"space_id": space["id"], "name": "Changed"},
-            ),
-        ],
-        [403, 403],
-        strict=True,
-    ):
-        assert response.status_code == expected
-    assert not biz.get(base + "/space/name", headers=owner).json()["name_prompt_seen"]
+    renamed = biz.patch(
+        base + "/space/name",
+        headers=accountant,
+        json={"space_id": space["id"], "name": "Changed"},
+    )
+    assert renamed.status_code == 403
+    assert biz.get(base + "/space/name", headers=owner).json()["name"] == space["name"]
 
 
-def test_wrong_business_id_cannot_consume_or_rename_current_business(biz):
+def test_wrong_business_id_cannot_rename_current_business(biz):
     from uuid import uuid4
 
     from tests.business.conftest import ALICE
@@ -146,14 +109,13 @@ def test_wrong_business_id_cannot_consume_or_rename_current_business(biz):
     headers = {"Authorization": f"Bearer {ALICE}"}
     base = "/api/v1/business"
     biz.post(base + "/space", headers=headers, json={})
-    for method, path, body in [
-        (biz.post, "/space/name-prompt", {"space_id": str(uuid4())}),
-        (biz.patch, "/space/name", {"space_id": str(uuid4()), "name": "Changed"}),
-    ]:
-        assert method(base + path, headers=headers, json=body).status_code == 404
-    state = biz.get(base + "/space/name", headers=headers).json()
-    assert state["name"] == "Mi negocio"
-    assert not state["name_prompt_seen"]
+    response = biz.patch(
+        base + "/space/name",
+        headers=headers,
+        json={"space_id": str(uuid4()), "name": "Changed"},
+    )
+    assert response.status_code == 404
+    assert biz.get(base + "/space/name", headers=headers).json()["name"] is None
 
 
 @pytest.mark.parametrize(
@@ -226,3 +188,81 @@ def test_invite_rechecks_name_after_client_read(biz, identities):
     assert response.status_code == 409
     assert response.json()["code"] == "business_name_required"
     assert biz.get(base + "/access", headers=headers).json()["invites"] == []
+
+
+@pytest.mark.parametrize("language", ["en", "es-419"])
+def test_an_unnamed_business_has_no_name_on_the_wire(biz, language):
+    from tests.business.conftest import ALICE
+
+    headers = {"Authorization": f"Bearer {ALICE}"}
+    base = "/api/v1/business"
+    started = biz.post(base + "/space", headers=headers, json={"language": language})
+    naming = biz.get(base + "/space/name", headers=headers).json()
+    listed = biz.get(base + "/spaces", headers=headers).json()["spaces"]
+    assert started.json()["name"] is None
+    assert biz.get(base + "/space", headers=headers).json()["name"] is None
+    assert (naming["name"], naming["name_required"]) == (None, True)
+    assert [space["name"] for space in listed] == [None]
+    profile = biz.get(f"{base}/spaces/{started.json()['id']}/profile", headers=headers)
+    assert profile.json()["name"] is None
+
+
+@pytest.mark.parametrize("name", ["My business supplies", "Colmado Mi negocio"])
+def test_a_real_name_is_untouched_on_the_wire(biz, name):
+    from tests.business.conftest import ALICE
+
+    headers = {"Authorization": f"Bearer {ALICE}"}
+    base = "/api/v1/business"
+    biz.post(base + "/space", headers=headers, json={"language": "en"})
+    biz.patch(base + "/space", headers=headers, json={"name": name})
+    listed = biz.get(base + "/spaces", headers=headers).json()["spaces"]
+    assert biz.get(base + "/space", headers=headers).json()["name"] == name
+    assert [space["name"] for space in listed] == [name]
+
+
+@pytest.mark.parametrize(
+    "stored,typed,confirmed",
+    [
+        ("My business", "Mi negocio", "My business"),
+        ("Mi negocio", "My business", "Mi negocio"),
+        ("Mi negocio", "Mi negocio", "Mi negocio"),
+        ("My business", "Colmado", "Colmado"),
+        ("Colmado", "Mi negocio", "Mi negocio"),
+        ("Colmado", "Colmado", "Colmado"),
+    ],
+)
+def test_an_unnamed_business_confirms_with_the_name_its_reader_shows(
+    stored, typed, confirmed
+):
+    from argus.domain.business.space_name import typed_name
+
+    assert typed_name(stored, typed) == confirmed
+
+
+@pytest.mark.parametrize(
+    "stored,spoken",
+    [("My business", "Mi negocio"), ("Mi negocio", "Mi negocio"), ("Colmado", "Colmado")],
+)
+def test_a_spanish_message_names_an_unnamed_business_mi_negocio(stored, spoken):
+    from argus.domain.business.space_name import spanish_name
+
+    assert spanish_name(stored) == spoken
+
+
+@pytest.mark.parametrize(
+    "sent,read",
+    [
+        (None, None),
+        ("Mi negocio", None),
+        (" My business ", None),
+        ("Colmado", "Colmado"),
+        ("My business supplies", "My business supplies"),
+    ],
+)
+def test_a_profile_save_reads_a_starting_previous_name_as_unnamed(sent, read):
+    from argus.domain.business.fiscal_profile import FiscalProfileChange
+
+    change = FiscalProfileChange(
+        name="Taller Norte", previous_name=sent, tax_id=None, previous_tax_id=None
+    )
+    assert change.previous_name == read

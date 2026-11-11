@@ -25,6 +25,10 @@ APPROVED_STAGING_OVERRIDES: dict[str, str] = {
         "The Consumer staging proof uses households ahead of the iOS beta "
         "build. Prod stays false."
     ),
+    "CUADRAO_BUSINESS_ACTIVITY_ENABLED": (
+        "Lucas decided 2026-11-09: Actividad is on in staging and off for the "
+        "production pilot."
+    ),
     "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED": (
         "Lucas approved bank matching on staging 2026-10-28 (demo loop approval "
         "2). Prod stays false."
@@ -48,7 +52,7 @@ def production_values(manifest: dict) -> dict:
                 "env": {
                     entry["name"]: entry["production"]["value"]
                     for entry in service["entries"]
-                    if "value" in entry["production"]
+                    if not entry.get("local_only") and "value" in entry["production"]
                 }
             }
             for label, service in manifest["services"].items()
@@ -157,7 +161,7 @@ def prod_values_other_than_false(
         render_values = [
             item.get("value")
             for service in render_config.get("services", [])
-            if service.get("name") not in ("cuadrao-api-staging", "cuadrao-web-staging")
+            if service.get("name") not in ("cuadrao-api-staging", "cuadrao-app-staging")
             for item in service.get("envVars", [])
             if item.get("key") == name
         ]
@@ -236,7 +240,7 @@ def test_staging_exception_cannot_hide_other_true_values(surface: str) -> None:
         production = next(
             service
             for service in render_config["services"]
-            if service["name"] == "cuadrao-web"
+            if service["name"] == "cuadrao-app"
         )
         production.setdefault("envVars", []).append({"key": name, "value": "true"})
     else:
@@ -277,7 +281,7 @@ def test_staging_web_flags_match_the_20261029_decision(
     stage = next(
         service
         for service in render_config["services"]
-        if service["name"] == "cuadrao-web-staging"
+        if service["name"] == "cuadrao-app-staging"
     )
     assert next(entry for entry in stage["envVars"] if entry["key"] == name)[
         "value"

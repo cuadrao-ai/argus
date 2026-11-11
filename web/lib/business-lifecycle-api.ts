@@ -3,7 +3,7 @@ import { apiFetch } from "./argus-api-transport";
 
 const lifecycleResult = z.object({
   space_id: z.uuid(),
-  name: z.string(),
+  name: z.string().nullable(),
   closed_at: z.iso.datetime({ offset: true }).nullable(),
   reopen_until: z.iso.datetime({ offset: true }).nullable(),
 });
@@ -35,7 +35,7 @@ const transferMember = z.discriminatedUnion("eligible", [
   memberIdentity.extend({ eligible: z.literal(false), reason: z.enum(["account_unavailable", "not_editor", "email_unconfirmed", "owns_open_business"]) }),
 ]);
 const ownedBusiness = z.object({
-  space_id: z.uuid(), name: z.string(), grant_id: z.uuid(),
+  space_id: z.uuid(), name: z.string().nullable(), grant_id: z.uuid(),
   member_count: z.number().int().nonnegative(),
   reopen_until: z.iso.datetime({ offset: true }),
   export_windows: z.array(z.object({ start: z.iso.date(), end: z.iso.date() })),

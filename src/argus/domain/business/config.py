@@ -67,6 +67,43 @@ def business_bank_matching_enabled() -> bool:
         return False
 
 
+class BusinessSettlementSettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias="CUADRAO_BUSINESS_SETTLEMENT_ENABLED"
+    )
+
+
+def business_settlement_enabled() -> bool:
+    """Por cobrar and Por pagar: marking a document cobrado or pagado and the
+    lists of what is still open. Off, the default: the month close carries no
+    settlement state, an open document never holds the month, and the routes
+    that only serve settlement refuse. Stored settlements stay as they are."""
+
+    try:
+        return BusinessSettlementSettings().enabled
+    except ValidationError:
+        return False
+
+
+class BusinessActivitySettings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(
+        default=False, validation_alias="CUADRAO_BUSINESS_ACTIVITY_ENABLED"
+    )
+
+
+def business_activity_enabled() -> bool:
+    """Actividad: the feed of who changed what. Off, the default: the feed
+    route refuses and the workspace says so. Actions keep recording their
+    entries either way, so turning it on later shows the whole history."""
+
+    try:
+        return BusinessActivitySettings().enabled
+    except ValidationError:
+        return False
+
+
 class BusinessInviteAdmissionSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
     enabled: Annotated[bool, BeforeValidator(enabled_flag)] = Field(

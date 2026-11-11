@@ -1,0 +1,264 @@
+import assert from "node:assert/strict";
+import { afterAll, beforeAll, describe, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { businessSettlementAvailable } from "../lib/business-api";
+import { createMockMonthCloseClient, readMonthCloseWire, type MonthCloseClient } from "../lib/business-month-close";
+
+beforeAll(() => {
+  GlobalRegistrator.register({ url: "http://localhost" });
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+afterAll(async () => {
+  await GlobalRegistrator.unregister();
+});
+
+const now = new Date(2026, 9, 18);
+
+/**
+ * The month read while settlement is off: no receivables, payables, line statuses, methods, counts by status or ITBIS
+ * cobrado. The net is final unless a rate is pending, and here it is negative: income 1,000.00 minus expenses 1,600.00.
+ */
+function offWire(currencies: Record<string, unknown>[] = [{ currency: "DOP", income_before_itbis_minor: 100000, expense_before_itbis_minor: 160000, net_result_minor: -60000, itbis_charged_minor: 18000, itbis_paid_minor: 1800, net_result_final: true }]) {
+  const line = { activity_id: "sale-1", document_kind: "invoice", currency: "DOP", occurred_on: "2026-10-05", total_minor: 11800, total: "118.00", before_itbis_minor: 10000, before_itbis: "100.00", itbis_minor: 1800, itbis: "18.00", counterparty: "Colmado Ana", rnc: null, ncf: "B0100000001", ecf: null, sin_comprobante: false, due_on: null };
+  return {
+    month: "2026-10",
+    today: "2026-10-18",
+    from: "2026-10-01",
+    to: "2026-10-31",
+    closed: false,
+    reasons: [{ code: "missing_rnc", activity_id: "sale-1", document_kind: "invoice" }],
+    earliest_month: "2026-10",
+    dgii_forms: { "606": "no_operations", "607": "needs_review" },
+    currencies,
+    missing_rnc: [line],
+    missing_ncf: [],
+    missing_fiscal_rows: [],
+    missing_fiscal_data: [{ ...line, missing: ["rnc_missing"] }],
+    unreviewed_movements_count: 0,
+  };
+}
+
+/** A server with settlement off: the month reads; anything settlement would ask for fails the test. */
+function offClient(wire = offWire()): MonthCloseClient {
+  const refused = async () => { throw new Error("settlement is off"); };
+  return { mode: "http", async load() { return readMonthCloseWire(wire); }, openItems: refused, markCobrado: refused, markPagado: refused, markPendiente: refused };
+}
+
+/** Counts every call, so a test can say the open items were never read. */
+function counted(client: MonthCloseClient) {
+  const calls: string[] = [];
+  const wrap = <K extends keyof MonthCloseClient>(name: K) => (async (...args: unknown[]) => {
+    calls.push(String(name));
+    return (client[name] as (...rest: unknown[]) => Promise<unknown>)(...args);
+  }) as MonthCloseClient[K];
+  const spy: MonthCloseClient = { ...client, load: wrap("load"), openItems: wrap("openItems"), markCobrado: wrap("markCobrado"), markPagado: wrap("markPagado"), markPendiente: wrap("markPendiente") };
+  return { calls, client: spy };
+}
+
+async function render(client: MonthCloseClient, settlement: boolean, layout: "finance" | "inicio", headingAction?: import("react").ReactNode) {
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const spanish = (await import("../public/locales/es-419/common.json")).default;
+  const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <BusinessMonthCloseView client={client} now={now} businessCurrency="DOP" settlement={settlement} layout={layout} headingAction={headingAction} review={{ count: 0 }} />
+      </I18nextProvider>,
+    );
+  });
+  for (let i = 0; i < 10; i += 1) await act(async () => { await Promise.resolve(); });
+  return { act, host, root };
+}
+
+describe("Por cobrar and Por pagar while settlement is off", () => {
+  test("only the server's explicit answer turns settlement on", () => {
+    assert.equal(businessSettlementAvailable(null), false);
+    assert.equal(businessSettlementAvailable({} as never), false);
+    assert.equal(businessSettlementAvailable({ settlement_available: false } as never), false);
+    assert.equal(businessSettlementAvailable({ settlement_available: true } as never), true);
+  });
+
+  test("the month read without settlement state parses, and no document carries a status", () => {
+    const snapshot = readMonthCloseWire(offWire());
+    assert.deepEqual(snapshot.documents.map((document) => [document.id, document.status, document.missing]), [["sale-1", null, ["rnc_missing"]]]);
+    assert.equal(snapshot.payment_methods, null);
+    assert.deepEqual(snapshot.figures.map((block) => [block.net_before_itbis, block.itbis_charged, block.itbis_cobrado, block.pending_count, block.net_result_final]), [["-600.00", "180.00", null, null, true]]);
+  });
+
+  // The month card Inicio shows: its own tests follow this loop.
+  for (const layout of ["inicio"] as const) {
+    test(`${layout}: no Por cobrar, Por pagar, mark, settle row or "left to mark" line, and the open items are never read`, async () => {
+      const { calls, client } = counted(offClient());
+      const { act, host, root } = await render(client, false, layout);
+      try {
+        assert.ok(host.querySelector('[data-testid="month-close-cards"]'), "the month's figures still show");
+        for (const id of ["month-close-money", "month-close-receivable", "month-close-payable", "month-close-task-settle", "month-close-mark-cobrado", "month-close-mark-pagado", "month-close-nothing-open", "month-close-money-loading"]) {
+          assert.equal(host.querySelector(`[data-testid="${id}"]`), null, id);
+        }
+        for (const words of ["Por cobrar", "Por pagar", "pagado", "Falta marcar", "Faltan marcar", "vencid"]) {
+          assert.equal(host.textContent?.includes(words), false, words);
+        }
+        assert.deepEqual([...new Set(calls)], ["load"]);
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    });
+
+    test(`${layout}: the net is the server's income minus approved expenses, a plain negative, and ITBIS en ventas stands on its own`, async () => {
+      const { act, host, root } = await render(offClient(), false, layout);
+      try {
+        const net = host.querySelector<HTMLElement>('[data-testid="month-close-net"]')!;
+        assert.equal(net.getAttribute("data-state"), "final");
+        assert.equal(net.getAttribute("data-amount"), "-600.00");
+        assert.match(net.textContent ?? "", /-RD\$ 600(?![.\d])/);
+        assert.match(net.textContent ?? "", /Ingresos menos gastos aprobados/);
+        assert.equal(/pérdida/i.test(host.textContent ?? ""), false);
+        assert.equal([net, ...net.querySelectorAll("*")].some((element) => /9e2f39|d66d75|ec9aa0|red/.test(element.getAttribute("class") ?? "")), false, "no red on a negative month");
+        assert.match(host.querySelector('[data-testid="month-close-itbis-sales"]')?.textContent ?? "", /^ITBIS en ventasRD\$ 180$/);
+        assert.equal(host.querySelector('[data-testid="month-close-itbis-cobrado"]'), null);
+        assert.equal(host.textContent?.includes("ITBIS cobrado"), false);
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    });
+
+    test(`${layout}: a pending rate still holds the net while settlement is off`, async () => {
+      const usd = { currency: "USD", income_before_itbis_minor: 5000, expense_before_itbis_minor: 0, net_result_minor: 5000, itbis_charged_minor: 0, itbis_paid_minor: 0, net_result_final: false };
+      const { act, host, root } = await render(offClient(offWire([usd])), false, layout);
+      try {
+        const net = host.querySelector('[data-testid="month-close-net"]')!;
+        assert.equal(net.getAttribute("data-state"), "pending");
+        assert.match(net.textContent ?? "", /pendiente de tasa/);
+        assert.equal(net.textContent?.includes("Ingresos menos gastos aprobados"), false);
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    });
+
+    test(`${layout}: the sample books answer as a server with settlement off`, async () => {
+      const { act, host, root } = await render(createMockMonthCloseClient({ now, settlement: false }), false, layout);
+      try {
+        const net = host.querySelector('[data-testid="month-close-net"]')!;
+        assert.equal(net.getAttribute("data-state"), "final");
+        assert.match(net.textContent ?? "", /Ingresos menos gastos aprobados/);
+        assert.equal(/pendiente de tasa|Falta marcar/.test(host.textContent ?? ""), false);
+        assert.ok(host.querySelector('[data-testid="month-close-itbis-sales"]'));
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    });
+
+    test(`${layout}: with settlement on, Por cobrar and Por pagar show as before`, async () => {
+      const { calls, client } = counted(createMockMonthCloseClient({ now }));
+      const { act, host, root } = await render(client, true, layout);
+      try {
+        assert.ok(host.querySelector('[data-testid="month-close-receivable"]'));
+        assert.ok(host.querySelector('[data-testid="month-close-payable"]'));
+        assert.ok(calls.includes("openItems"));
+        assert.match(host.querySelector('[data-testid="month-close-net"]')?.textContent ?? "", /Falta marcar/);
+        assert.ok(host.querySelector('[data-testid="month-close-itbis-sales"] [data-testid="month-close-itbis-cobrado"]'), "ITBIS cobrado sits under ITBIS en ventas");
+        assert.equal(host.textContent?.includes("Ingresos menos gastos aprobados"), false);
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    });
+  }
+
+  test("inicio layout: the money section never renders while off, in a month with documents, an empty month, or under a heading action", async () => {
+    const empty = { ...offWire([]), reasons: [], missing_rnc: [], missing_fiscal_data: [] };
+    const cases: [string, MonthCloseClient, import("react").ReactNode][] = [
+      ["documents", offClient(), undefined],
+      ["empty month", offClient(empty), undefined],
+      ["heading action", offClient(), <button key="action" type="button">Exportar</button>],
+      ["empty month with a heading action", offClient(empty), <button key="action" type="button">Exportar</button>],
+    ];
+    for (const [name, client, headingAction] of cases) {
+      const { act, host, root } = await render(client, false, "inicio", headingAction);
+      try {
+        assert.equal(host.querySelector('[data-testid="month-close"]')?.getAttribute("data-layout"), "two-columns", name);
+        for (const id of ["month-close-money", "month-close-money-loading", "month-close-money-error", "month-close-receivable", "month-close-payable", "month-close-nothing-open"]) {
+          assert.equal(host.querySelector(`[data-testid="${id}"]`), null, `${name}: ${id}`);
+        }
+        assert.equal(host.querySelector("#month-close-money"), null, name);
+        assert.equal(/Pendiente hoy|Por cobrar|Por pagar/.test(host.textContent ?? ""), false, name);
+      } finally {
+        await act(async () => root.unmount());
+        host.remove();
+      }
+    }
+  });
+
+  test("Inicio's month card: no Por cobrar, Por pagar or mark, and the open items are never read", async () => {
+    const { calls, client } = counted(offClient());
+    const { act, host, root } = await render(client, false, "finance");
+    try {
+      assert.ok(host.querySelector('[data-testid="home-month"]'));
+      for (const id of ["month-close-money", "month-close-receivable", "month-close-payable", "month-close-mark-cobrado", "month-close-mark-pagado"]) {
+        assert.equal(host.querySelector(`[data-testid="${id}"]`), null, id);
+      }
+      for (const words of ["Por cobrar", "Por pagar", "pagado", "Falta marcar", "Faltan marcar", "vencid", "ITBIS cobrado"]) {
+        assert.equal(host.textContent?.includes(words), false, words);
+      }
+      assert.deepEqual([...new Set(calls)], ["load"]);
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+    }
+  });
+
+  test("Inicio's month card: the net is a plain negative with no caption, and ITBIS en ventas stands on its own", async () => {
+    const { act, host, root } = await render(offClient(), false, "finance");
+    try {
+      const net = host.querySelector<HTMLElement>('[data-testid="home-month-net"]')!;
+      assert.equal(net.getAttribute("data-amount"), "-600.00");
+      assert.equal(net.textContent, "-RD$ 600");
+      assert.equal([net, ...net.querySelectorAll("*")].some((element) => /9e2f39|d66d75|ec9aa0|red/.test(element.getAttribute("class") ?? "")), false, "no red on a negative month");
+      assert.equal(host.textContent?.includes("Ingresos menos gastos aprobados"), false, "the definition is a tooltip, not a caption");
+      assert.equal(host.querySelector('[data-testid="home-month-itbis-sales"]')?.textContent, "RD$ 180");
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+    }
+  });
+
+  test("Inicio's month card: a pending rate leaves the net unknown, never a guessed number and no caption", async () => {
+    const usd = { currency: "USD", income_before_itbis_minor: 5000, expense_before_itbis_minor: 0, net_result_minor: 5000, itbis_charged_minor: 0, itbis_paid_minor: 0, net_result_final: false };
+    const { act, host, root } = await render(offClient(offWire([usd])), false, "finance");
+    try {
+      const net = host.querySelector('[data-testid="home-month-net"]')!;
+      assert.equal(net.getAttribute("data-state"), "unknown");
+      assert.equal(/pendiente de tasa/.test(host.textContent ?? ""), false);
+      assert.equal(host.querySelector('[data-testid="home-month-income"]')?.textContent, "US$ 50");
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+    }
+  });
+
+  test("Inicio's month card with settlement on: Cobros y pagos follows it as before", async () => {
+    const { calls, client } = counted(createMockMonthCloseClient({ now }));
+    const { act, host, root } = await render(client, true, "finance");
+    try {
+      assert.ok(host.querySelector('[data-testid="home-month"]'));
+      assert.ok(host.querySelector('[data-testid="month-close-receivable"]'));
+      assert.ok(host.querySelector('[data-testid="month-close-payable"]'));
+      assert.ok(calls.includes("openItems"));
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+    }
+  });
+});

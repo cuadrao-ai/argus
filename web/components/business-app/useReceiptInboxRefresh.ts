@@ -21,10 +21,11 @@ export function useReceiptInboxRefresh({ source, active, reading, businessKey, o
     let current = true;
     let cancel = () => {};
     let request: AbortController | null = null;
+    const eligible = active || reading;
     const visible = () => document.visibilityState !== "hidden";
     const schedule = () => {
       cancel();
-      if (current && visible() && (active || reading)) cancel = clock(() => void refresh(), reading ? RECEIPT_READING_MS : RECEIPT_DISCOVERY_MS);
+      if (current && visible() && eligible) cancel = clock(() => void refresh(), reading ? RECEIPT_READING_MS : RECEIPT_DISCOVERY_MS);
     };
     const refresh = async () => {
       if (!current || !visible() || request) return;
@@ -39,7 +40,7 @@ export function useReceiptInboxRefresh({ source, active, reading, businessKey, o
     const wake = () => {
       cancel();
       if (!visible()) { request?.abort(); return; }
-      void refresh();
+      if (eligible) void refresh();
     };
     window.addEventListener("focus", wake);
     document.addEventListener("visibilitychange", wake);

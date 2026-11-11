@@ -404,6 +404,13 @@ paths:
           content:
             application/json:
               schema: {}
+        '401':
+          description: 'Uniform login failure: private-alpha denial, invalid credentials,
+            or a failed server-side browser check. No session is created.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -991,6 +998,12 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_activity_disabled`: Actividad is off on this server (`CUADRAO_BUSINESS_ACTIVITY_ENABLED`).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -4193,6 +4206,181 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/fiscal-profile/legal-name:
+    put:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegalNameInput'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiscalProfile'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/fiscal-profile/registry:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistryLookupInput'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistryAnswer'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/guide-cards/{card_id}:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      description: Read the signed-in person's guide state. The Business grant is ignored.
+      parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          enum:
+          - bandeja-intro
+          - registros-intro
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessGuideState'
+        '403':
+          description: A registered account is required.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/guide-cards/{card_id}/dismiss:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      description: Dismiss this guide for the signed-in person. The Business grant is ignored.
+      parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          enum:
+          - bandeja-intro
+          - registros-intro
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessGuideState'
+        '403':
+          description: A registered account is required.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/invitations:
     get:
       tags:
@@ -4795,6 +4983,13 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_settlement_unavailable`: Por cobrar and Por pagar are off
+            on this server (`CUADRAO_BUSINESS_SETTLEMENT_ENABLED`).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: '`business_document_settlement_conflict`: another first settlement
             of this document landed, and a fresh retry still collided.'
@@ -5008,6 +5203,13 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`business_settlement_unavailable`: Por cobrar and Por pagar are off
+            on this server (`CUADRAO_BUSINESS_SETTLEMENT_ENABLED`).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Validation Error
           content:
@@ -6166,6 +6368,15 @@ paths:
       - financial-accounts
       - business
       parameters:
+      - name: Accept-Language
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Language for the filename and table text. Send en or es-419 (default).
+        description: Language for the filename and table text. Send en or es-419 (default).
       - name: X-Business-Grant
         in: header
         required: false
@@ -6184,19 +6395,72 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExportReport'
+              $ref: '#/components/schemas/RecordsExport'
       responses:
         '200':
-          description: Complete filtered records, CSV, XLSX and scope manifest; originals
-            excluded.
+          description: 'One Excel or CSV file: the table''s records or the 606/607 lines.'
           content:
-            application/zip: {}
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: {}
+            text/csv: {}
+          headers:
+            Content-Disposition:
+              description: Attachment with an ASCII filename fallback and a UTF-8 filename*.
+              schema:
+                type: string
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
-        '409':
-          description: business_report_changed; explicitly refresh the query before retrying.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/reports/export/preview:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportPreviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportPreview'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -6578,6 +6842,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/setup:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessSetup'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/space:
     get:
       tags:
@@ -6799,56 +7107,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessNamingState'
-        '403':
-          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
-            missing, someone else''s, revoked or expired; `business_permission_denied`: the
-            live grant does not allow this.'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/business/space/name-prompt:
-    post:
-      tags:
-      - financial-accounts
-      - business
-      parameters:
-      - name: X-Business-Grant
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          description: The caller's own live grant on the Business to work in; absent for
-            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
-            a live grant on a closed Business answers 403 business_closed.
-        description: The caller's own live grant on the Business to work in; absent for the
-          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
-          a live grant on a closed Business answers 403 business_closed.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BusinessNameTarget'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BusinessNamePrompt'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -16065,6 +16323,7 @@ components:
           - receipt_review
           - receipt_confirm
           - set_business_rnc
+          - set_business_legal_name
           - business_propose_activity
           - business_attach_source
           - business_propose_allocation
@@ -17850,6 +18109,9 @@ components:
             - failed
             - uncertain
           - type: 'null'
+        invitations_available:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -18023,7 +18285,9 @@ components:
           type: string
           format: uuid
         space_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         accounts:
           items:
             $ref: '#/components/schemas/AccountChoice'
@@ -18184,6 +18448,9 @@ components:
             - ncf
             - ecf
           - type: 'null'
+        fiscal_question_applies:
+          type: boolean
+          default: false
         include_606:
           anyOf:
           - type: boolean
@@ -18421,6 +18688,13 @@ components:
           - type: 'null'
       additionalProperties: false
       type: object
+    BusinessGuideState:
+      properties:
+        dismissed:
+          type: boolean
+      type: object
+      required:
+      - dismissed
     BusinessInvitationAcceptance:
       properties:
         space_id:
@@ -18486,7 +18760,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         closed_at:
           anyOf:
           - type: string
@@ -18503,53 +18779,14 @@ components:
       - name
       - closed_at
       - reopen_until
-    BusinessNamePrompt:
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        country:
-          type: string
-        currency:
-          type: string
-        logo_url:
-          anyOf:
-          - type: string
-          - type: 'null'
-          description: A signed URL to the 256 px logo, valid for about an hour; null without
-            one.
-        name_required:
-          type: boolean
-        name_prompt_seen:
-          type: boolean
-        show_prompt:
-          type: boolean
-      additionalProperties: false
-      type: object
-      required:
-      - id
-      - name
-      - country
-      - currency
-      - name_required
-      - name_prompt_seen
-      - show_prompt
-    BusinessNameTarget:
-      properties:
-        space_id:
-          type: string
-          format: uuid
-      additionalProperties: false
-      type: object
-      required:
-      - space_id
     BusinessNamingState:
       properties:
         id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         country:
           type: string
         currency:
@@ -18562,8 +18799,6 @@ components:
             one.
         name_required:
           type: boolean
-        name_prompt_seen:
-          type: boolean
       additionalProperties: false
       type: object
       required:
@@ -18572,7 +18807,6 @@ components:
       - country
       - currency
       - name_required
-      - name_prompt_seen
     BusinessNotificationRead:
       properties:
         updated:
@@ -18675,7 +18909,9 @@ components:
         business_id:
           type: string
         business_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
       type: object
       required:
       - kind
@@ -18686,7 +18922,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         country:
           type: string
         currency:
@@ -18728,7 +18966,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         requested_role:
           $ref: '#/components/schemas/BusinessRole'
         expires_at:
@@ -18753,15 +18993,15 @@ components:
       properties:
         expenses:
           items:
-            $ref: '#/components/schemas/BusinessExpense'
+            $ref: '#/components/schemas/ExpenseHit'
           type: array
         ventas:
           items:
-            $ref: '#/components/schemas/BusinessExpense'
+            $ref: '#/components/schemas/ExpenseHit'
           type: array
         receipts:
           items:
-            $ref: '#/components/schemas/ReceiptSummary'
+            $ref: '#/components/schemas/ReceiptHit'
           type: array
         accounts:
           items:
@@ -18788,12 +19028,46 @@ components:
       - email_senders
       - next_cursors
       description: A page of each list, or only of the ``kind`` asked for.
+    BusinessSetup:
+      properties:
+        steps:
+          items:
+            $ref: '#/components/schemas/BusinessSetupStep'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - steps
+    BusinessSetupStep:
+      properties:
+        key:
+          type: string
+          enum:
+          - created
+          - fiscal_identity
+          - receiving_address
+          - receipt_reading
+          - first_document
+          - team
+          - whatsapp
+        required:
+          type: boolean
+        done:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - key
+      - required
+      - done
     BusinessSpaceInfo:
       properties:
         id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         country:
           type: string
         currency:
@@ -18817,6 +19091,9 @@ components:
           items:
             $ref: '#/components/schemas/GrantedSpaceInfo'
           type: array
+        invitations_available:
+          type: boolean
+          default: false
         closed_spaces:
           items:
             $ref: '#/components/schemas/ClosedSpaceInfo'
@@ -18906,10 +19183,20 @@ components:
           type: boolean
         notifications_available:
           type: boolean
+        settlement_available:
+          type: boolean
+        activity_available:
+          type: boolean
         receiving_channels:
           $ref: '#/components/schemas/ReceivingChannels'
         receipt_limits:
           $ref: '#/components/schemas/ReceiptLimits'
+        records_default_currency:
+          type: string
+          enum:
+          - DOP
+          - USD
+          - EUR
         logo_url:
           anyOf:
           - type: string
@@ -18925,8 +19212,11 @@ components:
       - chat_available
       - invoicing_available
       - notifications_available
+      - settlement_available
+      - activity_available
       - receiving_channels
       - receipt_limits
+      - records_default_currency
     CallbackRequest:
       properties:
         code:
@@ -18980,7 +19270,7 @@ components:
       properties:
         text:
           type: string
-          maxLength: 20000
+          maxLength: 500
           minLength: 1
         draft:
           anyOf:
@@ -19221,7 +19511,9 @@ components:
         business_id:
           type: string
         business_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         purge_at:
           type: string
           format: date-time
@@ -19245,7 +19537,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         grant_id:
           type: string
         role:
@@ -20242,26 +20536,52 @@ components:
           type: integer
         itbis_paid:
           type: string
-        itbis_owed_minor:
-          type: integer
-        itbis_owed:
-          type: string
         cuentas_por_cobrar_minor:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_cobrar:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_pagar_minor:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_pagar:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         itbis_cobrado_minor:
-          type: integer
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         itbis_cobrado:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         by_status:
-          $ref: '#/components/schemas/StatusTotals'
+          anyOf:
+          - $ref: '#/components/schemas/StatusTotals'
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         net_result_final:
           type: boolean
+        documents_counted:
+          type: integer
+          default: 0
+        documents_total:
+          type: integer
+          default: 0
+        documents_in_bandeja:
+          type: integer
+          default: 0
       additionalProperties: false
       type: object
       required:
@@ -20276,16 +20596,20 @@ components:
       - itbis_charged
       - itbis_paid_minor
       - itbis_paid
-      - itbis_owed_minor
-      - itbis_owed
-      - cuentas_por_cobrar_minor
-      - cuentas_por_cobrar
-      - cuentas_por_pagar_minor
-      - cuentas_por_pagar
-      - itbis_cobrado_minor
-      - itbis_cobrado
-      - by_status
       - net_result_final
+    CurrencySelection:
+      properties:
+        record_count:
+          type: integer
+        currencies:
+          items:
+            type: string
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - record_count
+      - currencies
     CurrencySummaryResponse:
       properties:
         currency:
@@ -21195,6 +21519,34 @@ components:
       - code
       - label
       description: 'One 606 answer: its code and the name the DGII list gives it.'
+    DgiiExport:
+      properties:
+        form:
+          type: string
+          enum:
+          - '606'
+          - '607'
+        currency:
+          type: string
+          default: DOP
+        record_count:
+          type: integer
+        pending_fiscal_count:
+          type: integer
+        pending_rate_count:
+          type: integer
+        pending_rate_currencies:
+          items:
+            type: string
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - form
+      - record_count
+      - pending_fiscal_count
+      - pending_rate_count
+      - pending_rate_currencies
     DgiiForeignCurrency:
       properties:
         '606':
@@ -21410,7 +21762,10 @@ components:
           - type: string
           - type: 'null'
         status:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         sin_comprobante:
           type: boolean
           default: false
@@ -21440,7 +21795,6 @@ components:
       - rnc
       - ncf
       - ecf
-      - status
       - due_on
     DocumentResponse:
       properties:
@@ -22128,6 +22482,10 @@ components:
       - replayed
     ExpenseDetail:
       properties:
+        dgii_606:
+          anyOf:
+          - $ref: '#/components/schemas/Purchase606'
+          - type: 'null'
         id:
           type: string
         merchant:
@@ -22210,6 +22568,85 @@ components:
       - account_id
       - occurred_on
       - receipt_id
+    ExpenseHit:
+      properties:
+        dgii_606:
+          anyOf:
+          - $ref: '#/components/schemas/Purchase606'
+          - type: 'null'
+        id:
+          type: string
+        merchant:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount:
+          type: string
+        currency:
+          type: string
+        category_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        account_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        funding:
+          anyOf:
+          - type: string
+            const: owner_funds
+          - type: 'null'
+        occurred_on:
+          type: string
+          format: date
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        draft_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        personal_marked_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: true
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - merchant
+      - amount
+      - currency
+      - category_id
+      - account_id
+      - occurred_on
+      - receipt_id
     ExpenseInput:
       properties:
         account_id:
@@ -22247,49 +22684,55 @@ components:
       type: object
       required:
       - items
-    ExportReport:
+    ExportColumn:
+      properties:
+        key:
+          type: string
+          enum:
+          - counterparty
+          - fiscal_number
+          - date
+          - gross_amount
+          - itbis_amount
+          - stage
+          - note
+          - attachment
+          - expense_type
+          - payment_form
+          - funding
+        shown:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - key
+      - shown
+    ExportPreview:
+      properties:
+        table:
+          $ref: '#/components/schemas/TableExport'
+        dgii:
+          $ref: '#/components/schemas/DgiiExport'
+      additionalProperties: false
+      type: object
+      required:
+      - table
+      - dgii
+    ExportPreviewRequest:
       properties:
         report:
           oneOf:
           - $ref: '#/components/schemas/ReportRequest'
           - $ref: '#/components/schemas/ReportRequestV2'
-          default:
-            schema_version: 1
-            filters:
-              categories: []
-              counterparties: []
-              currencies: []
-              document_kinds: []
-              expense_types: []
-              fiscal_classifications: []
-              funding_sources: []
-              period:
-                kind: all
-              q: ''
-              record_families: []
-              review_stages: []
-            columns:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - gross_amount
-            sort: date_desc
-            page: 1
-            page_size: 25
           discriminator:
             propertyName: schema_version
             mapping:
               '1': '#/components/schemas/ReportRequest'
               '2': '#/components/schemas/ReportRequestV2'
-        expected_fingerprint:
-          type: string
-          pattern: ^[0-9a-f]{64}$
       additionalProperties: false
       type: object
       required:
-      - expected_fingerprint
+      - report
     ExportWindow:
       properties:
         start:
@@ -22696,6 +23139,26 @@ components:
       - attention_at
       - created_at
       - disconnected_at
+    FiscalDataRow:
+      properties:
+        family:
+          type: string
+          enum:
+          - purchase
+          - sale
+        currency:
+          type: string
+        count:
+          type: integer
+        by_currency:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - family
+      - currency
+      - count
+      - by_currency
     FiscalFacts:
       properties:
         rnc:
@@ -22841,10 +23304,16 @@ components:
     FiscalProfile:
       properties:
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         tax_id:
           anyOf:
           - $ref: '#/components/schemas/TaxId'
+          - type: 'null'
+        legal_name:
+          anyOf:
+          - $ref: '#/components/schemas/LegalName'
           - type: 'null'
         can_edit:
           type: boolean
@@ -22853,13 +23322,16 @@ components:
       required:
       - name
       - tax_id
+      - legal_name
       - can_edit
     FiscalProfileInput:
       properties:
         name:
           type: string
         previous_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         tax_id:
           anyOf:
           - $ref: '#/components/schemas/TaxIdDraft'
@@ -22875,6 +23347,59 @@ components:
       - previous_name
       - tax_id
       - previous_tax_id
+    FiscalReportTotal:
+      properties:
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+        kind:
+          type: string
+        basis:
+          type: string
+          enum:
+          - itbis
+          - goods
+          - services
+        applicable_count:
+          type: integer
+        populated_count:
+          type: integer
+        known_amount_minor:
+          type: integer
+        unknown_count:
+          type: integer
+        unsupported_count:
+          type: integer
+        complete:
+          type: boolean
+        amount_minor:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        known_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - currency
+      - kind
+      - basis
+      - applicable_count
+      - populated_count
+      - known_amount_minor
+      - unknown_count
+      - unsupported_count
+      - complete
+      - amount_minor
+      - known_amount
+      - amount
     FiscalReview:
       properties:
         fiscal:
@@ -23546,7 +24071,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         logo_url:
           anyOf:
           - type: string
@@ -23927,7 +24454,10 @@ components:
           - type: string
           - type: 'null'
         status:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         sin_comprobante:
           type: boolean
           default: false
@@ -23961,7 +24491,6 @@ components:
       - rnc
       - ncf
       - ecf
-      - status
       - due_on
       - missing
     HistoryItem:
@@ -25642,6 +26171,42 @@ components:
       - value
       - origin
       - source_ids
+    LegalName:
+      properties:
+        value:
+          type: string
+        confirmed_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - value
+      - confirmed_at
+      description: 'The Business''s razón social, as a person who manages it confirmed it
+
+        against the registry row for the stored tax id.'
+    LegalNameInput:
+      properties:
+        legal_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        previous_legal_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        tax_id:
+          $ref: '#/components/schemas/TaxIdDraft'
+        confirmed:
+          type: boolean
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - legal_name
+      - previous_legal_name
+      - tax_id
     LinkActivityBody:
       properties:
         version:
@@ -27129,10 +27694,16 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        more_than_one_currency:
+          type: boolean
+          default: false
         payment_methods:
-          items:
-            type: string
-          type: array
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         dgii_forms:
           $ref: '#/components/schemas/DgiiForms'
         dgii_foreign_currency:
@@ -27161,20 +27732,27 @@ components:
           items:
             $ref: '#/components/schemas/HeldLine'
           type: array
+        missing_fiscal_rows:
+          items:
+            $ref: '#/components/schemas/FiscalDataRow'
+          type: array
         cuentas_por_cobrar:
-          items:
-            $ref: '#/components/schemas/DocumentLine'
-          type: array
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/DocumentLine'
+            type: array
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         cuentas_por_pagar:
-          items:
-            $ref: '#/components/schemas/DocumentLine'
-          type: array
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/DocumentLine'
+            type: array
+          - type: 'null'
+          description: 'Settlement only: absent while settlement is off.'
         unreviewed_movements_count:
           type: integer
           default: 0
-        filing_ready:
-          type: boolean
-          default: false
       additionalProperties: false
       type: object
       required:
@@ -27185,13 +27763,10 @@ components:
       - closed
       - reasons
       - earliest_month
-      - payment_methods
       - dgii_forms
       - currencies
       - missing_rnc
       - missing_ncf
-      - cuentas_por_cobrar
-      - cuentas_por_pagar
     MovementAccount:
       properties:
         account_id:
@@ -27977,7 +28552,9 @@ components:
         space_id:
           type: string
         name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         grant_id:
           type: string
         member_count:
@@ -28534,48 +29111,33 @@ components:
             type: string
             enum:
             - counterparty
+            - fiscal_number
             - date
             - gross_amount
-            - currency
-            - family
-            - expense_type
-            - payment_form
+            - itbis_amount
             - stage
             - note
             - attachment
+            - expense_type
+            - payment_form
             - funding
           type: array
-          default:
-          - counterparty
-          - date
-          - gross_amount
-          - currency
-          - family
-          - expense_type
-          - payment_form
-          - stage
-          - note
-          - attachment
-          - funding
         hidden:
           items:
             type: string
             enum:
             - counterparty
+            - fiscal_number
             - date
             - gross_amount
-            - currency
-            - family
-            - expense_type
-            - payment_form
+            - itbis_amount
             - stage
             - note
             - attachment
+            - expense_type
+            - payment_form
             - funding
           type: array
-          default:
-          - funding
-          - payment_form
         density:
           type: integer
           enum:
@@ -30578,6 +31140,195 @@ components:
           - type: 'null'
       additionalProperties: false
       type: object
+    ReceiptHit:
+      properties:
+        dgii_606:
+          anyOf:
+          - $ref: '#/components/schemas/Purchase606'
+          - type: 'null'
+        id:
+          type: string
+        activity:
+          anyOf:
+          - $ref: '#/components/schemas/ReceiptActivity'
+          - type: 'null'
+        bandeja:
+          anyOf:
+          - $ref: '#/components/schemas/BandejaMembership'
+          - type: 'null'
+        bandeja_group:
+          anyOf:
+          - $ref: '#/components/schemas/BandejaGroup'
+          - type: 'null'
+        channel:
+          type: string
+          enum:
+          - web
+          - whatsapp
+          - email
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        source_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+        media_type:
+          type: string
+        size_bytes:
+          type: integer
+        received_at:
+          type: string
+          format: date-time
+        status:
+          anyOf:
+          - type: string
+            enum:
+            - saved
+            - queued
+            - preparing
+            - review_ready
+            - needs_attention
+          - type: string
+            enum:
+            - confirmed
+            - dismissed
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+        attention:
+          anyOf:
+          - type: string
+            enum:
+            - unreadable
+            - ai_unavailable
+            - interrupted
+            - outcome_unknown
+            - no_purchase_found
+            - not_a_receipt
+            - several_purchases
+            - source_unavailable
+            - check_details
+            - duplicate
+            - read_budget_day
+            - read_budget_month
+            - other
+          - type: 'null'
+        duplicate_of:
+          anyOf:
+          - type: string
+          - type: 'null'
+        replayed:
+          type: boolean
+          default: false
+        read_pending:
+          type: boolean
+          default: false
+        preparable:
+          type: boolean
+        enterable:
+          type: boolean
+        email_delivery_ids:
+          items:
+            type: string
+          type: array
+        email_original:
+          type: boolean
+          default: false
+        document_type:
+          type: string
+          enum:
+          - recibo
+          - venta
+          default: recibo
+        document_type_detected:
+          type: boolean
+          default: false
+        document_type_editable:
+          type: boolean
+          default: false
+        expense_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        merchant:
+          anyOf:
+          - type: string
+          - type: 'null'
+        occurred_on:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+        category_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        account_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        personal:
+          type: boolean
+          default: false
+        personal_marked_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        fiscal_known:
+          type: boolean
+          default: false
+        fiscal_value:
+          anyOf:
+          - type: string
+            enum:
+            - ncf
+            - ecf
+          - type: 'null'
+        include_606:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        include_606_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
+        personal_editable:
+          type: boolean
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - channel
+      - filename
+      - media_type
+      - size_bytes
+      - received_at
+      - status
+      - error_code
+      - attention
+      - preparable
+      - enterable
+      - expense_id
+      - merchant
+      - occurred_on
+      - amount
+      - currency
+      - category_id
+      - account_id
     ReceiptLegacyRule:
       properties:
         cadence:
@@ -30718,7 +31469,7 @@ components:
           type: boolean
         scope_version:
           type: integer
-          maximum: 2.0
+          maximum: 3.0
           minimum: 1.0
         disclosure_token:
           anyOf:
@@ -31245,7 +31996,9 @@ components:
           type: string
           format: uuid
         space_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         accounts:
           items:
             $ref: '#/components/schemas/AccountChoice'
@@ -31294,6 +32047,56 @@ components:
       - approved_revision
       - approved_at
       - actor
+    RecordsExport:
+      properties:
+        report:
+          oneOf:
+          - $ref: '#/components/schemas/ReportRequest'
+          - $ref: '#/components/schemas/ReportRequestV2'
+          discriminator:
+            propertyName: schema_version
+            mapping:
+              '1': '#/components/schemas/ReportRequest'
+              '2': '#/components/schemas/ReportRequestV2'
+        mode:
+          type: string
+          enum:
+          - table
+          - dgii
+        columns:
+          items:
+            type: string
+            enum:
+            - counterparty
+            - fiscal_number
+            - date
+            - gross_amount
+            - itbis_amount
+            - stage
+            - note
+            - attachment
+            - expense_type
+            - payment_form
+            - funding
+          type: array
+          default: []
+        currencies:
+          type: string
+          enum:
+          - all
+          - current
+          default: all
+        format:
+          type: string
+          enum:
+          - xlsx
+          - csv
+          default: xlsx
+      additionalProperties: false
+      type: object
+      required:
+      - report
+      - mode
     RedeemResult:
       properties:
         admitted:
@@ -31342,6 +32145,66 @@ components:
       description: 'An approved purchase a credit note may refund; ``id`` is the activity
 
         the declaration''s ``purchase_activity_id`` names.'
+    RegistryAnswer:
+      properties:
+        tax_id:
+          $ref: '#/components/schemas/TaxId'
+        verification:
+          type: string
+          enum:
+          - verificado
+          - no_activo
+          - sin_verificar
+        record:
+          anyOf:
+          - $ref: '#/components/schemas/RegistryRecord'
+          - type: 'null'
+        checked_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - tax_id
+      - verification
+      - record
+      - checked_at
+      description: 'What the registry says of one tax id: the same verification words a
+
+        counterparty''s RNC gets.'
+    RegistryLookupInput:
+      properties:
+        tax_id:
+          $ref: '#/components/schemas/TaxIdDraft'
+      additionalProperties: false
+      type: object
+      required:
+      - tax_id
+    RegistryRecord:
+      properties:
+        rnc:
+          type: string
+        name:
+          type: string
+        trade_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        status:
+          type: string
+        file_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - rnc
+      - name
+      - trade_name
+      - status
+      - file_date
     RememberSearch:
       properties:
         q:
@@ -31425,6 +32288,8 @@ components:
       - participants
     ReportAnswer:
       properties:
+        presentation:
+          $ref: '#/components/schemas/Presentation'
         items:
           items:
             $ref: '#/components/schemas/ReportRecord'
@@ -31456,6 +32321,11 @@ components:
           items:
             $ref: '#/components/schemas/Total'
           type: array
+        fiscal_totals:
+          items:
+            $ref: '#/components/schemas/FiscalReportTotal'
+          type: array
+          default: []
         fingerprint:
           type: string
         captured_at:
@@ -31499,6 +32369,7 @@ components:
       additionalProperties: false
       type: object
       required:
+      - presentation
       - items
       - matching_count
       - page
@@ -31571,6 +32442,13 @@ components:
             - exported
           type: array
           default: []
+        fiscal_data:
+          anyOf:
+          - type: string
+            enum:
+            - complete
+            - missing
+          - type: 'null'
         has_document:
           anyOf:
           - type: boolean
@@ -31673,6 +32551,13 @@ components:
             - exported
           type: array
           default: []
+        fiscal_data:
+          anyOf:
+          - type: string
+            enum:
+            - complete
+            - missing
+          - type: 'null'
         has_document:
           anyOf:
           - type: boolean
@@ -31766,9 +32651,9 @@ components:
           default: 0
       additionalProperties: false
       type: object
-      description: 'The period''s recorded rows by stage. The three Registros cards read
+      description: 'Fiscal count uses all table filters before pagination.
 
-        `needs_fiscal_data`, `ready_for_export` and `exported`.'
+        Other counts cover the period''s recorded rows.'
     ReportRecipe-Input:
       properties:
         schema_version:
@@ -31931,23 +32816,6 @@ components:
           default: date_desc
         presentation:
           $ref: '#/components/schemas/Presentation'
-          default:
-            order:
-            - counterparty
-            - date
-            - gross_amount
-            - currency
-            - family
-            - expense_type
-            - payment_form
-            - stage
-            - note
-            - attachment
-            - funding
-            hidden:
-            - funding
-            - payment_form
-            density: 48
         page_size:
           type: integer
           enum:
@@ -32015,23 +32883,6 @@ components:
           default: date_desc
         presentation:
           $ref: '#/components/schemas/Presentation'
-          default:
-            order:
-            - counterparty
-            - date
-            - gross_amount
-            - currency
-            - family
-            - expense_type
-            - payment_form
-            - stage
-            - note
-            - attachment
-            - funding
-            hidden:
-            - funding
-            - payment_form
-            density: 48
         page_size:
           type: integer
           enum:
@@ -32098,6 +32949,13 @@ components:
             - ready_for_export
             - exported
           - type: 'null'
+        fiscal_data:
+          anyOf:
+          - type: string
+            enum:
+            - complete
+            - missing
+          - type: 'null'
         export_missing:
           anyOf:
           - type: string
@@ -32122,6 +32980,18 @@ components:
           - type: string
           - type: 'null'
         gross_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        itbis_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        goods_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        services_amount:
           anyOf:
           - type: string
           - type: 'null'
@@ -32356,23 +33226,6 @@ components:
           default: date_desc
         presentation:
           $ref: '#/components/schemas/Presentation'
-          default:
-            order:
-            - counterparty
-            - date
-            - gross_amount
-            - currency
-            - family
-            - expense_type
-            - payment_form
-            - stage
-            - note
-            - attachment
-            - funding
-            hidden:
-            - funding
-            - payment_form
-            density: 48
         page_size:
           type: integer
           enum:
@@ -34331,6 +35184,24 @@ components:
       - source_id
       - receipt_id
       - sha256
+    TableExport:
+      properties:
+        columns:
+          items:
+            $ref: '#/components/schemas/ExportColumn'
+          type: array
+        current:
+          $ref: '#/components/schemas/CurrencySelection'
+        all:
+          anyOf:
+          - $ref: '#/components/schemas/CurrencySelection'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - columns
+      - current
+      - all
     TaxId:
       properties:
         type:
@@ -34470,7 +35341,9 @@ components:
             format: date-time
           - type: 'null'
         business_name:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         owner_name:
           type: string
         target_name:

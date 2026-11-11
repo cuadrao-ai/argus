@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
+import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { defaultReportRequest } from "../lib/business-reporting-wire";
 import { reportAnswerSchema } from "../lib/business-reports-api";
+import recordedAnswer from "../test-fixtures/records-default-report-answer.json";
 
 function syntheticRoute(path = "reports/query", method = "POST", body = JSON.stringify(defaultReportRequest())) {
   const responses: unknown[] = [];
@@ -24,6 +26,7 @@ describe("synthetic Business fallback", () => {
     expect(route.responses).toHaveLength(1);
     const answer = reportAnswerSchema.parse(route.responses[0]);
     expect(answer).toEqual({
+      presentation: recordedAnswer.presentation,
       items: [],
       overview: { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 },
       effective_sort: "date_desc",
@@ -60,6 +63,91 @@ describe("synthetic Business fallback", () => {
 
     expect(first.responses).toEqual(second.responses);
     expect(reportAnswerSchema.parse(first.responses[0])).toMatchObject({ page: 3, page_size: 50, page_count: 0, items: [] });
+  });
+
+  test.each(["bandeja-intro", "registros-intro"])("returns the undismissed state for the known guide card %s", async (card) => {
+    const route = syntheticRoute(`guide-cards/${card}`, "GET");
+    await fulfillSyntheticBusinessFallback(route);
+
+    expect(route.responses).toEqual([{ dismissed: false }]);
+  });
+
+  test.each(["bandeja-intro", "registros-intro"])("returns the dismissed state for the known guide card %s", async (card) => {
+    const route = syntheticRoute(`guide-cards/${card}/dismiss`, "POST");
+    await fulfillSyntheticBusinessFallback(route);
+
+    expect(route.responses).toEqual([{ dismissed: true }]);
+  });
+
+  test("returns the owner-only spaces fixture and accepts the app query string", async () => {
+    const source = createFixtureBusinessDataSource({ chatAvailable: false });
+    const owner = (await source.spaces())[0];
+    const route = syntheticRoute("spaces?include_closed=false", "GET");
+    await fulfillSyntheticBusinessFallback(route, { source, owner });
+
+    expect(route.responses).toEqual([{ spaces: [owner], closed_spaces: [] }]);
+  });
+
+  test("returns the fixture month-close response for the app query string", async () => {
+    const route = syntheticRoute("month-close?month=2026-10", "GET");
+    await fulfillSyntheticBusinessFallback(route);
+
+    expect(route.responses).toHaveLength(1);
+    expect(route.responses[0]).toMatchObject({ month: "2026-10", from: "2026-10-01" });
+  });
+
+  test("uses the provided accepted-consent fixture and requires it", async () => {
+    const route = syntheticRoute("consent?version=consent-v1", "GET");
+    let consentCalls = 0;
+    await fulfillSyntheticBusinessFallback(route, {
+      fulfillConsent: async () => {
+        consentCalls += 1;
+        await route.fulfill({ json: { version: "consent-v1", accepted_at: "fixture-owned" } });
+      },
+    });
+    expect(consentCalls).toBe(1);
+    expect(route.responses).toEqual([{ version: "consent-v1", accepted_at: "fixture-owned" }]);
+
+    const missingFixture = syntheticRoute("consent", "GET");
+    await expect(fulfillSyntheticBusinessFallback(missingFixture)).rejects.toThrow("requires an accepted-consent fixture");
+    expect(missingFixture.responses).toEqual([]);
+  });
+
+  test.each([
+    ["spaces?include_closed=false", "POST"],
+    ["receipts?view=inbox", "POST"],
+    ["unknown-business-path", "GET"],
+    ["unknown-business-path", "POST"],
+  ])("rejects unsupported shared endpoint %s with %s", async (path, method) => {
+    const route = syntheticRoute(path, method);
+    await expect(fulfillSyntheticBusinessFallback(route)).rejects.toThrow();
+    expect(route.responses).toEqual([]);
+  });
+
+  test.each([
+    ["guide-cards/bandeja-intro", "POST"],
+    ["guide-cards/bandeja-intro/dismiss", "GET"],
+    ["guide-cards/unknown", "GET"],
+    ["guide-cards/unknown/dismiss", "POST"],
+    ["guide-cards/bandeja-intro/", "GET"],
+    ["guide-cards/bandeja-intro/dismiss/", "POST"],
+    ["guide-cards/bandeja-intro-extra", "GET"],
+    ["guide-cards/registros-intro", "POST"],
+    ["guide-cards/registros-intro/dismiss", "GET"],
+    ["guide-cards/bandeja-intro/dismiss-extra", "POST"],
+  ])("rejects unsupported guide request %s with %s", async (path, method) => {
+    const route = syntheticRoute(path, method);
+    await expect(fulfillSyntheticBusinessFallback(route)).rejects.toThrow();
+    expect(route.responses).toEqual([]);
+  });
+
+  test.each([
+    ["guide-cards/bandeja-intro?source=test", "GET"],
+    ["guide-cards/bandeja-intro/dismiss?source=test", "POST"],
+  ])("rejects query parameters on guide request %s", async (path, method) => {
+    const route = syntheticRoute(path, method);
+    await expect(fulfillSyntheticBusinessFallback(route)).rejects.toThrow();
+    expect(route.responses).toEqual([]);
   });
 
   test.each(["reports/export", "report-views", "reports/query/", "unknown"])("keeps %s unmapped", async (path) => {

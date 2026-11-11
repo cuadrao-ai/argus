@@ -55,6 +55,7 @@ from argus.api.business_drafts import (
     updates_with_drafts,
     upload_recorder,
 )
+from argus.api.business_guide import router as business_guide_router
 from argus.api.business_invoicing import invoicing_available
 from argus.api.business_naming import require_business_name
 from argus.api.business_reports import router as business_reports_router
@@ -66,8 +67,6 @@ from argus.api.business_schemas import (
     BusinessExpense,
     BusinessInvitationAcceptance,
     BusinessInvitationBatchResult,
-    BusinessNamePrompt,
-    BusinessNameTarget,
     BusinessNamingState,
     BusinessOverview,
     BusinessRecipientInvitation,
@@ -127,10 +126,15 @@ from argus.api.routers.business_notifications import (
     router as business_notifications_router,
 )
 from argus.api.routers.business_search import router as business_search_router
+from argus.api.routers.business_setup import router as business_setup_router
 from argus.api.whatsapp import whatsapp_receiving_available
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
+from argus.domain.business.config import (
+    business_activity_enabled,
+    business_settlement_enabled,
+)
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
@@ -139,7 +143,8 @@ from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
-from argus.domain.business.spaces import Space, default_space_name
+from argus.domain.business.space_name import GivenName, default_space_name
+from argus.domain.business.spaces import Space
 from argus.domain.business.transactions import GrantImportStore
 from argus.domain.financial_search import InvalidCursor, StaleCursor
 from argus.domain.ingestion.connections import ConnectionNotFound
@@ -182,9 +187,11 @@ router.include_router(business_workspace_router)
 router.include_router(business_workspace_images_router)
 router.include_router(business_bank_router)
 router.include_router(business_bank_movements_router)
+router.include_router(business_guide_router)
 router.include_router(business_logo_router)
 router.include_router(business_search_router)
 router.include_router(business_notifications_router)
+router.include_router(business_setup_router)
 _CONFLICTS = frozenset(
     {
         "receipt_not_prepared",
@@ -294,7 +301,6 @@ def _naming(space: Space) -> dict[str, Any]:
     return {
         **space_payload(space),
         "name_required": space.name_required,
-        "name_prompt_seen": space.name_prompt_seen,
     }
 
 
@@ -307,25 +313,6 @@ def get_business_name(
     if space is None:
         raise space_missing_problem(request)
     return _naming(space)
-
-
-@router.post("/space/name-prompt", response_model=BusinessNamePrompt)
-def claim_business_name_prompt(
-    request: Request,
-    body: BusinessNameTarget,
-    person: Annotated[BusinessPerson, Depends(require_business_person)],
-) -> dict[str, Any]:
-    scope = working_scope(request, person.spaces, person.person_id)
-    space = person.spaces.get(scope.owner.space_id) if scope else None
-    if space is None or space.id != str(body.space_id):
-        raise space_missing_problem(request)
-    if "manage" not in scope.permissions:
-        raise owner_required_problem(request)
-    show = person.spaces.claim_naming_visit(person.person_id, str(body.space_id))
-    current = person.spaces.get(str(body.space_id))
-    if current is None or current.id != str(body.space_id):
-        raise space_missing_problem(request)
-    return {**_naming(current), "show_prompt": show and current.name_required}
 
 
 @router.patch("/space/name", response_model=BusinessNamingState)
@@ -351,7 +338,7 @@ class ClosedSpaceInfo(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     space_id: str
-    name: str
+    name: GivenName
     grant_id: str
     role: Literal["owner", "accountant"]
     closed_at: datetime
@@ -380,6 +367,8 @@ def list_spaces(
     seen = access.seen_grants(person.person_id)
     granted = access.spaces_for(person.person_id)
     logos = picture_urls("business", [found.space_id for found in granted])
+    from argus.api.business_invite_delivery import invitations_available
+
     return {
         "spaces": [
             {
@@ -407,6 +396,7 @@ def list_spaces(
             }
             for closed in access.closed_spaces_for(person.person_id)
         ],
+        "invitations_available": invitations_available(),
     }
 
 
@@ -508,6 +498,8 @@ def _access_store(request: Request) -> AccessStore:
 
 
 def _access(found: AccessList) -> dict[str, Any]:
+    from argus.api.business_invite_delivery import invitations_available
+
     # A photo reaches the Business only once its person has acted on the grant.
     photos = picture_urls("person", [g.grantee_id for g in found.grants if g.seen])
     return {
@@ -536,6 +528,7 @@ def _access(found: AccessList) -> dict[str, Any]:
             }
             for invite in found.invites
         ],
+        "invitations_available": invitations_available(),
     }
 
 
@@ -565,10 +558,14 @@ def invite_recipients(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict:
-    from argus.api.business_invite_delivery import deliver_invite
+    from argus.api.business_invite_delivery import (
+        deliver_invite,
+        require_invitations_available,
+    )
     from argus.domain.business.memberships import MembershipError
 
     manager_only(request, context)
+    require_invitations_available(request)
     space_id, actor_id = context.scope.owner.space_id, context.scope.acting_person_id
     store = _access_store(request)
     results = []
@@ -681,6 +678,9 @@ def give_access(
     if spaces is None:
         raise space_missing_problem(request)
     require_business_name(request, spaces, space_id)
+    from argus.api.business_invite_delivery import require_invitations_available
+
+    require_invitations_available(request)
     try:
         created, found = store.give(
             space_id,
@@ -724,7 +724,10 @@ def resend_access_invite(
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
+    from argus.api.business_invite_delivery import require_invitations_available
+
     manager_only(request, context)
+    require_invitations_available(request)
     space_id, owner_id = context.scope.owner.space_id, context.scope.acting_person_id
     found = _access_store(request).resend(space_id, owner_id, str(invite_id))
     if found is None:
@@ -827,8 +830,11 @@ def get_workspace(
     space_id = context.scope.owner.space_id
     workspace = {
         **context.service.workspace(context.scope),
+        "records_default_currency": context.scope.records_default_currency,
         "invoicing_available": invoicing_available(request),
         "notifications_available": notifications_available(),
+        "settlement_available": business_settlement_enabled(),
+        "activity_available": business_activity_enabled(),
         "receiving_channels": {
             "email": {"available": email_receiving_available()},
             "whatsapp": {"available": whatsapp_receiving_available(context.scope)},

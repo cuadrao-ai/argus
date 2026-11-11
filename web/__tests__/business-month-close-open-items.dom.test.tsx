@@ -66,10 +66,11 @@ describe("foreign currency lines", () => {
         income_before_itbis_minor: 100000, income_before_itbis: "1000.00",
         expense_before_itbis_minor: 0, expense_before_itbis: "0.00",
         net_result_minor: 100000, net_result: "1000.00",
-        itbis_owed_minor: 1800, itbis_owed: "18.00",
+        itbis_paid_minor: 1800, itbis_paid: "18.00",
       }],
       missing_rnc: [],
       missing_ncf: [],
+      missing_fiscal_rows: [],
       cuentas_por_cobrar: [line("act-usd", "invoice", "USD", "2026-10-06", 5000, null)],
       cuentas_por_pagar: [line("act-eur", "receipt", "EUR", "2026-10-07", 2000, null)],
     }));
@@ -89,7 +90,7 @@ describe("foreign currency lines", () => {
     assert.equal(payable?.querySelector("h4")?.textContent, "Por pagar");
     assert.equal(payable?.querySelector('[data-testid="month-close-payable-total"]')?.textContent, "€ 20.00");
     assert.equal(amountOf("act-eur"), "20.00");
-    assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 1,000\.00/);
+    assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 1,000(?![.\d])/);
     assert.equal(host.querySelector('[data-testid="month-close-income"]')?.textContent?.includes("US$"), false);
     await act(async () => root.unmount());
     host.remove();
@@ -133,9 +134,10 @@ describe("open items across months", () => {
       to: "2026-10-31",
       closed: true,
       reasons: [],
-      currencies: [{ currency: "DOP", income_before_itbis_minor: 0, income_before_itbis: "0.00", expense_before_itbis_minor: 0, expense_before_itbis: "0.00", net_result_minor: 0, net_result: "0.00", itbis_owed_minor: 0, itbis_owed: "0.00", by_status: settledByStatus(), net_result_final: true }],
+      currencies: [{ currency: "DOP", income_before_itbis_minor: 0, income_before_itbis: "0.00", expense_before_itbis_minor: 0, expense_before_itbis: "0.00", net_result_minor: 0, net_result: "0.00", itbis_paid_minor: 0, itbis_paid: "0.00", by_status: settledByStatus(), net_result_final: true }],
       missing_rnc: [],
       missing_ncf: [],
+      missing_fiscal_rows: [],
       cuentas_por_cobrar: [],
       cuentas_por_pagar: [],
     }));
@@ -214,27 +216,14 @@ describe("open items across months", () => {
   });
 });
 
-describe("headline figures", () => {
-  test("a row with a figure from 10,000 up reads short in one unit, with the exact amount in the tooltip and for a screen reader", async () => {
+describe("overview figures", () => {
+  test("Inicio's totals read in whole units through the one formatter, never compact; the list rows keep their cents", async () => {
     const { act, host, root } = await renderView(createMockMonthCloseClient({ now }));
-    const income = host.querySelector('[data-testid="month-close-income"]');
-    const headline = income?.querySelector<HTMLElement>('[data-testid="month-close-headline"]');
-    assert.ok(headline, "58,400 is a headline figure");
-    assert.equal(headline.querySelector('[aria-hidden="true"]')?.textContent, "RD$ 58.4 mil");
-    assert.equal(headline.querySelector(".sr-only")?.textContent, "RD$ 58,400.00");
-    assert.equal(headline.tabIndex, 0, "keyboard focus reaches the exact amount");
-    assert.ok(headline.closest(".cuadrao-amount"), "Ocultar montos still hides it");
-    await act(async () => {
-      headline.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await new Promise((resolve) => setTimeout(resolve, 350));
-    });
-    assert.equal(document.querySelector('[role="tooltip"]')?.textContent, "RD$ 58,400.00");
-    const expenses = host.querySelector('[data-testid="month-close-expenses"]');
-    const beside = expenses?.querySelector<HTMLElement>('[data-testid="month-close-headline"]');
-    assert.equal(beside?.querySelector('[aria-hidden="true"]')?.textContent, "RD$ 9.6 mil", "9,600 beside 58,400 shares its unit");
-    assert.equal(beside?.querySelector(".sr-only")?.textContent, "RD$ 9,600.00");
-    const column = host.querySelector('[data-testid="month-close-receivable"]');
-    assert.equal(column?.querySelector('[data-testid="month-close-headline"]'), null, "a column stays exact");
+    const amount = (testId: string) => host.querySelector(`[data-testid="${testId}"] .cuadrao-amount`)?.textContent;
+    assert.equal(amount("month-close-income"), "RD$ 58,400");
+    assert.equal(amount("month-close-expenses"), "RD$ 9,600");
+    assert.doesNotMatch(host.querySelector('[data-testid="month-close-cards"]')?.textContent ?? "", /\bmil\b|\d M\b/, "no compact form");
+    assert.match(host.querySelector('[data-testid="month-close-receivable"]')?.textContent ?? "", /\d\.\d\d/, "a row keeps its cents");
     await act(async () => root.unmount());
     host.remove();
   });
@@ -413,7 +402,7 @@ test.each([
   const root = createRoot(host);
   let added = 0;
   try {
-    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} businessCurrency="DOP" onAdd={() => { added += 1; }} /></I18nextProvider>); });
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView settlement client={client} now={now} businessCurrency="DOP" onAdd={() => { added += 1; }} /></I18nextProvider>); });
     const empty = host.querySelector(`[data-testid="month-close-${card}-empty"]`);
     assert.ok(empty?.textContent?.includes(explanation), "either settled balance explains why its list is empty");
     const button = empty?.querySelector("button");

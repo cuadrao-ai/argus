@@ -22,20 +22,26 @@ def row(identifier, **fields):
     )
 
 
-def test_v1_remains_strict_and_v2_hides_funding_and_payment_form_by_default():
+def test_v1_remains_strict_and_v2_hides_purchase_fields_and_funding_by_default():
     with pytest.raises(ValidationError):
         ReportRequest(sort="name_asc")
     with pytest.raises(ValidationError):
         ReportRequest(presentation={"density": 40})
     request = ReportRequestV2(sort="name_asc", presentation={"density": 56})
     assert request.presentation.order[0] == "counterparty"
-    assert request.presentation.hidden == ("funding", "payment_form")
+    assert request.presentation.hidden == (
+        "funding",
+        "payment_form",
+        "expense_type",
+        "fiscal_number",
+        "itbis_amount",
+    )
     assert request.page_size == 25
     with pytest.raises(ValidationError):
         ReportRequestV2(presentation={"hidden": ["currency"]})
 
 
-def test_search_is_literal_accent_insensitive_and_overview_ignores_table_filters():
+def test_search_is_literal_accent_insensitive_and_other_stage_counts_keep_period_scope():
     rows = [
         row("1", counterparty="Café", stage="needs_review"),
         row("2", attachment_filenames=("José.pdf",), stage="exported"),
