@@ -4503,7 +4503,7 @@
       "merchant": "Comercio",
       "prepare": "Preparar con IA",
       "prepare_failed": "No pudimos iniciar la preparación. Tu recibo está guardado. Reintenta.",
-      "reading_off": "Activa Leer mis documentos automáticamente en los ajustes de WhatsApp y vuelve a intentarlo.",
+      "reading_off": "Activa Leer mis documentos automáticamente en Lectura de documentos y vuelve a intentarlo.",
       "preparing": "Leyendo tu recibo. Puedes salir de esta página; el resultado te esperará en la bandeja.",
       "poll_stopped": "La lectura sigue en curso. Consulta el registro actual para ver el estado más reciente.",
       "saved_prepare_only": "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea.",
