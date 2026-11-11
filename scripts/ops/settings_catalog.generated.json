@@ -74,6 +74,11 @@
       ]
     },
     {
+      "name": "ARGUS_APPLY_DATABASE_URL",
+      "default": "",
+      "owner": "scripts/ops/apply_approved_migrations.py"
+    },
+    {
       "name": "ARGUS_APP_ENV",
       "reads": [
         {

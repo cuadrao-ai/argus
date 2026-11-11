@@ -123,20 +123,12 @@ def _call_name(node: ast.AST) -> str | None:
 
 
 def _is_getenv(node: ast.Call) -> bool:
-    func = node.func
-    if isinstance(func, ast.Name) and func.id == "getenv":
-        return True
-    if not isinstance(func, ast.Attribute) or func.attr not in {"getenv", "get"}:
-        return False
-    value = func.value
-    if isinstance(value, ast.Name) and value.id in {"os", "environ"}:
-        return True
-    return (
-        isinstance(value, ast.Attribute)
-        and value.attr == "environ"
-        and isinstance(value.value, ast.Name)
-        and value.value.id == "os"
-    )
+    return ast.unparse(node.func) in {
+        "os.getenv",
+        "getenv",
+        "os.environ.get",
+        "environ.get",
+    }
 
 
 def _string_arg(node: ast.AST, constants: dict[str, object]) -> str | None:
@@ -160,6 +152,7 @@ class _Python:
         self.root = root
         self.parents: dict[ast.AST, ast.AST] = {}
         self.environ_aliases: set[tuple[ast.AST, str]] = set()
+        self.bindings: set[tuple[ast.AST, str]] = set()
         self.tree: ast.AST = ast.Module(body=[], type_ignores=[])
 
     def add(self, name: str, default: str | None) -> None:
@@ -173,6 +166,13 @@ class _Python:
             for parent in ast.walk(tree)
             for child in ast.iter_child_nodes(parent)
         }
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                self.bindings.add((self._scope(node), node.id))
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                args = node.args.posonlyargs + node.args.args + node.args.kwonlyargs
+                args += [arg for arg in (node.args.vararg, node.args.kwarg) if arg]
+                self.bindings.update((node, arg.arg) for arg in args)
         self._constants(tree)
         while True:
             previous = set(self.environ_aliases)
@@ -346,7 +346,8 @@ class _Python:
             return
         default = self._default(node, _call_default(node, None, self.constants))
         arg = node.args[0]
-        for text in self._names(arg):
+        names = self._names(arg)
+        for text in names:
             self.add(text, default)
         if isinstance(arg, ast.JoinedStr):
             names = _timeout_names(self.root, arg)
@@ -355,20 +356,58 @@ class _Python:
                 return
             for name in names:
                 self.add(name, default)
+        elif not names:
+            scope = self._scope(arg)
+            wrapper_parameter = (
+                isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and scope.name in self.wrappers
+                and isinstance(arg, ast.Name)
+                and arg.id == scope.args.args[0].arg
+            )
+            alias_parameter = (
+                isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and scope.name == "setting_value"
+                and isinstance(arg, ast.Name)
+                and any(
+                    isinstance(child, ast.For)
+                    and isinstance(child.target, ast.Name)
+                    and child.target.id == arg.id
+                    and isinstance(child.iter, ast.Call)
+                    and _call_name(child.iter.func) == "setting_names"
+                    for child in ast.walk(scope)
+                )
+            )
+            if not wrapper_parameter and not alias_parameter:
+                self.unresolved.append(
+                    f"{self.owner}:{node.lineno} dynamic environment name {ast.unparse(arg)}"
+                )
+
+    def _bound(self, scope: ast.AST, name: str) -> bool:
+        return (scope, name) in self.bindings
+
+    def _binding_scope(self, node: ast.AST, name: str) -> ast.AST:
+        scope = self._scope(node)
+        while scope is not self.tree:
+            if self._bound(scope, name):
+                return scope
+            scope = self._scope(scope)
+        return self.tree
+
+    def _shadowed(self, node: ast.AST, name: str) -> bool:
+        return self._bound(self._binding_scope(node, name), name)
 
     def _environment(self, node: ast.AST) -> bool:
-        return (
-            isinstance(node, ast.Name)
-            and (
-                node.id == "environ"
-                or (self._scope(node), node.id) in self.environ_aliases
-                or (self.tree, node.id) in self.environ_aliases
+        if isinstance(node, ast.Name):
+            scope = self._binding_scope(node, node.id)
+            return (scope, node.id) in self.environ_aliases or (
+                node.id == "environ" and not self._bound(scope, node.id)
             )
-        ) or (
+        return (
             isinstance(node, ast.Attribute)
             and node.attr == "environ"
             and isinstance(node.value, ast.Name)
             and node.value.id == "os"
+            and not self._shadowed(node, "os")
         )
 
     def _environment_source(self, node: ast.AST) -> bool:
@@ -409,10 +448,17 @@ class _Python:
                             self.add(name, None)
 
     def _is_getenv(self, node: ast.Call) -> bool:
-        return _is_getenv(node) or (
-            isinstance(node.func, ast.Attribute)
-            and node.func.attr == "get"
-            and self._environment(node.func.value)
+        if isinstance(node.func, ast.Name):
+            return node.func.id == "getenv" and not self._shadowed(node, "getenv")
+        if not isinstance(node.func, ast.Attribute):
+            return False
+        if node.func.attr == "get":
+            return self._environment(node.func.value)
+        return (
+            node.func.attr == "getenv"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "os"
+            and not self._shadowed(node, "os")
         )
 
     def _default(self, node: ast.AST, default: str | None) -> str | None:
@@ -470,6 +516,46 @@ class _Python:
             and node.func.attr == "get"
         ):
             return self._names(node.func.value, seen)
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            scope = self._scope(node)
+            parsers = set()
+            for child in ast.walk(scope):
+                if isinstance(child, ast.Assign) and any(
+                    isinstance(target, ast.Name) and target.id == node.value.id
+                    for target in child.targets
+                ):
+                    if (
+                        isinstance(child.value, ast.Call)
+                        and isinstance(child.value.func, ast.Attribute)
+                        and child.value.func.attr == "parse_args"
+                    ):
+                        parsers.add(ast.unparse(child.value.func.value))
+            for child in ast.walk(scope):
+                if (
+                    isinstance(child, ast.Call)
+                    and isinstance(child.func, ast.Attribute)
+                    and child.func.attr == "add_argument"
+                    and ast.unparse(child.func.value) in parsers
+                ):
+                    options = [_string_arg(arg, self.constants) for arg in child.args]
+                    destination = next(
+                        (
+                            _string_arg(item.value, self.constants)
+                            for item in child.keywords
+                            if item.arg == "dest"
+                        ),
+                        None,
+                    )
+                    if (
+                        destination == node.attr
+                        or "--" + node.attr.replace("_", "-") in options
+                    ):
+                        return [
+                            name
+                            for keyword in child.keywords
+                            if keyword.arg == "default"
+                            for name in self._names(keyword.value, seen)
+                        ]
         if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
             for statement in self.tree.body:
                 if not isinstance(statement, ast.ImportFrom) or not statement.module:
@@ -780,8 +866,24 @@ def _typescript_env_functions(paths: list[Path]) -> dict[Path, set[str]]:
     return functions
 
 
-def _ts_aliases(tokens: list[str], functions: set[str]) -> list[tuple[str, int, int]]:
-    aliases = []
+def _ts_binding(
+    name: str,
+    index: int,
+    bindings: list[tuple[str, int, int, bool]],
+    default: bool = False,
+) -> bool:
+    matching = [
+        (start, environment)
+        for bound, start, end, environment in bindings
+        if name == bound and start <= index < end
+    ]
+    return max(matching, default=(-1, default))[1]
+
+
+def _ts_aliases(
+    tokens: list[str], functions: set[str]
+) -> list[tuple[str, int, int, bool]]:
+    bindings = []
     for index, token in enumerate(tokens):
         if token == "function" and index + 3 < len(tokens) and tokens[index + 2] == "(":
             depth, end = 1, index + 3
@@ -789,12 +891,6 @@ def _ts_aliases(tokens: list[str], functions: set[str]) -> list[tuple[str, int, 
                 depth += (tokens[end] == "(") - (tokens[end] == ")")
                 end += 1
             parameters = tokens[index + 3 : end - 1]
-            direct = any(
-                parameters[offset : offset + 4] == ["=", "process", ".", "env"]
-                for offset in range(len(parameters))
-            )
-            if not parameters or not (direct or tokens[index + 1] in functions):
-                continue
             start = end
             while start < len(tokens) and tokens[start] != "{":
                 start += 1
@@ -802,21 +898,45 @@ def _ts_aliases(tokens: list[str], functions: set[str]) -> list[tuple[str, int, 
             while end < len(tokens) and depth:
                 depth += (tokens[end] == "{") - (tokens[end] == "}")
                 end += 1
-            aliases.append((parameters[0], start, end))
-        if token in {"const", "let", "var"} and tokens[index + 2 : index + 6] == [
-            "=",
-            "process",
-            ".",
-            "env",
-        ]:
-            depth, end = 0, index + 6
+            parameter_start, nesting = 0, 0
+            for offset in range(len(parameters) + 1):
+                if (
+                    offset == len(parameters)
+                    or parameters[offset] == ","
+                    and nesting == 0
+                ):
+                    parameter = parameters[parameter_start:offset]
+                    if parameter:
+                        direct = any(
+                            parameter[i : i + 4] == ["=", "process", ".", "env"]
+                            for i in range(len(parameter))
+                        )
+                        environment = (
+                            direct
+                            or parameter_start == 0
+                            and tokens[index + 1] in functions
+                        )
+                        bindings.append((parameter[0], start, end, environment))
+                    parameter_start = offset + 1
+                elif parameters[offset] in {"(", "[", "{", "<"}:
+                    nesting += 1
+                elif parameters[offset] in {")", "]", "}", ">"}:
+                    nesting -= 1
+        if token in {"const", "let", "var"} and index + 1 < len(tokens):
+            depth, end = 0, index + 2
             while end < len(tokens):
                 depth += (tokens[end] == "{") - (tokens[end] == "}")
                 if depth < 0:
                     break
                 end += 1
-            aliases.append((tokens[index + 1], index + 6, end))
-    return aliases
+            environment = tokens[index + 2 : index + 6] == [
+                "=",
+                "process",
+                ".",
+                "env",
+            ] and _ts_binding("process", index, bindings, True)
+            bindings.append((tokens[index + 1], index, end, environment))
+    return bindings
 
 
 def _ts_default(tokens: list[str], offset: int) -> str | None:
@@ -855,11 +975,13 @@ def _scan_typescript(
     aliases = _ts_aliases(tokens, functions)
     for index, token in enumerate(tokens):
         offset = index
-        if tokens[index : index + 3] == ["process", ".", "env"]:
+        if tokens[index : index + 3] == ["process", ".", "env"] and _ts_binding(
+            "process", index, aliases, True
+        ):
             offset += 3
         elif tokens[index : index + 5] == ["import", ".", "meta", ".", "env"]:
             offset += 5
-        elif any(token == name and start <= index < end for name, start, end in aliases):
+        elif _ts_binding(token, index, aliases):
             offset += 1
         else:
             continue

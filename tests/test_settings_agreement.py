@@ -504,3 +504,29 @@ def test_python_unknown_environment_name_is_reported(tmp_path: Path) -> None:
     reads, unresolved = scan(root)
     assert reads == {}
     assert unresolved == ["src/app.py:2 dynamic environment name selected_name()"]
+
+
+def test_python_alias_reader_expands_names_at_its_call(tmp_path: Path) -> None:
+    root = _tree(
+        tmp_path,
+        """\
+import os
+
+def setting_value(name, default=None):
+    for candidate in setting_names(name):
+        value = os.environ.get(candidate)
+        if value is not None:
+            return value
+    return default
+
+value = setting_value("SAMPLE", "20")
+""",
+        [],
+    )
+    assert scan(root) == (
+        {
+            name: (Read("20", "src/app.py"),)
+            for name in ("CUADRAO_SAMPLE", "ARGUS_SAMPLE")
+        },
+        [],
+    )
