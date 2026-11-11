@@ -49,6 +49,7 @@ from argus.domain.business.document_type import (
     resolved_document_type,
     typed_facts,
 )
+from argus.domain.business.fiscal_identity import normalized_ncf
 from argus.domain.business.purchase_review import (
     amount_is_derived,
     apply_payment_split,
@@ -599,7 +600,23 @@ def prepare_attachment(
     # The typed merge after decode and read: the QR fills only what the read
     # left unknown, each filled fact naming its origin; a mismatch fills nothing.
     facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
-    facts = BusinessFacts.model_validate(facts).model_dump(mode="json")
+    read_facts = BusinessFacts.model_validate(facts)
+    facts = read_facts.model_dump(mode="json")
+    if (
+        not isinstance(read_facts.currency, Known)
+        and read_facts.fiscal is not None
+        and any(
+            isinstance(number, Known) and normalized_ncf(number.value) is not None
+            for number in (read_facts.fiscal.ncf, read_facts.fiscal.ecf)
+        )
+    ):
+        facts["currency"] = Known(
+            value="DOP", origin="default", source_ids=()
+        ).model_dump(mode="json")
+        logger.info(
+            "business_post_read_rule draft_id={} rule=fiscal_receipt_currency_default",
+            event.id,
+        )
     if before is not None:
         merged = before.model_dump(mode="json")
         for name in values:
@@ -889,6 +906,8 @@ def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> d
             if prior.get("origin") in {"owner_stated", "member_set", "matched"}
             else incoming
         )
+    if currency and incoming.get("origin") == "default":
+        return prior
     if (
         currency
         and prior.get("origin") == "default"

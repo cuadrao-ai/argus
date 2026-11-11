@@ -338,12 +338,17 @@ def test_usd_owner_funded_receipt_stays_usd_after_approval(actions):
     assert booked(service, context) == [("owner_funds", "USD")]
 
 
-def test_a_printed_currency_symbol_stays_unknown(actions):
+def test_a_printed_currency_symbol_defaults_to_dop_with_valid_ncf(actions):
     service, context = actions
 
     draft, _ = receipt_draft(service, context, colmado(currency="RD$"), None)
 
-    assert revisions(service, draft)[-1]["facts"]["currency"]["state"] == "unknown"
+    currency = revisions(service, draft)[-1]["facts"]["currency"]
+    assert (currency["value"], currency["origin"], currency["verified"]) == (
+        "DOP",
+        "default",
+        False,
+    )
 
 
 @pytest.mark.parametrize("ncf", ["B0200000001", "E320000000001"])
@@ -374,11 +379,11 @@ def test_receipt_without_rnc_gets_no_declaration(actions):
     assert history[-1]["dgii"] is None
 
 
-def test_a_read_naming_two_currencies_leaves_the_currency_unknown(actions):
+def test_a_read_naming_two_currencies_without_ncf_leaves_currency_unknown(actions):
     service, context = actions
 
     draft, _ = receipt_draft(
-        service, context, colmado(currency="USD"), None, account="DOP"
+        service, context, colmado(currency="USD", ncf=None), None, account="DOP"
     )
 
     assert revisions(service, draft)[-1]["facts"]["currency"]["state"] == "unknown"

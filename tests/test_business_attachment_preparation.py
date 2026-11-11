@@ -320,11 +320,10 @@ def test_extracted_currency_replaces_unsourced_dop_default(currency):
 def test_fiscal_receipt_defaults_only_unknown_currency_before_save(
     checked, monkeypatch, currency, fiscal, expected_currency, fires
 ):
-    from loguru import logger
-
     from argus.domain.business.actions import mutations, sources
     from argus.domain.ingestion.contract import ImportCandidate, SourceRef
     from argus.domain.ingestion.documents.models import ExtractionBatch, ReceiptDetails
+    from loguru import logger
 
     _, tx, binding, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
@@ -369,7 +368,8 @@ def test_fiscal_receipt_defaults_only_unknown_currency_before_save(
     assert fact.verified is False
     assert fact.source_ids == (() if fires else (source_id,))
     rule_logs = [
-        record for record in records
+        record
+        for record in records
         if "fiscal_receipt_currency_default" in record["message"]
     ]
     assert len(rule_logs) == int(fires)
@@ -379,3 +379,85 @@ def test_fiscal_receipt_defaults_only_unknown_currency_before_save(
             f"business_post_read_rule draft_id={event.id} "
             "rule=fiscal_receipt_currency_default"
         )
+
+
+@pytest.mark.parametrize(
+    ("state", "origin"),
+    [
+        ("known", "owner_stated"),
+        ("known", "member_set"),
+        ("known", "extracted"),
+        ("owner_does_not_know", "owner_stated"),
+        ("owner_does_not_know", "member_set"),
+        ("unknown", "owner_stated"),
+        ("unknown", "member_set"),
+        ("unknown", "matched"),
+        ("unknown", None),
+        ("unknown", "extracted"),
+    ],
+)
+@pytest.mark.parametrize("read_currency", [None, "DOP"])
+def test_existing_currency_takes_precedence_over_fiscal_receipt_default(
+    checked, monkeypatch, state, origin, read_currency
+):
+    from argus.domain.business.actions import mutations, sources
+    from argus.domain.business.contracts.actions import ExistingDraft
+    from argus.domain.business.contracts.facts import BusinessFacts
+    from argus.domain.ingestion.contract import ImportCandidate, SourceRef
+    from argus.domain.ingestion.documents.models import ExtractionBatch, ReceiptDetails
+
+    _, tx, binding, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    prior = BusinessFacts.model_validate(
+        {
+            "currency": {
+                "state": state,
+                "value": "USD" if state == "known" else None,
+                "origin": origin,
+                "verified": False,
+                "source_ids": [str(uuid4())] if origin is not None else [],
+            }
+        }
+    )
+    candidate = ImportCandidate(
+        source=SourceRef(
+            source="statement",
+            connection_id=draft.connection_id,
+            external_id=draft.sha256,
+            observed_at=draft.created_at,
+        ),
+        evidence="transaction",
+        direction="outflow",
+        amount="1180",
+        currency=read_currency,
+    )
+    batch = ExtractionBatch(
+        complete=True,
+        readable=True,
+        candidates=(candidate,),
+        receipt=ReceiptDetails(total="1180", currency=read_currency, ncf="B0100000001"),
+    )
+    event = mutations.new_candidate(str(binding.owner_id), draft.created_at)
+    monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
+    monkeypatch.setattr(mutations, "event_at", lambda *args: event)
+    monkeypatch.setattr(mutations, "facts_of", lambda *args: prior)
+    save = Mock()
+    monkeypatch.setattr(mutations, "save_revision", save)
+    target = ExistingDraft(draft_id=event.id, version=1)
+    if read_currency is not None and state in {"known", "owner_does_not_know"}:
+        with pytest.raises(ActionError, match="receipt_requires_review"):
+            mutations.prepare_attachment(tx, target, batch, draft, binding.actor)
+        save.assert_not_called()
+        return
+
+    mutations.prepare_attachment(tx, target, batch, draft, binding.actor)
+    after = save.call_args.args[3].currency
+    if state == "unknown" and origin in {None, "extracted"}:
+        assert after.state == "known"
+        assert after.value == "DOP"
+        assert after.origin == ("default" if read_currency is None else "extracted")
+        assert after.verified is False
+        if read_currency is None:
+            assert after.source_ids == ()
+    else:
+        assert after == prior.currency
