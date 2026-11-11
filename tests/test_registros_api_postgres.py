@@ -9,6 +9,7 @@ from argus.api.business_reports import router as reports_router
 from argus.api.documents import require_saved_documents
 from argus.domain.business.reporting_preferences import ReportRecipeV2
 from argus.domain.business.reporting_views import list_views
+from argus.domain.business.spaces import PostgresSpaceStore
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -43,7 +44,7 @@ def client(actions, documents):
         selected[0].grant_id,
     )
     app.dependency_overrides[require_business_person] = lambda: SimpleNamespace(
-        spaces=None
+        spaces=PostgresSpaceStore(service.authority.pool)
     )
     app.dependency_overrides[require_saved_documents] = lambda: documents[0]
     with TestClient(app) as http:

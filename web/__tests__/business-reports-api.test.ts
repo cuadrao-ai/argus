@@ -1,3 +1,4 @@
+import i18n from "i18next";
 import { reportLocation, restoreReportLocation } from "@/lib/business-reporting-wire";
 import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -110,6 +111,22 @@ describe("Business report transport", () => {
     respond({ detail: { code: "business_report_too_large" } }, 422);
     const error = await downloadRecordsExport(scope, report, { mode: "dgii", format: "xlsx" }).catch((error) => error);
     expect([error.code, error.requestId]).toEqual(["business_report_too_large", "synthetic-request"]);
+  });
+  test.each(["es-419", "en"])("downloads the UTF-8 server filename and sends %s", async (language) => {
+    const calls: Call[] = [];
+    const name = "Ferretería Peña - Compras 2026-10 - DGII - 2026-11-11 1015.xlsx";
+    globalThis.fetch = (async (path, options) => {
+      calls.push({ path: String(path), options: options ?? {} });
+      return new Response("xlsx", { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="Ferreteria Pena.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}` } });
+    }) as typeof fetch;
+    const report = reportRequestSchema.parse({});
+    const previous = i18n.resolvedLanguage;
+    i18n.resolvedLanguage = language;
+    try {
+      const file = await downloadRecordsExport(scope, report, { mode: "dgii", format: "xlsx" });
+      expect(file.filename).toBe(name);
+      expect(new Headers(calls[0].options.headers).get("Accept-Language")).toBe(language);
+    } finally { i18n.resolvedLanguage = previous; }
   });
   test("private view CRUD preserves preset, expected version and replay key, including an empty DELETE", async () => {
     const recipe = reportRequestSchema.parse({ filters: { period: { kind: "this_month", from_date: null, to_date: null } } });

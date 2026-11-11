@@ -1,4 +1,5 @@
 import { z } from "zod";
+import i18n from "i18next";
 import { CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { getChosenGrant, subscribeChosenGrant } from "./business-grant";
@@ -192,10 +193,12 @@ export function previewRecordsExport(scope: ReportScope, report: ReportRequest, 
   return json(scope, "/business/reports/export/preview", exportPreviewSchema, { method: "POST", body: JSON.stringify({ report: reportRequestSchema.parse(report) }), signal });
 }
 export async function downloadRecordsExport(scope: ReportScope, report: ReportRequest, choice: RecordsExportChoice, signal?: AbortSignal): Promise<RecordsExportFile> {
-  return request(scope, "/business/reports/export", { method: "POST", body: JSON.stringify({ report: reportRequestSchema.parse(report), ...choice }), signal }, async (response) => {
+  return request(scope, "/business/reports/export", { method: "POST", headers: { "Accept-Language": (i18n.resolvedLanguage || i18n.language)?.startsWith("en") ? "en" : "es-419" }, body: JSON.stringify({ report: reportRequestSchema.parse(report), ...choice }), signal }, async (response) => {
     const type = response.headers.get("Content-Type")?.split(";")[0].trim() ?? "";
     // The server names the file; the web saves it under that name.
-    const filename = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")?.[1];
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+    const filename = encoded ? decodeURIComponent(encoded) : /filename="([^"]+)"/.exec(disposition)?.[1];
     if (!FILE_TYPES.has(type) || !filename) throw new Error("Invalid Registros export file");
     return { blob: await response.blob(), filename };
   });

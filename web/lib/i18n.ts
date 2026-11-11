@@ -1,9 +1,11 @@
 import i18n from 'i18next';
+import { dgiiChoiceLabel } from './dgii-labels';
 import { initReactI18next } from 'react-i18next';
 import HttpBackend from 'i18next-http-backend';
 import { DEFAULT_LANGUAGE, ENABLED_LANGUAGE_CODES, browserLanguageSources, fallbackChain, resolveLanguage } from './language-features';
 
 i18n
+  .use(dgiiChoiceLabel)
   .use(HttpBackend)
   .use(initReactI18next)
   .init({
@@ -13,6 +15,8 @@ i18n
     supportedLngs: ENABLED_LANGUAGE_CODES,
     defaultNS: 'common',
     ns: ['common'],
+    postProcess: dgiiChoiceLabel.name,
+    postProcessPassResolved: true,
     interpolation: {
       escapeValue: false,
     },

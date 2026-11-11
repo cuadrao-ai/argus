@@ -22,11 +22,13 @@ from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.routers.business_export import ExportRoute
 from argus.domain.business import analytics as business_analytics
-from argus.domain.business.authority import ActionError
+from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.reporting_file import (
     ExportPreview,
     ExportPreviewRequest,
     RecordsExport,
+    RecordsFile,
+    content_disposition,
     export_file,
     preview_export,
 )
@@ -128,6 +130,12 @@ def preview_report_export(
                 "text/csv": {},
             },
             "description": "One Excel or CSV file: the table's records or the 606/607 lines.",
+            "headers": {
+                "Content-Disposition": {
+                    "description": "Attachment with an ASCII filename fallback and a UTF-8 filename*.",
+                    "schema": {"type": "string"},
+                },
+            },
         },
     },
 )
@@ -137,10 +145,27 @@ def download_report(
     body: RecordsExport,
     context: Context,
     person: Person,
+    language: Annotated[
+        str | None,
+        Header(
+            alias="Accept-Language",
+            description="Language for the filename and table text. Send en or es-419 (default).",
+        ),
+    ] = None,
 ) -> Response:
-    def build():  # noqa: ANN202
+    first_language = (language or "").split(",", 1)[0].split(";", 1)[0].strip().lower()
+    locale = "en" if first_language.split("-", 1)[0] == "en" else "es-419"
+
+    def build() -> tuple[ActionContext, RecordsFile]:
         actor = context.for_space(request, person.spaces)
-        return actor, export_file(context.service.authority, actor, body)
+        space = person.spaces.get(str(actor.actor.space_id))
+        return actor, export_file(
+            context.service.authority,
+            actor,
+            body,
+            business_name=space.name if space else None,
+            locale=locale,
+        )
 
     actor, built = _run(request, response, build)
     business_analytics.records_exported(
@@ -155,7 +180,7 @@ def download_report(
         media_type=built.media_type,
         headers={
             **NO_STORE,
-            "Content-Disposition": f'attachment; filename="{built.filename}"',
+            "Content-Disposition": content_disposition(built.filename),
         },
     )
 

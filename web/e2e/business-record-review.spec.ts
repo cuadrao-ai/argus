@@ -442,7 +442,7 @@ test.describe("pilot dictionary labels", () => {
         await page.screenshot({ path });
         await testInfo.attach(`${language}-${name}`, { path, contentType: "image/png" });
       };
-      for (const [field, text] of [["category", es ? "Gastos de personal" : "Personnel expenses"], ["payment_method", es ? "Efectivo" : "Cash"]]) {
+      for (const [field, text] of [["category", es ? "01 - Gastos de personal" : "01 - Personnel expenses"], ["payment_method", es ? "01 - Efectivo" : "01 - Cash"]]) {
         const select = review.locator(`[data-fact="${field}"] select`);
         await expect(select.locator('option[value="01"]')).toHaveText(text);
         await select.selectOption("01");
@@ -452,10 +452,21 @@ test.describe("pilot dictionary labels", () => {
       await capture("review-chosen-options");
       await page.goto("/dev/business-preview");
       await page.getByTestId("business-sidebar-nav").getByRole("button", { name: es ? /^Registros/ : /^Records/ }).click();
-      for (const label of es ? ["Contraparte", "Fecha", "Monto", "Moneda", "Tipo", "Tipo de gasto", "Estado", "Adjunto"] : ["Counterparty", "Date", "Amount", "Currency", "Type", "Expense type", "Status", "Attachment"]) {
+      await page.getByRole("button", { name: es ? "Opciones de vista" : "View options", exact: true }).click();
+      for (const key of ["tipo_gasto", "forma_pago"]) await page.locator(`[data-column-setting="${key}"] input`).check();
+      await page.keyboard.press("Escape");
+      for (const label of es ? ["Contraparte", "Fecha", "Monto", "Tipo de gasto", "Estado", "Adjunto"] : ["Counterparty", "Date", "Amount", "Expense type", "Status", "Attachment"]) {
         await expect(page.getByRole("columnheader", { name: label, exact: true })).toBeVisible();
       }
+      await expect(page.locator('[data-col="tipo_gasto"]').filter({ hasText: /^09 - / })).toBeVisible();
+      await expect(page.locator('[data-col="forma_pago"]').filter({ hasText: /^02 - / })).toBeVisible();
       await capture("records-headers");
+      await page.getByRole("button", { name: es ? "Filtros" : "Filters", exact: true }).click();
+      await page.getByRole("tab", { name: es ? "Tipo de gasto" : "Expense type", exact: true }).click();
+      await page.getByRole("checkbox", { name: /^09 - / }).check();
+      await capture("expense-type-filter");
+      await page.getByRole("button", { name: es ? "Aplicar" : "Apply", exact: true }).click();
+      await expect(page.getByTestId("records-preview-filter-chips")).toContainText("09 - ");
       expect(external, "the proof never contacts a hosted service").toEqual([]);
     });
   }

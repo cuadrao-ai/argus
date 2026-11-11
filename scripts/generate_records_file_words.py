@@ -1,4 +1,4 @@
-"""Copy the es-419 words the Registros file uses from the web locale.
+"""Copy the words the Registros file uses from the web locales.
 
 The locale owns the words; the server reads this generated copy so the file
 says what the screen says. Run with --check in CI to prove they agree.
@@ -12,14 +12,18 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LOCALE = ROOT / "web" / "public" / "locales" / "es-419" / "common.json"
+LOCALES = ROOT / "web" / "public" / "locales"
+LANGUAGES = ("es-419", "en")
 TARGET = (
     ROOT / "src" / "argus" / "domain" / "business" / "records_file_words.generated.json"
 )
 PATHS = (
+    "business.dgii.option.category",
+    "business.dgii.option.payment_method",
     "business.dossier.placeholder.expense_type",
     "business.dossier.placeholder.payment_form",
     "business.dossier.standing.missing",
+    "business.export.filename",
     "business.export.form_no_aplica",
     "business.transactions.columns.contraparte",
     "business.transactions.columns.cuenta",
@@ -42,14 +46,19 @@ PATHS = (
 )
 
 
-def build() -> str:
-    locale = json.loads(LOCALE.read_text(encoding="utf-8"))
+def locale_words(language: str) -> dict[str, str | dict[str, str]]:
+    locale = json.loads((LOCALES / language / "common.json").read_text(encoding="utf-8"))
     words = {}
     for path in PATHS:
         value = locale
         for part in path.split("."):
             value = value[part]
         words[path] = value
+    return words
+
+
+def build() -> str:
+    words = {language: locale_words(language) for language in LANGUAGES}
     return json.dumps(words, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
