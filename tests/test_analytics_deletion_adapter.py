@@ -203,11 +203,12 @@ def test_the_real_adapter_still_runs_when_no_events_are_sent_now(monkeypatch):
 
 def test_enabled_factory_requires_dedicated_configuration(monkeypatch):
     from argus.observability.analytics_deletion import analytics_deletion_from_env
+    from argus.observability.posthog_deletion import DeletionConfigurationError
 
     monkeypatch.setenv("CUADRAO_ANALYTICS_DELETION_ENABLED", "true")
     for name in ("HOST", "PROJECT_ID", "API_KEY"):
         monkeypatch.delenv(f"CUADRAO_POSTHOG_DELETION_{name}", raising=False)
-    with pytest.raises(RuntimeError, match="dedicated"):
+    with pytest.raises(DeletionConfigurationError, match="dedicated"):
         analytics_deletion_from_env()
 
 
@@ -224,11 +225,12 @@ DELETION_SETTINGS = {
 )
 def test_enabled_factory_refuses_when_any_one_setting_is_missing(monkeypatch, missing):
     from argus.observability.analytics_deletion import analytics_deletion_from_env
+    from argus.observability.posthog_deletion import DeletionConfigurationError
 
     for name, value in DELETION_SETTINGS.items():
         monkeypatch.setenv(name, value)
     monkeypatch.delenv(missing)
-    with pytest.raises(RuntimeError, match="dedicated"):
+    with pytest.raises(DeletionConfigurationError, match="dedicated"):
         analytics_deletion_from_env()
 
 
