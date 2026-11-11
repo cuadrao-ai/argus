@@ -1,9 +1,10 @@
-"""How many database clients one deploy may hold.
+"""Modeled API/worker pool and checkpointer clients during a deploy.
 
 The hosted pooler is in session mode and allows 15 clients. A deploy keeps the
 previous API process and the previous document worker until the new ones are
 up. The worker's drain holds its clients for that overlap. The checkpointer
 holds one client for the life of an API process when durable mode is on.
+Transient direct signup and maintenance connections are outside this pool budget.
 """
 
 from __future__ import annotations

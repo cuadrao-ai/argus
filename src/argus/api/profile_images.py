@@ -12,10 +12,12 @@ from collections.abc import Sequence
 
 from fastapi import HTTPException, Request
 from loguru import logger
+from psycopg import Connection
 
 from argus.api import state as api_state
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
+from argus.domain.postgres_connection import BorrowedConnection
 from argus.domain.profile_images import (
     InvalidImage,
     ProfileImages,
@@ -35,7 +37,11 @@ from argus.domain.profile_images.store import (
 _images: ProfileImages | None = None
 
 
-def profile_images() -> ProfileImages | None:
+def profile_images(connection: Connection | None = None) -> ProfileImages | None:
+    if _images is not None and connection is not None:
+        return _images.with_store(
+            PostgresProfileImageStore(BorrowedConnection(connection))
+        )
     return _images
 
 
@@ -53,7 +59,9 @@ def start_profile_images(app: object) -> None:
     pool = getattr(getattr(app, "state", None), "financial_accounts_pool", None)
     gateway = api_state.supabase_gateway
     if pool is None or gateway is None:
-        logger.warning("Profile pictures need DATABASE_URL and Supabase; surface stays off")
+        logger.warning(
+            "Profile pictures need DATABASE_URL and Supabase; surface stays off"
+        )
         configure_profile_images(None)
         return
     configure_profile_images(
@@ -68,11 +76,13 @@ def stop_profile_images(app: object) -> None:
     configure_profile_images(None)
 
 
-def picture_urls(kind: Kind, ids: Sequence[str]) -> dict[str, str | None]:
+def picture_urls(
+    kind: Kind, ids: Sequence[str], *, connection: Connection | None = None
+) -> dict[str, str | None]:
     """A signed URL per id, or None: for a subject with no picture, and for
     every subject while the service or its Storage is away."""
 
-    images = profile_images()
+    images = profile_images(connection)
     if images is None:
         return dict.fromkeys(ids)
     try:
@@ -82,8 +92,10 @@ def picture_urls(kind: Kind, ids: Sequence[str]) -> dict[str, str | None]:
         return dict.fromkeys(ids)
 
 
-def require_profile_images(request: Request) -> ProfileImages:
-    images = profile_images()
+def require_profile_images(
+    request: Request, *, connection: Connection | None = None
+) -> ProfileImages:
+    images = profile_images(connection)
     if images is None:
         raise problem(
             request,

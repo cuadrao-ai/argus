@@ -171,17 +171,34 @@ def test_management_failure_rolls_back_account_write(management):
         assert create_account(request, guarded)["currency"] == "DOP"
 
 
-def test_management_invalid_grant_denies_before_writing(management):
+def test_management_revoked_grant_denies_before_writing(management, users):
     pool, request, context = management
-    denied = replace(context, scope=replace(context.scope, grant_id=str(uuid4())))
+    from argus.domain.business.roles import BusinessRole
+
+    with pool.connection() as connection:
+        grant = connection.execute(
+            "insert into public.business_client_grants"
+            "(space_id,grantee_id,issuer_id,business_role,capabilities,revoked_at)"
+            " values(%s,%s,%s,'admin',array['read','prepare'],now()) returning id",
+            (context.scope.owner.space_id, users["other"], context.scope.person_id),
+        ).fetchone()[0]
+    context = replace(
+        context,
+        scope=replace(
+            context.scope,
+            actor_id=users["other"],
+            grant_id=str(grant),
+            business_role=BusinessRole.ADMIN,
+        ),
+    )
     with pytest.raises(HTTPException) as error:
-        with contextmanager(require_business_management)(request, denied):
-            pytest.fail("Invalid grant reached the route")
+        with contextmanager(require_business_management)(request, context):
+            pytest.fail("Revoked grant reached the route")
     assert error.value.status_code == 403
     assert pool.get_stats().get("requests_waiting", 0) == 0
 
 
-@pytest.mark.parametrize("callback", ["account", "catalog"])
+@pytest.mark.parametrize("callback", ["account", "catalog", "import"])
 def test_bank_callbacks_reuse_authorized_transaction(
     management, actions, monkeypatch, callback
 ):
@@ -207,7 +224,7 @@ def test_bank_callbacks_reuse_authorized_transaction(
                     actor.actor.space_id, UUID(actor.owner_id), account_id
                 )
                 assert found.account_id == account_id
-            else:
+            elif callback == "catalog":
                 assert (
                     service.catalog.approved_targets(
                         actor.actor.space_id,
@@ -217,6 +234,19 @@ def test_bank_callbacks_reuse_authorized_transaction(
                     )
                     == ()
                 )
+            else:
+                result = service.import_statement(
+                    space_id=actor.actor.space_id,
+                    actor_id=actor.actor.actor_id,
+                    owner_id=UUID(actor.owner_id),
+                    capabilities=frozenset({"prepare"}),
+                    content=b"# synthetic\nFecha,Descripcion,Debito,Credito,Moneda\n01/10/2026,Synthetic receipt,10.00,,DOP\n",
+                    account_id=account_id,
+                    reader_id=None,
+                    mapping=None,
+                    idempotency_key=str(uuid4()),
+                )
+                assert len(result.lines) == 1
 
     try:
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -227,7 +257,9 @@ def test_bank_callbacks_reuse_authorized_transaction(
         bank_matching.stop_bank_matching(request.app)
 
 
-def test_concurrent_refund_dossiers_reuse_owner_transaction(management, actions, monkeypatch):
+def test_concurrent_refund_dossiers_reuse_owner_transaction(
+    management, actions, monkeypatch
+):
     from threading import local
 
     from argus.domain.business.contracts.actions import ReviewDraft
@@ -237,12 +269,19 @@ def test_concurrent_refund_dossiers_reuse_owner_transaction(management, actions,
     service, actor, _ = actions
     draft, version = shared_actions.create(service, actor)
     service.review(
-        actor, draft,
-        ReviewDraft(version=version, facts=BusinessFactPatch.model_validate({
-            "kind": {"state": "known", "value": "refund"},
-            "currency": {"state": "known", "value": "DOP"},
-            "occurred_on": {"state": "known", "value": "2026-10-01"},
-        })), str(uuid4()),
+        actor,
+        draft,
+        ReviewDraft(
+            version=version,
+            facts=BusinessFactPatch.model_validate(
+                {
+                    "kind": {"state": "known", "value": "refund"},
+                    "currency": {"state": "known", "value": "DOP"},
+                    "occurred_on": {"state": "known", "value": "2026-10-01"},
+                }
+            ),
+        ),
+        str(uuid4()),
     )
     monkeypatch.setattr(service.authority, "pool", pool)
     ready, seen = Barrier(2, timeout=3), local()
@@ -262,3 +301,38 @@ def test_concurrent_refund_dossiers_reuse_owner_transaction(management, actions,
             result = future.result(timeout=4)
             assert result.facts.kind.value == "refund"
             assert result.refund_candidates == ()
+
+
+def test_async_logo_uploads_keep_distinct_borrowed_connections(management, monkeypatch):
+    import asyncio
+    from io import BytesIO
+
+    from PIL import Image
+
+    _, request, context = management
+    image = BytesIO()
+    Image.new("RGB", (64, 64), color="blue").save(image, format="PNG")
+
+    async def exercise():
+        ready, arrivals = asyncio.Event(), 0
+
+        async def read_upload(_request):
+            nonlocal arrivals
+            arrivals += 1
+            if arrivals == 2:
+                ready.set()
+            await asyncio.wait_for(ready.wait(), timeout=2)
+            return "image/png", image.getvalue()
+
+        monkeypatch.setattr(business_logo, "read_image_upload", read_upload)
+
+        async def run():
+            with contextmanager(require_business_management)(request, context) as guarded:
+                result = await business_logo.put_logo(request, guarded)
+                assert result["id"] == context.scope.owner.space_id
+                return guarded.connection
+
+        connections = await asyncio.wait_for(asyncio.gather(run(), run()), timeout=4)
+        assert connections[0] is not connections[1]
+
+    asyncio.run(exercise())

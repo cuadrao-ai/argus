@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Coroutine, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Request, Response
 from fastapi.routing import APIRoute
+from psycopg import Connection
 
 from argus.api.business_spaces import (
     business_access,
@@ -227,6 +228,7 @@ class BusinessContext:
     scope: BusinessScope
     service: BusinessService
     record_context: RecordContext | None = None
+    connection: Connection | None = None
 
 
 def _captured(person_id: str) -> frozenset[str]:
@@ -315,4 +317,4 @@ def require_business_management(
             ).require("manage")
         except ActionError:
             raise owner_required_problem(request) from None
-        yield context
+        yield replace(context, connection=connection)

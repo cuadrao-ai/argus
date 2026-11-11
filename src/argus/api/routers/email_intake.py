@@ -55,6 +55,7 @@ from argus.domain.ingestion.email_intake.signatures import (
 from argus.domain.ingestion.email_intake.standing import email_row
 from argus.domain.ingestion.email_intake.store import RecipientTaken
 from argus.domain.ingestion.reconcile.service import ReconciliationService
+from argus.domain.postgres_connection import BorrowedConnection
 
 _UNAVAILABLE = {
     404: {"description": "email_intake_unavailable: email receiving is off or not configured."}
@@ -161,8 +162,8 @@ async def receive(
     return Response(status_code=202, headers=NO_STORE)
 
 
-def _runtime(request: Request) -> EmailCapture:
-    runtime = email_intake()
+def _runtime(request: Request, context: BusinessContext) -> EmailCapture:
+    runtime = email_intake(context.connection)
     if runtime is None:
         raise _problem(
             request, 503, "email_capture_unavailable", "Email receiving is unavailable."
@@ -208,7 +209,7 @@ def receiving(
     context: Annotated[BusinessContext, Depends(require_business)],
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
-    return _readiness(_runtime(request), context.scope.owner.space_id)
+    return _readiness(_runtime(request, context), context.scope.owner.space_id)
 
 
 def _require_usable(request: Request, runtime: EmailCapture, route) -> None:  # noqa: ANN001
@@ -296,7 +297,7 @@ def create_receiving_address(
     # The address is the owner's to create or stop; a grantee only sees it.
     manager_only(request, context)
     response.headers.update(NO_STORE)
-    runtime = _runtime(request)
+    runtime = _runtime(request, context)
     space_id = context.scope.owner.space_id
     existing = runtime.store.route_for_space(space_id)
     if existing is not None:
@@ -310,7 +311,11 @@ def create_receiving_address(
         )
     report = _alias_report(runtime, body.alias)
     _refuse_alias(request, report)
-    pool = request.app.state.financial_accounts_pool
+    pool = (
+        BorrowedConnection(context.connection)
+        if context.connection is not None
+        else request.app.state.financial_accounts_pool
+    )
     hub = ingestion_hub()
     try:
         actor = BusinessActions(pool, hub.sink).resolve_actor(
@@ -356,7 +361,7 @@ def stop_receiving(
     context: Annotated[BusinessContext, Depends(require_business_management)],
 ) -> Response:
     manager_only(request, context)
-    _runtime(request).store.deactivate_routes(
+    _runtime(request, context).store.deactivate_routes(
         context.scope.owner.space_id, actor_id=context.scope.acting_person_id
     )
     return Response(status_code=204, headers=NO_STORE)
@@ -400,7 +405,7 @@ def alias_availability(
     manager_only(request, context)
     _limit_alias_lookup(request, context)
     response.headers.update(NO_STORE)
-    runtime = _runtime(request)
+    runtime = _runtime(request, context)
     current = runtime.store.route_for_space(context.scope.owner.space_id)
     return _public_alias(
         _alias_report(
@@ -419,7 +424,7 @@ def alias_suggestion(
     manager_only(request, context)
     _limit_alias_lookup(request, context)
     response.headers.update(NO_STORE)
-    runtime = _runtime(request)
+    runtime = _runtime(request, context)
     chosen = (
         name or runtime.store.space_name(context.scope.owner.space_id) or ""
     ).strip()
@@ -442,7 +447,7 @@ def change_receiving_address(
 
     manager_only(request, context)
     response.headers.update(NO_STORE)
-    runtime = _runtime(request)
+    runtime = _runtime(request, context)
     space_id = context.scope.owner.space_id
     current = runtime.store.route_for_space(space_id)
     if current is None:
@@ -493,7 +498,7 @@ def list_senders(
     context: Annotated[BusinessContext, Depends(require_business)],
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
-    runtime = _runtime(request)
+    runtime = _runtime(request, context)
     space_id = context.scope.owner.space_id
     rules = runtime.store.list_senders(space_id)
     members = runtime.store.member_addresses(space_id)
@@ -556,7 +561,7 @@ def authorize_sender(
             "email_sender_domain_refused",
             "That domain cannot be authorized as a whole.",
         )
-    runtime = _runtime(request)
+    runtime = _runtime(request, context)
     space_id = context.scope.owner.space_id
     existed = any(
         item.kind == body.kind and item.value == value
@@ -577,7 +582,7 @@ def remove_sender(
     context: Annotated[BusinessContext, Depends(require_business_management)],
 ) -> Response:
     manager_only(request, context)
-    removed = _runtime(request).store.remove_sender(
+    removed = _runtime(request, context).store.remove_sender(
         context.scope.owner.space_id,
         str(sender_id),
         actor_id=context.scope.acting_person_id,
@@ -737,7 +742,7 @@ def retry(
     # Re-running a delivery runs under the owner's grant: the owner's call alone.
     manager_only(request, context)
     response.headers.update(NO_STORE)
-    runtime = _runtime(request)
+    runtime = _runtime(request, context)
     if not runtime.enabled():
         raise _problem(
             request, 409, "email_intake_unavailable", "Email receiving is off."

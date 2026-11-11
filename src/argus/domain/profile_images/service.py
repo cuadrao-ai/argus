@@ -49,6 +49,9 @@ class ProfileImages:
         self._objects = objects
         self._ttl = url_ttl_seconds
 
+    def with_store(self, store: ProfileImageStore) -> ProfileImages:
+        return ProfileImages(store, self._objects, url_ttl_seconds=self._ttl)
+
     @property
     def objects(self) -> ProfileImageObjects:
         return self._objects

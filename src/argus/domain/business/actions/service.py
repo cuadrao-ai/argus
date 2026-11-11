@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
@@ -238,16 +239,18 @@ class BusinessActions:
 
     def dossier(self, context: ActionContext, draft_id: UUID) -> BusinessDossier:
         with transaction(self.authority, context) as tx:
-            return views.dossier(tx, draft_id, ledger=lambda: self._activities(context))
+            return views.dossier(
+                tx, draft_id, ledger=lambda: self._activities(context, tx.connection)
+            )
 
-    def _activities(self, context: ActionContext) -> list[dict]:
+    def _activities(self, context: ActionContext, connection: Connection) -> list[dict]:
         """The Business's current money activities, as the Resumen reads them."""
 
         from argus.domain.recording.money_reads import current_activities
 
         return current_activities(
             self.imports.money.accounts.list_accounts(
-                user_id=context.owner_id, scope=context.scope
+                user_id=context.owner_id, scope=context.scope, connection=connection
             )
         )
 

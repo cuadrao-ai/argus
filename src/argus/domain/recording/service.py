@@ -13,6 +13,8 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import UUID
 
+from psycopg import Connection
+
 from argus.domain.idempotency import canonical_hash
 from argus.domain.owner_scope import OwnerScope, Personal
 from argus.domain.recording.accounts import (
@@ -74,6 +76,7 @@ class FinancialAccountService:
         idempotency_key: str,
         request: CreateFinancialAccountRequest,
         scope: OwnerScope,
+        connection: Connection | None = None,
     ) -> CreateResult:
         account = NewAccount(
             type=validate_type(request.type),
@@ -125,12 +128,30 @@ class FinancialAccountService:
             account=account,
             opening=opening,
             scope=scope,
+            **({"connection": connection} if connection is not None else {}),
         )
 
-    def list_accounts(self, *, user_id: str, scope: OwnerScope) -> list[StoredAccount]:
-        return self._repository.list_accounts(user_id=user_id, scope=scope)
+    def list_accounts(
+        self,
+        *,
+        user_id: str,
+        scope: OwnerScope,
+        connection: Connection | None = None,
+    ) -> list[StoredAccount]:
+        return self._repository.list_accounts(
+            user_id=user_id,
+            scope=scope,
+            **({"connection": connection} if connection is not None else {}),
+        )
 
-    def get(self, *, user_id: str, account_id: str, scope: OwnerScope) -> StoredAccount:
+    def get(
+        self,
+        *,
+        user_id: str,
+        account_id: str,
+        scope: OwnerScope,
+        connection: Connection | None = None,
+    ) -> StoredAccount:
         try:
             # A malformed id names nothing the caller can own; same answer as
             # another user's account, so probes learn nothing from the shape.
@@ -138,7 +159,10 @@ class FinancialAccountService:
         except ValueError:
             raise AccountNotFound() from None
         stored = self._repository.get_account(
-            user_id=user_id, account_id=account_id, scope=scope
+            user_id=user_id,
+            account_id=account_id,
+            scope=scope,
+            **({"connection": connection} if connection is not None else {}),
         )
         if stored is None:
             raise AccountNotFound()

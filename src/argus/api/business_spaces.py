@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException, Request
+from psycopg import Connection
 
 from argus.api import state as api_state
 from argus.api.dependencies import problem
@@ -52,7 +53,9 @@ def business_spaces() -> SpaceStore | None:
     return _spaces
 
 
-def space_payload(space: Space) -> dict[str, Any]:
+def space_payload(
+    space: Space, *, connection: Connection | None = None
+) -> dict[str, Any]:
     """The space as every Business route answers it, logo included."""
 
     return {
@@ -60,7 +63,7 @@ def space_payload(space: Space) -> dict[str, Any]:
         "name": space.name,
         "country": space.country,
         "currency": space.currency,
-        "logo_url": picture_urls("business", [space.id])[space.id],
+        "logo_url": picture_urls("business", [space.id], connection=connection)[space.id],
     }
 
 

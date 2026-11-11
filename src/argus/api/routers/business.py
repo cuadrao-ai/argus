@@ -864,6 +864,7 @@ def create_account(
                 type=body.type, currency=body.currency, nickname=body.nickname
             ),
             key,
+            connection=context.connection,
         )
     except Exception as error:
         raise _problem(request, error) from None

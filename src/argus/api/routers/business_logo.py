@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response
+from psycopg import Connection
 
 from argus.api.business import BusinessContext, require_business_management
 from argus.api.business_schemas import BusinessSpaceInfo
@@ -22,6 +23,9 @@ from argus.api.profile_images import (
     require_profile_images,
     storage_problem,
 )
+from argus.domain.business.access import PostgresAccessStore
+from argus.domain.business.spaces import PostgresSpaceStore
+from argus.domain.postgres_connection import BorrowedConnection
 from argus.domain.profile_images import (
     InvalidImage,
     ProfileImageStorageUnavailable,
@@ -46,7 +50,12 @@ _RESPONSES = {
 
 
 def _require_manager(request: Request, context: BusinessContext) -> None:
-    found = business_access().granted(context.scope.actor_id, context.scope.grant_id)
+    access = (
+        PostgresAccessStore(BorrowedConnection(context.connection))
+        if context.connection is not None
+        else business_access()
+    )
+    found = access.granted(context.scope.actor_id, context.scope.grant_id)
     if found is None or "manage" not in found.permissions:
         raise problem(
             request,
@@ -58,11 +67,18 @@ def _require_manager(request: Request, context: BusinessContext) -> None:
         )
 
 
-def _payload(request: Request, space_id: str) -> dict[str, Any]:
-    space = business_spaces().get(space_id)
+def _payload(
+    request: Request, space_id: str, connection: Connection | None = None
+) -> dict[str, Any]:
+    spaces = (
+        PostgresSpaceStore(BorrowedConnection(connection))
+        if connection is not None
+        else business_spaces()
+    )
+    space = spaces.get(space_id)
     if space is None:
         raise space_missing_problem(request)
-    return space_payload(space)
+    return space_payload(space, connection=connection)
 
 
 @router.put("/logo", response_model=BusinessSpaceInfo, responses=_RESPONSES)
@@ -75,7 +91,7 @@ async def put_logo(
     It is stored as a 256 px WebP square with its metadata dropped."""
 
     _require_manager(request, context)
-    images = require_profile_images(request)
+    images = require_profile_images(request, connection=context.connection)
     media_type, content = await read_image_upload(request)
     space_id = context.scope.owner.space_id
     try:
@@ -84,7 +100,7 @@ async def put_logo(
         raise image_problem(request, error) from None
     except ProfileImageStorageUnavailable:
         raise storage_problem(request) from None
-    return _payload(request, space_id)
+    return _payload(request, space_id, context.connection)
 
 
 @router.delete("/logo", status_code=204, responses={k: _RESPONSES[k] for k in (403, 503)})
@@ -95,7 +111,7 @@ def delete_logo(
     """Remove the Business logo; removing an absent logo is a 204 too."""
 
     _require_manager(request, context)
-    images = require_profile_images(request)
+    images = require_profile_images(request, connection=context.connection)
     try:
         images.remove(business(context.scope.owner.space_id))
     except ProfileImageStorageUnavailable:

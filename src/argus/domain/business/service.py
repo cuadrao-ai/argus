@@ -14,6 +14,8 @@ from datetime import date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from psycopg import Connection
+
 from argus.domain import financial_search
 from argus.domain.business import analytics as business_analytics
 from argus.domain.business import ledger
@@ -112,13 +114,19 @@ class BusinessService:
         ]
 
     def create_account(
-        self, scope: BusinessScope, request: CreateFinancialAccountRequest, key: str
+        self,
+        scope: BusinessScope,
+        request: CreateFinancialAccountRequest,
+        key: str,
+        *,
+        connection: Connection | None = None,
     ) -> tuple[dict[str, Any], bool]:
         result = self.accounts.create(
             user_id=scope.person_id,
             idempotency_key=key,
             request=request,
             scope=scope.owner,
+            **({"connection": connection} if connection is not None else {}),
         )
         account = result.stored.account
         return (
