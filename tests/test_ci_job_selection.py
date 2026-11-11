@@ -73,6 +73,7 @@ def jobs_for(*paths: str) -> set[str]:
 CASES = {
     "backend-only": ([f"src/argus/api/{FAKE.word()}.py"], HEAVY),
     "web-only": ([f"web/components/{FAKE.word()}.tsx"], FRONTEND),
+    "backend-package-under-web": (["web/argus_display_contract/x.json"], EVERY),
     "marketing-only": ([f"marketing/app/{FAKE.word()}/page.tsx"], MARKETING),
     "migration-only": ([f"supabase/migrations/20261021120000_{FAKE.word()}.sql"], HEAVY),
     "database-test-only": ([f"tests/test_{FAKE.word()}_postgres.py"], HEAVY),
