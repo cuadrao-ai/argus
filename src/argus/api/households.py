@@ -63,15 +63,10 @@ def start_invites(app) -> None:  # noqa: ANN001
         )
         return
     try:
-        from argus.api.financial_accounts import business_pool
+        from argus.api.business_database import business_pool
         from argus.domain.household.invites import PostgresInviteStore
 
-        pool = business_pool()
-        if pool is None:
-            from psycopg_pool import ConnectionPool
-
-            pool = ConnectionPool(api_state.DATABASE_URL, min_size=0, max_size=1, open=True)
-            app.state.invites_pool = pool
+        pool = business_pool(api_state.DATABASE_URL)
         configure_invites_store(PostgresInviteStore(pool))
     except Exception:
         logger.exception("Beta invite surface failed to start; leaving off")
@@ -128,14 +123,10 @@ def start_households(app) -> None:  # noqa: ANN001
                 )
                 configure_households_service(None)
                 return
-            from argus.api.financial_accounts import business_pool
+            from argus.api.business_database import business_pool
             from argus.domain.household.postgres import PostgresHouseholdRepository
 
-            pool = business_pool()
-            if pool is None:
-                logger.warning("Households need the business database pool; surface stays off")
-                configure_households_service(None)
-                return
+            pool = business_pool(api_state.DATABASE_URL)
             lookup = FinancialAccountLookup(accounts_service._repository)  # noqa: SLF001
             configure_households_service(
                 HouseholdService(PostgresHouseholdRepository(pool, lookup))
@@ -161,20 +152,6 @@ def start_households(app) -> None:  # noqa: ANN001
 def stop_households(app) -> None:  # noqa: ANN001
     configure_households_service(None)
     configure_invites_store(None)
-    invites_pool = getattr(app.state, "invites_pool", None)
-    if invites_pool is not None:
-        try:
-            invites_pool.close()
-        except Exception:
-            logger.warning("Invites pool close failed")
-        app.state.invites_pool = None
-    pool = getattr(app.state, "households_pool", None)
-    if pool is not None:
-        try:
-            pool.close()
-        except Exception:
-            logger.warning("Households pool close failed")
-        app.state.households_pool = None
 
 
 def unavailable_problem(request: Request) -> HTTPException:

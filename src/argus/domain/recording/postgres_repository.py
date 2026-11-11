@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from argus.domain.recording.assets import AssetDetailsResult
 
-from psycopg import sql
+from psycopg import Connection, sql
 from psycopg_pool import ConnectionPool
 
 from argus.domain.owner_scope import OwnerScope, space_id, sql_predicate
@@ -131,27 +131,39 @@ class PostgresFinancialAccountRepository:
             return load(self, connection, user_id, activity_id, scope)
 
     def get_account(
-        self, *, user_id: str, account_id: str, scope: OwnerScope
+        self,
+        *,
+        user_id: str,
+        account_id: str,
+        scope: OwnerScope,
+        connection: Connection | None = None,
     ) -> StoredAccount | None:
+        if connection is not None:
+            return self._load(connection, user_id, account_id, scope=scope)
         with self._pool.connection() as connection:
             connection.execute("set transaction isolation level repeatable read")
             return self._load(connection, user_id, account_id, scope=scope)
 
-    def get_any_account(self, *, account_id: str) -> StoredAccount | None:
+    def get_any_account(
+        self, *, account_id: str, connection: Connection | None = None
+    ) -> StoredAccount | None:
         """Load by id after household authorization; not a client route."""
 
+        if connection is not None:
+            return self._load_any(connection, account_id)
         with self._pool.connection() as connection:
             connection.execute("set transaction isolation level repeatable read")
-            row = connection.execute(
-                f"select {_ACCOUNT_COLUMNS} from public.financial_accounts where id = %s",
-                (account_id,),
-            ).fetchone()
-            if row is None:
-                return None
-            openings = self._openings(connection, str(row[1]), [str(row[0])])
-            return hydrate(
-                connection, StoredAccount(_facts(row), openings.get(str(row[0])))
-            )
+            return self._load_any(connection, account_id)
+
+    def _load_any(self, connection: Connection, account_id: str) -> StoredAccount | None:
+        row = connection.execute(
+            f"select {_ACCOUNT_COLUMNS} from public.financial_accounts where id = %s",
+            (account_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        openings = self._openings(connection, str(row[1]), [str(row[0])])
+        return hydrate(connection, StoredAccount(_facts(row), openings.get(str(row[0]))))
 
     def update_account(
         self,
