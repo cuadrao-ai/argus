@@ -9,7 +9,9 @@ from tests.memory.test_mem0_configuration import _config
 
 
 @pytest.mark.parametrize("construction_fails", [False, True])
-def test_vector_adapter_cleanup_keeps_the_shared_pool_open(monkeypatch, construction_fails):
+def test_vector_adapter_cleanup_keeps_the_shared_pool_open(
+    monkeypatch, construction_fails
+):
     memory_class = import_mem0_memory()
     from mem0.memory.main import LlmFactory, VectorStoreFactory
 
@@ -24,7 +26,9 @@ def test_vector_adapter_cleanup_keeps_the_shared_pool_open(monkeypatch, construc
 
     monkeypatch.setattr(VectorStoreFactory, "create", capture_vector_store)
     if construction_fails:
-        monkeypatch.setattr(LlmFactory, "create", Mock(side_effect=RuntimeError("setup failed")))
+        monkeypatch.setattr(
+            LlmFactory, "create", Mock(side_effect=RuntimeError("setup failed"))
+        )
         with pytest.raises(RuntimeError, match="setup failed"):
             memory_class.from_config(_config(pool))
     else:
