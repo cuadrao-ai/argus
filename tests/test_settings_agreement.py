@@ -447,3 +447,60 @@ def test_frontend_transformed_read_fallback(tmp_path: Path, expression: str) -> 
         {"CUADRAO_SAMPLE": (Read("https://example.invalid", "web/lib/config.ts"),)},
         [],
     )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'source = os.environ\ndef unrelated(source):\n    return source.get("CUADRAO_UNUSED")\n',
+        'def unrelated(os):\n    return os.getenv("CUADRAO_UNUSED")\n',
+        'source = os.environ\ndef unrelated():\n    source = {}\n    return source.get("CUADRAO_UNUSED")\n',
+    ],
+)
+def test_python_shadow_bindings_are_not_environment_reads(
+    tmp_path: Path, source: str
+) -> None:
+    root = _tree(tmp_path, "import os\n" + source, [])
+    assert scan(root) == ({}, [])
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "const env = process.env; function unrelated(env: Record<string, string>) { return env.CUADRAO_UNUSED; }",
+        "function unrelated(process: { env: Record<string, string> }) { return process.env.CUADRAO_UNUSED; }",
+        "const env = process.env; function unrelated() { const env = {}; return env.CUADRAO_UNUSED; }",
+    ],
+)
+def test_frontend_shadow_bindings_are_not_environment_reads(
+    tmp_path: Path, source: str
+) -> None:
+    path = tmp_path / "web/lib/config.ts"
+    path.parent.mkdir(parents=True)
+    path.write_text(source)
+    assert scan(tmp_path) == ({}, [])
+
+
+def test_python_cli_default_names_an_environment_read(tmp_path: Path) -> None:
+    root = _tree(
+        tmp_path,
+        """\
+import os
+import argparse
+
+def main(argv=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--database-url-env", default="ARGUS_APPLY_DATABASE_URL")
+    args = parser.parse_args(argv)
+    return os.environ.get(args.database_url_env, "")
+""",
+        [],
+    )
+    assert scan(root) == ({"ARGUS_APPLY_DATABASE_URL": (Read("", "src/app.py"),)}, [])
+
+
+def test_python_unknown_environment_name_is_reported(tmp_path: Path) -> None:
+    root = _tree(tmp_path, "import os\nos.getenv(selected_name())\n", [])
+    reads, unresolved = scan(root)
+    assert reads == {}
+    assert unresolved == ["src/app.py:2 dynamic environment name selected_name()"]
