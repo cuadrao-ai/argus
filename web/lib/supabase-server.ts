@@ -27,14 +27,7 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
-          } catch (error) {
-            if (
-              !(error instanceof Error) ||
-              error.constructor.name !== "ReadonlyRequestCookiesError"
-            ) {
-              throw error;
-            }
-          }
+          } catch {}
         },
       },
     }
