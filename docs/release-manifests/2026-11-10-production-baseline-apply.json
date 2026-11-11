@@ -1,0 +1,15 @@
+{
+  "id": "production-apply-1789-baseline",
+  "project_ref": "lgdhvepyrzbnscqssgqq",
+  "hosts": [
+    "db.lgdhvepyrzbnscqssgqq.supabase.co",
+    "aws-1-us-east-2.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "FILL_AFTER_LUCAS_GO",
+  "versions_sha256": "86bf59c7006dc1a9e08657622d9029880887886ccd201e54fa179f864729a5f9",
+  "issued_at": "FILL_AFTER_LUCAS_GO",
+  "expires_at": "FILL_AFTER_LUCAS_GO",
+  "approved_by": "NOT APPROVED",
+  "approval_reference": "NOT APPROVED. Fill the candidate SHA, issue time, expiry (at most three days), approver, and approval reference only after Lucas gives the go for this production reset and baseline apply. Both versions run and are recorded. No record-only migration. This draft grants no hosted authority."
+}
