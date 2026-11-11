@@ -15,11 +15,13 @@ export default defineConfig({
     viewport: { width: 1280, height: 900 },
   },
   webServer: {
-    command: "node node_modules/next/dist/bin/next dev --webpack --port 3198",
+    // Production mode exercises account saves instead of the development-only language preview.
+    command: "bun run build && bun run start --hostname 127.0.0.1 --port 3198",
     cwd: path.resolve(__dirname, ".."),
     port: 3198,
-    timeout: 120_000,
+    timeout: 180_000,
     env: {
+      NEXT_TELEMETRY_DISABLED: "1",
       NEXT_PUBLIC_MOCK_AUTH: "true",
       NEXT_PUBLIC_ENABLE_SPANISH: "true",
       NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true",
