@@ -819,6 +819,31 @@ def _ts_aliases(tokens: list[str], functions: set[str]) -> list[tuple[str, int, 
     return aliases
 
 
+def _ts_default(tokens: list[str], offset: int) -> str | None:
+    default = None
+    while offset < len(tokens):
+        if tokens[offset] == ")":
+            offset += 1
+        elif tokens[offset : offset + 2] == ["?", "."]:
+            offset += 1
+        elif tokens[offset : offset + 4] in (
+            [".", "trim", "(", ")"],
+            [".", "toLowerCase", "(", ")"],
+        ):
+            offset += 4
+        elif tokens[offset] in {"??", "||"} and offset + 1 < len(tokens):
+            literal = _ts_literal(tokens[offset + 1])
+            if literal is None:
+                break
+            default = literal
+            if default:
+                break
+            offset += 2
+        else:
+            break
+    return default
+
+
 def _scan_typescript(
     path: Path,
     root: Path,
@@ -851,10 +876,7 @@ def _scan_typescript(
             offset += 3
         if not name or not is_setting(name) or tokens[offset : offset + 1] == ["="]:
             continue
-        default = None
-        if tokens[offset : offset + 1] in (["??"], ["||"]) and offset + 1 < len(tokens):
-            default = _ts_literal(tokens[offset + 1])
-        found.setdefault(name, []).append((default, owner))
+        found.setdefault(name, []).append((_ts_default(tokens, offset), owner))
 
 
 def _owner_rank(item: tuple[str | None, str]) -> tuple[int, str, str]:

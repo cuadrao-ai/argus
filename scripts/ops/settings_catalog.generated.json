@@ -2373,7 +2373,7 @@
     },
     {
       "name": "RESEND_API_URL",
-      "default": null,
+      "default": "https://api.resend.com",
       "owner": "marketing/lib/forms/config.ts"
     },
     {
