@@ -53,3 +53,22 @@ def test_graph_reports_computed_dynamic_imports(tmp_path: Path) -> None:
     (package / "__init__.py").write_text("__import__(configured_name)\n")
     _, uses = import_graph(tmp_path)
     assert [(use.target, use.line) for use in uses] == [("<dynamic>", 1)]
+
+
+def test_production_and_smoke_entry_points_import_without_optional_stack() -> None:
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import argus.api.main; import workflows.document_worker; "
+            "import workflows.document_job; import argus.api.chat.backtest_jobs",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

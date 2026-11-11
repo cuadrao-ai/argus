@@ -132,9 +132,7 @@ def test_local_smoke_contract_reports_sha_flags_mode_and_fingerprint() -> None:
     assert '"NEXT_PUBLIC_OMNISEARCH_ENABLED":"true"' in result.stdout
     assert "runtime_mode=" in result.stdout
     assert '"CUADRAO_PERSISTENCE_MODE":"memory"' in result.stdout
-    assert '"ARGUS_MARKET_DATA_PROVIDER_MODE":"synthetic_unit_fixture"' in (
-        result.stdout
-    )
+    assert '"ARGUS_MARKET_DATA_PROVIDER_MODE":"synthetic_unit_fixture"' in (result.stdout)
     assert '"CUADRAO_CHECKPOINTER_MODE":"memory"' in result.stdout
     assert '"CUADRAO_MOCK_AUTH":"true"' in result.stdout
     assert "env_fingerprint=" in result.stdout
@@ -162,13 +160,11 @@ def test_local_smoke_allows_only_memory_supabase_readiness_degradation(
         {
             "status": "degraded",
             "checks": [
-                {"name": "agent_runtime_workflow", "status": "ready"},
                 {
                     "name": "supabase",
                     "status": "degraded",
                     "reason": "gateway_unavailable",
                 },
-                {"name": "asset_universe", "status": "ready"},
             ],
         },
     )
@@ -185,16 +181,41 @@ def test_local_smoke_rejects_unexpected_readiness_degradation(
         {
             "status": "degraded",
             "checks": [
-                {"name": "agent_runtime_workflow", "status": "ready"},
                 {
                     "name": "supabase",
                     "status": "degraded",
                     "reason": "timeout",
                 },
-                {"name": "asset_universe", "status": "ready"},
             ],
         },
     )
 
     assert result.returncode == 1
     assert "unexpected degraded readiness checks" in result.stderr
+
+
+def test_local_smoke_rejects_missing_database_readiness(tmp_path: Path) -> None:
+    result = _verify_readiness_payload(tmp_path, {"status": "ready", "checks": []})
+    assert result.returncode == 1
+    assert "required database readiness check is missing" in result.stderr
+
+
+def test_local_smoke_stops_when_production_import_probe_fails() -> None:
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            "set -euo pipefail; "
+            "ARGUS_LOCAL_SMOKE_SOURCE_ONLY=true source .github/local-smoke.sh; "
+            "poetry() { return 23; }; "
+            "run_production_import_probe; echo should-not-start-servers",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 23
+    assert "should-not-start-servers" not in result.stdout
+    source = _source()
+    assert source.index("\nrun_production_import_probe\n") < source.index("\nstart_api\n")

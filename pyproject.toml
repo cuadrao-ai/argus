@@ -15,6 +15,12 @@ python = ">=3.10,<3.15"
 # Configuration Management
 pydantic-settings = "^2.14.2"
 python-dotenv = "^1.2.2"
+# Runtime imports retained by the production dependency audit.
+alpaca-py = "^0.38.0"
+pandas = "^2.2.0"
+pandas-ta-classic = {git = "https://github.com/xgboosted/pandas-ta-classic.git", rev = "6e4cb10"}
+dateparser = "^1.4.0"
+joblib = "^1.5.3"
 # Logging
 loguru = "^0.7.3"
 # API Server

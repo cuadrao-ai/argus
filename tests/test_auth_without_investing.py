@@ -16,7 +16,9 @@ client = TestClient(app)
 
 @pytest.fixture
 def mock_gateway(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
     gateway = MagicMock(spec=SupabaseGateway)
+    gateway.client = MagicMock()
     gateway.login.return_value = {
         "session": {
             "access_token": "access-token-123",
@@ -51,7 +53,7 @@ def _mock_profile(*, language: str = "en", stage: str = "ready") -> User:
     )
 
 
-def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
+def test_signup_duplicate_obfuscated_user_does_not_create_profile(
     mock_gateway,
     monkeypatch,
 ):
