@@ -217,7 +217,7 @@ def failure_logs():  # noqa: ANN201
     lines: list[str] = []
     sink = logger.add(
         lambda message: lines.append(str(message)),
-        level="ERROR",
+        level="WARNING",
         format="{message} {extra}",
     )
     try:
@@ -298,6 +298,80 @@ def test_an_unknown_build_failure_logs_its_origin_without_exception_text(
     assert response.status_code == 503
     assert response.json()["code"] == "account_deletion_unavailable"
     assert response.json()["detail"] == "Account deletion is not available right now."
+
+
+@pytest.mark.parametrize("provider", ["plaid", "apple"])
+def test_optional_builder_warnings_do_not_log_exception_text(
+    monkeypatch, faker, failure_logs, provider
+) -> None:  # noqa: ANN001
+    from argus.api import account_deletion_runtime as runtime
+    from argus.domain.apple_sign_in.config import (
+        AppleSignInConfig,
+        AppleSignInUnconfigured,
+    )
+    from argus.domain.ingestion.plaid import config as plaid_config
+
+    secret = faker.password()
+
+    def fail_config(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        error_type = ValueError if provider == "plaid" else AppleSignInUnconfigured
+        raise error_type(secret)
+
+    if provider == "plaid":
+        monkeypatch.setattr(runtime, "_revokers", {})
+        monkeypatch.setattr(plaid_config, "plaid_config_from_env", fail_config)
+        runtime.standalone_revoker()
+    else:
+        monkeypatch.setattr(runtime, "_apple", {})
+        monkeypatch.setattr(AppleSignInConfig, "from_env", fail_config)
+        assert runtime.standalone_apple(MagicMock()) is None
+    logged = "\n".join(failure_logs)
+    assert secret not in logged
+    assert re.search(r"test_account_deletion_api\.fail_config:[1-9][0-9]*", logged)
+
+
+@pytest.mark.parametrize("shape", ["changed_args", "subclass", "unprintable"])
+def test_build_failure_never_uses_untrusted_exception_formatting(
+    enabled, durable_builder, monkeypatch, faker, failure_logs, shape
+) -> None:  # noqa: ANN001
+    from argus.observability.posthog_deletion import (
+        DeletionConfigurationError,
+        DeletionSetting,
+    )
+
+    secret = faker.password()
+
+    class UnprintableError(RuntimeError):
+        def __str__(self) -> str:
+            raise AssertionError("exception formatting must not run")
+
+    class ChangedMessage(DeletionConfigurationError):
+        def __str__(self) -> str:
+            return secret
+
+    if shape == "unprintable":
+        error = UnprintableError(secret)
+    else:
+        error_type = ChangedMessage if shape == "subclass" else DeletionConfigurationError
+        error = error_type(DeletionSetting.API_KEY)
+        error.args = (secret,)
+    error.__notes__ = [secret]
+
+    def fail_build(**kwargs):  # noqa: ANN003, ANN202
+        raise error from ValueError(secret)
+
+    monkeypatch.setattr(durable_builder, "build_service", fail_build)
+    with patch.object(account_route, "deletion_requester", _registered):
+        response = client.post(URL, json={"confirm": True})
+    logged = "\n".join(failure_logs)
+    assert secret not in logged
+    assert secret not in response.text
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Account deletion is not available right now."
+    if shape == "changed_args":
+        assert "CUADRAO_POSTHOG_DELETION_API_KEY" in logged
+    else:
+        assert re.search(r"test_account_deletion_api\.fail_build:[1-9][0-9]*", logged)
 
 
 def test_feedback_still_takes_deletion_requests_while_the_command_is_off() -> None:
@@ -644,9 +718,7 @@ def test_the_command_keeps_six_and_is_not_spent_by_the_check(enabled) -> None:  
 
 def test_check_lists_closed_businesses_without_blocking(enabled) -> None:  # noqa: ANN001
     purge_at = datetime(2026, 12, 3, 15, 30, tzinfo=timezone.utc)
-    service = _checking(
-        [], [DeletionNotice(BUSINESS_ID, "Colmado Cerrado", purge_at)]
-    )
+    service = _checking([], [DeletionNotice(BUSINESS_ID, "Colmado Cerrado", purge_at)])
     with (
         patch.object(account_route, "deletion_requester", _registered),
         patch.object(account_route, "account_deletion_service", return_value=service),

@@ -18,7 +18,6 @@ route) may call it again to resume their own run (``account_deletion_auth``).
 from __future__ import annotations
 
 import os
-import re
 from datetime import datetime
 from typing import Annotated, Literal, Union
 
@@ -28,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from argus.api import state as api_state
 from argus.api.account_deletion_auth import deletion_requester
+from argus.api.account_deletion_runtime import failure_reason
 from argus.api.dependencies import problem
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import User
@@ -58,15 +58,6 @@ _INCOMPLETE_RETRY_SECONDS = 5
 
 def account_deletion_enabled() -> bool:
     return os.getenv(FLAG, "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-_CREDENTIAL = re.compile(r"(?i)(?:https?|postgres(?:ql)?)://\S+|Bearer\s+\S+")
-
-
-def _visible_failure_reason(exc: BaseException) -> str:
-    text = " ".join(str(exc).split())
-    redacted = _CREDENTIAL.sub("[redacted]", text).strip()
-    return redacted or type(exc).__name__
 
 
 class AccountDeletionRequest(BaseModel):
@@ -261,7 +252,7 @@ def account_deletion_eligibility(
         logger.error(
             "Account deletion check failed: {} {}",
             type(exc).__name__,
-            _visible_failure_reason(exc),
+            failure_reason(exc),
         )
         eligibility = None
     if eligibility is None:
@@ -302,7 +293,7 @@ def delete_account(
         logger.error(
             "Account deletion service failed to build: {} {}",
             type(exc).__name__,
-            _visible_failure_reason(exc),
+            failure_reason(exc),
         )
         service = None
     if service is None:
