@@ -1427,7 +1427,6 @@ fails if any field could hold free text or a money-formatted value.
   `schema_version`, `event_id`, `environment`, and `internal_account`
   (a boolean every caller must state; the sink refuses an envelope without one,
   and any technical value the registry did not set). `distinct_id` is `actor_hash_for_user(<user id>)`.
-  No registered event carries `guest_id_hash`.
 - Saved-query filter (SPEC 0, 0C-6): `environment = production` and
   `internal_account = false`.
 - Retired, and not in the registry: `first_answer_shown`, `signed_in`,

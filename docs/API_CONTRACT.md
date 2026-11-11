@@ -6812,8 +6812,8 @@ Each PostHog capture carries only the event's own properties plus these
 technical properties: `$process_person_profile` (always `false`),
 `schema_version`, `event_id`, `environment`, and `internal_account` (a boolean
 every caller must state). The sink checks each technical value is exactly what
-the registry sets. No registered event carries `guest_id_hash`. `distinct_id` is
-`actor_hash_for_user(<user id>)`. Hashed conversation, message, or run ids,
+the registry sets. `distinct_id` is `actor_hash_for_user(<user id>)`. Hashed
+conversation, message, or run ids,
 `status`, `latency_ms`, and nested `attributes` are never sent.
 
 Privacy posture:
@@ -6823,8 +6823,7 @@ Privacy posture:
   account balances, exact holdings, exact dates/capital, email, display name,
   private titles/previews, URLs, cookies, headers, IP addresses, payment
   identifiers, and similar sensitive payloads from envelope attributes.
-- Raw identifiers never reach PostHog; `distinct_id` and `guest_id_hash` are
-  one-way hashes.
+- Raw identifiers never reach PostHog. `distinct_id` is a one-way hash.
 - PostHog capture is server-side only. The browser has no PostHog key and no
   analytics endpoint of its own: `POST /analytics/guest-events` and its two
   browser events (`starter_action_selected`, `conversion_prompt_shown`) were

@@ -736,8 +736,6 @@ describe("the action bar", () => {
   });
 
   test("its position owes nothing to JavaScript", () => {
-    // No scroll listener and no reveal, so it cannot behave differently before
-    // hydration than after it.
     const bar = code(ACTION_BAR);
     for (const forbidden of [
       "addEventListener",

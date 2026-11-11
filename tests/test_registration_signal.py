@@ -1,5 +1,3 @@
-"""Signup still creates the account and does not emit a retired analytics event."""
-
 from __future__ import annotations
 
 from pathlib import Path

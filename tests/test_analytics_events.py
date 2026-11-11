@@ -1,10 +1,3 @@
-"""The closed analytics registry.
-
-The product analytics sink receives only the Business pilot's events, each
-under its own name, each with exactly its listed properties. Nothing else
-reaches it.
-"""
-
 from __future__ import annotations
 
 import json
@@ -194,7 +187,6 @@ def _literal_tuple(parts: list[Any], metadata: list[Any]) -> bool:
 
 
 def test_every_property_is_literal_bool_or_bounded_int() -> None:
-    """Nothing in any event can hold free text or an amount."""
     offenders: list[str] = []
     for name, model in ANALYTICS_EVENT_MODELS.items():
         assert model.model_config.get("extra") == "forbid", name
@@ -307,20 +299,6 @@ def test_unset_optional_properties_are_not_sent(
 
     [body] = posthog_posts
     assert set(body["properties"]) == TECHNICAL_PROPERTIES | {"business_hash", "channel"}
-
-
-def test_no_registered_event_carries_a_guest_id_hash(
-    posthog_posts: list[dict[str, Any]],
-) -> None:
-    for name in sorted(REGISTERED_EVENT_NAMES):
-        with pytest.raises(ValueError):
-            capture_analytics_event(
-                _event(name),
-                user_id="account-raw-id",
-                guest_user_id="guest-raw-id",
-                internal_account=False,
-            )
-    assert posthog_posts == []
 
 
 def test_an_unregistered_event_model_is_refused(

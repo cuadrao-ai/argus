@@ -14,9 +14,6 @@ import Link from "next/link";
  * and pairing it with what the page actually is, a what if on prices that already
  * happened, is what makes that acceptable. It also inverts the old arrangement,
  * where the caveat was the thing scrolled past and the button was the thing found.
- *
- * Position is CSS only. There is no scroll listener and no reveal, so the bar cannot
- * behave differently before hydration than after it.
  */
 
 type ReceiptActionBarProps = {

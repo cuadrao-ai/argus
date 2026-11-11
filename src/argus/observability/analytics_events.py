@@ -1,16 +1,3 @@
-"""The closed product analytics registry: the Business pilot's events
-(``argus.domain.business.analytics_events``), and nothing else.
-
-Each event is one Pydantic model whose fields are the event's exact properties.
-Fields are typed only as ``Literal[...]``, ``bool``, a bounded ``int``, or the
-hashed Business id, so an amount, a name, an email, or any other free text
-cannot be represented, let alone sent.
-
-The sink in ``envelope.py`` sends an envelope only when ``registered_payload()``
-below re-validates it as one of these models, so this module is the only way
-an event reaches the product analytics sink.
-"""
-
 from __future__ import annotations
 
 import re
@@ -32,7 +19,7 @@ from argus.observability.product_events import actor_hash_for_user
 
 ANALYTICS_SCHEMA_VERSION = "argus_analytics_event/v1"
 
-# ``distinct_id`` and ``guest_id_hash`` are always ``actor_hash_for_user()``.
+# ``distinct_id`` is always ``actor_hash_for_user()``.
 _ACTOR_HASH = re.compile(r"^argus_actor_[0-9a-f]{32}$")
 
 # An analytics envelope is sent right after it is built. Its timestamp is the
@@ -75,7 +62,6 @@ def build_analytics_envelope(
     event: AnalyticsEvent,
     *,
     user_id: str,
-    guest_user_id: str | None = None,
     internal_account: bool,
 ) -> ArgusEventEnvelope:
     if ANALYTICS_EVENT_MODELS.get(event.event_name) is not type(event):
@@ -83,13 +69,6 @@ def build_analytics_envelope(
     actor_hash = actor_hash_for_user(user_id)
     if actor_hash is None:
         raise ValueError("an analytics event needs the user id it is about")
-    attributes: dict[str, Any] = {}
-    if guest_user_id is not None:
-        if not event.carries_guest_id_hash:
-            raise ValueError(f"{event.event_name} does not carry a guest id hash")
-        guest_id_hash = actor_hash_for_user(guest_user_id)
-        if guest_id_hash is not None:
-            attributes["guest_id_hash"] = guest_id_hash
     return AnalyticsEnvelope(
         schema_version=ANALYTICS_SCHEMA_VERSION,
         event_type="analytics",
@@ -98,7 +77,7 @@ def build_analytics_envelope(
         analytics_event=event,
         internal_account=internal_account,
         actor_hash=actor_hash,
-        attributes=attributes,
+        attributes={},
     )
 
 
@@ -175,9 +154,8 @@ def registered_payload(
     ``build_analytics_envelope()`` gives it, technical fields and timestamp
     included, and carry an instance of exactly one registered model. That instance is validated again, because
     ``model_construct()`` or a subclass could otherwise smuggle unchecked values
-    past the model. The only attribute allowed next to it is a well-formed
-    ``guest_id_hash`` on an event that sets ``carries_guest_id_hash``, and
-    ``distinct_id`` must be an actor hash. No registered event sets that flag.
+    past the model. ``distinct_id`` must be an actor hash, and the envelope
+    carries no extra attributes.
     """
     if type(envelope) is not AnalyticsEnvelope or not _has_registry_shape(envelope):
         return None
@@ -194,16 +172,8 @@ def registered_payload(
     except ValidationError:
         return None
     properties = checked.model_dump(mode="json", exclude_none=True)
-    attributes = dict(envelope.attributes)
-    guest_id_hash = attributes.pop("guest_id_hash", None)
-    if attributes:
+    if envelope.attributes:
         return None
-    if guest_id_hash is not None:
-        if not model.carries_guest_id_hash or not (
-            isinstance(guest_id_hash, str) and _ACTOR_HASH.fullmatch(guest_id_hash)
-        ):
-            return None
-        properties["guest_id_hash"] = guest_id_hash
     return model.event_name, properties
 
 
@@ -211,20 +181,13 @@ def capture_analytics_event(
     event: AnalyticsEvent,
     *,
     user_id: str,
-    guest_user_id: str | None = None,
     internal_account: bool,
 ) -> EventCaptureResult:
-    """Send one registered event to PostHog under its own name.
-
-    ``user_id`` is hashed before it leaves this process. ``guest_user_id`` is
-    accepted only when the event sets ``carries_guest_id_hash``. No registered
-    event does, so a caller that passes one is refused.
-    """
+    """Send one registered event under its own name."""
     return capture_event(
         build_analytics_envelope(
             event,
             user_id=user_id,
-            guest_user_id=guest_user_id,
             internal_account=internal_account,
         )
     )

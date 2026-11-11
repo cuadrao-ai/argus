@@ -580,7 +580,6 @@ def test_a_stale_or_malformed_cursor_is_rejected(sharing_on: None) -> None:
 def test_resharing_a_result_returns_the_existing_link(
     sharing_on: None,
 ) -> None:
-    """Sharing the same result again returns the existing link."""
     client = _client()
     _seed(client)
     first = _create(client)
