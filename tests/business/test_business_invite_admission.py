@@ -163,8 +163,14 @@ def test_an_invited_person_signs_in_accepts_and_loses_access_on_revoke(
     refused = bob.get("/invitations")
     assert refused.status_code == 403, refused.text
     assert refused.json()["code"] == "private_alpha_access_required"
-    assert biz.post("/api/v1/auth/login", json=login).status_code == 401
-    gateway.login.assert_not_called()
+    refused_login = biz.post("/api/v1/auth/login", json=login)
+    assert refused_login.status_code == 401
+    assert refused_login.headers.get("set-cookie") is None
+    gateway.login.assert_called_once_with(
+        email=login["email"],
+        password=login["password"],
+        captcha_token=login["captcha_token"],
+    )
 
     assert alice.start({"name": "Colmado La Esquina"}).status_code == 201
     invited = alice.post("/access", {"email": identities[BOB]["email"].upper()})
@@ -357,8 +363,14 @@ def test_with_the_switch_off_an_invitation_admits_no_one_and_the_owner_keeps_eve
     assert not permanent_account_access_allowed(
         gateway, identities[BOB]["email"], business_access()
     )
-    assert biz.post("/api/v1/auth/login", json=login).status_code == 401
-    gateway.login.assert_not_called()
+    refused_login = biz.post("/api/v1/auth/login", json=login)
+    assert refused_login.status_code == 401
+    assert refused_login.headers.get("set-cookie") is None
+    gateway.login.assert_called_once_with(
+        email=login["email"],
+        password=login["password"],
+        captcha_token=login["captcha_token"],
+    )
     refused = bob.get("/invitations")
     assert refused.status_code == 403, refused.text
     assert refused.json()["code"] == "private_alpha_access_required"

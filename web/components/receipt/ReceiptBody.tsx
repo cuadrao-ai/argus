@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
 import type { PublicReceiptDocument } from "@/lib/public-receipt-turns";
-import { receiptDocumentKind } from "@/lib/public-receipt-turns";
 import { type ReceiptCopy, formatReceiptDate, interpolate } from "@/lib/receipt-copy";
 import { receiptPresentations } from "@/lib/receipt-presentation";
 import type { ArgusLanguage } from "@/lib/language-features";
 import ReceiptFollowupBox from "./ReceiptFollowupBox";
 import ReceiptTurnContent from "./ReceiptTurnContent";
-import ReceiptViewBeacon from "./ReceiptViewBeacon";
 
 type ReceiptBodyProps = {
   payload: PublicReceiptDocument;
@@ -18,12 +16,11 @@ type ReceiptBodyProps = {
 };
 
 /** One frozen chat presentation for public reading and the owner's exact preview. */
-export default function ReceiptBody({ payload, createdAt, copy, language, preview = false, footer }: ReceiptBodyProps) {
+export default function ReceiptBody({ payload, createdAt, copy, language, footer }: ReceiptBodyProps) {
   const entries = receiptPresentations(payload, createdAt, language);
   const notes = [...new Map(entries.filter((entry) => entry.ownerNote).map((entry) => [entry.ownerNote, entry])).values()];
   const date = formatReceiptDate(createdAt, language);
   return <main className="mx-auto flex w-full max-w-3xl flex-col px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-6 text-black tablet:px-8 tablet:pt-9 dark:text-white">
-    {!preview && <ReceiptViewBeacon kind={receiptDocumentKind(payload)} />}
     <header className="mb-8">
       <h1 className="font-display text-xl font-medium tracking-tight">Cuadrao</h1>
       <p className="mt-2 text-sm leading-relaxed text-black/55 dark:text-white/55">{date ? interpolate(copy.thread.notice, { date }) : copy.thread.preview_notice}</p>
