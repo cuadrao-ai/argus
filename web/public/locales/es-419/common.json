@@ -2293,10 +2293,6 @@
         "check_digit": {
           "label": "RNC con error",
           "reason": "El dígito verificador de este RNC no coincide. Puede tener un número mal escrito."
-        },
-        "unverified": {
-          "label": "RNC sin verificar",
-          "reason": "Todavía no lo hemos verificado con la DGII."
         }
       },
       "business_name": "Nombre del negocio",

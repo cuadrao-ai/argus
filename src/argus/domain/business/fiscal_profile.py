@@ -253,10 +253,10 @@ def _registry_answer(tx, tax_id: TaxId) -> dict:
 
 
 def lookup_registry(authority, context, query: RegistryQuery) -> dict:
-    """Checks a tax id the person is about to save as the Business's own
-    against the registry. Only someone who can manage the Business asks."""
+    """Checks a tax id against the registry: the Business's own before it is
+    saved, or a supplier's on a receipt. Anyone who can read the Business asks."""
 
-    with transaction(authority, context, "manage") as tx:
+    with transaction(authority, context, "read") as tx:
         _require_manager(context)
         return {
             **_registry_answer(tx, query.tax_id),

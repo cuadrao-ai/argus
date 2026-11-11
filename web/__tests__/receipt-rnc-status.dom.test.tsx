@@ -32,9 +32,6 @@ async function setup(language = "es-419") {
 for (const [value, label, reason, formatted] of [
   [null, "Sin RNC", "El recibo no tiene RNC. Agrégalo para poder reportarlo en el 606.", null],
   ["123", "RNC con error", "El RNC debe tener 9 dígitos (empresa) u 11 (cédula). Revisa que esté bien escrito.", "123"],
-  ["101123456", "RNC sin verificar", "Todavía no lo hemos verificado con la DGII.", "1-01-12345-6"],
-  ["00112345678", "RNC sin verificar", "Todavía no lo hemos verificado con la DGII.", "001-1234567-8"],
-  ["000000000", "RNC sin verificar", "Todavía no lo hemos verificado con la DGII.", "0-00-00000-0"],
 ] as const) test(`${label} for ${value}`, async () => {
   const env = await setup(); const { default: Facts } = await import("@/components/business-app/ReceiptRecordFacts");
   const dossier = await fixture(value);
@@ -43,10 +40,20 @@ for (const [value, label, reason, formatted] of [
   const pill = row.querySelector('[role="status"]') as HTMLElement;
   assert.equal(pill.textContent, label); assert.equal(pill.getAttribute("aria-label"), `Estado del RNC: ${label}`);
   assert.ok(pill.querySelector('[aria-hidden="true"]')); assert.ok(row.textContent?.includes(reason));
-  assert.equal(pill.style.color, value && value.length !== 3 ? "#735c14" : "#9e2f39");
-  assert.equal(pill.style.backgroundColor, value && value.length !== 3 ? "#f2e8c9" : "#f6dfe0");
+  assert.equal(pill.style.color, "#9e2f39");
+  assert.equal(pill.style.backgroundColor, "#f6dfe0");
   if (formatted) assert.equal(row.querySelector(".tabular-nums")?.textContent, formatted);
   assert.equal(row.querySelector("button"), null); assert.equal(row.textContent?.includes("Verified"), false);
+  await env.close();
+});
+for (const [value, formatted] of [["101123456", "1-01-12345-6"], ["00112345678", "001-1234567-8"], ["000000000", "0-00-00000-0"]] as const) test(`a well-formed ${value} with no registry to ask shows the number and Sin verificar alone`, async () => {
+  const env = await setup(); const { default: Facts } = await import("@/components/business-app/ReceiptRecordFacts");
+  const dossier = await fixture(value);
+  await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><Facts dossier={dossier} accounts={accounts} /></env.I18nextProvider>));
+  const row = env.host.querySelector('[data-fact="rnc"]')!;
+  assert.equal(row.querySelector(".tabular-nums")?.textContent, formatted);
+  assert.equal(row.querySelector('[data-testid="rnc-registry"]')?.textContent, "Sin verificar");
+  assert.equal(row.querySelector('[role="status"]'), null); assert.equal(row.querySelector("button"), null);
   await env.close();
 });
 test("optional actions use 44px targets, valid values have none", async () => {
