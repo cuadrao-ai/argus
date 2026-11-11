@@ -303,3 +303,79 @@ def test_extracted_currency_replaces_unsourced_dop_default(currency):
     if currency != "DOP":
         with pytest.raises(ActionError, match="receipt_requires_review"):
             _retain_or_fill(prior, incoming)
+
+
+@pytest.mark.parametrize(
+    ("currency", "fiscal", "expected_currency", "fires"),
+    [
+        (None, {"ncf": " b0100000001 "}, "DOP", True),
+        (None, {"ecf": "E310000000001"}, "DOP", True),
+        (None, {}, None, False),
+        (None, {"ncf": "B01000001"}, None, False),
+        ("USD", {"ncf": "B0100000001"}, "USD", False),
+        ("DOP", {"ncf": "B0100000001"}, "DOP", False),
+    ],
+    ids=["unknown-ncf", "unknown-ecf", "no-ncf", "malformed-ncf", "usd", "dop"],
+)
+def test_fiscal_receipt_defaults_only_unknown_currency_before_save(
+    checked, monkeypatch, currency, fiscal, expected_currency, fires
+):
+    from loguru import logger
+
+    from argus.domain.business.actions import mutations, sources
+    from argus.domain.ingestion.contract import ImportCandidate, SourceRef
+    from argus.domain.ingestion.documents.models import ExtractionBatch, ReceiptDetails
+
+    _, tx, binding, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    tx.context.owner_id = str(binding.owner_id)
+    candidate = ImportCandidate(
+        source=SourceRef(
+            source="statement",
+            connection_id=draft.connection_id,
+            external_id=draft.sha256,
+            observed_at=draft.created_at,
+        ),
+        evidence="transaction",
+        direction="outflow",
+        amount="1180",
+        currency=currency,
+        kind_hint="expense",
+        merchant="Synthetic shop",
+    )
+    batch = ExtractionBatch(
+        complete=True,
+        readable=True,
+        candidates=(candidate,),
+        receipt=ReceiptDetails(total="1180", currency=currency, **fiscal),
+    )
+    event = mutations.new_candidate(str(binding.owner_id), draft.created_at)
+    source_id = uuid4()
+    monkeypatch.setattr(mutations, "new_candidate", lambda *args: event)
+    monkeypatch.setattr(sources, "record_source", lambda *args: source_id)
+    save = Mock()
+    monkeypatch.setattr(mutations, "save_revision", save)
+    records = []
+    sink = logger.add(lambda message: records.append(message.record), level="INFO")
+    try:
+        mutations.prepare_attachment(tx, None, batch, draft, binding.actor)
+    finally:
+        logger.remove(sink)
+
+    fact = save.call_args.args[3].currency
+    assert fact.value == expected_currency
+    assert fact.state == ("known" if expected_currency else "unknown")
+    assert fact.origin == ("default" if fires else "extracted")
+    assert fact.verified is False
+    assert fact.source_ids == (() if fires else (source_id,))
+    rule_logs = [
+        record for record in records
+        if "fiscal_receipt_currency_default" in record["message"]
+    ]
+    assert len(rule_logs) == int(fires)
+    if fires:
+        assert rule_logs[0]["level"].name == "INFO"
+        assert rule_logs[0]["message"] == (
+            f"business_post_read_rule draft_id={event.id} "
+            "rule=fiscal_receipt_currency_default"
+        )
