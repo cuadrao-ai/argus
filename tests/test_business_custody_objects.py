@@ -49,7 +49,10 @@ class FakeAuth:
         return user_id in self.created
 
     def create_placeholder(self, *, user_id, email):
-        self.created[user_id] = email
+        self.created[user_id] = {
+            "email": email,
+            "encrypted_password": sha256(b"synthetic placeholder password").hexdigest(),
+        }
 
 
 def _seed(world, objects, *, rebuilt=False):
