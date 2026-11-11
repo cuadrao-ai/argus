@@ -229,6 +229,7 @@ class BusinessContext:
     service: BusinessService
     record_context: RecordContext | None = None
     connection: Connection | None = None
+    after_commit: Callable[[Callable[[], None]], None] | None = None
 
 
 def _captured(person_id: str) -> frozenset[str]:
@@ -304,6 +305,7 @@ def require_business_management(
     from argus.domain.business.authority import ActionError, authorize
     from argus.domain.business.contracts.authority import TrustedActor
 
+    completed: list[Callable[[], None]] = []
     with pool.connection() as connection, connection.transaction():
         try:
             authorize(
@@ -317,4 +319,6 @@ def require_business_management(
             ).require("manage")
         except ActionError:
             raise owner_required_problem(request) from None
-        yield replace(context, connection=connection)
+        yield replace(context, connection=connection, after_commit=completed.append)
+    for cleanup in completed:
+        cleanup()

@@ -7,10 +7,11 @@ syncs, lease takeovers and disconnects resolve in the database, not in Python.
 from __future__ import annotations
 
 import uuid
+from contextlib import nullcontext
 from datetime import datetime, timedelta
 from typing import Any
 
-from psycopg import errors
+from psycopg import Connection, errors
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
@@ -93,13 +94,19 @@ class PostgresConnectionRepository:
         return _row(row)
 
     def get(
-        self, *, user_id: str, connection_id: str, scope: OwnerScope
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        scope: OwnerScope,
+        connection: Connection | None = None,
     ) -> SourceConnection:
         in_scope, params = sql_predicate(scope, "owner_space_id")
         row = self._one(
             f"""select {_COLUMNS} from public.financial_source_connections
             where id = %s::uuid and user_id = %s and {in_scope}""",
             (_uuid(connection_id), user_id, *params),
+            connection=connection,
         )
         if row is None:
             raise ConnectionNotFound()
@@ -294,8 +301,17 @@ class PostgresConnectionRepository:
             return self.get_any_scope(user_id=user_id, connection_id=connection_id)
         return _row(row)
 
-    def _one(self, statement: str, params: tuple[Any, ...]) -> dict[str, Any] | None:
-        with self._pool.connection() as connection:
+    def _one(
+        self,
+        statement: str,
+        params: tuple[Any, ...],
+        *,
+        connection: Connection | None = None,
+    ) -> dict[str, Any] | None:
+        borrowed = (
+            nullcontext(connection) if connection is not None else self._pool.connection()
+        )
+        with borrowed as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(statement, params)
                 return cursor.fetchone()

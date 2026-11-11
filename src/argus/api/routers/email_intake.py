@@ -287,7 +287,7 @@ def _refuse_alias(request: Request, report: dict) -> None:
 def create_receiving_address(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[BusinessContext, Depends(require_business_management, scope="function")],
     body: Annotated[AliasBody | None, Body()] = None,
 ) -> dict[str, Any]:
     """One address per Business. The Business owner owns the captured documents;
@@ -358,7 +358,7 @@ def create_receiving_address(
 @router.delete("", status_code=204, dependencies=[Depends(require_email_receiving)], responses=_UNAVAILABLE)
 def stop_receiving(
     request: Request,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[BusinessContext, Depends(require_business_management, scope="function")],
 ) -> Response:
     manager_only(request, context)
     _runtime(request, context).store.deactivate_routes(
@@ -399,7 +399,7 @@ def _public_alias(report: dict) -> dict[str, Any]:
 def alias_availability(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[BusinessContext, Depends(require_business_management, scope="function")],
     alias: Annotated[str, Query(min_length=1, max_length=80)],
 ) -> dict[str, Any]:
     manager_only(request, context)
@@ -418,7 +418,7 @@ def alias_availability(
 def alias_suggestion(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[BusinessContext, Depends(require_business_management, scope="function")],
     name: Annotated[str | None, Query(max_length=80)] = None,
 ) -> dict[str, Any]:
     manager_only(request, context)
@@ -440,7 +440,7 @@ def alias_suggestion(
 def change_receiving_address(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[BusinessContext, Depends(require_business_management, scope="function")],
     body: AliasBody,
 ) -> dict[str, Any]:
     """Replace the live alias. The old alias is reserved and deliveries stay put."""
@@ -546,7 +546,7 @@ def _sender_item(rule, members: frozenset[str]) -> dict[str, Any]:  # noqa: ANN0
 def authorize_sender(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[BusinessContext, Depends(require_business_management, scope="function")],
     body: SenderBody,
 ) -> dict[str, Any]:
     manager_only(request, context)
@@ -579,7 +579,7 @@ def authorize_sender(
 def remove_sender(
     sender_id: UUID,
     request: Request,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[BusinessContext, Depends(require_business_management, scope="function")],
 ) -> Response:
     manager_only(request, context)
     removed = _runtime(request, context).store.remove_sender(
@@ -737,7 +737,7 @@ def retry(
     delivery_id: UUID,
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[BusinessContext, Depends(require_business_management, scope="function")],
 ) -> dict[str, Any]:
     # Re-running a delivery runs under the owner's grant: the owner's call alone.
     manager_only(request, context)

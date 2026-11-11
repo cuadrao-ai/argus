@@ -8,7 +8,7 @@ recorded in the subject's row. A reader gets a URL only when the row exists.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from argus.domain.profile_images.images import OUTPUT_MEDIA_TYPE, SIZE, square_webp
@@ -85,11 +85,19 @@ class ProfileImages:
         self._objects.put(subject.path, stored, OUTPUT_MEDIA_TYPE)
         self._store.save(subject.kind, subject.id, hashlib.sha256(stored).hexdigest())
 
-    def remove(self, subject: Subject) -> None:
+    def remove(
+        self,
+        subject: Subject,
+        *,
+        after_commit: Callable[[Callable[[], None]], None] | None = None,
+    ) -> None:
         """Row first, so readers stop being told; then the object. Idempotent."""
 
         self._store.delete(subject.kind, subject.id)
-        self._objects.remove(subject.path)
+        if after_commit is None:
+            self._objects.remove(subject.path)
+        else:
+            after_commit(lambda: self._objects.remove(subject.path))
 
     def erase(self, subject: Subject) -> None:
         """The object alone: the row goes with its auth user or its space."""

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -84,7 +85,9 @@ def _payload(
 @router.put("/logo", response_model=BusinessSpaceInfo, responses=_RESPONSES)
 async def put_logo(
     request: Request,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[
+        BusinessContext, Depends(require_business_management, scope="function")
+    ],
 ) -> dict[str, Any]:
     """Replace the Business logo with the raw picture in the body
     (`Content-Type: image/jpeg`, `image/png` or `image/webp`, at most 5 MiB).
@@ -106,14 +109,30 @@ async def put_logo(
 @router.delete("/logo", status_code=204, responses={k: _RESPONSES[k] for k in (403, 503)})
 def delete_logo(
     request: Request,
-    context: Annotated[BusinessContext, Depends(require_business_management)],
+    context: Annotated[
+        BusinessContext, Depends(require_business_management, scope="function")
+    ],
 ) -> Response:
     """Remove the Business logo; removing an absent logo is a 204 too."""
 
     _require_manager(request, context)
     images = require_profile_images(request, connection=context.connection)
+
+    def after_commit(remove: Callable[[], None]) -> None:
+        def cleanup() -> None:
+            try:
+                remove()
+            except ProfileImageStorageUnavailable:
+                raise storage_problem(request) from None
+
+        assert context.after_commit is not None
+        context.after_commit(cleanup)
+
     try:
-        images.remove(business(context.scope.owner.space_id))
+        images.remove(
+            business(context.scope.owner.space_id),
+            after_commit=after_commit if context.after_commit is not None else None,
+        )
     except ProfileImageStorageUnavailable:
         raise storage_problem(request) from None
     return Response(status_code=204, headers=NO_STORE)

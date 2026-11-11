@@ -391,7 +391,7 @@ def test_delivery_claim_survives_crash_and_does_not_send_again(pool, users):
     class SyntheticCrash(BaseException):
         pass
 
-    def crash():
+    def crash(_connection):
         calls.append(invite.id)
         raise SyntheticCrash()
 
@@ -408,11 +408,11 @@ def test_concurrent_delivery_claims_converge_and_failed_send_retries(pool, users
     access, space, invite = invite_member(pool, users, BusinessRole.VIEWER)
     calls = []
     assert (
-        access.deliver_invitation(space.id, users["owner"], invite.id, lambda: "failed")
+        access.deliver_invitation(space.id, users["owner"], invite.id, lambda _connection: "failed")
         == "failed"
     )
 
-    def send():
+    def send(_connection):
         calls.append(invite.id)
         return "accepted"
 

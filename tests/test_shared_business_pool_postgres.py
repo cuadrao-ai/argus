@@ -119,6 +119,13 @@ def test_two_management_requests_reuse_their_grant_connections(management, opera
     def run():
         with contextmanager(require_business_management)(request, context) as guarded:
             ready.wait()
+            connection = guarded.connection
+            settings = (
+                connection.row_factory,
+                connection.autocommit,
+                connection.isolation_level,
+            )
+            transaction_id = connection.execute("select txid_current()").fetchone()[0]
             if operation == "email":
                 result = email_routes.create_receiving_address(
                     request, Response(), guarded
@@ -127,7 +134,7 @@ def test_two_management_requests_reuse_their_grant_connections(management, opera
             elif operation == "account":
                 result = create_account(request, guarded)
                 assert result["currency"] == "DOP"
-                return result["id"]
+                account_id = result["id"]
             else:
                 assert business_logo.delete_logo(request, guarded).status_code == 204
                 assert (
@@ -136,6 +143,17 @@ def test_two_management_requests_reuse_their_grant_connections(management, opera
                     )["id"]
                     == context.scope.owner.space_id
                 )
+
+            assert settings == (
+                connection.row_factory,
+                connection.autocommit,
+                connection.isolation_level,
+            )
+            assert (
+                connection.execute("select txid_current()").fetchone()[0]
+                == transaction_id
+            )
+            return account_id if operation == "account" else None
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = [executor.submit(run) for _ in range(2)]

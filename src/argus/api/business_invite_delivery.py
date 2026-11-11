@@ -9,6 +9,7 @@ from smtplib import (
 
 from fastapi import Request
 from loguru import logger
+from psycopg import Connection
 
 from argus.api.business_spaces import business_access, business_spaces
 from argus.api.documents import NO_STORE
@@ -17,6 +18,8 @@ from argus.domain.business.config import business_invite_admission_enabled
 from argus.domain.business.invite_email import send_invite_email
 from argus.domain.business.memberships import DeliveryState
 from argus.domain.business.space_name import spanish_name
+from argus.domain.business.spaces import PostgresSpaceStore
+from argus.domain.postgres_connection import BorrowedConnection
 from argus.settings_names import setting_value
 
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
@@ -53,11 +56,16 @@ def _send_invite(
     invite: AccessInvite,
     space_id: str,
     owner_id: str,
+    connection: Connection | None = None,
 ) -> DeliveryState:
     if not invitations_available():
         return "not_configured"
     origin = (setting_value("APP_ORIGIN") or "").strip()
-    spaces = business_spaces()
+    spaces = (
+        PostgresSpaceStore(BorrowedConnection(connection))
+        if connection is not None
+        else business_spaces()
+    )
     space = spaces.get(space_id) if spaces is not None else None
     owner = next((g for g in access.grants if g.grantee_id == owner_id), None)
     try:
@@ -106,5 +114,7 @@ def deliver_invite(
         space_id,
         owner_id,
         invite.id,
-        lambda: _send_invite(request, access, invite, space_id, owner_id),
+        lambda connection: _send_invite(
+            request, access, invite, space_id, owner_id, connection
+        ),
     )

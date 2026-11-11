@@ -430,7 +430,20 @@ class BusinessService:
     ) -> list[dict[str, Any]]:
         ids = [item["activity_id"] for item in ledger.kind_activities(activities, kind)]
         with self.imports.store.transaction(scope.person_id, scope=scope.owner) as tx:
-            receipt_of = receipt_ids(tx, self.documents.store, scope.person_id, ids)
+            from argus.domain.ingestion.documents.store_postgres import (
+                PostgresDocumentStore,
+            )
+            from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+            from argus.domain.postgres_connection import BorrowedConnection
+
+            documents = self.documents.store
+            if isinstance(tx, _PostgresTx) and isinstance(
+                documents, PostgresDocumentStore
+            ):
+                documents = PostgresDocumentStore(
+                    BorrowedConnection(tx.connection), documents.objects
+                )
+            receipt_of = receipt_ids(tx, documents, scope.person_id, ids)
         return [
             _wire(item)
             for item in ledger.expenses(activities, receipt_of, start, end, kind=kind)

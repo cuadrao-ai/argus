@@ -246,8 +246,14 @@ class BusinessActions:
     def _activities(self, context: ActionContext, connection: Connection) -> list[dict]:
         """The Business's current money activities, as the Resumen reads them."""
 
+        from argus.domain.recording.canonical_groups import owner_closure
+        from argus.domain.recording.money_postgres import owner_lock
         from argus.domain.recording.money_reads import current_activities
 
+        # Match the writer's sorted owner locks while retaining the grant and
+        # import lock. Money commits before import finalization takes that lock.
+        for owner in owner_closure(connection, {context.owner_id}):
+            owner_lock(connection, owner)
         return current_activities(
             self.imports.money.accounts.list_accounts(
                 user_id=context.owner_id, scope=context.scope, connection=connection

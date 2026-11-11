@@ -14,6 +14,7 @@ from argus.api.business import (
     require_business_management,
 )
 from argus.api.routers import business, business_logo
+from argus.api.routers import email_intake as email_routes
 from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
@@ -148,21 +149,28 @@ def test_rolled_back_logo_delete_keeps_its_object(management, cancelled):
     assert subject.path in images.objects.objects
 
 
-def test_account_response_waits_for_guard_commit(management):
+@pytest.mark.parametrize("operation", ["account", "email", "logo"])
+def test_management_response_waits_for_guard_commit(management, operation):
     pool, _, context = management
 
     class FailedCommit:
         def __init__(self, connection):
             self.connection = connection
+            self.depth = 0
 
         def __getattr__(self, name):
             return getattr(self.connection, name)
 
         @contextmanager
         def transaction(self):
-            with self.connection.transaction():
-                yield
-                raise RuntimeError("Synthetic commit rejection")
+            self.depth += 1
+            try:
+                with self.connection.transaction():
+                    yield
+                    if self.depth == 1:
+                        raise RuntimeError("Synthetic commit rejection")
+            finally:
+                self.depth -= 1
 
     class CommitFailingPool:
         @contextmanager
@@ -173,13 +181,16 @@ def test_account_response_waits_for_guard_commit(management):
     app = FastAPI()
     app.state.financial_accounts_pool = CommitFailingPool()
     app.dependency_overrides[require_business_document_write] = lambda: context
-    app.add_api_route(
-        "/accounts", business.create_account, methods=["POST"], status_code=201
-    )
+    endpoint = {
+        "account": business.create_account,
+        "email": email_routes.stop_receiving,
+        "logo": business_logo.delete_logo,
+    }[operation]
+    app.add_api_route("/operation", endpoint, methods=["POST"], status_code=201)
     nickname = str(uuid4())
     with TestClient(app, raise_server_exceptions=False) as client:
         response = client.post(
-            "/accounts",
+            "/operation",
             json={"type": "checking", "currency": "DOP", "nickname": nickname},
             headers={"Idempotency-Key": str(uuid4())},
         )
@@ -193,7 +204,10 @@ def test_account_response_waits_for_guard_commit(management):
         )
 
 
-def test_two_intake_submissions_reuse_the_live_source_connection(users, monkeypatch):
+@pytest.mark.parametrize("business_scoped", [False, True])
+def test_two_intake_submissions_reuse_the_live_source_connection(
+    users, monkeypatch, business_scoped
+):
     now = datetime.now(timezone.utc)
     with ConnectionPool(
         shared_actions.shared.DSN, min_size=2, max_size=2, timeout=0.5
@@ -201,13 +215,20 @@ def test_two_intake_submissions_reuse_the_live_source_connection(users, monkeypa
         sources = PostgresConnectionRepository(pool)
         jobs = []
         for user in (users["owner"], users["other"]):
+            scope = PERSONAL
+            if business_scoped:
+                from argus.domain.business.spaces import PostgresSpaceStore
+                from argus.domain.owner_scope import BusinessSpace
+
+                space, _ = PostgresSpaceStore(pool).create(user, "Synthetic Business")
+                scope = BusinessSpace(space.id)
             source = sources.create(
                 user_id=user,
                 source="statement",
                 external_ref=str(uuid4()),
                 label=None,
                 now=now,
-                scope=PERSONAL,
+                scope=scope,
             )
             candidate = ImportCandidate(
                 source=SourceRef(
@@ -221,7 +242,7 @@ def test_two_intake_submissions_reuse_the_live_source_connection(users, monkeypa
                 currency="DOP",
                 direction="outflow",
             )
-            jobs.append((user, source.id, candidate))
+            jobs.append((user, source.id, candidate, scope))
         service = ReconciliationService(
             PostgresImportStore(pool), Mock(), lambda: now, connections=sources
         )
@@ -238,9 +259,9 @@ def test_two_intake_submissions_reuse_the_live_source_connection(users, monkeypa
         monkeypatch.setattr(pool, "getconn", acquire)
 
         def submit(job):
-            user, source, candidate = job
+            user, source, candidate, scope = job
             return service.submit(
-                user_id=user, connection_id=source, candidates=[candidate], scope=PERSONAL
+                user_id=user, connection_id=source, candidates=[candidate], scope=scope
             )
 
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -311,6 +332,7 @@ def test_concurrent_expense_receipt_reads_use_the_grant_connection(
     from datetime import date
 
     from argus.domain.business import transactions
+
     from tests.test_business_receipt_views_postgres import _web
 
     pool, _, _ = management
