@@ -1,4 +1,4 @@
-import type { BusinessDossier, BusinessFact, BusinessFactField, BusinessFacts, BusinessFiscalField } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessFact, BusinessFactField, BusinessFacts, BusinessFiscalField, ReviewFlagCode } from "@/lib/business-dossier";
 
 /**
  * How a fact stands, from its backend state and origin alone. A person reads
@@ -69,10 +69,16 @@ export function factRows<K extends BusinessFactField | BusinessFiscalField>(
     .map(({ key, standing, blocked: isBlocked, asked: isAsked }) => ({ key, standing, blocked: isBlocked, asked: isAsked }));
 }
 
+/** The RNC row's standing is its status block's alone; the row's pencil, or Reabrir, is its one action. */
+const RNC_STATUS_ROW = "rnc";
+const FLAG_SHOWN_AS: Record<ReviewFlagCode, "own_line" | "doubt_mark"> = { rnc_check_digit: "own_line", ncf_malformed: "doubt_mark", itbis_high: "own_line" };
+
 /** The read values the server doubts: a review flag names them, or the e-CF file says otherwise. */
 export function doubtfulFields(dossier: Pick<BusinessDossier, "review_flags" | "ecf_checks">): Set<string> {
   const read = dossier.ecf_checks?.checks.find((check) => check.name === "read_matches_xml" && check.state === "failed");
-  return new Set([...(dossier.review_flags ?? []).map((flag) => flag.field), ...Object.keys(read?.detail ?? {}).map((field) => field === "total" ? "amount" : field)]);
+  const flagged = (dossier.review_flags ?? []).filter((flag) => FLAG_SHOWN_AS[flag.code] === "doubt_mark").map((flag) => flag.field);
+  const disputed = Object.keys(read?.detail ?? {}).map((field) => field === "total" ? "amount" : field);
+  return new Set([...flagged, ...disputed].filter((field) => field !== RNC_STATUS_ROW));
 }
 
 /** The server's two figures when the e-CF's parts do not add up to its total. The web never adds them itself. */
