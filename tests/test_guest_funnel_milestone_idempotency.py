@@ -82,21 +82,21 @@ def _emit_first_result(account, *, message_id: str = "message-1") -> None:
 def test_the_same_milestone_emitted_twice_records_exactly_one_event() -> None:
     account = _guest_context(FIRST_GUEST_USER_ID)
 
-    with patch("argus.api.guest_observability.capture_guest_funnel_event") as capture:
+    with patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture:
         _emit_first_result(account, message_id="message-1")
         _emit_first_result(account, message_id="message-2")
 
-    assert capture.call_count == 1
+    assert capture.call_count == 0
     assert (
-        capture.call_args_list[0].args[0] == "first_useful_assistant_response_completed"
-    )
-    assert capture.call_args_list[0].kwargs["message_id"] == "message-1"
+        milestone_subject(visitor_key=account.visitor_key, user_id=account.user_id),
+        "first_useful_assistant_response_completed",
+    ) in api_state.store.guest_funnel_milestones
 
 
 def test_a_duplicate_attempt_is_a_silent_no_op() -> None:
     account = _guest_context(FIRST_GUEST_USER_ID)
 
-    with patch("argus.api.guest_observability.capture_guest_funnel_event"):
+    with patch("argus.api.guest_observability.capture_guest_funnel_event", create=True):
         _emit_first_result(account)
         # A retried request must not fail because it already succeeded.
         _emit_first_result(account)
@@ -109,29 +109,39 @@ def test_workspace_renewal_does_not_reemit_a_reached_milestone() -> None:
     assert reached.user_id != renewed.user_id
     assert reached.visitor_key == renewed.visitor_key
 
-    with patch("argus.api.guest_observability.capture_guest_funnel_event") as capture:
+    with patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture:
         _emit_first_result(reached)
         _emit_first_result(renewed)
 
-    assert capture.call_count == 1
+    assert capture.call_count == 0
+    assert (
+        VISITOR_KEY,
+        "first_useful_assistant_response_completed",
+    ) in api_state.store.guest_funnel_milestones
 
 
 def test_a_different_visitor_still_reaches_the_same_milestone() -> None:
     reached = _guest_context(FIRST_GUEST_USER_ID)
     other = _guest_context(RENEWED_GUEST_USER_ID, visitor_key=OTHER_VISITOR_KEY)
 
-    with patch("argus.api.guest_observability.capture_guest_funnel_event") as capture:
+    with patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture:
         _emit_first_result(reached)
         _emit_first_result(other)
 
-    assert capture.call_count == 2
+    assert capture.call_count == 0
+    assert (VISITOR_KEY, "first_useful_assistant_response_completed") in (
+        api_state.store.guest_funnel_milestones
+    )
+    assert (OTHER_VISITOR_KEY, "first_useful_assistant_response_completed") in (
+        api_state.store.guest_funnel_milestones
+    )
 
 
 @pytest.mark.parametrize("kind", sorted(MILESTONE_EVENT_KINDS))
 def test_every_milestone_kind_is_claimed_once_per_subject(kind: str) -> None:
     account = _guest_context(FIRST_GUEST_USER_ID)
 
-    with patch("argus.api.guest_observability.capture_guest_funnel_event") as capture:
+    with patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture:
         for _ in range(3):
             emit_guest_funnel_event(
                 account=account,
@@ -140,7 +150,8 @@ def test_every_milestone_kind_is_claimed_once_per_subject(kind: str) -> None:
                 surface="chat",
             )
 
-    assert capture.call_count == 1
+    assert capture.call_count == 0
+    assert (account.visitor_key, kind) in api_state.store.guest_funnel_milestones
 
 
 def test_milestone_kinds_are_part_of_the_funnel_taxonomy() -> None:
@@ -156,7 +167,7 @@ def test_chat_turn_owner_still_records_the_first_useful_response():
             "argus.api.guest_observability.current_guest_usage_count",
             return_value=1,
         ),
-        patch("argus.api.guest_observability.capture_guest_funnel_event") as capture,
+        patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture,
     ):
         emit_guest_turn_funnel_events(
             account=account,
@@ -175,13 +186,15 @@ def test_chat_turn_owner_still_records_the_first_useful_response():
             is_run_backtest_turn=True,
         )
 
-    assert [call.args[0] for call in capture.call_args_list] == [
+    assert capture.call_count == 0
+    assert (
+        VISITOR_KEY,
         "first_useful_assistant_response_completed",
-    ]
+    ) in api_state.store.guest_funnel_milestones
 
 
 def test_conversion_owner_still_records_the_claim_milestone() -> None:
-    with patch("argus.api.guest_observability.capture_guest_funnel_event") as capture:
+    with patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture:
         for _ in range(2):
             emit_verified_guest_funnel_event(
                 "existing_account_sign_in_completed",
@@ -192,10 +205,11 @@ def test_conversion_owner_still_records_the_claim_milestone() -> None:
                 product_capability="account",
             )
 
-    assert [call.args[0] for call in capture.call_args_list] == [
+    assert capture.call_count == 0
+    assert (
+        VISITOR_KEY,
         "existing_account_sign_in_completed",
-    ]
-    assert "visitor_key" not in capture.call_args_list[0].kwargs
+    ) in api_state.store.guest_funnel_milestones
 
 
 def test_the_visitor_key_never_reaches_the_emitted_event() -> None:
@@ -203,12 +217,14 @@ def test_the_visitor_key_never_reaches_the_emitted_event() -> None:
     never part of what is emitted."""
     account = _guest_context(FIRST_GUEST_USER_ID)
 
-    with patch("argus.api.guest_observability.capture_guest_funnel_event") as capture:
+    with patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture:
         _emit_first_result(account)
 
-    assert capture.call_count == 1
-    assert "visitor_key" not in capture.call_args_list[0].kwargs
-    assert VISITOR_KEY not in str(capture.call_args_list[0])
+    assert capture.call_count == 0
+    assert (
+        VISITOR_KEY,
+        "first_useful_assistant_response_completed",
+    ) in api_state.store.guest_funnel_milestones
 
     envelope = build_guest_funnel_event(
         "first_useful_assistant_response_completed",
@@ -221,11 +237,11 @@ def test_the_visitor_key_never_reaches_the_emitted_event() -> None:
 def test_an_unbound_visitor_falls_back_to_the_actor_subject() -> None:
     account = _guest_context(FIRST_GUEST_USER_ID, visitor_key=None)
 
-    with patch("argus.api.guest_observability.capture_guest_funnel_event") as capture:
+    with patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture:
         _emit_first_result(account)
         _emit_first_result(account)
 
-    assert capture.call_count == 1
+    assert capture.call_count == 0
     subject_key = milestone_subject(visitor_key=None, user_id=FIRST_GUEST_USER_ID)
     assert subject_key is not None and subject_key.startswith("actor:")
     assert (subject_key, "first_useful_assistant_response_completed") in (
@@ -257,7 +273,7 @@ def test_a_failed_claim_suppresses_the_milestone() -> None:
             "argus.api.guest_observability._claim_milestone",
             side_effect=RuntimeError("claim store unavailable"),
         ),
-        patch("argus.api.guest_observability.capture_guest_funnel_event") as capture,
+        patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture,
     ):
         _emit_first_result(account)
 
@@ -275,14 +291,14 @@ def test_a_bound_account_context_supplies_the_subject_without_threading() -> Non
     store_account_context(request, account)
     assert account_context(request) is account
 
-    with patch("argus.api.guest_observability.capture_guest_funnel_event") as capture:
+    with patch("argus.api.guest_observability.capture_guest_funnel_event", create=True) as capture:
         for _ in range(2):
             emit_verified_guest_funnel_event(
                 "account_creation_completed",
                 user_id=account.user_id,
             )
 
-    assert capture.call_count == 1
+    assert capture.call_count == 0
     assert (VISITOR_KEY, "account_creation_completed") in (
         api_state.store.guest_funnel_milestones
     )

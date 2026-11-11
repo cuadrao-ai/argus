@@ -23,7 +23,6 @@ from argus.observability.guest_funnel import (
     GuestFunnelStrategyCategory,
     GuestFunnelSurface,
     GuestFunnelTerminalOutcome,
-    capture_guest_funnel_event,
     is_milestone_event,
     milestone_subject,
 )
@@ -138,11 +137,6 @@ def emit_verified_guest_funnel_event(
             visitor_key=visitor_key,
         ):
             return
-        capture_guest_funnel_event(
-            kind,
-            user_id=user_id,
-            **kwargs,
-        )
     except Exception:
         logger.opt(exception=True).warning(
             "Guest funnel event emission failed",
