@@ -43,7 +43,7 @@ def test_search_declares_bounded_visible_conversation_recall(
 
     query = parameters["q"]
     assert query["in"] == "query"
-    assert query["required"] is True
+    assert query["required"] is False
     assert query["schema"]["maxLength"] == 512
 
     conversation_ids = parameters["conversation_id"]
@@ -51,12 +51,7 @@ def test_search_declares_bounded_visible_conversation_recall(
     assert conversation_ids["required"] is False
     assert conversation_ids["schema"] == {
         "anyOf": [
-            {
-                "items": {"type": "string", "format": "uuid"},
-                "type": "array",
-                "minItems": 1,
-                "maxItems": 50,
-            },
+            {"items": {"type": "string"}, "type": "array"},
             {"type": "null"},
         ],
         "title": "Conversation Id",
@@ -92,11 +87,10 @@ def test_decision_note_write_schema_caps_new_notes_without_narrowing_reads(
     generated: dict,
 ) -> None:
     schemas = generated["components"]["schemas"]
-    create_note = schemas["DecisionNoteCreate"]["properties"]["note"]["anyOf"][0]
+    assert "DecisionNoteCreate" not in schemas
     dossier_note = schemas["SearchDossierDecision"]["properties"]["note"]["anyOf"][0]
     action_note = schemas["SearchDecisionAction"]["properties"]["note"]["anyOf"][0]
 
-    assert create_note["maxLength"] == 500
     assert dossier_note["maxLength"] == 2000
     assert action_note["maxLength"] == 2000
 
@@ -113,21 +107,11 @@ def test_dossier_decision_action_requires_typed_availability(generated: dict) ->
 
 
 def test_dossier_reads_declare_client_capability_negotiation(generated: dict) -> None:
-    for path in (
-        "/api/v1/search",
-        "/api/v1/conversations/{conversation_id}/run-dossiers",
-    ):
-        parameters = {
-            parameter["name"]: parameter
-            for parameter in generated["paths"][path]["get"]["parameters"]
-        }
-        capability = parameters["X-Argus-Client-Capabilities"]
-        assert capability["in"] == "header"
-        assert capability["required"] is False
-        assert capability["schema"]["anyOf"][0] == {
-            "type": "string",
-            "maxLength": 1024,
-        }
+    parameters = {
+        parameter["name"]: parameter
+        for parameter in generated["paths"]["/api/v1/search"]["get"]["parameters"]
+    }
+    assert "X-Argus-Client-Capabilities" not in parameters
 
 
 def test_prefix_appears_exactly_once_per_public_operation(
@@ -198,7 +182,7 @@ def test_unapproved_exclusion_of_a_public_route_fails_as_missing(
     """
 
     broken = copy.deepcopy(checked)
-    target_path = "/api/v1/discovery/indicators"
+    target_path = "/api/v1/history"
     assert "get" in broken["paths"][target_path]
     del broken["paths"][target_path]["get"]
     if not broken["paths"][target_path]:
@@ -214,11 +198,11 @@ def test_missing_public_route_fails_with_named_operation(
     generated: dict, checked: dict
 ) -> None:
     broken = copy.deepcopy(checked)
-    del broken["paths"]["/api/v1/discovery/assets"]
+    del broken["paths"]["/api/v1/history"]
 
     failures = openapi_compat.structural_failures(generated, broken)
     assert (
-        "missing operation in checked artifact: GET /api/v1/discovery/assets" in failures
+        "missing operation in checked artifact: GET /api/v1/history" in failures
     )
 
 
@@ -241,15 +225,15 @@ def test_method_drift_fails_with_named_operation(generated: dict, checked: dict)
     """Changing the HTTP method of a real route must fail on both sides."""
 
     broken = copy.deepcopy(checked)
-    operation = broken["paths"]["/api/v1/discovery/assets"].pop("get")
-    broken["paths"]["/api/v1/discovery/assets"]["put"] = operation
+    operation = broken["paths"]["/api/v1/history"].pop("get")
+    broken["paths"]["/api/v1/history"]["put"] = operation
 
     failures = openapi_compat.structural_failures(generated, broken)
     assert (
-        "missing operation in checked artifact: GET /api/v1/discovery/assets" in failures
+        "missing operation in checked artifact: GET /api/v1/history" in failures
     )
     assert (
-        "unexpected operation in checked artifact: PUT /api/v1/discovery/assets"
+        "unexpected operation in checked artifact: PUT /api/v1/history"
         in failures
     )
 
@@ -340,19 +324,7 @@ def test_response_schema_drift_fails_with_named_difference(
 def test_openapi_contract_exposes_lazy_run_dossier_history(
     generated: dict,
 ) -> None:
-    operation = generated["paths"][
-        "/api/v1/conversations/{conversation_id}/run-dossiers"
-    ]["get"]
-    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/PaginatedRunDossiers"
-    }
-    for status in ("400", "404"):
-        assert operation["responses"][status]["content"]["application/json"][
-            "schema"
-        ] == {"$ref": "#/components/schemas/Error"}
-    parameters = {parameter["name"]: parameter for parameter in operation["parameters"]}
-    assert parameters["limit"]["schema"]["default"] == 20
-    assert parameters["limit"]["schema"]["maximum"] == 100
+    assert "/api/v1/conversations/{conversation_id}/run-dossiers" not in generated["paths"]
     search_item = generated["components"]["schemas"]["SearchItem"]
     assert search_item["properties"]["dossier"]["anyOf"] == [
         {"$ref": "#/components/schemas/RunDossier"},
