@@ -10,7 +10,13 @@ from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 import pytest
-from argus.api import bank_matching, business_spaces, email_intake, financial_accounts, profile_images
+from argus.api import (
+    bank_matching,
+    business_spaces,
+    email_intake,
+    financial_accounts,
+    profile_images,
+)
 from argus.api.business import BusinessContext, require_business_management
 from argus.api.routers import business, business_logo
 from argus.api.routers import email_intake as email_routes
@@ -124,20 +130,26 @@ def test_two_management_requests_reuse_their_grant_connections(management, opera
                 return result["id"]
             else:
                 assert business_logo.delete_logo(request, guarded).status_code == 204
-                assert business_logo._payload(
-                    request, context.scope.owner.space_id, guarded.connection
-                )["id"] == context.scope.owner.space_id
-
+                assert (
+                    business_logo._payload(
+                        request, context.scope.owner.space_id, guarded.connection
+                    )["id"]
+                    == context.scope.owner.space_id
+                )
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = [executor.submit(run) for _ in range(2)]
         for future in futures:
             account_id = future.result(timeout=4)
             if operation == "account":
-                assert context.service.imports.money.accounts.get(
-                    user_id=context.scope.person_id, account_id=account_id,
-                    scope=context.scope.owner,
-                ).account.id == account_id
+                assert (
+                    context.service.imports.money.accounts.get(
+                        user_id=context.scope.person_id,
+                        account_id=account_id,
+                        scope=context.scope.owner,
+                    ).account.id
+                    == account_id
+                )
     assert pool.get_stats().get("requests_waiting", 0) == 0
 
 
@@ -148,9 +160,12 @@ def test_management_failure_rolls_back_account_write(management):
             result = create_account(request, guarded)
             raise RuntimeError("abort")
     with pool.connection() as connection:
-        assert connection.execute(
-            "select id from public.financial_accounts where id = %s", (result["id"],)
-        ).fetchone() is None
+        assert (
+            connection.execute(
+                "select id from public.financial_accounts where id = %s", (result["id"],)
+            ).fetchone()
+            is None
+        )
     # A failed request returns its slot and cannot leave a borrowed connection behind.
     with contextmanager(require_business_management)(request, context) as guarded:
         assert create_account(request, guarded)["currency"] == "DOP"
@@ -167,14 +182,18 @@ def test_management_invalid_grant_denies_before_writing(management):
 
 
 @pytest.mark.parametrize("callback", ["account", "catalog"])
-def test_bank_callbacks_reuse_authorized_transaction(management, actions, monkeypatch, callback):
+def test_bank_callbacks_reuse_authorized_transaction(
+    management, actions, monkeypatch, callback
+):
     from argus.domain.business.bank.service import bank_matching_service
 
     pool, request, context = management
     _, actor, grant = actions
     account_id = UUID(create_account(request, context)["id"])
     monkeypatch.setattr(bank_matching, "business_bank_matching_enabled", lambda: True)
-    monkeypatch.setattr(financial_accounts, "_service", context.service.imports.money.accounts)
+    monkeypatch.setattr(
+        financial_accounts, "_service", context.service.imports.money.accounts
+    )
     bank_matching.start_bank_matching(request.app)
     service = bank_matching_service()
     assert service is not None
@@ -184,13 +203,20 @@ def test_bank_callbacks_reuse_authorized_transaction(management, actions, monkey
         with service.store.authorized_transaction(actor.actor, grant, "prepare"):
             ready.wait()
             if callback == "account":
-                found = service.account_of(actor.actor.space_id, UUID(actor.owner_id), account_id)
+                found = service.account_of(
+                    actor.actor.space_id, UUID(actor.owner_id), account_id
+                )
                 assert found.account_id == account_id
             else:
-                assert service.catalog.approved_targets(
-                    actor.actor.space_id, kind="receipt",
-                    period_start=date(2026, 1, 1), period_end=date(2026, 12, 31),
-                ) == ()
+                assert (
+                    service.catalog.approved_targets(
+                        actor.actor.space_id,
+                        kind="receipt",
+                        period_start=date(2026, 1, 1),
+                        period_end=date(2026, 12, 31),
+                    )
+                    == ()
+                )
 
     try:
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -199,3 +225,40 @@ def test_bank_callbacks_reuse_authorized_transaction(management, actions, monkey
                 future.result(timeout=4)
     finally:
         bank_matching.stop_bank_matching(request.app)
+
+
+def test_concurrent_refund_dossiers_reuse_owner_transaction(management, actions, monkeypatch):
+    from threading import local
+
+    from argus.domain.business.contracts.actions import ReviewDraft
+    from argus.domain.business.contracts.facts import BusinessFactPatch
+
+    pool, _, _ = management
+    service, actor, _ = actions
+    draft, version = shared_actions.create(service, actor)
+    service.review(
+        actor, draft,
+        ReviewDraft(version=version, facts=BusinessFactPatch.model_validate({
+            "kind": {"state": "known", "value": "refund"},
+            "currency": {"state": "known", "value": "DOP"},
+            "occurred_on": {"state": "known", "value": "2026-10-01"},
+        })), str(uuid4()),
+    )
+    monkeypatch.setattr(service.authority, "pool", pool)
+    ready, seen = Barrier(2, timeout=3), local()
+    getconn = pool.getconn
+
+    def acquire(*args, **kwargs):
+        connection = getconn(*args, **kwargs)
+        if not getattr(seen, "arrived", False):
+            seen.arrived = True
+            ready.wait()
+        return connection
+
+    monkeypatch.setattr(pool, "getconn", acquire)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(service.dossier, actor, draft) for _ in range(2)]
+        for future in futures:
+            result = future.result(timeout=4)
+            assert result.facts.kind.value == "refund"
+            assert result.refund_candidates == ()
