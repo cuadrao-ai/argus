@@ -1,2 +1,0 @@
-reset: pass stop=[] advisories=[]
-reset + one extra ledger row: blocked stop=['unexpected_applied_migrations']

@@ -86,8 +86,7 @@ zero-argument handlers may be in `public` or `argus_private`; the baseline uses
 The reset also removes triggers attached to deleted app tables and the
 PostgreSQL internal triggers belonging to app foreign keys. The inventory
 names every one, its table, and its constraint. Internal names contain local
-object IDs, so their numeric suffixes differ between databases. The complete
-local list is part of this runbook in the [trigger appendix](../reports/evidence/production-reset/triggers.md).
+object IDs, so their numeric suffixes differ between databases.
 For production, retain the full trigger result from this step alongside the
 approval. An unexpected trigger on `auth.users` is a stop condition. The reset
 never changes auth table columns, platform triggers, or platform functions.
@@ -239,7 +238,7 @@ needs production readback and the deployment checks before Lucas resumes use.
 
 ## Local proof
 
-The [evidence](../reports/evidence/production-reset/README.md) records full
+The local rehearsal (summarized in PR #1941) used the full
 archived history, synthetic users and uploads, refusal controls, the reset,
 the apply-tool dry run and apply, schema comparison, the production gate, and
 the Postgres/RLS suite. Local proof does not establish current hosted state or
