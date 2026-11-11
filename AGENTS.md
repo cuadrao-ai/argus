@@ -115,8 +115,8 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
   with its code default and the file that reads it. `scripts/ci/settings_agreement.py`
   fails when the code reads a setting the catalog lacks, or the catalog names a
   setting nothing reads. `scripts/ops/staging_env_manifest.json` owns each hosted
-  setting's staging and production rule. `.env.example` and `render.yaml` are
-  checked against the catalog.
+  setting's staging and production rule. `render.yaml` keys are checked against
+  the catalog. `.env.example` stays the local template.
 - Synthetic data only (Faker, the seed script). No real customer data anywhere.
 
 ## Copy

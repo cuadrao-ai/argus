@@ -690,15 +690,6 @@ def _manifest_names(root: Path) -> list[tuple[str, str]]:
 
 def _copy_names(root: Path) -> list[tuple[str, str]]:
     found = []
-    env_path = root / ".env.example"
-    if env_path.is_file():
-        for line in env_path.read_text().splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#") or "=" not in stripped:
-                continue
-            name = stripped.partition("=")[0].strip()
-            if name.startswith(("ARGUS_", "CUADRAO_", "NEXT_PUBLIC_")):
-                found.append((".env.example", name))
     render_path = root / "render.yaml"
     if render_path.is_file():
         for match in re.finditer(
