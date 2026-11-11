@@ -586,3 +586,35 @@ def test_python_enum_values_reach_environment_reads(
         {name: (Read("", "src/app.py"),) for name in expected},
         [],
     )
+
+
+@pytest.mark.parametrize("shadowed", [False, True])
+def test_python_enum_member_respects_nested_function_bindings(
+    tmp_path: Path, shadowed: bool
+) -> None:
+    parameter = "setting" if shadowed else ""
+    root = _tree(
+        tmp_path,
+        "import os\n"
+        "from env_keys import DeletionSetting\n"
+        "for setting in DeletionSetting:\n"
+        f"    def read({parameter}):\n"
+        '        return os.getenv(setting.value, "")\n',
+        [],
+    )
+    (root / "src/env_keys.py").write_text(
+        "from enum import Enum\n"
+        "class DeletionSetting(Enum):\n"
+        '    CURRENT = "CUADRAO_SAMPLE"\n'
+        '    LEGACY = "ARGUS_SAMPLE"\n'
+    )
+    if shadowed:
+        assert scan(root) == ({}, ["src/app.py:5 dynamic environment name setting.value"])
+    else:
+        assert scan(root) == (
+            {
+                name: (Read("", "src/app.py"),)
+                for name in ("CUADRAO_SAMPLE", "ARGUS_SAMPLE")
+            },
+            [],
+        )
