@@ -187,6 +187,26 @@ def classifier_checkout(tmp_path):
         ),
         ('{include = "*/new_contract"}', "web/new_contract/x.json"),
         ('{include = "new_contract.py", from = "web"}', "web/new_contract.py"),
+        pytest.param(
+            '{include = "**/new_contract", from = "web"}',
+            "web/new_contract/x.json",
+            id="recursive-zero-directories",
+        ),
+        pytest.param(
+            '{include = "**/new_contract", from = "web"}',
+            "web/shared/nested/new_contract/x.json",
+            id="recursive-nested-directories",
+        ),
+        pytest.param(
+            '{include = "**/shared/**/new_contract", from = "marketing"}',
+            "marketing/shared/new_contract/x.json",
+            id="recursive-multiple-zero-directories",
+        ),
+        pytest.param(
+            '{include = "**/shared/**/new_contract", from = "marketing"}',
+            "marketing/assets/shared/nested/new_contract/x.json",
+            id="recursive-multiple-nested-directories",
+        ),
     ],
 )
 def test_new_backend_packages_are_derived_from_metadata(classifier_checkout, package, path):
