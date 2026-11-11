@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from textwrap import dedent
 
-from scripts.ci.settings_agreement import problems
+import pytest
+
+from scripts.ci.settings_agreement import Read, problems, scan
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,3 +42,232 @@ def test_a_listed_setting_nothing_reads_fails(tmp_path: Path) -> None:
 
 def test_the_repository_settings_list_matches_the_code() -> None:
     assert problems(ROOT) == []
+
+
+@pytest.mark.parametrize(
+    ("source", "defaults"),
+    [
+        ('os.getenv("CUADRAO_SAMPLE")', {"CUADRAO_SAMPLE": None}),
+        ('os.getenv("CUADRAO_SAMPLE", "20")', {"CUADRAO_SAMPLE": "20"}),
+        ('os.getenv("CUADRAO_SAMPLE", default="20")', {"CUADRAO_SAMPLE": "20"}),
+        ('os.environ.get("CUADRAO_SAMPLE", "20")', {"CUADRAO_SAMPLE": "20"}),
+        ('os.environ["CUADRAO_SAMPLE"]', {"CUADRAO_SAMPLE": None}),
+        (
+            'from os import getenv; getenv("CUADRAO_SAMPLE", "20")',
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+        ('from os import environ; environ["CUADRAO_SAMPLE"]', {"CUADRAO_SAMPLE": None}),
+        ('NAME = "CUADRAO_SAMPLE"; os.getenv(NAME, "20")', {"CUADRAO_SAMPLE": "20"}),
+        ('NAME = "CUADRAO_SAMPLE"; str(NAME)', {}),
+        ('CODE_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"; str(CODE_ALPHABET)', {}),
+        ('NAMES = ["CUADRAO_SAMPLE"]; str(NAMES)', {}),
+        ('NAMES = {"CUADRAO_SAMPLE": "ARGUS_UNUSED"}; str(NAMES)', {}),
+        ('os.environ["CUADRAO_SAMPLE"] = "written"', {}),
+        ('del os.environ["CUADRAO_SAMPLE"]', {}),
+        ('other.environ["CUADRAO_SAMPLE"]', {}),
+        ('os.getenv("CUADRAO_SAMPLE") or "20"', {"CUADRAO_SAMPLE": "20"}),
+        ('(os.getenv("CUADRAO_SAMPLE") or "20").strip()', {"CUADRAO_SAMPLE": "20"}),
+        (
+            'os.getenv("CUADRAO_SAMPLE", "").strip().lower() or "sandbox"',
+            {"CUADRAO_SAMPLE": "sandbox"},
+        ),
+        (
+            'DEFAULT = 20; os.getenv("CUADRAO_SAMPLE") or DEFAULT',
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+        (
+            'os.getenv("CUADRAO_SAMPLE") or os.getenv("ARGUS_SAMPLE") or "20"',
+            {"CUADRAO_SAMPLE": "20", "ARGUS_SAMPLE": "20"},
+        ),
+        ('os.getenv("CUADRAO_SAMPLE", "10") or "20"', {"CUADRAO_SAMPLE": "10"}),
+        ('os.getenv("CUADRAO_SAMPLE") and "not-a-default"', {"CUADRAO_SAMPLE": None}),
+        (
+            'source = os.environ; source.get("CUADRAO_SAMPLE", "20")',
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+        (
+            """\
+        def read(env=None):
+            source = os.environ if env is None else env
+            return source.get("CUADRAO_SAMPLE", "20")
+        """,
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+        (
+            """\
+        def read(name, default="20"):
+            return os.getenv(name) or default
+        value = read("CUADRAO_SAMPLE")
+        """,
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+        (
+            """\
+        def read(name, default="20"):
+            return os.getenv(name) or default
+        value = read("CUADRAO_SAMPLE", default="30")
+        """,
+            {"CUADRAO_SAMPLE": "30"},
+        ),
+        (
+            """\
+        def read():
+            names = ("CUADRAO_SAMPLE", "ARGUS_SAMPLE")
+            return [os.getenv(name, "20") for name in names]
+        """,
+            {"CUADRAO_SAMPLE": "20", "ARGUS_SAMPLE": "20"},
+        ),
+        (
+            """\
+        def read():
+            for name in ("CUADRAO_SAMPLE", "ARGUS_SAMPLE"):
+                value = os.getenv(name, "20")
+        """,
+            {"CUADRAO_SAMPLE": "20", "ARGUS_SAMPLE": "20"},
+        ),
+        (
+            """\
+        class Settings(BaseSettings):
+            model_config = SettingsConfigDict(env_prefix="CUADRAO_")
+            sample: str = "20"
+        """,
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+        (
+            """\
+        class Settings(BaseSettings):
+            sample: str = Field(default="20", validation_alias="CUADRAO_SAMPLE")
+        """,
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+        (
+            """\
+        class Settings(BaseSettings):
+            sample: str = Field(default="20", validation_alias=AliasChoices("CUADRAO_SAMPLE", "ARGUS_SAMPLE"))
+        """,
+            {"CUADRAO_SAMPLE": "20", "ARGUS_SAMPLE": "20"},
+        ),
+        (
+            """\
+        class Settings(BaseSettings):
+            sample: str = Field(default="20", validation_alias=setting_aliases("SAMPLE"))
+        """,
+            {"CUADRAO_SAMPLE": "20", "ARGUS_SAMPLE": "20"},
+        ),
+        (
+            """\
+        class Response(BaseModel):
+            sample: str = Field(default="20", validation_alias="CUADRAO_SAMPLE")
+        """,
+            {},
+        ),
+        ('names = setting_names("SAMPLE")', {}),
+        (
+            'value = setting_value("SAMPLE", "20")',
+            {"CUADRAO_SAMPLE": "20", "ARGUS_SAMPLE": "20"},
+        ),
+    ],
+)
+def test_python_read_shapes(
+    tmp_path: Path, source: str, defaults: dict[str, str | None]
+) -> None:
+    root = _tree(tmp_path, "import os\n" + dedent(source), [])
+    reads, unresolved = scan(root)
+    assert unresolved == []
+    assert reads == {
+        name: Read(default, "src/app.py") for name, default in defaults.items()
+    }
+
+
+@pytest.mark.parametrize("package", ["web", "marketing"])
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "next.config.ts",
+        "proxy.ts",
+        "instrumentation.ts",
+        "scripts/run.mjs",
+        "src/start.cjs",
+        "src/start.mts",
+        "src/start.cts",
+        "components/item.tsx",
+        "app/page.js",
+    ],
+)
+def test_frontend_package_executable_files(
+    tmp_path: Path, package: str, relative: str
+) -> None:
+    path = tmp_path / package / relative
+    path.parent.mkdir(parents=True)
+    path.write_text('const value = process.env.CUADRAO_SAMPLE ?? "20";\n')
+    assert scan(tmp_path) == ({"CUADRAO_SAMPLE": Read("20", f"{package}/{relative}")}, [])
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "__tests__/sample.ts",
+        "sample.test.ts",
+        "sample.spec.tsx",
+        "node_modules/sample.ts",
+        ".next/sample.js",
+        "next-env.d.ts",
+        "e2e/sample.ts",
+    ],
+)
+def test_frontend_non_runtime_files_are_excluded(tmp_path: Path, relative: str) -> None:
+    path = tmp_path / "web" / relative
+    path.parent.mkdir(parents=True)
+    path.write_text("const value = process.env.CUADRAO_SAMPLE;\n")
+    assert scan(tmp_path) == ({}, [])
+
+
+@pytest.mark.parametrize(
+    ("source", "defaults"),
+    [
+        ("const value = process.env.CUADRAO_SAMPLE;", {"CUADRAO_SAMPLE": None}),
+        (
+            'const value = process.env["CUADRAO_SAMPLE"] ?? "20";',
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+        (
+            'const value = import.meta.env.CUADRAO_SAMPLE || "20";',
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+        ('const value = process.env.CUADRAO_SAMPLE ??\n "20";', {"CUADRAO_SAMPLE": "20"}),
+        (
+            'const value = process.env.CUADRAO_SAMPLE ?? "https://example.invalid";',
+            {"CUADRAO_SAMPLE": "https://example.invalid"},
+        ),
+        ("const value = process.env.CUADRAO_SAMPLE ?? 20;", {"CUADRAO_SAMPLE": "20"}),
+        (
+            'const value = process.env.CUADRAO_SAMPLE === "yes"; const other = nothing ?? "20";',
+            {"CUADRAO_SAMPLE": None},
+        ),
+        (
+            "// process.env.CUADRAO_UNUSED\nconst value = process.env.CUADRAO_SAMPLE;",
+            {"CUADRAO_SAMPLE": None},
+        ),
+        ('const example = "process.env.CUADRAO_UNUSED";', {}),
+        ('const env = {CUADRAO_UNUSED: "value"}; env.CUADRAO_UNUSED;', {}),
+        ('process.env.CUADRAO_UNUSED = "written";', {}),
+        (
+            "const env = process.env; const value = env.CUADRAO_SAMPLE;",
+            {"CUADRAO_SAMPLE": None},
+        ),
+        (
+            'function read(env: NodeJS.ProcessEnv = process.env) { return env.CUADRAO_SAMPLE ?? "20"; }',
+            {"CUADRAO_SAMPLE": "20"},
+        ),
+    ],
+)
+def test_frontend_read_shapes(
+    tmp_path: Path, source: str, defaults: dict[str, str | None]
+) -> None:
+    path = tmp_path / "web/lib/config.ts"
+    path.parent.mkdir(parents=True)
+    path.write_text(source)
+    assert scan(tmp_path) == (
+        {name: Read(default, "web/lib/config.ts") for name, default in defaults.items()},
+        [],
+    )
