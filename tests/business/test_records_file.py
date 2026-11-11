@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from dataclasses import replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -15,6 +16,7 @@ from zipfile import ZipFile
 import pytest
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.facts import Unknown
+from argus.domain.business.dgii_codes import LABELS
 from argus.domain.business.dgii_export import fiscal_manifest, line_verdicts
 from argus.domain.business.reporting import ReportIdentity
 from argus.domain.business.reporting_file import (
@@ -501,6 +503,13 @@ def test_csv_has_a_bom_and_keeps_accents(fake):
             "Mi negocio - Compras 2026-11-03 a 2026-11-09 - Registros - 2026-10-18 1100.xlsx",
         ),
         (
+            {"kind": "custom", "from_date": "2025-11-01", "to_date": "2026-02-28"},
+            "purchase",
+            "table",
+            "xlsx",
+            "Mi negocio - Compras 2025-11 a 2026-02 - Registros - 2026-10-18 1100.xlsx",
+        ),
+        (
             {"kind": "all"},
             "purchase",
             "table",
@@ -534,7 +543,7 @@ def test_unbounded_filename_uses_only_exported_dates_and_sanitizes_the_business_
         business_name='  Café/La\\ Unión:*?"<>|\x00 \t  Norte  ',
     )
     assert built.filename == (
-        "Café La Unión Norte - Compras 2026-09-07 a 2026-09-07"
+        "CaféLa Unión Norte - Compras 2026-09-07 a 2026-09-07"
         " - Registros - 2026-10-18 1100.xlsx"
     )
 
@@ -568,7 +577,7 @@ def test_mixed_filename_label_and_ascii_fallback():
         locale="en",
     )
     assert filename == (
-        "Café 漢 Éxito - Purchases and sales 2026-08 to 2026-09"
+        "Café 漢Éxito - Purchases and sales 2026-08 to 2026-09"
         " - Records - 2026-10-18 1100.csv"
     )
     fallback, encoded = content_disposition(filename).split("; filename*=UTF-8''")
@@ -773,3 +782,59 @@ def test_dgii_needs_one_tab():
     with pytest.raises(ActionError) as refused:
         summarize_export(source(), request)
     assert refused.value.result.code == "business_export_family_required"
+
+
+@pytest.mark.parametrize(
+    ("field", "code"),
+    [(field, code) for field, options in LABELS.items() for code in options],
+)
+@pytest.mark.parametrize("mode", ("table", "dgii"))
+@pytest.mark.parametrize("format", ("xlsx", "csv"))
+@pytest.mark.parametrize("locale", ("es-419", "en"))
+def test_every_606_code_has_the_exact_export_rendering(
+    fake, field, code, mode, format, locale
+):
+    column = "expense_type" if field == "category" else "payment_form"
+    purchase = practice_records()[0]
+    declaration = purchase.declaration.model_copy(update={field: code})
+    projected = row(
+        fake,
+        fiscal_data="complete",
+        dgii_606={
+            "expense_type": None,
+            "payment_form": None,
+            column: {"code": code, "label": "stale wire label"},
+        },
+    )
+    snapshot = source(
+        projected,
+        approved={
+            projected.linked_activity_ids[0]: replace(purchase, declaration=declaration)
+        },
+    )
+    choice = (
+        table(report(), columns=(column,), format=format)
+        if mode == "table"
+        else RecordsExport(report=report(), mode="dgii", format=format)
+    )
+    built = build_file(snapshot, choice, locale=locale)
+    if format == "xlsx":
+        header, values = xlsx(built.content)
+        result = {key[1]: value[1] for key, value in zip(header, values, strict=True)}
+    else:
+        header, values = csv.reader(io.StringIO(built.content.decode("utf-8-sig")))
+        result = dict(zip(header, values, strict=True))
+    if mode == "table":
+        catalog = json.loads(
+            (generate_records_file_words.LOCALES / locale / "common.json").read_text()
+        )
+        name = catalog["business"]["dgii"]["option"][field][code]
+        assert list(result.values())[-1] == f"{code} - {name.upper()}"
+    else:
+        label = (
+            "Tipo Bienes y Servicios Comprados"
+            if field == "category"
+            else "Forma de Pago"
+        )
+        expected = TOOL_CATEGORIES if field == "category" else TOOL_PAYMENTS
+        assert result[label] == expected[int(code) - 1]

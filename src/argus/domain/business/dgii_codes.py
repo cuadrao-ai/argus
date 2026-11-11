@@ -9,6 +9,7 @@ class _Choice(NamedTuple):
 
 
 # The workbook labels are the exact choices in the DGII Formato 606 v2020.2.
+# Sheet "Herramienta Formato 606": category AD2:AD12, payment AF2:AF8.
 # Its validation lists use inconsistent spacing, including trailing spaces.
 _CHOICES = {
     "category": {

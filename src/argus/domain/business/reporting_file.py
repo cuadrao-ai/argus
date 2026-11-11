@@ -351,10 +351,10 @@ def _period_name(start: date | None, end: date | None, separator: str) -> str:
 
 def _safe_filename_part(value: str) -> str:
     clean = "".join(
-        " "
-        if char in '/\\:*?"<>|' or unicodedata.category(char) in {"Cc", "Cf", "Cs"}
-        else char
+        char
         for char in value
+        if char not in '/\\:*?"<>|'
+        and unicodedata.category(char) not in {"Cc", "Cf", "Cs"}
     )
     return " ".join(clean.split())
 
