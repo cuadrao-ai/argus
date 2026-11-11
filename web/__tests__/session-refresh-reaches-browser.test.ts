@@ -1,8 +1,14 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "../lib/supabase-server";
 
 import { proxy } from "../proxy";
+
+let pageCookieStore: {
+  getAll(): { name: string; value: string }[];
+  set(): void;
+};
+mock.module("next/headers", () => ({ cookies: async () => pageCookieStore }));
 
 const AUTH_URL = "http://project.example.test";
 const ANON_KEY = "anon-key";
@@ -115,22 +121,56 @@ describe("server session refresh reaches the browser", () => {
       expect(readSession(request.cookies.get(STORAGE_KEY)?.value)?.refresh_token).toBe("refresh-new");
 
       let pageWrites = 0;
-      const page = createServerClient(AUTH_URL, ANON_KEY, {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-          setAll() {
-            pageWrites += 1;
-            throw new Error("Cookies can only be modified in a Server Action or Route Handler.");
-          },
+      pageCookieStore = {
+        getAll: () => request.cookies.getAll(),
+        set() {
+          pageWrites += 1;
+          throw new Error("Read-only cookie store");
         },
-      });
+      };
+      const page = await createClient();
       const user = await page.auth.getUser();
 
       expect(user.data.user?.id).toBe(USER.id);
       expect(auth.refreshes).toEqual([{ refresh_token: "refresh-old" }]);
       expect(pageWrites).toBe(0);
+    } finally {
+      auth.restore();
+      restoreEnv();
+    }
+  });
+
+  test("a page-side refresh returns the user when its cookie store rejects writes", async () => {
+    useAuthEnv();
+    const auth = installAuth(jwt(Math.floor(Date.now() / 1000) + 3600));
+    let pageWrites = 0;
+    const request = new NextRequest("https://app.example.test/biz", {
+      headers: {
+        cookie: sessionCookie({
+          access_token: jwt(1),
+          refresh_token: "refresh-old",
+          expires_at: 1,
+          expires_in: 3600,
+          token_type: "bearer",
+          user: USER,
+        }),
+      },
+    });
+    pageCookieStore = {
+      getAll: () => request.cookies.getAll(),
+      set() {
+        pageWrites += 1;
+        throw new Error("Read-only cookie store");
+      },
+    };
+    try {
+      const page = await createClient();
+      const result = await page.auth.getUser();
+
+      expect(result.error).toBeNull();
+      expect(result.data.user?.id).toBe(USER.id);
+      expect(auth.refreshes).toEqual([{ refresh_token: "refresh-old" }]);
+      expect(pageWrites).toBeGreaterThan(0);
     } finally {
       auth.restore();
       restoreEnv();
