@@ -315,6 +315,89 @@ test("a failed Deshacer says so and keeps Deshacer to try again", async () => {
   await appliedIs(page, "Mi vista", ["Otra vista"]);
 });
 
+/** The next view write is lost before the server answers, so the menu offers Reintentar. */
+async function mountLosingNextWrite() {
+  let lose = false;
+  const page = await mount({ viewWriteGate: () => { if (!lose) return undefined; lose = false; return Promise.reject(new TypeError("connection lost")); } });
+  return { page, loseNextWrite: () => { lose = true; } };
+}
+async function retryUnconfirmed(page: Page) {
+  await openMenu(page);
+  await page.settle(() => Boolean(inMenu("Reintentar")));
+  await page.click(inMenu("Reintentar"));
+}
+
+test("a delete confirmed by Reintentar still offers Deshacer, which restores the view", async () => {
+  await mountToasts();
+  const { page, loseNextWrite } = await mountLosingNextWrite();
+  const saved = await saveView(page, "Mi vista");
+  await openMenu(page);
+  loseNextWrite();
+  await page.click(inMenu("Eliminar Mi vista"));
+  await page.settle(() => Boolean(inMenu("Reintentar")));
+  assert.equal(page.fixture.views.length, 1, "the unconfirmed delete has not landed");
+  await retryUnconfirmed(page);
+  await page.settle(() => page.fixture.views.length === 0 && Boolean(undoButton()));
+  assert.match(document.querySelector('[data-testid="toast-viewport"]')!.textContent!, /Se eliminó «Mi vista»/);
+  await closeMenu(page);
+  await page.click(undoButton());
+  await page.settle(() => page.fixture.views.length === 1);
+  assert.deepEqual(page.fixture.views[0].recipe, saved.recipe);
+  await appliedIs(page, "Mi vista", []);
+});
+
+test("a Deshacer confirmed by Reintentar applies the restored view and withdraws Deshacer", async () => {
+  await mountToasts();
+  const { page, loseNextWrite } = await mountLosingNextWrite();
+  await saveView(page, "Otra vista");
+  await search(page, "pena");
+  await saveView(page, "Mi vista");
+  await deleteApplied(page, "Mi vista", 1);
+  loseNextWrite();
+  await page.click(undoButton());
+  await page.settle(() => Boolean(undoButton()));
+  await retryUnconfirmed(page);
+  await page.settle(() => page.fixture.views.length === 2);
+  await page.settle(() => !undoButton());
+  assert.equal(viewWrites(page, "POST").filter((call) => (call.body as { name: string }).name === "Mi vista").length, 2, "the save, then one restore");
+  await appliedIs(page, "Mi vista", ["Otra vista"]);
+});
+
+test("a save confirmed by Reintentar applies the new view and closes the menu", async () => {
+  const { page, loseNextWrite } = await mountLosingNextWrite();
+  await openMenu(page);
+  await page.click(inMenu("Guardar vista actual"));
+  const field = nameField()!;
+  await page.type(field, "Mi vista");
+  loseNextWrite();
+  await pressEnter(field);
+  await retryUnconfirmed(page);
+  await page.settle(() => page.fixture.views.length === 1 && !menu());
+  assert.equal(trigger()!.textContent, "Mi vista");
+});
+
+test("a rename confirmed by Reintentar closes the name field and returns focus to the row", async () => {
+  const { page, loseNextWrite } = await mountLosingNextWrite();
+  await saveView(page, "Mi vista");
+  loseNextWrite();
+  await rename(page, "Mi vista", "Nuevo nombre");
+  await retryUnconfirmed(page);
+  await page.settle(() => page.fixture.views[0].name === "Nuevo nombre" && nameField() === null);
+  assert.equal(document.activeElement, inMenu("Nuevo nombre"));
+});
+
+test("Guardar cambios confirmed by Reintentar closes the menu", async () => {
+  const { page, loseNextWrite } = await mountLosingNextWrite();
+  await saveView(page, "Mi vista");
+  await search(page, "pena");
+  await openMenu(page);
+  loseNextWrite();
+  await page.click(inMenu("Guardar cambios en «Mi vista»"));
+  await retryUnconfirmed(page);
+  await page.settle(() => page.fixture.views[0].version === 2 && !menu());
+  assert.equal(trigger()!.textContent, "Mi vista");
+});
+
 test("Con cambios shows only while the current recipe differs from the applied view", async () => {
   const page = await mount();
   await saveView(page, "Mi vista");
