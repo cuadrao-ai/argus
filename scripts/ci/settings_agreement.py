@@ -832,8 +832,11 @@ def _typescript_env_functions(paths: list[Path]) -> dict[Path, set[str]]:
     functions: dict[Path, set[str]] = {}
     for path in paths:
         tokens = _ts_tokens(path)
+        bindings = _ts_aliases(tokens, set())
         for index in range(len(tokens) - 4):
             if tokens[index + 1 : index + 6] != ["(", "process", ".", "env", ")"]:
+                continue
+            if not _ts_binding("process", index, bindings, True):
                 continue
             name = tokens[index]
             for match in re.finditer(
