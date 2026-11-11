@@ -602,10 +602,17 @@ def prepare_attachment(
     facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
     read_facts = BusinessFacts.model_validate(facts)
     facts = read_facts.model_dump(mode="json")
-    # The read projection marks a missing currency uncertain too, so the test
-    # is whether any currency value was read, not whether it was uncertain.
-    no_currency_read = values["currency"] is None and not getattr(
-        batch.receipt, "currency", None
+    # Default only when no currency was read anywhere: not on the chosen
+    # purchase, not on any purchase row (rows that disagree are conflicting
+    # evidence, not absence), and not on the receipt details. The read
+    # projection marks an absent currency uncertain, so uncertainty alone
+    # does not count as evidence.
+    no_currency_read = not any(
+        (
+            values["currency"],
+            getattr(batch.receipt, "currency", None),
+            *(getattr(purchase, "currency", None) for purchase in purchases),
+        )
     )
     if (
         no_currency_read
