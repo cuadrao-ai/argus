@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import spanish from "../content/legal-es.json";
 import english from "../content/legal-en.json";
-import appSpanish from "../content/app-legal-es.json";
-import appEnglish from "../content/app-legal-en.json";
+import appSpanish from "../content/app-legal-es.generated.json";
+import appEnglish from "../content/app-legal-en.generated.json";
 import { legalSections } from "../lib/legal-sections";
 
 const PAGES = [

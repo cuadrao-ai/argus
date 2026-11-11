@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import spanish from "../content/app-legal-es.json";
-import english from "../content/app-legal-en.json";
+import spanish from "../content/app-legal-es.generated.json";
+import english from "../content/app-legal-en.generated.json";
 import { APP_LEGAL_SLUGS } from "../lib/app-legal";
 import { parseBilingualLegalMarkdown, parseLegalMarkdown } from "../lib/legal-markdown";
 

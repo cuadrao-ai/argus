@@ -11,5 +11,5 @@ for (const slug of APP_LEGAL_SLUGS) {
   out.en[slug] = parsed.en;
 }
 for (const locale of ["es", "en"] as const) {
-  writeFileSync(join(content, `app-legal-${locale}.json`), `${JSON.stringify(out[locale], null, 2)}\n`);
+  writeFileSync(join(content, `app-legal-${locale}.generated.json`), `${JSON.stringify(out[locale], null, 2)}\n`);
 }
