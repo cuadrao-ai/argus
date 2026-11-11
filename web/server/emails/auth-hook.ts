@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { Webhook } from "standardwebhooks";
+import { supportEmail } from "../../lib/support-email";
 import { appOrigin } from "../app-origin";
 import { parseAuthMail, renderAuthMail } from "./auth-actions";
 
@@ -85,7 +86,7 @@ export async function handleAuthEmailHook(request: Request, config: AuthEmailHoo
     deliveries = await Promise.all(mails.map(async (mail) => ({
       recipient: mail.recipient,
       from: "Cuadrao <no-responder@mail.cuadrao.ai>",
-      replyTo: "hola@cuadrao.ai",
+      replyTo: supportEmail,
       ...await renderAuthMail(mail, config.appOrigin, config.expirySeconds, sendAttemptAt),
       idempotencyKey: `auth-${createHash("sha256").update(`${headers["webhook-id"]}\0${mail.action}\0${mail.recipient}`).digest("hex")}`,
     })));

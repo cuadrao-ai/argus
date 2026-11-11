@@ -214,7 +214,7 @@ class _FakeSMTP:
             "Create your Argus account:",
             "Create your Argus account",
             "If the button does not work, open this link:",
-            "Questions? Contact support@get-argus.com.",
+            "Questions? Contact hola@cuadrao.ai.",
         ),
         (
             "es-419",
@@ -226,7 +226,7 @@ class _FakeSMTP:
             "Crea tu cuenta de Argus:",
             "Crea tu cuenta de Argus",
             "Si el botón no funciona, abre este enlace:",
-            "¿Tienes preguntas? Escribe a support@get-argus.com.",
+            "¿Tienes preguntas? Escribe a hola@cuadrao.ai.",
         ),
     ],
 )
@@ -309,7 +309,7 @@ def test_access_welcome_html_uses_canonical_auth_email_shell() -> None:
     for fragment in canonical_fragments:
         assert fragment in content.html
 
-    assert content.html.index("Questions? Contact support@get-argus.com.") > (
+    assert content.html.index("Questions? Contact hola@cuadrao.ai.") > (
         content.html.index("border-top:1px solid #e1e1e4")
     )
 
@@ -401,8 +401,8 @@ def test_access_welcome_sender_preserves_smtp_and_multipart_contract(
     assert product_line in payloads["text/html"]
     assert payloads["text/plain"].count(first_action) == 1
     assert payloads["text/html"].count(first_action) == 1
-    assert "support@get-argus.com" in payloads["text/plain"]
-    assert "support@get-argus.com" in payloads["text/html"]
+    assert "hola@cuadrao.ai" in payloads["text/plain"]
+    assert "hola@cuadrao.ai" in payloads["text/html"]
     assert "background:#191c1f" in payloads["text/html"]
     assert "border-radius:9999px" in payloads["text/html"]
     assert "https://app.example/?auth=signup" in payloads["text/plain"]

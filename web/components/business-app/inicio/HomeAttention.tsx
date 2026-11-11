@@ -6,6 +6,7 @@
 import { CircleCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveLanguage } from "@/lib/language-features";
+import { supportEmail } from "@/lib/support-email";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useBusiness } from "../BusinessWorkspace";
 import { formatRelativeTime } from "../business-format";
@@ -81,7 +82,7 @@ export function HomeAttention({ firstDay }: { firstDay: boolean | null }) {
       <div role="alert" data-testid="home-attention-error" className="flex flex-col items-center gap-3 px-5 py-6 text-center">
         <p className="text-[16px] text-[#172b26] dark:text-white">{t("business.inicio.attention.error")}</p>
         {/* A refusal for good offers no Reintentar, which cannot help, and says whom to write instead. */}
-        {records.refused ? <p className={`${HOME_TYPE.secondary} ${HOME_MUTED}`}>{t("auth.business_unavailable.body")}</p> : null}
+        {records.refused ? <p className={`${HOME_TYPE.secondary} ${HOME_MUTED}`}>{t("auth.business_unavailable.body", { supportEmail })}</p> : null}
         {reference ? <ReferenceCode reference={reference} /> : null}
         {records.refused ? null : <button type="button" className={secondaryButtonClass} onClick={reload}>{t("common.retry")}</button>}
       </div>,

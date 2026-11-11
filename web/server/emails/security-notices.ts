@@ -1,3 +1,4 @@
+import { supportEmail } from "../../lib/support-email";
 import spanish from "../../public/locales/es-419/common.json";
 import { renderAccountEmail, type EmailLayoutOptions } from "./account-layout.generated";
 
@@ -32,7 +33,7 @@ export function renderSecurityMail(mail: SecurityMail, _sentAt: Date, options: E
       copy.email_changed_description.replace(/\{\{(oldEmail|newEmail)\}\}/g, (_match, key: keyof typeof addresses) => addresses[key]),
       "Te avisamos a esta dirección porque era la de tu cuenta. Desde ahora, los avisos llegarán a la dirección nueva.",
       "Si fuiste tú, no tienes que hacer nada.",
-      copy.recovery_contact, shared,
+      copy.recovery_contact.replace("{{supportEmail}}", supportEmail), shared,
     ],
   }, options) };
 }

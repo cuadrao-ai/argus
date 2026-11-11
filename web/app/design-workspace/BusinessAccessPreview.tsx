@@ -14,6 +14,7 @@ import AccessRolePicker from "./AccessRolePicker";
 import { accessActionGuard, accessRoleOptions, businessAccessChangedEvent, changeAccessPreview, invitationStorageKeys, readAccessPreview, seedAccessPreview, type AccessAction, type AccessRole, type PreviewActor, type PreviewPerson } from "./businessAccessPreviewState";
 import { changeBusinessRole, getBusinessAccess, resendBusinessAccessInvite, revokeBusinessAccessGrant, revokeBusinessAccessInvite, type BusinessAccess } from "@/lib/business-api";
 import { referenceCode } from "@/lib/failure-screen";
+import { supportEmail } from "@/lib/support-email";
 import BusinessInvitationForm, { clearInvitationDraft } from "@/components/business-app/BusinessInvitationForm";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 
@@ -100,7 +101,7 @@ function BusinessAccessLive(){
     catch(error){if(mounted.current)failure(error);}
     finally{if(mounted.current)setBusy(false);}
   };
-  if(refused||!access)return <section className={SURFACE_CARD}>{failed?<div role="alert" className="space-y-2"><p>{t(refused?"business.lifecycle.errors.business_unavailable":"business_access.error")}</p>{refused?<p className="text-[14px] text-[#56635e] dark:text-white/70">{t("auth.business_unavailable.body")}</p>:null}{reference?<p><ReferenceCode reference={reference}/></p>:null}{!refused?<button className={primaryButtonClass} onClick={()=>setAttempt(value=>value+1)}>{t("common.retry")}</button>:null}</div>:<div className="h-40 animate-pulse rounded-item bg-black/5 dark:bg-white/10" aria-busy="true"/>}</section>;
+  if(refused||!access)return <section className={SURFACE_CARD}>{failed?<div role="alert" className="space-y-2"><p>{t(refused?"business.lifecycle.errors.business_unavailable":"business_access.error")}</p>{refused?<p className="text-[14px] text-[#56635e] dark:text-white/70">{t("auth.business_unavailable.body", { supportEmail })}</p>:null}{reference?<p><ReferenceCode reference={reference}/></p>:null}{!refused?<button className={primaryButtonClass} onClick={()=>setAttempt(value=>value+1)}>{t("common.retry")}</button>:null}</div>:<div className="h-40 animate-pulse rounded-item bg-black/5 dark:bg-white/10" aria-busy="true"/>}</section>;
   const personRow=(person:{id:string;email:string|null;role:AccessRole|undefined;pending:boolean;expired?:boolean})=>{
     const self=!person.pending&&person.id===chosen?.grant_id;
     const restricted=self||refused||!chosen?.permissions?.includes("manage")||(person.role==="owner"&&!chosen.permissions.includes("assign_owner"));

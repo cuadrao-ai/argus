@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { BrandedStatusScreen } from "@/components/status/BrandedStatusScreen";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useSessionEntry } from "@/components/status/useCuadraoEntryHref";
-import { CUADRAO_ADMIN_EMAIL } from "@/lib/failure-screen";
+import { supportEmail } from "@/lib/support-email";
 
 export function ServerErrorScreen({
   onRetry,
@@ -27,7 +27,7 @@ export function ServerErrorScreen({
       secondaryLabel={t("auth.screen.go_home", "Go to Home")}
       secondaryHref={homeHref ?? session.homeHref}
       reference={reference ? <ReferenceCode reference={reference} /> : undefined}
-      contactEmail={CUADRAO_ADMIN_EMAIL}
+      contactEmail={supportEmail}
     />
   );
 }

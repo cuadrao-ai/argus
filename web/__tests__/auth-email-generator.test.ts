@@ -115,7 +115,7 @@ test("one command syncs sources, renders a manifest and detects artifact drift w
   const destination = resolve(fixture, "output");
   const run = (...extra: string[]) => Bun.spawnSync([process.execPath, "scripts/emails/render-staging-auth.ts", "--output", destination, ...extra], { cwd: fixture });
   try {
-    for (const directory of ["scripts/emails", "marketing/lib/email", "web/server/emails", "web/lib", "web/public/locales"]) {
+    for (const directory of ["scripts/emails", "marketing/lib/email", "web/server/emails", "web/lib", "web/public/locales", "web/argus_display_contract"]) {
       const target = resolve(fixture, directory);
       mkdirSync(dirname(target), { recursive: true });
       cpSync(resolve(root, directory), target, { recursive: true });

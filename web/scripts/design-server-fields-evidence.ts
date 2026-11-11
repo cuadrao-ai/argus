@@ -8,6 +8,7 @@ import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "../e2e
 import { monthCloseWire, OPEN_ITEMS_WIRE } from "../e2e/support/month-close-wire";
 import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
 import { designServerFieldsReception } from "../e2e/support/design-server-fields-reception";
+import { supportEmail } from "../lib/support-email";
 
 const baseURL = process.env.EVIDENCE_BASE_URL ?? "http://127.0.0.1:3198";
 if (!["127.0.0.1", "localhost"].includes(new URL(baseURL).hostname)) throw new Error("Evidence requires a local server");
@@ -151,11 +152,11 @@ try {
       if (state === "bandeja-mixed") {
         await expect(receptionAlert).toContainText("No pudimos cargar tus notas ni tus correos.");
         await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
-        await expect(receptionAlert).not.toContainText("hola@cuadrao.ai");
+        await expect(receptionAlert).not.toContainText(supportEmail);
       }
       if (state === "bandeja-refused") {
         await expect(receptionAlert).toContainText("No pudimos cargar tus notas ni tus correos.");
-        await expect(receptionAlert.getByText(/hola@cuadrao.ai/)).toBeVisible();
+        await expect(receptionAlert.getByText(supportEmail)).toBeVisible();
         await expect(receptionAlert).not.toContainText("conexión");
         await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
       }
@@ -165,9 +166,9 @@ try {
           await expect(attentionError).toHaveAttribute("role", "alert");
           await expect(attentionError).toContainText("No pudimos cargar lo pendiente.");
           await expect(attentionRetry).toHaveCount(receiptsFail ? 1 : 0);
-          if (receiptsFail) await expect(attentionError).not.toContainText("hola@cuadrao.ai");
+          if (receiptsFail) await expect(attentionError).not.toContainText(supportEmail);
           else {
-            await expect(attentionError).toContainText("Si crees que es un error, escríbenos a hola@cuadrao.ai.");
+            await expect(attentionError).toContainText(`Si crees que es un error, escríbenos a ${supportEmail}.`);
             await expect(attentionError).not.toContainText("conexión");
           }
           await expect(attentionLoading).toHaveCount(0);
@@ -199,7 +200,7 @@ try {
           await expect(page.getByTestId("home-month-net")).toHaveCount(0);
           await expect(monthRetry).toHaveCount(state === "inicio-month-500" ? 1 : 0);
           if (state === "inicio-month-refused") {
-            await expect(monthBody).toContainText("Si crees que es un error, escríbenos a hola@cuadrao.ai.");
+            await expect(monthBody).toContainText(`Si crees que es un error, escríbenos a ${supportEmail}.`);
             await expect(monthBody).not.toContainText("conexión");
           } else await expect(monthBody).toContainText("Tus datos siguen guardados. Revisa tu conexión e inténtalo otra vez.");
         } else {
@@ -213,7 +214,7 @@ try {
         if (state === "inicio-open-items-refused") {
           await expect(moneyError).toBeVisible();
           await expect(moneyError.getByRole("alert")).toContainText("No pudimos cargar lo que falta por cobrar y por pagar");
-          await expect(moneyError).toContainText("Si crees que es un error, escríbenos a hola@cuadrao.ai.");
+          await expect(moneyError).toContainText(`Si crees que es un error, escríbenos a ${supportEmail}.`);
           await expect(moneyError).not.toContainText("conexión");
           await expect(moneyError.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
           for (const id of ["month-close-receivable", "month-close-payable", "month-close-nothing-open"]) await expect(page.getByTestId(id)).toHaveCount(0);
@@ -286,7 +287,7 @@ try {
         await receptionAlert.getByRole("button", { name: "Reintentar", exact: true }).click();
         await expect(receptionAlert).toContainText("No pudimos cargar tus notas.");
         await expect(receptionAlert).not.toContainText("correos");
-        await expect(receptionAlert).toContainText("hola@cuadrao.ai");
+        await expect(receptionAlert).toContainText(supportEmail);
         await expect(receptionAlert).not.toContainText("conexión");
         await expect(receptionAlert.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
         expect(calls.notes, "permanently refused notes are not retried").toBe(before.notes);
