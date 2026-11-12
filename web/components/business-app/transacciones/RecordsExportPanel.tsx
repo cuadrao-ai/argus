@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useId, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, CircleMinus, Loader2, TriangleAlert } from "lucide-react";
 import BottomSheet from "@/components/ui/BottomSheet";
 import CenteredDialog from "@/components/ui/CenteredDialog";
@@ -23,6 +23,12 @@ type Currencies = "all" | "current";
 type Load = { kind: "loading" } | { kind: "ready"; preview: ExportPreview } | { kind: "failed"; problem: ReportFailure };
 type Run = { kind: "idle" | "preparing" } | { kind: "failed"; problem: ReportFailure };
 const LIMIT_CODES = new Set(["business_report_too_large"]);
+const noticeLinkClass = "inline min-h-0! min-w-0! cursor-pointer whitespace-nowrap rounded-mark text-[14px] leading-[inherit] text-[var(--cuadrao-green)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]";
+
+function InlineNoticeAction({ sentence, children }: { sentence: string; children: ReactNode }) {
+  const lastSpace = sentence.lastIndexOf(" ");
+  return <><span>{sentence.slice(0, lastSpace + 1)}</span><span className="whitespace-nowrap"><span>{sentence.slice(lastSpace + 1)}</span>{"\u00a0"}{children}</span></>;
+}
 
 export type RecordsExportProps = {
   scope: ReportScope;
@@ -114,24 +120,33 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const problem = run.kind === "failed" ? run.problem : load.kind === "failed" ? load.problem : null;
   const preparing = run.kind === "preparing";
 
-  const supplierLines = preview?.dgii.rnc_suppliers.map((supplier) => <li key={supplier.rnc}>{supplier.name} · {supplier.rnc} · {t(`business.transactions.reporting.export.${supplier.status === "rnc_unverified" ? "rnc_unverified" : supplier.estado === "SUSPENDIDO" ? "rnc_suspended" : "rnc_inactive"}`)}</li>);
-  const pendingFiscal = preview?.dgii.pending_fiscal_count ? <>{t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count })} <button type="button" className={quietButtonClass} onClick={() => { onClose(); onReviewFiscal(preview.dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button></> : null;
+  const supplierLines = preview?.dgii.rnc_suppliers.map((supplier) => <li key={supplier.rnc}>
+    <div className="flex items-start justify-between gap-3">
+      <span className="min-w-0">{supplier.name}</span>
+      <span className="shrink-0 text-amber-600 dark:text-amber-400">{t(`business.transactions.reporting.export.${supplier.status === "rnc_unverified" ? "rnc_unverified" : supplier.estado === "SUSPENDIDO" ? "rnc_suspended" : "rnc_inactive"}`)}</span>
+    </div>
+    <span className="block font-mono">{supplier.rnc}</span>
+  </li>);
+  const pendingFiscalSentence = preview?.dgii.pending_fiscal_count ? t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count }) : null;
+  const reviewFiscal = preview ? <button type="button" className={sale ? quietButtonClass : noticeLinkClass} onClick={() => { onClose(); onReviewFiscal(preview.dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button> : null;
+  const pendingFiscal = pendingFiscalSentence ? sale ? <>{pendingFiscalSentence} {reviewFiscal}</> : <InlineNoticeAction sentence={pendingFiscalSentence}>{reviewFiscal}</InlineNoticeAction> : null;
   const pendingRate = preview?.dgii.pending_rate_count ? t(sale ? "business.transactions.reporting.export.pending_rate_sales" : "business.transactions.reporting.export.pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) }) : null;
   const notices606 = preview && !sale && mode === "dgii" && (preview.dgii.rnc_warning_count > 0 || pendingFiscal || pendingRate) ? (
     <ul data-testid="records-export-notices" className="space-y-1 pb-3 pl-10 pr-3 text-[14px] text-[#56635e] dark:text-white/70">
       {preview.dgii.rnc_warning_count > 0 ? <li data-testid="records-export-rnc-notice" className="flex items-start gap-2">
-        <TriangleAlert className="mt-3.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <div className="flex min-h-11 flex-wrap items-center gap-x-1.5">
-            <p>{t("business.transactions.reporting.export.rnc_notice_title", { count: preview.dgii.rnc_supplier_count })}</p>
-            <button type="button" data-testid="records-export-rnc-toggle" className={quietButtonClass} aria-expanded={suppliersExpanded} aria-controls={suppliersId} onClick={() => setSuppliersExpanded((expanded) => !expanded)}>{t(suppliersExpanded ? "business.transactions.reporting.export.rnc_hide_suppliers" : "business.transactions.reporting.export.rnc_view_suppliers")}</button>
-          </div>
+          <p>
+            <InlineNoticeAction sentence={t("business.transactions.reporting.export.rnc_notice_title", { count: preview.dgii.rnc_supplier_count })}>
+              <button type="button" data-testid="records-export-rnc-toggle" className={noticeLinkClass} aria-expanded={suppliersExpanded} aria-controls={suppliersId} onClick={() => setSuppliersExpanded((expanded) => !expanded)}>{t(suppliersExpanded ? "business.transactions.reporting.export.rnc_hide_suppliers" : "business.transactions.reporting.export.rnc_view_suppliers")}</button>
+            </InlineNoticeAction>
+          </p>
           <p>{t("business.transactions.reporting.export.rnc_notice_body")}</p>
-          <ul id={suppliersId} data-testid="records-export-rnc-suppliers" hidden={!suppliersExpanded} tabIndex={0} aria-label={t("business.transactions.reporting.export.rnc_view_suppliers")} className="mt-2 max-h-[132px] space-y-1 overflow-y-auto rounded-mark focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]">{supplierLines}</ul>
+          <ul id={suppliersId} data-testid="records-export-rnc-suppliers" hidden={!suppliersExpanded} tabIndex={0} aria-label={t("business.transactions.reporting.export.rnc_view_suppliers")} className="mt-2 max-h-[132px] space-y-2 overflow-y-auto rounded-mark border border-black/15 p-2 dark:border-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]">{supplierLines}</ul>
         </div>
       </li> : null}
-      {pendingFiscal ? <li className="flex items-start gap-2"><CircleMinus className="mt-3.5 h-4 w-4 shrink-0 text-[#7d8a84] dark:text-white/50" aria-hidden="true" /><p className="min-h-11 flex-1">{pendingFiscal}</p></li> : null}
-      {pendingRate ? <li className="flex items-start gap-2"><CircleMinus className="mt-3.5 h-4 w-4 shrink-0 text-[#7d8a84] dark:text-white/50" aria-hidden="true" /><p className="flex min-h-11 flex-1 items-center">{pendingRate}</p></li> : null}
+      {pendingFiscal ? <li className="flex items-start gap-2"><CircleMinus className="mt-0.5 h-4 w-4 shrink-0 text-[#7d8a84] dark:text-white/50" aria-hidden="true" /><p className="min-w-0 flex-1">{pendingFiscal}</p></li> : null}
+      {pendingRate ? <li className="flex items-start gap-2"><CircleMinus className="mt-0.5 h-4 w-4 shrink-0 text-[#7d8a84] dark:text-white/50" aria-hidden="true" /><p className="min-w-0 flex-1">{pendingRate}</p></li> : null}
     </ul>
   ) : null;
 

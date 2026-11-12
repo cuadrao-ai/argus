@@ -24,6 +24,12 @@ const downloadButton = () => document.querySelector<HTMLButtonElement>('[data-te
 const previews = (page: Page) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/export/preview"));
 const exports = (page: Page) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).map((call) => call.body as ExportBody);
 const dialogText = () => document.querySelector('[role="dialog"]')?.textContent ?? "";
+const noticeSentence = (notice: Element | null) => {
+  const paragraph = notice?.querySelector("p")?.cloneNode(true);
+  if (!(paragraph instanceof HTMLElement)) return undefined;
+  paragraph.querySelector("button")?.remove();
+  return paragraph.textContent?.trim();
+};
 const summary = () => document.querySelector('[data-testid="records-export-summary"]')?.textContent;
 
 async function open(page: Page) {
@@ -300,6 +306,13 @@ for (const language of ["es-419", "en"] as const) {
     assert.equal(notices.querySelectorAll("h3").length, 0);
     assert.ok(notice.querySelector(".lucide-triangle-alert"));
     assert.equal(toggle.closest("label"), null);
+    assert.ok(toggle.closest("p"), "the sentence and action share one paragraph");
+    for (const link of [toggle, page.button(language === "es-419" ? "Revisar" : "Review")!]) {
+      assert.ok(link.classList.contains("inline"));
+      assert.ok(link.classList.contains("text-[14px]"));
+      assert.equal(link.classList.contains("min-h-11"), false);
+    }
+    assert.equal(notice.querySelector(".lucide-triangle-alert")?.classList.contains("mt-3.5"), false);
     assert.equal(toggle.textContent, language === "es-419" ? "Ver proveedores" : "View suppliers");
     assert.equal(toggle.getAttribute("aria-expanded"), "false");
     const list = document.getElementById(toggle.getAttribute("aria-controls")!)!;
@@ -307,7 +320,7 @@ for (const language of ["es-419", "en"] as const) {
     assert.equal(list.tabIndex, 0);
     assert.equal(list.getAttribute("aria-label"), language === "es-419" ? "Ver proveedores" : "View suppliers");
     assert.equal(list.hidden, true);
-    assert.equal(notice.querySelector("p")?.textContent, language === "es-419"
+    assert.equal(noticeSentence(notice), language === "es-419"
       ? "27 proveedores con RNC suspendido o no encontrado."
       : "27 suppliers whose RNC is suspended or not found.");
     assert.ok(notice.textContent?.includes(language === "es-419" ? "La DGII puede rechazar sus líneas." : "The DGII may reject their lines."));
@@ -317,10 +330,22 @@ for (const language of ["es-419", "en"] as const) {
     assert.equal(list.hidden, false);
     assert.ok(list.classList.contains("max-h-[132px]"));
     assert.ok(list.classList.contains("overflow-y-auto"));
+    assert.ok(list.classList.contains("border"));
     assert.equal(list.children.length, 27);
-    assert.deepEqual([...list.children].slice(0, 3).map((item) => item.textContent), language === "es-419"
-      ? ["Suplidor registrado · 101001577 · Suspendido", "Proveedor sin registro · 101010632 · No encontrado", "Proveedor cancelado · 101010633 · No activo"]
-      : ["Suplidor registrado · 101001577 · Suspended", "Proveedor sin registro · 101010632 · Not found", "Proveedor cancelado · 101010633 · Inactive"]);
+    assert.deepEqual([...list.children].slice(0, 3).map((item) => ({
+      name: item.firstElementChild?.firstElementChild?.textContent,
+      status: item.firstElementChild?.lastElementChild?.textContent,
+      rnc: item.lastElementChild?.textContent,
+    })), [
+      { name: "Suplidor registrado", status: language === "es-419" ? "Suspendido" : "Suspended", rnc: "101001577" },
+      { name: "Proveedor sin registro", status: language === "es-419" ? "No encontrado" : "Not found", rnc: "101010632" },
+      { name: "Proveedor cancelado", status: language === "es-419" ? "No activo" : "Inactive", rnc: "101010633" },
+    ]);
+    for (const item of list.children) {
+      assert.ok(item.firstElementChild?.classList.contains("justify-between"));
+      assert.ok(item.firstElementChild?.lastElementChild?.classList.contains("text-amber-600"));
+      assert.ok(item.lastElementChild?.classList.contains("font-mono"));
+    }
     assert.doesNotMatch(list.textContent!, /SUSPENDIDO|DADO DE BAJA|ANULADO|sin verificar/);
     assert.equal(downloadButton()!.disabled, false);
     await page.click(toggle);
@@ -339,7 +364,7 @@ for (const language of ["es-419", "en"] as const) {
     await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
     const notice = document.querySelector('[data-testid="records-export-rnc-notice"]');
     assert.equal(document.querySelector('[data-testid="records-export-notices"]')?.children.length, 1);
-    assert.equal(notice?.querySelector("p")?.textContent, language === "es-419"
+    assert.equal(noticeSentence(notice), language === "es-419"
       ? "1 proveedor con RNC suspendido o no encontrado."
       : "1 supplier whose RNC is suspended or not found.");
     assert.equal(downloadButton()!.disabled, false);
@@ -363,5 +388,6 @@ test("607 keeps pending notices below the options", async () => {
   const notice = document.querySelector('[data-testid="records-export-dgii"]')!;
   assert.match(notice.textContent!, /1 venta tiene datos fiscales pendientes y no se incluye\./);
   assert.ok(notice.contains(page.button("Revisar")!));
+  assert.ok(page.button("Revisar")!.classList.contains("min-h-11"), "607 keeps its existing review button");
   assert.equal(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(page.button("Revisar")!), false);
 });
