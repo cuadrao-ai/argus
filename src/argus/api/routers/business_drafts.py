@@ -20,13 +20,14 @@ from argus.domain.business.contracts.actions import (
     ApproveRefund,
     DecideFiscalInclusion,
     MarkPersonal,
+    OutcomeUnknown,
     Refused,
     ReopenDraft,
     ResolveDuplicate,
     ReviewDraft,
     SettleRemainder,
 )
-from argus.domain.business.contracts.dossier import BusinessDossier
+from argus.domain.business.contracts.dossier import BusinessDossier, RecordedApproval
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 
 router = APIRouter(
@@ -38,6 +39,11 @@ router = APIRouter(
         }
     },
 )
+
+_ACTION_CONFLICT = {
+    "description": "`stale_version` or `idempotency_conflict`; an uncertain action"
+    " returns 409 with its existing outcome code."
+}
 
 
 def _key(request: Request, value: str | None) -> str:
@@ -77,8 +83,9 @@ def _email_sender_blocks_approval(request, context, draft_id) -> bool:
 
 def _run(request, response, context, draft_id, command=None, key=None):
     response.headers.update(NO_STORE)
+    is_approval = isinstance(command, (ApproveExpense, ApproveIncome, ApproveRefund))
     try:
-        if isinstance(command, (ApproveExpense, ApproveIncome, ApproveRefund)):
+        if is_approval:
             if _email_sender_blocks_approval(request, context, draft_id):
                 raise ActionError("permission_denied", "email_sender_unauthorized")
         actor = context.for_draft(draft_id)
@@ -104,7 +111,21 @@ def _run(request, response, context, draft_id, command=None, key=None):
             result = method(actor, draft_id, command, key)
             if isinstance(result, Refused):
                 raise action_problem(request, result)
+            if isinstance(result, OutcomeUnknown):
+                raise problem(
+                    request,
+                    status_code=409,
+                    code=result.code,
+                    title="Action outcome unknown",
+                    detail=result.code,
+                    headers=NO_STORE,
+                )
         dossier = context.service.dossier(actor, draft_id)
+        if is_approval and (
+            not isinstance(dossier.approval_result, RecordedApproval)
+            or dossier.approval_result.activity_id != result.activity_id
+        ):
+            raise ActionError("stale_version", "stale_version")
         return with_source_channels(
             dossier,
             space_id=str(actor.actor.space_id),
@@ -125,7 +146,11 @@ def get_dossier(
     return _run(request, response, context, draft_id)
 
 
-@router.patch("/{draft_id}/review", response_model=BusinessDossier)
+@router.patch(
+    "/{draft_id}/review",
+    response_model=BusinessDossier,
+    responses={409: _ACTION_CONFLICT},
+)
 def review_draft(
     request: Request,
     response: Response,
@@ -139,7 +164,11 @@ def review_draft(
     )
 
 
-@router.post("/{draft_id}/duplicate-resolution", response_model=BusinessDossier)
+@router.post(
+    "/{draft_id}/duplicate-resolution",
+    response_model=BusinessDossier,
+    responses={409: _ACTION_CONFLICT},
+)
 def resolve_duplicate(
     request: Request,
     response: Response,
@@ -153,7 +182,11 @@ def resolve_duplicate(
     )
 
 
-@router.post("/{draft_id}/personal", response_model=BusinessDossier)
+@router.post(
+    "/{draft_id}/personal",
+    response_model=BusinessDossier,
+    responses={409: _ACTION_CONFLICT},
+)
 def mark_personal(
     request: Request,
     response: Response,
@@ -170,7 +203,11 @@ def mark_personal(
     )
 
 
-@router.post("/{draft_id}/fiscal-inclusion", response_model=BusinessDossier)
+@router.post(
+    "/{draft_id}/fiscal-inclusion",
+    response_model=BusinessDossier,
+    responses={409: _ACTION_CONFLICT},
+)
 def decide_fiscal_inclusion(
     request: Request,
     response: Response,
@@ -187,7 +224,17 @@ def decide_fiscal_inclusion(
     )
 
 
-@router.post("/{draft_id}/approve", response_model=BusinessDossier)
+@router.post(
+    "/{draft_id}/approve",
+    response_model=BusinessDossier,
+    responses={
+        409: {
+            "description": "`stale_version` or `idempotency_conflict`; an uncertain approval"
+            " returns 409 with its existing outcome code. A historical approval whose"
+            " recorded activity is absent or changed returns `stale_version`."
+        }
+    },
+)
 def approve_draft(
     request: Request,
     response: Response,
@@ -231,7 +278,7 @@ def approve_listos(
             "description": "`business_permission_denied` without approve permission;"
             " `business_human_command_required` for a non-person actor."
         },
-        409: {"description": "`stale_version` or `idempotency_conflict`."},
+        409: _ACTION_CONFLICT,
         422: {
             "description": "`business_draft_not_recorded` before approval;"
             " `business_remainder_none` when nothing is left."
@@ -262,7 +309,7 @@ def settle_remainder(
             "description": "`business_permission_denied` without approve permission;"
             " `business_human_command_required` for a non-person actor."
         },
-        409: {"description": "`stale_version` or `idempotency_conflict`."},
+        409: _ACTION_CONFLICT,
         422: {
             "description": "`business_draft_not_recorded` on a draft that is not approved;"
             " `business_record_matched` while a bank line is matched to the record;"
