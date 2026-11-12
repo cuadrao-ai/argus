@@ -49,6 +49,90 @@ PY
   mapfile -t BACKEND_PACKAGE_PATHS <<< "$paths"
 }
 
+# Derive generation and agreement dependencies without executing project code.
+EMAIL_SHARED_PATHS=()
+load_email_shared_paths() {
+  local paths
+  paths="$(python3 - "$(dirname "${BASH_SOURCE[0]}")/.." <<'PYEMAIL'
+import posixpath
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1]).resolve()
+scripts = sorted(path for path in (root / "scripts/emails").glob("sync-*")
+                 if path.suffix in {".mjs", ".ts"})
+if not scripts:
+    raise ValueError("Missing email sync declarations")
+# Strings and comments are tokens: generated code inside a template must not
+# become an import in the generator. URL interpolations retain future/deleted
+# locale paths as globs rather than expanding only files that still exist.
+tokens = re.compile(r'''//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`''')
+shared = set()
+visited = set()
+
+
+def declarations(path):
+    text = path.read_text(encoding="utf-8")
+    for token in tokens.finditer(text):
+        literal = token.group()
+        if literal.startswith(("//", "/*")):
+            continue
+        prefix = text[:token.start()]
+        is_import = re.search(r"\bfrom\s*$", prefix) is not None
+        is_url = re.search(r"\bnew\s+URL\(\s*$", prefix) is not None
+        if not (is_import or is_url) or not literal[1:-1].startswith("."):
+            continue
+        value = re.sub(r"\$\{[^}]+\}", "*", literal[1:-1])
+        relative = posixpath.normpath(posixpath.join(path.relative_to(root).parent.as_posix(), value))
+        if relative.startswith("../"):
+            raise ValueError(f"Email declaration escapes checkout: {path}")
+        yield relative, is_import
+
+
+def visit(path, email_only=False):
+    if path in visited:
+        return
+    visited.add(path)
+    for relative, is_import in declarations(path):
+        if email_only and not relative.startswith("marketing/lib/email/"):
+            continue
+        if is_import:
+            candidates = [relative] if Path(relative).suffix in {".ts", ".tsx", ".json", ".js", ".mjs"} else [relative + suffix for suffix in (".ts", ".tsx", ".js", ".mjs", "/index.ts")]
+            # Keep missing imports shared: deleting a source must still run
+            # the agreement check that reports its absence.
+            shared.update(candidates)
+            for candidate in candidates:
+                source = root / candidate
+                if source.is_file() and source.suffix != ".json":
+                    visit(source)
+        else:
+            shared.add(relative)
+            source = root / relative
+            if source.is_file() and source.suffix in {".ts", ".tsx", ".js", ".mjs"}:
+                visit(source)
+
+
+for script in scripts:
+    references = list(declarations(script))
+    if not any(not is_import for _, is_import in references):
+        raise ValueError(f"No readable email destination in {script}")
+    shared.add(script.relative_to(root).as_posix())
+    visit(script)
+# Agreement tests also consume helpers not imported by generators. The test
+# imports, not another manually maintained list, own those relationships.
+for test in (root / "web/__tests__").glob("*.ts"):
+    if "marketing/lib/email/" not in test.read_text(encoding="utf-8"):
+        continue
+    if any(relative.startswith("marketing/lib/email/")
+           for relative, _ in declarations(test)):
+        visit(test, email_only=True)
+sys.stdout.write("".join(path + "\n" for path in sorted(shared)))
+PYEMAIL
+)"
+  mapfile -t EMAIL_SHARED_PATHS <<< "$paths"
+}
+
 write_result() {
   local docs_only="$1"
   local run_heavy="$2"
@@ -99,6 +183,11 @@ selects_marketing() {
 is_shared_path() {
   local path="${1#./}"
   local package_path
+  for package_path in "${EMAIL_SHARED_PATHS[@]}"; do
+    case "$path" in
+      $package_path) return 0 ;;
+    esac
+  done
   case "$path" in
     web/*|marketing/*)
       for package_path in "${BACKEND_PACKAGE_PATHS[@]}"; do
@@ -148,6 +237,7 @@ classify_files() {
     return
   fi
   load_backend_package_paths
+  load_email_shared_paths
   echo "Changed files:"
   for path in "$@"; do
     printf '  %s\n' "$path"

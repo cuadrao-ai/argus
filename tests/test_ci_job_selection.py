@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import posixpath
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -78,6 +79,12 @@ def selected_jobs(flags: dict[str, str]) -> set[str]:
 
 def jobs_for(*paths: str) -> set[str]:
     return selected_jobs(outputs(classify("--files", *paths)))
+
+
+def test_account_layout_change_selects_web_and_backend_checks():
+    assert {"frontend-checks", "backend-checks"} <= jobs_for(
+        "marketing/lib/email/account-layout.ts"
+    )
 
 
 CASES = {
@@ -169,6 +176,9 @@ def classifier_checkout(tmp_path):
     script.parent.mkdir()
     script.write_text(SCRIPT.read_text())
     (tmp_path / "pyproject.toml").write_text((ROOT / "pyproject.toml").read_text())
+    shutil.copytree(ROOT / "scripts/emails", tmp_path / "scripts/emails")
+    shutil.copytree(ROOT / "marketing/lib/email", tmp_path / "marketing/lib/email")
+    shutil.copytree(ROOT / "web/__tests__", tmp_path / "web/__tests__")
     return tmp_path, script
 
 
@@ -638,3 +648,77 @@ def test_manual_capture_scripts_stay_unwired():
             continue
         text = (ROOT / path).read_text(encoding="utf-8", errors="ignore")
         assert "scripts/capture-" not in text, path
+
+
+@pytest.mark.parametrize("path", [
+    "marketing/lib/email/account-layout.ts",
+    "marketing/lib/email/existing-account.ts",
+    "marketing/lib/email/business-invite.ts",
+    "marketing/lib/email/business-transfer.ts",
+    "marketing/lib/email/business-closed.ts",
+    "marketing/lib/email/template-slots.ts",
+    "marketing/lib/email/email-otp-contract.generated.ts",
+    "marketing/lib/email/support-email.generated.ts",
+    "marketing/lib/email/account-copy.generated.json",
+    "web/server/emails/account-layout.generated.ts",
+    "web/lib/email-otp-contract.ts",
+    "web/public/locales/es-419/common.json",
+    "web/public/locales/en/common.json",
+    "src/argus/domain/existing_account_email.generated.json",
+    "src/argus/domain/business/business_invite_email.generated.json",
+    "src/argus/domain/business/business_transfer_email.generated.json",
+    "src/argus/domain/business/business_closed_email.generated.json",
+    *[path.relative_to(ROOT).as_posix() for path in (ROOT / "scripts/emails").glob("sync-*")],
+])
+def test_shared_email_generation_inputs_and_outputs_select_every_job(path):
+    assert jobs_for(path) == EVERY
+
+
+@pytest.mark.parametrize("extension", ["mjs", "ts"])
+def test_new_email_sync_scripts_define_shared_paths(classifier_checkout, extension):
+    root, script = classifier_checkout
+    owner = root / "marketing/lib/email/new-owner.ts"
+    owner.write_text('export { value } from "./new-dependency";')
+    (owner.parent / "new-dependency.ts").write_text("export const value = 1;")
+    (root / f"scripts/emails/sync-new.{extension}").write_text(
+        'import { value } from "../../marketing/lib/email/new-owner";\n'
+        'const destination = new URL("../../web/lib/new.generated.ts", import.meta.url);\n'
+    )
+    for path in [
+        "marketing/lib/email/new-owner.ts", "marketing/lib/email/new-dependency.ts",
+        "web/lib/new.generated.ts", f"scripts/emails/sync-new.{extension}",
+    ]:
+        assert selected_jobs(outputs(classify("--files", path, script=script))) == EVERY
+    assert selected_jobs(outputs(classify(
+        "--files", "marketing/lib/email/new-owner.ts.bak", script=script,
+    ))) == MARKETING
+
+
+@pytest.mark.parametrize("contents", [
+    None, 'const destination = computePath();',
+    'import x from "../../marketing/lib/email/account-layout";\n'
+    'const destination = new URL(computePath(), import.meta.url);',
+])
+def test_unreadable_email_relationships_fail_the_gate(classifier_checkout, contents):
+    root, script = classifier_checkout
+    folder = root / "scripts/emails"
+    if contents is None:
+        shutil.rmtree(folder)
+    else:
+        (folder / "sync-unknown.ts").write_text(contents)
+    result = classify("--files", "marketing/app/page.tsx", script=script)
+    assert result.returncode != 0
+    assert not any(line.startswith("run_") for line in result.stdout.splitlines())
+
+
+def test_new_url_copy_includes_transitive_source_inputs(classifier_checkout):
+    root, script = classifier_checkout
+    owner = root / "marketing/lib/email/new-layout.ts"
+    owner.write_text('import x from "./new-copy.json";')
+    (root / "scripts/emails/sync-new-layout.mjs").write_text(
+        'const source = new URL("../../marketing/lib/email/new-layout.ts", import.meta.url);\n'
+        'const destination = new URL("../../web/server/new-layout.generated.ts", import.meta.url);\n'
+    )
+    assert selected_jobs(outputs(classify(
+        "--files", "marketing/lib/email/new-copy.json", script=script,
+    ))) == EVERY
