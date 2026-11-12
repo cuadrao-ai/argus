@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from textwrap import dedent
 
@@ -13,6 +14,30 @@ from scripts.ci.settings_agreement import Read, problems, scan
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(autouse=True)
+def _git_fixture(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)
+
+
+def _track(root: Path) -> None:
+    subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+
+
+def test_python_reader_in_new_scripts_folder_is_cataloged(tmp_path: Path) -> None:
+    from scripts.ci.settings_agreement import write_catalog
+
+    path = tmp_path / "scripts/future_tool/reader.py"
+    path.parent.mkdir(parents=True)
+    path.write_text('import os\nos.getenv("CUADRAO_FUTURE_TOOL", "20")\n')
+    (tmp_path / "scripts/ops").mkdir()
+    _track(tmp_path)
+    write_catalog(tmp_path)
+    catalog = tmp_path / "scripts/ops/settings_catalog.generated.json"
+    assert json.loads(catalog.read_text())["settings"] == [
+        {"name": "CUADRAO_FUTURE_TOOL", "default": "20", "owner": "scripts/future_tool/reader.py"}
+    ]
+
+
 def _tree(tmp_path: Path, source: str, settings: list[dict[str, object]]) -> Path:
     src = tmp_path / "src"
     src.mkdir()
@@ -21,6 +46,7 @@ def _tree(tmp_path: Path, source: str, settings: list[dict[str, object]]) -> Pat
     catalog.mkdir(parents=True)
     payload = {"version": 1, "settings": settings}
     (catalog / "settings_catalog.generated.json").write_text(json.dumps(payload) + "\n")
+    _track(tmp_path)
     return tmp_path
 
 
@@ -287,6 +313,7 @@ def test_catalog_preserves_every_reader(tmp_path: Path, second_default: str) -> 
     )
     from scripts.ci.settings_agreement import write_catalog
 
+    _track(root)
     write_catalog(root)
     rows = json.loads((root / "scripts/ops/settings_catalog.generated.json").read_text())[
         "settings"
@@ -376,6 +403,7 @@ values = [configured(name) for name in (*NAMES[tier],)]
     (root / "src/config.py").write_text(
         'NAMES = {"sample": ("CUADRAO_SAMPLE", "ARGUS_SAMPLE")}\nUNUSED = ["CUADRAO_UNUSED"]\n'
     )
+    _track(root)
     assert scan(root) == (
         {
             name: (Read("20", "src/app.py"),)
@@ -399,6 +427,7 @@ for name, value in source.items():
 """,
         [],
     )
+    _track(root)
     assert scan(root) == ({"CUADRAO_SAMPLE": (Read(None, "src/app.py"),)}, [])
 
 
@@ -418,6 +447,7 @@ def unrelated():
 """,
         [],
     )
+    _track(root)
     assert scan(root) == ({"CUADRAO_SAMPLE": (Read(None, "src/app.py"),)}, [])
 
 
@@ -461,6 +491,7 @@ def test_python_shadow_bindings_are_not_environment_reads(
     tmp_path: Path, source: str
 ) -> None:
     root = _tree(tmp_path, "import os\n" + source, [])
+    _track(root)
     assert scan(root) == ({}, [])
 
 
@@ -496,6 +527,7 @@ def main(argv=None):
 """,
         [],
     )
+    _track(root)
     assert scan(root) == ({"ARGUS_APPLY_DATABASE_URL": (Read("", "src/app.py"),)}, [])
 
 
@@ -523,6 +555,7 @@ value = setting_value("SAMPLE", "20")
 """,
         [],
     )
+    _track(root)
     assert scan(root) == (
         {
             name: (Read("20", "src/app.py"),)
@@ -582,6 +615,7 @@ def test_python_enum_values_reach_environment_reads(
         "class UnusedSetting(Enum):\n"
         '    UNUSED = "CUADRAO_UNUSED"\n'
     )
+    _track(root)
     assert scan(root) == (
         {name: (Read("", "src/app.py"),) for name in expected},
         [],
@@ -609,8 +643,10 @@ def test_python_enum_member_respects_nested_function_bindings(
         '    LEGACY = "ARGUS_SAMPLE"\n'
     )
     if shadowed:
+        _track(root)
         assert scan(root) == ({}, ["src/app.py:5 dynamic environment name setting.value"])
     else:
+        _track(root)
         assert scan(root) == (
             {
                 name: (Read("", "src/app.py"),)
