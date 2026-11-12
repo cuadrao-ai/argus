@@ -84,6 +84,33 @@ def other_pool() -> Iterator[ConnectionPool]:
         yield opened
 
 
+@pytest.fixture
+def prior_documents(
+    request: pytest.FixtureRequest, pool: ConnectionPool
+) -> Iterator[tuple[DocumentsService, str, str, str] | None]:
+    if not getattr(request, "param", False):
+        yield None
+        return
+    with pool.connection() as connection:
+        people = shared._create_users(connection, ("previous", False))
+    owner = people["previous"]
+    api = support.instance(pool, support.Clock(), support.Extractor())
+
+    async def seed() -> tuple[str, str]:
+        pending, settled = await waiting(api.service, owner, 2)
+        api.jobs.start(user_id=owner, connection_id=settled)
+        [attempt] = api.attempts(settled)
+        assert await run_attempt(api.service, settled, attempt) == "prepared"
+        return pending, settled
+
+    try:
+        pending, settled = asyncio.run(seed())
+        yield api.service, owner, pending, settled
+    finally:
+        with pool.connection() as connection:
+            shared._delete_users(connection, people)
+
+
 def puller(service: DocumentsService, *mine: str) -> PreparationJobs:
     """Pull-mode jobs whose sweep sees only this test's rows."""
 
@@ -114,12 +141,22 @@ def observations(pool: ConnectionPool, owner: str, connection_id: str) -> int:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "prior_documents", [False, True], ids=["empty-queue", "prior-pending-read"], indirect=True
+)
 async def test_racing_pullers_take_each_attempt_once_and_stop_at_the_cap(
-    pool: ConnectionPool, other_pool: ConnectionPool, users: dict[str, str]
+    pool: ConnectionPool,
+    other_pool: ConnectionPool,
+    users: dict[str, str],
+    prior_documents: tuple[DocumentsService, str, str, str] | None,
 ) -> None:
     clock = Clock()
     api = support.instance(pool, clock, support.Extractor())
-    connections = await waiting(api.service, users["owner"], 6)
+    owners = [users["owner"], users["other"]] * 3
+    connections = []
+    for owner in owners:
+        connections.extend(await waiting(api.service, owner, 1))
+    owners_by_connection = dict(zip(connections, owners, strict=True))
     stores = [
         PostgresDocumentStore(racing, source_objects()) for racing in (pool, other_pool)
     ]
@@ -135,7 +172,9 @@ async def test_racing_pullers_take_each_attempt_once_and_stop_at_the_cap(
     taken = [result for result in results if result is not None]
     assert sorted(connection for connection, _ in taken) == sorted(connections[:3])
     assert all(
-        api.service.store.job(user_id=users["owner"], connection_id=connection).attempt_id
+        api.service.store.job(
+            user_id=owners_by_connection[connection], connection_id=connection
+        ).attempt_id
         == attempt_id
         for connection, attempt_id in taken
     )
