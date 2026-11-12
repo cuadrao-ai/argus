@@ -9,6 +9,62 @@
 > [!IMPORTANT]
 > **Locked Status**: No breaking changes (structural JSON shape changes) are allowed without explicit approval or critical implementation blockers. Additive changes and clarifications are permitted.
 
+## Active conversation endpoint table
+
+As of #1996, `business_conversations.py` owns the retained conversation,
+history and search operations below. This table lists mounted operations, not
+permission to start a chat: Business creation remains flag-gated, and Personal
+chat creation is closed. Other API families remain documented in their sections.
+The generic conversation catch-all is a refusal handler, not a restored operation.
+
+| Method | Path | Status |
+| --- | --- | --- |
+| `GET` | `/api/v1/conversations` | Active |
+| `POST` | `/api/v1/conversations` | Active |
+| `DELETE` | `/api/v1/conversations` | Active |
+| `PATCH` | `/api/v1/conversations/{conversation_id}` | Active |
+| `DELETE` | `/api/v1/conversations/{conversation_id}` | Active |
+| `GET` | `/api/v1/conversations/{conversation_id}/messages` | Active |
+| `GET` | `/api/v1/history` | Active |
+| `GET` | `/api/v1/search` | Active |
+
+## Retired operations (#1996)
+
+Every operation below was removed from `docs/api/openapi.yaml` when the legacy
+conversation routers were unmounted. None is served, including when its former
+feature flag is enabled. Historical payloads, examples and behavior below are
+retained as history only; this retirement ledger supersedes those descriptions.
+Conversation catch-all refusals do not implement the retired operations.
+
+| Method | Path | Status |
+| --- | --- | --- |
+| `GET` | `/api/v1/computations/answers` | Retired |
+| `POST` | `/api/v1/computations/compare` | Retired |
+| `POST` | `/api/v1/conversations/guest/replace` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/confirmations/{confirmation_id}/direct-edit` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/confirmations/{confirmation_id}/peer-assets` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/messages/{message_id}/computation/refresh` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/messages/{message_id}/computation/rerun` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/messages/{message_id}/continue` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/messages/{message_id}/decision` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/public-excerpt` | Retired |
+| `GET` | `/api/v1/conversations/{conversation_id}/public-excerpt-candidates` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/public-excerpt-preview` | Retired |
+| `GET` | `/api/v1/conversations/{conversation_id}/run-dossiers` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/tool-results/{artifact_id}/recompute` | Retired |
+| `GET` | `/api/v1/decisions/{decision_id}` | Retired |
+| `POST` | `/api/v1/decisions/{decision_id}/rerun` | Retired |
+| `GET` | `/api/v1/discovery/assets` | Retired |
+| `GET` | `/api/v1/discovery/indicators` | Retired |
+| `POST` | `/api/v1/evidence-artifacts/{artifact_id}/decision` | Retired |
+| `POST` | `/api/v1/evidence-artifacts/{artifact_id}/public-excerpt` | Retired |
+| `GET` | `/api/v1/market/session` | Retired |
+| `GET` | `/api/v1/public-excerpts` | Retired |
+| `DELETE` | `/api/v1/public-excerpts/{snapshot_id}` | Retired |
+| `POST` | `/api/v1/public/receipt-funnel` | Retired |
+| `GET` | `/api/v1/public/receipts/{public_id}` | Retired |
+| `POST` | `/api/v1/public/receipts/{public_id}/fork` | Retired |
+
 ---
 
 # 1. Contract Principles
@@ -663,6 +719,9 @@ persisted solely to represent abandonment.
 
 ### Public evidence receipts
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 #### Approved answer-sharing extension
 
 Founder decision 2026-09-14: sharing is enabled by owner selection and the exact
@@ -718,19 +777,19 @@ Owner endpoints, authenticated, registered accounts only (`can_save_decision`):
 
 | Method   | Path                                               | Purpose |
 | :------- | :------------------------------------------------- | :------ |
-| `GET`    | `/conversations/{conversation_id}/public-excerpt-candidates` | List final answer units with server-owned eligibility |
-| `POST`   | `/conversations/{conversation_id}/public-excerpt-preview` | Validate selected turns and return their exact public rendering payload |
-| `POST`   | `/conversations/{conversation_id}/public-excerpt` | Recheck and freeze the previewed selection |
-| `POST`   | `/evidence-artifacts/{artifact_id}/public-excerpt` | Compatibility adapter to the same single-message receipt |
-| `GET`    | `/public-excerpts`                                 | The owner's receipt list for Data Controls |
-| `DELETE` | `/public-excerpts/{snapshot_id}`                   | Revoke, immediately and irreversibly |
+| `GET`    | `/conversations/{conversation_id}/public-excerpt-candidates` | **Retired (#1996).** List final answer units with server-owned eligibility |
+| `POST`   | `/conversations/{conversation_id}/public-excerpt-preview` | **Retired (#1996).** Validate selected turns and return their exact public rendering payload |
+| `POST`   | `/conversations/{conversation_id}/public-excerpt` | **Retired (#1996).** Recheck and freeze the previewed selection |
+| `POST`   | `/evidence-artifacts/{artifact_id}/public-excerpt` | **Retired (#1996).** Compatibility adapter to the same single-message receipt |
+| `GET`    | `/public-excerpts`                                 | **Retired (#1996).** The owner's receipt list for Data Controls |
+| `DELETE` | `/public-excerpts/{snapshot_id}`                   | **Retired (#1996).** Revoke, immediately and irreversibly |
 
 Public endpoints, unauthenticated:
 
 | Method | Path                           | Purpose |
 | :----- | :----------------------------- | :------ |
-| `GET`  | `/public/receipts/{public_id}` | Read one frozen receipt |
-| `POST` | `/public/receipt-funnel`       | Accept a viewer-side funnel stage; records nothing |
+| `GET`  | `/public/receipts/{public_id}` | **Retired (#1996).** Read one frozen receipt |
+| `POST` | `/public/receipt-funnel`       | **Retired (#1996).** Accept a viewer-side funnel stage; records nothing |
 
 A result whose conversation has been deleted is no longer shareable: creation answers
 `404` with the ordinary not-available detail, and the database refuses the insert even
@@ -3284,6 +3343,9 @@ Three operation classes, one meter each:
 
 ## `GET /market/session`
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 Return which session US equities are in, and what the caller's own records show
 interest in. Owner-authenticated read.
 
@@ -3699,6 +3761,10 @@ What remains is inert compatibility state only:
 
 # 11. Conversations
 
+**Current route scope:** See the [active endpoint table](#active-conversation-endpoint-table).
+The Personal chat, guest replacement and card-action descriptions below are
+historical where they conflict with the #1996 retirement ledger.
+
 **Chat surfaces.** A person has two chat histories: Personal (`/chat`) and
 Business (`/biz`). The client names a `surface`, `personal` (the default) or
 `business`, and never a space. The server resolves `business` to the person's
@@ -3947,6 +4013,9 @@ Soft delete conversation.
 ```
 
 ## `GET /api/v1/conversations/{conversation_id}/run-dossiers`
+
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
 
 Returns a lazy, newest-first page of finalized evidence-backed runs for one
 owned conversation.
@@ -5275,6 +5344,9 @@ Contract rules:
 
 ## `POST /conversations/{conversation_id}/confirmations/{confirmation_id}/peer-assets`
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 Grows or restores the active confirmation's basket **without spending a
 turn**: no allowance, no interpretation, no LLM call. Available only
 while `ARGUS_RESEARCH_RAIL_ENABLED` and `ARGUS_IN_PLACE_CARD_EDITS_ENABLED`
@@ -5311,6 +5383,9 @@ the coverage preflight cannot reach provider data. Failures persist
 nothing.
 
 ## `POST /conversations/{conversation_id}/confirmations/{confirmation_id}/direct-edit`
+
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
 
 Edits the active confirmation's capital, dates, or costs **without spending a
 turn**: no allowance, no interpretation, no LLM call, no backtest
@@ -5870,6 +5945,9 @@ These are stable ids/enums and must not be localized.
 
 ## `POST /evidence-artifacts/{id}/decision`
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 Create or update the current explicit user decision attached to a user-owned
 evidence artifact. P1 stores one canonical current `DecisionNote` per
 `user_id + evidence_artifact_id`; repeated POSTs and retries update that
@@ -5953,6 +6031,9 @@ or corrupt legacy user text.
   failure state and must not invent a saved decision locally.
 
 ## Decisions on computed answers
+
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
 
 A decision attaches to a computation and carries what a re-run needs. Every
 `DecisionNote` has exactly one attachment:
@@ -6090,6 +6171,9 @@ model answers `422 validation_error`. The registered kinds are `time_value`,
 the calculation's `currency`, an ISO 4217 code in use; zero is a known input.
 
 ### `POST /conversations/{conversation_id}/messages/{message_id}/computation/rerun`
+
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
 
 Re-run an owned computed answer from Search, decided or not, without touching
 it. Body: `{"inputs": {...}, "calculation": 0}`, overrides merged over that
@@ -6248,15 +6332,18 @@ under `docs/reports/evidence/545/probes` and
 
 ### Computed answers outside a turn
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 Every route is owner-scoped. Listing, comparing and continuing call no model,
 retrieval or provider.
 
 | Method | Path | Purpose |
 | :----- | :--- | :------ |
-| `GET`  | `/computations/answers?kind=&exclude_message_id=&surface=` | The owner's newest computed answers of one kind in live conversations of one surface (`personal` by default, or `business`), at most 10 |
-| `POST` | `/computations/compare` | Two answers of one kind side by side |
-| `POST` | `/conversations/{conversation_id}/messages/{message_id}/continue` | A new chat carrying only this result |
-| `POST` | `/conversations/{conversation_id}/messages/{message_id}/computation/refresh` | Look the answer's cited inputs up again |
+| `GET`  | `/computations/answers?kind=&exclude_message_id=&surface=` | **Retired (#1996).** The owner's newest computed answers of one kind in live conversations of one surface (`personal` by default, or `business`), at most 10 |
+| `POST` | `/computations/compare` | **Retired (#1996).** Two answers of one kind side by side |
+| `POST` | `/conversations/{conversation_id}/messages/{message_id}/continue` | **Retired (#1996).** A new chat carrying only this result |
+| `POST` | `/conversations/{conversation_id}/messages/{message_id}/computation/refresh` | **Retired (#1996).** Look the answer's cited inputs up again |
 
 Listing returns `{items: [{conversation_id, message_id, kind, asked,
 computed_at, symbols}]}`. Only an answer with one calculation is listed: an

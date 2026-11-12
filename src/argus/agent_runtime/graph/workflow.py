@@ -324,6 +324,16 @@ async def _execute_node_async(
     if _is_launch_request_payload(launch_payload):
         run_state = run_state.model_copy(deep=True)
         run_state.confirmation_payload = dict(launch_payload)
+    if not run_state.tool_calls and run_state.confirmation_payload is not None:
+        from argus.agent_runtime.tools.registered_backtest import approved_backtest_call
+
+        approved = approved_backtest_call(run_state)
+        if approved is not None:
+            run_state = run_state.model_copy(update={"tool_calls": [approved]})
+    if catalog is None and run_state.tool_calls:
+        from argus.domain.personal_tool_catalog import personal_tool_catalog
+
+        catalog = personal_tool_catalog()
     return _apply_stage_result(
         state,
         await execute_tool_calls_async(

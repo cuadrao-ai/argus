@@ -108,20 +108,20 @@ heads. The complete native create/allocation/record/correct/link/edit/lifecycle,
 Search/back/relaunch and Spanish journey passed. Separate recovery tests lose an
 accepted goal-create or transfer response, relaunch and retry the exact command.
 The contribution's source 800, destination 1,200 and one contribution confirm no
-duplicate transfer. [Short recording](goal-journey.mp4) shows that real accepted
+duplicate transfer. [Short recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-journey.mp4) shows that real accepted
 transfer response-loss/relaunch/retry journey. Authentication frames are omitted;
 the clip is edited for duration, not a continuous timing benchmark.
 
-Financial screenshots preserve [existing allocation](goal-existing-allocation-backed.png),
-[one contribution](goal-recorded-contribution-once.png), [original correction](goal-original-correction-propagated.png),
-[release/relink](goal-released-original-relinked-once.png), [target/date edit](goal-target-date-edited.png),
-[reopened detail](goal-detail-restored-after-relaunch.png), [Search return](goal-search-origin-restored.png),
-[Spanish detail](goal-spanish-detail.png), [exact create recovery](goal-exact-command-recovered-once.png)
-and [one recovered transfer](goal-transfer-recovered-once-after-relaunch.png).
+Financial screenshots preserve [existing allocation](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-existing-allocation-backed.png),
+[one contribution](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-recorded-contribution-once.png), [original correction](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-original-correction-propagated.png),
+[release/relink](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-released-original-relinked-once.png), [target/date edit](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-target-date-edited.png),
+[reopened detail](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-detail-restored-after-relaunch.png), [Search return](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-search-origin-restored.png),
+[Spanish detail](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-spanish-detail.png), [exact create recovery](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-exact-command-recovered-once.png)
+and [one recovered transfer](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-transfer-recovered-once-after-relaunch.png).
 The [native shared-shortfall proof](native-shortfall-proof.json) and
-[Needs review screenshot](goal-shared-shortfall.png) show 20 unavailable backing
+[Needs review screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-shared-shortfall.png) show 20 unavailable backing
 without invented priority; restoring the original corrected withdrawal restores
-400/10 support. [Home entry](goal-home-recorded-progress.png) opens the same
+400/10 support. [Home entry](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-savings-goals/goal-home-recorded-progress.png) opens the same
 actual 400/planned 100 detail.
 
 310 assembled financial/API/OpenAPI/Postgres checks passed with zero skips,

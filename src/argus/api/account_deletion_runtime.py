@@ -1,6 +1,6 @@
 """Builds the account deletion command from durable dependencies only.
 
-Deletion owns its own small Postgres pool, so it works whatever other features
+Deletion borrows the process business pool regardless of which features
 are switched on: households, financial accounts, ingestion and Apple capture
 all being off doesn't stop a person from deleting their account. The running
 surfaces are reused when they're up (the ingestion hub, #793's Apple service);
@@ -10,17 +10,34 @@ a token stored while a feature was on is still revoked rather than stranded.
 
 from __future__ import annotations
 
-import atexit
 import threading
 from datetime import datetime, timezone
 from typing import Any
 
 from loguru import logger
 
+from argus.observability.posthog_deletion import (
+    DeletionConfigurationError,
+    DeletionSetting,
+)
+
 _lock = threading.Lock()
-_pools: dict[str, Any] = {}
 _revokers: dict[str, Any] = {}
 _apple: dict[str, Any] = {}
+
+
+def failure_reason(exc: BaseException) -> str:
+    if type(exc) is DeletionConfigurationError and isinstance(
+        exc.setting, DeletionSetting
+    ):
+        return exc.setting.failure_message
+    origin = exc.__traceback__
+    if origin is None:
+        return "origin unavailable"
+    while origin.tb_next is not None:
+        origin = origin.tb_next
+    module = origin.tb_frame.f_globals.get("__name__", "unknown")
+    return f"{module}.{origin.tb_frame.f_code.co_name}:{origin.tb_lineno}"
 
 
 def _clock() -> datetime:
@@ -28,23 +45,9 @@ def _clock() -> datetime:
 
 
 def deletion_pool(database_url: str) -> Any:
-    from psycopg_pool import ConnectionPool
+    from argus.api.business_database import business_pool
 
-    with _lock:
-        pool = _pools.get(database_url)
-        if pool is None:
-            pool = ConnectionPool(
-                database_url,
-                min_size=0,
-                # A request and a sweep pass, or two requests, each need a
-                # connection for the run and one for the Apple service.
-                max_size=4,
-                open=True,
-                name="argus-account-deletion",
-            )
-            atexit.register(pool.close)
-            _pools[database_url] = pool
-        return pool
+    return business_pool(database_url)
 
 
 def household_repository(pool: Any) -> Any:
@@ -93,7 +96,11 @@ def standalone_revoker() -> Any:
             if plaid.configured:
                 hub.register(PlaidAdapter(PlaidClient(plaid)))
         except ValueError as exc:
-            logger.warning("Plaid revoke for deletion unavailable", reason=str(exc))
+            logger.warning(
+                "Plaid revoke for deletion unavailable: {} {}",
+                type(exc).__name__,
+                failure_reason(exc),
+            )
         _revokers["hub"] = hub
         return hub
 
@@ -114,13 +121,21 @@ def standalone_apple(pool: Any) -> Any | None:
     from argus.domain.ingestion.secrets import SecretBox, SecretBoxUnavailable
 
     with _lock:
-        if "service" in _apple:
+        if _apple.get("pool") is pool and "service" in _apple:
             return _apple["service"]
+        previous = _apple.pop("service", None)
+        if previous is not None:
+            previous.close()
+        _apple["pool"] = pool
         try:
             config = AppleSignInConfig.from_env()
             box = SecretBox.from_env()
         except (AppleSignInUnconfigured, SecretBoxUnavailable) as exc:
-            logger.warning("Apple revoke for deletion unavailable", reason=str(exc))
+            logger.warning(
+                "Apple revoke for deletion unavailable: {} {}",
+                type(exc).__name__,
+                failure_reason(exc),
+            )
             service = None
         else:
             service = AppleCredentialService(

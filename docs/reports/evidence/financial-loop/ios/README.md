@@ -20,7 +20,7 @@ it is not presented as a new capture of the review fixes.
 
 ## Demonstration
 
-[Connected loop recording](connected-loop.mp4) is 2 minutes 9 seconds. It starts
+[Connected loop recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/connected-loop.mp4) is 2 minutes 9 seconds. It starts
 immediately after creating the DOP 10,000 account, then shows expense, Home,
 correction, balance check, recording an expense already in the checked balance,
 reopening and Spanish review. It is a continuous 12-fps capture, compressed without
@@ -49,13 +49,13 @@ executed, 4 skipped, 0 failures**. Production presentation-model tests passed
 
 ## Selected visual evidence
 
-- [Compact account entry](account-entry-dark.png)
-- [Opening inclusion review](opening-inclusion-dark.png)
-- [Connected Home](home-dark.png)
-- [Balance-check review](balance-check-dark.png)
-- [Reopened reconciled account](reopened-account-dark.png)
-- [Spanish Home](home-spanish-dark.png)
-- [Spanish balance-check review](balance-check-spanish-dark.png)
+- [Compact account entry](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/account-entry-dark.png)
+- [Opening inclusion review](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/opening-inclusion-dark.png)
+- [Connected Home](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/home-dark.png)
+- [Balance-check review](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/balance-check-dark.png)
+- [Reopened reconciled account](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/reopened-account-dark.png)
+- [Spanish Home](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/home-spanish-dark.png)
+- [Spanish balance-check review](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/balance-check-spanish-dark.png)
 
 The current mobile lock and MVEE quick-setup correction are the visual references.
 No forecast or unimplemented commitment values are fabricated in connected Home.

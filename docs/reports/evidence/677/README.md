@@ -10,8 +10,8 @@ English detail.
 
 | Locale | Before (`9fa00690`) | After |
 | --- | --- | --- |
-| en | [before-en-claim-503.png](./before-en-claim-503.png) | [en-claim-503.png](./en-claim-503.png) |
-| es-419 | [before-es-419-claim-503.png](./before-es-419-claim-503.png) | [es-419-claim-503.png](./es-419-claim-503.png) |
+| en | [before-en-claim-503.png](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/677/before-en-claim-503.png) | [en-claim-503.png](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/677/en-claim-503.png) |
+| es-419 | [before-es-419-claim-503.png](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/677/before-es-419-claim-503.png) | [es-419-claim-503.png](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/677/es-419-claim-503.png) |
 
 A second claim 503 on Retry used to reload `GET .../messages` (empty, because
 the claim runs before the user turn is saved) and wipe the local transcript.

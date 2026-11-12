@@ -543,7 +543,7 @@ def _drive_http_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
     with TestClient(app) as client:
         for stage in ("viewed", "try_argus"):
             response = client.post("/api/v1/public/receipt-funnel", json={"stage": stage})
-            assert response.status_code == 204
+            assert response.status_code == 404
         retired = client.post(
             "/api/v1/analytics/guest-events",
             json={

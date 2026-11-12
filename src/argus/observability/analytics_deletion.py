@@ -6,7 +6,12 @@ from dataclasses import dataclass, field
 from typing import Literal, Protocol, runtime_checkable
 
 from argus.observability.envelope import posthog_project_token_configured
-from argus.observability.posthog_deletion import EventDeletionResult, PostHogEventDeletion
+from argus.observability.posthog_deletion import (
+    DeletionConfigurationError,
+    DeletionSetting,
+    EventDeletionResult,
+    PostHogEventDeletion,
+)
 
 AnalyticsDeletionOutcome = Literal[
     "deleted", "recorded_by_fake", "not_applicable", "failed"
@@ -65,16 +70,12 @@ def analytics_deletion_from_env() -> AnalyticsDeletion | EventAnalyticsDeletion:
     """The configured deletion adapter wins even with no token today: events
     sent before the token was removed are still owed a deletion."""
     if os.getenv(FLAG, "").strip().lower() in {"1", "true", "yes", "on"}:
-        names = (
-            "CUADRAO_POSTHOG_DELETION_HOST",
-            "CUADRAO_POSTHOG_DELETION_PROJECT_ID",
-            "CUADRAO_POSTHOG_DELETION_API_KEY",
-        )
-        values = [os.getenv(name, "").strip() for name in names]
-        if not all(values):
-            raise RuntimeError(
-                f"{FLAG} requires dedicated PostHog deletion configuration"
-            )
+        values = []
+        for setting in DeletionSetting:
+            value = os.getenv(setting.value, "").strip()
+            if not value:
+                raise DeletionConfigurationError(setting)
+            values.append(value)
         return PostHogEventDeletion(*values)
     if not posthog_project_token_configured():
         return NoAnalyticsEvents()

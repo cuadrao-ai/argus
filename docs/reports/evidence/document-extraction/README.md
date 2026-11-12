@@ -156,8 +156,8 @@ key-limit change or weaker guard was substituted to force dispatch.
 The report separates scripted observations, canonical candidates, schema/candidate
 validation and field-level scoring. These are **offline checks with a scripted
 provider**, not Qwen extraction results. The actual outgoing synthetic JPEGs are
-retained as [statement](qwen-preflight-statement-usd-p1.jpg) and
-[receipt](qwen-preflight-receipt-dop-p1.jpg). Both are visually readable. The request
+retained as [statement](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/document-extraction/qwen-preflight-statement-usd-p1.jpg) and
+[receipt](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/document-extraction/qwen-preflight-receipt-dop-p1.jpg). Both are visually readable. The request
 contains a 1600×1131 statement page and an 1100×700 receipt image; PDF text is
 supplemental. The request retains strict schema output, no automatic fallback,
 no reasoning retry, and the existing privacy restrictions.

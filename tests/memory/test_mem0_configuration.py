@@ -35,7 +35,7 @@ class _StubEmbedder:
 
 
 class _StubPool:
-    """Stands in for the psycopg pool the memory subsystem already owns."""
+    """Stands in for the shared process-owned database pool."""
 
 
 def _config(pool: object | None = None) -> dict:
@@ -45,16 +45,14 @@ def _config(pool: object | None = None) -> dict:
     )
 
 
-def test_vectors_live_in_pgvector_on_the_pool_the_subsystem_already_owns() -> None:
+def test_vectors_borrow_the_shared_pool_without_a_second_datastore() -> None:
     """Catches semantic recall introducing a second datastore or credential."""
     pool = _StubPool()
 
     vector_store = _config(pool)["vector_store"]
 
     assert vector_store["provider"] == "pgvector"
-    # The same pool object, so there is no second connection string, no second
-    # credential, and no new service to provision.
-    assert vector_store["config"]["connection_pool"] is pool
+    assert vector_store["config"]["connection_pool"]._pool is pool
     assert vector_store["config"]["embedding_model_dims"] == 1024
     assert "api_key" not in vector_store["config"]
     assert "host" not in vector_store["config"]

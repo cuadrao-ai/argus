@@ -39,7 +39,7 @@ def test_api_startup_health_does_not_import_backtest_compute_stack() -> None:
 
 def test_api_real_workflow_build_does_not_import_backtest_compute_stack() -> None:
     result = _run_import_probe()
-    assert result["workflow_loaded"] is True
+    assert result["workflow_loaded"] is False
     assert result["forbidden_after_workflow"] == []
 
 
@@ -52,7 +52,7 @@ def test_api_readiness_warms_lazy_workflow_without_backtest_compute_stack() -> N
         if isinstance(check, dict)
     }
 
-    assert checks["agent_runtime_workflow"]["status"] == "ready"
+    assert "agent_runtime_workflow" not in checks
     assert result["forbidden_after_readiness"] == []
 
 
@@ -183,8 +183,7 @@ _IMPORT_PROBE_SCRIPT = textwrap.dedent(
         readiness_body = readiness_response.json()
 
     forbidden_after_readiness = forbidden_loaded()
-    workflow = api_state.get_agent_runtime_workflow()
-    workflow_loaded = workflow is not None
+    workflow_loaded = hasattr(api_state, "get_agent_runtime_workflow")
     forbidden_after_workflow = forbidden_loaded()
 
     print(

@@ -76,7 +76,7 @@ budget.
 The landscape test's app-only screenshot was clipped even though its assertions
 passed. A full-screen capture shows all three Add menu rows at the largest text
 size. The test now retains that full-screen image. Its final rerun passed with no
-skips, and the [retained image](screenshots/large-text-landscape-final.png) was
+skips, and the [retained image](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-signed-in-free-staging-20261009/screenshots/large-text-landscape-final.png) was
 visually inspected.
 
 The budget editor reuses the goal amount field. Its visible label updates, but
@@ -177,11 +177,11 @@ on the new identifier source. [Initial source](source-provenance.json),
 files. These records retain earlier successful runs at their tested sources;
 they do not claim that every case ran at the final documentation commit.
 
-Selected visual evidence shows [reconciliation](screenshots/per-account-reconciliation.png),
-[unknown USD balance](screenshots/separate-currency-unknown-balance.png) and the
-[Spanish income form](screenshots/income-spanish-light.png), and
-[Search after Spanish relaunch](screenshots/search-spanish-relaunch.png), and
-[the saved goal in Spanish](screenshots/goal-spanish-restored.png).
+Selected visual evidence shows [reconciliation](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-signed-in-free-staging-20261009/screenshots/per-account-reconciliation.png),
+[unknown USD balance](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-signed-in-free-staging-20261009/screenshots/separate-currency-unknown-balance.png) and the
+[Spanish income form](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-signed-in-free-staging-20261009/screenshots/income-spanish-light.png), and
+[Search after Spanish relaunch](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-signed-in-free-staging-20261009/screenshots/search-spanish-relaunch.png), and
+[the saved goal in Spanish](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-signed-in-free-staging-20261009/screenshots/goal-spanish-restored.png).
 
 The readback command is `ios/scripts/consumer-money-readback.py`. Run `capture
 before`, one native journey, `capture after`, then `verify` for that journey.
@@ -195,7 +195,7 @@ committed evidence contains only synthetic screenshots and aggregate results.
   during account-entry setup because `accounts.add` could not reach the visible
   scroll area. No budget assertions ran. Its cause needs diagnosis.
 - Largest-text transaction layout needs repair. In the
-  [retained screenshot](screenshots/large-text-transaction-ready-unreviewed.png),
+  [retained screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-signed-in-free-staging-20261009/screenshots/large-text-transaction-ready-unreviewed.png),
   the Date label wraps one letter per line beside its picker. The controls remain
   usable and the native test is green, but that does not close visual acceptance.
   The affected current surface is `ConnectedTransactionSheet.swift:98`. No

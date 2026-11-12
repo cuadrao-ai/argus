@@ -47,6 +47,10 @@ class _PostgresTx:
         # their event or connection.
         self._in_scope, self._scope_params = sql_predicate(scope, "owner_space_id")
 
+    @property
+    def connection(self) -> Connection:
+        return self._c
+
     def _rows(self, statement: str, params: tuple[Any, ...]) -> list[dict[str, Any]]:
         with self._c.cursor(row_factory=dict_row) as cursor:
             cursor.execute(statement, params)

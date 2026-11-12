@@ -22,8 +22,9 @@ from argus.api.decision_contract import (
     DecisionRerun,
     DecisionRerunReasonCode,
 )
-
-BACKTEST_COMPUTATION_KIND = "backtest"
+from argus.domain.decision_attachment import (
+    BACKTEST_COMPUTATION_KIND as BACKTEST_COMPUTATION_KIND,
+)
 
 
 @dataclass(frozen=True)

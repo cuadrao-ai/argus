@@ -167,17 +167,10 @@ def start_personalization_memory(app) -> None:  # noqa: ANN001
                 )
                 configure_memory_service(None)
                 return
-            from psycopg_pool import ConnectionPool
-
+            from argus.api.business_database import business_pool
             from argus.memory.postgres_store import PostgresCanonicalMemoryStore
 
-            pool = ConnectionPool(
-                api_state.DATABASE_URL,
-                min_size=0,
-                max_size=4,
-                open=True,
-            )
-            app.state.personalization_memory_pool = pool
+            pool = business_pool(api_state.DATABASE_URL)
             configure_memory_service(
                 MemoryService(
                     store=PostgresCanonicalMemoryStore(pool),
@@ -198,13 +191,6 @@ def start_personalization_memory(app) -> None:  # noqa: ANN001
 
 def stop_personalization_memory(app) -> None:  # noqa: ANN001
     configure_memory_service(None)
-    pool = getattr(app.state, "personalization_memory_pool", None)
-    if pool is not None:
-        try:
-            pool.close()
-        except Exception:
-            logger.warning("Personalization memory pool close failed")
-        app.state.personalization_memory_pool = None
 
 
 def personalization_memory_unavailable_problem(request: Request) -> HTTPException:

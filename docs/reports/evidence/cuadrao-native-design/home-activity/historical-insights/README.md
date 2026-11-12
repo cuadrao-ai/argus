@@ -44,13 +44,13 @@ See-all eligibility findings were fixed and rechecked.
 
 ## Visual evidence
 
-- [Historical average](historical-average-es.png), [all highlights](all-highlights-es.png),
-  [category decomposition](category-decomposition-es.png) and
-  [supporting months](supporting-months-es.png): final native source `86aa3e8d`.
-- [Large English text](historical-large-en.png): passing large-English journey; the
+- [Historical average](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/historical-insights/historical-average-es.png), [all highlights](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/historical-insights/all-highlights-es.png),
+  [category decomposition](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/historical-insights/category-decomposition-es.png) and
+  [supporting months](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/historical-insights/supporting-months-es.png): final native source `86aa3e8d`.
+- [Large English text](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/historical-insights/historical-large-en.png): passing large-English journey; the
   relevant insight layout and localized chart labels are unchanged at final source.
-- [Native paging recording](interactive-paging.mp4) and
-  [mid-drag frame](interactive-paging-mid-drag.png): passing paging journey at `c70ed6f5`.
+- [Native paging recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/historical-insights/interactive-paging.mp4) and
+  [mid-drag frame](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/historical-insights/interactive-paging-mid-drag.png): passing paging journey at `c70ed6f5`.
   The recording shows cancellation, finger-following adjacent pages and inspection;
   paging source is unchanged at `86aa3e8d`.
 

@@ -9,12 +9,13 @@ transaction. Reads and the account edit are plain statements scoped by
 from __future__ import annotations
 
 from collections.abc import Iterable
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from argus.domain.recording.assets import AssetDetailsResult
 
-from psycopg import sql
+from psycopg import Connection, sql
 from psycopg_pool import ConnectionPool
 
 from argus.domain.owner_scope import OwnerScope, space_id, sql_predicate
@@ -59,8 +60,12 @@ class PostgresFinancialAccountRepository:
         account: NewAccount,
         opening: OpeningWrite | None,
         scope: OwnerScope,
+        connection: Connection | None = None,
     ) -> CreateResult:
-        with self._pool.connection() as connection:
+        borrowed = (
+            nullcontext(connection) if connection is not None else self._pool.connection()
+        )
+        with borrowed as connection:
             row = connection.execute(
                 "select public.create_financial_account("
                 "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
@@ -101,25 +106,36 @@ class PostgresFinancialAccountRepository:
                 raise AccountNotFound()
             return CreateResult(stored, created=decision == "created")
 
-    def list_accounts(self, *, user_id: str, scope: OwnerScope) -> list[StoredAccount]:
-        in_scope, params = sql_predicate(scope, "owner_space_id")
+    def list_accounts(
+        self,
+        *,
+        user_id: str,
+        scope: OwnerScope,
+        connection: Connection | None = None,
+    ) -> list[StoredAccount]:
+        if connection is not None:
+            return self._list_accounts(connection, user_id, scope)
         with self._pool.connection() as connection:
             connection.execute("set transaction isolation level repeatable read")
-            rows = connection.execute(
-                f"select {_ACCOUNT_COLUMNS} from public.financial_accounts"
-                f" where user_id = %s and {in_scope} order by created_at asc, id asc",
-                (user_id, *params),
-            ).fetchall()
-            openings = self._openings(connection, user_id, [str(row[0]) for row in rows])
-            records = [
-                hydrate(connection, StoredAccount(_facts(row), openings.get(str(row[0]))))
-                for row in rows
-            ]
-            from .canonical_groups import VisibleAccounts, load
+            return self._list_accounts(connection, user_id, scope)
 
-            return VisibleAccounts(
-                records, load(self, connection, {user_id}, scope=scope)
-            )
+    def _list_accounts(
+        self, connection: Connection, user_id: str, scope: OwnerScope
+    ) -> list[StoredAccount]:
+        in_scope, params = sql_predicate(scope, "owner_space_id")
+        rows = connection.execute(
+            f"select {_ACCOUNT_COLUMNS} from public.financial_accounts"
+            f" where user_id = %s and {in_scope} order by created_at asc, id asc",
+            (user_id, *params),
+        ).fetchall()
+        openings = self._openings(connection, user_id, [str(row[0]) for row in rows])
+        records = [
+            hydrate(connection, StoredAccount(_facts(row), openings.get(str(row[0]))))
+            for row in rows
+        ]
+        from .canonical_groups import VisibleAccounts, load
+
+        return VisibleAccounts(records, load(self, connection, {user_id}, scope=scope))
 
     def get_activity(
         self, *, user_id: str, activity_id: str, scope: OwnerScope
@@ -131,27 +147,39 @@ class PostgresFinancialAccountRepository:
             return load(self, connection, user_id, activity_id, scope)
 
     def get_account(
-        self, *, user_id: str, account_id: str, scope: OwnerScope
+        self,
+        *,
+        user_id: str,
+        account_id: str,
+        scope: OwnerScope,
+        connection: Connection | None = None,
     ) -> StoredAccount | None:
+        if connection is not None:
+            return self._load(connection, user_id, account_id, scope=scope)
         with self._pool.connection() as connection:
             connection.execute("set transaction isolation level repeatable read")
             return self._load(connection, user_id, account_id, scope=scope)
 
-    def get_any_account(self, *, account_id: str) -> StoredAccount | None:
+    def get_any_account(
+        self, *, account_id: str, connection: Connection | None = None
+    ) -> StoredAccount | None:
         """Load by id after household authorization; not a client route."""
 
+        if connection is not None:
+            return self._load_any(connection, account_id)
         with self._pool.connection() as connection:
             connection.execute("set transaction isolation level repeatable read")
-            row = connection.execute(
-                f"select {_ACCOUNT_COLUMNS} from public.financial_accounts where id = %s",
-                (account_id,),
-            ).fetchone()
-            if row is None:
-                return None
-            openings = self._openings(connection, str(row[1]), [str(row[0])])
-            return hydrate(
-                connection, StoredAccount(_facts(row), openings.get(str(row[0])))
-            )
+            return self._load_any(connection, account_id)
+
+    def _load_any(self, connection: Connection, account_id: str) -> StoredAccount | None:
+        row = connection.execute(
+            f"select {_ACCOUNT_COLUMNS} from public.financial_accounts where id = %s",
+            (account_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        openings = self._openings(connection, str(row[1]), [str(row[0])])
+        return hydrate(connection, StoredAccount(_facts(row), openings.get(str(row[0]))))
 
     def update_account(
         self,

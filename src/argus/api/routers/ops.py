@@ -24,7 +24,6 @@ from argus.domain.access_approval_email import (
     build_access_welcome_email,
     send_access_welcome_email,
 )
-from argus.domain.market_data import warm_asset_universe
 from argus.settings_names import setting_value
 
 router = APIRouter(tags=["ops"])
@@ -71,36 +70,8 @@ def _check(name: str, status: str, duration_ms: int, **extra: Any) -> dict[str, 
     }
 
 
-def _readiness_timeout_seconds() -> float:
-    raw = (os.getenv("ARGUS_READINESS_ASSET_TIMEOUT_SECONDS") or "25").strip()
-    try:
-        value = float(raw)
-    except ValueError:
-        return 25.0
-    return max(value, 1.0)
-
-
 async def run_readiness_checks(request: Request, *, force: bool) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
-
-    started = time.perf_counter()
-    try:
-        api_state.get_agent_runtime_workflow(request)
-        checks.append(
-            _check(
-                "agent_runtime_workflow",
-                "ready",
-                int((time.perf_counter() - started) * 1000),
-            )
-        )
-    except Exception:
-        checks.append(
-            _check(
-                "agent_runtime_workflow",
-                "degraded",
-                int((time.perf_counter() - started) * 1000),
-            )
-        )
 
     started = time.perf_counter()
     if api_state.supabase_gateway is None:
@@ -118,32 +89,7 @@ async def run_readiness_checks(request: Request, *, force: bool) -> dict[str, An
                 )
             )
 
-    started = time.perf_counter()
-    try:
-        asset_result = await asyncio.wait_for(
-            asyncio.to_thread(warm_asset_universe, force=force),
-            timeout=_readiness_timeout_seconds(),
-        )
-        checks.append(
-            _check(
-                "asset_universe",
-                asset_result.status,
-                asset_result.duration_ms,
-                provider_mode=asset_result.provider_mode,
-                alias_count=asset_result.alias_count,
-                required_symbols=list(asset_result.required_symbols),
-                resolved_symbols=list(asset_result.resolved_symbols),
-                missing_symbols=list(asset_result.missing_symbols),
-            )
-        )
-    except Exception:
-        checks.append(
-            _check(
-                "asset_universe",
-                "degraded",
-                int((time.perf_counter() - started) * 1000),
-            )
-        )
+    del force
 
     invite_codes = _invite_code_check()
     if invite_codes is not None:

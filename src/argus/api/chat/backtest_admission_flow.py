@@ -57,7 +57,10 @@ def _record_rejection(
         **log_fields,
     )
     reason = admission_failure_reason(decision)
-    job = gateway.record_backtest_job_rejection(
+    from argus.domain import backtest_admission_gateway as jobs
+
+    job = jobs.record_backtest_job_rejection(
+        gateway.client,
         user_id=context.user_id,
         operation_scope=CHAT_RUN_SCOPE,
         rejected_idempotency_key=context.idempotency_key,
@@ -113,7 +116,10 @@ def admit_durable_chat_job(
     if visitor_key:
         # Replay resolves before allowance: a retry of an admitted run must
         # return its existing job, never a conversion wall.
-        existing_reservation = gateway.get_backtest_job_reservation(
+        from argus.domain import backtest_admission_gateway as jobs
+
+        existing_reservation = jobs.get_backtest_job_reservation(
+            gateway.client,
             user_id=context.user_id,
             operation_scope=CHAT_RUN_SCOPE,
             idempotency_key=idempotency_key,
@@ -138,7 +144,10 @@ def admit_durable_chat_job(
                 )
 
     for attempt in (1, 2):
-        outcome = gateway.admit_backtest_job(
+        from argus.domain import backtest_admission_gateway as jobs
+
+        outcome = jobs.admit_backtest_job(
+            gateway.client,
             user_id=context.user_id,
             operation_scope=CHAT_RUN_SCOPE,
             idempotency_key=idempotency_key,

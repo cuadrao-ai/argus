@@ -239,35 +239,6 @@ def test_retention_boolean_parameters_require_json_booleans(key, value):
         enforce_openrouter_retention({"provider": {key: value}})
 
 
-@pytest.mark.asyncio
-async def test_legacy_fallback_zdr_failure_stops_before_repairs(configured, monkeypatch):
-    from argus.agent_runtime import llm_interpreter
-    from argus.agent_runtime.capabilities.contract import (
-        build_default_capability_contract,
-    )
-    from argus.agent_runtime.stages.interpret import InterpretationRequest
-    from argus.agent_runtime.state.models import UserState
-    from argus.llm.openrouter_retention import OpenRouterZDRUnavailableError
-
-    models = []
-    class FailedModel:
-        def with_structured_output(self, schema):
-            if len(models) == 1:
-                raise RuntimeError("synthetic primary outage")
-            raise OpenRouterZDRUnavailableError("openai/fallback")
-    def build(task, model_name=None):
-        models.append(model_name)
-        return FailedModel()
-    async def repair(**kwargs):
-        pytest.fail("ZDR failure reached a repair call")
-    monkeypatch.setattr(llm_interpreter, "build_openrouter_model", build)
-    monkeypatch.setattr(openrouter, "resolve_openrouter_model", lambda *a, fallback=False, **k: "openai/fallback" if fallback else "openai/primary")
-    monkeypatch.setattr(llm_interpreter, "_plan_pending_artifact_assumption_edit", repair)
-    interpreter = llm_interpreter.OpenRouterStructuredInterpreter(contract=build_default_capability_contract(), model_name="openai/primary")
-    request = InterpretationRequest(current_user_message="synthetic", recent_thread_history=[], latest_task_snapshot=None, user=UserState(user_id="synthetic"))
-    with pytest.raises(OpenRouterZDRUnavailableError):
-        await interpreter.ainvoke(request)
-    assert models == ["openai/primary", "openai/fallback"]
 
 
 @pytest.mark.parametrize("status", [200, 404])

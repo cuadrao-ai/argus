@@ -9,6 +9,7 @@ from typing import Any, Literal
 from argus.domain.backtesting.date_window import validate_backtest_date_window
 from argus.domain.backtesting.rules import validate_rule_spec
 from argus.domain.capability_registry import ALLOWED_TEMPLATES
+from argus.domain.dca_capital import MAX_STARTING_CAPITAL as MAX_STARTING_CAPITAL
 from argus.domain.indicators import normalize_indicator_parameters
 from argus.domain.market_data import resolve_asset
 from argus.domain.market_data.capabilities import validate_market_data_window
@@ -31,7 +32,6 @@ STABLECOINS = {"USDC", "USDT", "DAI", "BUSD", "TUSD"}
 # card's advertised edit constraints, and the capability contract's capital
 # range. A card may never promise a run these bounds refuse.
 MIN_STARTING_CAPITAL = 10.0
-MAX_STARTING_CAPITAL = 100_000_000.0
 # Slippage above five percent per trade stops modeling anything real; fees
 # ride the same ceiling until the founder retunes it.
 MAX_FEE_RATE = 0.05

@@ -42,7 +42,7 @@ also found faint default placeholders, now using the shared secondary text token
 The contrast audit reports the system glass Close button despite captured
 black/white readable text; only that exact element's contrast finding is excluded.
 Its semantics and action remain tested, and authored auth controls are audited.
-The [actual flagged element](system-close-contrast-diagnostic.png) is retained.
+The [actual flagged element](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/ios-auth-session/system-close-contrast-diagnostic.png) is retained.
 
 Session tests reproduced late-response resurrection after an already-cleared
 sign-out, failed-journal sign-out still appearing authenticated, and refused

@@ -33,10 +33,10 @@ The reviewer reproduced a native GET that placed an email in the Personal URL wi
 
 ## Visual samples
 
-- [Business desktop](business-en-1440.png) and [phone](business-es-390.png).
-- [Personal phone](personal-en-390-full.png).
-- [Contact desktop](demo-en-1440-full.png).
-- [Founder note](founder-es-1440.png).
+- [Business desktop](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-integration-delivery/business-en-1440.png) and [phone](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-integration-delivery/business-es-390.png).
+- [Personal phone](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-integration-delivery/personal-en-390-full.png).
+- [Contact desktop](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-integration-delivery/demo-en-1440-full.png).
+- [Founder note](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-integration-delivery/founder-es-1440.png).
 
 The adjoining scripts reproduce the checks with Playwright CLI. Set their output directory to your checkout before running. Source-to-page coverage is recorded in the [coverage matrix](../cuadrao-owner-vision/coverage.md).
 

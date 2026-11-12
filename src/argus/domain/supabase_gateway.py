@@ -1206,31 +1206,6 @@ class SupabaseGateway(
             raise ValueError("Research job is not in a completable state.")
         return dict(row)
 
-    def admit_backtest_job(self, **kwargs: Any) -> dict[str, Any]:
-        from argus.domain import backtest_admission_gateway as jobs
-
-        return jobs.admit_backtest_job(self.client, **kwargs)
-
-    def get_backtest_job_reservation(self, **kwargs: Any) -> dict[str, Any] | None:
-        from argus.domain import backtest_admission_gateway as jobs
-
-        return jobs.get_backtest_job_reservation(self.client, **kwargs)
-
-    def list_backtest_job_reservations(self, **kwargs: Any) -> list[dict[str, Any]]:
-        from argus.domain import backtest_admission_gateway as jobs
-
-        return jobs.list_backtest_job_reservations(self.client, **kwargs)
-
-    def record_backtest_job_rejection(self, **kwargs: Any) -> dict[str, Any]:
-        from argus.domain import backtest_admission_gateway as jobs
-
-        return jobs.record_backtest_job_rejection(self.client, **kwargs)
-
-    def finalize_direct_backtest_job(self, **kwargs: Any) -> dict[str, Any] | None:
-        from argus.domain import backtest_admission_gateway as jobs
-
-        return jobs.finalize_direct_backtest_job(self.client, **kwargs)
-
     def find_backtest_job_by_idempotency_key(
         self,
         *,
