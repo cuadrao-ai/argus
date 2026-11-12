@@ -7,7 +7,7 @@ internet deployment are not verified by this local demonstration.
 
 ## Recording and verified state
 
-[Watch the 2m56s simulator recording](connected-plan-demo.mp4). It contains
+[Watch the 2m56s simulator recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-plan-home/connected-plan-demo.mp4). It contains
 chronological, normal-speed excerpts from the passing native test on September
 29, 2026. Navigation and typing pauses are cut; no results or UI are simulated.
 The source recording is retained locally as

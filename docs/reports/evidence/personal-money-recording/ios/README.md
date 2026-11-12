@@ -12,7 +12,7 @@ The [transfer-label clarity addendum](transfer-label-review/README.md) verifies
 the later visible From/To correction in English and Spanish. The accepted 2:55
 recording below predates this label-only change and retains its financial proof.
 
-[Personal money loop recording](personal-money-loop.mp4) is 2 minutes 55 seconds.
+[Personal money loop recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/personal-money-loop.mp4) is 2 minutes 55 seconds.
 It combines three excerpts: income, spending and linked refund; an owned-account
 transfer; and a credit-card payment. It shows real review, confirmation, account
 balances and Home. It is **edited**, with cuts between independent accounts,

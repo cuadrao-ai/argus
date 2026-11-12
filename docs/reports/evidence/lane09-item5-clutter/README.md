@@ -52,10 +52,10 @@ Before images use the frozen item 4 source. After images use the implementation 
 
 | View | Before | After |
 | --- | --- | --- |
-| Resumen, 1280px | [Before](before-overview-1280.png) | [After](after-overview-1280.png) |
-| Resumen, 390px | [Before](before-overview-390.png) | [After](after-overview-390.png) |
-| Bandeja, 1280px | [Before](before-inbox-1280.png) | [After](after-inbox-1280.png) |
-| Bandeja, 390px | [Before](before-inbox-390.png) | [After](after-inbox-390.png) |
+| Resumen, 1280px | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item5-clutter/before-overview-1280.png) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item5-clutter/after-overview-1280.png) |
+| Resumen, 390px | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item5-clutter/before-overview-390.png) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item5-clutter/after-overview-390.png) |
+| Bandeja, 1280px | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item5-clutter/before-inbox-1280.png) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item5-clutter/after-inbox-1280.png) |
+| Bandeja, 390px | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item5-clutter/before-inbox-390.png) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item5-clutter/after-inbox-390.png) |
 
 ## Cleanup
 
