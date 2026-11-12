@@ -207,9 +207,12 @@ def test_every_property_is_literal_bool_or_bounded_int() -> None:
                 continue
             if bare == [int] and _has_bounds(metadata):
                 continue
-            if field_name == "business_hash" and bare == [str] and [
-                getattr(item, "pattern", None) for item in metadata
-            ] == [BUSINESS_HASH_PATTERN]:
+            if (
+                field_name == "business_hash"
+                and bare == [str]
+                and [getattr(item, "pattern", None) for item in metadata]
+                == [BUSINESS_HASH_PATTERN]
+            ):
                 continue
             if _literal_tuple(bare, metadata):
                 continue
@@ -308,7 +311,9 @@ def test_an_unregistered_event_model_is_refused(
         event_name = "business_document_received"
 
     with pytest.raises(TypeError):
-        capture_analytics_event(Unlisted(), user_id="account-raw-id", internal_account=False)
+        capture_analytics_event(
+            Unlisted(), user_id="account-raw-id", internal_account=False
+        )
     with pytest.raises(ValueError):
         capture_analytics_event(
             _event("business_document_received"), user_id=" ", internal_account=False
@@ -392,45 +397,62 @@ def test_a_generic_envelope_cannot_carry_an_analytics_event(
 
 def _forged_envelopes():
     valid_actor = actor_hash_for_user("account-raw-id")
-    yield "generic envelope with the registry literals", build_event_envelope(
-        schema_version="argus_analytics_event/v1",
-        event_type="analytics",
-        event_action="completed",
-        feature_area="product_analytics",
-        actor_hash=valid_actor,
+    yield (
+        "generic envelope with the registry literals",
+        build_event_envelope(
+            schema_version="argus_analytics_event/v1",
+            event_type="analytics",
+            event_action="completed",
+            feature_area="product_analytics",
+            actor_hash=valid_actor,
+        ),
     )
-    yield "model_construct skips validation", build_analytics_envelope(
-        _sample_event(),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(
-        update={"analytics_event": BusinessDocumentReceived.model_construct(
-            business_hash=BUSINESS_HASH, channel="RD$5,000"
-        )}
+    yield (
+        "model_construct skips validation",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(
+            update={
+                "analytics_event": BusinessDocumentReceived.model_construct(
+                    business_hash=BUSINESS_HASH, channel="RD$5,000"
+                )
+            }
+        ),
     )
 
     class Sneaky(BusinessDocumentReceived):
         amount: str = "RD$5,000"
 
-    yield "subclass of a registered model", build_analytics_envelope(
-        _sample_event(),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(
-        update={
-            "analytics_event": Sneaky(business_hash=BUSINESS_HASH, channel="upload")
-        }
+    yield (
+        "subclass of a registered model",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(
+            update={
+                "analytics_event": Sneaky(business_hash=BUSINESS_HASH, channel="upload")
+            }
+        ),
     )
-    yield "extra attribute next to a registered event", build_analytics_envelope(
-        _sample_event(),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(update={"attributes": {"amount": "RD$5,000"}})
-    yield "guest hash on an event that does not carry one", build_analytics_envelope(
-        _sample_event(),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(update={"attributes": {"guest_id_hash": valid_actor}})
+    yield (
+        "extra attribute next to a registered event",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(update={"attributes": {"amount": "RD$5,000"}}),
+    )
+    yield (
+        "guest hash on an event that does not carry one",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(update={"attributes": {"guest_id_hash": valid_actor}}),
+    )
     registry_built = build_analytics_envelope(
         _sample_event(),
         user_id="account-raw-id",
@@ -460,11 +482,14 @@ def _forged_envelopes():
         ),
     ):
         yield label, registry_built.model_copy(update={field: value})
-    yield "free text as the distinct id", build_analytics_envelope(
-        _sample_event(),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(update={"actor_hash": "person@example.com"})
+    yield (
+        "free text as the distinct id",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(update={"actor_hash": "person@example.com"}),
+    )
 
 
 @pytest.mark.parametrize(
@@ -560,7 +585,12 @@ def _drive_http_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
             json={"type": "general", "message": "Clean break check"},
         )
         assert feedback.status_code == 200, feedback.text
-        assert client.get("/api/v1/search", params={"q": "AAPL"}).status_code == 200
+        assert (
+            client.get(
+                "/api/v1/search", params={"q": "AAPL", "surface": "personal"}
+            ).status_code
+            == 404
+        )
 
 
 @pytest.mark.parametrize(
@@ -612,7 +642,11 @@ def _raise_with_a_customer_value() -> None:
 
 
 @pytest.mark.parametrize(
-    ("where", "named"), [({"route": "/business/receipts"}, "route"), ({"job": "document_preparation"}, "job")]
+    ("where", "named"),
+    [
+        ({"route": "/business/receipts"}, "route"),
+        ({"job": "document_preparation"}, "job"),
+    ],
 )
 def test_the_exception_payload_carries_only_its_allowed_fields(
     where: dict[str, str], named: str

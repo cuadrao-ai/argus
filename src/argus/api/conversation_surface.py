@@ -1,17 +1,8 @@
-"""Which side of a person's chats a request and a conversation belong to.
+"""Resolve Business conversation scope without admitting retired Personal access.
 
-The client names a surface, never a space. ``surface_scope`` turns the surface
-into an ``OwnerScope`` with ``resolve_business_scope``. Business answers 404
-unless the pilot is on and the person has started their space, like the other
-Business routes. A stored conversation's side comes from its ``owner_space_id``
-through ``conversation_scope``. Personal artifacts (decisions, evidence,
-receipts, memory) never attach to a Business conversation:
-``require_personal_conversation`` answers 404 for one.
-
-Business chat has its own flag inside the pilot. While it is off no Business
-conversation is created and nothing writes a turn into one
-(``refuse_closed_chat``, ``require_open_business_chat``); reading and deleting
-existing ones still works.
+Stored Personal scope remains readable by internal ownership checks, but public
+surface requests refuse it. Business conversations retain their existing space
+and feature checks; shared WhatsApp turn authorization stays unchanged.
 """
 
 from __future__ import annotations
@@ -61,7 +52,7 @@ def surface_scope(
     request: Request, *, user_id: str, surface: ConversationSurface
 ) -> OwnerScope:
     if surface != "business":
-        return PERSONAL
+        raise conversation_not_found(request)
     spaces = business_spaces()
     if not business_pilot_enabled() or spaces is None:
         raise unavailable_problem(request)

@@ -21,10 +21,9 @@ import pytest
 from argus.api import state as api_state
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
-from argus.api.schemas import GuestPendingAction, Message
+from argus.api.schemas import GuestPendingAction
 from argus.domain.guest_cleanup import cleanup_expired_guest_workspaces
 from argus.domain.owner_scope import PERSONAL
-from argus.domain.store import utcnow
 from argus.domain.username_signup import serialized_username_signup
 from fastapi.testclient import TestClient
 from supabase_auth.errors import AuthApiError
@@ -190,143 +189,6 @@ def test_real_anonymous_identity_survives_reload(
     finally:
         if user_id:
             gateway.delete_auth_user(user_id)
-
-
-def test_real_guest_terminal_message_settles_visitor_day_window(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    auth_router.reset_auth_attempt_limiter_for_tests()
-    monkeypatch.setenv("CUADRAO_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("NEXT_PUBLIC_GUEST_ACCESS_ENABLED", "true")
-    monkeypatch.setenv("CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED", "false")
-    monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
-    monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
-    gateway = _gateway()
-    user_id: str | None = None
-    try:
-        with (
-            patch.object(api_state, "supabase_gateway", gateway),
-            patch.object(api_state, "DATABASE_URL", LOCAL_DATABASE_URL),
-            TestClient(app, base_url="http://localhost:3000") as client,
-        ):
-            created = client.post(
-                "/api/v1/auth/guest",
-                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
-                headers={"origin": "http://localhost:3000"},
-            )
-            assert created.status_code == 200
-            user_id = str(created.json()["user"]["id"])
-            workspace = gateway.get_active_guest_workspace(
-                user_id=user_id,
-                at=datetime.now(timezone.utc),
-            )
-            assert workspace is not None
-
-            created_conversation = client.post("/api/v1/conversations", json={})
-            assert created_conversation.status_code == 200
-            conversation_id = created_conversation.json()["conversation"]["id"]
-            turn_id = str(uuid4())
-            request_id = f"request-{turn_id}"
-            accepted = gateway.accept_chat_turn(
-                user_id=user_id,
-                conversation_id=conversation_id,
-                request_id=request_id,
-                message=Message(
-                    id=turn_id,
-                    conversation_id=conversation_id,
-                    role="user",
-                    content="Test this idea.",
-                    metadata={},
-                    created_at=utcnow(),
-                ),
-            )
-            assistant = Message(
-                id=str(uuid4()),
-                conversation_id=conversation_id,
-                role="assistant",
-                content="Ready to review.",
-                metadata={
-                    "agent_runtime_turn": {
-                        "turn_id": turn_id,
-                        "request_id": request_id,
-                        "status": "completed",
-                        "terminal": True,
-                    }
-                },
-                created_at=utcnow(),
-            )
-            visitor_key = f"visitor-test:{turn_id[:8]}"
-            # The terminal transaction's visitor-keyed settlement path, driven
-            # directly: no product path settles conversation any more.
-            settlement = {
-                "resource": "chat_messages",
-                "limits": [("day", 10)],
-                "visitor_key": visitor_key,
-            }
-
-            first = gateway.finalize_chat_turn(
-                user_id=user_id,
-                conversation_id=conversation_id,
-                turn_id=accepted.id,
-                request_id=request_id,
-                message=assistant,
-                to_status="completed",
-                failure_code=None,
-                retryable=False,
-                settle_usage=settlement,
-            )
-            replay = gateway.finalize_chat_turn(
-                user_id=user_id,
-                conversation_id=conversation_id,
-                turn_id=accepted.id,
-                request_id=request_id,
-                message=assistant,
-                to_status="completed",
-                failure_code=None,
-                retryable=False,
-                settle_usage=settlement,
-            )
-
-            account_counters = (
-                gateway.client.table("usage_counters")
-                .select("period,used_count")
-                .eq("user_id", user_id)
-                .eq("resource", "chat_messages")
-                .execute()
-                .data
-            )
-            visitor_counters = (
-                gateway.client.table("visitor_usage_counters")
-                .select("period,used_count,limit_count")
-                .eq("visitor_key", visitor_key)
-                .eq("resource", "chat_messages")
-                .execute()
-                .data
-            )
-            lifecycle = (
-                gateway.client.table("chat_turn_lifecycles")
-                .select("status,assistant_message_id")
-                .eq("turn_id", turn_id)
-                .single()
-                .execute()
-                .data
-            )
-
-            assert replay == first
-            assert lifecycle == {
-                "status": "completed",
-                "assistant_message_id": assistant.id,
-            }
-            # The unit lands on the visitor, not the renewable workspace, and
-            # the replayed finalization above must not have charged it twice.
-            assert account_counters == []
-            assert visitor_counters == [
-                {"period": "day", "used_count": 1, "limit_count": 10}
-            ]
-    finally:
-        if user_id:
-            with suppress(Exception):
-                gateway.delete_auth_user(user_id)
 
 
 def test_expired_real_anonymous_session_renews_with_fresh_identity(

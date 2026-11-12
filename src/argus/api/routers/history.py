@@ -70,7 +70,7 @@ def history(
     cursor: str | None = Query(None),
     archived: bool = Query(False),
     deleted: bool = Query(False),
-    surface: ConversationSurface = Query("personal"),  # noqa: B008
+    surface: ConversationSurface = Query("business"),  # noqa: B008
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedHistory:
     scope = surface_scope(request, user_id=user.id, surface=surface)

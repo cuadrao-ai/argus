@@ -3763,29 +3763,17 @@ What remains is inert compatibility state only:
 
 **Current route scope:** See the [active endpoint table](#active-conversation-endpoint-table).
 The Personal chat, guest replacement and card-action descriptions below are
-historical where they conflict with the #1996 retirement ledger.
+historical where they conflict with the #1996 or #2001 retirement ledger.
 
-**Chat surfaces.** A person has two chat histories: Personal (`/chat`) and
-Business (`/biz`). The client names a `surface`, `personal` (the default) or
-`business`, and never a space. The server resolves `business` to the person's
-own space through `resolve_business_scope`. Without
-`ARGUS_BUSINESS_PILOT_ENABLED` it answers 404 `business_unavailable`, and before
-the person starts their space it answers 404 `business_space_missing`, like the
-Business routes. A conversation stores its side in `owner_space_id` (null is
-Personal), so every conversation written before Business existed is Personal.
-`GET /conversations`, `POST /conversations`, `DELETE /conversations`,
-`GET /history` and `GET /search` take the surface and return or change only
-that side's conversations, with the Business flag on or off. A request without
-`surface` is exactly the Personal request it was before. Reads by conversation
-id (messages, activity, `PATCH`, `DELETE /conversations/{id}`) stay owner-scoped
-and serve both sides. Every `Conversation` in a response (list, create, patch,
-continue, fork) carries `surface` (`personal` or `business`), and
-`GET /conversations/{id}/messages` returns the conversation's `surface` beside
-its items. A web shell that loads a conversation of the other surface sends it
-to `/chat` or `/biz` with the same id and does not render it. A continued
-computed answer keeps its source's side; a fork of a public receipt is
-Personal. The guest-only `GET /conversations?limit=2` reads (initial session,
-receipt follow-up) send no surface: guests have only Personal chats.
+**Conversation surface (#2001).** Only `business` remains available, and it is
+now the default for create, list, bulk delete, history and search. Explicit
+`surface=personal` returns 404 without reading or modifying saved Personal data.
+The server resolves Business scope through `resolve_business_scope`; the existing
+Business availability and space-required refusals still apply. Reads, updates
+and deletes by conversation id also refuse saved Personal conversations with 404.
+Stored `Conversation.surface` values retain their historical type; no rows or
+tables are migrated or deleted by this retirement. Business transcript and
+preview responses keep their existing shape.
 
 Personal artifacts never attach to a Business conversation. The decision,
 computation re-run, evidence decision, sharing (`public-excerpt*`) and receipt
@@ -3827,7 +3815,7 @@ language. Requires a session.
 
 **Query Params:**
 - `limit`, `cursor`, `archived`, `deleted`
-- `surface=personal|business` (Optional; default `personal`)
+- `surface=business` (Optional; default `business`; `personal` is retired and returns 404)
 
 **Response:**
 ```json
@@ -3867,7 +3855,7 @@ Create new chat thread.
 }
 ```
 *Note: `language` is optional; if omitted, backend resolves from user profile or fallback.*
-*Note: `surface` is optional (`personal` by default); `business` creates the chat in the person's Business space.*
+*Note: `surface` is optional (`business` by default); `personal` is retired and returns 404.*
 *Note: If title is not provided, backend may use a system placeholder until AI-generated title is available.*
 
 **Response:**
@@ -3883,7 +3871,7 @@ Create new chat thread.
 ## `DELETE /conversations`
 
 Soft delete all non-deleted conversations owned by the authenticated user on
-one surface (`?surface=personal|business`, default `personal`), including
+the Business surface (`?surface=business`, the default), including
 active and archived conversations. Deleting all in `/chat` leaves Business
 chats alone, and the reverse. Already-deleted conversations are ignored so
 repeated calls are safe and return `deleted_count: 0`.
@@ -6385,7 +6373,11 @@ when no input is cited, `429 research_capacity_exhausted` (context
 `guest_exhausted`) when the allowance refuses, and `503 research_unavailable`
 (context `reason`) when the provider cannot answer.
 
-### Answer dossiers in Search
+### Answer dossiers in Search (retired #2001)
+
+The following describes retired investing hydration. Business search no longer
+attaches computed-answer dossiers or adds computed answers to asset rollups.
+Its existing scoped conversation results and previews remain unchanged.
 
 A computed answer gets a dossier beside the run dossier, which is unchanged. A
 `conversation` search row carries `answer_dossier`, `null` or the newest
@@ -6444,7 +6436,7 @@ Mixed recent activity feed.
 - `asset_class=equity|crypto|currency_pair` (Optional filter)
 - `archived=false` (Optional; archived conversations are excluded by default)
 - `deleted=false` (Optional; soft-deleted items are excluded by default)
-- `surface=personal|business` (Optional; default `personal`). Business returns
+- `surface=business` (Optional; default `business`; `personal` is retired and returns 404). Business returns
   only Business chats and the runs of Business chats; strategies, collections
   and runs without a conversation are Personal.
 
@@ -6530,7 +6522,7 @@ the `/search` contract.
   canonical `archived` state so an already-open Recents surface can remove a
   conversation archived elsewhere without hiding archived conversations from
   ordinary Omnisearch.
-- `surface=personal|business`: optional, default `personal`. Every
+- `surface=business`: optional, default `business`; `personal` returns 404. Every
   conversation, message, run, idea, evidence and decision match, the asset row
   and computed answers come only from that side's conversations. The `/biz`
   client never asks for ledger groups, because Business chats hold no saved

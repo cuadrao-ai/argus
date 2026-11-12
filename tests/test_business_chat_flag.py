@@ -1,8 +1,8 @@
 """Business chat stays off until Business turns have their own tool restrictions.
 
-With ``ARGUS_BUSINESS_CHAT_ENABLED`` off no Business conversation is created and
+With ``CUADRAO_BUSINESS_CHAT_ENABLED`` off no Business conversation is created and
 no turn, continuation or card action runs on one, while reading and deleting
-the ones that exist keeps working. Personal chat is untouched.
+the ones that exist keeps working. Personal chat remains retired.
 """
 
 from __future__ import annotations
@@ -63,15 +63,13 @@ def test_business_chat_off_refuses_every_turn_but_keeps_reading_and_deleting(
 ) -> None:
     _start_space(ALICE)
     business = _create(client, ALICE, "Shop ledger", surface="business")
-    personal = _create(client, ALICE, "Household ledger")
-    monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "false")
+    monkeypatch.setenv("CUADRAO_BUSINESS_CHAT_ENABLED", "false")
 
     started = client.post(
         "/api/v1/conversations", json={"surface": "business"}, headers=_as(ALICE)
     )
     assert _code(started) == UNAVAILABLE
     assert _turns(client, business) == [UNAVAILABLE] * 5
-    assert UNAVAILABLE not in _turns(client, personal)
 
     listed = client.get(
         "/api/v1/conversations", params={"surface": "business"}, headers=_as(ALICE)
@@ -85,7 +83,7 @@ def test_business_chat_off_refuses_every_turn_but_keeps_reading_and_deleting(
     ]
     assert (
         client.post("/api/v1/conversations", json={}, headers=_as(ALICE)).status_code
-        == 200
+        == 404
     )
     removed = client.delete(f"/api/v1/conversations/{business}", headers=_as(ALICE))
     assert removed.status_code == 200, removed.text
@@ -97,7 +95,7 @@ def test_business_chat_is_nested_inside_the_pilot(
 ) -> None:
     _start_space(ALICE)
     business = _create(client, ALICE, "Shop ledger", surface="business")
-    monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED")
+    monkeypatch.delenv("CUADRAO_BUSINESS_PILOT_ENABLED")
 
     started = client.post(
         "/api/v1/conversations", json={"surface": "business"}, headers=_as(ALICE)
