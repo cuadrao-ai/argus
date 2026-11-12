@@ -728,8 +728,8 @@ def test_docs_only_changes_script_counts_rename_from_code_into_docs(
     assert f"src/{source_name}" in result.stdout
     assert parsed == {"docs_only": "false", "run_heavy": "true"}
 
-    docs_source = FAKE.file_name(extension="md")
-    docs_dest = FAKE.file_name(extension="md")
+    docs_source = f"source-{dest_name}"
+    docs_dest = f"renamed-{dest_name}"
     (repo / "docs" / docs_source).write_text("note\n", encoding="utf-8")
     subprocess.run(["git", "add", f"docs/{docs_source}"], cwd=repo, check=True)
     subprocess.run(
