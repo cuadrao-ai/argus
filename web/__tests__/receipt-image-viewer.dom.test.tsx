@@ -12,7 +12,9 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-async function setup(sourceId = "a") {
+async function setup(sourceId = "a", imageSize = { width: 1200, height: 2000 }, viewport = { width: 600, height: 500 }) {
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => viewport.width });
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: () => viewport.height });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { default: Viewer } = await import("@/components/business-app/ReceiptImageZoom");
@@ -32,8 +34,8 @@ async function setup(sourceId = "a") {
   const render = async (id: string, file = blob) => {
     await act(async () => root.render(<I18nextProvider i18n={i18n}><Viewer src="data:image/png;base64,AA==" blob={file} sourceId={id} alt="Comprobante original" /></I18nextProvider>));
     const image = document.querySelector("img")!;
-    Object.defineProperty(image, "naturalWidth", { configurable: true, value: 1200 });
-    Object.defineProperty(image, "naturalHeight", { configurable: true, value: 2000 });
+    Object.defineProperty(image, "naturalWidth", { configurable: true, value: imageSize.width });
+    Object.defineProperty(image, "naturalHeight", { configurable: true, value: imageSize.height });
     await act(async () => image.dispatchEvent(new Event("load")));
   };
   await render(sourceId);
@@ -56,7 +58,80 @@ test("fit geometry uses intrinsic size, swaps rotated dimensions and bounds manu
   assert.equal(receiptScale({ kind: "fit-width" }, image, viewport, 0), 0.5);
   assert.equal(receiptScale({ kind: "manual", scale: 9 }, image, viewport, 0), 5);
   assert.equal(receiptScale({ kind: "manual", scale: 0.01 }, image, viewport, 0), 0.25);
+  assert.equal(receiptScale({ kind: "manual", scale: 0 }, image, viewport, 0), 0.25);
 });
+
+for (const turns of [0, 1]) {
+  test(`large photo fit presets use viewport geometry at ${turns * 90} degrees`, async () => {
+    const env = await setup(`large-photo-${turns}`, { width: 3024, height: 4032 }, { width: 375, height: 300 });
+    try {
+      if (turns) await env.click("Girar a la derecha");
+      const image = document.querySelector("img")!;
+      const assertDimensions = (scale: number) => {
+        assert.equal(Number(env.well().dataset.zoom), scale);
+        assert.equal(parseFloat(image.style.width), 3024 * scale);
+        assert.equal(parseFloat(image.style.height), 4032 * scale);
+      };
+      const width = turns ? 4032 : 3024;
+      const height = turns ? 3024 : 4032;
+      const pageScale = Math.min(375 / width, 300 / height);
+      assertDimensions(pageScale);
+      assert.equal((env.well().firstElementChild as HTMLElement).style.width, "375px");
+      assert.equal((env.well().firstElementChild as HTMLElement).style.height, "300px");
+      assert.equal(env.button("Alejar").disabled, true);
+      await env.click("Ajustar al ancho");
+      assertDimensions(375 / width);
+      assert.equal(env.button("Alejar").disabled, 375 / width === pageScale);
+      await env.key("-");
+      assert.equal(env.well().dataset.fit, "fit-page");
+      assertDimensions(pageScale);
+    } finally { await env.cleanup(); }
+  });
+}
+
+test("fit presets also remain exact above the manual maximum", async () => {
+  const { receiptScale } = await import("@/components/business-app/ReceiptImageZoom");
+  assert.equal(receiptScale({ kind: "fit-page" }, { width: 10, height: 20 }, { width: 375, height: 300 }, 0), 15);
+  assert.equal(receiptScale({ kind: "fit-width" }, { width: 10, height: 20 }, { width: 375, height: 300 }, 0), 37.5);
+});
+
+for (const input of ["button", "keyboard", "wheel", "pinch"]) {
+  test(`${input} zoom out reaches the large photo fit scale through the manual minimum`, async () => {
+    const env = await setup(`large-out-${input}`, { width: 3024, height: 4032 }, { width: 375, height: 300 });
+    try {
+      const pointer = (type: string, id: number, x: number) => env.act(async () => env.well().dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: "touch", clientX: x, clientY: 100, bubbles: true })));
+      const out = async () => {
+        if (input === "button") await env.click("Alejar");
+        else if (input === "keyboard") await env.key("-");
+        else if (input === "wheel") {
+          const event = new WheelEvent("wheel", { deltaY: 200, cancelable: true });
+          Object.defineProperty(event, "ctrlKey", { value: true });
+          await env.act(async () => env.well().dispatchEvent(event));
+        } else {
+          await pointer("pointerdown", 1, 100);
+          await pointer("pointerdown", 2, 300);
+          await pointer("pointermove", 2, 120);
+          await pointer("pointerup", 1, 100);
+          await pointer("pointerup", 2, 120);
+        }
+      };
+      await env.click("Ajustar al ancho");
+      await env.click("Tamaño real");
+      for (let i = 0; i < 4 && Number(env.well().dataset.zoom) > 0.25; i++) await out();
+      assert.equal(env.well().dataset.zoom, "0.25");
+      assert.equal(env.well().dataset.fit, "manual");
+      assert.equal(env.button("Alejar").disabled, false);
+      await out();
+      assert.equal(env.well().dataset.fit, "fit-page");
+      assert.equal(Number(env.well().dataset.zoom), 300 / 4032);
+      assert.equal(env.button("Alejar").disabled, true);
+      await env.click("Ajustar al ancho");
+      await out();
+      assert.equal(env.well().dataset.fit, "fit-page");
+      assert.equal(Number(env.well().dataset.zoom), 300 / 4032);
+    } finally { await env.cleanup(); }
+  });
+}
 
 test("rotation entries validate, promote on open and evict the least recent of 200 IDs", async () => {
   const { readReceiptRotations, rememberReceiptRotation } = await import("@/components/business-app/ReceiptImageZoom");

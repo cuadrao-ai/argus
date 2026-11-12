@@ -528,3 +528,44 @@ for (const width of [1280, 375]) {
     });
   });
 }
+
+test.describe("large receipt photo fit", () => {
+  test.use({ viewport: { width: 375, height: 900 } });
+  test("a 3024 by 4032 source opens fully in the well and both fit presets remain exact", async ({ page }, testInfo) => {
+    await installReceiptBusiness(page, (parts, route) => {
+      if (parts[0] !== "receipts" || parts[2] !== "source") return undefined;
+      return route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="3024" height="4032"><rect width="3024" height="4032" fill="#fffefa"/><rect x="12" y="12" width="3000" height="4008" fill="none" stroke="#172b26" stroke-width="24"/><text x="200" y="400" font-size="160">Comprobante de prueba</text><text x="200" y="800" font-size="120">3024 × 4032</text></svg>' }).then(() => null);
+    });
+    await page.goto(`/biz?draft=${dossierFixtureIds.fiscalAttached}`);
+    await expect(page.getByTestId("business-record-review")).toBeVisible();
+    await showTab(page, "Original");
+    const well = page.getByTestId("receipt-image-zoom");
+    await expect(well).toBeVisible();
+    await expect(well.locator("img")).toHaveJSProperty("naturalWidth", 3024);
+    const dimensions = () => well.evaluate((element) => {
+      const image = element.querySelector("img")!;
+      const box = image.getBoundingClientRect();
+      return { width: element.clientWidth, height: element.clientHeight, imageWidth: box.width, imageHeight: box.height, scale: Number(element.dataset.zoom) };
+    });
+    const capturePhoto = async (name: string) => {
+      const directory = process.env.CUADRAO_RECEIPT_VIEWER_EVIDENCE_DIR;
+      const path = directory ? `${directory}/375-large-${name}.png` : testInfo.outputPath(`375-large-${name}.png`);
+      await page.screenshot({ path });
+      await testInfo.attach(`375-large-${name}`, { path, contentType: "image/png" });
+    };
+    const fitted = await dimensions();
+    expect(fitted.scale).toBeCloseTo(Math.min(fitted.width / 3024, fitted.height / 4032), 8);
+    expect(fitted.imageWidth).toBeLessThanOrEqual(fitted.width + 0.1);
+    expect(fitted.imageHeight).toBeLessThanOrEqual(fitted.height + 0.1);
+    await capturePhoto("page");
+    await page.getByRole("button", { name: "Ajustar al ancho", exact: true }).click();
+    const widthFit = await dimensions();
+    expect(widthFit.scale).toBeCloseTo(widthFit.width / 3024, 8);
+    expect(Math.abs(widthFit.imageWidth - widthFit.width)).toBeLessThan(0.1);
+    await capturePhoto("width");
+    await page.getByRole("button", { name: "Tamaño real", exact: true }).click();
+    for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Alejar", exact: true }).click();
+    await expect(well).toHaveAttribute("data-fit", "fit-page");
+    expect((await dimensions()).scale).toBeCloseTo(fitted.scale, 8);
+  });
+});

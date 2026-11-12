@@ -42,8 +42,8 @@ export function receiptScale(zoom: Zoom, image: Size, viewport: Size, turns: num
   const rotated = Math.abs(turns % 2) === 1;
   const width = rotated ? image.height : image.width;
   const height = rotated ? image.width : image.height;
-  const scale = zoom.kind === "manual" ? zoom.scale : zoom.kind === "fit-width" ? viewport.width / width : Math.min(viewport.width / width, viewport.height / height);
-  return Math.max(0.25, Math.min(5, scale || 1));
+  if (zoom.kind === "manual") return Math.max(0.25, Math.min(5, zoom.scale));
+  return zoom.kind === "fit-width" ? viewport.width / width : Math.min(viewport.width / width, viewport.height / height);
 }
 
 function ViewerControl({ label, keys, children, onClick, disabled = false }: { label: string; keys: string; children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
@@ -74,6 +74,7 @@ function ReceiptViewer({ src, blob, sourceId, alt }: { src: string; blob: Blob; 
   const openerKey = useRef("fullscreen");
   const overlay = presentation === "overlay";
   const scale = receiptScale(zoom, image, viewport, turns);
+  const fitScale = receiptScale({ kind: "fit-page" }, image, viewport, turns);
   const rotated = Math.abs(turns % 2) === 1;
   const width = (rotated ? image.height : image.width) * scale;
   const height = (rotated ? image.width : image.height) * scale;
@@ -103,6 +104,11 @@ function ReceiptViewer({ src, blob, sourceId, alt }: { src: string; blob: Blob; 
   }, [presentation]);
 
   const changeZoom = useCallback((next: Zoom, point?: Point, destination?: Point) => {
+    if (next.kind === "manual") {
+      if (next.scale === scale) next = zoom;
+      else if (next.scale < scale && scale <= 0.25 && fitScale < 0.25) next = { kind: "fit-page" };
+      else next = { kind: "manual", scale: receiptScale(next, image, viewport, turns) };
+    }
     const well = wellRef.current;
     if (receiptScale(next, image, viewport, turns) === scale) {
       if (well && point && destination) {
@@ -119,7 +125,7 @@ function ReceiptViewer({ src, blob, sourceId, alt }: { src: string; blob: Blob; 
       anchor.current = { point: destination ? { x: destination.x - box.left, y: destination.y - box.top } : position, x: (well.scrollLeft + position.x - Math.max(0, (well.clientWidth - width) / 2)) / scale, y: (well.scrollTop + position.y - Math.max(0, (well.clientHeight - height) / 2)) / scale };
     }
     setZoom(next);
-  }, [width, height, scale, image, viewport, turns]);
+  }, [width, height, scale, image, viewport, turns, fitScale, zoom]);
 
   useLayoutEffect(() => {
     const well = wellRef.current;
@@ -136,7 +142,7 @@ function ReceiptViewer({ src, blob, sourceId, alt }: { src: string; blob: Blob; 
     const wheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      changeZoom({ kind: "manual", scale: Math.max(0.25, Math.min(5, scale * Math.exp(-event.deltaY * 0.01))) }, { x: event.clientX, y: event.clientY });
+      changeZoom({ kind: "manual", scale: scale * Math.exp(-event.deltaY * 0.01) }, { x: event.clientX, y: event.clientY });
     };
     well.addEventListener("wheel", wheel, { passive: false });
     return () => well.removeEventListener("wheel", wheel);
@@ -148,7 +154,7 @@ function ReceiptViewer({ src, blob, sourceId, alt }: { src: string; blob: Blob; 
     setTurns(next);
     rememberReceiptRotation(sourceId, next);
   };
-  const step = (direction: number) => changeZoom({ kind: "manual", scale: Math.max(0.25, Math.min(5, Math.round((scale + direction * 0.25) * 100) / 100)) });
+  const step = (direction: number) => changeZoom({ kind: "manual", scale: Math.round((scale + direction * 0.25) * 100) / 100 });
   const cycleFit = () => changeZoom(zoom.kind === "fit-page" ? { kind: "fit-width" } : zoom.kind === "fit-width" ? { kind: "manual", scale: 1 } : { kind: "fit-page" });
   const toggleOverlay = () => {
     if (!overlay) openerKey.current = (document.activeElement as HTMLElement | null)?.dataset.viewerFocus ?? "fullscreen";
@@ -183,7 +189,7 @@ function ReceiptViewer({ src, blob, sourceId, alt }: { src: string; blob: Blob; 
     if (other) {
       const distance = Math.hypot(previous.x - other.x, previous.y - other.y);
       const nextDistance = Math.hypot(next.x - other.x, next.y - other.y);
-      if (distance > 0) changeZoom({ kind: "manual", scale: Math.max(0.25, Math.min(5, scale * nextDistance / distance)) }, { x: (previous.x + other.x) / 2, y: (previous.y + other.y) / 2 }, { x: (next.x + other.x) / 2, y: (next.y + other.y) / 2 });
+      if (distance > 0) changeZoom({ kind: "manual", scale: scale * nextDistance / distance }, { x: (previous.x + other.x) / 2, y: (previous.y + other.y) / 2 }, { x: (next.x + other.x) / 2, y: (next.y + other.y) / 2 });
     }
     if (!other) {
       well.scrollLeft -= next.x - previous.x;
@@ -209,7 +215,7 @@ function ReceiptViewer({ src, blob, sourceId, alt }: { src: string; blob: Blob; 
       <div className="absolute bottom-2 left-1/2 flex max-w-[calc(100%-8px)] -translate-x-1/2 items-center overflow-x-auto rounded-full border border-[#DCE0DA] bg-[#FFFEFA] p-1 dark:border-white/10 dark:bg-[#1f2225]" data-testid="receipt-viewer-toolbar">
         <ViewerControl label={label("rotate_left")} keys="Shift+R" onClick={() => rotate(-1)}><RotateCcw size={18} aria-hidden="true" /></ViewerControl>
         <ViewerControl label={label("rotate_right")} keys="R" onClick={() => rotate(1)}><RotateCw size={18} aria-hidden="true" /></ViewerControl>
-        <ViewerControl label={label("zoom_out")} keys="-" onClick={() => step(-1)} disabled={scale <= 0.25}><ZoomOut size={18} aria-hidden="true" /></ViewerControl>
+        <ViewerControl label={label("zoom_out")} keys="-" onClick={() => step(-1)} disabled={scale <= Math.min(0.25, fitScale)}><ZoomOut size={18} aria-hidden="true" /></ViewerControl>
         <Tooltip content={`${label(zoom.kind === "fit-page" ? "fit_width" : zoom.kind === "fit-width" ? "actual_size" : "fit_page")} (${zoom.kind === "manual" ? "0" : "Enter"})`} side="top"><button type="button" data-viewer-focus="fit" onClick={cycleFit} aria-label={label(zoom.kind === "fit-page" ? "fit_width" : zoom.kind === "fit-width" ? "actual_size" : "fit_page")} className={`${CONTROL_CLASS} min-w-14 text-[14px] tabular-nums`}><span aria-live="polite">{Math.round(scale * 100)}%</span></button></Tooltip>
         <ViewerControl label={label("zoom_in")} keys="+" onClick={() => step(1)} disabled={scale >= 5}><ZoomIn size={18} aria-hidden="true" /></ViewerControl>
         <Tooltip content={`${label(overlay ? "exit_full_screen" : "full_screen")} (F${overlay ? ", Esc" : ""})`} side="top"><button ref={fullScreenRef} data-viewer-focus="fullscreen" type="button" className={CONTROL_CLASS} aria-label={label(overlay ? "exit_full_screen" : "full_screen")} onClick={toggleOverlay}>{overlay ? <Minimize size={18} aria-hidden="true" /> : <Maximize size={18} aria-hidden="true" />}</button></Tooltip>
