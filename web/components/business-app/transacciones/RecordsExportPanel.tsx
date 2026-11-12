@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
+import { ChevronLeft, CircleMinus, Loader2, TriangleAlert } from "lucide-react";
 import BottomSheet from "@/components/ui/BottomSheet";
 import CenteredDialog from "@/components/ui/CenteredDialog";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -53,6 +53,8 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const [chosen, setChosen] = useState<ExportColumnKey[] | null>(null);
   const [editing, setEditing] = useState(false);
   const [currencies, setCurrencies] = useState<Currencies>("all");
+  const [suppliersExpanded, setSuppliersExpanded] = useState(false);
+  const suppliersId = useId();
   const [format, setFormat] = useState<Format>("xlsx");
   const [run, setRun] = useState<Run>({ kind: "idle" });
   const running = useRef<AbortController | null>(null);
@@ -112,6 +114,27 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const problem = run.kind === "failed" ? run.problem : load.kind === "failed" ? load.problem : null;
   const preparing = run.kind === "preparing";
 
+  const supplierLines = preview?.dgii.rnc_suppliers.map((supplier) => <li key={supplier.rnc}>{supplier.name} · {supplier.rnc} · {t(`business.transactions.reporting.export.${supplier.status === "rnc_unverified" ? "rnc_unverified" : supplier.estado === "SUSPENDIDO" ? "rnc_suspended" : "rnc_inactive"}`)}</li>);
+  const pendingFiscal = preview?.dgii.pending_fiscal_count ? <>{t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count })} <button type="button" className={quietButtonClass} onClick={() => { onClose(); onReviewFiscal(preview.dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button></> : null;
+  const pendingRate = preview?.dgii.pending_rate_count ? t(sale ? "business.transactions.reporting.export.pending_rate_sales" : "business.transactions.reporting.export.pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) }) : null;
+  const notices606 = preview && !sale && mode === "dgii" && (preview.dgii.rnc_warning_count > 0 || pendingFiscal || pendingRate) ? (
+    <ul data-testid="records-export-notices" className="space-y-1 pb-3 pl-10 pr-3 text-[14px] text-[#56635e] dark:text-white/70">
+      {preview.dgii.rnc_warning_count > 0 ? <li data-testid="records-export-rnc-notice" className="flex items-start gap-2">
+        <TriangleAlert className="mt-3.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-h-11 flex-wrap items-center gap-x-1.5">
+            <p>{t("business.transactions.reporting.export.rnc_notice_title", { count: preview.dgii.rnc_supplier_count })}</p>
+            <button type="button" data-testid="records-export-rnc-toggle" className={quietButtonClass} aria-expanded={suppliersExpanded} aria-controls={suppliersId} onClick={() => setSuppliersExpanded((expanded) => !expanded)}>{t(suppliersExpanded ? "business.transactions.reporting.export.rnc_hide_suppliers" : "business.transactions.reporting.export.rnc_view_suppliers")}</button>
+          </div>
+          <p>{t("business.transactions.reporting.export.rnc_notice_body")}</p>
+          <ul id={suppliersId} data-testid="records-export-rnc-suppliers" hidden={!suppliersExpanded} tabIndex={0} aria-label={t("business.transactions.reporting.export.rnc_view_suppliers")} className="mt-2 max-h-[132px] space-y-1 overflow-y-auto rounded-mark focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]">{supplierLines}</ul>
+        </div>
+      </li> : null}
+      {pendingFiscal ? <li className="flex items-start gap-2"><CircleMinus className="mt-3.5 h-4 w-4 shrink-0 text-[#7d8a84] dark:text-white/50" aria-hidden="true" /><p className="min-h-11 flex-1">{pendingFiscal}</p></li> : null}
+      {pendingRate ? <li className="flex items-start gap-2"><CircleMinus className="mt-3.5 h-4 w-4 shrink-0 text-[#7d8a84] dark:text-white/50" aria-hidden="true" /><p className="flex min-h-11 flex-1 items-center">{pendingRate}</p></li> : null}
+    </ul>
+  ) : null;
+
   const footer = editing ? (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <button type="button" className={quietButtonClass} onClick={() => setChosen(null)}>{t("business.transactions.reporting.export.columns_reset")}</button>
@@ -125,12 +148,6 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
         {problem.requestId ? <ReferenceCode reference={problem.requestId} /> : null}
       </p> : null}
       {count === 0 ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.transactions.reporting.export.empty")}</p> : null}
-      {preview && mode === "dgii" && preview.dgii.rnc_warning_count > 0 ? <div role="status" data-testid="records-export-rnc-notice" className="rounded-item bg-amber-50 p-3 text-[13px] text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
-        <p className="font-medium">{t("business.transactions.reporting.export.rnc_notice_title", { count: preview.dgii.rnc_supplier_count })}</p>
-        <ul className="mt-1 space-y-1">
-          {preview.dgii.rnc_suppliers.map((supplier) => <li key={supplier.rnc}>{supplier.name} · {supplier.rnc} · {supplier.estado === "sin verificar" || !supplier.estado ? t(`business.transactions.reporting.export.${supplier.status}`) : supplier.estado}</li>)}
-        </ul>
-      </div> : null}
       <button type="button" data-testid="records-export-download" disabled={!count || preparing} aria-busy={preparing || undefined} onClick={() => void download()} className={`${primaryButtonClass} w-full`}>
         {preparing ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
         {preparing ? t("business.transactions.reporting.export.preparing") : count === null ? t("business.export.action") : t("business.transactions.reporting.export.action", { count })}
@@ -160,13 +177,16 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
       </> : <>
         <p data-testid="records-export-summary" className="mb-4 text-[14px] text-[#56635e] dark:text-white/70">{summary.filter(Boolean).join(" · ")}</p>
         <div role="radiogroup" aria-label={t("business.transactions.reporting.export.what")} className="space-y-2">
-          {(["table", "dgii"] as const).map((key) => <label key={key} data-testid={`records-export-mode-${key}`} className="flex min-h-14 cursor-pointer items-center gap-3 rounded-item border border-black/15 px-3 py-2 dark:border-white/20">
-            <input type="radio" name="records-export-mode" checked={mode === key} onChange={() => setMode(key)} />
-            <span className="min-w-0 text-[14px]">
-              <span className="block font-medium">{key === "table" ? t("business.transactions.reporting.export.table_title") : t("business.transactions.reporting.export.dgii_title", { form: sale ? "607" : "606" })}</span>
-              <span className="block text-black/60 dark:text-white/60">{t(key === "table" ? "business.transactions.reporting.export.table_body" : "business.transactions.reporting.export.dgii_body")}</span>
-            </span>
-          </label>)}
+          {(["table", "dgii"] as const).map((key) => <div key={key} data-testid={`records-export-mode-${key}`} className="rounded-item border border-black/15 dark:border-white/20">
+            <label className="flex min-h-14 cursor-pointer items-center gap-3 px-3 py-2">
+              <input type="radio" name="records-export-mode" checked={mode === key} onChange={() => setMode(key)} />
+              <span className="min-w-0 text-[14px]">
+                <span className="block font-medium">{key === "table" ? t("business.transactions.reporting.export.table_title") : t("business.transactions.reporting.export.dgii_title", { form: sale ? "607" : "606" })}</span>
+                <span className="block text-black/60 dark:text-white/60">{t(key === "table" ? "business.transactions.reporting.export.table_body" : "business.transactions.reporting.export.dgii_body")}</span>
+              </span>
+            </label>
+            {key === "dgii" ? notices606 : null}
+          </div>)}
         </div>
         {preview && mode === "table" ? <>
           <div className="mt-3 flex min-h-11 items-center justify-between gap-3">
@@ -177,8 +197,8 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
         </> : null}
         {preview && mode === "dgii" ? <div className="mt-4 space-y-2 text-[14px]" data-testid="records-export-dgii">
           <p>{t("business.transactions.reporting.export.dgii_note")}</p>
-          {preview.dgii.pending_fiscal_count ? <p>{t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count })} <button type="button" className={quietButtonClass} onClick={() => { onClose(); onReviewFiscal(preview.dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button></p> : null}
-          {preview.dgii.pending_rate_count ? <p>{t(sale ? "business.transactions.reporting.export.pending_rate_sales" : "business.transactions.reporting.export.pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) })}</p> : null}
+          {sale && pendingFiscal ? <p>{pendingFiscal}</p> : null}
+          {sale && pendingRate ? <p>{pendingRate}</p> : null}
         </div> : null}
         {preview ? <div className="mt-3"><SegmentedControl fill testId="records-export-format" label={t("business.transactions.reporting.export.format")} value={format} onChange={setFormat} segments={[{ key: "xlsx" as const, label: t("business.transactions.reporting.export.format_xlsx") }, { key: "csv" as const, label: t("business.transactions.reporting.export.format_csv") }]} /></div> : null}
       </>}

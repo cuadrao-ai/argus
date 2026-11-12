@@ -145,6 +145,12 @@ test("Formato DGII counts only tab and period, shows the server's notices and Re
   assert.match(summary()!, /^Octubre de 2026 · 4 listas · 5 pendientes$/, "the summary counts what the notices hold back");
   assert.match(dialogText(), /3 compras tienen datos fiscales pendientes y no se incluyen\./);
   assert.match(dialogText(), /2 compras en EUR y USD necesitan tasa y no se incluyen\./);
+  const notices = document.querySelector('[data-testid="records-export-notices"]')!;
+  assert.ok(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(notices));
+  assert.equal(notices.children.length, 2);
+  assert.equal(notices.querySelectorAll(".lucide-circle-minus").length, 2);
+  assert.equal(page.button("Revisar")!.closest("label"), null);
+  assert.equal(document.querySelector('[data-testid="records-export-dgii"]')!.textContent, "La DGII define las columnas. Solo en pesos.");
   assert.equal(document.querySelector('[data-testid="records-export-currencies"]'), null);
   assert.equal(document.querySelector('[data-testid="records-export-edit-columns"]'), null);
   await page.click(downloadButton());
@@ -170,6 +176,7 @@ test("Formato DGII says every record is ready only when the server holds none ba
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 63 registros");
   assert.match(summary()!, /^Octubre de 2026 · todas las compras listas · 63 registros$/);
   assert.doesNotMatch(dialogText(), /no se incluyen?\./);
+  assert.equal(document.querySelector('[data-testid="records-export-notices"]'), null);
 });
 
 test("before the server counts, the button names no number and cannot start", async () => {
@@ -271,27 +278,59 @@ test("a failed file keeps the choices and offers Reintentar with the server's re
 });
 
 
-test("the RNC notice uses server supplier count and list only in DGII mode and still allows download", async () => {
-  const page = await mount({ edit: fiscalBooks });
-  page.fixture.controls.rncSuppliers = [
-    { name: "Suplidor registrado", rnc: "101001577", estado: "SUSPENDIDO", status: "rnc_inactive", record_count: 2 },
-    { name: "Proveedor sin registro", rnc: "101010632", estado: "sin verificar", status: "rnc_unverified", record_count: 1 },
-  ];
-  await open(page);
-  assert.equal(document.querySelector('[data-testid="records-export-rnc-notice"]'), null);
-  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
-  const notice = document.querySelector('[data-testid="records-export-rnc-notice"]')!;
-  assert.match(notice.textContent!, /2 proveedores con RNC no activo o sin verificar/);
-  assert.deepEqual([...notice.querySelectorAll("li")].map((item) => item.textContent), ["Suplidor registrado · 101001577 · SUSPENDIDO", "Proveedor sin registro · 101010632 · Sin verificar"]);
-  assert.equal(downloadButton()!.disabled, false);
-  assert.ok(notice.compareDocumentPosition(downloadButton()!) & Node.DOCUMENT_POSITION_FOLLOWING);
-  await page.click(downloadButton());
-  await page.settle(() => page.downloads.length === 1);
-});
-
 for (const language of ["es-419", "en"] as const) {
+  test(`606 keeps server RNC warnings inside the option with a bounded supplier toggle in ${language}`, async () => {
+    const page = await mount({ edit: fiscalBooks, language, width: language === "en" ? 390 : 1440 });
+    page.fixture.controls.rncSuppliers = [
+      { name: "Suplidor registrado", rnc: "101001577", estado: "SUSPENDIDO", status: "rnc_inactive", record_count: 2 },
+      { name: "Proveedor sin registro", rnc: "101010632", estado: "SUSPENDIDO", status: "rnc_unverified", record_count: 1 },
+      { name: "Proveedor cancelado", rnc: "101010633", estado: "DADO DE BAJA", status: "rnc_inactive", record_count: 1 },
+      ...Array.from({ length: 24 }, (_, index) => ({ name: `Proveedor ${index}`, rnc: `1310000${String(index).padStart(2, "0")}`, estado: "ANULADO", status: "rnc_inactive" as const, record_count: 1 })),
+    ];
+    await page.click(document.querySelector('[data-testid="records-export"]'));
+    await page.settle(() => downloadButton() !== null && !downloadButton()!.disabled);
+    assert.equal(document.querySelector('[data-testid="records-export-notices"]'), null);
+    await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+    const option = document.querySelector('[data-testid="records-export-mode-dgii"]')!;
+    const notice = option.querySelector('[data-testid="records-export-rnc-notice"]')!;
+    assert.ok(notice, "the RNC notice is inside the 606 option");
+    const notices = option.querySelector('[data-testid="records-export-notices"]')!;
+    const toggle = notice.querySelector<HTMLButtonElement>("button")!;
+    assert.equal(notices.children.length, 3, "RNC, pending fiscal data, and pending rates share one list");
+    assert.equal(notices.querySelectorAll("h3").length, 0);
+    assert.ok(notice.querySelector(".lucide-triangle-alert"));
+    assert.equal(toggle.closest("label"), null);
+    assert.equal(toggle.textContent, language === "es-419" ? "Ver proveedores" : "View suppliers");
+    assert.equal(toggle.getAttribute("aria-expanded"), "false");
+    const list = document.getElementById(toggle.getAttribute("aria-controls")!)!;
+    assert.ok(list, "the toggle points to its supplier list");
+    assert.equal(list.tabIndex, 0);
+    assert.equal(list.getAttribute("aria-label"), language === "es-419" ? "Ver proveedores" : "View suppliers");
+    assert.equal(list.hidden, true);
+    assert.equal(notice.querySelector("p")?.textContent, language === "es-419"
+      ? "27 proveedores con RNC suspendido o no encontrado."
+      : "27 suppliers whose RNC is suspended or not found.");
+    assert.ok(notice.textContent?.includes(language === "es-419" ? "La DGII puede rechazar sus líneas." : "The DGII may reject their lines."));
+    await page.click(toggle);
+    assert.equal(toggle.getAttribute("aria-expanded"), "true");
+    assert.equal(toggle.textContent, language === "es-419" ? "Ocultar" : "Hide");
+    assert.equal(list.hidden, false);
+    assert.ok(list.classList.contains("max-h-[132px]"));
+    assert.ok(list.classList.contains("overflow-y-auto"));
+    assert.equal(list.children.length, 27);
+    assert.deepEqual([...list.children].slice(0, 3).map((item) => item.textContent), language === "es-419"
+      ? ["Suplidor registrado · 101001577 · Suspendido", "Proveedor sin registro · 101010632 · No encontrado", "Proveedor cancelado · 101010633 · No activo"]
+      : ["Suplidor registrado · 101001577 · Suspended", "Proveedor sin registro · 101010632 · Not found", "Proveedor cancelado · 101010633 · Inactive"]);
+    assert.doesNotMatch(list.textContent!, /SUSPENDIDO|DADO DE BAJA|ANULADO|sin verificar/);
+    assert.equal(downloadButton()!.disabled, false);
+    await page.click(toggle);
+    assert.equal(list.hidden, true);
+    await page.click(downloadButton());
+    await page.settle(() => page.downloads.length === 1);
+  });
+
   test(`one RNC supplier uses the singular notice in ${language}`, async () => {
-    const page = await mount({ edit: fiscalBooks, language });
+    const page = await mount({ language, edit: (rows) => rows.filter((row) => row.family === "purchase").forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.currency = "DOP"; }) });
     page.fixture.controls.rncSuppliers = [
       { name: "Suplidor registrado", rnc: "101001577", estado: "SUSPENDIDO", status: "rnc_inactive", record_count: 2 },
     ];
@@ -299,9 +338,10 @@ for (const language of ["es-419", "en"] as const) {
     await page.settle(() => downloadButton() !== null && !downloadButton()!.disabled);
     await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
     const notice = document.querySelector('[data-testid="records-export-rnc-notice"]');
+    assert.equal(document.querySelector('[data-testid="records-export-notices"]')?.children.length, 1);
     assert.equal(notice?.querySelector("p")?.textContent, language === "es-419"
-      ? "1 proveedor con RNC no activo o sin verificar"
-      : "1 supplier with an inactive or unverified RNC");
+      ? "1 proveedor con RNC suspendido o no encontrado."
+      : "1 supplier whose RNC is suspended or not found.");
     assert.equal(downloadButton()!.disabled, false);
   });
 }
@@ -311,4 +351,17 @@ test("zero RNC warnings hide the notice in DGII mode", async () => {
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   assert.equal(document.querySelector('[data-testid="records-export-rnc-notice"]'), null);
+});
+
+test("607 keeps pending notices below the options", async () => {
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"], currencies: ["DOP"] } });
+  const page = await mount({ initial, edit: (rows) => rows.filter((row) => row.family === "sale").slice(0, 1).forEach((row) => { row.fiscal_data = "missing"; row.stage = "needs_fiscal_data"; }) });
+  await open(page);
+  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+  assert.match(dialogText(), /Formato DGII 607/);
+  assert.equal(document.querySelector('[data-testid="records-export-notices"]'), null);
+  const notice = document.querySelector('[data-testid="records-export-dgii"]')!;
+  assert.match(notice.textContent!, /1 venta tiene datos fiscales pendientes y no se incluye\./);
+  assert.ok(notice.contains(page.button("Revisar")!));
+  assert.equal(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(page.button("Revisar")!), false);
 });
