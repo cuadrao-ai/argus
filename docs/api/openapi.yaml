@@ -7732,10 +7732,41 @@ paths:
       tags:
       - conversations
       parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: archived
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+      - name: deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
       - name: surface
         in: query
         required: false
         schema:
+          enum:
+          - personal
+          - business
           type: string
           default: personal
       responses:
@@ -7797,6 +7828,9 @@ paths:
         in: query
         required: false
         schema:
+          enum:
+          - personal
+          - business
           type: string
           default: personal
       responses:
@@ -11815,6 +11849,13 @@ paths:
           maximum: 100
           minimum: 1
           default: 20
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
       - name: archived
         in: query
         required: false
@@ -11831,6 +11872,9 @@ paths:
         in: query
         required: false
         schema:
+          enum:
+          - personal
+          - business
           type: string
           default: personal
       responses:
@@ -14677,11 +14721,10 @@ paths:
       parameters:
       - name: q
         in: query
-        required: false
+        required: true
         schema:
           type: string
           maxLength: 512
-          default: ''
       - name: limit
         in: query
         required: false
@@ -14690,6 +14733,25 @@ paths:
           maximum: 100
           minimum: 1
           default: 20
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: decision_state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - watching
+            - promising
+            - rejected
+            - revisit_later
+            type: string
+          - type: 'null'
       - name: include_ledger_groups
         in: query
         required: false
@@ -14704,13 +14766,27 @@ paths:
           - type: array
             items:
               type: string
+              format: uuid
+            minItems: 1
+            maxItems: 50
           - type: 'null'
       - name: surface
         in: query
         required: false
         schema:
+          enum:
+          - personal
+          - business
           type: string
           default: personal
+      - name: X-Argus-Client-Capabilities
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 1024
+          - type: 'null'
       responses:
         '200':
           description: Successful Response

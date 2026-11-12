@@ -43,7 +43,7 @@ def test_search_declares_bounded_visible_conversation_recall(
 
     query = parameters["q"]
     assert query["in"] == "query"
-    assert query["required"] is False
+    assert query["required"] is True
     assert query["schema"]["maxLength"] == 512
 
     conversation_ids = parameters["conversation_id"]
@@ -51,7 +51,12 @@ def test_search_declares_bounded_visible_conversation_recall(
     assert conversation_ids["required"] is False
     assert conversation_ids["schema"] == {
         "anyOf": [
-            {"items": {"type": "string"}, "type": "array"},
+            {
+                "items": {"type": "string", "format": "uuid"},
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 50,
+            },
             {"type": "null"},
         ],
         "title": "Conversation Id",
@@ -111,7 +116,13 @@ def test_dossier_reads_declare_client_capability_negotiation(generated: dict) ->
         parameter["name"]: parameter
         for parameter in generated["paths"]["/api/v1/search"]["get"]["parameters"]
     }
-    assert "X-Argus-Client-Capabilities" not in parameters
+    capability = parameters["X-Argus-Client-Capabilities"]
+    assert capability["in"] == "header"
+    assert capability["required"] is False
+    assert capability["schema"]["anyOf"][0] == {
+        "type": "string",
+        "maxLength": 1024,
+    }
 
 
 def test_prefix_appears_exactly_once_per_public_operation(
