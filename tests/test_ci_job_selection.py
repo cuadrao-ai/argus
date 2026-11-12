@@ -29,11 +29,12 @@ WORKFLOW = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(
 FAKE = Faker()
 
 ALWAYS = {"docs-change-gate", "ownership-gate", "ci"}
-FRONTEND = ALWAYS | {"frontend-checks"}
 MARKETING = ALWAYS | {"marketing-checks"}
-PACKAGES = ALWAYS | {"frontend-checks", "marketing-checks"}
 HEAVY = ALWAYS | {"backend-checks", "backend-shards", "frontend-checks", "database-checks", "database-shards"}
 EVERY = HEAVY | {"marketing-checks"}
+# Backend email agreement tests recursively read the web tree.
+WEB = HEAVY
+PACKAGES = EVERY
 DOCS = ALWAYS | {"docs-checks"}
 FLAGS = {"docs_only", "run_heavy", "run_marketing", "run_backend", "run_frontend", "run_database"}
 
@@ -89,10 +90,10 @@ def test_account_layout_change_selects_web_and_backend_checks():
 
 CASES = {
     "backend-only": ([f"src/argus/api/{FAKE.word()}.py"], HEAVY),
-    "web-only": ([f"web/components/{FAKE.word()}.tsx"], FRONTEND),
+    "web-only": ([f"web/components/{FAKE.word()}.tsx"], WEB),
     "backend-package-under-web": (["web/argus_display_contract/x.json"], EVERY),
     "backend-package-prefix-lookalike": (
-        ["web/argus_display_contract_backup/x.json"], FRONTEND,
+        ["web/argus_display_contract_backup/x.json"], WEB,
     ),
     "marketing-only": ([f"marketing/app/{FAKE.word()}/page.tsx"], MARKETING),
     "migration-only": ([f"supabase/migrations/20261021120000_{FAKE.word()}.sql"], HEAVY),
@@ -179,6 +180,9 @@ def classifier_checkout(tmp_path):
     shutil.copytree(ROOT / "scripts/emails", tmp_path / "scripts/emails")
     shutil.copytree(ROOT / "marketing/lib/email", tmp_path / "marketing/lib/email")
     shutil.copytree(ROOT / "web/__tests__", tmp_path / "web/__tests__")
+    (tmp_path / "tests").mkdir()
+    for agreement in (ROOT / "tests").glob("test_*email*.py"):
+        shutil.copy(agreement, tmp_path / "tests" / agreement.name)
     return tmp_path, script
 
 
@@ -312,8 +316,8 @@ def commit_change(repo: Path, *args: str) -> set[str]:
     [
         (("rm", "-q", "marketing/app/page.tsx"), MARKETING),
         (("mv", "marketing/app/page.tsx", "web/lib/page.tsx"), PACKAGES),
-        (("mv", "web/lib/a.ts", "web/lib/b.ts"), FRONTEND),
-        (("rm", "-q", "web/lib/a.ts"), FRONTEND),
+        (("mv", "web/lib/a.ts", "web/lib/b.ts"), WEB),
+        (("rm", "-q", "web/lib/a.ts"), WEB),
         (("mv", "docs/notes.md", "docs/moved.md"), DOCS),
         (("rm", "-q", "docs/notes.md"), DOCS),
         (("mv", "web/lib/a.ts", "docs/a.md"), HEAVY),
@@ -342,7 +346,7 @@ def test_deleted_and_renamed_paths_count_both_sides(repo, change, expected):
         ("marketing/app/espa\u00f1ol.tsx", MARKETING),
         ("marketing/my page/index.tsx", MARKETING),
         ("supabase/functions/se\u00f1al/index.ts", EVERY),
-        ("web/lib/espa\u00f1ol.ts", FRONTEND),
+        ("web/lib/espa\u00f1ol.ts", WEB),
         ("docs/gu\u00eda r\u00e1pida.md", DOCS),
     ],
     ids=[
@@ -696,6 +700,9 @@ def test_new_email_sync_scripts_define_shared_paths(classifier_checkout, extensi
 
 @pytest.mark.parametrize("contents", [
     None, 'const destination = computePath();',
+    'const source = new URL("../../marketing/lib/email/new.ts", import.meta.url);\n'
+    'const destination = resolve(root, "web/lib/new.generated.ts");\n'
+    'writeFileSync(destination, readFileSync(source, "utf8"));',
     'import x from "../../marketing/lib/email/account-layout";\n'
     'const destination = new URL(computePath(), import.meta.url);',
 ])
@@ -721,4 +728,39 @@ def test_new_url_copy_includes_transitive_source_inputs(classifier_checkout):
     )
     assert selected_jobs(outputs(classify(
         "--files", "marketing/lib/email/new-copy.json", script=script,
+    ))) == EVERY
+
+
+def test_backend_email_agreement_inputs_select_backend():
+    assert "backend-checks" in jobs_for("web/.env.local.example")
+
+
+def test_new_backend_email_agreement_declares_shared_input(classifier_checkout):
+    root, script = classifier_checkout
+    (root / "tests/test_new_email_agreement.py").write_text(
+        'from pathlib import Path\n'
+        'ROOT = Path(__file__).resolve().parents[1]\n'
+        'OWNER = ROOT / "marketing/lib/email/account-layout.ts"\n'
+        'OTHER = ROOT / "web/lib/new-email-contract.json"\n'
+    )
+    assert selected_jobs(outputs(classify(
+        "--files", "web/lib/new-email-contract.json", script=script,
+    ))) == EVERY
+
+
+@pytest.mark.parametrize("path", ["web/components/ordinary.tsx", "web/public/ordinary.svg"])
+def test_recursive_email_agreement_selects_backend_for_web_tree(path):
+    assert jobs_for(path) == HEAVY
+
+
+def test_new_recursive_email_agreement_derives_scan_root(classifier_checkout):
+    root, script = classifier_checkout
+    (root / "tests/test_new_email_agreement.py").write_text(
+        'from pathlib import Path\n'
+        'ROOT = Path(__file__).resolve().parents[1]\n'
+        'for path in (ROOT / "marketing/assets").rglob("*"):\n'
+        '    text = path.read_text()\n'
+    )
+    assert selected_jobs(outputs(classify(
+        "--files", "marketing/assets/new.svg", script=script,
     ))) == EVERY
