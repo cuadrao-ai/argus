@@ -36,7 +36,6 @@ def build_agent_runtime_checkpoint_serde() -> JsonPlusSerializer:
             ("argus.agent_runtime.state.models", "ResponseIntent"),
             ("argus.agent_runtime.state.models", "ResponseProfile"),
             ("argus.agent_runtime.state.models", "ResponseProfileOverrides"),
-            ("argus.agent_runtime.graph.workflow", "WorkflowStageOutcome"),
             ("argus.agent_runtime.state.models", "RunState"),
             ("argus.agent_runtime.state.models", "StrategySummary"),
             ("argus.agent_runtime.state.models", "StructuredActionContext"),

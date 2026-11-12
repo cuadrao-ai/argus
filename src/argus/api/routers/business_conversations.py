@@ -32,7 +32,7 @@ from argus.api.schemas import (
     PaginatedSearch,
     User,
 )
-from argus.domain.owner_scope import OwnerScope, space_id, surface_of
+from argus.domain.owner_scope import PERSONAL, OwnerScope, space_id, surface_of
 from argus.domain.store import utcnow
 from argus.domain.supabase_gateway import (
     ConversationCursorError,
@@ -86,7 +86,7 @@ def _remember(
 def _owned(request: Request, user: User, conversation_id: str) -> Conversation:
     gateway = api_state.supabase_gateway
     stored_scope = conversation_scope(user_id=user.id, conversation_id=conversation_id)
-    if stored_scope is None:
+    if stored_scope is None or stored_scope == PERSONAL:
         raise conversation_not_found(request)
     if gateway is not None:
         conversation = gateway.get_conversation(
@@ -185,7 +185,7 @@ def list_conversations(
     cursor: str | None = Query(None),
     archived: bool | None = Query(None),
     deleted: bool = Query(False),
-    surface: ConversationSurface = Query("personal"),  # noqa: B008
+    surface: ConversationSurface = Query("business"),  # noqa: B008
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedConversations:
     scope = surface_scope(request, user_id=user.id, surface=surface)
@@ -235,7 +235,7 @@ def list_conversations(
 @router.delete("/conversations", response_model=BulkConversationDeleteResponse)
 def delete_conversations(
     request: Request,
-    surface: ConversationSurface = Query("personal"),  # noqa: B008
+    surface: ConversationSurface = Query("business"),  # noqa: B008
     user: User = Depends(current_user),  # noqa: B008
 ) -> BulkConversationDeleteResponse:  # noqa: B008
     scope = surface_scope(request, user_id=user.id, surface=surface)

@@ -485,6 +485,7 @@ def test_the_listing_never_reports_approve_for_a_grantee_and_nothing_is_in_scope
 def test_the_chat_routes_and_the_email_retry_refuse_a_chosen_grant(
     chat_client: TestClient,  # noqa: F811
 ) -> None:
+    from argus.api import state as api_state
     from argus.api.business_spaces import business_access, configure_business_access
     from argus.domain.business.access import InMemoryAccessStore
 
@@ -505,20 +506,25 @@ def test_the_chat_routes_and_the_email_retry_refuse_a_chosen_grant(
         store.accept_invite(BOB, space_a, listing.invites[0].id)
         [grant] = [s.grant_id for s in store.spaces_for(BOB) if s.role == "accountant"]
         own = _create(client, BOB, "Mi chat", surface="business")
-        personal = _create(client, BOB, "Mi chat personal")
+        personal = str(uuid4())
+        api_state.store.conversations[personal] = api_state.store.conversations[
+            own
+        ].model_copy(update={"id": personal, "surface": "personal"})
+        api_state.store.conversation_owners[personal] = BOB
+        api_state.store.messages[personal] = []
         with_grant = {**as_person(BOB), GRANT: grant}
-        # Bob's own Personal chat is his whatever Business is chosen: the header changes nothing there.
+        # A selected Business grant cannot reopen retired Personal conversations.
         assert (
             client.get(
                 f"/api/v1/conversations/{personal}/messages", headers=with_grant
             ).status_code
-            == 200
+            == 404
         )
         assert (
             client.get(
                 f"/api/v1/conversations/{personal}/activity", headers=with_grant
             ).status_code
-            == 200
+            == 404
         )
         assert (
             client.patch(
@@ -526,13 +532,13 @@ def test_the_chat_routes_and_the_email_retry_refuse_a_chosen_grant(
                 json={"title": "Personal"},
                 headers=with_grant,
             ).status_code
-            == 200
+            == 404
         )
         assert (
             client.delete(
                 f"/api/v1/conversations/{personal}", headers=with_grant
             ).status_code
-            == 200
+            == 404
         )
         # Every chat route that takes a conversation id refuses the chosen grant,
         # so nothing is read or sent in Bob's own Business under Alice's name.

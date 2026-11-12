@@ -7762,13 +7762,14 @@ paths:
           default: false
       - name: surface
         in: query
+        description: Personal conversation access is retired; personal returns 404.
         required: false
         schema:
           enum:
           - personal
           - business
           type: string
-          default: personal
+          default: business
       responses:
         '200':
           description: Successful Response
@@ -7826,13 +7827,14 @@ paths:
       parameters:
       - name: surface
         in: query
+        description: Personal conversation access is retired; personal returns 404.
         required: false
         schema:
           enum:
           - personal
           - business
           type: string
-          default: personal
+          default: business
       responses:
         '200':
           description: Successful Response
@@ -11870,13 +11872,14 @@ paths:
           default: false
       - name: surface
         in: query
+        description: Personal conversation access is retired; personal returns 404.
         required: false
         schema:
           enum:
           - personal
           - business
           type: string
-          default: personal
+          default: business
       responses:
         '200':
           description: Successful Response
@@ -14772,13 +14775,14 @@ paths:
           - type: 'null'
       - name: surface
         in: query
+        description: Personal conversation access is retired; personal returns 404.
         required: false
         schema:
           enum:
           - personal
           - business
           type: string
-          default: personal
+          default: business
       - name: X-Argus-Client-Capabilities
         in: header
         required: false
@@ -19086,7 +19090,7 @@ components:
           enum:
           - personal
           - business
-          default: personal
+          default: business
       type: object
     ConversationOperation:
       properties:
@@ -31367,6 +31371,7 @@ components:
           - $ref: '#/components/schemas/RunDossier'
           - type: 'null'
         answer_dossier:
+          description: Retained response compatibility field; computed-answer search hydration is retired under issue 2001.
           anyOf:
           - $ref: '#/components/schemas/AnswerDossier'
           - type: 'null'
