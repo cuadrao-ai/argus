@@ -15,7 +15,6 @@ import ast
 import importlib
 import subprocess
 import sys
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -24,10 +23,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_ROOTS = ("src", "tests", "workflows")
 
 FACADES: dict[str, tuple[str, ...]] = {
-    "argus.api.chat.confirmation": (
-        "argus.api.chat.confirmation_lifecycle",
-        "argus.api.chat.confirmation_research_peers",
-    ),
     "argus.agent_runtime.next_experiments": (
         "argus.agent_runtime.next_experiments_contract",
     ),
@@ -116,34 +111,3 @@ def test_an_owner_module_imports_alone(facade_name: str, owner_name: str) -> Non
         ), f"importing {first} before {second} failed:\n{completed.stderr}"
 
 
-def test_the_card_builder_reads_the_clock_its_module_exposes(monkeypatch) -> None:
-    """The card builder and `_confirmation_today` share a module by design.
-
-    Callers pin the clock by patching it on `confirmation`, so the builder that
-    reads it has to resolve it there too. Moving the builder into a module of
-    its own would silently return every patched caller to the real today.
-    """
-
-    from argus.api.chat import confirmation
-
-    monkeypatch.setattr(confirmation, "_confirmation_today", lambda: date(2026, 5, 3))
-
-    card = confirmation.runtime_confirmation_card(
-        {
-            "stage_outcome": "await_approval",
-            "confirmation_payload": {
-                "strategy": {
-                    "strategy_type": "buy_and_hold",
-                    "asset_universe": ["AAPL"],
-                    "asset_class": "equity",
-                    "date_range": "past year",
-                    "capital_amount": 10000,
-                },
-                "optional_parameters": {},
-                "launch_payload": {},
-            },
-        }
-    )
-
-    assert card is not None
-    assert card["date_range"]["end"] == "2026-05-03"

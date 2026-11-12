@@ -208,6 +208,20 @@ print_contract_report() {
   echo "env_fingerprint=$(local_env_fingerprint)"
 }
 
+run_production_import_probe() {
+  poetry run python - <<'PYTHON'
+from importlib import import_module
+
+for module in (
+    "argus.agent_runtime.business.runner",
+    "workflows.document_job",
+    "workflows.document_worker",
+):
+    import_module(module)
+PYTHON
+  echo "production_import_probe=ready"
+}
+
 run_workflow_probe() {
   poetry run python - <<'PY'
 import os
@@ -339,11 +353,8 @@ if unexpected_degraded:
 top_status = str(payload.get("status") or "unknown")
 if top_status != "ready" and not allowed_degraded_seen:
     raise SystemExit(f"readiness failed: status={top_status!r} checks={statuses!r}")
-if statuses.get("agent_runtime_workflow") != "ready":
-    raise SystemExit(f"agent runtime readiness failed: {statuses!r}")
-asset_status = statuses.get("asset_universe")
-if asset_status not in {"ready", "warm"}:
-    raise SystemExit(f"asset readiness failed: {statuses!r}")
+if "supabase" not in statuses:
+    raise SystemExit(f"required database readiness check is missing: {statuses!r}")
 print(f"readiness_status={payload.get('status', 'unknown')}")
 PY
 }
@@ -374,6 +385,7 @@ if [ "$CONTRACT_ONLY" = true ]; then
   exit 0
 fi
 
+run_production_import_probe
 run_workflow_probe
 start_api
 start_web

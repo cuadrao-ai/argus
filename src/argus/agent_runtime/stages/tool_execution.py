@@ -73,12 +73,6 @@ async def execute_tool_calls_async(
     calls = list(state.tool_calls)
     if business_bindings is not None and len(business_bindings) != len(calls):
         return _rejected_batch("business_binding_count_mismatch")
-    if not calls and state.confirmation_payload is not None:
-        from argus.agent_runtime.tools.registered_backtest import approved_backtest_call
-
-        approved = approved_backtest_call(state)
-        if approved is not None:
-            calls = [approved]
     if not calls:
         return StageResult(
             outcome="ready_to_respond",
@@ -89,9 +83,7 @@ async def execute_tool_calls_async(
     if len({call.call_id for call in calls}) != len(calls):
         return _rejected_batch("duplicate_tool_call_id")
     if catalog is None:
-        from argus.domain.capability_registry import get_tool_catalog
-
-        catalog = get_tool_catalog()
+        return _rejected_batch("missing_catalog")
     if any(catalog.get(call.tool_name) is None for call in calls):
         return _rejected_batch("unknown_tool")
 

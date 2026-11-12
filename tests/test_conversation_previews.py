@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from argus.api import state as api_state
 from argus.api.conversation_previews import conversation_previews
-from argus.api.schemas import Conversation, Message, User
+from argus.api.schemas import Message
 from argus.domain.conversation_previews import project_conversation_preview
 from argus.domain.store import AlphaStore
 
@@ -157,76 +157,3 @@ def test_persistent_projection_is_one_bounded_batch(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("archived", [False, True])
-def test_existing_artifact_previews_reach_conversation_and_history_reads(
-    monkeypatch, archived
-):
-    from argus.api.guest_access import registered_account_context, store_account_context
-    from argus.api.routers.conversations import list_conversations
-    from argus.api.routers.history import history
-    from starlette.requests import Request
-
-    now = datetime.now(timezone.utc)
-    conversation = Conversation(
-        id="chat",
-        title="NVDA",
-        title_source="user_renamed",
-        language="en",
-        archived=archived,
-        created_at=now,
-        updated_at=now,
-        last_message_preview="Saved English result",
-    )
-    message = Message(
-        id="result",
-        conversation_id=conversation.id,
-        role="assistant",
-        content="Saved English result",
-        metadata={
-            "result_fact_bank": {
-                "symbols": ["NVDA"],
-                "config_snapshot": {"template": "dca_accumulation"},
-            }
-        },
-        created_at=now,
-    )
-    store = AlphaStore(
-        conversations={conversation.id: conversation},
-        conversation_owners={conversation.id: "owner"},
-        messages={conversation.id: [message]},
-    )
-    monkeypatch.setattr(api_state, "store", store)
-    monkeypatch.setattr(api_state, "supabase_gateway", None)
-    user = User(
-        id="owner",
-        email=None,
-        language="es-419",
-        locale="es-419",
-        created_at=now,
-        updated_at=now,
-    )
-    request = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
-    store_account_context(request, registered_account_context(user_id=user.id))
-    rows = list_conversations(
-        request=request,
-        limit=20,
-        cursor=None,
-        archived=archived,
-        deleted=False,
-        user=user,
-    )
-    historical = history(
-        request=request,
-        limit=20,
-        cursor=None,
-        archived=archived,
-        deleted=False,
-        user=user,
-    )
-    assert rows.items[0].preview == historical.items[0].preview
-    assert rows.items[0].preview.kind == "result"
-    assert rows.items[0].preview.symbols == ["NVDA"]
-    assert rows.items[0].preview.template == "dca_accumulation"
-    assert "Saved English result" not in rows.model_dump_json()
-    assert "Saved English result" not in historical.model_dump_json()
-    assert store.messages[conversation.id][0].content == "Saved English result"

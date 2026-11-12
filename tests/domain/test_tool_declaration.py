@@ -350,23 +350,6 @@ def test_public_receipt_policy_rejects_undeclared_modes(public_receipt):
         ToolPolicy(public_receipt=public_receipt)
 
 
-@pytest.mark.parametrize(
-    ("name", "public_receipt"),
-    [
-        ("backtest", "typed_facts"),
-        ("balanced_lookup", "cited_facts"),
-        ("thorough_research", "cited_facts"),
-        ("screening", "cited_facts"),
-        ("fast_quote", "disabled"),
-        ("peer_expansion", "disabled"),
-    ],
-)
-def test_existing_tools_declare_their_public_receipt_evidence(name, public_receipt):
-    from argus.domain.capability_registry import get_tool_catalog
-
-    declaration = get_tool_catalog(include_unavailable=True).get(name)
-    assert declaration.policy.public_receipt == public_receipt
-    assert declaration.tool_schema()["policy"]["public_receipt"] == public_receipt
 
 
 class AmountArguments(BaseModel):

@@ -74,7 +74,6 @@ def root_prose_reader_paths() -> list[Path]:
             *(
                 ROOT / name
                 for name in (
-                    "src/argus/api/routers/conversations.py",
                     "src/argus/api/routers/history.py",
                     "src/argus/api/routers/search.py",
                     "src/argus/api/conversation_previews.py",
@@ -109,18 +108,6 @@ def test_root_prose_has_only_exact_generic_transcript_readers() -> None:
                 "src/argus/api/conversation_previews.py",
                 "latest_conversation_messages",
                 "message.content",
-            ): 1,
-            # One user-marker read and one input to the sole scrubber, whose output
-            # is then unwrapped. Neither is a public artifact fallback.
-            (
-                "src/argus/api/routers/conversations.py",
-                "_public_message_projection",
-                "message.content",
-            ): 2,
-            (
-                "src/argus/api/routers/conversations.py",
-                "_public_message_projection",
-                "public.pop('content')",
             ): 1,
             # Reached only after typed artifacts/degraded compatibility return.
             (

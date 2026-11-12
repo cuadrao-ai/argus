@@ -72,45 +72,18 @@ def indicator_template(key: str) -> str | None:
 def get_tool_catalog(
     *, include_unavailable: bool = False, surface: str = "personal"
 ) -> ToolCatalog:
-    """Assemble real declarations only when a catalog consumer asks for them.
-
-    Each declaration lives beside its typed callable and card presenter. This
-    is the sole catalog assembly point: schemas, execution, discovery and
-    capability answers consume the same immutable declarations. Completion and
-    receipt readers may resolve an already admitted binding with
-    ``include_unavailable``; new calls always use the effective catalog.
-    """
+    """Business declarations, or the personal calculations that stay importable."""
+    del include_unavailable
     if surface == "business":
         from argus.domain.business.tools import get_business_declarations
 
-        return ToolCatalog(
-            tuple(
-                declaration
-                for declaration in get_business_declarations()
-                if surface in declaration.surfaces
-            )
-        )
-    if surface != "personal":
+        declarations = get_business_declarations()
+    elif surface == "personal":
+        from argus.domain.calculations import get_calculation_declarations
+
+        declarations = get_calculation_declarations()
+    else:
         raise ValueError("Unknown tool surface")
-
-    from argus.agent_runtime.research_tools import get_research_declarations
-    from argus.agent_runtime.tools.registered_backtest import get_backtest_declaration
-    from argus.domain.calculations import get_calculation_declarations
-    from argus.domain.research.config import research_rail_enabled
-
-    research = (
-        get_research_declarations()
-        if include_unavailable or research_rail_enabled()
-        else ()
-    )
     return ToolCatalog(
-        tuple(
-            declaration
-            for declaration in (
-                get_backtest_declaration(),
-                *get_calculation_declarations(),
-                *research,
-            )
-            if surface in declaration.surfaces
-        )
+        tuple(declaration for declaration in declarations if surface in declaration.surfaces)
     )

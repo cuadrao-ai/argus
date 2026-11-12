@@ -12,7 +12,13 @@ from argus.llm.openrouter import (
 from argus.llm.openrouter_request_policy import guard_openrouter_request
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from tests.test_openrouter_policy import FakeChatOpenRouter
+
+class FakeChatOpenRouter:
+    calls: list[dict] = []
+
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+        self.calls.append(kwargs)
 
 
 @pytest.mark.parametrize("task", openrouter.OPENROUTER_TASK_MODEL_TIERS)

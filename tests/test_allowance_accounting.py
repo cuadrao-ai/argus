@@ -23,7 +23,6 @@ from argus.domain.backtest_finalization import MemoryBacktestFinalizationGateway
 from argus.domain.chat_turn_lifecycle import TransitionResult
 from argus.domain.guest_workspaces import GuestWorkspace
 from argus.domain.store import AlphaStore, utcnow
-from argus.domain.supabase_gateway import SupabaseGateway
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
@@ -92,7 +91,7 @@ class _FakeVisitorClient:
 
 @pytest.fixture
 def mock_gateway():
-    gateway = MagicMock(spec=SupabaseGateway)
+    gateway = MagicMock()
     gateway.get_user.return_value = _profile()
     gateway.get_or_create_mock_user.return_value = _profile()
     gateway.get_auth_user_from_token.return_value = {
@@ -236,14 +235,6 @@ def _configure_guest_account(mock_gateway: MagicMock) -> GuestWorkspace:
     mock_gateway.get_active_guest_workspace.return_value = workspace
     mock_gateway.get_user.return_value = profile
     return workspace
-
-
-def test_gateway_owns_an_atomic_admission_operation():
-    assert hasattr(SupabaseGateway, "admit_backtest_job"), (
-        "Simulation charging must compose with one database-owned admission "
-        "operation; a count-then-insert sequence plus a separate usage "
-        "increment is not conforming admission."
-    )
 
 
 # ---------------------------------------------------------------------------

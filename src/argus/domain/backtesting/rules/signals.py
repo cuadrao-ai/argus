@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from argus.domain.crossover_mirror import (
+    mirrored_moving_average_crossover_rule as _opposite_moving_average_crossover_rule,
+)
+
 from .models import RuleSpec
 from .validation import validate_rule_spec
 
@@ -31,21 +35,6 @@ def rule_spec_from_signal_rule(rule: dict[str, Any] | None) -> RuleSpec | None:
     if signal_type == "macd_crossover":
         return _macd_crossover_rule_spec(rule)
     return None
-
-
-def _opposite_moving_average_crossover_rule(
-    rule: dict[str, Any],
-) -> dict[str, Any] | None:
-    if str(rule.get("type") or "").lower() != "moving_average_crossover":
-        return None
-    opposite = dict(rule)
-    direction = str(rule.get("direction") or "bullish").lower()
-    opposite["direction"] = (
-        "bearish"
-        if direction in {"bullish", "above", "cross_above", "golden_cross"}
-        else "bullish"
-    )
-    return opposite
 
 
 def _moving_average_crossover_condition(rule: dict[str, Any]) -> dict[str, Any]:

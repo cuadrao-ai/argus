@@ -20,7 +20,6 @@ from argus.api.dependencies import (
     validate_startup_configuration,
     validation_problem_body,
 )
-from argus.api.public_excerpts import EvidenceReceiptFlagGateMiddleware
 from argus.log_sink import configure_logging
 
 configure_logging()
@@ -202,9 +201,6 @@ async def validation_exception_handler(  # type: ignore[no-untyped-def]
 
 
 def add_core_middleware_and_handlers(app: FastAPI) -> None:
-    # Added before request_id_middleware so it sits inside it: a gated 404 still
-    # carries X-Request-Id, exactly as a genuine unmatched route does.
-    app.add_middleware(EvidenceReceiptFlagGateMiddleware)
     app.add_middleware(AppleCaptureFlagGateMiddleware)
     app.middleware("http")(request_id_middleware)
     app.add_middleware(

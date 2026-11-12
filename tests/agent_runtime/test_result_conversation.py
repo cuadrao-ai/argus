@@ -340,63 +340,6 @@ def test_a_draft_in_the_wrong_language_is_not_shown() -> None:
     assert answer.research_usage == _usage()
 
 
-@pytest.mark.parametrize("research", [False, True])
-@pytest.mark.parametrize("count", [12, 500])
-def test_receiver_result_answer_keeps_all_carried_context(
-    monkeypatch: pytest.MonkeyPatch, research: bool, count: int
-) -> None:
-    from argus.agent_runtime.runtime import build_workflow_input
-    from argus.agent_runtime.state.models import UserState
-    from argus.api import state as api_state
-    from argus.api.message_store import load_runtime_thread_history
-
-    from tests.test_shared_fork_history import seed_imported
-
-    monkeypatch.setattr(api_state, "supabase_gateway", None)
-    api_state.store.reset()
-    user_id, chat, imported = seed_imported(count=count, ordinary=8)
-    history = load_runtime_thread_history(user_id=user_id, conversation_id=chat.id)
-    # Imported text already obeys the fork's byte bound, including longer answers.
-    history[1].content = "x" * (conversation._MAX_MESSAGE_CHARS + 1) + " answer ending"
-    expected = [turn["content"] for turn in imported]
-    expected[1] = history[1].content
-    state = build_workflow_input(
-        user=UserState(user_id=user_id),
-        message="How does my result compare with those earlier answers?",
-        recent_thread_history=history,
-    )["run_state"]
-    agent = _Agent(draft=_draft("en"))
-    model = _ChatModel(draft=_draft("en"))
-    answer = _compose(
-        _metadata(),
-        "en",
-        client=agent,
-        research=research,
-        invoke_json_schema_func=model,
-        recent_messages=state.recent_thread_history,
-    )
-    assert answer.text
-    if research:
-        assert len(agent.calls) == 1 and not model.calls
-        prompt = agent.calls[0]["prompt"]
-        schema = agent.calls[0]["schema_model"]
-    else:
-        assert len(model.calls) == 1 and not agent.calls
-        assert all(
-            set(message) == {"role", "content"} for message in model.calls[0]["messages"]
-        )
-        prompt = model.calls[0]["messages"][-1]["content"]
-        schema = model.calls[0]["schema_model"]
-    lines = prompt.splitlines()
-    assert all(
-        f"{'Reader' if i % 2 == 0 else 'Argus'}: {content}" in lines
-        for i, content in enumerate(expected)
-    )
-    assert "Reader: Own 0" not in lines and "Reader: Own 1" not in lines
-    assert all(f"Reader: Own {i}" in lines for i in range(2, 8))
-    assert "Stored results:" in lines
-    assert "shared_context" not in prompt
-    assert "shared_context" not in json.dumps(schema.model_json_schema())
 
 
 def test_result_history_keeps_ordinary_message_character_limit() -> None:

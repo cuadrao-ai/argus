@@ -40,9 +40,9 @@ def computation_from_tool_cards(
     research card has no kernel, so neither is a calculation here.
     """
     if catalog is None:
-        from argus.domain.capability_registry import get_tool_catalog
+        from argus.domain.personal_tool_catalog import personal_tool_catalog
 
-        catalog = get_tool_catalog(include_unavailable=True)
+        catalog = personal_tool_catalog(include_unavailable=True)
     declared = [
         card for card in cards if _calculation(card, catalog=catalog) is not None
     ][:MAX_COMPUTATION_CALCULATIONS]

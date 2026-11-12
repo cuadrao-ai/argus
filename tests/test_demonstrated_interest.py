@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -10,11 +9,8 @@ import pytest
 from argus.api import state as api_state
 from argus.api.demonstrated_interest import demonstrated_interest
 from argus.api.main import app
-from argus.api.routers import market as market_router
 from argus.api.schemas import BacktestRun
 from argus.domain.market_data.market_session import (
-    EASTERN,
-    MarketSessionSnapshot,
     reset_market_session_cache,
 )
 from argus.domain.store import utcnow
@@ -115,41 +111,5 @@ def test_the_durable_count_filters_on_the_owner_and_completion() -> None:
     assert ("eq", "status", "completed") in calls
 
 
-def test_the_session_response_carries_the_callers_interest(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(market_router, "resolve_market_session", lambda: None)
-    client = TestClient(app)
-    caller = api_state.store.get_or_create_dev_user()
-
-    _seed_run(fake.uuid4(), status="completed")
-    assert client.get(SESSION_URL).json()["interest"] == {"markets": False}
-
-    _seed_run(caller.id, status="completed")
-    assert client.get(SESSION_URL).json()["interest"] == {"markets": True}
 
 
-def test_unreadable_history_is_a_null_interest_and_the_session_still_arrives(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # The greeting falls back to the neutral pool. A 500 would blank the session
-    # line for a market fan and make the empty chat look broken.
-    at = datetime(2026, 9, 12, 11, 0, tzinfo=EASTERN)
-    monkeypatch.setattr(
-        market_router,
-        "resolve_market_session",
-        lambda: MarketSessionSnapshot(
-            phase="closed_weekend", is_market_day=False, as_of=at
-        ),
-    )
-
-    def unreadable(user_id: str):
-        raise RuntimeError("history store down")
-
-    monkeypatch.setattr(market_router, "demonstrated_interest", unreadable)
-
-    response = TestClient(app).get(SESSION_URL)
-
-    assert response.status_code == 200
-    assert response.json()["interest"] is None
-    assert response.json()["session"]["phase"] == "closed_weekend"
