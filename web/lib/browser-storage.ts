@@ -59,6 +59,7 @@ export const STORAGE_REGISTRY = {
   "cuadrao:business_recent_searches:v1": "layout",
   "cuadrao:business_creation:v1": "temporary",
   "cuadrao:invoice_commands:v1": "temporary",
+  "cuadrao:receipt_rotations:v1": "layout",
 } as const satisfies Record<string, StorageConcept>;
 
 export type StorageKey = keyof typeof STORAGE_REGISTRY;

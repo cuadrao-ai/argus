@@ -471,3 +471,60 @@ test.describe("pilot dictionary labels", () => {
     });
   }
 });
+
+for (const width of [1280, 375]) {
+  test.describe(`receipt image viewer at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } });
+    test("reads a rotated receipt up to 500 percent in a full window overlay", async ({ page }, testInfo) => {
+      await openRecord(page, dossierFixtureIds.fiscalAttached);
+      await showTab(page, "Original");
+      const well = page.getByTestId("receipt-image-zoom");
+      await expect(well).toBeVisible();
+      await expect(well.locator("img")).toHaveJSProperty("complete", true);
+      await expect(well).toHaveAttribute("data-fit", "fit-page");
+      const captureViewer = async (name: string) => {
+        await well.locator("img").evaluate(async (image) => { await Promise.all(image.getAnimations().map((animation) => animation.finished)); });
+        const directory = process.env.CUADRAO_RECEIPT_VIEWER_EVIDENCE_DIR;
+        const path = directory ? `${directory}/${width}-${name}.png` : testInfo.outputPath(`${width}-${name}.png`);
+        await page.screenshot({ path });
+        await testInfo.attach(`${width}-${name}`, { path, contentType: "image/png" });
+      };
+      const toolbar = page.getByTestId("receipt-viewer-toolbar");
+      expect(await toolbar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await captureViewer("fit");
+      await page.getByRole("button", { name: "Girar a la derecha", exact: true }).click();
+      await expect(well).toHaveAttribute("data-rotation", "90");
+      await captureViewer("90deg");
+      await page.getByRole("button", { name: "Girar a la izquierda", exact: true }).click();
+      await well.focus();
+      for (let i = 0; i < 20; i++) await page.keyboard.press("+");
+      await expect(well).toHaveAttribute("data-zoom", "5");
+      await expect(page.getByRole("button", { name: "Acercar", exact: true })).toBeDisabled();
+      await well.evaluate((element) => element.scrollTo(0, 0));
+      await captureViewer("500");
+      await page.keyboard.press("0");
+      await page.getByRole("button", { name: "Pantalla completa", exact: true }).click();
+      const overlay = page.getByTestId("receipt-viewer-overlay");
+      await expect(overlay).toBeVisible();
+      await expect(page.getByTestId("receipt-viewer-toolbar")).toHaveCount(1);
+      await overlay.getByRole("button", { name: "Girar a la derecha", exact: true }).hover();
+      await expect(page.getByRole("tooltip")).toContainText("Girar a la derecha (R)");
+      await expect(page.getByRole("tooltip")).toBeVisible();
+      await captureViewer("fullscreen");
+      const last = overlay.getByRole("link", { name: "Abrir original", exact: true });
+      await last.focus();
+      await page.keyboard.press("Tab");
+      await expect(well).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(overlay).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Pantalla completa", exact: true })).toBeFocused();
+      await expect(page.getByRole("link", { name: "Abrir original", exact: true })).toHaveAttribute("href", /^blob:/);
+      const originalTab = page.waitForEvent("popup");
+      await page.getByRole("link", { name: "Abrir original", exact: true }).click();
+      const popup = await originalTab;
+      await expect(popup).toHaveURL(/^blob:/);
+      await popup.close();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+  });
+}
