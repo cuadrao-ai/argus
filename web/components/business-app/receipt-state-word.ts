@@ -8,6 +8,7 @@ import { savedUnread } from "./ReceiptReadNotice";
 export function useReceiptStateWord() {
   const { t } = useTranslation();
   return (receipt: ReceiptSummary): string => {
+    if (receipt.deleted) return t("business.document_delete.deleted_state");
     if (receipt.status === "confirmed") return t("business.status.pill_approved", "Approved");
     if (receipt.status === "dismissed") return t("business.status.dismissed", "Dismissed");
     if (receipt.status === "needs_attention" || receipt.attention) {

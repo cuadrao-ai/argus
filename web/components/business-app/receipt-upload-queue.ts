@@ -110,6 +110,10 @@ export class ReceiptUploadQueue {
     void this.drain();
   }
 
+  updateReceipt(receipt: ReceiptSummary) {
+    this.publish(this.items.map(item => item.status === "saved" && item.receipt.id === receipt.id ? { ...item, receipt } : item));
+  }
+
   private waiting = (item: ReceiptUpload) => item.status === "queued" || (item.status === "failed" && this.asked.has(item.key));
 
   private publish(items: readonly ReceiptUpload[]) {

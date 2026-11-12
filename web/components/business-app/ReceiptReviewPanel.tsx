@@ -15,6 +15,8 @@ import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
+import { DeleteDocumentMenuItem, RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
+import ReceiptReviewFooter, { ReceiptMoreMenu } from "./ReceiptReviewFooter";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
@@ -44,6 +46,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const [busy, setBusy] = useState<"prepare" | "rebind" | "refresh" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
+  const canDelete = detail?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
+  const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, stateWord(detail), t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
   const retainReceipt = useCallback(() => setUnprepared(true), []);
   useEffect(() => {
     let cancelled = false;
@@ -126,9 +130,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       origin={{ channel: detail.channel, receivedAt: detail.received_at }}
       place={place}
       source={source}
+      footer={deletion.confirmBar ?? (canDelete ? <ReceiptReviewFooter actions={<ReceiptMoreMenu><DeleteDocumentMenuItem disabled={busy !== null || deletion.busy} onClick={deletion.ask} /></ReceiptMoreMenu>} /> : detail.restore_available ? <RestoreDocumentButton id={detail.draft_id ?? detail.id} target={{ kind: "receipt", receiptId: detail.id, list: "inbox" }} /> : undefined)}
     >
       {children}
-    </ReceiptReviewFrame></ContentFade>
+    </ReceiptReviewFrame>{deletion.dialog}</ContentFade>
   );
   if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice receipt={detail} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);

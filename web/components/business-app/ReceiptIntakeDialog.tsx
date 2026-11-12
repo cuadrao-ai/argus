@@ -1,6 +1,7 @@
 "use client";
 
 import ReceiptReadingControl from "./ReceiptReadingControl";
+import { RestoreDocumentButton } from "./DocumentDeleteControls";
 
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
@@ -123,6 +124,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
       rejection={item.status === "rejected" ? rejectionText[item.reason] : null}
       retryWaiting={queue.retryWaiting(item.key)}
       canRemove={!uploading && item.status !== "uploading" && item.status !== "saved"}
+      onRestored={() => { if (item.status === "saved") void source.receipt(item.receipt.id).then(receipt => queue.updateReceipt(receipt)).catch(() => undefined); }}
       onRemove={() => queue.remove(item.key)}
       onRetry={() => queue.retry(item.key)}
       onReplace={() => { replacingRef.current = item.key; fileInputRef.current?.click(); }}
@@ -600,7 +602,8 @@ function FileThumb({ file }: { file: File }) {
   );
 }
 
-function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove, onRemove, onRetry, onReplace }: {
+function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove, onRemove, onRetry, onReplace, onRestored }: {
+  onRestored: () => void;
   item: ReceiptUpload;
   locale: string;
   fileSize: (bytes: number) => string;
@@ -667,7 +670,7 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
         </div>
       ) : null}
       {item.status === "saved" ? (
-        <p className="mt-2 text-[13px] text-[#2f5a49] dark:text-[#8fcbb0]">
+        item.receipt.deleted ? <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[14px]"><span>{t("business.document_delete.upload_deleted")}</span>{item.receipt.restore_available ? <RestoreDocumentButton id={item.receipt.id} target={{ kind: "receipt", receiptId: item.receipt.id, list: "inbox" }} onRestored={onRestored} /> : null}</div> : <p className="mt-2 text-[13px] text-[#2f5a49] dark:text-[#8fcbb0]">
           {item.receipt.replayed ? t("business.intake.replayed", "Already saved before. This is that receipt.") : t("business.intake.row_saved", "Saved")}
         </p>
       ) : null}

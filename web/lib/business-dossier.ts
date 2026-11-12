@@ -1,4 +1,4 @@
-import type { BusinessAccount } from "./business-api";
+import type { BusinessAccount, DocumentDeleteAccess } from "./business-api";
 import type { DgiiDeclaration } from "./business-dgii";
 
 export type BusinessFact<T> =
@@ -110,7 +110,7 @@ export type BusinessApprovalAction = "record_expense" | "record_income" | "recor
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
 export type RefundCandidate = { id: string; merchant: string | null; occurred_on: string; amount: string; currency: string };
 
-export type BusinessDossier = BusinessRecordContext & {
+export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   current_note?: string | null;
   note_edit_available?: boolean;
   supporting_append_available?: boolean;

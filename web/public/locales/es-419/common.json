@@ -2453,6 +2453,7 @@
         "capture_note": "creó un registro desde una nota",
         "change_role": "cambió un rol",
         "decide_606": "decidió si un gasto va al 606",
+        "delete_document": "eliminó {{document}}.",
         "document_read": "leyó un documento",
         "document_read_failed": "no pudo leer un documento",
         "edit_current_note": "editó una nota",
@@ -2473,6 +2474,7 @@
         "receipt_upload": "subió un documento",
         "reopen_draft": "reabrió un registro aprobado",
         "resolve_duplicate": "resolvió un duplicado",
+        "restore_document": "restauró {{document}}.",
         "review_draft": "revisó un registro",
         "revoke_grant": "quitó un acceso",
         "revoke_invite": "canceló una invitación",
@@ -2961,6 +2963,45 @@
     },
     "tray": {
       "title": "Detalle"
+    },
+    "document_delete": {
+      "actions": "Acciones",
+      "columns": {
+        "actor": "Eliminado por",
+        "content": "Contenido",
+        "previous": "Estaba en",
+        "when": "Cuándo"
+      },
+      "delete": "Eliminar",
+      "deleted_state": "Eliminado",
+      "description": "Sale de la Bandeja y de los conteos. Puedes restaurarlo desde Eliminados.",
+      "empty_body": "Los documentos que elimines aparecerán aquí. Puedes restaurarlos cuando quieras.",
+      "empty_title": "No hay documentos eliminados",
+      "failed": "No se pudo eliminar el documento. Intenta de nuevo.",
+      "fields": {
+        "counterparty": "Contraparte",
+        "date": "Fecha",
+        "file": "Archivo",
+        "state": "Estado",
+        "total": "Total"
+      },
+      "label": "Eliminar {{name}}",
+      "list_help": "No cuentan en ningún total. Restaurar los devuelve a la Bandeja como estaban.",
+      "menu": "Eliminar documento",
+      "open": "Abrir",
+      "previous": {
+        "attention": "Necesitan atención",
+        "listo": "Listos"
+      },
+      "restore": "Restaurar",
+      "restore_failed": "No se pudo restaurar el documento. Intenta de nuevo.",
+      "restored": "Documento restaurado en la Bandeja",
+      "title": "¿Eliminar este documento?",
+      "unnamed": "Documento",
+      "upload_deleted": "Ya está en Eliminados",
+      "view": "Ver",
+      "view_deleted": "Ver en Eliminados",
+      "view_document": "Ver documento"
     },
     "dossier": {
       "read_purchases_title": "Compras leídas en este recibo",
@@ -4421,6 +4462,7 @@
       "document": "Contenido",
       "document_range_one": "{{from}}–{{to}} de {{count}} elemento",
       "document_range_other": "{{from}}–{{to}} de {{count}} elementos",
+      "eliminados": "Eliminados",
       "empty": "No hay contenido en esta vista",
       "empty_help": "Prueba otra vista o cambia los filtros.",
       "empty_start": "Tus archivos y notas llegan aquí",

@@ -1,20 +1,20 @@
-import type { BusinessCapture, ReceiptActivityCounts } from "@/lib/business-api";
+import type { BusinessCapture, DocumentDeleteAccess, BandejaGroup, ReceiptActivityCounts } from "@/lib/business-api";
 import type { BusinessEmailDelivery, EmailStanding } from "@/lib/business-email";
 
-export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
+export type OpenNote = DocumentDeleteAccess & { bandeja_group?: BandejaGroup | null; draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
 /**
  * One row per draft still awaiting review: its latest note, and how many came
  * before it as the server counts them over every note of the draft, not only
  * the page. Recorded and dismissed drafts leave the Inbox.
  */
-export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote[] {
+export function openNotesByDraft(captures: readonly BusinessCapture[], includeDeleted = false): OpenNote[] {
   const byDraft = new Map<string, OpenNote>();
   for (const note of captures) {
-    if (note.review_state !== "open" && note.review_state !== "accepting") continue;
+    if (note.review_state !== "open" && note.review_state !== "accepting" && !(includeDeleted && note.deleted)) continue;
     const current = byDraft.get(note.draft_id);
     if (!current || note.received_at > current.receivedAt) {
-      byDraft.set(note.draft_id, { draftId: note.draft_id, text: note.text, receivedAt: note.received_at, revision: Math.max(note.revision, current?.revision ?? 0), earlier: note.earlier_count ?? 0 });
+      byDraft.set(note.draft_id, { deleted: note.deleted, delete_available: note.delete_available, restore_available: note.restore_available, bandeja_group: note.bandeja_group, draftId: note.draft_id, text: note.text, receivedAt: note.received_at, revision: Math.max(note.revision, current?.revision ?? 0), earlier: note.earlier_count ?? 0 });
     } else {
       current.revision = Math.max(note.revision, current.revision);
     }

@@ -78,6 +78,7 @@ export type ReceiptActivityCounts = {
   bandeja_listo_count?: number;
   /** The Bandeja's Necesitan atención tab: every other row it lists. Absent in older payloads. */
   bandeja_attention_count?: number;
+  bandeja_eliminados_count?: number;
   /** Transacciones' Por igualar over every period. Null while bank matching is off, which is not 0. Absent in older payloads. */
   por_igualar_count?: number | null;
   /** Receipts that left the Bandeja saved as a record, or dismissed, over every receipt whichever view was read. Absent from servers older than #1353. */
@@ -87,7 +88,9 @@ export type ReceiptActivityCounts = {
 /** Which Bandeja buckets a receipt sits in, by the predicates the counts sum. A closed receipt and an email original sit in none. */
 export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; leyendo: boolean };
 /** The server's one Bandeja group of an open receipt: `reason` is its one plain word, null when Listos. A closed receipt has no group. `draft_id` and `version` are what an approval of this row names. */
-export type BandejaGroup = { group: "listo" | "attention" | "reading" | null; reason: string | null; draft_id: string | null; version: number | null };
+export type BandejaGroup = { group: "listo" | "attention" | "reading" | "eliminados" | null; reason: string | null; draft_id: string | null; version: number | null };
+export type DocumentDeletion = { actor: { display_name: string }; at: string; key: string; previous_state: { state: string; group: "attention" | "listo" } };
+export type DocumentDeleteAccess = { deleted?: DocumentDeletion | null; delete_available?: boolean; restore_available?: boolean };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
 export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
@@ -103,7 +106,7 @@ export function markReceiptRead(id: string, completionCursor: string): Promise<R
   return apiFetch(`/business/receipts/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({ completion_cursor: completionCursor }) });
 }
 
-export type ReceiptSummary = ReceiptReviewFields & {
+export type ReceiptSummary = ReceiptReviewFields & DocumentDeleteAccess & {
   id: string;
   activity?: ReceiptActivity | null;
   /** The server's Bandeja membership; absent from servers older than #1353, which reads as in no bucket. */
@@ -314,6 +317,14 @@ export async function reopenBusinessDraft(draftId: string, version: number, idem
   });
 }
 
+export function deleteBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(id)}/delete`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
+}
+
+export function restoreBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(id)}/restore`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
+}
+
 /** The account types POST /business/accounts accepts; the server's ExpenseAccountType. */
 export const EXPENSE_ACCOUNT_TYPES = ["cash", "checking", "savings", "credit_card"] as const;
 export type ExpenseAccountType = (typeof EXPENSE_ACCOUNT_TYPES)[number];
@@ -450,7 +461,8 @@ export type BusinessOverview = {
 
 /** `document_type` only on a new note: a note on a draft is refused with it. Left out, the note is a detected receipt. */
 export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number }; document_type?: "recibo" | "venta" };
-export type BusinessCapture = {
+export type BusinessCapture = DocumentDeleteAccess & {
+  bandeja_group?: BandejaGroup | null;
   draft_id: string;
   /** The draft's current version, which also counts approvals and settlements. */
   version: number;
@@ -487,7 +499,7 @@ export async function captureBusinessNote(input: BusinessCaptureInput, key: stri
 }
 
 /** `inbox` asks for the notes the Bandeja lists: drafts awaiting review that no receipt carries. */
-export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" = "all"): Promise<BusinessCapturePage> {
+export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" | "eliminados" = "all"): Promise<BusinessCapturePage> {
   const params = new URLSearchParams({ q: query, limit: String(limit), view });
   return apiFetch<BusinessCapturePage>(`/business/captures?${params}`);
 }

@@ -115,9 +115,9 @@ test("the owner keeps Agregar and the forwarding address, on the top bar or on a
   assert.deepEqual(items, ["Copiar dirección de reenvío"]);
 });
 
-test("the Bandeja opens on Todos with its three tabs, and nothing else from the old design", async () => {
+test("the Bandeja opens on Todos with its four tabs, and nothing else from the old design", async () => {
   const page = await mount({ tweak: receipts => receipts.map(receipt => ({ ...receipt, activity: { state: "ready" as const, unread: false, completion_cursor: "c" } })) });
-  assert.deepEqual([...page.host.querySelectorAll('[role="tab"]')].map(tab => tab.id), ["reception-tab-all", "reception-tab-attention", "reception-tab-listos"]);
+  assert.deepEqual([...page.host.querySelectorAll('[role="tab"]')].map(tab => tab.id), ["reception-tab-all", "reception-tab-attention", "reception-tab-listos", "reception-tab-eliminados"]);
   assert.equal(page.tab("all")?.getAttribute("aria-selected"), "true");
   assert.equal(page.badge("all"), undefined, "Todos has no count");
   for (const word of ["En proceso", "Archivados", "Más acciones", "Vista previa"]) assert.equal(page.host.textContent?.includes(word), false, word);
@@ -197,7 +197,7 @@ test("Remitente is off by default, still offered, and filtering by it works eith
   assert.equal(page.host.querySelector('[data-testid="reception-sender"]')?.textContent, "noticias@proveedor.example");
 });
 
-test("the tabs own status: Filtros adds nothing for a tab and no fourth tab can appear", async () => {
+test("the tabs own status: Filtros adds nothing for a tab and the four tabs stay fixed", async () => {
   const page = await mount();
   for (const key of ["attention", "listos", "all"]) {
     await page.click(page.tab(key));
@@ -206,7 +206,7 @@ test("the tabs own status: Filtros adds nothing for a tab and no fourth tab can 
   }
   await page.click([...page.host.querySelectorAll<HTMLElement>("button")].find(button => button.textContent === "Filtros"));
   assert.deepEqual([...document.querySelectorAll('[role="tablist"][aria-orientation="vertical"] button')].map(button => button.textContent), ["Canal", "Remitente"]);
-  assert.equal(page.host.querySelectorAll('[role="tab"][id^="reception-tab-"]').length, 3);
+  assert.equal(page.host.querySelectorAll('[role="tab"][id^="reception-tab-"]').length, 4);
 });
 
 test("Estado is the tag on Todos, the plain reason on Necesitan atención, and gone on Listos", async () => {
@@ -396,7 +396,9 @@ test("the keyboard reaches the tabs by arrow and a Listos box by Tab order", asy
   const tabs = page.host.querySelector<HTMLElement>('[role="tablist"]')!;
   page.tab("all")?.focus();
   await page.act(async () => { tabs.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })); });
-  assert.equal(page.tab("listos")?.getAttribute("aria-selected"), "true");
+  assert.equal(page.tab("eliminados")?.getAttribute("aria-selected"), "true");
+  assert.equal(document.activeElement, page.tab("eliminados"));
+  await page.act(async () => { tabs.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })); });
   assert.equal(document.activeElement, page.tab("listos"));
   assert.ok(box(page, "Listo uno")?.tabIndex !== -1);
 });
