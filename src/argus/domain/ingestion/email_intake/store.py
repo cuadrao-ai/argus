@@ -179,6 +179,7 @@ class PostgresEmailStore(PostgresSenderSeen, PostgresAddressing):
         try:
             with (
                 self.pool.connection() as connection,
+                connection.transaction(),
                 connection.cursor(row_factory=dict_row) as cursor,
             ):
                 row = cursor.execute(
