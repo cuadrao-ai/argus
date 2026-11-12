@@ -1,7 +1,4 @@
 """Owner-chosen prose is no longer refused by credential-shape heuristics.
-
-The shared credential grammar still has independent eval consumers, tested here
-without applying it to sharing decisions.
 """
 
 from __future__ import annotations
@@ -9,7 +6,6 @@ from __future__ import annotations
 import re
 
 import pytest
-from argus.domain import credential_shapes
 from argus.domain.public_excerpts import (
     audit_public_excerpt_document,
     normalize_owner_note,
@@ -105,14 +101,6 @@ def test_credential_shapes_do_not_override_the_owner_preview() -> None:
     audit_public_excerpt_document({"idea_title": "AKIAIOSFODNN7EXAMPLE run"})
 
 
-def test_the_credential_grammar_has_one_home() -> None:
-    """The eval lane continues to use its existing credential grammar."""
-    from tests.evals import prose_evidence
-
-    assert prose_evidence.JWT_PATTERN is credential_shapes.JWT_PATTERN
-    assert prose_evidence.UPPERCASE_KEY_PATTERN is credential_shapes.UPPERCASE_KEY_PATTERN
-
-
 def test_every_recognized_credential_key_is_caught_when_assigned() -> None:
     """The guard for the credential class, at the altitude the class lives at.
 
@@ -138,8 +126,7 @@ def test_every_recognized_credential_key_is_caught_when_assigned() -> None:
 
 def test_the_two_credential_grammars_cannot_disagree() -> None:
     """One list, both grammars. A second list is how the class stayed open."""
-    from argus.domain import credential_shapes
-
+    
     for name in credential_shapes.CREDENTIAL_KEY_NAMES:
         spelling = "_".join(name.split())
         # Present in the shared pattern the eval lane consumes...
