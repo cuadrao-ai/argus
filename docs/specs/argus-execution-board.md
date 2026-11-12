@@ -1376,7 +1376,7 @@ publication CI and review-thread checks are recorded on the PR before READY.
 The retained native plans are named **Native household <kind> C6E10C**. Open the
 new shared-planning app on assigned C930, choose the prepared Household, then
 Plan or Home. The 85-second
-[recording](../reports/evidence/shared-household-planning/shared-plan-demo.mp4)
+[recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/shared-household-planning/shared-plan-demo.mp4)
 shows own correction, authorized bill edit, Search return and Spanish reopen.
 Restart and click-through instructions (removed; see tag `archive/ios-personal-2026-10-30`)
 use only 59750–59755, the new bundle/cache and retained synthetic users/data.
@@ -2735,7 +2735,7 @@ These steps live here instead of a competing task board.
 | Preserve integration and existing demos | Fresh integration `9f51912198c2c77e239f670a2b3f78da2942afed`; prior demo guides below | New 590xx allocation and dedicated simulator created; no prior environment changed. |
 | Keep one financial owner | Existing Recording/Planning contracts and the three bounded scout reports | Snapshot architecture selected; original policy approved by the founder. Contract commit `b60e416d3` precedes implementation. |
 | Resume preserved local acceptance | Existing 590xx allocation and the [restart guide](../reports/evidence/connected-budgets/README.md) | Restored without reset or seed. Additive budget migration `278d94a8b` applied only to DB59002; all 15 baseline API readbacks still pass. The captain owns independent API acceptance; the sole writer owns backend/native/tests. |
-| Continue independent acceptance preparation | [Fixture API/database proof](../reports/evidence/connected-budgets/fixture-api-proof.json) and [retained Home](../reports/evidence/connected-budgets/pre-implementation-home.png) | Five accounts/eight canonical activities remain after two setup runs; 15 real API readbacks and native Home reopening pass. One unknown balance remains unknown; DOP spending 140 and USD spending 50 stay separate. No budget progress is claimed. |
+| Continue independent acceptance preparation | [Fixture API/database proof](../reports/evidence/connected-budgets/fixture-api-proof.json) and [retained Home](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/pre-implementation-home.png) | Five accounts/eight canonical activities remain after two setup runs; 15 real API readbacks and native Home reopening pass. One unknown balance remains unknown; DOP spending 140 and USD spending 50 stay separate. No budget progress is claimed. |
 | Verify inherited connected access early | Isolated API `/health` returns healthy; local Postgres seeded with two synthetic users | Inherited registered sign-in, relaunch, sign-out and signed-out relaunch passed on the dedicated simulator against real local Auth/API/Postgres. Result `ui-20260930T001256Z.xcresult` is ignored local diagnostics. The inherited recording, Plan and Search baseline also passed 203 tests with zero skips against this lane's disposable Postgres. Budget implementation followed this inherited baseline; it is not budget acceptance. |
 
 Completion requires the full assigned journey, durable visual/interaction evidence,
@@ -3770,9 +3770,9 @@ inspection, not a new hosted verification.
   [balance read](../../src/argus/domain/recording/records.py) and
   [account router](../../src/argus/api/routers/financial_accounts.py) implement
   openings/accounts only. The database migration is
-  [the landed first slice](../../supabase/migrations/20260928200000_financial_accounts_first_slice.sql).
+  the landed first slice.
   It is not an activity ledger, household or planning implementation.
-- [Agent API](../../src/argus/api/routers/agent.py),
+- Agent API,
   [conversation API](../../src/argus/api/routers/conversations.py),
   [search API](../../src/argus/api/routers/search.py),
   [profile API](../../src/argus/api/routers/profile.py) and

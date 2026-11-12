@@ -49,9 +49,9 @@ noindex headers and automated WCAG 2.1 AA checks. All have zero automated
 violations. Body text uses the existing dark ink on cream palette and a maximum
 70ch column. The stylesheet keeps the existing heading and body fonts.
 
-The [before privacy screenshot](before/privacidad-390.png) comes from the
-integration base. Terms and data deletion returned 404 there. The six `after/`
-images show the changed content tree at both viewport widths. Each screenshot
+The [before privacy screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/marketing/evidence/legal-pages/before/privacidad-390.png) comes from the
+integration base. Terms and data deletion returned 404 there. The six [archived after images](https://github.com/cuadrao-ai/argus/tree/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/marketing/evidence/legal-pages/after)
+show the changed content tree at both viewport widths. Each screenshot
 is full-page and includes the footer. No form behavior changes in this slice.
 
 The first browser attempt overlapped a local rebuild and had one missing

@@ -111,7 +111,7 @@ prior engineering-harness appearance.
 
 ## Short motion proof
 
-[`scrub-and-scroll.mp4`](scrub-and-scroll.mp4) records only the chart app while
+[`scrub-and-scroll.mp4`](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/chart-validation/ios/scrub-and-scroll.mp4) records only the chart app while
 XCTest drives its existing horizontal-release/vertical-scroll test. Recording
 starts after the first chart gesture begins and stops at the vertical-scroll
 attachment; the additional test passed. The 3.02-second recording decoded successfully,

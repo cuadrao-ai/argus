@@ -114,12 +114,12 @@ Matched synthetic /biz captures use the same clutter fixture before and after:
 
 | View | Before | After |
 | --- | --- | --- |
-| Overview desktop | [before](before-overview-1280.png) | [after](after-overview-1280.png) |
-| Bandeja desktop | [before](before-inbox-1280.png) | [after](after-inbox-1280.png) |
-| Overview 390px | [before](before-overview-390.png) | [after](after-overview-390.png) |
-| Bandeja 390px | [before](before-inbox-390.png) | [after](after-inbox-390.png) |
+| Overview desktop | [before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/before-overview-1280.png) | [after](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/after-overview-1280.png) |
+| Bandeja desktop | [before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/before-inbox-1280.png) | [after](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/after-inbox-1280.png) |
+| Overview 390px | [before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/before-overview-390.png) | [after](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/after-overview-390.png) |
+| Bandeja 390px | [before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/before-inbox-390.png) | [after](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/after-inbox-390.png) |
 
-Additional engine-named captures show the [shortcut sheet](chromium-after-shortcuts-1280.png), [collapsed focus label](chromium-after-collapsed-focus-1280.png), and [phone image/approval clearance](chromium-after-review-390.png) and [fields/approval clearance](chromium-after-review-fields-390.png). Screenshots contain invented sample records only.
+Additional engine-named captures show the [shortcut sheet](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/chromium-after-shortcuts-1280.png), [collapsed focus label](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/chromium-after-collapsed-focus-1280.png), and [phone image/approval clearance](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/chromium-after-review-390.png) and [fields/approval clearance](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item6/chromium-after-review-fields-390.png). Screenshots contain invented sample records only.
 
 ## Cleanup
 

@@ -39,8 +39,8 @@ before and `BLOCKED ... staleOperation ... at check 2` after. The before test ra
 in 12.892 seconds; the after test ran in 12.981 seconds. Both result collectors
 finished. Structured counts and source commits are in `before.json` and `after.json`.
 
-![Before: protected request dispatched](before.png)
-![After: protected request blocked](after.png)
+[Before: protected request dispatched](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/notification-admission/before.png)
+[After: protected request blocked](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/notification-admission/after.png)
 
 ## Reproduction
 

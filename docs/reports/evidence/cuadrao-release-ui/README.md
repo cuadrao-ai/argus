@@ -25,8 +25,8 @@ physical-device journeys, TestFlight readiness or any service behaviour.
 - A Release build for the simulator compiles. Its binary contains no
   `--cuadrao-release-gates` string, and the default and `--cuadrao-design` launches
   show no Apple or Google button:
-  [default](2026-10-03-w1/release-default-launch-light.png),
-  [design welcome](2026-10-03-w1/release-design-launch-light.png).
+  [default](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-03-w1/release-default-launch-light.png),
+  [design welcome](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-03-w1/release-design-launch-light.png).
 
 Results, all on the simulator above:
 
@@ -73,11 +73,11 @@ never a percentage. All 80 Home projection checks passed on the combined source.
 The 25 Updates and identity checks retain their unchanged-source evidence.
 Modularity and whitespace checks passed after reconciliation.
 
-- [Full Profile empty state](full-profile-empty-es.png)
-- [Full Profile selected avatar](full-profile-theme-es.png)
-- [Home with selected avatar](full-home-theme-es.png)
-- [Shared photo crop](combined-photo-crop-dark-en.png)
-- [Shared photo tab](combined-photo-tab-dark-en.png)
+- [Full Profile empty state](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/full-profile-empty-es.png)
+- [Full Profile selected avatar](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/full-profile-theme-es.png)
+- [Home with selected avatar](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/full-home-theme-es.png)
+- [Shared photo crop](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/combined-photo-crop-dark-en.png)
+- [Shared photo tab](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/combined-photo-tab-dark-en.png)
 
 Cuadrao Preview **3420 is installed on the physical iPhone 15**. The device
 readback confirmed name, bundle and build after installation. The signed build
@@ -154,8 +154,8 @@ Summaries of the runs are in [2026-10-03-w1b](2026-10-03-w1b/).
   Tapping a notice row does not open the notice (the bar still reads Novedades), with or
   without marking it read; root cause open.
 - `300abf54` (E8): invitation prominent labels use `WelcomePalette.onAccent`, light and
-  dark: [create light](2026-10-03-w1b/invitation-create-light-es.png),
-  [create dark](2026-10-03-w1b/invitation-create-dark-es.png).
+  dark: [create light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-03-w1b/invitation-create-light-es.png),
+  [create dark](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-03-w1b/invitation-create-dark-es.png).
 
 ## Swallowed taps, October 4, 2026
 
@@ -264,12 +264,12 @@ Sources `3ed8dae0a`. Simulator: iPhone 18 Pro Max only. Files are in
   keyboard. That frame begins below the 44 pt Typing Predictions bar, and a drag that
   starts on the bar does not scroll the form. On iPhone 18 Pro the helper's drag began
   at y 551 with the bar's top at y 550
-  ([candidate frame](2026-10-04-w1f/candidate-4af8fced-pro-save-under-keyboard.png)).
+  ([candidate frame](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-04-w1f/candidate-4af8fced-pro-save-under-keyboard.png)).
   On iPhone 18 Pro Max it began 7 pt above the bar, so it passed there.
 - The [probe](2026-10-04-w1f/feedback-keyboard-geometry.txt) measures it: drags that
   start 10, 30 and 43 pt above the keyboard frame move nothing, and a drag that starts
   51 pt above scrolls the form and leaves Save
-  [above the keyboard and tappable](2026-10-04-w1f/save-above-keyboard-pro-max.png).
+  [above the keyboard and tappable](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-04-w1f/save-above-keyboard-pro-max.png).
   A person can reach Save with the keyboard up.
 - The keyboard-aware helper arrived in `fd408c62c`. The integration baseline passed
   with no software keyboard on screen, so it never exercised this path.
@@ -282,7 +282,7 @@ Sources `3ed8dae0a`. Simulator: iPhone 18 Pro Max only. Files are in
   after text entry with the software keyboard up. No cause established and nothing changed.
 - `3ed8dae0a`: only DEBUG builds read `--cuadrao-design`. A Release build launched with
   the argument now opens exactly as a default launch
-  ([screenshot](2026-10-04-w1f/release-design-argument-launch.png), byte-identical to the
+  ([screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-04-w1f/release-design-argument-launch.png), byte-identical to the
   default launch), and its binary no longer contains the string
   ([compiles](2026-10-04-w1f/compiles.txt)). This supersedes the October 3
   `release-design-launch-light.png` reading above. A standalone preview build still uses
@@ -339,8 +339,8 @@ synthesized-event records, the UI hierarchy at failure, and the screen recording
   In the failing run the tray was still open 0.37 s after the close tap and the press
   coordinate was read then. In the passing run the tray was already closing when the
   coordinate was read, 0.30 s after the tap
-  ([failing](2026-10-04-w1h/voice-close-tap-failing-pair.png),
-  [passing](2026-10-04-w1h/voice-close-tap-passing-alone.png)). XCUITest's idle wait
+  ([failing](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-04-w1h/voice-close-tap-failing-pair.png),
+  [passing](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-04-w1h/voice-close-tap-passing-alone.png)). XCUITest's idle wait
   returned before the app applied the close. The press hit empty space and no recording
   started.
 - Reproduced with the suite predecessor `testHoldComposerAndWaveformWithoutStartingLiveVoice`
@@ -359,7 +359,7 @@ synthesized-event records, the UI hierarchy at failure, and the screen recording
   said "Hay DOP 40,000 de más.", all five members were included and Save was correctly
   disabled. The recording shows the six deletes typed at 60 characters per second turned
   "400.00" into "40", not empty, and the typed 300 made 40300
-  ([frames](2026-10-04-w1h/group-ana-share-suite-failure.png)). Two deletes had no net
+  ([frames](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/2026-10-04-w1h/group-ana-share-suite-failure.png)). Two deletes had no net
   effect. This rules out the removed overlay (no member was dropped) and a late Save
   enablement (the split was over).
 - Two mechanisms remain: a SwiftUI update rewrote the field from a stale binding during
@@ -445,16 +445,16 @@ not temporary-only evidence. This applies Prove It Works to the native result.
 
 | Evidence | What it shows |
 | --- | --- |
-| [Empty profile](profile-empty-circle-es.png) | Settings camera circle beside unchanged Profile tab |
-| [Theme avatar](theme-tab-unframed-es.png) | Framed settings avatar and unframed tab artwork |
-| [Default restored](avatar-default-restored-es.png) | Circular empty editor and native trailing selection check |
-| [Large text](avatar-initials-large-en.png) | English initials and accessibility text size |
-| [Photo crop](photo-crop-dark-en.png) / [photo tab](photo-tab-dark-en.png) | Native picker/crop and selected photo in dark appearance |
-| [Deletion pending](deletion-pending-es.png) / [cancelled verification](verification-cancelled-en.png) | Recovery controls and cancellation return |
-| [Social name](social-name-en.png) | Missing-name recovery without fake authentication |
-| [Invitation full](invitation-full-es.png) / [quota](personal-invitation-es.png) | Waitlist and personal-invitation presentation |
-| [Bill notice](bill-notice-es.png) / [data truth](no-data-moved-history-es.png) | Reminder detail and no-data/read-only specimens |
-| [AI consent](ai-consent-en.png) | Scoped sharing explanation and decline action |
+| [Empty profile](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/profile-empty-circle-es.png) | Settings camera circle beside unchanged Profile tab |
+| [Theme avatar](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/theme-tab-unframed-es.png) | Framed settings avatar and unframed tab artwork |
+| [Default restored](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/avatar-default-restored-es.png) | Circular empty editor and native trailing selection check |
+| [Large text](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/avatar-initials-large-en.png) | English initials and accessibility text size |
+| [Photo crop](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/photo-crop-dark-en.png) / [photo tab](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/photo-tab-dark-en.png) | Native picker/crop and selected photo in dark appearance |
+| [Deletion pending](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/deletion-pending-es.png) / [cancelled verification](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/verification-cancelled-en.png) | Recovery controls and cancellation return |
+| [Social name](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/social-name-en.png) | Missing-name recovery without fake authentication |
+| [Invitation full](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/invitation-full-es.png) / [quota](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/personal-invitation-es.png) | Waitlist and personal-invitation presentation |
+| [Bill notice](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/bill-notice-es.png) / [data truth](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/no-data-moved-history-es.png) | Reminder detail and no-data/read-only specimens |
+| [AI consent](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-release-ui/ai-consent-en.png) | Scoped sharing explanation and decline action |
 
 ## Initial integration and review disposition
 

@@ -52,19 +52,19 @@ contact sheets below are committed visual evidence, so this report does not
 rely on local paths or hashes alone. Each numbered pair is OLD on the left,
 NEW on the right. They are downscaled review copies, not replacement raw captures.
 
-- [Pairs 1–8](page-01.jpg)
-- [Pairs 9–16](page-02.jpg)
-- [Pairs 17–24](page-03.jpg)
-- [Pairs 25–32](page-04.jpg)
-- [Pairs 33–40](page-05.jpg)
-- [Pairs 41–48](page-06.jpg)
-- [Pairs 49–56](page-07.jpg)
-- [Pairs 57–64](page-08.jpg)
-- [Pairs 65–72](page-09.jpg)
-- [Pairs 73–80](page-10.jpg)
-- [Pairs 81–88](page-11.jpg)
-- [Pairs 89–92](page-12.jpg)
-- [Six new-only captures](new-only.jpg)
+- [Pairs 1–8](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-01.jpg)
+- [Pairs 9–16](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-02.jpg)
+- [Pairs 17–24](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-03.jpg)
+- [Pairs 25–32](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-04.jpg)
+- [Pairs 33–40](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-05.jpg)
+- [Pairs 41–48](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-06.jpg)
+- [Pairs 49–56](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-07.jpg)
+- [Pairs 57–64](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-08.jpg)
+- [Pairs 65–72](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-09.jpg)
+- [Pairs 73–80](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-10.jpg)
+- [Pairs 81–88](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-11.jpg)
+- [Pairs 89–92](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/page-12.jpg)
+- [Six new-only captures](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/new-only.jpg)
 
 ### Money-entry checks
 
@@ -81,12 +81,12 @@ explicitly scrolls to that button and then saves successfully. This is not proof
 that every keyboard configuration is correct.
 
 Larger saved comparisons:
-- [Precision error](money-precision-error-es.png)
-- [Valid plan](money-valid-plan-es.png)
-- [Gallery money](gallery-money-dark-en.png)
-- [Personal currency](currency-personal-choice-en.png)
-- [Shared currency](currency-group-choice-es.png)
-- [Plan creation](plan-create-es.png)
+- [Precision error](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/money-precision-error-es.png)
+- [Valid plan](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/money-valid-plan-es.png)
+- [Gallery money](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/gallery-money-dark-en.png)
+- [Personal currency](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/currency-personal-choice-en.png)
+- [Shared currency](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/currency-group-choice-es.png)
+- [Plan creation](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-mobile-recovery-2026-10-04/plan-create-es.png)
 
 ### Differences that must not be called pixel parity
 

@@ -88,18 +88,18 @@ Records created by acceptance remain available. Search `F476FC` to find the
 final three-editor fixture: `Revised bank F476FC`, `Search income F476FC`
 (DOP 27), and `Search bill F476FC` (DOP 35).
 
-[Watch the 49-second demonstration](search-demo.mp4): correct a receipt in the
+[Watch the 49-second demonstration](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-search/search-demo.mp4): correct a receipt in the
 existing editor, return to its refreshed Search result, search/edit the Plan
 expectation, and reopen in Spanish. The account rename is covered by the same
-successful native test and its [empty old-match result](search-account-edit-removes-old-match.png).
+successful native test and its [empty old-match result](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-search/search-account-edit-removes-old-match.png).
 The clip is continuous simulator footage, trimmed only to remove idle footage;
 setup/login and the earlier account rename are outside the recorded excerpt.
 
-[English activity result](search-activity-correction-return.png) ·
-[Plan after edit](search-plan-expectation-editor-return.png) ·
-[Spanish after reopening](search-spanish-light-relaunch.png) ·
-[Exact scroll return](search-second-page-exact-return.png) ·
-[Second reopening](search-second-page-relaunch-2.png).
+[English activity result](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-search/search-activity-correction-return.png) ·
+[Plan after edit](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-search/search-plan-expectation-editor-return.png) ·
+[Spanish after reopening](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-search/search-spanish-light-relaunch.png) ·
+[Exact scroll return](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-search/search-second-page-exact-return.png) ·
+[Second reopening](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-search/search-second-page-relaunch-2.png).
 
 ## Verification record
 
