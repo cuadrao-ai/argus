@@ -208,6 +208,10 @@ jobs:
         if: matrix.shard == 0
         run: poetry run python scripts/check_modularity_budget.py
 
+      - name: Check cross-folder links
+        if: matrix.shard == 0
+        run: python scripts/check_cross_folder_links.py
+
       # Directory-level so new test files are gated without editing this workflow.
       - name: Run backend regression suite
         run: >-
