@@ -7727,87 +7727,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/computations/answers:
-    get:
-      tags:
-      - computations
-      parameters:
-      - name: kind
-        in: query
-        required: true
-        schema:
-          type: string
-          minLength: 1
-          maxLength: 80
-      - name: exclude_message_id
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-            maxLength: 64
-          - type: 'null'
-      - name: surface
-        in: query
-        required: false
-        schema:
-          enum:
-          - personal
-          - business
-          type: string
-          default: personal
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ComputedAnswerList'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/computations/compare:
-    post:
-      tags:
-      - computations
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ComputationCompareRequest'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ComputationComparison'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/conversations:
     get:
       tags:
@@ -7935,25 +7854,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/conversations/guest/replace:
-    post:
-      tags:
-      - conversations
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConversationResponse'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/conversations/{conversation_id}:
     patch:
       tags:
@@ -8006,7 +7906,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                type: object
+                additionalProperties:
+                  type: boolean
         '422':
           description: Validation Error
           content:
@@ -8119,124 +8021,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/confirmations/{confirmation_id}/direct-edit:
-    post:
-      tags:
-      - conversations
-      description: 'Edit the active confirmation''s capital, dates, or costs without a turn.
-
-
-        Deterministic by construction: no LLM call, no message allowance, no
-
-        interpretation, and no backtest row. The typed values become the same edit
-
-        operations the conversational planner emits, applied by the same code and
-
-        assembled by the real confirm stage, so a direct edit and the equivalent
-
-        conversational edit produce one canonical artifact. An in-place edit
-
-        updates the card it edits: same confirmation id, same message, nothing new
-
-        in the transcript. Only turn-based edits supersede; failures persist
-
-        nothing.'
-      parameters:
-      - name: conversation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: confirmation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConfirmationDirectEditRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConfirmationDirectEditResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/confirmations/{confirmation_id}/peer-assets:
-    post:
-      tags:
-      - conversations
-      description: 'Grow or restore the active confirmation''s basket without a turn.
-
-
-        Deterministic by construction: no LLM call, no message allowance, no
-
-        interpretation. Only symbols the active turn offered as peer rows are
-
-        addable, restore undoes the latest add from the card''s own typed
-
-        adjustment data, and every patched draft re-passes the same execution and
-
-        coverage validation every confirmation passes. No turn is spent, so the
-
-        card is updated in place; motion, chips, and inline period disclosure
-
-        carry the change, never a narration banner.'
-      parameters:
-      - name: conversation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: confirmation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConfirmationPeerAssetsRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConfirmationPeerAssetsResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/conversations/{conversation_id}/messages:
     get:
       tags:
@@ -8290,268 +8074,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/messages/{message_id}/computation/refresh:
-    post:
-      tags:
-      - computations
-      parameters:
-      - name: conversation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: message_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ComputationRefreshResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/messages/{message_id}/computation/rerun:
-    post:
-      tags:
-      - decisions
-      parameters:
-      - name: conversation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: message_id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DecisionRerunRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageComputationRerunResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/messages/{message_id}/continue:
-    post:
-      tags:
-      - computations
-      parameters:
-      - name: conversation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: message_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ContinuedResultResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/messages/{message_id}/decision:
-    post:
-      tags:
-      - decisions
-      parameters:
-      - name: conversation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: message_id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DecisionNoteCreate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageDecisionResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/public-excerpt:
-    post:
-      tags:
-      - evidence-receipts
-      parameters:
-      - name: conversation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PublicExcerptSelectionCreate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicExcerptCreateResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/public-excerpt-candidates:
-    get:
-      tags:
-      - evidence-receipts
-      parameters:
-      - name: conversation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicExcerptCandidates'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/public-excerpt-preview:
-    post:
-      tags:
-      - evidence-receipts
-      parameters:
-      - name: conversation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PublicExcerptSelection'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicExcerptPreview'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/run-dossiers:
+  /api/v1/conversations/{conversation_id}/{rest}:
     get:
       tags:
       - conversations
@@ -8561,48 +8084,17 @@ paths:
         required: true
         schema:
           type: string
-      - name: limit
-        in: query
-        required: false
+      - name: rest
+        in: path
+        required: true
         schema:
-          type: integer
-          maximum: 100
-          minimum: 1
-          default: 20
-      - name: cursor
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-      - name: X-Argus-Client-Capabilities
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-            maxLength: 1024
-          - type: 'null'
+          type: string
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedRunDossiers'
-        '400':
-          description: The pagination cursor is invalid or stale.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: The conversation was not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -8617,56 +8109,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/conversations/{conversation_id}/tool-results/{artifact_id}/recompute:
     post:
       tags:
-      - tool-results
+      - conversations
       parameters:
       - name: conversation_id
         in: path
         required: true
         schema:
           type: string
-          format: uuid
-      - name: artifact_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ToolResultRecomputeRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ToolResultRecomputeResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/decisions/{decision_id}:
-    get:
-      tags:
-      - decisions
-      parameters:
-      - name: decision_id
+      - name: rest
         in: path
         required: true
         schema:
@@ -8676,8 +8128,7 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/DecisionOpenResponse'
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -8692,70 +8143,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/decisions/{decision_id}/rerun:
-    post:
+    patch:
       tags:
-      - decisions
+      - conversations
       parameters:
-      - name: decision_id
+      - name: conversation_id
         in: path
         required: true
         schema:
           type: string
-      requestBody:
+      - name: rest
+        in: path
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DecisionRerunRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DecisionOpenResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/discovery/assets:
-    get:
-      tags:
-      - discovery
-      parameters:
-      - name: q
-        in: query
-        required: false
         schema:
           type: string
-          maxLength: 80
-          default: ''
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 25
-          minimum: 1
-          default: 12
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/DiscoveryResponse'
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -8770,33 +8177,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/discovery/indicators:
-    get:
+    delete:
       tags:
-      - discovery
+      - conversations
       parameters:
-      - name: q
-        in: query
-        required: false
+      - name: conversation_id
+        in: path
+        required: true
         schema:
           type: string
-          maxLength: 80
-          default: ''
-      - name: limit
-        in: query
-        required: false
+      - name: rest
+        in: path
+        required: true
         schema:
-          type: integer
-          maximum: 25
-          minimum: 1
-          default: 12
+          type: string
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/DiscoveryResponse'
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -8811,29 +8211,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/evidence-artifacts/{artifact_id}/decision:
-    post:
+  /api/v1/evidence-artifacts/{artifact_id}/{rest}:
+    get:
       tags:
-      - evidence
+      - conversations
       parameters:
       - name: artifact_id
         in: path
         required: true
         schema:
           type: string
-      requestBody:
+      - name: rest
+        in: path
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DecisionNoteCreate'
+        schema:
+          type: string
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/DecisionNoteResponse'
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -8848,29 +8246,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/evidence-artifacts/{artifact_id}/public-excerpt:
     post:
       tags:
-      - evidence-receipts
+      - conversations
       parameters:
       - name: artifact_id
         in: path
         required: true
         schema:
           type: string
-      requestBody:
+      - name: rest
+        in: path
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PublicExcerptCreate'
+        schema:
+          type: string
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
               schema:
-                $ref: '#/components/schemas/PublicExcerptCreateResponse'
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+      - conversations
+      parameters:
+      - name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: rest
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - conversations
+      parameters:
+      - name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: rest
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -12376,7 +11839,7 @@ paths:
   /api/v1/history:
     get:
       tags:
-      - history
+      - conversations
       parameters:
       - name: limit
         in: query
@@ -14671,31 +14134,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/market/session:
-    get:
-      tags:
-      - market
-      description: 'Backend-owned session truth, and what the caller has shown interest in.
-
-
-        Eastern time and the real trading calendar live behind this, so no caller
-
-        has to know a holiday from a Thursday.'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MarketSessionResponse'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/me:
     get:
       tags:
@@ -15276,201 +14714,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/public-excerpts:
-    get:
-      tags:
-      - evidence-receipts
-      description: 'The owner''s receipts, newest first, paginated.
-
-
-        Paginated rather than capped: Data Controls is the only place an owner can find
-
-        a snapshot id to revoke, so a row hidden behind a cap would be a public page
-
-        they cannot take down.'
-      parameters:
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 200
-          minimum: 1
-          default: 50
-      - name: cursor
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicExcerptListResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/public-excerpts/{snapshot_id}:
-    delete:
-      tags:
-      - evidence-receipts
-      parameters:
-      - name: snapshot_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicExcerptRevokeResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/public/receipt-funnel:
-    post:
-      tags:
-      - public-receipts
-      description: 'Accept a viewer-side funnel stage and record nothing.
-
-
-        Wave 1 does not track share-page views or a share funnel (SPEC 0, Iris''s
-
-        round 2 answer 4), so this endpoint counts nothing. It stays a 204 so a
-
-        receipt page already open in a browser does not error when it reports.'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PublicExcerptFunnelStage'
-        required: true
-      responses:
-        '204':
-          description: Successful Response
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/public/receipts/{public_id}:
-    get:
-      tags:
-      - public-receipts
-      description: 'Read one frozen receipt. Deliberately counts nothing.
-
-
-        This endpoint answers more than once per human visit, from the page''s metadata
-
-        pass, the page render, and the preview image, and a crawler expanding a pasted
-
-        link hits it with nobody having opened anything.'
-      parameters:
-      - name: public_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicExcerptView'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/v1/public/receipts/{public_id}/fork:
-    post:
-      tags:
-      - public-receipts
-      parameters:
-      - name: public_id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PublicExcerptForkRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicExcerptForkResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/search:
     get:
       tags:
-      - search
+      - conversations
       parameters:
       - name: q
         in: query
@@ -19589,176 +18836,6 @@ components:
       - household_id
       - state
       - replayed
-    ComparedAnswer:
-      properties:
-        conversation_id:
-          type: string
-        message_id:
-          type: string
-        asked:
-          anyOf:
-          - type: string
-            maxLength: 500
-          - type: 'null'
-        computed_at:
-          type: string
-          format: date-time
-        card:
-          additionalProperties: true
-          type: object
-      type: object
-      required:
-      - conversation_id
-      - message_id
-      - computed_at
-      - card
-    ComputationCompareRequest:
-      properties:
-        left:
-          $ref: '#/components/schemas/ComputedAnswerRef'
-        right:
-          $ref: '#/components/schemas/ComputedAnswerRef'
-      additionalProperties: false
-      type: object
-      required:
-      - left
-      - right
-    ComputationComparison:
-      properties:
-        kind:
-          type: string
-        left:
-          $ref: '#/components/schemas/ComparedAnswer'
-        right:
-          $ref: '#/components/schemas/ComparedAnswer'
-        differences:
-          items:
-            $ref: '#/components/schemas/ComputationDifference'
-          type: array
-      type: object
-      required:
-      - kind
-      - left
-      - right
-      - differences
-    ComputationDifference:
-      properties:
-        section:
-          type: string
-          enum:
-          - answer
-          - row
-          - input
-        name:
-          type: string
-        label:
-          $ref: '#/components/schemas/LocalizedText'
-        unit:
-          anyOf:
-          - $ref: '#/components/schemas/LocalizedText'
-          - type: 'null'
-        left:
-          type: number
-        right:
-          type: number
-        difference:
-          type: number
-      type: object
-      required:
-      - section
-      - name
-      - label
-      - left
-      - right
-      - difference
-      description: Right minus left for one fact both cards state as a number in one unit.
-    ComputationRefreshResponse:
-      properties:
-        computation:
-          $ref: '#/components/schemas/DecisionComputation'
-        status:
-          type: string
-          enum:
-          - refreshed
-          - inputs_not_found
-        reruns:
-          items:
-            $ref: '#/components/schemas/DecisionRerun'
-          type: array
-          maxItems: 4
-        sources:
-          items:
-            additionalProperties: true
-            type: object
-          type: array
-      type: object
-      required:
-      - computation
-      - status
-      description: 'Freshly retrieved inputs computed beside the stored answer.
-
-
-        ``refreshed`` carries one recomputed card per calculation in ``reruns``, in
-
-        the computation''s order; ``inputs_not_found`` means the retrieval named no
-
-        cited input, so nothing was recomputed. ``sources`` lists the pages the
-
-        retrieval read, dated.'
-    ComputedAnswerList:
-      properties:
-        items:
-          items:
-            $ref: '#/components/schemas/ComputedAnswerSummary'
-          type: array
-          maxItems: 10
-      type: object
-      required:
-      - items
-    ComputedAnswerRef:
-      properties:
-        conversation_id:
-          type: string
-          maxLength: 64
-          minLength: 1
-        message_id:
-          type: string
-          maxLength: 64
-          minLength: 1
-      additionalProperties: false
-      type: object
-      required:
-      - conversation_id
-      - message_id
-    ComputedAnswerSummary:
-      properties:
-        conversation_id:
-          type: string
-        message_id:
-          type: string
-        kind:
-          type: string
-          maxLength: 80
-        asked:
-          anyOf:
-          - type: string
-            maxLength: 500
-          - type: 'null'
-        computed_at:
-          type: string
-          format: date-time
-        symbols:
-          items:
-            type: string
-          type: array
-          maxItems: 5
-      type: object
-      required:
-      - conversation_id
-      - message_id
-      - kind
-      - computed_at
-      description: One owned computed answer a comparison can pick.
     ConditionalPayoff:
       properties:
         state:
@@ -19803,153 +18880,6 @@ components:
       type: object
       required:
       - version
-    ConfirmationDirectEditRequest:
-      properties:
-        capital:
-          anyOf:
-          - type: number
-            exclusiveMinimum: 0.0
-          - type: 'null'
-        starting_capital:
-          anyOf:
-          - type: number
-            minimum: 0.0
-          - type: 'null'
-        recurring_contribution:
-          anyOf:
-          - type: number
-            exclusiveMinimum: 0.0
-          - type: 'null'
-        contribution_period:
-          anyOf:
-          - type: string
-            maxLength: 24
-          - type: 'null'
-        date_window:
-          anyOf:
-          - $ref: '#/components/schemas/ConfirmationDirectEditWindow'
-          - type: 'null'
-        fee_rate:
-          anyOf:
-          - type: number
-            minimum: 0.0
-          - type: 'null'
-        slippage:
-          anyOf:
-          - type: number
-            minimum: 0.0
-          - type: 'null'
-      type: object
-      description: 'Edit the pending confirmation''s capital, dates, or costs without a turn.
-
-
-        At least one field is required. ``capital`` is the one-time starting
-
-        capital of a non-recurring plan. A recurring plan names its two money roles
-
-        separately, ``starting_capital`` and ``recurring_contribution``, because
-
-        neither may ever stand in for the other; sending ``capital`` for one is
-
-        refused rather than guessed at. Costs are decimal rates (0.002 is 0.2
-
-        percent); zero explicitly clears a cost. The slippage cap is enforced by
-
-        the shared edit resolver, not re-stated here.'
-    ConfirmationDirectEditResponse:
-      properties:
-        message:
-          $ref: '#/components/schemas/Message'
-      type: object
-      required:
-      - message
-    ConfirmationDirectEditWindow:
-      properties:
-        start:
-          type: string
-          maxLength: 10
-          minLength: 10
-        end:
-          type: string
-          maxLength: 10
-          minLength: 10
-      type: object
-      required:
-      - start
-      - end
-      description: 'Explicit calendar endpoints from the drawer''s date inputs.
-
-
-        Direct edits are deterministic UI values, never prose: relative or
-
-        semantic windows stay on the conversational path where the interpreter
-
-        owns them.'
-    ConfirmationPeerAssetsRequest:
-      properties:
-        symbols:
-          anyOf:
-          - items:
-              type: string
-            type: array
-            maxItems: 4
-            minItems: 1
-          - type: 'null'
-        peers:
-          anyOf:
-          - items:
-              $ref: '#/components/schemas/ConfirmationPeerIdentity'
-            type: array
-            maxItems: 4
-            minItems: 1
-          - type: 'null'
-        restore_previous:
-          type: boolean
-          default: false
-      type: object
-      description: 'Grow or restore the pending confirmation''s basket without a turn.
-
-
-        Add mode: only symbols the active turn offered as research peer rows are
-
-        addable; the backend checks the stored identity and coverage
-
-        gates. Restore mode undoes the latest add by re-materializing the exact
-
-        previous asset set from the card''s own typed adjustment data.'
-    ConfirmationPeerAssetsResponse:
-      properties:
-        message:
-          $ref: '#/components/schemas/Message'
-      type: object
-      required:
-      - message
-    ConfirmationPeerIdentity:
-      properties:
-        symbol:
-          type: string
-          minLength: 1
-        asset_class:
-          type: string
-          enum:
-          - equity
-          - crypto
-          - currency_pair
-      type: object
-      required:
-      - symbol
-      - asset_class
-    ContinuedResultResponse:
-      properties:
-        conversation:
-          $ref: '#/components/schemas/Conversation'
-        message_id:
-          type: string
-      type: object
-      required:
-      - conversation
-      - message_id
-      description: The new chat and the one message that carries the continued result.
     ContributionCandidates:
       properties:
         items:
@@ -21184,208 +20114,6 @@ components:
       description: 'A prepare-holder other than the owner answers whether a personal receipt
 
         that carries a fiscal number goes into the 606.'
-    DecisionCalculation:
-      properties:
-        kind:
-          type: string
-          maxLength: 80
-          minLength: 1
-          pattern: ^[a-z][a-z0-9_]*$
-        inputs:
-          additionalProperties: true
-          type: object
-      type: object
-      required:
-      - kind
-      description: 'One calculation a computation re-runs: a registered kind and its typed
-        inputs.'
-    DecisionComputation:
-      properties:
-        calculations:
-          items:
-            $ref: '#/components/schemas/DecisionCalculation'
-          type: array
-          maxItems: 4
-          minItems: 1
-        symbols:
-          items:
-            type: string
-          type: array
-          maxItems: 5
-      type: object
-      required:
-      - calculations
-      description: 'What a decision can re-run: every calculation of the answer, in order.
-
-
-        One calculation serializes as ``{kind, inputs}``, exactly as every
-
-        computation stored before answers carried several, and more as
-
-        ``{calculations: [{kind, inputs}, ...]}``; both shapes read back alike.
-
-        ``symbols`` names the assets the computation is about, derived from its
-
-        typed inputs by the marker owner, so Search can count a computed answer
-
-        under an asset without reading its cards.'
-    DecisionNote:
-      properties:
-        id:
-          type: string
-        idea_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        idea_version_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        evidence_artifact_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        source_conversation_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        source_message_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        computation:
-          anyOf:
-          - $ref: '#/components/schemas/DecisionComputation'
-          - type: 'null'
-        decision_state:
-          type: string
-          enum:
-          - watching
-          - promising
-          - rejected
-          - revisit_later
-        note:
-          anyOf:
-          - type: string
-          - type: 'null'
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-      type: object
-      required:
-      - id
-      - decision_state
-      - created_at
-      - updated_at
-    DecisionNoteCreate:
-      properties:
-        decision_state:
-          type: string
-          enum:
-          - watching
-          - promising
-          - rejected
-          - revisit_later
-        note:
-          anyOf:
-          - type: string
-            maxLength: 500
-          - type: 'null'
-      type: object
-      required:
-      - decision_state
-    DecisionNoteResponse:
-      properties:
-        decision:
-          $ref: '#/components/schemas/DecisionNote'
-        evidence_artifact:
-          $ref: '#/components/schemas/EvidenceArtifact'
-      type: object
-      required:
-      - decision
-      - evidence_artifact
-    DecisionOpenResponse:
-      properties:
-        decision:
-          $ref: '#/components/schemas/DecisionNote'
-        computation:
-          $ref: '#/components/schemas/DecisionComputation'
-        reruns:
-          items:
-            $ref: '#/components/schemas/DecisionRerun'
-          type: array
-          maxItems: 4
-      type: object
-      required:
-      - decision
-      - computation
-      - reruns
-      description: A decision and one re-run per calculation, in the computation's order.
-    DecisionRerun:
-      properties:
-        kind:
-          type: string
-        inputs:
-          additionalProperties: true
-          type: object
-        status:
-          type: string
-          enum:
-          - computed
-          - confirmation_required
-          - unavailable
-        result:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-        retest:
-          anyOf:
-          - $ref: '#/components/schemas/SearchRetestAction'
-          - type: 'null'
-        reason_code:
-          anyOf:
-          - type: string
-            enum:
-            - kernel_unavailable
-            - invalid_inputs
-            - inputs_not_editable
-            - run_unavailable
-            - retest_unavailable
-          - type: 'null'
-      type: object
-      required:
-      - kind
-      - inputs
-      - status
-      description: 'The outcome of opening or re-running a decision''s computation.
-
-
-        ``computed`` carries the kernel''s typed result. ``confirmation_required``
-
-        carries the typed retest action for a backtest, which earns its
-
-        confirmation by cost and never executes here. ``unavailable`` names why
-
-        nothing ran, as a code, never prose.'
-    DecisionRerunRequest:
-      properties:
-        inputs:
-          additionalProperties: true
-          type: object
-        calculation:
-          type: integer
-          exclusiveMaximum: 4.0
-          minimum: 0.0
-          default: 0
-      additionalProperties: false
-      type: object
-      description: 'Input overrides merged over one calculation''s stored inputs, by its index
-
-        in the computation; the decision is unchanged.'
     DefaultAppearance:
       properties:
         kind:
@@ -21475,14 +20203,6 @@ components:
           default: ''
       additionalProperties: false
       type: object
-    DemonstratedInterest:
-      properties:
-        markets:
-          type: boolean
-      type: object
-      required:
-      - markets
-      description: What a person's own records show interest in.
     DeviceEnrollmentRequest:
       properties:
         device_name:
@@ -21652,60 +20372,6 @@ components:
       - connection
       - provider_revocation
       - unreviewed_removed
-    DiscoveryItem:
-      properties:
-        id:
-          type: string
-        type:
-          type: string
-          enum:
-          - asset
-          - indicator
-        label:
-          type: string
-        symbol:
-          anyOf:
-          - type: string
-          - type: 'null'
-        asset_class:
-          anyOf:
-          - type: string
-            enum:
-            - equity
-            - crypto
-            - currency_pair
-          - type: 'null'
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-        insert_text:
-          type: string
-        provider:
-          type: string
-        support_status:
-          type: string
-          enum:
-          - supported
-          - draft_only
-          - unavailable
-          default: supported
-      type: object
-      required:
-      - id
-      - type
-      - label
-      - insert_text
-      - provider
-    DiscoveryResponse:
-      properties:
-        items:
-          items:
-            $ref: '#/components/schemas/DiscoveryItem'
-          type: array
-      type: object
-      required:
-      - items
     DispositionRequest:
       properties:
         reason:
@@ -22228,59 +20894,6 @@ components:
       - receipt_id
       - external_id
       - outcome
-    EvidenceArtifact:
-      properties:
-        id:
-          type: string
-        idea_id:
-          type: string
-        idea_version_id:
-          type: string
-        source_conversation_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        source_run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-        artifact_type:
-          type: string
-          const: backtest
-          default: backtest
-        lifecycle:
-          type: string
-          enum:
-          - captured
-          - reviewed
-          - saved
-          - decided
-          - archived
-          - discarded
-          default: captured
-        title:
-          type: string
-        digest:
-          type: string
-        payload:
-          additionalProperties: true
-          type: object
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-      type: object
-      required:
-      - id
-      - idea_id
-      - idea_version_id
-      - title
-      - digest
-      - payload
-      - created_at
-      - updated_at
     ExchangeRequest:
       properties:
         public_token:
@@ -25667,7 +24280,6 @@ components:
       required:
       - item_id
       - participant_ids
-    JsonValue: {}
     KindNumbers:
       properties:
         sent:
@@ -26384,25 +24996,6 @@ components:
       required:
       - results
       description: One result per named receipt, in the order named.
-    LocalizedText:
-      properties:
-        locale_key:
-          type: string
-          maxLength: 160
-          minLength: 1
-        interpolation_args:
-          additionalProperties:
-            anyOf:
-            - type: boolean
-            - type: integer
-            - type: number
-            - type: string
-            - type: 'null'
-          type: object
-      additionalProperties: false
-      type: object
-      required:
-      - locale_key
     LoginRequest:
       properties:
         email:
@@ -26534,46 +25127,6 @@ components:
         it is the Business''s) or takes the mark back. Reversible, a new revision
 
         each way.'
-    MarketSession:
-      properties:
-        phase:
-          type: string
-          enum:
-          - pre_market
-          - open
-          - after_hours
-          - closed_weekend
-          - closed_holiday
-          - closed
-        is_market_day:
-          type: boolean
-        as_of:
-          type: string
-          format: date-time
-      type: object
-      required:
-      - phase
-      - is_market_day
-      - as_of
-      description: Which session US equities are in, resolved in Eastern time.
-    MarketSessionResponse:
-      properties:
-        session:
-          anyOf:
-          - $ref: '#/components/schemas/MarketSession'
-          - type: 'null'
-          description: Null when the trading calendar is unreachable. Callers say nothing
-            about the market rather than guessing an open or a holiday.
-        interest:
-          anyOf:
-          - $ref: '#/components/schemas/DemonstratedInterest'
-          - type: 'null'
-          description: Null when the caller's records are unreadable. Callers treat it as
-            no shown interest.
-      type: object
-      required:
-      - session
-      - interest
     MatchDocument:
       properties:
         activity_id:
@@ -27194,29 +25747,6 @@ components:
       - role
       - content
       - created_at
-    MessageComputationRerunResponse:
-      properties:
-        computation:
-          $ref: '#/components/schemas/DecisionComputation'
-        reruns:
-          items:
-            $ref: '#/components/schemas/DecisionRerun'
-          type: array
-          maxItems: 4
-      type: object
-      required:
-      - computation
-      - reruns
-      description: 'A computed answer re-run from Search, one re-run per calculation; the
-
-        stored answer is untouched.'
-    MessageDecisionResponse:
-      properties:
-        decision:
-          $ref: '#/components/schemas/DecisionNote'
-      type: object
-      required:
-      - decision
     MessageSource:
       properties:
         id:
@@ -28685,27 +27215,6 @@ components:
       type: object
       required:
       - items
-    PaginatedRunDossiers:
-      properties:
-        items:
-          items:
-            $ref: '#/components/schemas/RunDossier'
-          type: array
-        next_cursor:
-          anyOf:
-          - type: string
-          - type: 'null'
-        total_runs:
-          type: integer
-          minimum: 0.0
-        decided_runs:
-          type: integer
-          minimum: 0.0
-      type: object
-      required:
-      - items
-      - total_runs
-      - decided_runs
     PaginatedSearch:
       properties:
         items:
@@ -29229,948 +27738,6 @@ components:
       - synchronized
       - not_applicable
       - reconciliation_required
-    PublicExcerptAnswerTurn:
-      properties:
-        kind:
-          type: string
-          const: answer
-          default: answer
-        question:
-          type: string
-          minLength: 1
-        answer:
-          type: string
-          minLength: 1
-        owner_note:
-          anyOf:
-          - type: string
-            maxLength: 280
-          - type: 'null'
-        content_language:
-          type: string
-          enum:
-          - en
-          - es-419
-          default: en
-        framing:
-          type: string
-          const: answer_not_advice
-          default: answer_not_advice
-        provenance_mark:
-          type: string
-          const: tested_with_argus
-          default: tested_with_argus
-      additionalProperties: false
-      type: object
-      required:
-      - question
-      - answer
-      description: Only the selected question and final answer, with no runtime metadata.
-    PublicExcerptAssumption:
-      properties:
-        key:
-          type: string
-          enum:
-          - long_only
-          - equal_weight
-          - no_costs
-          - modeled_fee_bps
-          - modeled_slippage_bps
-          - benchmark
-          - benchmark_same_modeled_costs
-          - recurring_contribution
-          - contribution_cadence
-          - starting_principal
-          - fractional_shares
-        value:
-          anyOf:
-          - type: string
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - key
-      description: 'One assumption the run was executed under, frozen as a key and a value.
-
-
-        Same discipline as :class:`PublicExcerptStrategyFact`, and for the same reason:
-
-        the sentence is composed at view time in the viewer''s language while the value
-
-        stays frozen. ``value`` is the raw scalar the run reported, so a number is a
-
-        number here and gets its separators from the viewer''s locale, not the author''s.
-
-
-        Keys with nothing to measure carry no value: ``long_only`` is the whole fact.'
-    PublicExcerptBacktestTurn:
-      properties:
-        kind:
-          type: string
-          const: backtest
-          default: backtest
-        idea_title:
-          type: string
-        question:
-          anyOf:
-          - type: string
-          - type: 'null'
-        answer:
-          anyOf:
-          - type: string
-          - type: 'null'
-        fact_bank:
-          $ref: '#/components/schemas/PublicExcerptFactBank'
-        visual:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptVisual'
-          - type: 'null'
-        owner_note:
-          anyOf:
-          - type: string
-            maxLength: 280
-          - type: 'null'
-        content_language:
-          type: string
-          enum:
-          - en
-          - es-419
-          default: en
-        framing:
-          type: string
-          const: historical_simulation_not_advice
-          default: historical_simulation_not_advice
-        provenance_mark:
-          type: string
-          const: tested_with_argus
-          default: tested_with_argus
-      additionalProperties: false
-      type: object
-      required:
-      - idea_title
-      - fact_bank
-    PublicExcerptCalculation:
-      properties:
-        title:
-          $ref: '#/components/schemas/PublicExcerptCalculationText'
-        answer:
-          $ref: '#/components/schemas/PublicExcerptCalculationFact'
-        rows:
-          items:
-            $ref: '#/components/schemas/PublicExcerptCalculationFact'
-          type: array
-          maxItems: 24
-        inputs:
-          items:
-            $ref: '#/components/schemas/PublicExcerptCalculationFact'
-          type: array
-          maxItems: 24
-        notes:
-          items:
-            $ref: '#/components/schemas/PublicExcerptCalculationText'
-          type: array
-          maxItems: 8
-      additionalProperties: false
-      type: object
-      required:
-      - title
-      - answer
-      description: One calculation of a computed answer, frozen as its card's typed facts.
-    PublicExcerptCalculationFact:
-      properties:
-        label:
-          $ref: '#/components/schemas/PublicExcerptCalculationText'
-        value:
-          anyOf:
-          - type: boolean
-          - type: integer
-          - type: number
-          - type: string
-          - type: 'null'
-        value_text:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptCalculationText'
-          - type: 'null'
-        unit:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptCalculationText'
-          - type: 'null'
-        source:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptCalculationSource'
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - label
-    PublicExcerptCalculationSource:
-      properties:
-        title:
-          anyOf:
-          - type: string
-            maxLength: 300
-          - type: 'null'
-        url:
-          anyOf:
-          - type: string
-            maxLength: 2048
-          - type: 'null'
-        date:
-          anyOf:
-          - type: string
-            pattern: ^\d{4}-\d{2}-\d{2}$
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      description: The public page an input was read from, dated.
-    PublicExcerptCalculationText:
-      properties:
-        locale_key:
-          type: string
-          maxLength: 160
-          minLength: 1
-          pattern: ^[a-z][a-z0-9_.]*$
-        interpolation_args:
-          additionalProperties:
-            anyOf:
-            - type: string
-            - type: integer
-            - type: number
-            - type: boolean
-            - type: 'null'
-          type: object
-      additionalProperties: false
-      type: object
-      required:
-      - locale_key
-      description: 'A card''s localized text as the receipt renders it: a key and its values.'
-    PublicExcerptCalculationTurn:
-      properties:
-        kind:
-          type: string
-          const: calculation
-          default: calculation
-        question:
-          type: string
-          minLength: 1
-        answer_text:
-          anyOf:
-          - type: string
-          - type: 'null'
-        calculations:
-          items:
-            $ref: '#/components/schemas/PublicExcerptCalculation'
-          type: array
-          maxItems: 4
-          minItems: 1
-        computed_at:
-          type: string
-          format: date-time
-        owner_note:
-          anyOf:
-          - type: string
-            maxLength: 280
-          - type: 'null'
-        content_language:
-          type: string
-          enum:
-          - en
-          - es-419
-          default: en
-        framing:
-          type: string
-          const: calculation_not_advice
-          default: calculation_not_advice
-        provenance_mark:
-          type: string
-          const: tested_with_argus
-          default: tested_with_argus
-      additionalProperties: false
-      type: object
-      required:
-      - question
-      - calculations
-      - computed_at
-      description: 'A computed answer frozen as typed facts, one entry per calculation; a
-
-        receipt never recomputes.
-
-
-        One calculation serializes flat, exactly as every receipt frozen before
-
-        answers carried several, and more as ``calculations``; both shapes read
-
-        back alike. Public or user-written inputs are visible in the exact preview;
-
-        hidden account inputs and raw tool arguments stay in the account.'
-    PublicExcerptCandidate:
-      properties:
-        message_id:
-          type: string
-        question:
-          anyOf:
-          - type: string
-          - type: 'null'
-        kind:
-          anyOf:
-          - type: string
-            enum:
-            - backtest
-            - research_answer
-            - calculation
-            - answer
-          - type: 'null'
-        eligible:
-          type: boolean
-        reason:
-          anyOf:
-          - type: string
-            enum:
-            - not_completed
-            - unsupported_turn
-            - unsupported_shape
-            - missing_sources
-            - degraded
-            - memory_used
-            - missing_question
-            - text_too_long
-            - unsafe_text
-            - unlisted_url
-            - invalid_selection
-            - preview_changed
-            - invalid_source
-            - unsupported_backtest
-            - private_inputs
-          - type: 'null'
-        field:
-          anyOf:
-          - type: string
-            enum:
-            - question
-            - answer
-            - owner_note
-            - sources
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - message_id
-      - eligible
-    PublicExcerptCandidates:
-      properties:
-        items:
-          items:
-            $ref: '#/components/schemas/PublicExcerptCandidate'
-          type: array
-      additionalProperties: false
-      type: object
-      required:
-      - items
-    PublicExcerptCreate:
-      properties:
-        owner_note:
-          anyOf:
-          - type: string
-            maxLength: 280
-          - type: 'null'
-      additionalProperties: false
-      type: object
-    PublicExcerptCreateResponse:
-      properties:
-        receipt:
-          $ref: '#/components/schemas/PublicExcerptListItem'
-      additionalProperties: false
-      type: object
-      required:
-      - receipt
-    PublicExcerptDateRange:
-      properties:
-        start:
-          type: string
-        end:
-          type: string
-      additionalProperties: false
-      type: object
-      required:
-      - start
-      - end
-      description: 'The tested window, frozen as two dates and rendered in the viewer''s locale.
-
-
-        No rendered ``display`` string: the run writes one in the author''s language, and
-
-        a receipt is opened by strangers whose language has nothing to do with the
-
-        author''s. Two ISO dates carry the same fact and can be spoken by anyone.'
-    PublicExcerptFactBank:
-      properties:
-        symbols:
-          items:
-            type: string
-          type: array
-          maxItems: 5
-          minItems: 1
-        asset_class:
-          anyOf:
-          - type: string
-            enum:
-            - equity
-            - crypto
-            - currency_pair
-          - type: 'null'
-        benchmark_symbol:
-          anyOf:
-          - type: string
-          - type: 'null'
-        config_snapshot:
-          $ref: '#/components/schemas/ReceiptConfig'
-        figures:
-          $ref: '#/components/schemas/ReceiptFigures'
-        result_card:
-          $ref: '#/components/schemas/ReceiptCardFacts'
-      additionalProperties: false
-      type: object
-      required:
-      - symbols
-      - config_snapshot
-      - figures
-      - result_card
-    PublicExcerptForkRequest:
-      properties:
-        request_id:
-          type: string
-          format: uuid
-        language:
-          anyOf:
-          - type: string
-            enum:
-            - en
-            - es-419
-          - type: 'null'
-        replace_guest_conversation_id:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - request_id
-    PublicExcerptForkResponse:
-      properties:
-        conversation:
-          $ref: '#/components/schemas/Conversation'
-        created:
-          type: boolean
-      type: object
-      required:
-      - conversation
-      - created
-    PublicExcerptFunnelStage:
-      properties:
-        stage:
-          type: string
-          enum:
-          - viewed
-          - try_argus
-          - followed_up
-          - signed_up
-        kind:
-          type: string
-          enum:
-          - backtest
-          - research_answer
-          - calculation
-          - answer
-          - mixed
-          default: backtest
-      additionalProperties: false
-      type: object
-      required:
-      - stage
-      description: 'One viewer-side funnel stage. There is deliberately nothing else in it.
-
-
-        ``viewed`` is reported by the rendered page rather than counted on the read
-
-        endpoint, which also answers metadata passes and preview-image renders.'
-    PublicExcerptListItem:
-      properties:
-        id:
-          type: string
-        public_id:
-          type: string
-        path:
-          type: string
-        title:
-          type: string
-        symbols:
-          items:
-            type: string
-          type: array
-        date_range:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptDateRange'
-          - type: 'null'
-        kind:
-          type: string
-          enum:
-          - backtest
-          - research_answer
-          - calculation
-          - answer
-          - mixed
-          default: backtest
-        created_at:
-          type: string
-          format: date-time
-        revoked_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-        revocation_reason:
-          anyOf:
-          - type: string
-            enum:
-            - owner_revoked
-            - source_deleted
-            - removed_by_argus
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - id
-      - public_id
-      - path
-      - title
-      - created_at
-      description: One row of the owner's receipt list in Data Controls.
-    PublicExcerptListResponse:
-      properties:
-        items:
-          items:
-            $ref: '#/components/schemas/PublicExcerptListItem'
-          type: array
-        next_cursor:
-          anyOf:
-          - type: string
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - items
-    PublicExcerptMetric:
-      properties:
-        key:
-          type: string
-          enum:
-          - cash_value
-          - total_return_pct
-          - contribution_return_pct
-          - max_drawdown_pct
-          - win_rate
-          - benchmark_return_pct
-          - delta_vs_benchmark_pct
-        value:
-          type: string
-      additionalProperties: false
-      type: object
-      required:
-      - key
-      - value
-      description: 'One result number, frozen as the run reported it, under a closed key.
-
-
-        No frozen label, for the same reason the strategy facts and the assumptions have
-
-        none: the run writes it in the author''s language.
-
-
-        ``value`` is the run''s own display string, which is digits and a percent sign and
-
-        reads the same in either language. ``delta_vs_benchmark_pct`` is the one
-
-        exception and carries a bare signed number, because its unit is percentage
-
-        points and every way of writing that unit is a word. The page supplies the word.'
-    PublicExcerptOfferedNextStep:
-      properties:
-        kind:
-          type: string
-          enum:
-          - research_test_single
-          - research_test_versus
-        symbols:
-          items:
-            type: string
-          type: array
-          maxItems: 5
-          minItems: 1
-      additionalProperties: false
-      type: object
-      required:
-      - kind
-      - symbols
-    PublicExcerptPayload:
-      properties:
-        schema_version:
-          type: integer
-          const: 1
-          default: 1
-        idea_title:
-          type: string
-        asset_class:
-          anyOf:
-          - type: string
-            enum:
-            - equity
-            - crypto
-            - currency_pair
-          - type: 'null'
-        symbols:
-          items:
-            type: string
-          type: array
-        strategy_facts:
-          items:
-            $ref: '#/components/schemas/PublicExcerptStrategyFact'
-          type: array
-        assumptions:
-          items:
-            $ref: '#/components/schemas/PublicExcerptAssumption'
-          type: array
-        date_range:
-          $ref: '#/components/schemas/PublicExcerptDateRange'
-        metrics:
-          items:
-            $ref: '#/components/schemas/PublicExcerptMetric'
-          type: array
-        benchmark_symbol:
-          anyOf:
-          - type: string
-          - type: 'null'
-        visual:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptVisual'
-          - type: 'null'
-        owner_note:
-          anyOf:
-          - type: string
-          - type: 'null'
-        content_language:
-          type: string
-          enum:
-          - en
-          - es-419
-          default: en
-        framing:
-          type: string
-          const: historical_simulation_not_advice
-          default: historical_simulation_not_advice
-        provenance_mark:
-          type: string
-          const: tested_with_argus
-          default: tested_with_argus
-      additionalProperties: false
-      type: object
-      required:
-      - idea_title
-      - date_range
-      description: The closed receipt payload. Adding a field here is a product decision.
-    PublicExcerptPreview:
-      properties:
-        payload:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptPayload'
-          - $ref: '#/components/schemas/PublicExcerptTurnsPayload'
-        payload_digest:
-          type: string
-        kind:
-          type: string
-          enum:
-          - backtest
-          - research_answer
-          - calculation
-          - answer
-          - mixed
-        existing_receipt:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptListItem'
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - payload
-      - payload_digest
-      - kind
-    PublicExcerptResearchSource:
-      properties:
-        title:
-          type: string
-        domain:
-          type: string
-        url:
-          type: string
-        source_date:
-          anyOf:
-          - type: string
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - title
-      - domain
-      - url
-    PublicExcerptResearchTurn:
-      properties:
-        kind:
-          type: string
-          const: research_answer
-          default: research_answer
-        question:
-          type: string
-          minLength: 1
-        answer:
-          type: string
-          minLength: 1
-        sources:
-          items:
-            $ref: '#/components/schemas/PublicExcerptResearchSource'
-          type: array
-        retrieved_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-        anchor_symbols:
-          items:
-            type: string
-          type: array
-          maxItems: 5
-        asset_class:
-          anyOf:
-          - type: string
-            enum:
-            - equity
-            - crypto
-            - currency_pair
-          - type: 'null'
-        offered_next_step:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptOfferedNextStep'
-          - type: 'null'
-        owner_note:
-          anyOf:
-          - type: string
-            maxLength: 280
-          - type: 'null'
-        content_language:
-          type: string
-          enum:
-          - en
-          - es-419
-          default: en
-        framing:
-          type: string
-          const: research_snapshot_not_advice
-          default: research_snapshot_not_advice
-        provenance_mark:
-          type: string
-          const: tested_with_argus
-          default: tested_with_argus
-      additionalProperties: false
-      type: object
-      required:
-      - question
-      - answer
-    PublicExcerptRevokeResponse:
-      properties:
-        receipt:
-          $ref: '#/components/schemas/PublicExcerptListItem'
-      additionalProperties: false
-      type: object
-      required:
-      - receipt
-    PublicExcerptSelection:
-      properties:
-        message_ids:
-          items:
-            type: string
-            format: uuid
-          type: array
-          maxItems: 500
-          minItems: 1
-        owner_note:
-          anyOf:
-          - type: string
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - message_ids
-    PublicExcerptSelectionCreate:
-      properties:
-        message_ids:
-          items:
-            type: string
-            format: uuid
-          type: array
-          maxItems: 500
-          minItems: 1
-        owner_note:
-          anyOf:
-          - type: string
-          - type: 'null'
-        payload_digest:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-      additionalProperties: false
-      type: object
-      required:
-      - message_ids
-      - payload_digest
-    PublicExcerptStrategyFact:
-      properties:
-        key:
-          type: string
-          enum:
-          - strategy_type
-          - cadence
-          - indicator
-          - indicator_period
-          - entry_threshold
-          - exit_threshold
-          - fast_indicator
-          - fast_period
-          - slow_indicator
-          - slow_period
-          - exit_fast_indicator
-          - exit_fast_period
-          - exit_slow_indicator
-          - exit_slow_period
-          - signal_period
-        value:
-          type: string
-      additionalProperties: false
-      type: object
-      required:
-      - key
-      - value
-      description: 'One fact that defines the executed strategy, frozen from the run.
-
-
-        ``key`` is a closed enum and the label is rendered from it at view time, so the
-
-        viewer reads it in their own language while ``value`` stays frozen. The
-
-        alternative, freezing an English label, would put untranslatable chrome inside
-
-        the payload.'
-    PublicExcerptTurnsPayload:
-      properties:
-        schema_version:
-          type: integer
-          const: 2
-          default: 2
-        kind:
-          type: string
-          const: turns
-          default: turns
-        turns:
-          items:
-            oneOf:
-            - $ref: '#/components/schemas/PublicExcerptResearchTurn'
-            - $ref: '#/components/schemas/PublicExcerptBacktestTurn'
-            - $ref: '#/components/schemas/PublicExcerptCalculationTurn'
-            - $ref: '#/components/schemas/PublicExcerptAnswerTurn'
-            discriminator:
-              propertyName: kind
-              mapping:
-                answer: '#/components/schemas/PublicExcerptAnswerTurn'
-                backtest: '#/components/schemas/PublicExcerptBacktestTurn'
-                calculation: '#/components/schemas/PublicExcerptCalculationTurn'
-                research_answer: '#/components/schemas/PublicExcerptResearchTurn'
-          type: array
-          maxItems: 500
-          minItems: 1
-      additionalProperties: false
-      type: object
-      required:
-      - turns
-    PublicExcerptView:
-      properties:
-        public_id:
-          type: string
-        status:
-          type: string
-          enum:
-          - available
-          - revoked
-        kind:
-          anyOf:
-          - type: string
-            enum:
-            - backtest
-            - research_answer
-            - calculation
-            - answer
-            - mixed
-          - type: 'null'
-        indexing:
-          type: string
-          const: noindex, nofollow
-          default: noindex, nofollow
-        created_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-        payload:
-          anyOf:
-          - $ref: '#/components/schemas/PublicExcerptPayload'
-          - $ref: '#/components/schemas/PublicExcerptTurnsPayload'
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - public_id
-      - status
-      description: Everything an unauthenticated viewer receives. Nothing else exists here.
-    PublicExcerptVisual:
-      properties:
-        kind:
-          type: string
-          const: portfolio_equity
-        currency:
-          anyOf:
-          - type: string
-          - type: 'null'
-        base_value:
-          anyOf:
-          - type: number
-          - type: 'null'
-        series:
-          items:
-            $ref: '#/components/schemas/PublicExcerptVisualPoint'
-          type: array
-      additionalProperties: false
-      type: object
-      required:
-      - kind
-      - series
-      description: Frozen visual evidence. No series is fetched at view time.
-    PublicExcerptVisualPoint:
-      properties:
-        time:
-          type: string
-        value:
-          type: number
-      additionalProperties: false
-      type: object
-      required:
-      - time
-      - value
     Purchase606:
       properties:
         expense_type:
@@ -30749,86 +28316,6 @@ components:
       - bandeja_listo_count
       - bandeja_attention_count
       - por_igualar_count
-    ReceiptCardFacts:
-      properties:
-        execution_costs:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptCosts'
-          - type: 'null'
-      additionalProperties: false
-      type: object
-    ReceiptConfig:
-      properties:
-        template:
-          anyOf:
-          - type: string
-          - type: 'null'
-        start_date:
-          anyOf:
-          - type: string
-          - type: 'null'
-        end_date:
-          anyOf:
-          - type: string
-          - type: 'null'
-        date_range:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptDates'
-          - type: 'null'
-        starting_capital:
-          anyOf:
-          - type: number
-          - type: 'null'
-        timeframe:
-          anyOf:
-          - type: string
-          - type: 'null'
-        benchmark_symbol:
-          anyOf:
-          - type: string
-          - type: 'null'
-        resolved_strategy:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptStrategy'
-          - type: 'null'
-        resolved_parameters:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptParameters'
-          - type: 'null'
-        parameters:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptParameters'
-          - type: 'null'
-      additionalProperties: false
-      type: object
-    ReceiptCosts:
-      properties:
-        fee_bps:
-          anyOf:
-          - type: number
-          - type: 'null'
-        slippage_bps:
-          anyOf:
-          - type: number
-          - type: 'null'
-        benchmark_treatment:
-          anyOf:
-          - type: string
-            const: same_modeled_costs
-          - type: 'null'
-      additionalProperties: false
-      type: object
-    ReceiptDates:
-      properties:
-        start:
-          type: string
-        end:
-          type: string
-      additionalProperties: false
-      type: object
-      required:
-      - start
-      - end
     ReceiptDetail:
       properties:
         id:
@@ -31106,43 +28593,6 @@ components:
       required:
       - description
       - amount
-    ReceiptFigures:
-      properties:
-        total_return_pct:
-          anyOf:
-          - type: number
-          - type: 'null'
-        benchmark_return_pct:
-          anyOf:
-          - type: number
-          - type: 'null'
-        delta_vs_benchmark_pct:
-          anyOf:
-          - type: number
-          - type: 'null'
-        benchmark_comparison_claim:
-          anyOf:
-          - type: string
-            enum:
-            - beat_benchmark
-            - lagged_benchmark
-            - matched_benchmark
-            - unknown
-          - type: 'null'
-        max_drawdown_pct:
-          anyOf:
-          - type: number
-          - type: 'null'
-        gross_total_return_pct:
-          anyOf:
-          - type: number
-          - type: 'null'
-        net_total_return_pct:
-          anyOf:
-          - type: number
-          - type: 'null'
-      additionalProperties: false
-      type: object
     ReceiptHit:
       properties:
         dgii_606:
@@ -31332,54 +28782,6 @@ components:
       - currency
       - category_id
       - account_id
-    ReceiptLegacyRule:
-      properties:
-        cadence:
-          anyOf:
-          - type: string
-          - type: 'null'
-        type:
-          anyOf:
-          - type: string
-          - type: 'null'
-        indicator:
-          anyOf:
-          - type: string
-          - type: 'null'
-        period:
-          anyOf:
-          - type: number
-          - type: 'null'
-        threshold:
-          anyOf:
-          - type: number
-          - type: 'null'
-        direction:
-          anyOf:
-          - type: string
-          - type: 'null'
-        fast_indicator:
-          anyOf:
-          - type: string
-          - type: 'null'
-        fast_period:
-          anyOf:
-          - type: number
-          - type: 'null'
-        slow_indicator:
-          anyOf:
-          - type: string
-          - type: 'null'
-        slow_period:
-          anyOf:
-          - type: number
-          - type: 'null'
-        signal_period:
-          anyOf:
-          - type: number
-          - type: 'null'
-      additionalProperties: false
-      type: object
     ReceiptLimits:
       properties:
         max_bytes:
@@ -31407,54 +28809,6 @@ components:
       type: object
       required:
       - items
-    ReceiptParameters:
-      properties:
-        strategy_type:
-          anyOf:
-          - type: string
-          - type: 'null'
-        starting_capital:
-          anyOf:
-          - type: number
-          - type: 'null'
-        recurring_contribution:
-          anyOf:
-          - type: number
-          - type: 'null'
-        cadence:
-          anyOf:
-          - type: string
-          - type: 'null'
-        timeframe:
-          anyOf:
-          - type: string
-          - type: 'null'
-        benchmark_symbol:
-          anyOf:
-          - type: string
-          - type: 'null'
-        indicator:
-          anyOf:
-          - type: string
-          - type: 'null'
-        indicator_period:
-          anyOf:
-          - type: number
-          - type: 'null'
-        entry_threshold:
-          anyOf:
-          - type: number
-          - type: 'null'
-        exit_threshold:
-          anyOf:
-          - type: number
-          - type: 'null'
-        rule_spec:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptRuleSpec'
-          - type: 'null'
-      additionalProperties: false
-      type: object
     ReceiptReadBody:
       properties:
         completion_cursor:
@@ -31491,124 +28845,6 @@ components:
       required:
       - enabled
       - scope_version
-    ReceiptRuleCondition:
-      properties:
-        left:
-          anyOf:
-          - type: number
-          - $ref: '#/components/schemas/ReceiptRuleSeries'
-        right:
-          anyOf:
-          - type: number
-          - $ref: '#/components/schemas/ReceiptRuleSeries'
-        operator:
-          type: string
-          enum:
-          - lt
-          - lte
-          - gt
-          - gte
-          - cross_above
-          - cross_below
-      additionalProperties: false
-      type: object
-      required:
-      - left
-      - right
-      - operator
-    ReceiptRuleGroup:
-      properties:
-        combinator:
-          type: string
-          enum:
-          - all
-          - any
-          default: all
-        conditions:
-          items:
-            $ref: '#/components/schemas/ReceiptRuleCondition'
-          type: array
-          maxItems: 20
-          minItems: 1
-      additionalProperties: false
-      type: object
-      required:
-      - conditions
-    ReceiptRuleParameters:
-      properties:
-        fast:
-          anyOf:
-          - type: number
-          - type: 'null'
-        slow:
-          anyOf:
-          - type: number
-          - type: 'null'
-        signal:
-          anyOf:
-          - type: number
-          - type: 'null'
-        length:
-          anyOf:
-          - type: number
-          - type: 'null'
-        std:
-          anyOf:
-          - type: number
-          - type: 'null'
-      additionalProperties: false
-      type: object
-    ReceiptRuleSeries:
-      properties:
-        kind:
-          type: string
-          enum:
-          - price
-          - volume
-          - indicator
-        key:
-          anyOf:
-          - type: string
-            pattern: ^[a-z][a-z0-9_]{0,31}$
-          - type: 'null'
-        field:
-          anyOf:
-          - type: string
-            enum:
-            - open
-            - high
-            - low
-            - close
-          - type: 'null'
-        period:
-          anyOf:
-          - type: number
-          - type: 'null'
-        output:
-          anyOf:
-          - type: string
-            pattern: ^[a-z_]{1,24}$
-          - type: 'null'
-        parameters:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptRuleParameters'
-          - type: 'null'
-      additionalProperties: false
-      type: object
-      required:
-      - kind
-    ReceiptRuleSpec:
-      properties:
-        entry:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptRuleGroup'
-          - type: 'null'
-        exit:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptRuleGroup'
-          - type: 'null'
-      additionalProperties: false
-      type: object
     ReceiptStatuses:
       properties:
         pendiente:
@@ -31620,46 +28856,6 @@ components:
       required:
       - pendiente
       - pagado
-    ReceiptStrategy:
-      properties:
-        strategy_type:
-          anyOf:
-          - type: string
-          - type: 'null'
-        initial_capital:
-          anyOf:
-          - type: number
-          - type: 'null'
-        capital_amount:
-          anyOf:
-          - type: number
-          - type: 'null'
-        recurring_contribution:
-          anyOf:
-          - type: number
-          - type: 'null'
-        contribution_period:
-          anyOf:
-          - type: string
-          - type: 'null'
-        cadence:
-          anyOf:
-          - type: string
-          - type: 'null'
-        entry_rule:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptLegacyRule'
-          - type: 'null'
-        exit_rule:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptLegacyRule'
-          - type: 'null'
-        rule_spec:
-          anyOf:
-          - $ref: '#/components/schemas/ReceiptRuleSpec'
-          - type: 'null'
-      additionalProperties: false
-      type: object
     ReceiptSummary:
       properties:
         id:
@@ -35230,34 +32426,6 @@ components:
       required:
       - type
       - value
-    ToolResultRecomputeRequest:
-      properties:
-        message_id:
-          type: string
-          format: uuid
-        input_revision:
-          type: integer
-          minimum: 0.0
-        arguments:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
-          type: object
-          maxProperties: 32
-          minProperties: 1
-      additionalProperties: false
-      type: object
-      required:
-      - message_id
-      - input_revision
-      - arguments
-    ToolResultRecomputeResponse:
-      properties:
-        message:
-          $ref: '#/components/schemas/Message'
-      additionalProperties: false
-      type: object
-      required:
-      - message
     Total:
       properties:
         currency:

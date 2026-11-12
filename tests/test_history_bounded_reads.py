@@ -495,7 +495,7 @@ def test_history_pool_bounds_connections_and_statement_timeout(
     )
 
     assert captured["min_size"] == 0
-    assert captured["max_size"] == 5
+    assert captured["max_size"] == postgres_history_reader._HISTORY_POOL_SIZE
     assert (
         f"statement_timeout={postgres_history_reader._HISTORY_STATEMENT_TIMEOUT_MS}"
         in captured["kwargs"]["options"]

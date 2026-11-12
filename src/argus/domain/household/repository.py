@@ -8,7 +8,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from threading import RLock
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import uuid4
 
 from argus.domain.household.errors import (
@@ -49,6 +49,9 @@ from argus.domain.household.schemas import (
 from argus.domain.idempotency import canonical_hash
 from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import IdempotencyConflict, StaleVersion
+
+if TYPE_CHECKING:
+    from psycopg import Connection
 
 INVITE_TTL = timedelta(days=7)
 
@@ -730,19 +733,25 @@ class FinancialAccountLookup:
     def __init__(self, repository) -> None:  # noqa: ANN001
         self._repository = repository
 
-    def owned_account(self, *, user_id: str, account_id: str) -> OwnedAccountRef | None:
+    def owned_account(
+        self, *, user_id: str, account_id: str, connection: Connection | None = None
+    ) -> OwnedAccountRef | None:
+        borrowed = {"connection": connection} if connection is not None else {}
         stored = self._repository.get_account(
-            user_id=user_id, account_id=account_id, scope=PERSONAL
+            user_id=user_id, account_id=account_id, scope=PERSONAL, **borrowed
         )
         if stored is None:
             return None
         return _ref_from_stored(stored)
 
-    def account_by_id(self, *, account_id: str) -> OwnedAccountRef | None:
+    def account_by_id(
+        self, *, account_id: str, connection: Connection | None = None
+    ) -> OwnedAccountRef | None:
         getter = getattr(self._repository, "get_any_account", None)
         if getter is None:
             return None
-        stored = getter(account_id=account_id)
+        borrowed = {"connection": connection} if connection is not None else {}
+        stored = getter(account_id=account_id, **borrowed)
         if stored is None:
             return None
         return _ref_from_stored(stored)

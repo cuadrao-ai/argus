@@ -56,7 +56,7 @@ def submit(
     connection_id: str,
     candidates: Sequence[ImportCandidate],
     scope: OwnerScope,
-    is_live: Callable[[], bool] = lambda: True,
+    is_live: Callable[[ImportTx], bool] = lambda _tx: True,
 ) -> SubmitResult:
     for candidate in candidates:
         if candidate.source.connection_id != connection_id:
@@ -65,7 +65,7 @@ def submit(
     with legacy_transaction(store, user_id, scope=scope) as tx:
         # Checked under the person's lock: a disconnect's cleanup takes the
         # same lock after the connection is marked ended.
-        if not is_live():
+        if not is_live(tx):
             return SubmitResult(0, 0, 0, ignored=len(candidates))
         for candidate in candidates:
             _record(tx, user_id, candidate, now, tally)

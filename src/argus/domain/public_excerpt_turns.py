@@ -303,13 +303,13 @@ def project_calculation_turn(
     hidden account inputs are never added to the preview or public page.
     """
     from argus.domain.answer_dossiers import computed_answer_cards
-    from argus.domain.capability_registry import get_tool_catalog
+    from argus.domain.personal_tool_catalog import personal_tool_catalog
 
     cards = computed_answer_cards(message.model_dump(mode="python"))
     if not cards:
         refuse("unsupported_turn")
     assert cards is not None
-    catalog = get_tool_catalog(include_unavailable=True)
+    catalog = personal_tool_catalog(include_unavailable=True)
     for card in cards:
         _refuse_unpublishable(card, catalog)
     asked = audit_text(question, field="question", private_ids=private_ids)

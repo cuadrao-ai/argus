@@ -28,10 +28,9 @@ def test_required_api_router_modules_exist() -> None:
     required = [
         "auth",
         "profile",
-        "conversations",
+        "business_conversations",
         "history",
         "search",
-        "discovery",
         "feedback",
         "dev",
     ]
@@ -40,7 +39,21 @@ def test_required_api_router_modules_exist() -> None:
         assert path.exists(), f"missing router {name}"
         assert "router = APIRouter(" in path.read_text(encoding="utf-8")
 
-    for retired_name in ("strategies", "collections", "backtest"):
+    for retired_name in (
+        "strategies",
+        "collections",
+        "backtest",
+        "conversations",
+        "computations",
+        "decisions",
+        "discovery",
+        "evidence",
+        "evidence_receipts",
+        "market",
+        "public_receipts",
+        "receipt_forks",
+        "tool_results",
+    ):
         retired_path = ROOT / "src" / "argus" / "api" / "routers" / f"{retired_name}.py"
         assert not retired_path.exists()
 

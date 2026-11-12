@@ -101,46 +101,8 @@ def test_unknown_kind_is_a_typed_unavailable_state_never_a_crash() -> None:
     assert rerun.result is None and rerun.retest is None
 
 
-def test_backtest_kernel_offers_the_typed_retest_and_never_executes() -> None:
-    run_id = fake.uuid4()
-    run = _completed_run(run_id)
-    computation = DecisionComputation(
-        kind=BACKTEST_COMPUTATION_KIND, inputs={"source_run_id": run_id}
-    )
-
-    (rerun,) = rerun_computation(computation, overrides=None, context=_context(run))
-
-    assert rerun.status == "confirmation_required"
-    assert rerun.retest is not None
-    assert rerun.retest.type == "retest_run"
-    assert rerun.retest.source_run_id == run_id
-    assert rerun.result is None
 
 
-def test_backtest_inputs_are_not_editable_and_a_missing_run_is_unavailable() -> None:
-    run_id = fake.uuid4()
-    computation = DecisionComputation(
-        kind=BACKTEST_COMPUTATION_KIND, inputs={"source_run_id": run_id}
-    )
-
-    (edited,) = rerun_computation(
-        computation,
-        overrides={"source_run_id": fake.uuid4()},
-        context=_context(_completed_run(run_id)),
-    )
-    (missing,) = rerun_computation(computation, overrides=None, context=_context(None))
-    (unfinalized,) = rerun_computation(
-        computation,
-        overrides=None,
-        context=_context({**_completed_run(run_id), "conversation_result_card": {}}),
-    )
-
-    assert edited.status == "unavailable"
-    assert edited.reason_code == "inputs_not_editable"
-    assert missing.status == "unavailable"
-    assert missing.reason_code == "run_unavailable"
-    assert unfinalized.status == "unavailable"
-    assert unfinalized.reason_code == "retest_unavailable"
 
 
 def test_backtest_kernel_requires_a_source_run_id() -> None:

@@ -510,7 +510,7 @@ class PostgresMembershipCommands:
         space_id: str,
         actor_id: str,
         invite_id: str,
-        send: Callable[[], DeliveryState],
+        send: Callable[[Connection | None], DeliveryState],
     ) -> DeliveryState:
         with self.pool.connection() as db, db.transaction():
             require_manager(db, space_id, actor_id)
@@ -541,7 +541,7 @@ class PostgresMembershipCommands:
             if pending is None:
                 raise MembershipError("business_invite_not_available")
             try:
-                status = send()
+                status = send(db)
             except Exception:
                 status = "uncertain"
             db.execute(

@@ -31,7 +31,9 @@ def dev_reset(request: Request) -> SuccessResponse:
         except Exception:
             if not dev_memory_fallback_enabled():
                 raise
-    if api_state.CHECKPOINTER_MODE != "postgres":
+    if api_state.CHECKPOINTER_MODE != "postgres" and hasattr(
+        api_state, "reset_agent_runtime_workflow"
+    ):
         api_state.reset_agent_runtime_workflow(request.app)
     api_state.store.get_or_create_dev_user()
     return SuccessResponse(success=True)

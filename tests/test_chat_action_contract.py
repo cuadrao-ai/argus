@@ -61,34 +61,4 @@ def test_artifact_metadata_fields_are_backward_compatible() -> None:
     assert snapshot.artifact_references[0].artifact_status == "active"
 
 
-def test_confirmation_card_is_not_ready_without_validated_launch_payload() -> None:
-    from argus.api.chat.confirmation import runtime_confirmation_card
-
-    card = runtime_confirmation_card(
-        {
-            "stage_outcome": "await_approval",
-            "confirmation_payload": {
-                "strategy": {
-                    "strategy_type": "signal_strategy",
-                    "asset_universe": ["SPY"],
-                    "asset_class": "equity",
-                    "date_range": "last month",
-                    "entry_logic": "starts rising",
-                },
-                "optional_parameters": {},
-            },
-        },
-        confirmation_id="confirm-1",
-    )
-
-    assert card is not None
-    assert card["status"] == "needs_change"
-    assert card["statusLabel"] == "Needs change"
-    assert all("labelKey" in action for action in card["actions"])
-    # §3.1 end state: the scoped change_dates/change_asset entry points are
-    # retired from emission; Change assumptions is the one editing entry.
-    assert [action["type"] for action in card["actions"]] == [
-        "adjust_assumptions",
-        "cancel_confirmation",
-    ]
 

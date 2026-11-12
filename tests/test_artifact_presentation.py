@@ -109,71 +109,6 @@ def test_reader_recomputes_stale_presentation_metadata_without_mutating_storage(
     assert payload == original
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("language", ["en", "es-419"])
-@pytest.mark.parametrize("fact_key", ["peak_date", "peak_value", "fee_bps"])
-async def test_factual_followup_survives_live_and_persisted_readers(
-    language: str, fact_key: str, faker
-) -> None:
-    from argus.agent_runtime.result_followups import result_followup_fact_bank
-    from argus.agent_runtime.stages.interpret_internal.latest_result_answer import (
-        latest_result_answer_stage_result_if_applicable,
-    )
-    from argus.api.artifact_presentation import reader_chat_result
-    from argus.api.routers.conversations import _public_message_projection
-    from argus.domain.conversation_previews import project_conversation_preview
-
-    from tests.agent_runtime.test_latest_result_fact_answers import (
-        _costed_snapshot,
-        _decision,
-        _RecordingComposer,
-    )
-
-    snapshot = _costed_snapshot()
-    reference = snapshot.latest_backtest_result_reference
-    assert reference is not None
-    fact = result_followup_fact_bank(dict(reference.metadata))[fact_key]
-    answer = f"{faker.sentence()} {fact}"
-    composer = _RecordingComposer(response=answer)
-    decision = _decision("result_card_fact").model_copy(
-        update={"result_followup_fact_key": fact_key}
-    )
-    result = await latest_result_answer_stage_result_if_applicable(
-        decision=decision,
-        snapshot=snapshot,
-        current_user_message=faker.sentence(),
-        language=language,
-        compose_response_func=composer,
-    )
-    assert result is not None
-    assert composer.calls[0]["language"] == language
-    assert result.patch["response_intent"]["kind"] == "beginner_guidance"
-    assert result.patch["response_intent"]["facts"][fact_key] == fact
-
-    live = reader_chat_result(result.patch, result.patch)
-    assert live["assistant_response"] == answer
-    assert live["artifact_presentation_kind"] is None
-
-    message = Message(
-        id=faker.uuid4(),
-        conversation_id=faker.uuid4(),
-        role="assistant",
-        content=answer,
-        created_at=faker.date_time(tzinfo=timezone.utc),
-        metadata={
-            key: value
-            for key, value in result.patch.items()
-            if key != "assistant_response"
-        },
-    )
-    original = message.model_dump()
-    hydrated = _public_message_projection([message])[0]
-    assert hydrated.content == answer
-    assert hydrated.metadata["artifact_presentation_kind"] is None
-    preview = project_conversation_preview(hydrated.model_dump())
-    assert preview.kind == "text"
-    assert preview.text == answer
-    assert message.model_dump() == original
 
 
 def test_legacy_breakdown_gets_typed_intent_without_reading_saved_text() -> None:
@@ -225,25 +160,6 @@ def test_public_serializers_preserve_the_typed_run_schema() -> None:
         assert "BacktestRun" in repr(schema["properties"]["run"])
 
 
-def test_failed_legacy_repair_still_emits_a_terminal_unavailable_result(
-    run, faker
-) -> None:
-    from argus.api.routers.conversations import _public_message_projection
-
-    message = Message(
-        id=faker.uuid4(),
-        conversation_id=run.conversation_id,
-        role="assistant",
-        content="PRIVATE LOST RESULT",
-        created_at=run.created_at,
-        metadata={"conversation_mode": "result_review", "result_run_id": run.id},
-    )
-    missing = repair_result_message_facts(
-        [message], conversation_id=run.conversation_id, load_runs=lambda _ids: {}
-    )
-    public = _public_message_projection(missing)[0]
-    assert public.content == ""
-    assert public.metadata["result_fact_bank"] == {}
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 """Builds the account deletion command from durable dependencies only.
 
-Deletion owns its own small Postgres pool, so it works whatever other features
+Deletion borrows the process business pool regardless of which features
 are switched on: households, financial accounts, ingestion and Apple capture
 all being off doesn't stop a person from deleting their account. The running
 surfaces are reused when they're up (the ingestion hub, #793's Apple service);
@@ -10,7 +10,6 @@ a token stored while a feature was on is still revoked rather than stranded.
 
 from __future__ import annotations
 
-import atexit
 import threading
 from datetime import datetime, timezone
 from typing import Any
@@ -23,7 +22,6 @@ from argus.observability.posthog_deletion import (
 )
 
 _lock = threading.Lock()
-_pools: dict[str, Any] = {}
 _revokers: dict[str, Any] = {}
 _apple: dict[str, Any] = {}
 
@@ -47,23 +45,9 @@ def _clock() -> datetime:
 
 
 def deletion_pool(database_url: str) -> Any:
-    from psycopg_pool import ConnectionPool
+    from argus.api.business_database import business_pool
 
-    with _lock:
-        pool = _pools.get(database_url)
-        if pool is None:
-            pool = ConnectionPool(
-                database_url,
-                min_size=0,
-                # A request and a sweep pass, or two requests, each need a
-                # connection for the run and one for the Apple service.
-                max_size=4,
-                open=True,
-                name="argus-account-deletion",
-            )
-            atexit.register(pool.close)
-            _pools[database_url] = pool
-        return pool
+    return business_pool(database_url)
 
 
 def household_repository(pool: Any) -> Any:
@@ -137,8 +121,12 @@ def standalone_apple(pool: Any) -> Any | None:
     from argus.domain.ingestion.secrets import SecretBox, SecretBoxUnavailable
 
     with _lock:
-        if "service" in _apple:
+        if _apple.get("pool") is pool and "service" in _apple:
             return _apple["service"]
+        previous = _apple.pop("service", None)
+        if previous is not None:
+            previous.close()
+        _apple["pool"] = pool
         try:
             config = AppleSignInConfig.from_env()
             box = SecretBox.from_env()

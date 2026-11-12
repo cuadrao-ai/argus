@@ -15,18 +15,16 @@ python = ">=3.10,<3.15"
 # Configuration Management
 pydantic-settings = "^2.14.2"
 python-dotenv = "^1.2.2"
-# Alpaca Market Data
+# Runtime imports retained by the production dependency audit.
 alpaca-py = "^0.38.0"
-# Logging
-loguru = "^0.7.3"
-# Data Analysis
 pandas = "^2.2.0"
 pandas-ta-classic = {git = "https://github.com/xgboosted/pandas-ta-classic.git", rev = "6e4cb10"}
 dateparser = "^1.4.0"
-# High-Performance Computing
-numba = {version = ">=0.60.0", python = ">=3.10"}
 joblib = "^1.5.3"
+numba = {version = ">=0.60.0", python = ">=3.10"}
 vectorbt = "^0.28.5"
+# Logging
+loguru = "^0.7.3"
 # API Server
 fastapi = {version = "0.124.4", extras = ["standard"]}
 # Python 3.14-ready line; defer Starlette 1.x TestClient transport changes.
@@ -47,6 +45,7 @@ langgraph = ">=1.1.5,<1.2.0"
 langgraph-checkpoint-postgres = "^3.1.3"
 psycopg = {extras = ["binary", "pool"], version = "^3.3.4"}
 babel = "^2.17.0"
+tzdata = "2025.3"
 mem0ai = "^2.0.18"
 number-parser = "0.3.2"
 xlsxwriter = ">=3.2.9,<4"

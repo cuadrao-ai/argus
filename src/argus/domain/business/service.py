@@ -14,6 +14,8 @@ from datetime import date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from psycopg import Connection
+
 from argus.domain import financial_search
 from argus.domain.business import analytics as business_analytics
 from argus.domain.business import ledger
@@ -112,13 +114,19 @@ class BusinessService:
         ]
 
     def create_account(
-        self, scope: BusinessScope, request: CreateFinancialAccountRequest, key: str
+        self,
+        scope: BusinessScope,
+        request: CreateFinancialAccountRequest,
+        key: str,
+        *,
+        connection: Connection | None = None,
     ) -> tuple[dict[str, Any], bool]:
         result = self.accounts.create(
             user_id=scope.person_id,
             idempotency_key=key,
             request=request,
             scope=scope.owner,
+            **({"connection": connection} if connection is not None else {}),
         )
         account = result.stored.account
         return (
@@ -422,7 +430,20 @@ class BusinessService:
     ) -> list[dict[str, Any]]:
         ids = [item["activity_id"] for item in ledger.kind_activities(activities, kind)]
         with self.imports.store.transaction(scope.person_id, scope=scope.owner) as tx:
-            receipt_of = receipt_ids(tx, self.documents.store, scope.person_id, ids)
+            from argus.domain.ingestion.documents.store_postgres import (
+                PostgresDocumentStore,
+            )
+            from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+            from argus.domain.postgres_connection import BorrowedConnection
+
+            documents = self.documents.store
+            if isinstance(tx, _PostgresTx) and isinstance(
+                documents, PostgresDocumentStore
+            ):
+                documents = PostgresDocumentStore(
+                    BorrowedConnection(tx.connection), documents.objects
+                )
+            receipt_of = receipt_ids(tx, documents, scope.person_id, ids)
         return [
             _wire(item)
             for item in ledger.expenses(activities, receipt_of, start, end, kind=kind)

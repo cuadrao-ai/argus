@@ -236,27 +236,12 @@ def test_beta_invites_start_closed_without_the_secret(monkeypatch):
 
 def test_readiness_runs_the_invite_code_check(monkeypatch):
     """Priya: prove /internal/readiness itself calls _invite_code_check."""
-    from types import SimpleNamespace
 
     from argus.api.routers import ops
 
     gateway = MagicMock()
     gateway.health_check.return_value = {"status": "ready", "duration_ms": 1}
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
-    monkeypatch.setattr(api_state, "get_agent_runtime_workflow", lambda request: None)
-    monkeypatch.setattr(
-        ops,
-        "warm_asset_universe",
-        lambda force: SimpleNamespace(
-            status="ready",
-            duration_ms=1,
-            provider_mode="test",
-            alias_count=0,
-            required_symbols=(),
-            resolved_symbols=(),
-            missing_symbols=(),
-        ),
-    )
     monkeypatch.setenv("CUADRAO_OPS_TOKEN", "test-ops-token")
     monkeypatch.setenv("CUADRAO_HOUSEHOLDS_ENABLED", "true")
     monkeypatch.delenv("CUADRAO_INVITE_CODE_SECRET", raising=False)
