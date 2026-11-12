@@ -106,8 +106,15 @@ def run(
         )
         return 2
     lines = compare(service, live)
+    secrets = {token} | {
+        live[entry["name"]]
+        for entry in service["entries"]
+        if entry.get("kind") != "plain" and live.get(entry["name"])
+    }
     for line in lines:
-        out(line.replace(token, "<redacted>"))
+        for secret in sorted(secrets, key=len, reverse=True):
+            line = line.replace(secret, "<redacted>")
+        out(line)
     return 1 if drifted(lines) else 0
 
 
