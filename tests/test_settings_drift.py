@@ -196,3 +196,50 @@ def test_run_diagnostics_do_not_disclose_token(
     assert code == 2
     assert token not in output
     assert errors
+
+
+@pytest.mark.parametrize("use_callback", [False, True])
+@pytest.mark.parametrize("scope", [{}, {"local_only": True}, {"production_only": True}])
+def test_run_redacts_every_manifest_secret_from_every_report_line(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    faker: Faker,
+    use_callback: bool,
+    scope: dict[str, bool],
+) -> None:
+    token, secret, generated = (faker.unique.pystr() for _ in range(3))
+    monkeypatch.setenv("RENDER_API_KEY", token)
+    service = _service()
+    service["entries"].extend(
+        [
+            {"name": "CUADRAO_OPAQUE", "kind": "secret", **scope},
+            {"name": "CUADRAO_GENERATED", "kind": "generated", **scope},
+            {"name": "CUADRAO_EMPTY", "kind": "secret"},
+            {"name": "CUADRAO_MISSING", "kind": "secret"},
+            {"name": "CUADRAO_COMBINED", "kind": "plain", "value": "false"},
+            {"name": "CUADRAO_MATCHING", "kind": "plain", "value": generated},
+        ]
+    )
+    live = {
+        "CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED": secret,
+        "CUADRAO_OPAQUE": secret,
+        "CUADRAO_GENERATED": generated,
+        "CUADRAO_EMPTY": "",
+        "CUADRAO_COMBINED": f"{token}/{secret}/{generated}",
+        "CUADRAO_MATCHING": generated,
+    }
+    monkeypatch.setattr(drift, "load_manifest", lambda: {"services": {"api": service}})
+    monkeypatch.setattr(drift, "staging_services", lambda manifest: manifest["services"])
+    monkeypatch.setattr(drift, "read_live", lambda _client, _service: live)
+    lines: list[str] = []
+    kwargs = {"out": lines.append} if use_callback else {}
+
+    code = drift.run(["api"], client_factory=lambda _token: object(), **kwargs)
+
+    captured = capsys.readouterr()
+    output = "\n".join(lines) + captured.out + captured.err
+    assert code == 1
+    assert all(value not in output for value in (token, secret, generated))
+    assert "CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED expected=false actual=<redacted>" in output
+    assert "CUADRAO_COMBINED expected=false actual=<redacted>/<redacted>/<redacted>" in output
+    assert "ok CUADRAO_MATCHING=<redacted>" in output
