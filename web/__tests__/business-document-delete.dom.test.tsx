@@ -13,7 +13,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; });
 
-async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, withNote = false) {
+async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -36,8 +36,9 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     { ...ready, id: "approved", merchant: "Documento aprobado", status: "confirmed", delete_available: false, bandeja_group: { group: null, reason: null, draft_id: null, version: null } },
     { ...blurry, id: "deleted", merchant: "Documento eliminado", filename: "Documento eliminado", status: "dismissed", delete_available: false, restore_available: true, deleted: deletion, bandeja_group: { group: "eliminados", reason: null, draft_id: null, version: null } },
   ];
-  let notes: BusinessCapture[] = withNote ? [{ draft_id: "deleted-note", version: 2, revision: 1, source_id: "note-source", text: "Documento anotado", received_at: "2026-11-12T09:00:00Z", review_state: "dismissed", deleted: deletion, delete_available: false, restore_available: true, bandeja_group: { group: "eliminados", reason: null, draft_id: "deleted-note", version: 2 } }] : [];
+  let notes: BusinessCapture[] = Array.from({ length: noteCount }, (_, index) => ({ draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2, revision: 1, source_id: `note-source-${index}`, text: index === 50 ? "Documento antiguo" : index ? `Documento anotado ${index}` : "Documento anotado", received_at: new Date(Date.UTC(2026, 10, 12, 9) - index * 60_000).toISOString(), review_state: "dismissed", deleted: deletion, delete_available: false, restore_available: true, bandeja_group: { group: "eliminados", reason: null, draft_id: index ? `deleted-note-${index}` : "deleted-note", version: 2 } }));
   const counts = (): ReceiptActivityCounts => ({ reading_count: 1, unread_count: 0, presentation: "none", pending_review_count: 3, needs_attention_count: 1, ready_to_review_count: 1, bandeja_attention_count: 1, bandeja_listo_count: 1, bandeja_eliminados_count: 11 });
+  const captureOffsets: number[] = [];
   const calls: { id: string; key: string }[] = [];
   const restores: string[] = [];
   const source: BusinessDataSource = {
@@ -48,7 +49,11 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
     receiptActivity: async () => counts(),
     receipt: async id => items.find(item => item.id === id) ?? fixture.receipt(id),
     dossier: async id => ({ ...await fixture.dossier(id), delete_available: true, restore_available: false }),
-    captures: async (_query, _limit, view) => ({ items: notes.filter(note => view === "eliminados" ? !!note.deleted : !note.deleted) }),
+    captures: async (_query, limit = 20, view, offset = 0) => {
+      if (view === "eliminados") captureOffsets.push(offset);
+      const matching = notes.filter(note => view === "eliminados" ? !!note.deleted : !note.deleted);
+      return { items: matching.slice(offset, offset + limit), has_more: offset + limit < matching.length };
+    },
     uploadReceipt: async () => items.find(item => item.id === "deleted")!,
     emailDeliveries: async () => [],
     deleteDocument: async (id, key) => {
@@ -81,7 +86,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   await wait(() => document.querySelectorAll('[data-testid="reception-row"]').length === 4);
   const click = async (element: HTMLElement | null) => { assert.ok(element); await act(async () => element!.click()); };
   const button = (label: string, within: ParentNode = document) => [...within.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === label) ?? null;
-  return { act, wait, click, button, calls, restores, source, items, api: () => api! };
+  return { act, wait, click, button, calls, restores, captureOffsets, source, items, api: () => api! };
 }
 
 test("trash belongs only to the server attention row and only the owner", async () => {
@@ -189,7 +194,7 @@ test("an exact repeat upload says it is deleted and offers the owner's restore",
 
 
 test("Eliminados restores a standalone note draft to its server attention row", async () => {
-  const page = await mount("owner", false, true);
+  const page = await mount("owner", false, 1);
   await page.click(document.getElementById("reception-tab-eliminados"));
   const noteRow = () => [...document.querySelectorAll('[data-testid="deleted-document-row"]')].find(row => row.textContent?.includes("Documento anotado"));
   await page.wait(() => !!noteRow());
@@ -200,4 +205,20 @@ test("Eliminados restores a standalone note draft to its server attention row", 
   await page.wait(() => !!document.querySelector('button[aria-label="Eliminar Documento anotado"]'));
   await page.click(document.getElementById("reception-tab-all"));
   assert.ok(document.querySelector('button[aria-label="Eliminar Documento anotado"]'));
+});
+
+
+test("an older deleted note beyond the first server page can be found and restored", async () => {
+  const page = await mount("owner", false, 51);
+  await page.click(document.getElementById("reception-tab-eliminados"));
+  await page.wait(() => document.querySelectorAll('[data-testid="deleted-document-row"]').length > 0);
+  await page.click(page.button("3"));
+  const oldest = () => [...document.querySelectorAll('[data-testid="deleted-document-row"]')].find(row => row.textContent?.includes("Documento antiguo"));
+  await page.wait(() => !!oldest());
+  assert.deepEqual(page.captureOffsets, [0, 50]);
+  await page.click(page.button("Restaurar", oldest()!));
+  await page.wait(() => !oldest());
+  assert.deepEqual(page.restores, ["deleted-note-50"]);
+  await page.click(document.getElementById("reception-tab-all"));
+  await page.wait(() => !!document.querySelector('button[aria-label="Eliminar Documento antiguo"]'));
 });

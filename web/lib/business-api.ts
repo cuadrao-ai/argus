@@ -499,8 +499,9 @@ export async function captureBusinessNote(input: BusinessCaptureInput, key: stri
 }
 
 /** `inbox` asks for the notes the Bandeja lists: drafts awaiting review that no receipt carries. */
-export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" | "eliminados" = "all"): Promise<BusinessCapturePage> {
+export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" | "eliminados" = "all", offset = 0): Promise<BusinessCapturePage> {
   const params = new URLSearchParams({ q: query, limit: String(limit), view });
+  if (offset) params.set("offset", String(offset));
   return apiFetch<BusinessCapturePage>(`/business/captures?${params}`);
 }
 

@@ -82,7 +82,7 @@ export type BusinessDataSource = Readonly<{
   recordSearchOpen?: (kind: BusinessSearchKind, id: string) => Promise<void>;
   /** `grant` is the Business the note was written in; omitted, the call binds the chosen Business before it awaits. */
   captureNote: (input: BusinessCaptureInput, key: string, grant?: string | null) => Promise<BusinessDossier>;
-  captures: (query?: string, limit?: number, view?: "inbox" | "all" | "eliminados") => Promise<BusinessCapturePage>;
+  captures: (query?: string, limit?: number, view?: "inbox" | "all" | "eliminados", offset?: number) => Promise<BusinessCapturePage>;
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener, grant?: string | null) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;

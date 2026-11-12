@@ -235,7 +235,7 @@ function ReceptionWorkspace() {
         {!pending && !failed && !shown.length ? <ReceptionEmptyState {...empty} /> : null}
       </div>
       {!pending && !failed ? <RecordsPaginationControls page={currentPage} pages={pages} pageSize={pageSize} rangeLabel={t("business.reception_preview.document_range", { from: matched.length ? (currentPage - 1) * pageSize + 1 : 0, to: Math.min(currentPage * pageSize, matched.length), count: matched.length })} label={word("pagination")} pageSizeLabel={word("page_size")} onPageChange={next => { setSelectedIds([]); setPage(next); }} onPageSizeChange={size => { setSelectedIds([]); setPageSize(size); setPage(1); }} /> : null}
-      {(view === "eliminados" ? deletedNotes.truncated : records.notesTruncated) ? <p className={styles.historyNote}>{t("business.inbox.notes_latest")}</p> : null}
+      {(view !== "eliminados" && records.notesTruncated) ? <p className={styles.historyNote}>{t("business.inbox.notes_latest")}</p> : null}
       {deletion.dialog}
       <ConfirmDialog isOpen={approval.asking !== null} tone="primary" isBusy={approval.busy} title={t("business.reception_preview.placeholder.approve_confirm", { count: approval.asking?.length ?? 0 })} description={t("business.reception_preview.placeholder.approve_confirm_help", { count: approval.asking?.length ?? 0 })} confirmLabel={t("business.dossier.approve_action")} cancelLabel={t("common.cancel")} onCancel={approval.cancel} onConfirm={approval.confirm} />
     </section>
