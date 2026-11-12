@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { renderExistingAccountEmail } from "../../marketing/lib/email/existing-account";
+import { renderExistingAccountEmail } from "../../marketing/lib/email/existing-account.ts";
 
 const tokens = {
   signInUrl: "https://cuadrao-existing-account.invalid/?auth=login",

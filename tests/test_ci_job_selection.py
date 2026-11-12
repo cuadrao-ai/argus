@@ -82,13 +82,16 @@ def test_unreferenced_live_package_skips_backend(package):
     assert flags["run_backend"] == flags["run_database"] == "false"
 
 
-@pytest.mark.parametrize("path", [
-    "marketing/lib/email/account-layout.ts",
-    "marketing/content/legal-es.json", "marketing/content/legal-en.json",
-    "web/argus_display_contract/support_contact.json",
+@pytest.mark.parametrize("folder,name", [
+    ("marketing/lib/email", "account-layout.ts"),
+    ("marketing/lib/email", "existing-account.ts"),
+    ("marketing/content", "legal-es.json"),
+    ("marketing/content", "legal-en.json"),
+    ("web/argus_display_contract", "support_contact.json"),
 ])
-def test_live_shared_paths_run_every_job(path):
-    flags = outputs(classify(ROOT, path))
+def test_live_shared_paths_run_every_job(folder, name):
+    # Build the path so this test cannot itself supply the literal reference.
+    flags = outputs(classify(ROOT, f"{folder}/{name}"))
     assert all(value == "true" for key, value in flags.items() if key.startswith("run_"))
 
 
