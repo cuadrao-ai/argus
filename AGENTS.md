@@ -58,6 +58,7 @@ The interpreter and model-facing text rules below apply to it.
 ```bash
 poetry run ruff check src tests workflows scripts
 poetry run python scripts/check_modularity_budget.py
+python scripts/check_cross_folder_links.py
 poetry run pytest tests -q --no-cov
 python scripts/check_config_credentials.py
 python .agent/scripts/ownership/verify_branch_ownership.py
@@ -79,6 +80,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - One owner per fact. Ask of every change who else holds this fact and what forces
   them to agree. Derive from one source; never keep two copies in sync.
+- A fact used by more than one of the API, app and marketing site lives only in `shared/`, and each one lists it as a dependency. Never copy files between those folders or read another one's files. scripts/check_cross_folder_links.py enforces this.
 - While `src/argus/agent_runtime/llm_interpreter.py` remains, preserve its
   interpretation boundary. Do not add regex, phrase lists or language gates in
   front of it. Code checks facts after interpretation. Any layer that patches a
