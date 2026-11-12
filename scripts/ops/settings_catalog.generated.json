@@ -57,6 +57,11 @@
       ]
     },
     {
+      "name": "API_BASE",
+      "default": "",
+      "owner": "scripts/ci/deploy_staging.py"
+    },
+    {
       "name": "APP_ENV",
       "reads": [
         {
@@ -70,6 +75,14 @@
         {
           "default": "local",
           "owner": "src/argus/observability/envelope.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/documents/benchmark.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/documents/scoped_measurement.py"
         }
       ]
     },
@@ -629,8 +642,16 @@
     },
     {
       "name": "ARGUS_VISION_MODEL",
-      "default": "",
-      "owner": "src/argus/llm/openrouter.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/llm/openrouter.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/documents/benchmark.py"
+        }
+      ]
     },
     {
       "name": "ARGUS_WHATSAPP_ACCESS_TOKEN",
@@ -706,6 +727,21 @@
       "name": "ARGUS_WORKFLOW_PROOF_USER_ID",
       "default": "00000000-0000-4000-8000-000000000124",
       "owner": "workflows/proof.py"
+    },
+    {
+      "name": "CANARY_REQUESTED_SIGNUP_DENIAL_API_URL",
+      "default": "",
+      "owner": ".github/canary-requested-signup-denial.py"
+    },
+    {
+      "name": "CANARY_REQUESTED_SIGNUP_DENIAL_EMAIL",
+      "default": "",
+      "owner": ".github/canary-requested-signup-denial.py"
+    },
+    {
+      "name": "CANARY_REQUESTED_SIGNUP_DENIAL_OPS_TOKEN",
+      "default": "",
+      "owner": ".github/canary-requested-signup-denial.py"
     },
     {
       "name": "CUADRAO_ACCOUNT_DELETION_ENABLED",
@@ -1247,8 +1283,16 @@
     },
     {
       "name": "CUADRAO_OPENROUTER_DOCUMENT_EXTRACTION_TIMEOUT_SECONDS",
-      "default": "",
-      "owner": "src/argus/llm/openrouter.py"
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/llm/openrouter.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/documents/scoped_measurement.py"
+        }
+      ]
     },
     {
       "name": "CUADRAO_OPENROUTER_FIELD_FIDELITY_TIMEOUT_SECONDS",
@@ -1548,6 +1592,10 @@
         {
           "default": null,
           "owner": "scripts/ops/staging_env.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/qa/business_month_seed.py"
         }
       ]
     },
@@ -1782,6 +1830,11 @@
       "owner": "web/scripts/auth-design-evidence.ts"
     },
     {
+      "name": "FORCE_ALL",
+      "default": "",
+      "owner": "scripts/ci/deploy_staging.py"
+    },
+    {
       "name": "FRED_API_KEY",
       "default": "",
       "owner": "src/argus/context/providers.py"
@@ -1800,6 +1853,16 @@
       "name": "GOOGLE_OAUTH_REDIRECT_URI",
       "default": "",
       "owner": "src/argus/domain/ingestion/gmail/config.py"
+    },
+    {
+      "name": "INPUT_SHA",
+      "default": "",
+      "owner": "scripts/ci/deploy_staging.py"
+    },
+    {
+      "name": "LIVE_COMMIT",
+      "default": "",
+      "owner": "scripts/ci/deploy_staging.py"
     },
     {
       "name": "MARKETING_CAPTURE_URL",
@@ -2216,8 +2279,25 @@
     },
     {
       "name": "OPENROUTER_API_KEY",
+      "reads": [
+        {
+          "default": "",
+          "owner": "src/argus/llm/openrouter_key_policy.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/documents/scoped_measurement.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/documents/scoped_measurement.py"
+        }
+      ]
+    },
+    {
+      "name": "PARENT_SHA",
       "default": "",
-      "owner": "src/argus/llm/openrouter_key_policy.py"
+      "owner": "scripts/ci/deploy_staging.py"
     },
     {
       "name": "PERPLEXITY_API_KEY",
@@ -2313,6 +2393,33 @@
       "owner": "src/argus/observability/envelope.py"
     },
     {
+      "name": "PR_BASE_SHA",
+      "reads": [
+        {
+          "default": "",
+          "owner": "scripts/ci/check_file_size.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/ci/check_no_evidence_media.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/ci/check_pr_guards.py"
+        }
+      ]
+    },
+    {
+      "name": "PR_HEAD_SHA",
+      "default": "HEAD",
+      "owner": "scripts/ci/check_pr_guards.py"
+    },
+    {
+      "name": "RAIL_CHECKSUM_OUT",
+      "default": "flag_off_checksum.json",
+      "owner": "scripts/qa/research_rail_flag_off_checksum.py"
+    },
+    {
       "name": "RENDER",
       "default": "",
       "owner": "src/argus/api/dependencies.py"
@@ -2327,6 +2434,10 @@
         {
           "default": "",
           "owner": "src/argus/api/render_workflows.py"
+        },
+        {
+          "default": "",
+          "owner": "scripts/ci/deploy_staging.py"
         },
         {
           "default": null,
@@ -2443,6 +2554,10 @@
         {
           "default": null,
           "owner": "scripts/ops/staging_env.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/qa/business_month_seed.py"
         }
       ]
     },
@@ -2460,6 +2575,10 @@
         {
           "default": "",
           "owner": "scripts/ops/destructive_database_target.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/qa/business_month_seed.py"
         }
       ]
     },
@@ -2486,8 +2605,17 @@
         {
           "default": null,
           "owner": "scripts/ops/staging_env.py"
+        },
+        {
+          "default": null,
+          "owner": "scripts/qa/business_month_seed.py"
         }
       ]
+    },
+    {
+      "name": "WEB_BASE",
+      "default": "",
+      "owner": "scripts/ci/deploy_staging.py"
     }
   ]
 }

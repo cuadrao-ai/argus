@@ -46,6 +46,8 @@ def test_python_reader_in_new_scripts_folder_is_cataloged(tmp_path: Path) -> Non
     "relative",
     [
         "scripts/ci/reader.py",
+        "scripts/docs/reader.py",
+        "workflows/reader.py",
         "scripts/qa/reader.py",
         "scripts/documents/reader.py",
         "new_top_level/reader.py",
@@ -102,6 +104,26 @@ def test_python_discovery_uses_index_and_existing_working_tree_files(
     _track(tmp_path)
     path.write_text('import os\nos.getenv("CUADRAO_SAMPLE", "40")\n')
     assert scan(tmp_path) == ({}, [])
+
+
+@pytest.mark.parametrize(
+    "relative", ["docs/reader.py", "docs/reports/evidence/dated/reader.py"]
+)
+def test_python_documentation_quotes_stay_out_of_catalog(
+    tmp_path: Path, relative: str
+) -> None:
+    from scripts.ci.settings_agreement import write_catalog
+
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        'import os\nos.getenv("CUADRAO_QUOTED", "20")\nos.getenv(dynamic_name())\n'
+    )
+    (tmp_path / "scripts/ops").mkdir(parents=True)
+    _track(tmp_path)
+    write_catalog(tmp_path)
+    catalog = tmp_path / "scripts/ops/settings_catalog.generated.json"
+    assert json.loads(catalog.read_text()) == {"version": 2, "settings": []}
 
 
 def _tree(tmp_path: Path, source: str, settings: list[dict[str, object]]) -> Path:

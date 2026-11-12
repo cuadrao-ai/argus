@@ -27,6 +27,8 @@ SKIP_DIRS = {
     "node_modules",
     "tests",
 }
+# Documentation and dated evidence are quoted records, not executable Python sources.
+PYTHON_SKIP_ROOTS = {"docs"}
 SKIP_ENV = {
     "CI",
     "HOME",
@@ -859,7 +861,10 @@ def _python_files(root: Path) -> list[Path]:
     return [
         root / relative
         for relative in tracked.split("\0")
-        if relative and _kept(Path(relative)) and (root / relative).is_file()
+        if relative
+        and Path(relative).parts[0] not in PYTHON_SKIP_ROOTS
+        and _kept(Path(relative))
+        and (root / relative).is_file()
     ]
 
 
