@@ -26,10 +26,10 @@ Runtime source: `7f0f1354d68ee0638ed2ebca36425b7c359af428`. Production build, ty
 
 The independent scoped review found no actionable issues, added comments, or suppressions. The parent inspected the desktop first/second-photo and mobile second-photo captures, then confirmed that the in-app browser loaded the Personal sequence. Physical Safari/iPhone behavior is not claimed. The Business desktop footer screenshot is byte-identical before and after this change. Both files have SHA-256 `3e550acce9e4be97c1e16568dd5a08d43e9f06679458b9924271d61801de8098`.
 
-- [First photo](screens/footer-es-1440-first.png) and [second photo](screens/footer-es-1440-second.png).
-- [Phone reveal](screens/footer-es-390-second.png) and [resting cutoff](screens/footer-es-390-rest.png).
+- [First photo](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-touchup/personal-footer/screens/footer-es-1440-first.png) and [second photo](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-touchup/personal-footer/screens/footer-es-1440-second.png).
+- [Phone reveal](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-touchup/personal-footer/screens/footer-es-390-second.png) and [resting cutoff](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-touchup/personal-footer/screens/footer-es-390-rest.png).
 - [Short recording](screens/personal-footer-demo.webm), [capture manifest](screens/manifest.json), [browser results](browser-results.txt), and [build results](build-results.txt).
-- [Business before](screens/business-footer-before.png) and [Business after](screens/business-footer-unchanged.png).
+- [Business before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-touchup/personal-footer/screens/business-footer-before.png) and [Business after](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-touchup/personal-footer/screens/business-footer-unchanged.png).
 
 ## Continue
 
