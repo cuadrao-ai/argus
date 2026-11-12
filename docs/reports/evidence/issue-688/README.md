@@ -51,7 +51,7 @@ open after consuming the handoff. At `90b0b7be`, a stronger browser regression
 confirmed that the modal failed to close automatically after Recents returned
 503. The fixture now makes the claim single-use and counts handoff/login calls,
 so a second authentication cannot accidentally repair the fixture state.
-[Historical error-modal capture](baseline-post-claim-recents-error.png) was taken
+[Historical error-modal capture](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/baseline-post-claim-recents-error.png) was taken
 at `2544aaf2`; it is **obsolete baseline evidence**, not final behavior.
 
 At `d56fc9be`, successful, failed and held Recents refresh cases close the modal
@@ -89,22 +89,22 @@ isolated in `.next-688`. Both servers stop with the test runner.
 
 | Verification | Expected outcome and evidence |
 | --- | --- |
-| Private, research and shared conversation Markdown | Zero tracking requests and zero remote image elements; readable alt text and 3 ordinary safe links. [Screenshot](markdown-images.png) |
-| Real public `/r/` receipt route | Zero tracking requests, readable alt text and safe link. [Screenshot](public-receipt-images.png) |
+| Private, research and shared conversation Markdown | Zero tracking requests and zero remote image elements; readable alt text and 3 ordinary safe links. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/markdown-images.png) |
+| Real public `/r/` receipt route | Zero tracking requests, readable alt text and safe link. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/public-receipt-images.png) |
 | Actual response CSP and existing Argus icon | Header contains `img-src 'self' data:`; `/icons/argus-192.png` decodes with positive natural width |
-| Cross-tab switch A to B | Zero create/stream requests, A transcript and draft removed, localized notice. [English](account-switch.png), [Spanish](account-switch-es-419.png) |
-| Cross-tab logout | Zero create/stream requests; draft and transcript removed. [Screenshot](logout.png) |
+| Cross-tab switch A to B | Zero create/stream requests, A transcript and draft removed, localized notice. [English](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/account-switch.png), [Spanish](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/account-switch-es-419.png) |
+| Cross-tab logout | Zero create/stream requests; draft and transcript removed. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/logout.png) |
 | Cookie switches without broadcast before ordinary submit | Zero create/stream requests; canonical credential mismatch closes stale view |
-| Switch with pending stream response | Only the original A request; no late response enters the new view. [Screenshot](switch-pending-stream.png) |
-| Switch while 404 response is pending | Only the original A request; no recovery conversation or resend. [Screenshot](switch-pending-404.png) |
-| Switch during 404 recovery create | Original stream and create remain authenticated as A; no resend. [Screenshot](switch-pending-create.png) |
-| Switch during initial new-chat create | One create authenticated as A; no stream follows. [Screenshot](switch-pending-initial-create.png) |
+| Switch with pending stream response | Only the original A request; no late response enters the new view. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/switch-pending-stream.png) |
+| Switch while 404 response is pending | Only the original A request; no recovery conversation or resend. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/switch-pending-404.png) |
+| Switch during 404 recovery create | Original stream and create remain authenticated as A; no resend. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/switch-pending-create.png) |
+| Switch during initial new-chat create | One create authenticated as A; no stream follows. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/switch-pending-initial-create.png) |
 | Same-user token refresh | Draft retained and one stream uses refreshed A token |
-| Same-user 404 recovery | Exactly original stream, replacement create, resend; all as A. [Screenshot](same-user-404-recovery.png) |
-| Explicit guest claim | Existing login modal, verified synthetic claim, actual browser `setSession`, retained conversation; no automatic send, deliberate follow-up uses destination identity. [Screenshot](guest-claim.png) |
-| Guest claim followed by Recents failure | Modal closes automatically, one handoff/login completes, claimed conversation remains available, zero implicit sends and one deliberate destination-account send. [Retained view](guest-claim-recents-failure.png) |
-| Guest claim with held Recents | Previously requested simulation resumes once as B before the history response is released; releasing it does not duplicate the action. [Pending projection](guest-claim-held-recents.png) |
-| Cold guest first send | Bootstrap establishes guest identity; exactly one stream is sent with that identity. [Screenshot](cold-guest-first-send.png) |
+| Same-user 404 recovery | Exactly original stream, replacement create, resend; all as A. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/same-user-404-recovery.png) |
+| Explicit guest claim | Existing login modal, verified synthetic claim, actual browser `setSession`, retained conversation; no automatic send, deliberate follow-up uses destination identity. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/guest-claim.png) |
+| Guest claim followed by Recents failure | Modal closes automatically, one handoff/login completes, claimed conversation remains available, zero implicit sends and one deliberate destination-account send. [Retained view](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/guest-claim-recents-failure.png) |
+| Guest claim with held Recents | Previously requested simulation resumes once as B before the history response is released; releasing it does not duplicate the action. [Pending projection](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/guest-claim-held-recents.png) |
+| Cold guest first send | Bootstrap establishes guest identity; exactly one stream is sent with that identity. [Screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/issue-688/cold-guest-first-send.png) |
 
 The pending-stream fixture holds the HTTP response; it verifies request
 cancellation and late-response exclusion, not incremental network chunk timing.

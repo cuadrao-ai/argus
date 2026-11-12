@@ -43,7 +43,7 @@ remaining after payment, correction, return and a second payment. Other native
 fixtures remain intentionally preserved. Their records contribute to Home's
 whole-owner totals; the accepted API readback verifies its named fixture only.
 
-[90-second recording](debt-journey.mp4) shows payment confirmation, lost accepted
+[90-second recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-debt-plans/debt-journey.mp4) shows payment confirmation, lost accepted
 response, reopening, exact retry and correction. [Native proof](native-proof.json)
 links sixteen unmodified financial screenshots and the passing test summaries.
 [Independent review](review-proof.json) records the reviewed commits and fixes.

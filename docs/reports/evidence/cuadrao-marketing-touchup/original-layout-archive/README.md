@@ -2,7 +2,7 @@
 
 The original Marketing layout is preserved for inspiration. This archive is historical design material, not a release candidate.
 
-- [Download the complete Marketing source](cuadrao-original-171779c97.tar.gz).
+- [Download the complete Marketing source](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-touchup/original-layout-archive/cuadrao-original-171779c97.tar.gz).
 - Source commit: `171779c97c0b895ab437debe7750c30db04b8ecc`.
 - Marketing tree: `8edd34949e03fd70a1acdf703c14cb7e9febb94b`.
 - All 109 tracked Marketing files in the preserved comparison directory match that commit byte-for-byte. The archive is generated with `git archive`, so it excludes credentials, dependencies and build caches.
@@ -15,10 +15,10 @@ These existing screenshots record the original layout's earlier verified source 
 
 | Page | Desktop | Mobile |
 | --- | --- | --- |
-| Business ES | [View](../../cuadrao-marketing-launch/screens/es-home-1440.jpg) | [View](../../cuadrao-marketing-launch/screens/es-home-390.jpg) |
-| Personal ES | [View](../../cuadrao-marketing-launch/screens/es-personal-1440.jpg) | [View](../../cuadrao-marketing-launch/screens/es-personal-390.jpg) |
-| Business EN | [View](../../cuadrao-marketing-launch/screens/en-home-1440.jpg) | [View](../../cuadrao-marketing-launch/screens/en-home-390.jpg) |
-| Personal EN | [View](../../cuadrao-marketing-launch/screens/en-personal-1440.jpg) | [View](../../cuadrao-marketing-launch/screens/en-personal-390.jpg) |
+| Business ES | [View](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-launch/screens/es-home-1440.jpg) | [View](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-launch/screens/es-home-390.jpg) |
+| Personal ES | [View](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-launch/screens/es-personal-1440.jpg) | [View](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-launch/screens/es-personal-390.jpg) |
+| Business EN | [View](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-launch/screens/en-home-1440.jpg) | [View](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-launch/screens/en-home-390.jpg) |
+| Personal EN | [View](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-launch/screens/en-personal-1440.jpg) | [View](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-launch/screens/en-personal-390.jpg) |
 
 ## Replay later
 

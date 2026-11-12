@@ -82,7 +82,7 @@ Auth/API/Postgres. Raw logs and `.xcresult` diagnostics remain ignored.
 and eight canonical activities after repeated setup. It includes bank/card
 purchases, a transfer, a card payment, another currency and an unknown balance.
 Fifteen real API readbacks cover balances, entry identity and owner isolation.
-The inherited Home reopening test also passes. Its [retained Home screenshot](pre-implementation-home.png)
+The inherited Home reopening test also passes. Its [retained Home screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/pre-implementation-home.png)
 shows DOP 963 in known balances, one unknown balance, DOP 140 spending and
 USD 50 separately. These are preparation evidence, not budget progress.
 
@@ -132,13 +132,13 @@ records remain deliberately preserved, so aggregate Home balances differ from
 the initial preparation screenshot. Each budget's explicit scope keeps its own
 progress stable.
 
-[Short financial-only recording](budget-journey.mp4) accompanies the
-[initial scope](budget-initial.png), [over-budget purchase](budget-over.png),
-[correction](budget-correction.png), [cross-account refund](budget-refund.png),
-[restored contributor position](budget-return.png), [archive/restore](budget-archived.png),
-[reopened detail](budget-reopen.png), [Search return](budget-search.png),
-[Spanish detail](budget-es.png), [Home summary/back](budget-home.png) and
-[recovered exact command](budget-retry.png).
+[Short financial-only recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-journey.mp4) accompanies the
+[initial scope](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-initial.png), [over-budget purchase](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-over.png),
+[correction](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-correction.png), [cross-account refund](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-refund.png),
+[restored contributor position](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-return.png), [archive/restore](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-archived.png),
+[reopened detail](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-reopen.png), [Search return](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-search.png),
+[Spanish detail](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-es.png), [Home summary/back](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-home.png) and
+[recovered exact command](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-budgets/budget-retry.png).
 
 ## Remaining limitations
 

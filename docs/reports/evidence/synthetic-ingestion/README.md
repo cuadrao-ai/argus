@@ -68,8 +68,8 @@ replacement with memory rollback on failure; this is single-process scaffolding.
   Controlled PDF metadata and metadata-free PNGs keep local runs reproducible.
 - Opened both PDF renders, the receipt and scanned page. Labels and fields were
   readable; deliberate unreadable fields remained visibly marked. Durable PDF
-  renders: [statement](statement-preview.png),
-  [overlap](statement-overlap-preview.png). PNG originals are in the committed
+  renders: [statement](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/synthetic-ingestion/statement-preview.png),
+  [overlap](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/synthetic-ingestion/statement-overlap-preview.png). PNG originals are in the committed
   [sample set](../../../../tests/synthetic_ingestion/samples/).
 - Independent review caught and corrected scan source-location/date disagreement
   by deriving the rendered rows and authored proposals from one fixture owner.

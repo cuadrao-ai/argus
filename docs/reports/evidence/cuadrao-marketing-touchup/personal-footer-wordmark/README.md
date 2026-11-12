@@ -10,7 +10,7 @@ Runtime source `2ab403d6df815ea1ff66d792d504564cab44109d`. Production build, typ
 
 The Business footer capture is byte-identical to the prior trial and baseline capture, with SHA-256 `3e550acce9e4be97c1e16568dd5a08d43e9f06679458b9924271d61801de8098`. No physical Safari/iPhone acceptance is claimed.
 
-[Desktop](screens/footer-es-1440-rest.png), [phone](screens/footer-es-390-rest.png), [source manifest](screens/manifest.json), [browser results](browser-results.txt), and [build results](build-results.txt) preserve this checkpoint. Matching English captures are included.
+[Desktop](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-touchup/personal-footer-wordmark/screens/footer-es-1440-rest.png), [phone](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-marketing-touchup/personal-footer-wordmark/screens/footer-es-390-rest.png), [source manifest](screens/manifest.json), [browser results](browser-results.txt), and [build results](build-results.txt) preserve this checkpoint. Matching English captures are included.
 
 Reproduce from `marketing/` after building:
 

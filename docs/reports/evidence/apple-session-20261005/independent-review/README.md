@@ -4,7 +4,7 @@ PR864 head `9419001712dc9f070741909312982f19d1e08e72`, source `caa7e702705a78ae9
 
 The independent reviewer ran the committed diagnostic patch only in a temporary archive. The probe used the actual ProfileAuthModel and a direct SessionController request with synthetic local services. It held the queued model restore after an earlier checker completed, then attempted the protected request. The request was blocked with staleOperation at check2. The local HTTP counter moved from0 to1, covering one positive control and zero forbidden requests. The xcresult collector exited0.
 
-![Protected dispatch blocked](notification-admission-blocked.png)
+[Protected dispatch blocked](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/independent-review/notification-admission-blocked.png)
 
 This proves the tested admission interval. It does not prove real Apple authorization or hosted behavior. The remaining full independent review and exact-head CI are separate gates.
 

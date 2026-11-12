@@ -86,13 +86,13 @@ home-indicator regions are excluded.
 
 | Example | Before | After |
 | --- | --- | --- |
-| Home | [Light](before/home-es-light.jpg) | [Light](after/home-es-light.jpg) |
-| Chat | [Dark](before/chat-es-dark.jpg) | [Dark](after/chat-es-dark.jpg) |
-| Plan | [Light](before/plan-es-light.jpg) | [Light](after/plan-es-light.jpg) |
-| Linked Plan detail | [Light](before/plan-detail-es-light.jpg) | [Light](after/plan-detail-es-light.jpg) |
-| Search | [Light](before/search-es-light.jpg) | [Light](after/search-es-light.jpg) |
-| Profile | [Light](before/profile-es-light.jpg) | [Light](after/profile-es-light.jpg) |
-| Household | [Light](before/household-es-light.jpg) | [Light](after/household-es-light.jpg) |
+| Home | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/before/home-es-light.jpg) | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/after/home-es-light.jpg) |
+| Chat | [Dark](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/before/chat-es-dark.jpg) | [Dark](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/after/chat-es-dark.jpg) |
+| Plan | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/before/plan-es-light.jpg) | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/after/plan-es-light.jpg) |
+| Linked Plan detail | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/before/plan-detail-es-light.jpg) | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/after/plan-detail-es-light.jpg) |
+| Search | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/before/search-es-light.jpg) | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/after/search-es-light.jpg) |
+| Profile | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/before/profile-es-light.jpg) | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/after/profile-es-light.jpg) |
+| Household | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/before/household-es-light.jpg) | [Light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/after/household-es-light.jpg) |
 
 These first captures cover application source at `e6b7cf325`. Its later
 accessibility identifier changes do not change those view layouts. The linked
@@ -325,7 +325,7 @@ and position, correction and the native Edit/Cancel controls.
 
 The Debt journey passed account selection, payment and correction, then failed
 when the test attempted to type principal into a field covered by the existing
-keyboard toolbar. [The failure frame](debt-keyboard-obstruction.png) shows the
+keyboard toolbar. [The failure frame](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-connected-preview/full-recovery/debt-keyboard-obstruction.png) shows the
 obstruction while the amount field retains focus. The shared money-field driver
 now dismisses the existing keyboard before selecting the next field. Financial
 assertions and product source are unchanged. An independent review of the

@@ -12,9 +12,9 @@ The [manifest](manifest.json) records captured heads, hashes, exact source scope
 
 ## Actual rendered proof
 
-- [Spanish desktop auth artwork](brand-signin-light-spanish-1280.png) and [Spanish mobile dark auth artwork](brand-signin-dark-spanish-390.png), freshly captured at reconciliation head.
-- [Retained unconfirmed correction](uncertain-retained-intent-spanish.png): the canonical header is another human's revision while the disabled form preserves the attempted correction. Saved facts/history and the uncertainty warning render separately; approval remains paused.
-- [Owner-funded expense list](owner-funded-expenses-spanish.png) and [search result](owner-funded-search-spanish.png): `Dinero del dueño`, date, category and amount are visible with server `account_id=null`.
+- [Spanish desktop auth artwork](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/942-cuadrao-record-ui/brand-signin-light-spanish-1280.png) and [Spanish mobile dark auth artwork](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/942-cuadrao-record-ui/brand-signin-dark-spanish-390.png), freshly captured at reconciliation head.
+- [Retained unconfirmed correction](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/942-cuadrao-record-ui/uncertain-retained-intent-spanish.png): the canonical header is another human's revision while the disabled form preserves the attempted correction. Saved facts/history and the uncertainty warning render separately; approval remains paused.
+- [Owner-funded expense list](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/942-cuadrao-record-ui/owner-funded-expenses-spanish.png) and [search result](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/942-cuadrao-record-ui/owner-funded-search-spanish.png): `Dinero del dueño`, date, category and amount are visible with server `account_id=null`.
 
 Record captures come from reviewed head `85d564ae1`; their complete implemented web tree was revalidated equal after reconciliation. No local screenshot establishes hosted customer readiness.
 
