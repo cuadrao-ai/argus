@@ -34,8 +34,74 @@ def test_python_reader_in_new_scripts_folder_is_cataloged(tmp_path: Path) -> Non
     write_catalog(tmp_path)
     catalog = tmp_path / "scripts/ops/settings_catalog.generated.json"
     assert json.loads(catalog.read_text())["settings"] == [
-        {"name": "CUADRAO_FUTURE_TOOL", "default": "20", "owner": "scripts/future_tool/reader.py"}
+        {
+            "name": "CUADRAO_FUTURE_TOOL",
+            "default": "20",
+            "owner": "scripts/future_tool/reader.py",
+        }
     ]
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "scripts/ci/reader.py",
+        "scripts/qa/reader.py",
+        "scripts/documents/reader.py",
+        "new_top_level/reader.py",
+        "root_reader.py",
+        "scripts/future tool/reader.py",
+    ],
+)
+def test_python_discovery_covers_all_tracked_locations(
+    tmp_path: Path, relative: str
+) -> None:
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('import os\nos.getenv("CUADRAO_SAMPLE", "20")\n')
+    _track(tmp_path)
+    assert scan(tmp_path) == ({"CUADRAO_SAMPLE": (Read("20", relative),)}, [])
+
+
+@pytest.mark.parametrize(
+    "directory",
+    [
+        ".next",
+        "__pycache__",
+        "__tests__",
+        "coverage",
+        "dist",
+        "e2e",
+        "node_modules",
+        "tests",
+    ],
+)
+def test_python_tracked_test_and_build_files_stay_excluded(
+    tmp_path: Path, directory: str
+) -> None:
+    path = tmp_path / "scripts" / directory / "reader.py"
+    path.parent.mkdir(parents=True)
+    path.write_text('import os\nos.getenv("CUADRAO_SAMPLE")\n')
+    _track(tmp_path)
+    assert scan(tmp_path) == ({}, [])
+
+
+def test_python_discovery_uses_index_and_existing_working_tree_files(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "src/reader.py"
+    path.parent.mkdir()
+    path.write_text('import os\nos.getenv("CUADRAO_SAMPLE", "20")\n')
+    assert scan(tmp_path) == ({}, [])
+    _track(tmp_path)
+    assert scan(tmp_path) == ({"CUADRAO_SAMPLE": (Read("20", "src/reader.py"),)}, [])
+    path.write_text('import os\nos.getenv("CUADRAO_SAMPLE", "30")\n')
+    assert scan(tmp_path) == ({"CUADRAO_SAMPLE": (Read("30", "src/reader.py"),)}, [])
+    path.unlink()
+    assert scan(tmp_path) == ({}, [])
+    _track(tmp_path)
+    path.write_text('import os\nos.getenv("CUADRAO_SAMPLE", "40")\n')
+    assert scan(tmp_path) == ({}, [])
 
 
 def _tree(tmp_path: Path, source: str, settings: list[dict[str, object]]) -> Path:

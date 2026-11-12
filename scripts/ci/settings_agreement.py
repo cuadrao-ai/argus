@@ -9,6 +9,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -849,13 +850,16 @@ def _kept(path: Path) -> bool:
 
 
 def _python_files(root: Path) -> list[Path]:
-    roots = (root / "src", root / "workflows", root / "scripts" / "ops")
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z", "--", "*.py"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    ).stdout.decode("utf-8", errors="surrogateescape")
     return [
-        path
-        for base in roots
-        if base.is_dir()
-        for path in base.rglob("*.py")
-        if _kept(path.relative_to(root))
+        root / relative
+        for relative in tracked.split("\0")
+        if relative and _kept(Path(relative)) and (root / relative).is_file()
     ]
 
 
