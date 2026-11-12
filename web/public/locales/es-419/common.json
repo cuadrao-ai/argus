@@ -3182,8 +3182,6 @@
         "save_refused": "No se guardó {{field}}. Revisa el valor.",
         "save_stale": "Este registro cambió mientras editabas. Ya ves la versión actual y tu cambio sigue aquí.",
         "doubtful_read": "revisar",
-        "zoom_in": "Acercar",
-        "zoom_out": "Alejar",
         "done_title": "No quedan recibos por revisar",
         "done_back": "Volver a la Bandeja",
         "total_mismatch": "Subtotal + ITBIS = {{sum}}, no {{total}}",
@@ -3210,6 +3208,18 @@
       "tab_form": "Formulario",
       "tab_original": "Original",
       "view_label": "Vista",
+      "viewer": {
+        "actual_size": "Tamaño real",
+        "exit_full_screen": "Salir de pantalla completa",
+        "fit_page": "Ajustar a la página",
+        "fit_width": "Ajustar al ancho",
+        "full_screen": "Pantalla completa",
+        "open_original": "Abrir original",
+        "rotate_left": "Girar a la izquierda",
+        "rotate_right": "Girar a la derecha",
+        "zoom_in": "Acercar",
+        "zoom_out": "Alejar"
+      },
       "share": {
         "all": "Todo para el negocio",
         "none": "Solo personal",
