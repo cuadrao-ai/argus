@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import pytest
 import yaml
 from faker import Faker
 
@@ -653,9 +654,15 @@ def test_openapi_runs_every_job_and_other_docs_api_files_stay_docs_only() -> Non
     }
 
 
+@pytest.mark.parametrize("repeated_filename", [False, True])
 def test_docs_only_changes_script_counts_rename_from_code_into_docs(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    repeated_filename: bool,
 ) -> None:
+    if repeated_filename:
+        stem = FAKE.word()
+        monkeypatch.setattr(FAKE, "file_name", lambda extension: f"{stem}.{extension}")
     assert "--no-renames" in DOCS_ONLY_SCRIPT.read_text(encoding="utf-8")
 
     repo = tmp_path / "repo"
