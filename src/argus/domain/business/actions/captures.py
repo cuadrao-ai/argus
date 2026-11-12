@@ -23,7 +23,7 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.document_type import resolved_document_type, typed_facts
-from argus.domain.business.transactions import transaction
+from argus.domain.business.transactions import ActionTransaction, transaction
 
 if TYPE_CHECKING:
     from argus.domain.business.actions.service import BusinessActions
@@ -253,7 +253,7 @@ def awaiting_notes(tx) -> int:  # noqa: ANN001
     )[0]["drafts"]
 
 
-def deleted_notes(tx) -> int:  # noqa: ANN001
+def deleted_notes(tx: ActionTransaction) -> int:
     return tx.rows(
         "select count(distinct e.id) as drafts" + _DELETED_NOTES,
         (tx.context.actor.space_id, tx.context.owner_id),

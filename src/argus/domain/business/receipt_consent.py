@@ -9,6 +9,7 @@ from contextlib import nullcontext
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 from argus.domain.business.authority import ActionError
@@ -109,8 +110,8 @@ class BusinessReceiptConsentStore:
             return self.status_on_connection(db, space_id, owner_id, language)
 
     def status_on_connection(
-        self, db, space_id: str, owner_id: str, language: str = "en"
-    ) -> dict:  # noqa: ANN001
+        self, db: Connection, space_id: str, owner_id: str, language: str = "en"
+    ) -> dict:
         route = self._route()
         owner = db.execute(
             "select created_by::text from public.spaces where id=%s and created_by=%s and kind='business' and closed_at is null",

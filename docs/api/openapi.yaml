@@ -1752,6 +1752,7 @@ paths:
           enum:
           - inbox
           - all
+          - eliminados
           type: string
           default: all
       - name: X-Business-Grant
@@ -2419,6 +2420,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/delete:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentActionResult'
+        '403':
+          description: '`business_permission_denied` without approve permission; `business_human_command_required`
+            for a non-person actor.'
+        '404':
+          description: '`business_record_not_found` outside the selected Business.'
+        '409':
+          description: '`business_action_conflict` for a reused key; `business_action_unsettled`
+            while the original result is unknown.'
+        '422':
+          description: '`business_document_not_open` for an approved or set-aside document;
+            `business_document_reading` while being read; `business_document_ambiguous` for
+            shared attachments.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/dossier:
     get:
       tags:
@@ -2789,6 +2849,64 @@ paths:
           description: '`business_draft_not_recorded` on a draft that is not approved; `business_record_matched`
             while a bank line is matched to the record; `business_refund_linked` while a credit
             note or refund names it.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/restore:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentActionResult'
+        '403':
+          description: '`business_permission_denied` without approve permission; `business_human_command_required`
+            for a non-person actor.'
+        '404':
+          description: '`business_record_not_found` outside the selected Business.'
+        '409':
+          description: '`business_action_conflict` for a reused key; `business_action_unsettled`
+            while the original result is unknown.'
+        '422':
+          description: '`business_document_not_deleted` without a deletion marker; `business_document_ambiguous`
+            for shared attachments.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -7762,7 +7880,6 @@ paths:
           default: false
       - name: surface
         in: query
-        description: Personal conversation access is retired; personal returns 404.
         required: false
         schema:
           enum:
@@ -7827,7 +7944,6 @@ paths:
       parameters:
       - name: surface
         in: query
-        description: Personal conversation access is retired; personal returns 404.
         required: false
         schema:
           enum:
@@ -11872,7 +11988,6 @@ paths:
           default: false
       - name: surface
         in: query
-        description: Personal conversation access is retired; personal returns 404.
         required: false
         schema:
           enum:
@@ -14775,7 +14890,6 @@ paths:
           - type: 'null'
       - name: surface
         in: query
-        description: Personal conversation access is retired; personal returns 404.
         required: false
         schema:
           enum:
@@ -15561,6 +15675,8 @@ components:
           - approve_income
           - approve_refund
           - reopen_draft
+          - delete_document
+          - restore_document
           - capture_note
           - prepare_attachment
           - rebind_attachment
@@ -15630,6 +15746,7 @@ components:
           type: string
           enum:
           - draft
+          - receipt
           - grant
           - invite
         id:
@@ -16511,6 +16628,7 @@ components:
             - listo
             - attention
             - reading
+            - eliminados
           - type: 'null'
         reason:
           anyOf:
@@ -17552,6 +17670,16 @@ components:
             - approve
           type: array
           uniqueItems: true
+        deleted:
+          anyOf:
+          - $ref: '#/components/schemas/DeletedDocument'
+          - type: 'null'
+        delete_available:
+          type: boolean
+          default: false
+        restore_available:
+          type: boolean
+          default: false
         current_note:
           anyOf:
           - type: string
@@ -20189,6 +20317,36 @@ components:
       type: object
       required:
       - expected_version
+    DeletedDocument:
+      properties:
+        actor:
+          $ref: '#/components/schemas/DeletingActor'
+        at:
+          type: string
+          format: date-time
+        key:
+          type: string
+        previous_state:
+          $ref: '#/components/schemas/PreviousDocumentState'
+      additionalProperties: false
+      type: object
+      required:
+      - actor
+      - at
+      - key
+      - previous_state
+    DeletingActor:
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - display_name
     DeliveryPreparation:
       properties:
         to:
@@ -20388,6 +20546,18 @@ components:
       type: object
       required:
       - reason
+    DocumentActionResult:
+      properties:
+        document_id:
+          type: string
+          format: uuid
+        deleted:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - document_id
+      - deleted
     DocumentLine:
       properties:
         activity_id:
@@ -20481,6 +20651,7 @@ components:
           - preparing
           - review_ready
           - needs_attention
+          - dismissed
         replayed:
           type: boolean
         candidate_count:
@@ -25061,6 +25232,20 @@ components:
       - expected_version
     ManualCapture:
       properties:
+        deleted:
+          anyOf:
+          - $ref: '#/components/schemas/DeletedDocument'
+          - type: 'null'
+        delete_available:
+          type: boolean
+          default: false
+        restore_available:
+          type: boolean
+          default: false
+        bandeja_group:
+          anyOf:
+          - $ref: '#/components/schemas/BandejaGroup'
+          - type: 'null'
         draft_id:
           type: string
           format: uuid
@@ -27670,6 +27855,27 @@ components:
           type: object
       additionalProperties: false
       type: object
+    PreviousDocumentState:
+      properties:
+        state:
+          type: string
+        group:
+          type: string
+          enum:
+          - attention
+          - listo
+        events:
+          additionalProperties:
+            type: string
+            enum:
+            - open
+            - dismissed
+          type: object
+      additionalProperties: false
+      type: object
+      required:
+      - state
+      - group
     ProfilePatch:
       properties:
         display_name:
@@ -28308,6 +28514,9 @@ components:
         dismissed_count:
           type: integer
           default: 0
+        bandeja_eliminados_count:
+          type: integer
+          default: 0
       additionalProperties: false
       type: object
       required:
@@ -28322,6 +28531,16 @@ components:
       - por_igualar_count
     ReceiptDetail:
       properties:
+        deleted:
+          anyOf:
+          - $ref: '#/components/schemas/DeletedDocument'
+          - type: 'null'
+        delete_available:
+          type: boolean
+          default: false
+        restore_available:
+          type: boolean
+          default: false
         id:
           type: string
         activity:
@@ -28366,6 +28585,7 @@ components:
             - preparing
             - review_ready
             - needs_attention
+            - dismissed
           - type: string
             enum:
             - confirmed
@@ -28603,6 +28823,16 @@ components:
           anyOf:
           - $ref: '#/components/schemas/Purchase606'
           - type: 'null'
+        deleted:
+          anyOf:
+          - $ref: '#/components/schemas/DeletedDocument'
+          - type: 'null'
+        delete_available:
+          type: boolean
+          default: false
+        restore_available:
+          type: boolean
+          default: false
         id:
           type: string
         activity:
@@ -28647,6 +28877,7 @@ components:
             - preparing
             - review_ready
             - needs_attention
+            - dismissed
           - type: string
             enum:
             - confirmed
@@ -28862,6 +29093,16 @@ components:
       - pagado
     ReceiptSummary:
       properties:
+        deleted:
+          anyOf:
+          - $ref: '#/components/schemas/DeletedDocument'
+          - type: 'null'
+        delete_available:
+          type: boolean
+          default: false
+        restore_available:
+          type: boolean
+          default: false
         id:
           type: string
         activity:
@@ -28906,6 +29147,7 @@ components:
             - preparing
             - review_ready
             - needs_attention
+            - dismissed
           - type: string
             enum:
             - confirmed
@@ -31371,7 +31613,6 @@ components:
           - $ref: '#/components/schemas/RunDossier'
           - type: 'null'
         answer_dossier:
-          description: Retained response compatibility field; computed-answer search hydration is retired under issue 2001.
           anyOf:
           - $ref: '#/components/schemas/AnswerDossier'
           - type: 'null'

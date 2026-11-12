@@ -30,7 +30,7 @@ actions = shared.actions
 pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
 
 
-def _client(service, context):  # noqa: ANN001, ANN202
+def _client(service, context):
     from argus.api.app_setup import add_core_middleware_and_handlers
 
     app = FastAPI()
@@ -42,7 +42,7 @@ def _client(service, context):  # noqa: ANN001, ANN202
     return TestClient(app)
 
 
-def _act(client, document_id, action, key=None):  # noqa: ANN001, ANN202
+def _act(client, document_id, action, key=None):
     return client.post(
         f"/api/v1/business/drafts/{document_id}/{action}",
         json={},
@@ -50,7 +50,7 @@ def _act(client, document_id, action, key=None):  # noqa: ANN001, ANN202
     )
 
 
-def _ready(actions):  # noqa: ANN001, ANN202
+def _ready(actions):
     service, context, cid, draft, web = receipts.ready(actions)
     with service.authority.pool.connection() as db:
         db.execute(
@@ -60,7 +60,7 @@ def _ready(actions):  # noqa: ANN001, ANN202
     return service, context, cid, draft, web
 
 
-def _unread(actions):  # noqa: ANN001, ANN202
+def _unread(actions):
     from tests.test_business_receipt_views_postgres import _web
 
     service, context, _ = actions
@@ -126,7 +126,7 @@ def _captured_purchase(service, context, *, approve=False):
 
 
 @pytest.mark.parametrize("prepared", [False, True])
-def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared):  # noqa: ANN001
+def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared):
     from datetime import date
 
     service, context, cid, draft_id, web = (_ready if prepared else _unread)(actions)
@@ -215,7 +215,7 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
 
 @pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
 @pytest.mark.parametrize("prepared", [False, True])
-def test_only_owner_can_delete_or_restore(actions, users, role, prepared):  # noqa: ANN001
+def test_only_owner_can_delete_or_restore(actions, users, role, prepared):
     service, context, cid, draft_id, web = (_ready if prepared else _unread)(actions)
     capabilities = ["read"] if role == "viewer" else ["read", "prepare"]
     with service.authority.pool.connection() as db:
@@ -248,7 +248,7 @@ def test_only_owner_can_delete_or_restore(actions, users, role, prepared):  # no
 
 
 @pytest.mark.parametrize("status", ["preparing"])
-def test_reading_document_cannot_be_deleted(actions, status):  # noqa: ANN001
+def test_reading_document_cannot_be_deleted(actions, status):
     service, context, cid, _, _ = _unread(actions)
     with service.authority.pool.connection() as db:
         db.execute(
@@ -262,7 +262,7 @@ def test_reading_document_cannot_be_deleted(actions, status):  # noqa: ANN001
     )
 
 
-def test_accepted_draft_cannot_be_deleted(actions):  # noqa: ANN001
+def test_accepted_draft_cannot_be_deleted(actions):
     from argus.domain.business.contracts.actions import ApproveExpense
 
     service, context, _, draft, _ = _ready(actions)
@@ -284,7 +284,7 @@ def test_accepted_draft_cannot_be_deleted(actions):  # noqa: ANN001
 
 
 @pytest.mark.parametrize("prepared", [False, True])
-def test_repeat_upload_keeps_deleted_and_prepare_is_refused(actions, prepared):  # noqa: ANN001
+def test_repeat_upload_keeps_deleted_and_prepare_is_refused(actions, prepared):
     from argus.api.business import (
         require_business_document_write,
         require_business_surface,
@@ -339,7 +339,7 @@ def test_repeat_upload_keeps_deleted_and_prepare_is_refused(actions, prepared): 
     assert receipt_detail(web, web.service.receipt(web.scope, cid))["deleted"]
 
 
-def test_deleted_draft_leaves_duplicate_checks_and_returns(actions):  # noqa: ANN001
+def test_deleted_draft_leaves_duplicate_checks_and_returns(actions):
     from dataclasses import replace
 
     from argus.domain.business.duplicates import pending_duplicates
