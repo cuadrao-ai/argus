@@ -269,37 +269,8 @@ def educational_interpretation():
     )
 
 
-def wire_grounded_client(
-    monkeypatch, documents: list[dict[str, Any]]
-) -> RecordingTransport:
-    """The rail's provider client answers from canned documents."""
-    from argus.agent_runtime import research_grounded as grounded
-    from argus.domain.research.perplexity_agent import PerplexityAgentClient
-
-    transport = RecordingTransport(documents)
-    monkeypatch.setattr(
-        grounded, "_client", lambda: PerplexityAgentClient("k", transport=transport)
-    )
-    return transport
 
 
-def run_research_turn(message: str, *, language: str = "en", country: str | None = None):
-    """One research turn through the rail's own entry, as an English or
-    Spanish user with the country their profile declares, if any."""
-    import asyncio
-
-    from argus.agent_runtime import research_answer as ra
-    from argus.agent_runtime.state.models import RunState, UserState
-
-    return asyncio.run(
-        ra.research_answer_stage_result(
-            interpretation=_interpretation(),
-            state=RunState.new(current_user_message=message, recent_thread_history=[]),
-            user=UserState(
-                user_id=RESEARCH_USER_ID, language_preference=language, country=country
-            ),
-        )
-    )
 
 
 # The builder run_research_turn reads at call time, so set_research_query can

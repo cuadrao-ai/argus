@@ -11,7 +11,6 @@ from typing import Any, get_args
 
 import httpx
 import pytest
-from argus.agent_runtime.research_grounded import build_research_sidecar
 from argus.api import state as api_state
 from argus.api.chat.research_evidence import record_research_turn_evidence
 from argus.domain.research.contracts import CapabilityClass
@@ -43,17 +42,14 @@ def test_research_settlement_sends_nothing_to_posthog(
     capture_payloads: list[dict[str, Any]],
     faker: Any,
 ) -> None:
-    research = build_research_sidecar(
-        capability_class=capability_class,
-        shape="balanced",
-        sources=[{"title": faker.sentence(), "url": faker.url()}],
-        retrieved_at=faker.iso8601(),
-        subjects=[{"symbol": "SPY", "name": faker.sentence()}],
-        peers=[],
-        usage={"cache_status": "miss", "cost_usd": 0.005, "latency_ms": 640},
-        period_of_interest=None,
-        degraded_code=degraded_code,
-    )
+    research = {
+        "capability_class": capability_class,
+        "shape": "balanced",
+        "sources": [{"title": faker.sentence(), "url": faker.url()}],
+        "retrieved_at": faker.iso8601(),
+        "usage": {"cache_status": "miss", "cost_usd": 0.005, "latency_ms": 640},
+        "degraded": {"code": degraded_code} if degraded_code else None,
+    }
 
     record_research_turn_evidence(
         research=research,

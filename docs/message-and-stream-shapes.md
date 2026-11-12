@@ -43,10 +43,7 @@ The OpenAPI 200 response for `POST /api/v1/chat/stream` is `type: string`. It do
 JSON `type` strings on `sse_data` payloads:
 
 <!-- frame-types -->
-- `final`
-- `stage_outcome`
-- `stage_start`
-- `token`
+
 <!-- /frame-types -->
 
 ### `stage_start`
@@ -54,28 +51,19 @@ JSON `type` strings on `sse_data` payloads:
 `type` and `stage` are always present. `stage` is a string. The list is every `WorkflowNode` value, every `emit_substage` stage argument, and every string `stage` on a `stage_start` or tool-progress frame.
 
 <!-- stage-values -->
-- `clarify`
-- `confirm`
-- `discovery_search`
-- `discovery_verify`
 - `execute`
-- `explain`
-- `interpret`
-- `next_step`
-- `research_search`
 <!-- /stage-values -->
 
 `detail` is sent only when `emit_substage` is called with a detail argument and that argument is non-empty. These calls pass a detail argument.
 
 <!-- substage-detail -->
-- `discovery_search`
-- `research_search`
+
 <!-- /substage-detail -->
 
 These calls do not.
 
 <!-- substage-no-detail -->
-- `discovery_verify`
+
 <!-- /substage-no-detail -->
 
 `tool_progress` is a `ToolProgress` dump from `src/argus/domain/tool_contracts.py`, including the `LocalizedText` fields. `interpolation_args` values are `ToolScalar`.
@@ -201,7 +189,11 @@ JSON `type` comparisons in `parseChatStreamFrame` that are absent from the emitt
 
 <!-- parser-only -->
 - `error`
+- `final`
+- `stage_outcome`
+- `stage_start`
 - `title`
+- `token`
 <!-- /parser-only -->
 
 An `event:` line returns that event name and the JSON object unchanged. `sse_data` does not write `event:` lines.

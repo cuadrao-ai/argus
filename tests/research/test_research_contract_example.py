@@ -50,19 +50,3 @@ def test_the_documented_sources_are_the_typed_model() -> None:
         source = ResearchSource.model_validate(entry)
         assert source.url
         assert set(entry) <= set(ResearchSource.model_fields) | {"domain"}
-
-
-def test_the_documented_keys_are_the_keys_the_runtime_emits() -> None:
-    """Guards the whole sidecar, not just the field that drifted: a key the
-    runtime adds or renames has to reach the document too."""
-    from argus.agent_runtime import research_grounded as grounded
-
-    emitted = grounded.RESEARCH_SIDECAR_KEYS
-    documented = set(documented_sidecar())
-    assert documented - CONDITIONAL_KEYS == emitted - CONDITIONAL_KEYS
-
-
-def test_the_schema_version_matches_the_runtime() -> None:
-    from argus.agent_runtime.research_grounded import RESEARCH_SCHEMA_VERSION
-
-    assert documented_sidecar()["schema_version"] == RESEARCH_SCHEMA_VERSION

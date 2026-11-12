@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from argus.agent_runtime.research_grounded import _retrieval_happened
 from argus.domain.research.config import RESEARCH_CONFIG_SPECS
 from argus.domain.research.contracts import ResearchUnavailableError
 from argus.domain.research.perplexity_agent import (
@@ -538,4 +537,3 @@ def test_every_kind_the_parser_reads_is_retrieval_evidence_without_an_invoice(
 
     assert packet.tool_results == (kind,)
     assert not packet.sources, "the bare item must prove retrieval on its own"
-    assert _retrieval_happened(packet)

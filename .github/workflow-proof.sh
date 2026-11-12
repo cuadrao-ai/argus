@@ -27,8 +27,6 @@ usage() {
   cat <<'USAGE'
 Usage:
   .github/workflow-proof.sh seed [--user-id <uuid>] [--nonce <value>]
-  .github/workflow-proof.sh local --job-id <uuid> --nonce <value>
-  .github/workflow-proof.sh remote --job-id <uuid> --nonce <value>
   .github/workflow-proof.sh direct --job-id <uuid> --nonce <value>
   .github/workflow-proof.sh verify --job-id <uuid> [--expect-nonce <value>] [--expect-provider-mode <mode>]
 
@@ -40,7 +38,6 @@ Use an explicit --user-id only against an isolated local or preview Supabase dat
 Local Render validation:
   1. poetry install --only main,workflows --no-interaction
   2. render workflows dev -- poetry run python workflows/main.py
-  3. RENDER_USE_LOCAL_DEV=true .github/workflow-proof.sh local --job-id ... --nonce ...
 
 This helper runs workflow Python entry points through `poetry run python` by default.
 Set ARGUS_WORKFLOW_PYTHON=/path/to/python only when using a prebuilt workflow venv.
@@ -70,13 +67,6 @@ shift
 case "$command" in
   seed)
     run_python workflows/proof.py seed "$@"
-    ;;
-  local)
-    export RENDER_USE_LOCAL_DEV=true
-    run_python workflows/trigger_proof.py "$@"
-    ;;
-  remote)
-    run_python workflows/trigger_proof.py "$@"
     ;;
   direct)
     run_python workflows/proof.py direct "$@"

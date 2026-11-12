@@ -6,10 +6,11 @@ from types import SimpleNamespace
 import pytest
 from argus.api import state as api_state
 from argus.api.conversation_activity import conversation_activity_service
-from argus.api.message_store import memory_message
 from argus.api.schemas import Conversation
 from argus.domain.store import AlphaStore
 from faker import Faker
+
+from tests.conversation_fixtures import seed_message
 
 fake = Faker()
 
@@ -35,11 +36,11 @@ def test_plain_reply_changes_freshness_without_a_job_or_lifecycle(monkeypatch):
         )[conversation_id]
 
     assert project().latest_message_id is None
-    user = memory_message(
+    user = seed_message(
         conversation_id=conversation_id, role="user", content=fake.sentence()
     )
     assert project().latest_message_id == user.id
-    reply = memory_message(
+    reply = seed_message(
         conversation_id=conversation_id, role="assistant", content=fake.sentence()
     )
     result = project()

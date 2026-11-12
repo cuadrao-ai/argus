@@ -64,7 +64,7 @@ def test_production_and_smoke_entry_points_import_with_installed_dependencies() 
             sys.executable,
             "-c",
             "import argus.api.main; import workflows.document_worker; "
-            "import workflows.document_job; import argus.api.chat.backtest_jobs",
+            "import workflows.document_job",
         ],
         capture_output=True,
         text=True,

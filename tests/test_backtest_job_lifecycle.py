@@ -100,13 +100,6 @@ def test_every_lifecycle_writer_embeds_the_generated_predicates() -> None:
     hand-typed copies. The attach guard must sit on both link writes with
     no way for a caller to opt out."""
     root = Path(__file__).resolve().parents[1]
-    worker = (root / "workflows" / "backtest_job.py").read_text()
-    assert (
-        "{job_success_write_sql_predicate()}" in worker
-    ), "the worker must interpolate the generated success fragment into its SQL"
-    assert (
-        "{job_result_attach_sql_predicate()}" in worker
-    ), "the worker's link write must interpolate the generated attach fragment"
     gateway = (root / "src/argus/domain/supabase_gateway.py").read_text()
     assert "job_success_write_postgrest_filter" in gateway
     assert (
@@ -116,10 +109,6 @@ def test_every_lifecycle_writer_embeds_the_generated_predicates() -> None:
     assert (
         "{job_success_write_sql_predicate()}" in proof
     ), "the proof task's status writes must interpolate the generated fragment"
-    restore = (root / "src/argus/api/chat/confirmation_lifecycle.py").read_text()
-    assert (
-        "classify_job_for_card" in restore
-    ), "the restore filter must derive from the same classification"
 
 
 def test_the_generated_encodings_state_the_same_sets() -> None:

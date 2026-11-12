@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import get_args
 
 import pytest
-from argus.agent_runtime.llm_interpreter_types import LLMStrategyDraft
 from argus.api.schemas import StrategyTemplate
 from argus.domain import capability_registry as registry
 from argus.domain.engine_launch.models import LaunchStrategyType
@@ -67,18 +66,6 @@ def test_supported_strategy_types_derived_from_executable_strategies() -> None:
     }
 
 
-def test_llm_requested_strategy_template_enum_is_derived_from_registry() -> None:
-    template_schema = LLMStrategyDraft.model_json_schema()["properties"].get(
-        "requested_strategy_template"
-    )
-    assert template_schema is not None
-    string_schema = next(
-        item
-        for item in template_schema.get("anyOf", [])
-        if item.get("type") == "string"
-    )
-    assert string_schema.get("enum") == sorted(STRATEGY_CAPABILITIES)
-    assert not hasattr(registry, "requested_strategy_template_capability_clause")
 
 
 # --- Derived allow-lists all read from the registry -----------------------------------
@@ -145,4 +132,3 @@ def test_discovery_support_status_derived_from_execution_spec_membership() -> No
 
 
 # --- Containment: draft strategies have NO path ---------------------------------------
-

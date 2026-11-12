@@ -28,12 +28,14 @@ class FakeChatOpenRouter:
 def test_luna_pro_sampling_capability_preserves_structured_request_policy(
     task: openrouter.OpenRouterTask, model: str
 ) -> None:
-    from argus.agent_runtime.llm_interpreter_types import LLMDateRangeIntent
+    class DateRangeIntent(BaseModel):
+        start_date: str | None = None
+        end_date: str | None = None
 
     arguments = {
         "messages": [{"role": "user", "content": "hello"}],
-        "schema_model": LLMDateRangeIntent,
-        "schema_name": "LLMDateRangeIntent",
+        "schema_model": DateRangeIntent,
+        "schema_name": "DateRangeIntent",
         "profile": openrouter_profile_for_task(task),
     }
     baseline = openrouter._json_schema_payload(model="openai/gpt-5.6-luna", **arguments)

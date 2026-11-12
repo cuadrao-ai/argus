@@ -71,9 +71,9 @@ def test_local_smoke_script_is_disposable_predeploy_gate() -> None:
     assert "gateway_unavailable" in source
     assert "unexpected degraded readiness checks" in source
     assert "readiness failed" in source
-    assert "workflow_probe=ready" in source
-    assert "workflows.trigger_proof" in source
-    assert "argus.api.chat import backtest_jobs" in source
+    assert "workflow_probe=ready" not in source
+    assert "workflows.trigger_proof" not in source
+    assert "argus.api.chat import backtest_jobs" not in source
     assert "ARGUS_LOCAL_SMOKE_SOURCE_ONLY" in source
     assert 'for pid in "${PIDS[@]}"' in source
     assert 'kill -0 "$pid"' in source
