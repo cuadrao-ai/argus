@@ -1078,9 +1078,9 @@ def _scan_typescript(
         found.setdefault(name, []).append((_ts_default(tokens, offset), owner))
 
 
-def _owner_rank(item: tuple[str | None, str]) -> tuple[int, str, str]:
+def _owner_rank(item: tuple[str | None, str]) -> tuple[int, str, bool, str]:
     default, owner = item
-    return (owner.startswith("scripts/"), owner, default or "")
+    return (owner.startswith("scripts/"), owner, default is not None, default or "")
 
 
 def scan(root: Path) -> tuple[dict[str, tuple[Read, ...]], list[str]]:

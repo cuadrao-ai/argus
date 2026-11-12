@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 from textwrap import dedent
 
@@ -124,6 +126,48 @@ def test_python_documentation_quotes_stay_out_of_catalog(
     write_catalog(tmp_path)
     catalog = tmp_path / "scripts/ops/settings_catalog.generated.json"
     assert json.loads(catalog.read_text()) == {"version": 2, "settings": []}
+
+
+def test_null_and_empty_defaults_have_distinct_stable_order() -> None:
+    from scripts.ci.settings_agreement import _owner_rank
+
+    owner = "scripts/documents/reader.py"
+    assert _owner_rank((None, owner)) < _owner_rank(("", owner))
+
+
+def test_null_and_empty_reader_defaults_are_stable_across_processes(
+    tmp_path: Path,
+) -> None:
+    root = _tree(
+        tmp_path,
+        'import os\nos.getenv("CUADRAO_SAMPLE")\nos.getenv("CUADRAO_SAMPLE", "")\n',
+        [],
+    )
+    outputs = []
+    for seed in ("1", "2", "3"):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from pathlib import Path; from scripts.ci.settings_agreement import write_catalog, problems; import sys; root=Path(sys.argv[1]); write_catalog(root); assert problems(root) == []",
+                str(root),
+            ],
+            cwd=ROOT,
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            check=True,
+        )
+        assert result.returncode == 0
+        outputs.append((root / "scripts/ops/settings_catalog.generated.json").read_text())
+    assert len(set(outputs)) == 1
+    assert json.loads(outputs[0])["settings"] == [
+        {
+            "name": "CUADRAO_SAMPLE",
+            "reads": [
+                {"default": None, "owner": "src/app.py"},
+                {"default": "", "owner": "src/app.py"},
+            ],
+        }
+    ]
 
 
 def _tree(tmp_path: Path, source: str, settings: list[dict[str, object]]) -> Path:
