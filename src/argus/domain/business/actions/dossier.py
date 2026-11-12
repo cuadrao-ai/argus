@@ -17,6 +17,7 @@ from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_settlement_enabled
 from argus.domain.business.contracts.actions import APPROVAL_ACTION
+from argus.domain.business.contracts.deletion import deletion
 from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
@@ -234,7 +235,12 @@ def dossier(
         (tx.context.actor.space_id, draft_id),
     )
     source_rows = tx.rows(
-        "select s.id,s.kind,s.channel,s.received_at,s.text_content,s.connection_id,d.draft"
+        "select s.id,s.kind,s.channel,s.received_at,s.text_content,s.connection_id,d.draft,"
+        " exists (select 1 from public.business_draft_sources l2"
+        " join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
+        " where l2.space_id=l.space_id and s2.connection_id=s.connection_id and l2.draft_id<>l.draft_id"
+        " union select 1 from public.financial_import_observations o"
+        " where o.connection_id=s.connection_id and o.event_id<>l.draft_id) as shared"
         " from public.business_draft_sources l join public.business_sources s"
         " on s.id=l.source_id and s.space_id=l.space_id"
         " left join public.financial_document_extractions d on d.connection_id=s.connection_id"
@@ -298,7 +304,17 @@ def dossier(
         and "approve" in tx.authorization.capabilities
         and linked_reason(tx, event.activity_id) is None
     )
+    from argus.domain.business.actions.document_deletion import is_reading
+
+    deleted = deletion(event.state, event.resolution)
     return BusinessDossier(
+        deleted=deleted,
+        delete_available=event.state == "open"
+        and "approve" in tx.authorization.capabilities
+        and not any(row["shared"] for row in source_rows)
+        and not is_reading(tx, source_rows),
+        restore_available=deleted is not None
+        and "approve" in tx.authorization.capabilities,
         **context.model_dump(),
         current_note=current_note(event),
         note_edit_available=can_annotate,

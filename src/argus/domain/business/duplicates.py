@@ -128,7 +128,14 @@ def pending_duplicates(
     source_signature: Callable[[str], str] | None = None,
 ) -> tuple[str, ...]:
     """Keep existing warnings and reopen a decided pair when its evidence changes."""
-    pending = set(event.possible_duplicates)
+    pending = set()
+    for candidate_id in event.possible_duplicates:
+        try:
+            candidate = tx.event(candidate_id)
+        except EventNotFound:
+            continue
+        if candidate.state in OPEN_OR_RECORDED:
+            pending.add(candidate_id)
     decisions = event.resolution.get("different_purchases", {})
     if not decisions:
         return tuple(sorted(pending))

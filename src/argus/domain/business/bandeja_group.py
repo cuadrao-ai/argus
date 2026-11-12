@@ -30,7 +30,7 @@ from argus.domain.business.receipt_activity import awaiting_owner
 from argus.domain.business.receipts import Attention
 from argus.domain.business.review_flags import CHECK_DIGIT
 
-BandejaGroupName = Literal["listo", "attention", "reading"]
+BandejaGroupName = Literal["listo", "attention", "reading", "eliminados"]
 ListoGap = Literal[
     "reading",
     "not_read",
@@ -170,6 +170,8 @@ def group_of(view: Mapping[str, Any], draft: DraftStanding | None) -> dict[str, 
     """The group of a receipt row. A closed receipt and the email itself have
     none. ``draft_id`` and ``version`` are what an approval of this row names."""
 
+    if view.get("deleted"):
+        return {"group": "eliminados", "reason": None, "draft_id": None, "version": None}
     if not awaiting_owner(view):
         return {"group": None, "reason": None, "draft_id": None, "version": None}
     reason = _row_reason(view, draft)

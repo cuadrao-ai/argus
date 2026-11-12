@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.space_name import GivenName
 
@@ -170,6 +171,9 @@ class DuplicateCandidate(Contract):
 
 
 class BusinessDossier(RecordContext):
+    deleted: DeletedDocument | None = None
+    delete_available: bool = False
+    restore_available: bool = False
     current_note: str | None = None
     #: "No pudimos verificar este remitente." when the draft came from email
     #: whose sender is authorized but did not verify; null otherwise. The same
@@ -261,6 +265,9 @@ class BusinessDossier(RecordContext):
 
 #: The due date a person sets in review, wherever the dossier carries it.
 _UNMEASURED_DOSSIER_FIELDS = {
+    "deleted": True,
+    "delete_available": True,
+    "restore_available": True,
     "current_note": True,
     "note_edit_available": True,
     "supporting_append_available": True,

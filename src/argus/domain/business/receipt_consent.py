@@ -106,13 +106,19 @@ class BusinessReceiptConsentStore:
                     result["enabled"] = False
                 return result
         with self.pool.connection() as db:
-            owner = db.execute(
-                "select created_by::text from public.spaces where id=%s and created_by=%s and kind='business' and closed_at is null",
-                (space_id, owner_id),
-            ).fetchone()
-            if owner is None:
-                return _view(None, space_id, owner_id, route, language)
-            return _view(_row(db, space_id), space_id, owner[0], route, language)
+            return self.status_on_connection(db, space_id, owner_id, language)
+
+    def status_on_connection(
+        self, db, space_id: str, owner_id: str, language: str = "en"
+    ) -> dict:  # noqa: ANN001
+        route = self._route()
+        owner = db.execute(
+            "select created_by::text from public.spaces where id=%s and created_by=%s and kind='business' and closed_at is null",
+            (space_id, owner_id),
+        ).fetchone()
+        if owner is None:
+            return _view(None, space_id, owner_id, route, language)
+        return _view(_row(db, space_id), space_id, owner[0], route, language)
 
     def enabled(
         self, space_id: str, owner_id: str, consent_id: str | None = None

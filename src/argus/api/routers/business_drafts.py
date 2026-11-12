@@ -20,12 +20,14 @@ from argus.domain.business.contracts.actions import (
     ApproveRefund,
     DecideFiscalInclusion,
     MarkPersonal,
+    OutcomeUnknown,
     Refused,
     ReopenDraft,
     ResolveDuplicate,
     ReviewDraft,
     SettleRemainder,
 )
+from argus.domain.business.contracts.deletion import DocumentActionResult, DocumentCommand
 from argus.domain.business.contracts.dossier import BusinessDossier
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 
@@ -192,7 +194,9 @@ def approve_draft(
     request: Request,
     response: Response,
     draft_id: UUID,
-    body: Annotated[ApproveExpense | ApproveIncome | ApproveRefund, Body(discriminator="action")],
+    body: Annotated[
+        ApproveExpense | ApproveIncome | ApproveRefund, Body(discriminator="action")
+    ],
     context: Annotated[DraftContext, Depends(require_drafts)],
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
@@ -285,4 +289,100 @@ def reopen_draft(
 
     return _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)
+    )
+
+
+def _document_action(
+    request: Request,
+    response: Response,
+    context: DraftContext,
+    draft_id: UUID,
+    key: str | None,
+    action: str,
+) -> DocumentActionResult:
+    from argus.domain.business.actions.document_deletion import change_document
+
+    response.headers.update(NO_STORE)
+    try:
+        result = change_document(
+            context.service,
+            context.for_space(request),
+            DocumentCommand(action=action, document_id=draft_id),
+            _key(request, key),
+        )
+        if isinstance(result, Refused):
+            raise action_problem(request, result)
+        if isinstance(result, OutcomeUnknown):
+            raise problem(
+                request,
+                status_code=409,
+                code=result.code,
+                title="Document action outcome unknown",
+                detail=result.code,
+                headers=NO_STORE,
+            )
+        return DocumentActionResult(
+            document_id=draft_id, deleted=action == "delete_document"
+        )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
+
+
+@router.post(
+    "/{draft_id}/delete",
+    response_model=DocumentActionResult,
+    responses={
+        403: {
+            "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
+        },
+        404: {
+            "description": "`business_record_not_found` outside the selected Business."
+        },
+        409: {
+            "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
+        },
+        422: {
+            "description": "`business_document_not_open` for an approved or set-aside document; `business_document_reading` while being read; `business_document_ambiguous` for shared attachments."
+        },
+    },
+)
+def delete_document(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> DocumentActionResult:
+    return _document_action(
+        request, response, context, draft_id, idempotency_key, "delete_document"
+    )
+
+
+@router.post(
+    "/{draft_id}/restore",
+    response_model=DocumentActionResult,
+    responses={
+        403: {
+            "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
+        },
+        404: {
+            "description": "`business_record_not_found` outside the selected Business."
+        },
+        409: {
+            "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
+        },
+        422: {
+            "description": "`business_document_not_deleted` without a deletion marker; `business_document_ambiguous` for shared attachments."
+        },
+    },
+)
+def restore_document(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> DocumentActionResult:
+    return _document_action(
+        request, response, context, draft_id, idempotency_key, "restore_document"
     )

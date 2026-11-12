@@ -106,7 +106,7 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
         receipt(id="c", status="confirmed"),
         receipt(id="d", email_original=True, status="needs_attention"),
     ]
-    closed = {"confirmed_count": 1, "dismissed_count": 0}
+    closed = {"confirmed_count": 1, "dismissed_count": 0, "bandeja_eliminados_count": 0}
     assert inbox_counts(views) == {
         "pending_review_count": 2,
         "needs_attention_count": 1,

@@ -85,7 +85,7 @@ def list_captures(
     person: Annotated[BusinessPerson, Depends(require_business_person)],
     q: Annotated[str, Query(max_length=200, pattern=r"^[^\x00]*$")] = "",
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
-    view: Literal["inbox", "all"] = "all",
+    view: Literal["inbox", "all", "eliminados"] = "all",
 ):
     response.headers.update(NO_STORE)
     if context is None:

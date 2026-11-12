@@ -191,6 +191,7 @@ def inbox_counts(
         "por_igualar_count": por_igualar,
         "confirmed_count": sum(closed_as(view, "confirmed") for view in rows),
         "dismissed_count": sum(closed_as(view, "dismissed") for view in rows),
+        "bandeja_eliminados_count": sum(in_group(view, "eliminados") for view in rows),
     }
 
 
