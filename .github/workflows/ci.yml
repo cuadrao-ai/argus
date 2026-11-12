@@ -68,6 +68,9 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Check support-address ownership
+        run: python scripts/ci/check_support_email.py
+
       - name: Reject credential literals in tracked configuration
         run: python scripts/check_config_credentials.py
 

@@ -7,11 +7,13 @@ outside marketing/ and supabase/functions/.
 
 from __future__ import annotations
 
+import json
 import os
 import posixpath
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -800,3 +802,69 @@ def test_unsupported_email_filesystem_imports_fail_closed(classifier_checkout, f
     result = classify("--files", "marketing/app/page.tsx", script=script)
     assert result.returncode != 0
     assert not any(line.startswith("run_") for line in result.stdout.splitlines())
+
+
+def test_marketing_only_diff_runs_support_address_scan_without_backend_install():
+    assert jobs_for("marketing/app/ordinary/page.tsx") == MARKETING
+    gate = WORKFLOW["jobs"]["ownership-gate"]
+    scans = [step for step in gate["steps"]
+             if "scripts/ci/check_support_email.py" in step.get("run", "")]
+    assert len(scans) == 1
+    assert not scans[0].get("if")
+    assert "needs.docs-change-gate" not in gate.get("if", "")
+    assert "pull_request" in gate["if"]
+    assert not any("poetry install" in step.get("run", "") for step in gate["steps"])
+
+
+@pytest.fixture
+def support_scan_checkout(tmp_path):
+    from scripts.ci import check_support_email as scan
+
+    git(tmp_path, "init", "-q")
+    script = tmp_path / "scripts/ci/check_support_email.py"
+    script.parent.mkdir(parents=True)
+    script.write_text((ROOT / "scripts/ci/check_support_email.py").read_text())
+    address = FAKE.email()
+    for name in {scan.OWNER, *scan.GENERATED.values(), *scan.OTHER_FACTS}:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(address)
+    (tmp_path / scan.OWNER).write_text(json.dumps({"email": address}))
+    reader = tmp_path / scan.WEB_OWNER
+    reader.parent.mkdir(parents=True, exist_ok=True)
+    reader.write_text(scan.SUPPORT_EMAIL_ENV)
+    return tmp_path, script, address, scan.SUPPORT_EMAIL_ENV
+
+
+def run_support_scan(script, **kwargs):
+    # No site packages or backend imports are available to the standalone gate.
+    return subprocess.run(
+        [sys.executable, "-I", "-S", str(script)],
+        capture_output=True, text=True, **kwargs,
+    )
+
+
+@pytest.mark.parametrize("kind", ["address", "setting", "quoted"])
+def test_support_scan_preserves_ownership_and_quote_exclusions(support_scan_checkout, kind):
+    root, script, address, setting = support_scan_checkout
+    baseline = run_support_scan(script)
+    assert baseline.returncode == 0, baseline.stderr
+    name, text = {
+        "address": ("marketing/components/new.ts", address),
+        "setting": ("web/lib/new.ts", setting),
+        "quoted": ("docs/example.md", address + setting),
+    }[kind]
+    extra = root / name
+    extra.parent.mkdir(parents=True, exist_ok=True)
+    extra.write_text(text)
+    result = run_support_scan(script)
+    if kind == "quoted":
+        assert result.returncode == 0, result.stderr
+    else:
+        assert result.returncode != 0
+        assert name in result.stderr
+
+
+def test_support_scan_fails_closed_when_git_is_unavailable(support_scan_checkout):
+    _, script, _, _ = support_scan_checkout
+    assert run_support_scan(script, env={**os.environ, "PATH": ""}).returncode != 0
