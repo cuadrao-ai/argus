@@ -93,3 +93,48 @@ def test_multideployable_generator_is_not_unowned(tmp_path):
         ("scripts/generate_new.py", "web/value.json"),
         ("scripts/generate_new.py", "src/argus/value.json"),
     }
+
+
+def test_bare_cwd_root_is_a_cross_folder_read():
+    paths = guard.references(
+        "tests/read.py", 'subprocess.run(["bun", "file.ts"], cwd=ROOT / "web")', {}
+    )
+    assert "web" in paths
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "packages = [{from = 'web', include = 'contract'}]",
+        'packages = [{ include = "contract", format = "wheel", from = "web" }]',
+    ],
+)
+def test_package_metadata_order_and_quotes(source):
+    assert guard.package_paths(source) == {"contract": "web/contract"}
+
+
+@pytest.mark.parametrize(
+    "filename,source",
+    [
+        ("theme.css", '@import "../marketing/theme.css";'),
+        ("theme.scss", '@use "../marketing/theme.scss";'),
+        ("Dockerfile", "COPY marketing/theme.css /app/"),
+    ],
+)
+def test_other_import_and_copy_source_types(tmp_path, filename, source):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "pyproject.toml").write_text("[tool.poetry]")
+    (tmp_path / "web").mkdir()
+    (tmp_path / "web" / filename).write_text(source)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    assert any(
+        owner.startswith("marketing/theme") for _, owner in guard.discover(tmp_path)
+    )
+
+
+def test_cwd_relative_fixture_is_identified():
+    source = 'subprocess.run(["bun", "__tests__/fixtures/request.ts"], cwd=ROOT / "web")'
+    paths = guard.references(
+        "tests/transport.py", source, {}, {"web/__tests__/fixtures/request.ts"}
+    )
+    assert "web/__tests__/fixtures/request.ts" in paths

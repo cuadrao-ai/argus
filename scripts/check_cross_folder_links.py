@@ -49,12 +49,28 @@ SOURCE_SUFFIXES = {
     ".sh",
     ".json",
     ".toml",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".html",
+    ".yaml",
+    ".yml",
+    "",
 }
 PATH = re.compile(r"(?<![\w/])(?:\.\./)*(?:src|web|marketing)/[\w./*${}+-]+")
 QUOTED_JOIN = re.compile(r"""["']([^"'\n]+)["'](?:\s*/\s*["']([^"'\n]+)["'])+""")
 LITERALS = re.compile(r"""["']([^"'\n]+)["']""")
 IMPORT = re.compile(r"\b(?:from|import)\s+([a-zA-Z_]\w*(?:\.\w+)*)")
-PACKAGES = re.compile(r'\{include\s*=\s*"([\w/]+)",\s*from\s*=\s*"(\w+)"\}')
+
+
+def package_paths(text: str) -> dict[str, str]:
+    packages = {}
+    for block in re.findall(r"\{[^{}]+\}", text):
+        fields = dict(re.findall(r"(include|from)\s*=\s*[\"']([^\"']+)[\"']", block))
+        if "include" in fields and "from" in fields:
+            packages[fields["include"]] = fields["from"] + "/" + fields["include"]
+    return packages
 
 
 def package(path: str) -> str | None:
@@ -68,7 +84,9 @@ def package(path: str) -> str | None:
     }.get(top)
 
 
-def references(consumer: str, text: str, packages: dict[str, str]) -> set[str]:
+def references(
+    consumer: str, text: str, packages: dict[str, str], tracked: set[str] | None = None
+) -> set[str]:
     """Conservatively include quoted paths, path joins, imports and generated credits."""
     joined = QUOTED_JOIN.sub(
         lambda match: '"' + "/".join(LITERALS.findall(match[0])) + '"', text
@@ -79,7 +97,19 @@ def references(consumer: str, text: str, packages: dict[str, str]) -> set[str]:
         lambda match: '"' + "/".join(LITERALS.findall(match[0])) + '"',
         joined,
     )
-    paths = {posixpath.normpath(match[0].lstrip("./")) for match in PATH.finditer(joined)}
+    roots = set(
+        re.findall(r"(?:/\s*|(?:join|resolve)\(.*?)[\"'](web|marketing|src)[\"']", text)
+    )
+    paths = set(roots)
+    for root in roots:
+        for literal in LITERALS.findall(text):
+            if "/" in literal and not literal.startswith(("/", "../", "http")):
+                candidate = root + "/" + literal
+                if tracked is not None and candidate in tracked:
+                    paths.add(candidate)
+    paths.update(
+        {posixpath.normpath(match[0].lstrip("./")) for match in PATH.finditer(joined)}
+    )
     for value in LITERALS.findall(text):
         if value.startswith("../"):
             resolved = posixpath.normpath(
@@ -109,15 +139,12 @@ def references(consumer: str, text: str, packages: dict[str, str]) -> set[str]:
 
 
 def discover(root: Path) -> set[tuple[str, str]]:
-    tracked = (
+    tracked = set(
         subprocess.check_output(["git", "ls-files", "-z"], cwd=root).decode().split("\0")
     )
     if "pyproject.toml" not in tracked:
         raise ValueError("pyproject.toml must be tracked")
-    packages = {
-        name: f"{folder}/{name}"
-        for name, folder in PACKAGES.findall((root / "pyproject.toml").read_text())
-    }
+    packages = package_paths((root / "pyproject.toml").read_text())
     links: set[tuple[str, str]] = set()
     for consumer in tracked:
         if (
@@ -129,10 +156,10 @@ def discover(root: Path) -> set[tuple[str, str]]:
         if any(fnmatch.fnmatchcase(consumer, pattern) for pattern in EXCLUSIONS):
             continue
         path = root / consumer
-        if path.suffix not in SOURCE_SUFFIXES or not path.is_file():
+        if path.suffix not in SOURCE_SUFFIXES or not path.is_file() or path.is_symlink():
             continue
         text = path.read_text(errors="replace")
-        targets = references(consumer, text, packages)
+        targets = references(consumer, text, packages, tracked)
         if consumer == "pyproject.toml":
             targets.update(packages.values())
         owners = {package(target) for target in targets} - {None}
