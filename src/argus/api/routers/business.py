@@ -853,7 +853,7 @@ def create_account(
     response: Response,
     body: CreateBusinessAccount,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-    context: BusinessContext = Depends(require_business_management),  # noqa: B008
+    context: BusinessContext = Depends(require_business_management, scope="function"),  # noqa: B008
 ) -> dict[str, Any]:
     manager_only(request, context)
     key = _required_idempotency_key(request, idempotency_key)
@@ -864,6 +864,7 @@ def create_account(
                 type=body.type, currency=body.currency, nickname=body.nickname
             ),
             key,
+            connection=context.connection,
         )
     except Exception as error:
         raise _problem(request, error) from None

@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from loguru import logger
+from psycopg import Connection
 
 from argus.api import state as api_state
 from argus.domain.business.bank.model import AccountRef
@@ -19,7 +20,13 @@ from argus.domain.owner_scope import BusinessSpace
 from argus.domain.recording.errors import AccountNotFound
 
 
-def account_of(space_id: UUID, owner_id: UUID, account_id: UUID) -> AccountRef | None:
+def account_of(
+    space_id: UUID,
+    owner_id: UUID,
+    account_id: UUID,
+    *,
+    connection: Connection | None = None,
+) -> AccountRef | None:
     from argus.api.financial_accounts import financial_accounts_service
 
     service = financial_accounts_service()
@@ -30,6 +37,7 @@ def account_of(space_id: UUID, owner_id: UUID, account_id: UUID) -> AccountRef |
             user_id=str(owner_id),
             account_id=str(account_id),
             scope=BusinessSpace(str(space_id)),
+            **({"connection": connection} if connection is not None else {}),
         )
     except AccountNotFound:
         return None
@@ -44,11 +52,21 @@ def start_bank_matching(app) -> None:  # noqa: ANN001
         return
     pool = getattr(app.state, "financial_accounts_pool", None)
     try:
+        lookup = account_of
         if pool is not None:
             from argus.domain.business.bank.movements_store import DocumentCatalog
             from argus.domain.business.bank.store_postgres import PostgresBankStore
 
-            store, catalog = PostgresBankStore(pool), DocumentCatalog(pool)
+            store = PostgresBankStore(pool)
+            catalog = DocumentCatalog(store)
+
+            def lookup(
+                space_id: UUID, owner_id: UUID, account_id: UUID
+            ) -> AccountRef | None:
+                with store.connection() as connection:
+                    return account_of(
+                        space_id, owner_id, account_id, connection=connection
+                    )
         elif api_state.PERSISTENCE_MODE == "supabase":
             logger.warning(
                 "Business bank matching needs the financial accounts pool; surface stays off"
@@ -57,7 +75,7 @@ def start_bank_matching(app) -> None:  # noqa: ANN001
             return
         else:
             store, catalog = MemoryBankStore(), EmptyCatalog()
-        configure_bank_matching(BankMatchingService(store, catalog, account_of))
+        configure_bank_matching(BankMatchingService(store, catalog, lookup))
     except Exception as exc:
         logger.warning(
             "Business bank matching construction failed; surface stays off",

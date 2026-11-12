@@ -10,6 +10,7 @@ from uuid import UUID
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+from argus.domain.connection_budget import SESSION_POOL_MAX
 from argus.domain.owner_scope import (
     PERSONAL,
     SCOPE_PARAMETER,
@@ -22,7 +23,7 @@ from argus.domain.owner_scope import (
 _HISTORY_CONNECT_TIMEOUT_SECONDS = 2
 _HISTORY_ACQUIRE_TIMEOUT_SECONDS = 2.0
 _HISTORY_STATEMENT_TIMEOUT_MS = 2_000
-_HISTORY_POOL_SIZE = 5
+_HISTORY_POOL_SIZE = SESSION_POOL_MAX
 
 
 class HistoryCursorError(ValueError):

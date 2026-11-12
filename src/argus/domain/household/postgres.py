@@ -388,7 +388,9 @@ class PostgresHouseholdRepository:
                 (household_id, user_id),
             ).fetchone()[0]
             if (
-                self._accounts.owned_account(user_id=user_id, account_id=account_id)
+                self._accounts.owned_account(
+                    user_id=user_id, account_id=account_id, connection=c
+                )
                 is None
             ):
                 raise AccountNotOwned()
@@ -478,7 +480,9 @@ class PostgresHouseholdRepository:
         with self.connection() as c, c.transaction():
             self._require_member_row(c, user_id=user_id, household_id=household_id)
             if (
-                self._accounts.owned_account(user_id=user_id, account_id=account_id)
+                self._accounts.owned_account(
+                    user_id=user_id, account_id=account_id, connection=c
+                )
                 is None
             ):
                 raise AccountNotOwned()
@@ -512,7 +516,7 @@ class PostgresHouseholdRepository:
             scope = resolve(c, user_id, h, {"id": h["membership_id"]})
             views = []
             for aid, access in scope.accounts.items():
-                account = self._accounts.account_by_id(account_id=aid)
+                account = self._accounts.account_by_id(account_id=aid, connection=c)
                 if account is not None:
                     grant = c.execute(
                         "select id from public.household_account_grants where household_id=%s and account_id=%s and revoked_at is null order by id limit 1",

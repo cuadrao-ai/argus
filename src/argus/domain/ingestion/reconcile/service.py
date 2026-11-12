@@ -71,12 +71,23 @@ class ReconciliationService(Recording):
         candidates: Sequence[ImportCandidate],
         scope: OwnerScope,
     ) -> SubmitResult:
-        def is_live() -> bool:
+        def is_live(tx: ImportTx) -> bool:
+            from argus.domain.ingestion.connections_postgres import (
+                PostgresConnectionRepository,
+            )
+            from argus.domain.ingestion.reconcile.store_postgres import _PostgresTx
+
             if self.connections is None:
                 return True
             try:
+                borrowed = (
+                    {"connection": tx.connection}
+                    if isinstance(tx, _PostgresTx)
+                    and isinstance(self.connections, PostgresConnectionRepository)
+                    else {}
+                )
                 row = self.connections.get(
-                    user_id=user_id, connection_id=connection_id, scope=scope
+                    user_id=user_id, connection_id=connection_id, scope=scope, **borrowed
                 )
             except ConnectionNotFound:
                 return False
