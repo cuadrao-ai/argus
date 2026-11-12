@@ -125,6 +125,12 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
         {problem.requestId ? <ReferenceCode reference={problem.requestId} /> : null}
       </p> : null}
       {count === 0 ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.transactions.reporting.export.empty")}</p> : null}
+      {preview && mode === "dgii" && preview.dgii.rnc_warning_count > 0 ? <div role="status" data-testid="records-export-rnc-notice" className="rounded-item bg-amber-50 p-3 text-[13px] text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+        <p className="font-medium">{t("business.transactions.reporting.export.rnc_notice_title", { count: preview.dgii.rnc_supplier_count })}</p>
+        <ul className="mt-1 space-y-1">
+          {preview.dgii.rnc_suppliers.map((supplier) => <li key={supplier.rnc}>{supplier.name} · {supplier.rnc} · {supplier.estado === "sin verificar" || !supplier.estado ? t(`business.transactions.reporting.export.${supplier.status}`) : supplier.estado}</li>)}
+        </ul>
+      </div> : null}
       <button type="button" data-testid="records-export-download" disabled={!count || preparing} aria-busy={preparing || undefined} onClick={() => void download()} className={`${primaryButtonClass} w-full`}>
         {preparing ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
         {preparing ? t("business.transactions.reporting.export.preparing") : count === null ? t("business.export.action") : t("business.transactions.reporting.export.action", { count })}

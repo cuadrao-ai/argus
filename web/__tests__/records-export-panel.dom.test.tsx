@@ -269,3 +269,29 @@ test("a failed file keeps the choices and offers Reintentar with the server's re
   await page.settle(() => page.downloads.length === 1);
   assert.deepEqual(exports(page).map((body) => body.format), ["csv", "csv"]);
 });
+
+
+test("the RNC notice uses server supplier count and list only in DGII mode and still allows download", async () => {
+  const page = await mount({ edit: fiscalBooks });
+  page.fixture.controls.rncSuppliers = [
+    { name: "Suplidor registrado", rnc: "101001577", estado: "SUSPENDIDO", status: "rnc_inactive", record_count: 2 },
+    { name: "Proveedor sin registro", rnc: "101010632", estado: "sin verificar", status: "rnc_unverified", record_count: 1 },
+  ];
+  await open(page);
+  assert.equal(document.querySelector('[data-testid="records-export-rnc-notice"]'), null);
+  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+  const notice = document.querySelector('[data-testid="records-export-rnc-notice"]')!;
+  assert.match(notice.textContent!, /2 proveedores con RNC no activo o sin verificar/);
+  assert.deepEqual([...notice.querySelectorAll("li")].map((item) => item.textContent), ["Suplidor registrado · 101001577 · SUSPENDIDO", "Proveedor sin registro · 101010632 · Sin verificar"]);
+  assert.equal(downloadButton()!.disabled, false);
+  assert.ok(notice.compareDocumentPosition(downloadButton()!) & Node.DOCUMENT_POSITION_FOLLOWING);
+  await page.click(downloadButton());
+  await page.settle(() => page.downloads.length === 1);
+});
+
+test("zero RNC warnings hide the notice in DGII mode", async () => {
+  const page = await mount({ edit: fiscalBooks });
+  await open(page);
+  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+  assert.equal(document.querySelector('[data-testid="records-export-rnc-notice"]'), null);
+});

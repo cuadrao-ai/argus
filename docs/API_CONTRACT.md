@@ -11552,7 +11552,15 @@ accept path recorded.
   records the form holds until they have a rate. No count is computed on the web.
   The notice's Revisar queries exactly those records: the tab, the period,
   `currency` and `fiscal_data: missing`, with every other filter and the search
-  cleared.
+  cleared. `rnc_warning_count` counts exported purchase rows with an inactive
+  or unverified RNC, and `rnc_supplier_count` counts their unique normalized
+  supplier identities. `rnc_suppliers` groups those rows by normalized `rnc`,
+  with `name` (registry name, else projected counterparty), `estado` (raw registry
+  status, else `sin verificar`), `status` (`rnc_inactive` or `rnc_unverified` for
+  localized fallback), and `record_count`. These notices use the same registry
+  snapshot and line review as fiscal selection. Pending and excluded rows do
+  not count. Sales return zero counts and an empty list. The notice does not
+  block download.
 
 - POST `/api/v1/business/reports/export` takes `{report, mode, columns, currencies,
   format}` and returns one no-store file. `Content-Disposition`, exposed to
@@ -11585,7 +11593,10 @@ accept path recorded.
   `mode: "dgii"` takes no `columns` and `currencies` `all`. It follows the tab
   and period, uses the annex columns in `dgii_columns.py`, and sorts lines by
   `Fecha Comprobante` ascending. Amounts are numbers. Identities and
-  `AAAAMMDD` dates stay text. For the 606 file, expense type and payment method
+  dates stay text. The 606 spreadsheet has 25 columns. Each of Fecha Comprobante
+  and Fecha Pago becomes an `(AAAAMM)` column followed by a `(DD)` column,
+  with both payment cells blank when unpaid. The 607 retains its `AAAAMMDD`
+  date columns. For the 606 file, expense type and payment method
   use the exact choices from the official workbook. Empty or zero ITBIS and
   income withholding amounts are numeric zero. The period ZIP
   (`GET /business/exports`) still writes the official TXT codes and amount
