@@ -161,6 +161,14 @@ def _reads(rig: Rig, person: Person, surface: str) -> dict[str, list[str]]:
     }
 
 
+def _personal_reads_refused(rig: Rig, person: Person) -> None:
+    for path in ("/api/v1/conversations", "/api/v1/search", "/api/v1/history"):
+        response = rig.client.get(
+            path, params={"surface": "personal", "q": "ledger"}, headers=person.headers
+        )
+        assert response.status_code == 404, response.text
+
+
 def _every_read(ids: list[str]) -> dict[str, list[str]]:
     return {"recents": sorted(ids), "search": sorted(ids), "history": sorted(ids)}
 
@@ -199,18 +207,15 @@ def test_pre_existing_and_business_chats_stay_on_their_own_surface(
         )
     alice.business.append(created.json()["conversation"]["id"])
 
-    assert _reads(rig, alice, "personal") == _every_read(alice.personal)
+    _personal_reads_refused(rig, alice)
     assert _reads(rig, alice, "business") == _every_read(alice.business)
-    assert _previews(rig, alice, "personal") == sorted(
-        f"How is my {title.lower()} doing?" for title in PERSONAL_TITLES
-    )
     assert _previews(rig, alice, "business") == [
         "How is my shop ledger doing?",
         "How is my supplier ledger doing?",
     ]
 
     monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED")
-    assert _reads(rig, alice, "personal") == _every_read(alice.personal)
+    _personal_reads_refused(rig, alice)
     refused = rig.client.get(
         "/api/v1/conversations", params={"surface": "business"}, headers=alice.headers
     )
@@ -218,18 +223,20 @@ def test_pre_existing_and_business_chats_stay_on_their_own_surface(
 
 
 @pytest.mark.parametrize("flag", ["true", "false"])
-def test_personal_delete_all_covers_pre_existing_chats_and_never_business(
+def test_personal_delete_all_refuses_and_preserves_every_chat(
     rig: Rig, monkeypatch: pytest.MonkeyPatch, flag: str
 ) -> None:
     monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", flag)
     alice = rig.alice
 
-    cleared = rig.client.delete("/api/v1/conversations", headers=alice.headers)
+    cleared = rig.client.delete(
+        "/api/v1/conversations", params={"surface": "personal"}, headers=alice.headers
+    )
 
-    assert cleared.json() == {"success": True, "deleted_count": 3}
-    assert _deleted(alice.personal) == [True, True, True]
+    assert cleared.status_code == 404, cleared.text
+    assert _deleted(alice.personal) == [False, False, False]
     assert _deleted(alice.business) == [False]
-    assert _reads(rig, alice, "personal") == _every_read([])
+    _personal_reads_refused(rig, alice)
 
 
 def test_business_delete_all_leaves_personal_chats(rig: Rig) -> None:
@@ -242,12 +249,12 @@ def test_business_delete_all_leaves_personal_chats(rig: Rig) -> None:
     assert cleared.json() == {"success": True, "deleted_count": 1}
     assert _deleted(alice.business) == [True]
     assert _deleted(alice.personal) == [False, False, False]
-    assert _reads(rig, alice, "personal") == _every_read(alice.personal)
+    _personal_reads_refused(rig, alice)
 
 
 def test_another_owner_sees_nothing(rig: Rig) -> None:
     empty = _every_read([])
-    assert _reads(rig, rig.bob, "personal") == empty
+    _personal_reads_refused(rig, rig.bob)
     assert _reads(rig, rig.bob, "business") == empty
     cleared = rig.client.delete("/api/v1/conversations", headers=rig.bob.headers)
     assert cleared.json()["deleted_count"] == 0
@@ -269,7 +276,7 @@ def test_artifact_routes_answer_404_for_a_business_conversation(rig: Rig) -> Non
         return response.status_code, response.json()["detail"]
 
     assert decision(business) == (404, "Conversation not found.")
-    assert decision(personal)[1] != "Conversation not found."
+    assert decision(personal) == (404, "Conversation not found.")
 
 
 def test_a_run_in_a_business_chat_stays_on_the_business_surface(rig: Rig) -> None:
@@ -307,6 +314,5 @@ def test_a_run_in_a_business_chat_stays_on_the_business_surface(rig: Rig) -> Non
         return _ids(rig, alice, "/api/v1/search", q="NVDA", surface=surface)
 
     assert history_runs("business") == [run_id]
-    assert history_runs("personal") == []
+    _personal_reads_refused(rig, alice)
     assert symbol_hits("business") == alice.business
-    assert symbol_hits("personal") == []
