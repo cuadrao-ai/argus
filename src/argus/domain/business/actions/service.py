@@ -123,8 +123,11 @@ class BusinessActions:
         query: str = "",
         limit: int = 20,
         view: str = "all",
+        offset: int = 0,
     ) -> list[dict]:
-        return captures.entries(self, context, query=query, limit=limit, view=view)
+        return captures.entries(
+            self, context, query=query, limit=limit, view=view, offset=offset
+        )
 
     def captures_page(
         self,
@@ -133,8 +136,11 @@ class BusinessActions:
         query: str = "",
         limit: int = 20,
         view: str = "all",
+        offset: int = 0,
     ) -> dict:
-        return captures.page(self, context, query=query, limit=limit, view=view)
+        return captures.page(
+            self, context, query=query, limit=limit, view=view, offset=offset
+        )
 
     def persist_plan(
         self,

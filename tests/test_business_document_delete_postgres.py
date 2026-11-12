@@ -737,3 +737,112 @@ def test_message_only_draft_is_reachable_in_eliminados(actions):
     restored = service.dossier(context, draft_id)
     assert restored.facts == before.facts and restored.sources == before.sources
     assert restored.review_state == "open"
+
+
+def test_legacy_duplicate_review_and_confirm_follow_delete_and_restore(actions):
+    from dataclasses import replace
+
+    from argus.domain.business.service import BusinessError
+    from argus.domain.recording.schemas import CreateFinancialAccountRequest
+
+    from tests.test_business_receipt_views_postgres import _web
+    from tests.test_business_single_candidate_postgres import _saved
+
+    service, context, _, original_cid, _, batch = _saved(actions, "expense")
+    service.imports.submit(
+        user_id=context.owner_id,
+        connection_id=original_cid,
+        candidates=batch.candidates,
+        scope=context.scope,
+    )
+    _, _, _, repeated_cid, _, _ = _saved(actions, "expense")
+    web = _web(service, context)
+    account, _ = web.service.create_account(
+        web.scope,
+        CreateFinancialAccountRequest(type="checking", currency="DOP", nickname="Caja"),
+        str(uuid4()),
+    )
+    with transaction(service.authority, context) as tx:
+        [original] = tx.imports.events(("open",))
+        repeated = replace(
+            original,
+            id=str(uuid4()),
+            attention="possible_duplicate",
+            possible_duplicates=(original.id,),
+            resolution={"account_id": account["id"]},
+        )
+        tx.imports.put_event(repeated)
+        for observation in tx.imports.observations(original.id):
+            tx.imports.put_observation(
+                replace(
+                    observation,
+                    id=str(uuid4()),
+                    event_id=repeated.id,
+                    connection_id=str(repeated_cid),
+                )
+            )
+        tx.rows(
+            "update public.financial_source_connections set lease_until=null,lease_holder=null where id=any(%s)",
+            ([original_cid, repeated_cid],),
+        )
+        tx.rows(
+            "update public.financial_document_extractions set draft=jsonb_set(draft,'{status}','\"review_ready\"') where connection_id=any(%s)",
+            ([original_cid, repeated_cid],),
+        )
+    before = web.service.receipt(web.scope, repeated_cid)
+    assert before.review.blocker == "possible_duplicate"
+    with pytest.raises(BusinessError, match="possible_duplicate"):
+        web.service.review(
+            web.scope, repeated_cid, before.version, {"merchant": "Compra revisada"}
+        )
+    with pytest.raises(BusinessError, match="possible_duplicate"):
+        web.service.confirm(web.scope, repeated_cid, before.version, str(uuid4()))
+    client = _client(service, context)
+    assert _act(client, original_cid, "delete").status_code == 200
+    after_delete = web.service.receipt(web.scope, repeated_cid)
+    assert (
+        after_delete.review.blocker is None and after_delete.review.duplicate_of is None
+    )
+    reviewed = web.service.review(
+        web.scope, repeated_cid, after_delete.version, {"merchant": "Compra revisada"}
+    )
+    assert reviewed.review.blocker is None
+    assert _act(client, original_cid, "restore").status_code == 200
+    assert (
+        web.service.receipt(web.scope, repeated_cid).review.blocker
+        == "possible_duplicate"
+    )
+    assert _act(client, original_cid, "delete").status_code == 200
+    ready = web.service.receipt(web.scope, repeated_cid)
+    recorded = web.service.confirm(web.scope, repeated_cid, ready.version, str(uuid4()))
+    assert recorded.status == "confirmed"
+
+
+def test_eliminados_pagination_keeps_the_fifty_first_document_reachable(actions):
+    from argus.domain.business.contracts.actions import CaptureNote
+
+    from tests.test_business_receipt_views_postgres import _web
+
+    service, context, _ = actions
+    client = _client(service, context)
+    document_ids = []
+    for number in range(51):
+        created = service.capture(
+            context, CaptureNote(text=f"Documento {number}"), str(uuid4())
+        )
+        assert created.outcome == "applied"
+        document_ids.append(created.draft_id)
+        assert _act(client, created.draft_id, "delete").status_code == 200
+    first = service.captures_page(context, view="eliminados", limit=50)
+    second = service.captures_page(context, view="eliminados", limit=50, offset=50)
+    assert first["has_more"] and not second["has_more"]
+    assert len(first["items"]) == 50 and len(second["items"]) == 1
+    assert {item["draft_id"] for item in first["items"] + second["items"]} == set(
+        document_ids
+    )
+    assert second["items"][0]["draft_id"] == document_ids[0]
+    web = _web(service, context)
+    assert counts(web, receipt_summaries(web, "all"))["bandeja_eliminados_count"] == 51
+    assert _act(client, document_ids[0], "restore").status_code == 200
+    assert service.dossier(context, document_ids[0]).review_state == "open"
+    assert not service.captures_page(context, view="eliminados", limit=50)["has_more"]

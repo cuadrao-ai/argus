@@ -64,8 +64,8 @@ class CaptureService:
         self.calls.append(("dossier", draft))
         return self.view
 
-    def captures_page(self, actor, *, query, limit, view):
-        self.calls.append(("list", query, limit, view))
+    def captures_page(self, actor, *, query, limit, view, offset=0):
+        self.calls.append(("list", query, limit, view, offset))
         return {
             "items": [
                 {
@@ -253,11 +253,17 @@ def test_search_preserves_source_identity_and_bounds(capture_api):
     assert (item["version"], item["revision"]) == (api.service.view.version, 1)
     # The page says what the service found: more past the limit, notes before this one.
     assert (response.json()["has_more"], item["earlier_count"]) == (True, 2)
-    assert api.service.calls[-1] == ("list", "100%_", 5, "all")
+    assert api.service.calls[-1] == ("list", "100%_", 5, "all", 0)
     # The Bandeja asks for the notes awaiting review that no receipt carries.
     inbox = api.client.get("/business/captures", params={"view": "inbox", "limit": 50})
     assert inbox.status_code == 200
-    assert api.service.calls[-1] == ("list", "", 50, "inbox")
+    assert api.service.calls[-1] == ("list", "", 50, "inbox", 0)
+    deleted = api.client.get(
+        "/business/captures", params={"view": "eliminados", "limit": 50, "offset": 50}
+    )
+    assert deleted.status_code == 200
+    assert api.service.calls[-1] == ("list", "", 50, "eliminados", 50)
+    assert api.client.get("/business/captures?offset=-1").status_code == 422
     assert api.client.get("/business/captures?view=open").status_code == 422
     assert api.client.get("/business/captures?limit=51").status_code == 422
     assert (

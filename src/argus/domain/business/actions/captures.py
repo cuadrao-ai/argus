@@ -171,8 +171,11 @@ def entries(
     query: str = "",
     limit: int = 20,
     view: str = "all",
+    offset: int = 0,
 ) -> list[dict]:
-    return page(service, context, query=query, limit=limit, view=view)["items"]
+    return page(service, context, query=query, limit=limit, view=view, offset=offset)[
+        "items"
+    ]
 
 
 def page(
@@ -182,12 +185,13 @@ def page(
     query: str = "",
     limit: int = 20,
     view: str = "all",
+    offset: int = 0,
 ) -> dict:
     """One page of notes, newest first, and whether more exist past it. Each
     note says how many notes of its draft came before it, counted over the
     draft's notes whatever ``query`` keeps."""
 
-    if "\x00" in query or len(query) > 200 or not 1 <= limit <= 50:
+    if "\x00" in query or len(query) > 200 or not 1 <= limit <= 50 or offset < 0:
         raise ActionError("invalid_input", "business_capture_query_invalid")
     with transaction(service.authority, context) as tx:
         rows = tx.rows(
@@ -199,8 +203,8 @@ def page(
             + (_AWAITING_WITHOUT_RECEIPT if view == "inbox" else "")
             + ") n where strpos(lower(n.text),lower(%s))>0"
             + (" and n.earlier_count=0" if view == "eliminados" else "")
-            + " order by n.received_at desc,n.source_id desc limit %s",
-            (context.actor.space_id, context.owner_id, query, limit + 1),
+            + " order by n.received_at desc,n.source_id desc limit %s offset %s",
+            (context.actor.space_id, context.owner_id, query, limit + 1, offset),
         )
         for row in rows:
             marker = deletion(row["review_state"], row.pop("resolution"))

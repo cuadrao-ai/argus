@@ -341,3 +341,31 @@ def test_activity_recorded_by_hand_has_a_receipt_only_once_linked(
 @pytest.fixture(autouse=True)
 def _surface(client):
     assert documents_service() is not None
+
+
+def test_dismissed_duplicate_stops_blocking_review_and_restore_brings_it_back(
+    client, monkeypatch, identities
+):
+    from dataclasses import replace
+
+    _extract(monkeypatch, [PURCHASE])
+    receipt_id = _upload(client)
+    service = documents_service()
+    user = identities[ALICE]["id"]
+    original = _review(identities, receipt_id)
+    with service.hub.sink.store.transaction(user, scope=PERSONAL) as tx:
+        event = tx.event(original.event_id)
+        duplicate = replace(event, id=str(uuid4()))
+        tx.put_event(duplicate)
+        tx.put_event(
+            replace(
+                event, attention="possible_duplicate", possible_duplicates=(duplicate.id,)
+            )
+        )
+    assert _review(identities, receipt_id).blocker == "possible_duplicate"
+    with service.hub.sink.store.transaction(user, scope=PERSONAL) as tx:
+        tx.put_event(replace(duplicate, state="dismissed"))
+    assert _review(identities, receipt_id).blocker is None
+    with service.hub.sink.store.transaction(user, scope=PERSONAL) as tx:
+        tx.put_event(duplicate)
+    assert _review(identities, receipt_id).blocker == "possible_duplicate"
