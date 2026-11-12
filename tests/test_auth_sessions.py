@@ -97,10 +97,12 @@ def test_auth_session_verifier_rejects_missing_or_mismatched_claims() -> None:
     )
 
 
-def test_auth_session_pool_bounds_connect_acquire_and_statement_timeouts(
+def test_auth_session_reuses_the_history_pool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from argus.api import auth_sessions
+    from argus.domain import postgres_history_reader
+    from argus.domain.connection_budget import SESSION_POOL_MAX
 
     captured: dict[str, Any] = {}
 
@@ -111,20 +113,20 @@ def test_auth_session_pool_bounds_connect_acquire_and_statement_timeouts(
         def close(self) -> None:
             return None
 
+    url = "postgresql://auth-pool/argus"
+    postgres_history_reader.history_reader_for_database_url.cache_clear()
     auth_sessions._auth_session_verifier.cache_clear()
-    monkeypatch.setattr(auth_sessions, "ConnectionPool", _Pool)
-
-    auth_sessions._auth_session_verifier("postgresql://auth-pool/argus")
-
-    assert captured["timeout"] == auth_sessions._AUTH_SESSION_ACQUIRE_TIMEOUT_SECONDS
-    assert captured["kwargs"]["connect_timeout"] == (
-        auth_sessions._AUTH_SESSION_CONNECT_TIMEOUT_SECONDS
-    )
-    assert (
-        f"statement_timeout={auth_sessions._AUTH_SESSION_STATEMENT_TIMEOUT_MS}"
-        in captured["kwargs"]["options"]
-    )
-    auth_sessions._auth_session_verifier.cache_clear()
+    monkeypatch.setattr(postgres_history_reader, "ConnectionPool", _Pool)
+    try:
+        verifier = auth_sessions._auth_session_verifier(url)
+        reader = postgres_history_reader.history_reader_for_database_url(url)
+        assert verifier.pool is reader.pool
+        assert captured["max_size"] == SESSION_POOL_MAX
+        assert captured["min_size"] == 0
+        assert "statement_timeout=" in captured["kwargs"]["options"]
+    finally:
+        postgres_history_reader.history_reader_for_database_url.cache_clear()
+        auth_sessions._auth_session_verifier.cache_clear()
 
 
 def test_auth_session_timeout_maps_to_verification_unavailable(

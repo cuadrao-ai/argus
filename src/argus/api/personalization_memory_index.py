@@ -75,6 +75,19 @@ def _force_telemetry_off() -> None:
         singleton.posthog = None
 
 
+class _BorrowedPool:
+    """The index may release connections, but its destructor cannot close the pool."""
+
+    def __init__(self, pool: Any) -> None:
+        self._pool = pool
+
+    def connection(self, timeout: float | None = None) -> Any:
+        return self._pool.connection(timeout=timeout)
+
+    def close(self) -> None:
+        return None
+
+
 def build_mem0_config(
     *,
     embedder: MemoryEmbedder,
@@ -96,7 +109,7 @@ def build_mem0_config(
         "vector_store": {
             "provider": "pgvector",
             "config": {
-                "connection_pool": connection_pool,
+                "connection_pool": _BorrowedPool(connection_pool),
                 "collection_name": collection_name,
                 "embedding_model_dims": embedder.dimensions,
             },

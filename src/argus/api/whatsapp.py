@@ -588,8 +588,7 @@ def link_store() -> WhatsAppStore | None:
     """Where a person's sender link lives, whatever the flags say.
 
     The running intake's store when intake is up. Otherwise the durable tables
-    through deletion's own small pool, since unlinking removes data like
-    deletion does. None in memory mode without intake: nothing here holds a
+    through the process-owned business pool, as deletion uses too. None in memory mode without intake: nothing here holds a
     link. None as well when Postgres cannot be reached."""
 
     runtime = whatsapp_runtime()

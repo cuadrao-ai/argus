@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from psycopg import Connection
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
@@ -55,6 +56,12 @@ class PostgresBankStore:
                     yield
                 finally:
                     self._local.connection = None
+
+    @contextmanager
+    def connection(self) -> Iterator[Connection]:
+        """Lend this synchronous operation's transaction to its read callbacks."""
+        with self.transaction():
+            yield self._local.connection
 
     @contextmanager
     def authorized_transaction(

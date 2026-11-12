@@ -10,6 +10,7 @@ from datetime import datetime
 import httpx
 from fastapi import Request
 from loguru import logger
+from psycopg import Connection
 
 from argus.api import state as api_state
 from argus.api.dependencies import problem
@@ -34,14 +35,27 @@ from argus.domain.ingestion.email_intake.store import (
     EmailStore,
     PostgresEmailStore,
 )
+from argus.domain.postgres_connection import BorrowedConnection
 
 RESEND_DOWNLOAD_HOSTS = ("cdn.resend.app",)
 
 _runtime: EmailCapture | None = None
 
 
-def email_intake() -> EmailCapture | None:
-    return _runtime
+def email_intake(connection: Connection | None = None) -> EmailCapture | None:
+    if _runtime is None or connection is None:
+        return _runtime
+    pool = BorrowedConnection(connection)
+    return EmailCapture(
+        PostgresEmailStore(pool, _runtime.store.budget),
+        _runtime.documents,
+        grant_route_authority(pool),
+        _runtime.provider,
+        _runtime.enabled,
+        _runtime.receiving_enabled,
+        _runtime.read_receipt,
+        _runtime.pending_senders,
+    )
 
 
 @dataclass(frozen=True)
@@ -190,7 +204,9 @@ async def _read_receipt(route, connection_id: str) -> None:
         return
     service, scope = reader
     try:
-        await dispatch_preparation(service, route.principal_id, connection_id, scope=scope)
+        await dispatch_preparation(
+            service, route.principal_id, connection_id, scope=scope
+        )
     except Exception as error:
         await asyncio.to_thread(
             service.release_queued,

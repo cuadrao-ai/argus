@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import os
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager
 from typing import get_args
 
 from fastapi import FastAPI, HTTPException, Request
@@ -72,67 +72,68 @@ async def lifespan(app: FastAPI):
     app.state.agent_runtime_checkpointer = checkpointer
     app.state.agent_runtime_checkpointer_cm = checkpointer_cm
     app.state.agent_runtime_workflow = None
-    from argus.api.personalization_memory import (
-        start_personalization_memory,
-        stop_personalization_memory,
-    )
-
-    start_personalization_memory(app)
     from argus.api.financial_accounts import (
         start_financial_accounts,
         stop_financial_accounts,
     )
 
-    start_financial_accounts(app)
-    from argus.api.fiscal_operations import start_fiscal, stop_fiscal
+    with ExitStack() as resources:
+        resources.callback(stop_financial_accounts, app)
+        start_financial_accounts(app)
+        from argus.api.personalization_memory import (
+            start_personalization_memory,
+            stop_personalization_memory,
+        )
 
-    start_fiscal(app)
-    from argus.api.profile_images import start_profile_images, stop_profile_images
+        start_personalization_memory(app)
+        from argus.api.fiscal_operations import start_fiscal, stop_fiscal
 
-    start_profile_images(app)
-    from argus.api.ingestion import start_ingestion, stop_ingestion
+        start_fiscal(app)
+        from argus.api.profile_images import start_profile_images, stop_profile_images
 
-    start_ingestion(app)
-    from argus.api.bank_matching import start_bank_matching, stop_bank_matching
+        start_profile_images(app)
+        from argus.api.ingestion import start_ingestion, stop_ingestion
 
-    start_bank_matching(app)
-    from argus.api.email_intake import start_email_intake, stop_email_intake
+        start_ingestion(app)
+        from argus.api.bank_matching import start_bank_matching, stop_bank_matching
 
-    start_email_intake(app)
-    from argus.api.whatsapp_worker import start_worker, stop_worker
+        start_bank_matching(app)
+        from argus.api.email_intake import start_email_intake, stop_email_intake
 
-    start_worker(app)
-    from argus.api.households import start_households, stop_households
+        start_email_intake(app)
+        from argus.api.whatsapp_worker import start_worker, stop_worker
 
-    start_households(app)
-    from argus.api.apple_sign_in import start_apple_sign_in, stop_apple_sign_in
+        start_worker(app)
+        from argus.api.households import start_households, stop_households
 
-    start_apple_sign_in(app)
-    from argus.api.chat.research_pricing_evidence import ResearchPricingRecorder
-    from argus.domain.research.billing import set_unpriced_spend_recorder
+        start_households(app)
+        from argus.api.apple_sign_in import start_apple_sign_in, stop_apple_sign_in
 
-    research_pricing_recorder = ResearchPricingRecorder()
-    set_unpriced_spend_recorder(research_pricing_recorder)
-    try:
-        yield
-    finally:
-        set_unpriced_spend_recorder(None)
-        await research_pricing_recorder.close()
-        stop_personalization_memory(app)
-        stop_households(app)
-        stop_apple_sign_in(app)
-        await stop_email_intake(app)
-        from argus.api.whatsapp import drain_whatsapp
+        start_apple_sign_in(app)
+        from argus.api.chat.research_pricing_evidence import ResearchPricingRecorder
+        from argus.domain.research.billing import set_unpriced_spend_recorder
 
-        await drain_whatsapp()
-        await stop_worker(app)
-        stop_ingestion(app)
-        stop_bank_matching(app)
-        stop_profile_images(app)
-        await stop_fiscal(app)
-        stop_financial_accounts(app)
-        if checkpointer_cm is not None:
-            await checkpointer_cm.__aexit__(None, None, None)
+        research_pricing_recorder = ResearchPricingRecorder()
+        set_unpriced_spend_recorder(research_pricing_recorder)
+        try:
+            yield
+        finally:
+            set_unpriced_spend_recorder(None)
+            await research_pricing_recorder.close()
+            stop_personalization_memory(app)
+            stop_households(app)
+            stop_apple_sign_in(app)
+            await stop_email_intake(app)
+            from argus.api.whatsapp import drain_whatsapp
+
+            await drain_whatsapp()
+            await stop_worker(app)
+            stop_ingestion(app)
+            stop_bank_matching(app)
+            stop_profile_images(app)
+            await stop_fiscal(app)
+            if checkpointer_cm is not None:
+                await checkpointer_cm.__aexit__(None, None, None)
 
 
 async def http_exception_handler(request: Request, exc: HTTPException):  # type: ignore[no-untyped-def]

@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import signal
 
+from argus.domain.connection_budget import worker_pool_max
 from argus.domain.ingestion.documents.config import load_document_job_settings
 from argus.domain.ingestion.documents.worker import DocumentWorker
 from argus.log_sink import configure_logging
@@ -29,7 +30,7 @@ async def serve() -> None:
     with ConnectionPool(
         require_database_url(),
         min_size=0,
-        max_size=settings.max_reads + 2,
+        max_size=worker_pool_max(settings.max_reads),
         kwargs={"prepare_threshold": None},
     ) as pool:
         service = postgres_documents_service(pool, storage_source_objects())

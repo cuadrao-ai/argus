@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import atexit
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -8,12 +7,8 @@ from uuid import UUID
 
 import jwt
 from loguru import logger
-from psycopg_pool import ConnectionPool
 
-_AUTH_SESSION_CONNECT_TIMEOUT_SECONDS = 2
 _AUTH_SESSION_ACQUIRE_TIMEOUT_SECONDS = 2.0
-_AUTH_SESSION_STATEMENT_TIMEOUT_MS = 2_000
-_AUTH_SESSION_POOL_SIZE = 5
 
 
 class AuthSessionVerificationUnavailable(RuntimeError):
@@ -144,18 +139,7 @@ def _session_identity(*, token: str, user_id: str) -> tuple[UUID, UUID] | None:
 
 @lru_cache(maxsize=2)
 def _auth_session_verifier(database_url: str) -> AuthSessionVerifier:
-    pool = ConnectionPool(
-        conninfo=database_url,
-        kwargs={
-            "autocommit": True,
-            "connect_timeout": _AUTH_SESSION_CONNECT_TIMEOUT_SECONDS,
-            "options": f"-c statement_timeout={_AUTH_SESSION_STATEMENT_TIMEOUT_MS}",
-        },
-        min_size=0,
-        max_size=_AUTH_SESSION_POOL_SIZE,
-        open=True,
-        timeout=_AUTH_SESSION_ACQUIRE_TIMEOUT_SECONDS,
-        name="argus-auth-sessions",
-    )
-    atexit.register(pool.close)
-    return AuthSessionVerifier(pool)
+    # Same timeouts as history, so the two readers share one client.
+    from argus.domain.postgres_history_reader import history_reader_for_database_url
+
+    return AuthSessionVerifier(history_reader_for_database_url(database_url).pool)
