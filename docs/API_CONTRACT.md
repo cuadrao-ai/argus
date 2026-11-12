@@ -9347,6 +9347,9 @@ current permission and document state. Row trash appears only for the server's
 The Bandeja adds the server group `eliminados` and
 `bandeja_eliminados_count`. `GET /business/captures?view=eliminados` returns
 deleted standalone typed documents with the same metadata and availability.
+`limit` and a nonnegative `offset` page this feed in stable newest-first order;
+`has_more` reports whether another page exists. Eliminados loads all pages so
+search and restore also reach older deleted documents.
 Notes attached to a receipt remain part of that receipt and are not counted
 again. Deleted documents leave every other Bandeja group,
 its Inicio counts, month-close pending work, and duplicate checks. Registros,
