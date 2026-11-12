@@ -526,7 +526,14 @@ def test_export_source_carries_rnc_registry_after_its_database_transaction(actio
     from tests.test_business_dgii_postgres import filer_change
 
     service, context, _ = actions
-    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    space = PostgresSpaceStore(service.authority.pool).get(str(context.actor.space_id))
+    assert space is not None
+    set_profile(
+        service.authority,
+        context,
+        filer_change(FILER, name=space.name, previous_name=space.name),
+        "rnc",
+    )
     funding = account_funding(cash_account(service, context))
     for ncf in ("B0100000041", "B0100000042"):
         draft, version = captured(service, context, ncf, funding)

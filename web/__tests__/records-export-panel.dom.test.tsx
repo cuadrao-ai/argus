@@ -289,6 +289,23 @@ test("the RNC notice uses server supplier count and list only in DGII mode and s
   await page.settle(() => page.downloads.length === 1);
 });
 
+for (const language of ["es-419", "en"] as const) {
+  test(`one RNC supplier uses the singular notice in ${language}`, async () => {
+    const page = await mount({ edit: fiscalBooks, language });
+    page.fixture.controls.rncSuppliers = [
+      { name: "Suplidor registrado", rnc: "101001577", estado: "SUSPENDIDO", status: "rnc_inactive", record_count: 2 },
+    ];
+    await page.click(document.querySelector('[data-testid="records-export"]'));
+    await page.settle(() => downloadButton() !== null && !downloadButton()!.disabled);
+    await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+    const notice = document.querySelector('[data-testid="records-export-rnc-notice"]');
+    assert.equal(notice?.querySelector("p")?.textContent, language === "es-419"
+      ? "1 proveedor con RNC no activo o sin verificar"
+      : "1 supplier with an inactive or unverified RNC");
+    assert.equal(downloadButton()!.disabled, false);
+  });
+}
+
 test("zero RNC warnings hide the notice in DGII mode", async () => {
   const page = await mount({ edit: fiscalBooks });
   await open(page);
