@@ -4,10 +4,6 @@ import asyncio
 import json
 from pathlib import Path
 
-from argus.agent_runtime.tools.registered_backtest import (
-    backtest_execution_result,
-    get_backtest_declaration,
-)
 from argus.domain.tool_contracts import (
     LocalizedText,
     ToolCall,
@@ -25,7 +21,6 @@ from argus.domain.tool_declaration import (
 )
 from pydantic import BaseModel, ConfigDict
 
-from tests.agent_runtime.test_registered_backtest_presentation import _completed_final
 
 
 class EchoArguments(BaseModel):
@@ -105,30 +100,6 @@ async def main() -> None:
     )
     output.with_name("tool-progress.json").write_text(
         progress.model_dump_json(indent=2) + "\n"
-    )
-    backtests = {}
-    declaration = get_backtest_declaration()
-    for language in ("en", "es-419"):
-        final, _, _ = _completed_final(language)
-        card = declaration.result_card(
-            call=ToolCall(
-                tool_name=declaration.name,
-                call_id="backtest-call",
-                arguments={
-                    "strategy": {"asset_universe": final["result_card"]["symbols"]}
-                },
-            ),
-            outcome=ToolOutcome(
-                status="succeeded",
-                result=backtest_execution_result(final).model_dump(mode="json"),
-            ),
-            artifact_id="backtest-artifact",
-        )
-        backtests[language] = {
-            "card": card.model_dump(mode="json"),
-        }
-    output.with_name("backtest-cards.json").write_text(
-        json.dumps(backtests, indent=2) + "\n"
     )
 
 

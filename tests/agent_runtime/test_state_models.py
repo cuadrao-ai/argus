@@ -11,7 +11,6 @@ from argus.agent_runtime.capabilities.contract import (
     ValidationRule,
     build_default_capability_contract,
 )
-from argus.agent_runtime.llm_interpreter_types import LLMInterpretationResponse
 from argus.agent_runtime.profile.response_profile import (
     resolve_effective_response_profile,
 )
@@ -35,7 +34,7 @@ from pydantic import ValidationError
 
 
 @pytest.mark.parametrize(
-    "intent", get_args(LLMInterpretationResponse.model_fields["intent"].annotation)
+    "intent", get_args(get_args(RunState.model_fields["intent"].annotation)[0])
 )
 def test_checkpoint_preserves_the_existing_interpreter_intent(intent: str) -> None:
     state = RunState(current_user_message="", intent=intent)

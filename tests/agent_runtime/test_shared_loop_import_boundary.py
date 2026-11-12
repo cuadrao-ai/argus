@@ -22,15 +22,8 @@ GENERAL_MODULES = (
     "argus.agent_runtime.capabilities.contract",
     "argus.agent_runtime.profile",
     "argus.agent_runtime.profile.response_profile",
-    "argus.agent_runtime.artifacts",
-    "argus.agent_runtime.artifacts.continuity",
-    "argus.agent_runtime.artifacts.drafts",
-    "argus.agent_runtime.artifacts.strategy_edits",
-    "argus.agent_runtime.artifacts.lifecycle",
-    "argus.agent_runtime.next_experiments_contract",
     "argus.api.schemas",
     "argus.api.artifact_presentation",
-    "argus.api.chat.confirmation_lifecycle",
 )
 
 

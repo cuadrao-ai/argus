@@ -8,95 +8,10 @@
     "infrastructure_error": 0
   },
   "surface": {
-    "src/argus/agent_runtime/calculated_answer.py": {
-      "entries": 1,
-      "chars": 1303,
-      "sha256": "24f30b7d66c9876b5458b187184c620e01b0bbf53e7fbee8fe8339dfb24027ad"
-    },
-    "src/argus/agent_runtime/discovery/prompt_guidance.py": {
-      "entries": 1,
-      "chars": 2106,
-      "sha256": "4b388924ec901e60bc6e79033287d6af18b6d77d319e9600e15387e301b6f5d7"
-    },
-    "src/argus/agent_runtime/interpreter/audits.py": {
-      "entries": 42,
-      "chars": 7391,
-      "sha256": "a48f72abb1f9e788afdc996289a3b3a3513881dad44ff7aca7825549f5b0e0e1"
-    },
-    "src/argus/agent_runtime/interpreter/benchmark_prompt_guidance.py": {
-      "entries": 1,
-      "chars": 1297,
-      "sha256": "2c6400bc91448115021ec9a9643cecce4256219692c6c123c5a4b31b20e6414c"
-    },
-    "src/argus/agent_runtime/interpreter/discovery_focused_read.py": {
-      "entries": 2,
-      "chars": 1805,
-      "sha256": "1f8080fa6828678be712bac05db634a2a0563e4df744152fe18e68b99626e841"
-    },
-    "src/argus/agent_runtime/interpreter/execution_cost_capability.py": {
-      "entries": 1,
-      "chars": 962,
-      "sha256": "736d0e580651317633a94ff73aadb391d2262ca70626a360ca7356408b576f3e"
-    },
-    "src/argus/agent_runtime/interpreter/focused_extraction.py": {
-      "entries": 4,
-      "chars": 7248,
-      "sha256": "6552d6a466954532a89181903f175dae66564300c24ada5cdc7f6472032c752e"
-    },
-    "src/argus/agent_runtime/interpreter/signal_rule.py": {
-      "entries": 1,
-      "chars": 784,
-      "sha256": "71164b2801ce907421f94ec4fe3b2ab1546943580a8240451335c0db2a8c26d7"
-    },
-    "src/argus/agent_runtime/interpreter/unsupported_admission.py": {
-      "entries": 2,
-      "chars": 3510,
-      "sha256": "9257cd44f993a3f66ec08847428ead6addff986f290f656901f73e12cc2d73f4"
-    },
-    "src/argus/agent_runtime/llm_clarifier.py": {
-      "entries": 6,
-      "chars": 5786,
-      "sha256": "5dfbebfb6e1485f6c3eef577d77b6b77befe0faeb24890c8ec018d11299b6d51"
-    },
-    "src/argus/agent_runtime/llm_interpreter.py": {
-      "entries": 3,
-      "chars": 20954,
-      "sha256": "0b208a9a8eaa32ecd116ee391b6b1b9f8826f0edd71659266849e15693001899"
-    },
-    "src/argus/agent_runtime/llm_interpreter_types.py": {
-      "entries": 41,
-      "chars": 10759,
-      "sha256": "e02736023501a66b22861395822a6542c1ec7d4d72bd2b7bca1fd503531cb824"
-    },
-    "src/argus/agent_runtime/research_grounded.py": {
-      "entries": 3,
-      "chars": 2392,
-      "sha256": "02f31814b574d8003a476b182cf7926203f70576fe15a849584a8e102c107cc9"
-    },
     "src/argus/agent_runtime/research_query.py": {
       "entries": 11,
       "chars": 2508,
       "sha256": "6272ae2d2caa136cf141ff1092e1569ee2f97bd98b9bfc72496c89ba72758851"
-    },
-    "src/argus/agent_runtime/result_conversation.py": {
-      "entries": 4,
-      "chars": 4344,
-      "sha256": "c4fc0266f18c215452f59fe270a64dd19af85b062f2b35af069a6f9e3189a399"
-    },
-    "src/argus/agent_runtime/result_followups.py": {
-      "entries": 5,
-      "chars": 778,
-      "sha256": "20feb61ab064f85a08c322b2b139e3ead540c9e0ee9220649c71bc0812361b93"
-    },
-    "src/argus/agent_runtime/stages/execute.py": {
-      "entries": 2,
-      "chars": 1576,
-      "sha256": "0c65b46c21ee1160328bae017f560fa9c14a73f55dae0949d819435a9405af9b"
-    },
-    "src/argus/agent_runtime/stages/explain.py": {
-      "entries": 2,
-      "chars": 517,
-      "sha256": "4f1b992ced040464f520ab178c7c2e30d4519cc8047df17b67cfb09997040393"
     },
     "src/argus/agent_runtime/stages/interpret_types.py": {
       "entries": 2,

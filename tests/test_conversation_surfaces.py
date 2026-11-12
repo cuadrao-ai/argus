@@ -13,11 +13,12 @@ from argus.api.business_spaces import business_spaces, configure_business_spaces
 from argus.api.dependencies import current_user
 from argus.api.guest_access import registered_account_context, store_account_context
 from argus.api.main import app
-from argus.api.message_store import create_message
 from argus.api.schemas import OnboardingState, User
 from argus.domain.business.spaces import InMemorySpaceStore
 from fastapi import Request
 from fastapi.testclient import TestClient
+
+from tests.conversation_fixtures import seed_message
 
 ALICE = "00000000-0000-4000-8000-00000000a11c"
 BOB = "00000000-0000-4000-8000-0000000000b0"
@@ -79,8 +80,7 @@ def _create(client: TestClient, person: str, title: str, surface: str | None = N
     created = client.post("/api/v1/conversations", json=body, headers=_as(person))
     assert created.status_code == 200, created.text
     conversation_id = created.json()["conversation"]["id"]
-    create_message(
-        user_id=person,
+    seed_message(
         conversation_id=conversation_id,
         role="user",
         content=f"{title} question",

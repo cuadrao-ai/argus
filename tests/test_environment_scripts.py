@@ -322,7 +322,6 @@ def test_render_blueprint_uses_current_env_contract_names_only() -> None:
 def test_render_workflow_task_slug_is_single_current_default() -> None:
     env_example = _source(".env.example")
     env_contract = ENV_CONTRACT.read_text()
-    trigger_proof = _source("workflows/trigger_proof.py")
 
     assert (
         'ARGUS_BACKTEST_WORKFLOW_TASK_DEFAULT="argus-backtests/workflow_proof"'
@@ -340,9 +339,7 @@ def test_render_workflow_task_slug_is_single_current_default() -> None:
     assert (
         "ARGUS_RENDER_WORKFLOW_PROOF_TASK=argus-backtests/workflow_proof" in env_example
     )
-    assert 'or "argus-backtests/workflow_proof"' in trigger_proof
     assert "argus-render-workflow-proof" not in env_example
-    assert "argus-render-workflow-proof" not in trigger_proof
 
 
 def test_render_python_builds_use_managed_poetry() -> None:

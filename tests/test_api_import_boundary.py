@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import json
 import os
 import subprocess
@@ -56,37 +55,6 @@ def test_api_readiness_warms_lazy_workflow_without_backtest_compute_stack() -> N
     assert result["forbidden_after_readiness"] == []
 
 
-def test_runtime_uses_lightweight_workflow_contract_for_shared_runtime_names() -> None:
-    runtime_path = REPO_ROOT / "src" / "argus" / "agent_runtime" / "runtime.py"
-    tree = ast.parse(runtime_path.read_text(encoding="utf-8"))
-
-    imports_contract = any(
-        isinstance(node, ast.ImportFrom)
-        and node.module == "argus.agent_runtime.workflow_contract"
-        for node in ast.walk(tree)
-    )
-    assert imports_contract
-
-    forbidden_local_assignments = {
-        "OFFLINE_CLARIFICATION_FALLBACK",
-        "TOKEN_STREAM_NODES",
-        "WORKFLOW_NODE_NAMES",
-    }
-    assigned_names = {
-        target.id
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Assign | ast.AnnAssign)
-        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
-        if isinstance(target, ast.Name)
-    }
-    assert forbidden_local_assignments.isdisjoint(assigned_names)
-
-    workflow_contract_path = (
-        REPO_ROOT / "src" / "argus" / "agent_runtime" / "workflow_contract.py"
-    )
-    assert "OFFLINE_CLARIFICATION_FALLBACK" not in workflow_contract_path.read_text(
-        encoding="utf-8"
-    )
 
 
 def test_api_import_probe_reports_memory_smoke() -> None:

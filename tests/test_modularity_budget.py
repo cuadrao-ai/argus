@@ -18,18 +18,19 @@ def test_modularity_budget_current_baselines_are_within_threshold() -> None:
 
 def test_modularity_budget_reports_scanned_top_offenders_and_watched_status() -> None:
     budgets = collect_budgets()
+    watched = budgets[0].path
     report = format_report(
         budgets,
         top_count=2,
         source_sizes=[
             SourceFileSize(Path("web/components/new-large-file.tsx"), 9999),
-            SourceFileSize(Path("src/argus/agent_runtime/llm_interpreter.py"), 5279),
+            SourceFileSize(watched, 5279),
         ],
     )
 
     assert "Top scanned files by current line count" in report
     assert "web/components/new-large-file.tsx: 9999 lines" in report
-    assert "src/argus/agent_runtime/llm_interpreter.py: 5279 lines (watched)" in report
+    assert f"{watched.as_posix()}: 5279 lines (watched)" in report
     assert "Watched-file budget status" in report
     assert "Budget violations:\n- none" in report
 

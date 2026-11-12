@@ -6,8 +6,7 @@ all read these routes. The keys are the ones the base memory handlers return.
 
 from __future__ import annotations
 
-from argus.api.message_store import create_message
-
+from tests.conversation_fixtures import seed_message
 from tests.test_conversation_surfaces import (
     ALICE,
     _as,
@@ -22,8 +21,7 @@ _ = client
 def test_business_messages_history_and_search_match_the_base_shape(client) -> None:
     _start_space(ALICE)
     conversation_id = _create(client, ALICE, "Shop ledger", surface="business")
-    create_message(
-        user_id=ALICE,
+    seed_message(
         conversation_id=conversation_id,
         role="assistant",
         content="Anotado.",
