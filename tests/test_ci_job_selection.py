@@ -764,3 +764,39 @@ def test_new_recursive_email_agreement_derives_scan_root(classifier_checkout):
     assert selected_jobs(outputs(classify(
         "--files", "marketing/assets/new.svg", script=script,
     ))) == EVERY
+
+
+@pytest.mark.parametrize("source", [
+    'await import("../../marketing/lib/email/future-owner.ts")',
+    'await import(computePath())',
+])
+def test_dynamic_email_import_is_shared_or_fails_closed(classifier_checkout, source):
+    root, script = classifier_checkout
+    (root / "scripts/emails/sync-future.ts").write_text(
+        f"const {{ value }} = {source};\n"
+        'const destination = new URL("../../web/lib/future.generated.ts", import.meta.url);\n'
+        'writeFileSync(destination, value);\n'
+    )
+    result = classify("--files", "marketing/lib/email/future-owner.ts", script=script)
+    if "computePath" in source:
+        assert result.returncode != 0
+        assert not any(line.startswith("run_") for line in result.stdout.splitlines())
+    else:
+        assert selected_jobs(outputs(result)) == EVERY
+
+
+@pytest.mark.parametrize("fs_import", [
+    'import { writeFile } from "node:fs/promises";',
+    'import { writeFileSync as write } from "node:fs";',
+    'import fs from "node:fs";',
+])
+def test_unsupported_email_filesystem_imports_fail_closed(classifier_checkout, fs_import):
+    root, script = classifier_checkout
+    (root / "scripts/emails/sync-other.ts").write_text(
+        f"{fs_import}\n"
+        'const source = new URL("../../marketing/lib/email/account-layout.ts", import.meta.url);\n'
+        'const destination = computePath();\n'
+    )
+    result = classify("--files", "marketing/app/page.tsx", script=script)
+    assert result.returncode != 0
+    assert not any(line.startswith("run_") for line in result.stdout.splitlines())

@@ -76,12 +76,14 @@ visited = set()
 
 def declarations(path):
     text = path.read_text(encoding="utf-8")
+    if len(re.findall(r"\bimport\s*\(", text)) != len(re.findall(r'''\bimport\s*\(\s*["'][^"']+["']\s*\)''', text)):
+        raise ValueError(f"Unreadable dynamic email import in {path}")
     for token in tokens.finditer(text):
         literal = token.group()
         if literal.startswith(("//", "/*")):
             continue
         prefix = text[:token.start()]
-        is_import = re.search(r"\bfrom\s*$", prefix) is not None
+        is_import = re.search(r"(?:\bfrom\s*|\bimport\s*\(\s*)$", prefix) is not None
         is_url = re.search(r"\bnew\s+URL\(\s*$", prefix) is not None
         if not (is_import or is_url) or not literal[1:-1].startswith("."):
             continue
@@ -117,6 +119,11 @@ def visit(path, email_only=False):
 
 for script in scripts:
     text = script.read_text(encoding="utf-8")
+    for token in tokens.finditer(text):
+        if token.group()[1:-1] in {"fs", "node:fs", "fs/promises", "node:fs/promises"}:
+            supported = re.search(r"\bimport\s*\{\s*(?:readFileSync|writeFileSync)(?:\s*,\s*(?:readFileSync|writeFileSync))*\s*\}\s*from\s*$", text[:token.start()])
+            if token.group()[1:-1] not in {"fs", "node:fs"} or not supported:
+                raise ValueError(f"Unsupported email filesystem import in {script}")
     references = list(declarations(script))
     if not any(not is_import for _, is_import in references):
         raise ValueError(f"No readable email destination in {script}")
