@@ -103,11 +103,10 @@ def test_no_banned_quarantine_module(module_name: str) -> None:
 # by eval, not by per-language literals in the runtime interpretation path. Legitimate
 # presentation-layer i18n (presentation_i18n.py, recovery_messages.py, and the other
 # established locale-aware modules) is the accepted baseline and is intentionally NOT
-# policed here; this tripwire guards only the interpret stage, the LLM interpreter, and
-# the capability modules, where the quarantine added per-language copy.
+# policed here; this tripwire guards Business interpretation and the shared
+# capability modules, where the quarantine added per-language copy.
 LOCALE_FORBIDDEN_FILES = [
-    ARGUS_SRC / "agent_runtime" / "stages" / "interpret.py",
-    ARGUS_SRC / "agent_runtime" / "llm_interpreter.py",
+    ARGUS_SRC / "agent_runtime" / "business" / "interpretation.py",
 ]
 LOCALE_FORBIDDEN_DIRS = [
     ARGUS_SRC / "agent_runtime" / "capabilities",
@@ -142,7 +141,7 @@ def test_locale_scan_covers_expected_files() -> None:
     """Guard the guard: ensure the locale scan actually resolved its core targets, so a
     moved/renamed interpret stage cannot silently empty the parametrization."""
     resolved = {p.name for p in _locale_scan_targets()}
-    assert {"interpret.py", "llm_interpreter.py"} <= resolved, (
+    assert {"interpretation.py"} <= resolved, (
         "Locale tripwire lost its core targets; update LOCALE_FORBIDDEN_FILES if the "
         f"interpret stage moved. Resolved: {sorted(resolved)}"
     )
@@ -153,15 +152,7 @@ def test_locale_scan_covers_expected_files() -> None:
 # migrated away from deterministic en/es runtime copy. Keep presentation helpers
 # and API schema aliases out until their typed frontend/API contracts are explicit.
 ISSUE_154_MIGRATED_LANGUAGE_SURFACES = [
-    ARGUS_SRC / "agent_runtime" / "stages" / "explain.py",
-    ARGUS_SRC / "api" / "chat" / "confirmation.py",
-    ARGUS_SRC / "api" / "chat" / "confirmation_lifecycle.py",
-    ARGUS_SRC / "api" / "chat" / "confirmation_research_peers.py",
     ARGUS_SRC / "agent_runtime" / "recovery_messages.py",
-    ARGUS_SRC / "agent_runtime" / "clarification_contract.py",
-    ARGUS_SRC / "agent_runtime" / "artifact_action_recovery.py",
-    ARGUS_SRC / "agent_runtime" / "stages" / "execute.py",
-    ARGUS_SRC / "agent_runtime" / "response_style.py",
 ]
 
 ISSUE_154_LANGUAGE_GATES = {
