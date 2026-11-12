@@ -44,6 +44,62 @@ pytestmark = [
 ]
 
 
+
+@pytest.mark.parametrize("management", [False], indirect=True)
+def test_concurrent_first_receiving_address_requests_share_live_route(
+    management, monkeypatch
+):
+    from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+
+    pool, _, context = management
+    store = PostgresEmailStore(pool)
+    space_id = context.scope.owner.space_id
+    assert store.route_for_space(space_id) is None
+    monkeypatch.setenv("CUADRAO_BUSINESS_EMAIL_DOMAIN", "recibos.example.test")
+    monkeypatch.setattr(
+        email_routes, "ingestion_hub", lambda: Mock(sink=context.service.imports)
+    )
+    monkeypatch.setattr(email_routes, "email_receiving_available", lambda: True)
+    create_route = PostgresEmailStore.create_route
+    ready = Barrier(2, timeout=5)
+
+    def concurrent_create(self, **kwargs):
+        # Both HTTP requests must pass the no-address read before either inserts.
+        ready.wait()
+        return create_route(self, **kwargs)
+
+    monkeypatch.setattr(PostgresEmailStore, "create_route", concurrent_create)
+    app = FastAPI()
+    app.state.financial_accounts_pool = pool
+    app.dependency_overrides[require_business_document_write] = lambda: context
+    app.add_api_route(
+        "/business/email", email_routes.create_receiving_address,
+        methods=["POST"], status_code=201,
+    )
+    with TestClient(app, raise_server_exceptions=False) as client:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(
+                    client.post, "/business/email",
+                    json={"alias": "recibos" + uuid4().hex[:12]},
+                )
+                for _ in range(2)
+            ]
+            responses = [future.result(timeout=10) for future in futures]
+    assert [response.status_code for response in responses] == [201, 201]
+    addresses = [response.json()["receiving_address"] for response in responses]
+    assert addresses[0] is not None and addresses[0] == addresses[1]
+    assert all(response.json()["enabled"] for response in responses)
+    route = store.route_for_space(space_id)
+    assert route is not None and route.recipient == addresses[0]
+    with pool.connection() as connection:
+        assert connection.execute(
+            "select count(*) from public.business_email_routes where space_id=%s and active",
+            (space_id,),
+        ).fetchone()[0] == 1
+    assert pool.get_stats().get("requests_waiting", 0) == 0
+
+
 def test_refund_dossier_is_coherent_while_money_approval_commits(
     management, actions, monkeypatch
 ):

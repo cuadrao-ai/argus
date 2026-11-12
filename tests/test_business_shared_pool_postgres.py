@@ -49,7 +49,7 @@ pytestmark = [
 
 
 @pytest.fixture
-def management(actions, monkeypatch):
+def management(actions, monkeypatch, request):
     service, actor, grant = actions
     with ConnectionPool(shared.DSN, min_size=2, max_size=2, timeout=0.5) as pool:
         scope = BusinessScope(
@@ -69,13 +69,14 @@ def management(actions, monkeypatch):
             Mock(),
             lambda: True,
         )
-        runtime.store.create_route(
-            recipient=f"{uuid4().hex}@recibos.example.test",
-            space_id=scope.owner.space_id,
-            principal_id=scope.person_id,
-            granted_by=scope.acting_person_id,
-            grant_id=scope.grant_id,
-        )
+        if getattr(request, "param", True):
+            runtime.store.create_route(
+                recipient=f"{uuid4().hex}@recibos.example.test",
+                space_id=scope.owner.space_id,
+                principal_id=scope.person_id,
+                granted_by=scope.acting_person_id,
+                grant_id=scope.grant_id,
+            )
         monkeypatch.setattr(email_intake, "_runtime", runtime)
         monkeypatch.setattr(business_spaces, "_spaces", PostgresSpaceStore(pool))
         monkeypatch.setattr(business_spaces, "_access", PostgresAccessStore(pool))
