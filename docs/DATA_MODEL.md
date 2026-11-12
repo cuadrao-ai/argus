@@ -588,7 +588,10 @@ queue, scheduler, or general mail system.
 
 # 7. conversations
 
-Represents an isolated chat thread. Each conversation represents a single investing "idea journey."
+Stores conversation history. Personal conversation API access is retired under
+#2001; existing Personal rows are retained, not migrated or deleted. Business
+conversation routes still read this table and `messages`. This retirement does
+not make either table unused.
 
 ### Fields
 - `id`: `uuid` (Primary Key)

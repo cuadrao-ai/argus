@@ -275,7 +275,6 @@ def test_link_write_callers_are_enumerated() -> None:
             ):
                 callers.add((str(path.relative_to(REPO)), index.function_at(node.lineno)))
     assert callers == {
-        ("src/argus/api/chat/result_link.py", "link_shadow_backtest_job_result"),
         ("workflows/backtest_job.py", "run_backtest_job"),
     }, (
         f"Unrecognized link_backtest_job_result caller set: {sorted(callers)}. "
