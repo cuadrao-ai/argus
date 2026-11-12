@@ -141,7 +141,7 @@ def test_database_read_pages_keep_cursors_and_surface_scope(rig: Rig) -> None:
             page = rig.client.get(
                 path,
                 params={
-                    "surface": "personal",
+                    "surface": "business",
                     "q": "ledger",
                     "limit": 1,
                     **({"cursor": cursor} if cursor else {}),
@@ -156,7 +156,13 @@ def test_database_read_pages_keep_cursors_and_surface_scope(rig: Rig) -> None:
             cursor = body["next_cursor"]
             if cursor is None:
                 break
-        assert sorted(seen) == sorted(rig.alice.personal)
+        assert sorted(seen) == sorted(rig.alice.business)
+        personal = rig.client.get(
+            path,
+            params={"surface": "personal", "q": "ledger"},
+            headers=rig.alice.headers,
+        )
+        assert personal.status_code == 404, personal.text
         invalid = rig.client.get(
             path,
             params={"surface": "business", "q": "ledger", "cursor": "bad"},
