@@ -29,12 +29,12 @@ included. The preserved Goal experiment remains outside this checkpoint.
 
 | Image | Observed state |
 | --- | --- |
-| [Budget before relaunch](budget-before-relaunch.jpg) | Saved spending, available amount, and limit |
-| [Budget after relaunch](budget-after-relaunch.jpg) | Same values after relaunch |
-| [Search after relaunch](search-after-relaunch.jpg) | Preserved query, currency, and result while loading |
-| [Search settled](search-settled.jpg) | Same query and result after the filter check, with no spinner |
-| [Home](home.jpg) | Partial balance and unknown balances after cancellation |
-| [Add tray](home-add-tray.jpg) | Current Free entry points |
+| [Budget before relaunch](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-core-checkpoint-20261011/spanish-refresh-20261011/budget-before-relaunch.jpg) | Saved spending, available amount, and limit |
+| [Budget after relaunch](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-core-checkpoint-20261011/spanish-refresh-20261011/budget-after-relaunch.jpg) | Same values after relaunch |
+| [Search after relaunch](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-core-checkpoint-20261011/spanish-refresh-20261011/search-after-relaunch.jpg) | Preserved query, currency, and result while loading |
+| [Search settled](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-core-checkpoint-20261011/spanish-refresh-20261011/search-settled.jpg) | Same query and result after the filter check, with no spinner |
+| [Home](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-core-checkpoint-20261011/spanish-refresh-20261011/home.jpg) | Partial balance and unknown balances after cancellation |
+| [Add tray](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/consumer-core-checkpoint-20261011/spanish-refresh-20261011/home-add-tray.jpg) | Current Free entry points |
 
 The first captures were taken on October 11 between 19:18 and 19:22 UTC, or
 2:18 and 2:22 p.m. Central. The settled Search continuation was captured later

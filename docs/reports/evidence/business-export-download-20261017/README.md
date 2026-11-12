@@ -32,7 +32,7 @@ DOWNLOAD business-export-2026-10-01-2026-10-17.zip QUERY [ "?start=2026-10-01&en
 NO_OVERFLOW true
 ```
 
-[Desktop](after-desktop.png), [explicit dates under Todo](after-explicit-dates.png), and [390px mobile](after-mobile.png) show the approved Spanish export copy. These images were captured on the final production code delta; the final head is rechecked after documentation is committed.
+[Desktop](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-export-download-20261017/after-desktop.png), [explicit dates under Todo](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-export-download-20261017/after-explicit-dates.png), and [390px mobile](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/business-export-download-20261017/after-mobile.png) show the approved Spanish export copy. These images were captured on the final production code delta; the final head is rechecked after documentation is committed.
 
 ## Ownership and limits
 

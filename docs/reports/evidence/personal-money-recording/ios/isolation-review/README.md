@@ -17,15 +17,15 @@ The full Xcode command returned **0** and finalized its result bundle.
    B’s own Home total.
 2. Signed in as A, created `Pending A 6D519` with DOP 100 and recorded income 25.
    The loopback proxy dropped exactly one response **after server commit**.
-   Reopening showed [A’s pending command](isolation-a-pending-before-switch.png).
+   Reopening showed [A’s pending command](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/isolation-review/isolation-a-pending-before-switch.png).
 3. Signed in as B. The test waited for B’s exact persisted account row before
    checking that A’s account and pending action were absent. It then opened
-   [B’s account and checked DOP 321](isolation-b-own-account-loaded.png), and
-   verified [B’s Home was unchanged with no A pending action](isolation-b-home-without-a-pending.png).
+   [B’s account and checked DOP 321](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/isolation-review/isolation-b-own-account-loaded.png), and
+   verified [B’s Home was unchanged with no A pending action](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/isolation-review/isolation-b-home-without-a-pending.png).
    An empty or loading account list cannot satisfy this barrier.
-4. Signed back in as A. The [same pending command returned](isolation-a-pending-restored.png).
+4. Signed back in as A. The [same pending command returned](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/isolation-review/isolation-a-pending-restored.png).
    Recovery produced balance 125 and one income record. After another relaunch,
-   [the same record ID remained and the count was still one](isolation-a-recovered-once-after-reopen.png).
+   [the same record ID remained and the count was still one](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/isolation-review/isolation-a-recovered-once-after-reopen.png).
 5. Independent [canonical readback](readback.json) confirms A’s balance 125/one
    income, B’s balance 321/no activity, and the opposite account’s absence from
    each owner’s account list.

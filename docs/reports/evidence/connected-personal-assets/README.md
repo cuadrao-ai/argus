@@ -42,7 +42,7 @@ DOP net worth 4,201,000, cash 1,000 and debt 900,000; USD known subtotal 500 wit
 an unknown loan. API proof independently checks these expected amounts and
 unchanged budget, savings and selected-cash forecast values.
 
-[60-second recording](asset-journey.mp4) shows recovery of an accepted create
+[60-second recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-personal-assets/asset-journey.mp4) shows recovery of an accepted create
 response after reopening, the one recovered vehicle, and its original estimate
 controls. [Native proof](native-proof.json) links successful lifecycle, Search,
 Spanish/relaunch and recovery captures. [Independent review](independent-review.md)

@@ -192,13 +192,13 @@ Final admission logs: `admission-journeys.log`, `interval-before4.log`,
 
 ## Screenshots
 
-![Capture failure, English](apple-capture-failed-en.png)
-![Capture failure, Spanish](apple-capture-failed-es-419.png)
-![Validation recovery, English](apple-validation-retry-en.png)
-![Validation recovery, Spanish](apple-validation-retry-es-419.png)
-![Explicit sign-in again](apple-explicit-sign-in-again.png)
-![Known email with Apple link](email-with-apple-link.png)
-![Notification delivered during validation](apple-notification-during-validation.png)
+[Capture failure, English](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/apple-capture-failed-en.png)
+[Capture failure, Spanish](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/apple-capture-failed-es-419.png)
+[Validation recovery, English](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/apple-validation-retry-en.png)
+[Validation recovery, Spanish](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/apple-validation-retry-es-419.png)
+[Explicit sign-in again](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/apple-explicit-sign-in-again.png)
+[Known email with Apple link](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/email-with-apple-link.png)
+[Notification delivered during validation](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/apple-session-20261005/apple-notification-during-validation.png)
 
 Revoked signed-out screens are also saved as `apple-revoked-signed-out-en.png`
 and `apple-revoked-signed-out-es-419.png`. Attachment timestamps and owning test

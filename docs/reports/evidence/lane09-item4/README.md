@@ -61,8 +61,8 @@ both recovery buttons fit in the capture.
 
 | Screen | Desktop before | Desktop after | Phone before | Phone after |
 | --- | --- | --- | --- | --- |
-| Resumen | [Before](before-overview-1280.png) | [After](after-overview-1280.png) | [Before](before-overview-390.png) | [After](after-overview-390.png) |
-| Bandeja | [Before](before-inbox-1280.png) | [After](after-inbox-1280.png) | [Before](before-inbox-390.png) | [After](after-inbox-390.png) |
+| Resumen | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item4/before-overview-1280.png) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item4/after-overview-1280.png) | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item4/before-overview-390.png) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item4/after-overview-390.png) |
+| Bandeja | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item4/before-inbox-1280.png) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item4/after-inbox-1280.png) | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item4/before-inbox-390.png) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item4/after-inbox-390.png) |
 
 Retry failure, manual entry and reduced-motion captures use the same `after-`
 filename prefixes in this folder. The cited [Home action hierarchy](https://mobbin.com/screens/d8564614-5b4c-4cdc-8088-0891fc9260df)

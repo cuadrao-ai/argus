@@ -17,11 +17,11 @@ owner consent require switching to the original synthetic owner with the
 existing secure local fixture. Do not copy credentials or invitation links into
 published evidence. No external invitations were sent.
 
-[Short functional recording](correction-demo.mp4) captures the final native
+[Short functional recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/correction-demo.mp4) captures the final native
 correction preview 975→980 and refreshed Home with one 20 DOP expense.
-[Current Home](home-corrected-current.jpg),
-[current correction preview](correction-preview-current.jpg) and
-[current opening scene](home-before-current.jpg) were captured at source
+[Current Home](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/home-corrected-current.jpg),
+[current correction preview](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/correction-preview-current.jpg) and
+[current opening scene](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/home-before-current.jpg) were captured at source
 `d1084805fa1da72dba8faf6c78971c73c1e97882`. System-dark appearance keeps the
 Household white canvas readable and its native sheet dark. The white canvas
 was also inspected with system-light appearance.
@@ -45,10 +45,10 @@ The real native default-off test atc38 is **PASS**, archive
 `ui-20261001T141415Z.xcresult`: ordinary registered authentication, English and
 Spanish relaunch, working Personal Home/Accounts/Search, and no Household
 selector/add/People/pending/editor or false access-ended state.
-[English Home](household-default-off-personal-home-en.png),
-[Spanish Home](household-default-off-personal-home-es-419.png),
-[English Search](household-default-off-personal-search-en.png) and
-[Spanish Search](household-default-off-personal-search-es-419.png) are safe test
+[English Home](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/household-default-off-personal-home-en.png),
+[Spanish Home](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/household-default-off-personal-home-es-419.png),
+[English Search](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/household-default-off-personal-search-en.png) and
+[Spanish Search](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/household-default-off-personal-search-es-419.png) are safe test
 attachments. Existing Personal Search dark contrast remains recorded polish;
 these images prove routing/absence, not a redesign of that inherited screen.
 
@@ -59,8 +59,8 @@ Personal account/Home financial field is unchanged; only Home's fresh
 Ten focused Household/projection regressions also pass on actual Postgres.
 After restoring this bundle's direct API59520 and rebuilding, the original
 69447E selection,980 DOP balance and one20 DOP activity reappear.
-[Restored Home](restored-household-home.jpg) and the
-[short restored detail/history/back recording](restored-household-demo.mp4)
+[Restored Home](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/restored-household-home.jpg) and the
+[short restored detail/history/back recording](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/restored-household-demo.mp4)
 show current source. Original financial/lifecycle evidence below is retained;
 unchanged backend/migrations/money calculations were not reopened. The final
 PR audit records publication-head equality, CI, review reply and resolution.
@@ -75,9 +75,9 @@ The same actual AAE272 fixture was continued, with no replacement data, by
 `testHouseholdResumeEditingSearchAndWithdrawalOnPreservedFixture`: **PASS,
 224.032 seconds**. It records25, corrects the same activity20 (1000→975→980),
 opens actual Search/detail/back, reopens in Spanish, withdraws sharing as owner
-and confirms recipient absence after relaunch. [Consent](view-consent.png),
-[Spanish reopened detail](spanish-reopened-detail.png) and
-[withdrawn account absent](withdrawn-account-absent.png) retain those states.
+and confirms recipient absence after relaunch. [Consent](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/view-consent.png),
+[Spanish reopened detail](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/spanish-reopened-detail.png) and
+[withdrawn account absent](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/connected-household-native/withdrawn-account-absent.png) retain those states.
 The withdrawal image predates the two-line contrast fix; it proves access state,
 not final visual polish. Current images and recording supersede its colors.
 

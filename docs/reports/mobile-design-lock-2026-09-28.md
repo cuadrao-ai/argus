@@ -12,10 +12,10 @@ as historical, not as the current account/space/recording specification. This
 publication does not close or alter #714; the release captain must reconcile
 their overlapping documentation before merging either publication.
 
-- [Complete source, reports and evidence archive](evidence/mobile-design-lock-2026-09-28/argus-mobile-design-lock-2026-09-28.zip)
+- [Complete source, reports and evidence archive](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/mobile-design-lock-2026-09-28/argus-mobile-design-lock-2026-09-28.zip)
 - [Archive SHA-256](evidence/mobile-design-lock-2026-09-28/argus-mobile-design-lock-2026-09-28.zip.sha256)
 - [Per-file manifest](evidence/mobile-design-lock-2026-09-28/LOCK-MANIFEST.json)
-- [Report screenshot](evidence/mobile-design-lock-2026-09-28/report-overview.png)
+- [Report screenshot](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/mobile-design-lock-2026-09-28/report-overview.png)
 
 SHA-256: `c55e565aa142e38eec61b570510af1c4c2cb9629c24f3ce2d01387639f0ea0e6`.
 
