@@ -3174,8 +3174,6 @@
         "save_refused": "{{field}} wasn't saved. Check the value.",
         "save_stale": "This record changed while you edited. You're seeing the current version and your change is still here.",
         "doubtful_read": "check this",
-        "zoom_in": "Zoom in",
-        "zoom_out": "Zoom out",
         "done_title": "No receipts left to review",
         "done_back": "Back to Inbox",
         "total_mismatch": "Subtotal + ITBIS = {{sum}}, not {{total}}",
@@ -3202,6 +3200,18 @@
       "tab_form": "Form",
       "tab_original": "Original",
       "view_label": "View",
+      "viewer": {
+        "actual_size": "Actual size",
+        "exit_full_screen": "Exit full screen",
+        "fit_page": "Fit to page",
+        "fit_width": "Fit to width",
+        "full_screen": "Full screen",
+        "open_original": "Open original",
+        "rotate_left": "Rotate left",
+        "rotate_right": "Rotate right",
+        "zoom_in": "Zoom in",
+        "zoom_out": "Zoom out"
+      },
       "share": {
         "all": "All for the business",
         "none": "Personal only",
