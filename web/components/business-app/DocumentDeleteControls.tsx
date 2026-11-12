@@ -38,13 +38,16 @@ function DocumentThumbnail({ receipt }: { receipt?: ReceiptSummary }) {
   useEffect(() => {
     if (!receipt?.media_type.startsWith("image/")) return;
     let live = true;
-    let url: string | null = null;
-    void source.receiptSource(receipt.id).then(blob => {
-      if (!live) return;
-      url = URL.createObjectURL(blob);
-      setImage(url);
-    }).catch(() => undefined);
-    return () => { live = false; if (url) URL.revokeObjectURL(url); };
+    void source.receiptSource(receipt.id)
+      .then(blob => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      }))
+      .then(url => { if (live) setImage(url); })
+      .catch(() => undefined);
+    return () => { live = false; };
   }, [receipt?.id, receipt?.media_type, source]);
   return <div className="flex h-20 w-16 shrink-0 items-center justify-center overflow-hidden rounded-item border border-black/10 bg-black/[0.03] dark:border-white/10 dark:bg-white/5">
     {image ? <Image unoptimized src={image} alt="" width={64} height={80} className="h-full w-full object-contain" /> : <FileText size={24} aria-hidden="true" />}

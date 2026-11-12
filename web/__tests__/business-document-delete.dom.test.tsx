@@ -10,6 +10,7 @@ beforeAll(() => {
   Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, writable: true, value: true });
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
+const PREVIEW_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPlkAAAAASUVORK5CYII=";
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; });
 
@@ -54,6 +55,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
       const matching = notes.filter(note => view === "eliminados" ? !!note.deleted : !note.deleted);
       return { items: matching.slice(offset, offset + limit), has_more: offset + limit < matching.length };
     },
+    receiptSource: async () => new Blob([Buffer.from(PREVIEW_PNG, "base64")], { type: "image/png" }),
     uploadReceipt: async () => items.find(item => item.id === "deleted")!,
     emailDeliveries: async () => [],
     deleteDocument: async (id, key) => {
@@ -221,4 +223,15 @@ test("an older deleted note beyond the first server page can be found and restor
   assert.deepEqual(page.restores, ["deleted-note-50"]);
   await page.click(document.getElementById("reception-tab-all"));
   await page.wait(() => !!document.querySelector('button[aria-label="Eliminar Documento antiguo"]'));
+});
+
+
+test("the dialog preview renders the source through a CSP-safe data URL", async () => {
+  const page = await mount();
+  await page.click(document.querySelector('button[aria-label="Eliminar Documento equivocado"]'));
+  const preview = () => document.querySelector<HTMLImageElement>('[data-testid="document-delete-facts"] img');
+  await page.wait(() => !!preview());
+  assert.equal(preview()!.getAttribute("src"), `data:image/png;base64,${PREVIEW_PNG}`);
+  assert.equal(preview()!.width, 64);
+  assert.equal(preview()!.height, 80);
 });
