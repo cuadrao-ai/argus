@@ -13,53 +13,53 @@ import ReceiptImageZoom from "./ReceiptImageZoom";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { resolveLanguage } from "@/lib/language-features";
 
-export default function ReceiptSourcePreview({ detail, initialExpanded = false, showArrivalContext = true, zoomable = false }: { initialExpanded?: boolean; showArrivalContext?: boolean; /** An image offers zoom, for reading the original beside the facts. */ zoomable?: boolean; detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
+export default function ReceiptSourcePreview({ detail, initialExpanded = false, showArrivalContext = true }: { initialExpanded?: boolean; showArrivalContext?: boolean; detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
   const { t, i18n } = useTranslation();
   const { source, openPanel } = useBusiness();
   const channelLabel = useChannelLabel();
   const deliveries = detail.email_delivery_ids?.length ?? 0;
   // The API lists deliveries earliest first; the first one is where the file first arrived by email.
   const firstEmail = detail.email_delivery_ids?.[0];
-  const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; url: string } | { kind: "failed" }>({ kind: "loading" });
+  const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; url: string; blob: Blob; sourceId: string } | { kind: "failed" }>({ kind: "loading" });
   const [expanded, setExpanded] = useState(initialExpanded);
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     source.receiptSource(detail.id)
-      .then((blob) => new Promise<string>((resolve, reject) => {
+      .then((blob) => new Promise<{ url: string; blob: Blob }>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
+        reader.onload = () => resolve({ url: String(reader.result), blob });
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(blob);
       }))
-      .then((url) => { if (!cancelled) setState({ kind: "ready", url }); })
+      .then(({ url, blob }) => { if (!cancelled) setState({ kind: "ready", url, blob, sourceId: detail.id }); })
       .catch(() => { if (!cancelled) setState({ kind: "failed" }); });
     return () => { cancelled = true; };
   }, [detail.id, source, retry]);
 
+  const current = state.kind === "ready" && state.sourceId !== detail.id ? { kind: "loading" as const } : state;
+
   return (
     <figure className={SURFACE_CARD} data-testid="receipt-original-source">
       <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex min-h-11 w-full items-center gap-3 rounded-item text-left text-[14px] font-medium text-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)] dark:text-white/85 desktop:hidden">
-        {!expanded && state.kind === "ready" && (detail.media_type.startsWith("image/") || source.mode === "fixture") ? <Image unoptimized src={state.url} width={64} height={80} alt="" className="h-20 w-16 rounded-item object-contain" /> : null}
+        {!expanded && current.kind === "ready" && (detail.media_type.startsWith("image/") || source.mode === "fixture") ? <Image unoptimized src={current.url} width={64} height={80} alt="" className="h-20 w-16 rounded-item object-contain" /> : null}
         {expanded ? t("common.close", "Close") : t("business.review.source", "Original receipt")}
       </button>
-      <div className={`${expanded ? "mt-3 flex desktop:mt-0" : "hidden desktop:flex"} min-h-[200px] items-center justify-center overflow-hidden rounded-item bg-black/[0.03] dark:bg-white/[0.04] desktop:min-h-[280px]`}>
-        {state.kind === "failed" ? (
+      <div className={`${expanded ? "mt-3 flex desktop:mt-0" : "hidden desktop:flex"} -mx-6 min-h-[200px] items-center justify-center overflow-hidden desktop:mx-0 rounded-item bg-black/[0.03] dark:bg-white/[0.04] desktop:min-h-[280px]`}>
+        {current.kind === "failed" ? (
           <div className="p-5 text-center">
             <p role="alert" className="text-[14px] text-black/65 dark:text-white/65">{t("business.review.source_error", "We couldn't open the original receipt with your current access.")}</p>
             <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => { setState({ kind: "loading" }); setRetry((value) => value + 1); }}>
               <RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.retry_source", "Try opening again")}
             </button>
           </div>
-        ) : state.kind === "loading" ? (
+        ) : current.kind === "loading" ? (
           <DelayedSourceWell />
         ) : detail.media_type === "application/pdf" && source.mode === "live" ? (
-          <iframe title={t("business.review.source", "Original receipt")} src={state.url} className="h-[480px] w-full" />
-        ) : (detail.media_type.startsWith("image/") || source.mode === "fixture") && zoomable ? (
-          <ReceiptImageZoom src={state.url} alt={t("business.review.source", "Original receipt")} />
-        ) : detail.media_type.startsWith("image/") || source.mode === "fixture" ? (
-          <Image unoptimized src={state.url} width={640} height={900} alt={t("business.review.source", "Original receipt")} className="max-h-[300px] w-auto object-contain desktop:max-h-[520px]" />
+          <iframe title={t("business.review.source", "Original receipt")} src={current.url} className="h-[480px] w-full" />
+        ) : (detail.media_type.startsWith("image/") || source.mode === "fixture") ? (
+          <ReceiptImageZoom src={current.url} blob={current.blob} sourceId={current.sourceId} alt={t("business.review.source", "Original receipt")} />
         ) : (
           <p className="p-5 text-[14px] text-black/65 dark:text-white/65">{t("business.dossier.download_source", "Download the original to read this file.")}</p>
         )}
@@ -67,7 +67,7 @@ export default function ReceiptSourcePreview({ detail, initialExpanded = false, 
       <figcaption className={`${expanded ? "" : "hidden desktop:block"} mt-3 px-1 text-[13px] text-black/60 dark:text-white/60`}>
         <div className="flex items-center justify-between gap-2">
           <span className="min-w-0 break-all">{detail.filename ?? t("business.review.source", "Original receipt")}</span>
-          {state.kind === "ready" ? <a href={state.url} download={detail.filename ?? "receipt"} className={`${quietButtonClass} shrink-0 px-3`}><Download className="h-4 w-4" aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
+          {current.kind === "ready" ? <a href={current.url} download={detail.filename ?? "receipt"} className={`${quietButtonClass} shrink-0 px-3`}><Download className="h-4 w-4" aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
         </div>
         {showArrivalContext || detail.channel === "email" && firstEmail ? <p data-testid="receipt-source-channel">
           {showArrivalContext ? detail.channel === "email" ? t("business.dossier.arrived_by_email", "Arrived by email") : channelLabel(detail.channel) : null}
