@@ -769,3 +769,72 @@ def test_a_stuck_fiscal_receipt_with_no_currency_recovers_without_a_new_read(
         headers={**web.alice.headers, "Idempotency-Key": str(uuid4())},
     )
     assert approved.status_code == 200, approved.text
+
+
+@_local_supabase
+def test_a_refused_leer_de_nuevo_leaves_the_receipt_unread_and_deletable(
+    web,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    faker,
+) -> None:
+    """A receipt bound under the owner's old grant, with no saved read, is
+    prepared again under her reissued grant. The check refuses it, and every
+    try ends the same way: the receipt is not left queued as if it were being
+    read, and the owner can delete it at once."""
+
+    assert _reading(web, True).status_code == 200
+    leave_reads_waiting(monkeypatch)
+    uploaded = _upload(web, RECEIPT + faker.binary(length=8))
+    assert uploaded.status_code == 200, uploaded.text
+    receipt_id = uploaded.json()["id"]
+    with database.psycopg.connect(database.DSN) as db:
+        bound = db.execute(
+            "select preparation_binding->'actor'->>'grant_id' from"
+            " public.financial_document_extractions where connection_id=%s",
+            (receipt_id,),
+        ).fetchone()[0]
+        # The read ended without saving anything.
+        db.execute(
+            "update public.financial_document_extractions"
+            " set draft=jsonb_set(draft,'{status}','\"needs_attention\"')"
+            " where connection_id=%s",
+            (receipt_id,),
+        )
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where id=%s",
+            (bound,),
+        )
+        db.execute(
+            "insert into public.business_client_grants"
+            "(space_id,grantee_id,issuer_id,capabilities,business_role)"
+            " select space_id,grantee_id,issuer_id,capabilities,business_role"
+            " from public.business_client_grants where id=%s",
+            (bound,),
+        )
+    # Ending the owner's grant ends her reading setting; she turns it on again.
+    assert _reading(web, True).status_code == 200
+    assert web.documents.store.get(user_id=web.alice.id, connection_id=receipt_id) is None
+
+    for _ in range(2):
+        again = web.client.post(
+            f"{API}/business/receipts/{receipt_id}/prepare",
+            headers={
+                **web.alice.headers,
+                "Idempotency-Key": str(uuid4()),
+                "X-Extraction-Consent": "true",
+            },
+        )
+        assert (again.status_code, again.json()["code"]) == (
+            409,
+            "business_preparation_binding_conflict",
+        ), again.text
+        detail = _receipt(web, receipt_id)
+        assert detail["status"] != "queued", detail
+        assert not detail["read_pending"] and detail["delete_available"], detail
+
+    deleted = web.client.post(
+        f"{API}/business/drafts/{receipt_id}/delete",
+        json={},
+        headers={**web.alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert deleted.status_code == 200, deleted.text
