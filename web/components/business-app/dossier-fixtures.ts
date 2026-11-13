@@ -319,7 +319,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
         next.blockers = next.blockers.filter((blocker) => blocker.field !== "funding");
       }
       if (next.facts.kind.state === "known" && next.facts.kind.value === "expense") next.blockers = next.blockers.filter((blocker) => blocker.field !== "kind");
-      next.blockers = next.blockers.filter((blocker) => !(blocker.code === "fact_required" && blocker.field && next.facts[blocker.field].state === "known"));
+      next.blockers = next.blockers.filter((blocker) => !(blocker.code === "fact_required" && blocker.field && next.facts[blocker.field]?.state === "known"));
       next.approval_available = next.blockers.length === 0 && next.capabilities.includes("approve") && next.facts.kind.state === "known" && next.facts.kind.value === "expense";
       dossiers.set(id, next);
       reviewReceipts.set(key, { input, result: get(id) });

@@ -2578,6 +2578,21 @@
       "form_no_operations": "No operations",
       "form_summary_only": "Summary only"
     },
+    "terms": {
+      "calculated_hint": "Calculated: Total − ITBIS",
+      "calculated_hint_with_tip": "Calculated: Total − ITBIS − legal tip",
+      "difference": "Difference {{amount}}",
+      "inherited_from": "From {{field}}",
+      "itbis": "ITBIS",
+      "legal_tip": "Legal tip",
+      "montos_title": "Amounts",
+      "net_amount": "Amount before ITBIS",
+      "net_card_purchases": "Purchases before ITBIS",
+      "net_card_sales": "Sales before ITBIS",
+      "total": "Total",
+      "total_review": "Total (with ITBIS)",
+      "use_inherited": "Use Amounts ({{amount}})"
+    },
     "transactions": {
       "layout": {
         "all_types": "All types",

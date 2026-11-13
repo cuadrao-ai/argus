@@ -257,7 +257,7 @@ describe("the receipt dossier on an open draft", () => {
   test("the six facts lead, then the two choices; what was removed is gone, in both languages", async () => {
     const page = await setup();
     try {
-      assert.deepEqual([...page.host.querySelectorAll('[data-testid="receipt-current-facts"] [data-fact]')].map((row) => row.getAttribute("data-fact")), ["document_type", "counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis", "category", "payment_method"]);
+      assert.deepEqual([...page.host.querySelectorAll('[data-testid="receipt-current-facts"] [data-fact]')].map((row) => row.getAttribute("data-fact")), ["document_type", "counterparty", "occurred_on", "net_amount", "itbis", "amount", "rnc", "fiscal_number", "category", "payment_method"]);
       for (const gone of ["Confirmar", "Comprobante", "Actividad", "Parte del negocio", "Categoría", "Cómo se pagó", "Consultar registro actual", "por revisar"]) assert.ok(!page.host.querySelector('[data-testid="business-record-review"]')?.textContent?.includes(gone), gone);
       assert.ok(page.host.querySelector('[data-testid="receipt-more"] [data-testid="receipt-mark-personal"]'), "Personal stays in Más");
       assert.equal(page.host.querySelector('[data-testid="receipt-business"]')?.textContent, "Taller Lucía · negocio de muestra");
@@ -909,8 +909,8 @@ describe("the receipt dossier on an open draft", () => {
   test("Tab walks the six facts in reading order, and a saved row hands Tab on from itself", async () => {
     const page = await setup();
     try {
-      const stops = [...page.host.querySelectorAll<HTMLElement>('[data-testid="receipt-facts-activity"] button, [data-testid="receipt-facts-fiscal"] button')].filter((item) => item.closest("[data-fact]") && item.tabIndex === 0).map((item) => item.closest<HTMLElement>("[data-fact]")!.dataset.fact);
-      assert.deepEqual(stops.filter((fact) => fact !== "document_type"), ["counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis"]);
+      const stops = [...page.host.querySelectorAll<HTMLElement>('[data-testid="receipt-facts-activity"] button, [data-testid="receipt-facts-montos"] button, [data-testid="receipt-facts-fiscal"] button')].filter((item) => item.closest("[data-fact]") && item.tabIndex === 0).map((item) => item.closest<HTMLElement>("[data-fact]")!.dataset.fact);
+      assert.deepEqual(stops.filter((fact) => fact !== "document_type"), ["counterparty", "occurred_on", "itbis", "amount", "rnc", "fiscal_number"]);
       await page.openRow("counterparty");
       await fill(page, '[data-testid="edit-counterparty"] input', "Ferretería Norte");
       await page.press('[data-testid="edit-counterparty"] input', "Enter");
@@ -918,12 +918,12 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
-  test("the total line shows only when the server says the parts do not add up, with the server's figures", async () => {
-    const quiet = await setup();
-    try { assert.equal(quiet.host.querySelector('[data-testid="total-mismatch"]'), null); } finally { await quiet.close(); }
-    const page = await setup("totalsOff");
+  test("the total warning follows the server amount flag and carries only its difference", async () => {
+    const quiet = await setup("totalsOff");
+    try { assert.equal(quiet.host.querySelector('[data-testid="amounts-difference"]'), null); } finally { await quiet.close(); }
+    const page = await setup("totalsOff", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "1.00" }]; });
     try {
-      assert.equal(page.row("amount").querySelector('[data-testid="total-mismatch"]')?.textContent, "Subtotal + ITBIS = RD$ 3,449.00, no RD$ 3,450.00");
+      assert.equal(page.row("amount").querySelector('[data-testid="amounts-difference"]')?.textContent, "Diferencia RD$ 1.00");
     } finally { await page.close(); }
   });
 

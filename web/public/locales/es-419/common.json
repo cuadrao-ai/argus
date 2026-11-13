@@ -2578,6 +2578,21 @@
       "form_no_operations": "Sin operaciones",
       "form_summary_only": "Solo resumen"
     },
+    "terms": {
+      "calculated_hint": "Calculado: Total − ITBIS",
+      "calculated_hint_with_tip": "Calculado: Total − ITBIS − propina",
+      "difference": "Diferencia {{amount}}",
+      "inherited_from": "Viene de {{field}}",
+      "itbis": "ITBIS",
+      "legal_tip": "Propina legal",
+      "montos_title": "Montos",
+      "net_amount": "Monto sin ITBIS",
+      "net_card_purchases": "Compras sin ITBIS",
+      "net_card_sales": "Ventas sin ITBIS",
+      "total": "Total",
+      "total_review": "Total (con ITBIS)",
+      "use_inherited": "Usar Montos ({{amount}})"
+    },
     "transactions": {
       "layout": {
         "all_types": "Todos los tipos",

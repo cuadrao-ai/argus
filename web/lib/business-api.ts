@@ -5,7 +5,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-a
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
-import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
+import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -867,4 +867,8 @@ export const inviteBusinessMembers = async (recipients:BusinessInvitationCommand
 /** Owner action: bind a receipt whose preparation grant is no longer live to the owner's current grant. */
 export async function rebindBusinessReceipt(id: string): Promise<ReceiptDetail> {
   return apiFetch(`/business/receipts/${encodeURIComponent(id)}/rebind`, { method: "POST" });
+}
+
+export async function reviewBusinessMontos(draftId: string, version: number, montos: BusinessMontosReview, key: string): Promise<BusinessDossier> {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, montos }) });
 }

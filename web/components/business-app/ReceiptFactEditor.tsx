@@ -32,7 +32,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
   useEffect(() => {
     controls.current?.querySelector<HTMLInputElement | HTMLSelectElement>("input, select")?.focus();
   }, []);
-  const set = <K extends BusinessFactField>(key: K, value: BusinessFactInput<NonNullable<BusinessFacts[K]["value"]>>, invalid = false) => {
+  const set = <K extends BusinessFactField>(key: K, value: BusinessFactInput<NonNullable<NonNullable<BusinessFacts[K]>["value"]>>, invalid = false) => {
     onChange({ [key]: value } as BusinessFactPatch, invalid);
   };
   const scalar = (key: "counterparty" | "occurred_on" | "amount" | "currency") => (patch[key] ?? facts[key]).value ?? "";
@@ -61,6 +61,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
           <label className="flex items-center gap-2 text-[13px] text-black/65 dark:text-white/65"><span>{label("currency")}</span><div className="w-[7rem]"><ReviewSelect value={scalar("currency")} disabled={disabled} onChange={(event) => setScalar("currency", event.target.value)}><option value="">{choose}</option>{currencies.map((currency) => <option key={currency}>{currency}</option>)}</ReviewSelect></div></label>
         </div>
       ) : null}
+      {field === "net_amount" || field === "legal_tip" ? <MoneyInput flush label={t(`business.terms.${field}`)} currency={scalar("currency")} value={(patch[field] ?? facts[field])?.value ?? null} allowZero disabled={disabled} onValueChange={({ value, invalid }) => set(field, value ? { state: "known", value } : { state: "unknown", value: null }, invalid)} testId={`dossier-review-${field}`} /> : null}
       {field === "itbis" ? <MoneyInput flush label={t("business.dossier.field.itbis", "ITBIS")} currency={scalar("currency")} value={fiscal || null} allowZero disabled={disabled} onValueChange={({ value, invalid }) => onFiscalChange?.(value ?? "", invalid)} testId="dossier-review-itbis" /> : null}
       {field === "rnc" || field === "fiscal_number" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{field === "rnc" ? t("business.dossier.field.rnc", "RNC") : `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`}</span><input className={`${REVIEW_INPUT_CLASS} tabular-nums`} value={fiscal} disabled={disabled} inputMode={field === "rnc" ? "numeric" : undefined} autoCapitalize={field === "rnc" ? undefined : "characters"} autoComplete="off" onChange={(event) => onFiscalChange?.(event.target.value, false)} /></label> : null}
       {field === "funding" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("funding")}</span><ReviewSelect value={fundingValue} disabled={disabled} onChange={(event) => {
