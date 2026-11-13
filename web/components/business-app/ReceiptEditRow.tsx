@@ -80,7 +80,7 @@ export default function ReceiptEditRow({ label, value, compound, pencil = true, 
   }
   if (numeric) return <div className="group flex items-start">
     <span data-number-box="" className={`${numberBox} flex h-11 items-center justify-end border border-transparent px-3 text-right text-[16px] leading-6 tabular-nums`}>{value || UNKNOWN_VALUE}</span>
-    <span className="flex w-[5.5rem] shrink-0">{onOpen ? <button type="button" onClick={onOpen} aria-label={`${t("business.dossier.edit")} · ${label}`} className={`${ACTION_CLASS} opacity-0 group-hover:opacity-100 group-focus-within:opacity-100`}><Pencil className={`${PENCIL_CLASS} opacity-70`} aria-hidden="true" /></button> : null}</span>
+    <span className="flex w-[5.5rem] shrink-0">{onOpen ? <button type="button" onClick={onOpen} aria-label={`${t("business.dossier.edit")} · ${label}`} className={ACTION_CLASS}><Pencil className={`${PENCIL_CLASS} opacity-70`} aria-hidden="true" /></button> : null}</span>
   </div>;
   if (!onOpen) return <>{value || UNKNOWN_VALUE}</>;
   const edit = `${t("business.dossier.edit", "Edit details")} · ${label}`;

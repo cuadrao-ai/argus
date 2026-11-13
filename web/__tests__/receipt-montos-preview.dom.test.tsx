@@ -27,6 +27,7 @@ test("amount edit and cancel keep the number box and the two action slots", asyn
   const page = await setup();
   try {
     const before = page.row("amount").querySelector<HTMLElement>("[data-number-box]")!;
+    assert.ok(!page.row("amount").querySelector("button")!.classList.contains("opacity-0"));
     const width = [...before.classList].find((name) => name.startsWith("w-["));
     assert.ok(width);
     await page.openRow("amount");
