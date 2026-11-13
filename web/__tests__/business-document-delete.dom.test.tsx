@@ -334,7 +334,7 @@ test("Eliminados lines each row up with its headers: who on one line, when on it
   assert.equal(actor.children[1].getAttribute("datetime"), "2026-11-12T10:00:00Z");
   assert.doesNotMatch(actor.textContent ?? "", /·/);
   const actions = row.lastElementChild!;
-  assert.deepEqual([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label") ?? button.textContent), ["Ver", "Restaurar", "Eliminar definitivamente Documento eliminado"]);
+  assert.deepEqual([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label") ?? button.textContent), ["Ver", "Restaurar", "Borrar definitivamente Documento eliminado"]);
   assert.equal(actions.querySelector('[data-testid="purge-document"]')!.textContent, "", "the hidden action is an icon at the far right, so showing it moves nothing");
 });
 
@@ -354,16 +354,16 @@ test("Eliminados counts down to the server's purge day", async () => {
   assert.match(document.body.textContent ?? "", /No cuentan en ningún total\. Se borran definitivamente 7 días después\./);
 });
 
-test("Eliminar definitivamente asks without Estado, retries its key and leaves no undo", async () => {
+test("Borrar definitivamente asks without Estado, retries its key and leaves no undo", async () => {
   const page = await mount("owner", true);
   await page.click(document.getElementById("reception-tab-eliminados"));
   const trigger = document.querySelector<HTMLButtonElement>('[data-testid="purge-document"]')!;
-  assert.equal(trigger.getAttribute("aria-label"), "Eliminar definitivamente Documento eliminado");
+  assert.equal(trigger.getAttribute("aria-label"), "Borrar definitivamente Documento eliminado");
   trigger.focus();
   await page.click(trigger);
   await page.wait(() => document.activeElement?.textContent === "Cancelar");
   const dialog = document.querySelector('[role="alertdialog"]')!;
-  assert.match(dialog.textContent ?? "", /¿Eliminar definitivamente\?/);
+  assert.match(dialog.textContent ?? "", /¿Borrar definitivamente\?/);
   assert.equal(document.querySelector('[data-testid="confirm-dialog-confirm"]')!.textContent, "Borrar definitivamente");
   assert.match(dialog.textContent ?? "", /Contraparte.*Fecha.*Total.*Archivo/);
   assert.doesNotMatch(dialog.textContent ?? "", /Estado/);
@@ -375,18 +375,18 @@ test("Eliminar definitivamente asks without Estado, retries its key and leaves n
   await page.wait(() => !!document.querySelector('[role="alertdialog"]'));
   await page.click(document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]'));
   await page.wait(() => !!document.querySelector('[data-testid="confirm-dialog-error"]'));
-  assert.match(document.querySelector('[data-testid="confirm-dialog-error"]')!.textContent ?? "", /No se pudo eliminar definitivamente el documento/);
+  assert.match(document.querySelector('[data-testid="confirm-dialog-error"]')!.textContent ?? "", /No se pudo borrar definitivamente el documento/);
   await page.click(document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]'));
   await page.wait(() => !document.querySelector('[data-testid="deleted-document-row"]'));
   assert.equal(page.purges.length, 2);
   assert.equal(page.purges[0].key, page.purges[1].key);
   assert.equal(page.purges[0].id, "deleted");
-  assert.match(document.body.textContent ?? "", /Documento eliminado definitivamente/);
+  assert.match(document.body.textContent ?? "", /Documento borrado definitivamente/);
   assert.equal(page.button("Deshacer"), null);
-  assert.match(document.body.textContent ?? "", /Los documentos que elimines quedan aquí 7 días\. Después se eliminan definitivamente\./);
+  assert.match(document.body.textContent ?? "", /Los documentos que elimines quedan aquí 7 días\. Después se borran definitivamente\./);
 });
 
-test("only the owner sees Eliminar definitivamente", async () => {
+test("only the owner sees Borrar definitivamente", async () => {
   for (const role of ["admin", "editor", "viewer"] as const) {
     const page = await mount(role);
     await page.click(document.getElementById("reception-tab-eliminados"));
@@ -402,7 +402,7 @@ test("restoring a document the expiry already purged says so", async () => {
   await page.click(document.getElementById("reception-tab-eliminados"));
   const row = document.querySelector('[data-testid="deleted-document-row"]')!;
   await page.click(page.button("Restaurar", row));
-  await page.wait(() => /Este documento ya se eliminó definitivamente\./.test(document.body.textContent ?? ""));
+  await page.wait(() => /Este documento ya se borró definitivamente\./.test(document.body.textContent ?? ""));
   await page.wait(() => !document.querySelector('[data-testid="deleted-document-row"]'));
   assert.doesNotMatch(document.body.textContent ?? "", /No se pudo restaurar/);
 });
