@@ -40,7 +40,7 @@ function testAccessToken(): string {
 
 test("sessionless signup focuses check-email state without navigating", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.route("**/api/v1/auth/signup", async (route) => {
     if (route.request().method() === "OPTIONS") {
       await route.fulfill({ status: 204, headers: corsHeaders(page) });
@@ -67,7 +67,7 @@ test("sessionless signup focuses check-email state without navigating", async ({
   await expect(page.getByRole("button", { name: "Confirm" })).toBeVisible();
   await expectOneCanonicalCard(state.locator("xpath=.."));
   await page.screenshot({
-    path: "../docs/reports/evidence/signup-email-code/confirmation-code-en.png",
+    path: testInfo.outputPath("confirmation-code-en.png"),
     fullPage: true,
   });
   await expect(page).not.toHaveURL(/\/chat(?:\?|$)/);
@@ -75,7 +75,7 @@ test("sessionless signup focuses check-email state without navigating", async ({
 
 test("Spanish sessionless signup renders and focuses the localized check-email state", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("i18nextLng", "es-419");
   });
@@ -108,7 +108,7 @@ test("Spanish sessionless signup renders and focuses the localized check-email s
   await expect(page.getByLabel("Código de confirmación")).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirmar" })).toBeVisible();
   await page.screenshot({
-    path: "../docs/reports/evidence/signup-email-code/confirmation-code-es-419.png",
+    path: testInfo.outputPath("confirmation-code-es-419.png"),
     fullPage: true,
   });
   await expect(page).not.toHaveURL(/\/chat(?:\?|$)/);
