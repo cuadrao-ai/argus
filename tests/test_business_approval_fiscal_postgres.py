@@ -338,7 +338,7 @@ def test_usd_owner_funded_receipt_stays_usd_after_approval(actions):
     assert booked(service, context) == [("owner_funds", "USD")]
 
 
-def test_a_printed_currency_symbol_defaults_to_dop_with_valid_ncf(actions):
+def test_a_printed_rd_dollar_is_read_as_dop_not_defaulted(actions):
     service, context = actions
 
     draft, _ = receipt_draft(service, context, colmado(currency="RD$"), None)
@@ -346,7 +346,7 @@ def test_a_printed_currency_symbol_defaults_to_dop_with_valid_ncf(actions):
     currency = revisions(service, draft)[-1]["facts"]["currency"]
     assert (currency["value"], currency["origin"], currency["verified"]) == (
         "DOP",
-        "default",
+        "extracted",
         False,
     )
 

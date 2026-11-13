@@ -1,7 +1,7 @@
 """One class for the two prepare_attachment rules that have to stay together.
 
-A retry reads the provider again only for an unfinished saved read.
-Unreadable, no-receipt and fiscal-bill reads replay or stay closed.
+A retry replays the saved read and never reads the provider again.
+A still-refused read stays refused, and a fiscal bill replays and finishes.
 An NCF due notice books one expense marked Factura por pagar, and the
 same record becomes Factura pagada when that bill is paid.
 """
@@ -19,7 +19,7 @@ from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
 
 from tests.business.test_business_handoff_retry import (
-    test_a_retry_rereads_only_a_saved_read_that_cannot_finish,
+    test_a_retry_replays_the_saved_read_and_never_reads_again,
 )
 from tests.ingestion.test_business_document_bridge import (  # noqa: F401
     document_bridge,
@@ -65,24 +65,24 @@ def _due_notice(draft: DocumentDraft, payment_status: str):
 class TestNcfDueNoticeAndRetry:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("kind", "attention", "preparable", "extracts_again"),
+        ("kind", "attention", "preparable"),
         [
-            ("incomplete", "interrupted", True, False),
-            ("unreadable", "unreadable", False, False),
-            ("no_receipt", "not_a_receipt", False, False),
-            ("ncf_bill", "interrupted", True, False),
+            ("incomplete", "interrupted", True),
+            ("no_total", "check_details", False),
+            ("unreadable", "unreadable", False),
+            ("no_receipt", "not_a_receipt", False),
+            ("ncf_bill", "interrupted", True),
         ],
     )
-    async def test_only_an_unfinished_saved_read_is_read_again(
+    async def test_a_saved_read_is_never_read_again(
         self,
         document_bridge,  # noqa: F811
         kind: str,
         attention: str,
         preparable: bool,
-        extracts_again: bool,
     ):
-        await test_a_retry_rereads_only_a_saved_read_that_cannot_finish(
-            document_bridge, kind, attention, preparable, extracts_again
+        await test_a_retry_replays_the_saved_read_and_never_reads_again(
+            document_bridge, kind, attention, preparable
         )
 
     def test_an_ncf_due_notice_is_one_gasto_that_is_marked_paid_in_place(

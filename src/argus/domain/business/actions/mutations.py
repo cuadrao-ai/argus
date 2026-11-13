@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
@@ -62,7 +63,7 @@ from argus.domain.business.document_type import (
     resolved_document_type,
     typed_facts,
 )
-from argus.domain.business.fiscal_identity import normalized_ncf
+from argus.domain.business.fiscal_identity import normalized_ncf, printed_ncf
 from argus.domain.business.purchase_review import (
     amount_is_derived,
     apply_payment_split,
@@ -71,7 +72,7 @@ from argus.domain.business.purchase_review import (
     takes_payment_split,
     takes_purchase_declaration,
 )
-from argus.domain.business.receipt_amounts import read_amount_facts
+from argus.domain.business.receipt_amounts import read_amount, read_amount_facts
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
 from argus.domain.ingestion.documents.models import (
@@ -551,7 +552,7 @@ def prepare_attachment(
     candidates = [
         candidate for candidate in batch.candidates if candidate.evidence == "transaction"
     ]
-    refusal = _read_refusal(batch)
+    refusal = read_refusal(batch)
     if refusal is not None:
         raise ActionError("invalid_input", refusal)
     if any(
@@ -559,7 +560,7 @@ def prepare_attachment(
     ):
         raise ActionError("invalid_input", "business_preparation_source_changed")
     bill = ncf_bill(batch)
-    purchases = candidates or _observed_purchases(batch)
+    purchases = _booked_rows(batch)
     booked_from_bill = False
     if not purchases and bill and batch.receipt is not None:
         purchases = [_bill_purchase(batch.receipt)]
@@ -568,8 +569,8 @@ def prepare_attachment(
     chosen = review_amount(batch) if priced else None
     if chosen is not None:
         purchases = [_review_purchase(item) for item in priced]
-    if not purchases and _notice_only(batch):
-        raise ActionError("invalid_input", "not_a_receipt")
+    elif not purchases and (chosen := _total_without_currency(batch)) is not None:
+        purchases = [_review_purchase(chosen)]
     # One clean purchase becomes the draft's facts. Several purchases, or an
     # ambiguous read, still become one draft: it keeps only what every read
     # purchase shares, leaves the amount for a person, and carries each read
@@ -614,12 +615,16 @@ def prepare_attachment(
         before = facts_of(event)
         event = replace(event, version=event.version + 1, updated_at=now)
     values = {
-        "amount": candidate.amount,
+        "amount": _read_amount(candidate.amount),
         "currency": candidate.currency,
         "occurred_on": candidate.occurred_on,
         "counterparty": candidate.merchant,
         "kind": _kind(candidate.kind_hint),
     }
+    if candidate.amount is not None and values["amount"] is None:
+        logger.info(
+            "business_post_read_rule draft_id={} rule=read_amount_unknown", event.id
+        )
     uncertain = set(candidate.uncertain)
     _fill_unknown_purchase(values, uncertain, batch)
     if "merchant" in uncertain:
@@ -636,8 +641,8 @@ def prepare_attachment(
             "verified": False,
             "source_ids": [str(source_id)],
         }
-    if chosen is not None:
-        facts = _mark_unverified_review(facts, _review_purchase(chosen))
+    if chosen is not None and (amount := _read_amount(chosen.amount)) is not None:
+        facts = _mark_unverified_review(facts, amount)
     if not ambiguous:
         for name, fact in read_amount_facts(batch.receipt, source_id).items():
             facts[name] = fact.model_dump(mode="json")
@@ -650,23 +655,14 @@ def prepare_attachment(
     facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
     read_facts = BusinessFacts.model_validate(facts)
     facts = read_facts.model_dump(mode="json")
-    # Default only when the read names no currency at all. One owner scans the
-    # evidence (rows, accounts, receipt details); disagreeing currencies are
-    # conflicting evidence, not absence, and stay unknown.
-    from argus.domain.ingestion.documents.extractor import named_currencies
-
-    no_currency_read = not values["currency"] and not named_currencies(batch)
+    default_currency = fiscal_default_currency(batch)
     if (
-        no_currency_read
+        default_currency is not None
+        and not values["currency"]
         and not isinstance(read_facts.currency, Known)
-        and read_facts.fiscal is not None
-        and any(
-            isinstance(number, Known) and normalized_ncf(number.value) is not None
-            for number in (read_facts.fiscal.ncf, read_facts.fiscal.ecf)
-        )
     ):
         facts["currency"] = Known(
-            value="DOP", origin="default", source_ids=()
+            value=default_currency, origin="default", source_ids=()
         ).model_dump(mode="json")
         logger.info(
             "business_post_read_rule draft_id={} rule=fiscal_receipt_currency_default",
@@ -778,28 +774,101 @@ def _due_notice_mark(
     return PAYABLE_BILL_MARK
 
 
-def _read_refusal(batch: ExtractionBatch) -> str | None:
-    """Why this read cannot become a draft, before its purchases are considered.
+def fiscal_default_currency(batch: ExtractionBatch) -> str | None:
+    """The one owner of "a fiscal receipt that names no currency is in DOP".
 
-    An unreadable file is terminal. A readable fiscal bill is not. Any other
-    readable read with a positive amount and a currency is not: it becomes a
-    review draft and a person decides. A readable read with no such amount
-    and no receipt is not a receipt. An incomplete receipt that still has no
-    priced amount stays on the retryable review. A complete receipt still
-    reaches purchase handling.
+    Fiscal means an NCF or e-CF on the receipt, or the e-NCF of its DGII QR.
+    The currency scan covers rows, accounts and receipt details: disagreeing
+    currencies are conflicting evidence, not absence, and get no default.
+    """
+
+    from argus.domain.ingestion.documents.extractor import named_currencies
+
+    receipt, qr = batch.receipt, batch.dgii_qr
+    numbers = [qr.encf] if qr is not None else []
+    if receipt is not None:
+        numbers += [receipt.ecf, printed_ncf(receipt.ncf) if receipt.ncf else None]
+    if not any(normalized_ncf(number) for number in numbers):
+        return None
+    return None if named_currencies(batch) else "DOP"
+
+
+def _total_without_currency(batch: ExtractionBatch) -> SimpleNamespace | None:
+    """The receipt's positive total on a readable read that names no currency.
+
+    ``priced_amounts`` leaves it unpriced. It is still an amount a person can
+    review: a fiscal receipt takes DOP by default, any other keeps the
+    currency unknown.
+    """
+
+    from argus.domain.ingestion.documents.extractor import named_currencies
+
+    receipt = batch.receipt
+    if batch.readable is not True or receipt is None:
+        return None
+    amount = _read_amount(receipt.total)
+    if amount is None or named_currencies(batch):
+        return None
+    return SimpleNamespace(
+        amount=amount,
+        currency=None,
+        merchant=receipt.merchant,
+        occurred_on=receipt.occurred_on,
+    )
+
+
+def read_refusal(batch: ExtractionBatch) -> str | None:
+    """The one owner of why a saved read cannot become a draft. The hand-off
+    raises it, and the receipt shows it instead of offering a new read, since
+    a new read replays the same saved read.
+
+    An unreadable file is refused. A readable read with an amount a person can
+    review is not: a fiscal bill, a positive priced amount, a positive receipt
+    total that names no currency, or a positive purchase row. It becomes a
+    review draft. Otherwise a read with no receipt is not a receipt, an
+    incomplete receipt is refused for review, and a complete receipt with only
+    notice rows is not a receipt. Any other complete receipt becomes a draft.
     """
 
     from argus.domain.ingestion.documents.extractor import ncf_bill, review_amount
 
     if batch.readable is not True:
         return "unreadable_document"
-    if ncf_bill(batch) or review_amount(batch) is not None:
+    rows = _booked_rows(batch)
+    if (
+        ncf_bill(batch)
+        or review_amount(batch) is not None
+        or _total_without_currency(batch) is not None
+        or any(_read_amount(row.amount) is not None for row in rows)
+    ):
         return None
     if batch.receipt is None:
         return "not_a_receipt"
     if batch.complete is not True:
         return "receipt_requires_review"
+    if not rows and _notice_only(batch):
+        return "not_a_receipt"
     return None
+
+
+def _read_amount(text: str | None) -> str | None:
+    """A read amount that books a purchase: the one parse, and positive.
+
+    Zero is no purchase amount: a person enters it.
+    """
+
+    amount = read_amount(text)
+    return amount if amount is not None and Decimal(amount) > 0 else None
+
+
+def _booked_rows(batch: ExtractionBatch) -> list:
+    """The purchase rows the hand-off books: the projected transaction
+    candidates, else the transaction rows the read showed."""
+
+    candidates = [
+        candidate for candidate in batch.candidates if candidate.evidence == "transaction"
+    ]
+    return candidates or _observed_purchases(batch)
 
 
 def _notice_only(batch: ExtractionBatch) -> bool:
@@ -826,14 +895,13 @@ def _review_purchase(priced) -> SimpleNamespace:  # noqa: ANN001
     return purchase
 
 
-def _mark_unverified_review(facts: dict, purchase: SimpleNamespace) -> dict:
+def _mark_unverified_review(facts: dict, amount: str) -> dict:
     """Publish the priced amount as a known value a person still has to review."""
 
-    amount = facts["amount"]
     facts["amount"] = {
-        **amount,
+        **facts["amount"],
         "state": "known",
-        "value": purchase.amount,
+        "value": amount,
         "verified": False,
     }
     return facts

@@ -464,3 +464,243 @@ def test_existing_currency_takes_precedence_over_fiscal_receipt_default(
             assert after.source_ids == ()
     else:
         assert after == prior.currency
+
+
+@pytest.mark.parametrize("rows", ["no-rows", "transaction-row", "unclassified-row"])
+@pytest.mark.parametrize(
+    ("fiscal", "currency", "origin"),
+    [
+        (
+            {"ecf": "E310000000001", "rnc": "199990021", "itbis": "538.50"},
+            "DOP",
+            "default",
+        ),
+        ({}, None, "extracted"),
+    ],
+    ids=["fiscal", "not-fiscal"],
+)
+def test_a_receipt_total_that_names_no_currency_becomes_a_draft(
+    checked, monkeypatch, faker, rows, fiscal, currency, origin
+):
+    """An incomplete read with a positive total and no currency anywhere is a
+    draft, not a refusal: DOP by default when it carries an NCF or e-CF,
+    currency unknown for a person to choose when it does not."""
+
+    from decimal import Decimal
+
+    from argus.domain.business.actions import mutations, sources
+    from argus.domain.ingestion.documents.extractor import (
+        batch_from_result,
+        named_currencies,
+    )
+    from argus.domain.ingestion.documents.models import ExtractionResult
+    from loguru import logger
+
+    _, tx, binding, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    tx.context.owner_id = str(binding.owner_id)
+    merchant = faker.company()
+    observed = {
+        "no-rows": [],
+        "transaction-row": [
+            dict(
+                page=1,
+                row=1,
+                evidence="transaction",
+                amount="10189.45",
+                merchant=merchant,
+            )
+        ],
+        "unclassified-row": [dict(page=1, row=1, evidence="unclassified")],
+    }[rows]
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=False,
+            readable=True,
+            pages_read=[1],
+            observations=observed,
+            receipt=dict(merchant=merchant, total="10189.45", **fiscal),
+        )
+    )
+    batch = batch_from_result(
+        result, draft.sha256, draft.connection_id, draft.created_at, 1
+    )
+    assert named_currencies(batch) == set()
+    event = mutations.new_candidate(str(binding.owner_id), draft.created_at)
+    monkeypatch.setattr(mutations, "new_candidate", lambda *args: event)
+    monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
+    save = Mock()
+    monkeypatch.setattr(mutations, "save_revision", save)
+    records = []
+    sink = logger.add(lambda message: records.append(message.record), level="INFO")
+    try:
+        mutations.prepare_attachment(tx, None, batch, draft, binding.actor)
+    finally:
+        logger.remove(sink)
+
+    after = save.call_args.args[3]
+    assert (after.amount.state, Decimal(str(after.amount.value))) == (
+        "known",
+        Decimal("10189.45"),
+    )
+    assert after.amount.verified is False
+    assert (after.currency.value, after.currency.origin) == (currency, origin)
+    assert after.currency.state == ("known" if currency else "unknown")
+    assert after.currency.verified is False
+    fired = [r for r in records if "fiscal_receipt_currency_default" in r["message"]]
+    assert len(fired) == int(bool(fiscal))
+
+
+@pytest.mark.parametrize(
+    ("path", "total", "amount"),
+    [
+        ("purchase-row", "0.00", None),
+        ("fiscal-bill", "0.00", None),
+        ("fiscal-bill", "01180.00", "1180"),
+        ("priced-total", "01180.00", "1180"),
+        ("total-with-no-currency", "01180.00", "1180"),
+    ],
+)
+def test_a_read_amount_the_facts_cannot_hold_leaves_a_review_draft(
+    checked, monkeypatch, faker, path, total, amount
+):
+    """The model's amount is external data. A leading zero is dropped, and an
+    amount of zero is unknown, so the read is a review draft a person can
+    finish, never a hand-off that fails on every retry."""
+
+    from decimal import Decimal
+
+    from argus.domain.business.actions import mutations, sources
+    from argus.domain.business.actions.facts import validate_facts
+    from argus.domain.ingestion.documents.extractor import batch_from_result
+    from argus.domain.ingestion.documents.models import ExtractionResult
+    from loguru import logger
+
+    _, tx, binding, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    tx.context.owner_id = str(binding.owner_id)
+    merchant = faker.company()
+    receipt = dict(merchant=merchant, total=total, currency="DOP")
+    observed = []
+    if path == "purchase-row":
+        observed = [
+            dict(
+                page=1,
+                row=1,
+                evidence="transaction",
+                amount=total,
+                currency="DOP",
+                direction="outflow",
+                kind_hint="expense",
+                merchant=merchant,
+            )
+        ]
+    elif path == "fiscal-bill":
+        receipt["ncf"] = "B0100000001"
+    elif path == "total-with-no-currency":
+        receipt["currency"] = None
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=path == "purchase-row",
+            readable=True,
+            pages_read=[1],
+            observations=observed,
+            receipt=receipt,
+        )
+    )
+    batch = batch_from_result(
+        result, draft.sha256, draft.connection_id, draft.created_at, 1
+    )
+    event = mutations.new_candidate(str(binding.owner_id), draft.created_at)
+    monkeypatch.setattr(mutations, "new_candidate", lambda *args: event)
+    monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
+    saved = []
+
+    def save(tx, event, before, after, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        validate_facts(tx, after)
+        saved.append(after)
+
+    monkeypatch.setattr(mutations, "save_revision", save)
+    records = []
+    sink = logger.add(lambda message: records.append(message.record), level="INFO")
+    try:
+        mutations.prepare_attachment(tx, None, batch, draft, binding.actor)
+    finally:
+        logger.remove(sink)
+
+    [after] = saved
+    if amount is None:
+        assert (after.amount.state, after.amount.value) == ("unknown", None)
+    else:
+        assert after.amount.state == "known"
+        assert Decimal(after.amount.value) == Decimal(amount)
+        assert after.amount.verified is False
+    fired = [r for r in records if "rule=read_amount_unknown" in r["message"]]
+    assert [r["message"] for r in fired] == (
+        [f"business_post_read_rule draft_id={event.id} rule=read_amount_unknown"]
+        if amount is None
+        else []
+    )
+
+
+@pytest.mark.parametrize(
+    ("total", "subtotal", "itbis", "expected"),
+    [
+        ("11,800.00", "10,000.00", "1,800.00", (None, None, None)),
+        ("11800.00", "10,000.00", "1,800.00", ("11800", None, None)),
+        ("1000.00", "1000.00", "0.00", ("1000", "1000", "0")),
+    ],
+)
+def test_one_parse_reads_every_receipt_amount_and_only_a_total_must_be_positive(
+    checked, monkeypatch, faker, total, subtotal, itbis, expected
+):
+    """Total, Monto sin ITBIS and ITBIS follow one rule: text with a thousands
+    separator is unknown wherever it is read. Zero is a component amount; only
+    the purchase total must be positive."""
+
+    from argus.domain.business.actions import mutations, sources
+    from argus.domain.business.actions.facts import validate_facts
+    from argus.domain.ingestion.documents.extractor import batch_from_result
+    from argus.domain.ingestion.documents.models import ExtractionResult
+
+    _, tx, binding, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    tx.context.owner_id = str(binding.owner_id)
+    merchant = faker.company()
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=True,
+            readable=True,
+            pages_read=[1],
+            observations=[
+                dict(
+                    page=1,
+                    row=1,
+                    evidence="transaction",
+                    amount=total,
+                    currency="DOP",
+                    direction="outflow",
+                    kind_hint="expense",
+                    merchant=merchant,
+                )
+            ],
+            receipt=dict(
+                merchant=merchant, total=total, subtotal=subtotal, itbis=itbis, currency="DOP"
+            ),
+        )
+    )
+    batch = batch_from_result(result, draft.sha256, draft.connection_id, draft.created_at, 1)
+    event = mutations.new_candidate(str(binding.owner_id), draft.created_at)
+    monkeypatch.setattr(mutations, "new_candidate", lambda *args: event)
+    monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
+    saved = []
+
+    def save(tx, event, before, after, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        validate_facts(tx, after)
+        saved.append(after)
+
+    monkeypatch.setattr(mutations, "save_revision", save)
+    mutations.prepare_attachment(tx, None, batch, draft, binding.actor)
+
+    [after] = saved
+    assert (after.amount.value, after.net_amount.value, after.fiscal.itbis.value) == expected

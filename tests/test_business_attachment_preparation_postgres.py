@@ -1,9 +1,11 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from hashlib import sha256
 from uuid import UUID, uuid4
 
 import pytest
+from argus.domain.business.actions import mutations
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
     ExistingDraft,
@@ -14,9 +16,23 @@ from argus.domain.ingestion.contract import Attachment
 from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionResult
 from psycopg.types.json import Jsonb
+from psycopg_pool import ConnectionPool
 
 from tests import test_business_actions_postgres as shared
+from tests import test_financial_accounts_postgres as database
+from tests.business.test_business_api import RECEIPT
+from tests.document_reads_support import leave_reads_waiting, read_receipt
 from tests.test_business_actions_postgres import create
+from tests.test_business_reading_setting_postgres import (  # noqa: F401
+    _reading,
+    _receipt,
+    _upload,
+    web,
+)
+from tests.test_business_reading_setting_postgres import (
+    pytestmark as _local_supabase,
+)
+from tests.test_business_scope_switch_routes_postgres import API
 from tests.test_business_spaces_migration_postgres import connection
 
 actions = shared.actions
@@ -619,3 +635,206 @@ def test_legacy_default_direct_origin_does_not_authorize_linked_email(prepared):
         403,
         "email_sender_unauthorized",
     )
+
+
+STUCK = "business_preparation_batch_changed"
+ECF = "E310000000001"
+
+
+def _connection_state(receipt_id: str) -> tuple[str, str | None]:
+    with database.psycopg.connect(database.DSN) as db:
+        return db.execute(
+            "select status, last_error_code from public.financial_source_connections"
+            " where id=%s",
+            (receipt_id,),
+        ).fetchone()
+
+
+@_local_supabase
+@pytest.mark.parametrize(
+    ("row", "total", "ending"),
+    [
+        ("transaction", "10189.45", "draft"),
+        ("unclassified", "10189.45", "draft"),
+        ("unclassified", None, "refused"),
+    ],
+    ids=["purchase-row", "unclassified-row", "no-total"],
+)
+def test_a_stuck_fiscal_receipt_with_no_currency_recovers_without_a_new_read(
+    web,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    faker,
+    row: str,
+    total: str | None,
+    ending: str,
+) -> None:
+    """A bound receipt left in ``error`` by ``business_preparation_batch_changed``
+    whose stored read has a total, an e-CF, an RNC and ITBIS, names no currency,
+    and carries only ``incomplete_extraction``. One "Leer de nuevo" and the
+    worker replay that stored read: it becomes a DOP draft the owner approves.
+    The same read with no total ends in its own refusal. Neither reads again."""
+
+    from workflows.document_job import postgres_documents_service
+
+    merchant = faker.company()
+    reads = web.stub
+    reads.complete = False
+    purchase = dict(
+        amount=total, occurred_on="2026-11-10", direction="outflow", kind_hint="expense"
+    )
+    reads.rows = [
+        dict(page=1, row=1, evidence=row, merchant=merchant)
+        | (purchase if row == "transaction" else {})
+    ]
+    reads.details = dict(
+        merchant=merchant,
+        occurred_on="2026-11-10",
+        total=total,
+        ecf=ECF,
+        rnc="199990021",
+        itbis="538.50",
+    )
+    assert _reading(web, True).status_code == 200
+    with monkeypatch.context() as before_the_fix:
+        # The stuck state dates from when the hand-off refused this read.
+        before_the_fix.setattr(
+            mutations, "read_refusal", lambda _: "receipt_requires_review"
+        )
+        uploaded = _upload(web, RECEIPT + faker.binary(length=8))
+    assert uploaded.status_code == 200, uploaded.text
+    receipt_id = uploaded.json()["id"]
+    store = web.documents.store
+    stored = store.get(user_id=web.alice.id, connection_id=receipt_id)
+    assert stored.receipt.total == total and stored.receipt.currency is None
+    assert [issue.code for issue in stored.issues] == ["incomplete_extraction"]
+    with database.psycopg.connect(database.DSN) as db:
+        db.execute(
+            "update public.financial_source_connections set last_error_code=%s"
+            " where id=%s and status='error'",
+            (STUCK, receipt_id),
+        )
+        db.execute(
+            "update public.financial_document_extractions"
+            " set draft=jsonb_set(draft,'{error_code}',to_jsonb(%s::text))"
+            " where connection_id=%s and preparation_binding is not null",
+            (STUCK, receipt_id),
+        )
+    assert _connection_state(receipt_id) == ("error", STUCK)
+    assert _receipt(web, receipt_id)["error_code"] == STUCK
+    reads.calls.clear()
+
+    leave_reads_waiting(monkeypatch)
+    again = web.client.post(
+        f"{API}/business/receipts/{receipt_id}/prepare",
+        headers={
+            **web.alice.headers,
+            "Idempotency-Key": str(uuid4()),
+            "X-Extraction-Consent": "true",
+        },
+    )
+    assert again.status_code == 200, again.text
+    assert again.json()["status"] == "queued"
+    with ConnectionPool(database.DSN, min_size=0, max_size=2) as own:
+        worker = postgres_documents_service(own, store.objects, reads)
+        asyncio.run(read_receipt(worker, web.alice.id, receipt_id))
+
+    assert reads.calls == []
+    assert store.get(user_id=web.alice.id, connection_id=receipt_id) == stored
+    detail = _receipt(web, receipt_id)
+    status, code = _connection_state(receipt_id)
+    assert STUCK not in (code, detail["error_code"])
+    if ending == "refused":
+        assert (status, code) == ("error", "receipt_requires_review")
+        assert (detail["error_code"], detail["draft_id"]) == (
+            "receipt_requires_review",
+            None,
+        )
+        return
+    assert (status, code) == ("active", None)
+    dossier = web.client.get(
+        f"{API}/business/drafts/{detail['draft_id']}/dossier",
+        headers=web.alice.headers,
+    )
+    assert dossier.status_code == 200, dossier.text
+    facts = dossier.json()["facts"]
+    assert (facts["currency"]["value"], facts["currency"]["origin"]) == (
+        "DOP",
+        "default",
+    )
+    assert Decimal(str(facts["amount"]["value"])) == Decimal("10189.45")
+    assert facts["fiscal"]["ecf"]["value"] == ECF
+    approved = web.client.post(
+        f"{API}/business/drafts/{detail['draft_id']}/approve",
+        json={"version": detail["version"], "action": "record_expense"},
+        headers={**web.alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert approved.status_code == 200, approved.text
+
+
+@_local_supabase
+def test_a_refused_leer_de_nuevo_leaves_the_receipt_unread_and_deletable(
+    web,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    faker,
+) -> None:
+    """A receipt bound under the owner's old grant, with no saved read, is
+    prepared again under her reissued grant. The check refuses it, and every
+    try ends the same way: the receipt is not left queued as if it were being
+    read, and the owner can delete it at once."""
+
+    assert _reading(web, True).status_code == 200
+    leave_reads_waiting(monkeypatch)
+    uploaded = _upload(web, RECEIPT + faker.binary(length=8))
+    assert uploaded.status_code == 200, uploaded.text
+    receipt_id = uploaded.json()["id"]
+    with database.psycopg.connect(database.DSN) as db:
+        bound = db.execute(
+            "select preparation_binding->'actor'->>'grant_id' from"
+            " public.financial_document_extractions where connection_id=%s",
+            (receipt_id,),
+        ).fetchone()[0]
+        # The read ended without saving anything.
+        db.execute(
+            "update public.financial_document_extractions"
+            " set draft=jsonb_set(draft,'{status}','\"needs_attention\"')"
+            " where connection_id=%s",
+            (receipt_id,),
+        )
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where id=%s",
+            (bound,),
+        )
+        db.execute(
+            "insert into public.business_client_grants"
+            "(space_id,grantee_id,issuer_id,capabilities,business_role)"
+            " select space_id,grantee_id,issuer_id,capabilities,business_role"
+            " from public.business_client_grants where id=%s",
+            (bound,),
+        )
+    # Ending the owner's grant ends her reading setting; she turns it on again.
+    assert _reading(web, True).status_code == 200
+    assert web.documents.store.get(user_id=web.alice.id, connection_id=receipt_id) is None
+
+    for _ in range(2):
+        again = web.client.post(
+            f"{API}/business/receipts/{receipt_id}/prepare",
+            headers={
+                **web.alice.headers,
+                "Idempotency-Key": str(uuid4()),
+                "X-Extraction-Consent": "true",
+            },
+        )
+        assert (again.status_code, again.json()["code"]) == (
+            409,
+            "business_preparation_binding_conflict",
+        ), again.text
+        detail = _receipt(web, receipt_id)
+        assert detail["status"] != "queued", detail
+        assert not detail["read_pending"] and detail["delete_available"], detail
+
+    deleted = web.client.post(
+        f"{API}/business/drafts/{receipt_id}/delete",
+        json={},
+        headers={**web.alice.headers, "Idempotency-Key": str(uuid4())},
+    )
+    assert deleted.status_code == 200, deleted.text

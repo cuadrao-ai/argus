@@ -445,11 +445,18 @@ class DocumentsService:
     def release_queued(
         self, *, user_id: str, connection_id: str, scope: OwnerScope, code: str
     ) -> None:
-        """A queued read that could not start waits saved, unread, with its reason."""
+        """A queued read that could not start waits saved, unread, with its reason.
+        One store write checks and releases, so a dispatch that records an
+        attempt for this version, or any writer that moves the draft, keeps it."""
 
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
         if draft.status == "queued":
-            self._update(user_id, draft, status="saved", consent=False, error_code=code)
+            self.store.update(
+                user_id=user_id,
+                draft=self.revise(draft, status="saved", consent=False, error_code=code),
+                expected_version=draft.version,
+                unstarted=True,
+            )
 
     def _business_permission(self, scope: OwnerScope, user_id: str) -> dict:
         """The owner's setting for this Business; off when the service has none."""
@@ -624,12 +631,7 @@ class DocumentsService:
                 raise DocumentServiceError("document_attempt_superseded")
         replayed = batch is not None
         from argus.domain.business import analytics as business_analytics
-        from argus.domain.business.actions.mutations import _read_refusal
 
-        if batch is not None and _read_refusal(batch) == "receipt_requires_review":
-            # The same saved batch refuses again. Only a new read can finish it.
-            batch = None
-            replayed = False
         # Set once a provider call is admitted: only such a read is reported.
         provider_called = False
         read_started = read_ms = None

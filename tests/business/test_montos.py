@@ -85,7 +85,7 @@ def test_fuel_receipt_includes_isc_and_other_taxes_in_both_calculation_and_check
 def test_read_service_is_legal_tip_with_tip_only_as_fallback(service, tip, expected):
     parts = read_amount_facts(ReceiptDetails(subtotal="1,289.46", service=service, tip=tip), UUID(int=1))
     assert parts["legal_tip"].value == expected
-    assert parts["net_amount"].value == "1289.46"
+    assert parts["net_amount"].value is None
 
 
 def test_manual_split_breaks_both_links_and_restore_replaces_both_values():

@@ -1,13 +1,30 @@
 from __future__ import annotations
 
-import re
-from decimal import Decimal
 from uuid import UUID
 
-from pydantic import TypeAdapter, ValidationError
+from pydantic import TypeAdapter
 
 from argus.domain.business.contracts.facts import Amount, Known, Unknown
+from argus.domain.ingestion.contract import plain_decimal
 from argus.domain.ingestion.documents.models import ReceiptDetails
+
+_FACT_AMOUNT = TypeAdapter(Amount)
+
+
+def read_amount(text: str | None) -> str | None:
+    """The one parse of a model's amount text into the facts' amount, or None.
+
+    The model's output is external data. A leading zero is dropped. A negative,
+    a thousands separator, or text the facts cannot hold is unknown. Zero is an
+    amount here; a caller that books a purchase also requires it positive.
+    """
+
+    if text is None:
+        return None
+    try:
+        return _FACT_AMOUNT.validate_python(plain_decimal(text))
+    except ValueError:
+        return None
 
 
 def read_amount_facts(
@@ -19,14 +36,10 @@ def read_amount_facts(
     }
     facts = {}
     for name, value in raw.items():
-        clean = value.strip() if value is not None else None
-        if clean is not None and re.fullmatch(r"(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\.[0-9]+)?", clean):
-            try:
-                amount = TypeAdapter(Amount).validate_python(format(Decimal(clean.replace(",", "")), "f"))
-            except ValidationError:
-                facts[name] = Unknown(origin="extracted", source_ids=(source_id,))
-            else:
-                facts[name] = Known(value=amount, origin="extracted", source_ids=(source_id,))
-        else:
-            facts[name] = Unknown(origin="extracted", source_ids=(source_id,))
+        amount = read_amount(value)
+        facts[name] = (
+            Unknown(origin="extracted", source_ids=(source_id,))
+            if amount is None
+            else Known(value=amount, origin="extracted", source_ids=(source_id,))
+        )
     return facts

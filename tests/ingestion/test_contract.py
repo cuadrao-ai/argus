@@ -151,3 +151,18 @@ def test_unclassified_evidence_always_needs_a_person_to_say_what_it_is():
 def test_card_name_alone_is_an_account_hint_to_confirm():
     item = candidate(account={"name": "Visa Oro"})
     assert "account" not in item.unresolved()
+
+
+def test_fingerprint_keeps_the_value_stored_before_uncertain_had_one_order():
+    """Stored fingerprints were computed with ``uncertain`` sorted; the values
+    below were pinned from that code (#2064)."""
+
+    every = frozenset(
+        {"amount", "currency", "occurred_on", "direction", "merchant", "account", "kind"}
+    )
+    assert candidate(uncertain=every).fingerprint() == (
+        "135d6e7b58b31ff3bafb740798bd79bd58e2d4ef549cd32c12d2204c28ee2153"
+    )
+    assert candidate().fingerprint() == (
+        "8a2213186d6e17c73b06c07a052da4b2d72c6ebb00295577a4f63735861093af"
+    )

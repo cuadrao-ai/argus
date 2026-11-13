@@ -1004,13 +1004,6 @@ async def set_receipt_reading(
                         scope=context.scope.owner,
                     )
                 except DocumentServiceError as error:
-                    await run_in_threadpool(
-                        context.service.documents.release_queued,
-                        user_id=context.scope.person_id,
-                        connection_id=receipt_id,
-                        scope=context.scope.owner,
-                        code=error.code,
-                    )
                     if error.retryable:
                         failure = error
             if failure is not None:

@@ -29,7 +29,14 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 SourceKind = Literal["plaid", "gmail", "shortcuts", "statement"]
 SOURCE_KINDS: tuple[SourceKind, ...] = ("plaid", "gmail", "shortcuts", "statement")
@@ -218,21 +225,15 @@ class ImportCandidate(_Frozen):
     attachments: tuple[Attachment, ...] = Field(default=(), max_length=10)
     uncertain: frozenset[UncertainField] = frozenset()
 
+    @field_serializer("uncertain", when_used="json")
+    def _uncertain_sorted(self, value: frozenset[str]) -> list[str]:
+        # Set order changes per process; a hashed read must not.
+        return sorted(value)
+
     @field_validator("amount", mode="before")
     @classmethod
     def _amount(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        try:
-            number = Decimal(str(value).strip())
-        except InvalidOperation:
-            raise ValueError("amount must be a plain decimal") from None
-        if not number.is_finite() or number < 0:
-            raise ValueError("amount is a non-negative magnitude; use direction")
-        text = format(number.normalize(), "f")
-        if len(text.replace(".", "")) > _MAX_AMOUNT_DIGITS:
-            raise ValueError("amount has too many digits")
-        return text
+        return None if value is None else plain_decimal(value)
 
     @field_validator("currency", mode="before")
     @classmethod
@@ -304,13 +305,28 @@ class ImportCandidate(_Frozen):
 
         body = self.model_dump(mode="json")
         body["source"].pop("observed_at", None)
-        body["uncertain"] = sorted(body["uncertain"])
         raw = json.dumps(body, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(raw.encode()).hexdigest()
 
     @property
     def key(self) -> tuple[str, str, str]:
         return (self.source.source, self.source.connection_id, self.source.external_id)
+
+
+def plain_decimal(value: object) -> str:
+    """A non-negative amount as canonical decimal text: no leading zeros, no
+    exponent. Raises ``ValueError`` for anything else."""
+
+    try:
+        number = Decimal(str(value).strip())
+    except InvalidOperation:
+        raise ValueError("amount must be a plain decimal") from None
+    if not number.is_finite() or number < 0:
+        raise ValueError("amount is a non-negative magnitude; use direction")
+    text = format(number.normalize(), "f")
+    if len(text.replace(".", "")) > _MAX_AMOUNT_DIGITS:
+        raise ValueError("amount has too many digits")
+    return text
 
 
 def _currency_code(value: str | None) -> str | None:
