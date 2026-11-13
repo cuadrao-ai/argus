@@ -223,7 +223,7 @@
 :global(.dark) .trashAction { color:#ec9aa0; }
 :global(.dark) .trashAction:hover { background:#4a2a2f; }
 .purgeAction { opacity:0; transition:opacity 140ms ease-out; }
-.deletedRow:hover .purgeAction,.deletedRow:focus-within .purgeAction { opacity:1; }
+.deletedRow:hover .purgeAction,.deletedRow:has(:focus-visible) .purgeAction { opacity:1; }
 @media (hover:none) { .trashAction,.purgeAction { opacity:1; } }
 @media (prefers-reduced-motion:reduce) { .trashAction,.purgeAction { transition:none; } }
 .deletedColumns,.deletedRow { display:grid; grid-template-columns:minmax(140px,1fr) 130px 200px 100px 360px; align-items:center; gap:13px; padding:13px 12px; border-bottom:1px solid var(--line); font-size:14px; }
