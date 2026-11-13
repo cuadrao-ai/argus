@@ -152,6 +152,11 @@ class DocumentJobSettings(BaseSettings):
         le=3600,
         validation_alias=setting_aliases("DOCUMENT_JOBS_SWEEP_SECONDS"),
     )
+    idle_poll_seconds: float = Field(
+        default=5.0,
+        ge=1,
+        validation_alias=setting_aliases("DOCUMENT_JOBS_IDLE_POLL_SECONDS"),
+    )
     # Reads at once across every document worker.
     max_reads: int = Field(
         default=3,

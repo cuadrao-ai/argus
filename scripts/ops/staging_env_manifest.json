@@ -1223,6 +1223,14 @@
           }
         },
         {
+          "name": "CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS",
+          "kind": "plain",
+          "value": "60",
+          "production": {
+            "value": "5"
+          }
+        },
+        {
           "name": "CUADRAO_DOCUMENT_JOBS_MAX_READS",
           "kind": "plain",
           "production": {

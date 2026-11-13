@@ -282,6 +282,7 @@ def test_settings_tool_emits_the_production_pairs_the_audit_reads() -> None:
     assert worker_pairs.returncode == 0, worker_pairs.stderr
     assert worker_pairs.stdout.splitlines() == [
         "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS=210",
+        "CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS=5",
         "CUADRAO_DOCUMENT_JOBS_MAX_READS=3",
         "POSTHOG_REGION=us",
     ]
@@ -373,7 +374,15 @@ def test_render_blueprint_production_worker_matches_the_manifest() -> None:
         for name, rule in _production("documents_worker").items()
     }
 
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    staging_values = {
+        entry["name"]: {"key": entry["name"], "value": entry["value"]}
+        for entry in manifest["services"]["documents_worker"]["entries"]
+        if "value" in entry
+    }
     for name in ("cuadrao-documents-worker", "cuadrao-documents-worker-staging"):
+        if name.endswith("-staging"):
+            expected = {**expected, **staging_values}
         worker = services[name]
         assert worker["startCommand"] == "poetry run python -m workflows.document_worker"
         assert {item["key"]: item for item in worker["envVars"]} == expected
