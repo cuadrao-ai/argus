@@ -13,3 +13,11 @@ test("the profile has no retired Usage panel or request", () => {
   expect(menu).not.toContain("usage: !isBusiness");
   expect(api).not.toContain("/me/usage");
 });
+
+test("the retained transport still uses its idempotency owner", () => {
+  const api = readFileSync(join(root, "lib/argus-api.ts"), "utf8");
+  const helper = readFileSync(join(root, "lib/usage-allowance.ts"), "utf8");
+  expect(api).toContain("runActionIdempotencyKey(input)");
+  expect(helper).toContain('input.type !== "run_backtest"');
+  expect(helper).toContain("confirmation_id");
+});

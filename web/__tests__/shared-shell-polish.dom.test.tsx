@@ -108,7 +108,7 @@ describe("Controles de datos in Ajustes", () => {
     return { act, host };
   }
 
-  test("Usage, Security, then delete account last, with no delete-all row", async () => {
+  test("Security, then delete account last, with no Usage or delete-all row", async () => {
     const calls: string[] = [];
     await mountOpenDataMenu(calls);
     const rows = Array.from(document.body.querySelectorAll("[data-settings-row]")).map((row) => row.textContent?.trim());
@@ -116,7 +116,8 @@ describe("Controles de datos in Ajustes", () => {
     const security = rows.indexOf("Seguridad");
     const deleteAccount = rows.indexOf("Eliminar cuenta");
     assert.equal(rows.indexOf("Eliminar todas las conversaciones"), -1);
-    assert.ok(usage > -1 && security > usage, "Security follows Usage");
+    assert.equal(usage, -1, "Retired Usage has no settings row");
+    assert.ok(security > -1, "Security remains available");
     assert.equal(deleteAccount, rows.length - 1, "nothing follows delete account");
     assert.deepEqual(calls, ["close"], "the menu closes under Ajustes");
   });
