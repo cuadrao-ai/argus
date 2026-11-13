@@ -60,6 +60,8 @@ export type BusinessDataSource = Readonly<{
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner returns an approved record to the Bandeja; the server reverses its money row. */
   reopenDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
+  deleteDocument?: typeof api.deleteBusinessDocument;
+  restoreDocument?: typeof api.restoreBusinessDocument;
   approveListos: typeof api.approveBusinessListos;
   /** The owner marks the receipt as personal or takes the mark back. */
   markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;
@@ -80,7 +82,7 @@ export type BusinessDataSource = Readonly<{
   recordSearchOpen?: (kind: BusinessSearchKind, id: string) => Promise<void>;
   /** `grant` is the Business the note was written in; omitted, the call binds the chosen Business before it awaits. */
   captureNote: (input: BusinessCaptureInput, key: string, grant?: string | null) => Promise<BusinessDossier>;
-  captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapturePage>;
+  captures: (query?: string, limit?: number, view?: "inbox" | "all" | "eliminados", offset?: number) => Promise<BusinessCapturePage>;
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener, grant?: string | null) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;
@@ -127,6 +129,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
   reopenDraft: api.reopenBusinessDraft,
+  deleteDocument: api.deleteBusinessDocument,
+  restoreDocument: api.restoreBusinessDocument,
   approveListos: api.approveBusinessListos,
   markPersonal: api.markBusinessPersonal,
   decideFiscalInclusion: api.decideBusinessFiscalInclusion,
@@ -245,6 +249,8 @@ export function withBusinessSpace(
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,
     reopenDraft: source.reopenDraft,
+    deleteDocument: source.deleteDocument,
+    restoreDocument: source.restoreDocument,
     approveListos: source.approveListos,
     markPersonal: source.markPersonal,
     decideFiscalInclusion: source.decideFiscalInclusion,

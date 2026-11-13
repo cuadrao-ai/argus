@@ -35,6 +35,7 @@ from argus.domain.business.actions.receipts import draft_for_receipt
 from argus.domain.business.authority import ActionContext, ActionError, authorize
 from argus.domain.business.contracts.actions import Refused
 from argus.domain.business.contracts.authority import TrustedActor
+from argus.domain.business.contracts.deletion import deletion
 from argus.domain.business.contracts.dossier import AccountChoice, RecordContext
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
@@ -355,6 +356,14 @@ def require_legacy_receipt_write(context: BusinessContext, receipt_id: str) -> N
     store = context.service.imports.store
     if isinstance(store, GrantImportStore):
         with transaction(store.authority, store.context, "prepare") as tx:
+            rows = tx.rows(
+                "select draft from public.financial_document_extractions where connection_id=%s and user_id=%s",
+                (receipt_id, tx.context.owner_id),
+            )
+            if rows and deletion(
+                rows[0]["draft"]["status"], rows[0]["draft"].get("resolution", {})
+            ):
+                raise ActionError("invalid_input", "business_document_deleted")
             draft_id, ambiguous = draft_for_receipt(tx, UUID(receipt_id), None)
             if draft_id is not None or ambiguous:
                 raise ActionError("invalid_input", "business_action_required")
@@ -397,6 +406,17 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
     )
     found: dict[str, list[dict]] = {}
     for row in rows:
+        if row["attention"] == "possible_duplicate":
+            from argus.domain.business.actions.duplicate_resolution import (
+                attachment_signature,
+            )
+            from argus.domain.business.duplicates import pending_duplicates
+
+            event = tx.imports.event(str(row["id"]))
+            if event.possible_duplicates and not pending_duplicates(
+                tx.imports, event, lambda event_id: attachment_signature(tx, event_id)
+            ):
+                row["attention"] = None
         facts = BusinessResolution.model_validate(row["resolution"]["business"]).facts
         row["marks"] = record_marks(facts, row, tx.context.owner_id)
         found.setdefault(str(row["connection_id"]), []).append(row)
@@ -418,6 +438,7 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
             "status": "needs_attention",
             "attention": "check_details",
             "error_code": "receipt_candidate_ambiguous",
+            "delete_available": False,
             "preparable": False,
             "enterable": False,
         }
@@ -427,6 +448,7 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     if not drafts:
         return summary
     row = drafts[0]
+    summary = {**summary, "deleted": deletion(row["state"], row["resolution"])}
     resolution = BusinessResolution.model_validate(row["resolution"]["business"])
     if legacy == str(row["id"]):
         return (
@@ -490,6 +512,21 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
     if not summaries:
         return summaries
     views = project(context, summaries)
+    can_delete = "approve" in (
+        context.record_context.capabilities if context.record_context else ()
+    )
+    views = [
+        {
+            **view,
+            "delete_available": can_delete
+            and view.get("delete_available", True)
+            and view["status"] not in ("confirmed", "dismissed")
+            and not view.get("read_pending")
+            and (view.get("bandeja_group") or {}).get("group") in ("attention", "listo"),
+            "restore_available": can_delete and view.get("deleted") is not None,
+        }
+        for view in views
+    ]
     if not isinstance(context.service.imports.store, GrantImportStore):
         return views
     # Anyone who may prepare marks or unmarks Personal; a read-only grant reads it.

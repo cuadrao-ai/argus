@@ -18,6 +18,7 @@ from pydantic import (
 from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
+from .deletion import DocumentCommand
 from .dgii import FiscalReview, Money, PurchaseReview, SalePaymentSplit
 from .facts import (
     BusinessFactPatch,
@@ -436,6 +437,7 @@ Command = (
     | MarkPersonalCommand
     | DecideFiscalInclusionCommand
     | ReopenCommand
+    | DocumentCommand
 )
 
 

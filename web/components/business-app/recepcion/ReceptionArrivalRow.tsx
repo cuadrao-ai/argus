@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { ChatCircle } from "@phosphor-icons/react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import ReceptionCutText, { useCutOff } from "./ReceptionCutText";
@@ -17,7 +18,7 @@ import type { ReceptionPreferences } from "./ReceptionControls";
 import ReceptionOriginal from "./ReceptionOriginal";
 import styles from "./reception.module.css";
 
-export default function ReceptionArrivalRow({ row, view, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck }: { row: ReceptionRow; view: ReceptionView; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
+export default function ReceptionArrivalRow({ row, view, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck, onDelete }: { onDelete?: () => void; row: ReceptionRow; view: ReceptionView; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const word = (key: string) => t(`business.reception_preview.${key}`);
@@ -47,6 +48,6 @@ export default function ReceptionArrivalRow({ row, view, panel, openPanel, prefe
     {preferences.currency ? <span data-testid="reception-currency" className={styles.currencyCell}>{receipt?.currency ? currencySymbol(receipt.currency) : <Unknown />}</span> : null}
     {view === "listos" ? null : <ReceptionStatus row={row} reasonOnly={view === "attention"} />}
     {arrival ? <span className={styles.arrival}>{arrival}</span> : null}
-    <button type="button" className={styles.rowAction} onClick={open}><span>{word("placeholder.open")}</span></button>
+    <div className={styles.rowActions}>{onDelete ? <Tooltip content={t("business.document_delete.delete")} side="top"><button type="button" className={`${styles.trashAction} rounded-full`} onClick={onDelete} aria-label={t("business.document_delete.label", { name: title })}><Trash2 size={17} aria-hidden="true" /></button></Tooltip> : null}<button type="button" className={`${styles.rowAction} rounded-full`} onClick={open}><span>{word("placeholder.open")}</span></button></div>
   </li>;
 }

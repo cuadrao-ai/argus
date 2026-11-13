@@ -4,7 +4,7 @@ import type { BusinessPanelState } from "../BusinessWorkspace";
 import { bandejaReceipts } from "../bandeja-order";
 import { bandejaEmails, openNotesByDraft, type BandejaEmail, type OpenNote } from "../inbox-count";
 
-export type ReceptionView = "all" | "attention" | "listos";
+export type ReceptionView = "all" | "attention" | "listos" | "eliminados";
 export type ReceptionSource = ReceiptChannel | "note";
 export type ReceptionRow =
   | { kind: "receipt"; id: string; receivedAt: string; source: ReceiptChannel; receipt: ReceiptSummary; sender: string | null }
@@ -17,7 +17,7 @@ export function receptionRows(receipts: readonly ReceiptSummary[], captures: rea
       kind: "receipt", id: receipt.id, receivedAt: receipt.received_at, source: receipt.channel, receipt,
       sender: emails.find(email => receipt.email_delivery_ids?.includes(email.id))?.sender ?? null,
     })),
-    ...openNotesByDraft(captures).map((note): ReceptionRow => ({ kind: "note", id: note.draftId, receivedAt: note.receivedAt, source: "note", note })),
+    ...openNotesByDraft(captures, true).map((note): ReceptionRow => ({ kind: "note", id: note.draftId, receivedAt: note.receivedAt, source: "note", note })),
     ...bandejaEmails(emails).map((email): ReceptionRow => ({ kind: "email", id: email.delivery.id, receivedAt: email.delivery.received_at, source: "email", email })),
   ];
   return rows.sort((a, b) => b.receivedAt.localeCompare(a.receivedAt) || a.id.localeCompare(b.id));
@@ -25,6 +25,9 @@ export function receptionRows(receipts: readonly ReceiptSummary[], captures: rea
 
 /** The server's groups. A note is never Listos, and an email waits with what needs attention until it is read, as the counts do. A row still being read shows only on Todos. */
 export function receptionMatches(row: ReceptionRow, view: ReceptionView): boolean {
+  const deleted = row.kind === "receipt" ? row.receipt.bandeja_group?.group === "eliminados" : row.kind === "note" && row.note.bandeja_group?.group === "eliminados";
+  if (view === "eliminados") return deleted;
+  if (deleted) return false;
   if (view === "all") return true;
   const group = row.kind === "receipt" ? row.receipt.bandeja_group?.group : row.kind === "email" && row.email.standing === "reading" ? "reading" : "attention";
   return group === (view === "listos" ? "listo" : "attention");

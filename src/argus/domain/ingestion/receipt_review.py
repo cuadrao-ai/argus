@@ -123,6 +123,7 @@ def receipt_review(
 ) -> ReceiptReview:
     """``events`` are import event views listed with ``RECEIPT_EVENT_STATES``."""
 
+    events = tuple(events)
     entry = owner_entry_id(draft.sha256)
 
     def this_receipt(connection_id: str) -> bool:
@@ -199,7 +200,20 @@ def receipt_review(
     )
     # A purchase the import layer marked as a possible repeat of another one
     # is shown with what was read, and blocked until a person settles it.
-    repeated = event["state"] == "open" and event.get("attention") in DUPLICATE_WARNINGS
+    stored_duplicates = tuple(event.get("possible_duplicates") or ())
+    live_ids = {other["id"] for other in events if other["state"] != "dismissed"}
+    duplicate_ids = tuple(
+        identity for identity in stored_duplicates if identity in live_ids
+    )
+    repeated = (
+        event["state"] == "open"
+        and event.get("attention") in DUPLICATE_WARNINGS
+        and (
+            event.get("attention") != "possible_duplicate"
+            or not stored_duplicates
+            or bool(duplicate_ids)
+        )
+    )
     return ReceiptReview(
         receipt_id=draft.connection_id,
         status=status,
@@ -220,9 +234,7 @@ def receipt_review(
         expense_id=event["activity_id"],
         read_purchases=read,
         owner_entry=bool(entered),
-        duplicate_of=_receipt_of(events, tuple(event.get("possible_duplicates") or ()))
-        if repeated
-        else None,
+        duplicate_of=_receipt_of(events, duplicate_ids) if repeated else None,
     )
 
 

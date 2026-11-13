@@ -38,6 +38,7 @@ import ReceiptHistory from "./ReceiptHistory";
 import ReceiptDocumentType from "./ReceiptDocumentType";
 import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
+import { DeleteDocumentMenuItem, RestoreDocumentButton, useDocumentDelete } from "./DocumentDeleteControls";
 import ReceiptReviewFooter, { KEY_HINT_CLASS, ReceiptMoreMenu, usePrimaryKeys } from "./ReceiptReviewFooter";
 import { formatBusinessName, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { receiptCurrencyOptions } from "./receipt-currencies";
@@ -158,10 +159,22 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
   const primaryKeys = usePrimaryKeys();
-  const { source, reload, records, openPanel, guardPanel, panel } = useBusiness();
+  const { source, reload, records, openPanel, guardPanel, panel, chosen } = useBusiness();
   const origin = panel?.kind === "receipt" || panel?.kind === "draft" ? panel : null;
   const receiptIds = origin?.receiptIds ?? [];
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
+  const canDelete = dossier?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
+  const deletion = useDocumentDelete(canDelete && dossier ? {
+    id: draftId,
+    name: dossier.facts.counterparty.value || receipt?.filename || t("business.document_delete.unnamed"),
+    merchant: dossier.facts.counterparty.value,
+    date: dossier.facts.occurred_on.value,
+    amount: dossier.facts.amount.value,
+    currency: dossier.facts.currency.value,
+    filename: receipt?.filename ?? dossier.sources.find(item => item.kind === "attachment")?.filename ?? null,
+    state: receipt ? stateWord(receipt) : t("business.document_delete.previous.attention"),
+    receipt,
+  } : null, { initialPreview: origin?.confirmDelete === true });
   const [unavailable, setUnavailable] = useState(false);
   const [operation, setOperation] = useState<Operation>({ kind: "idle" });
   const [problem, setProblem] = useState<Problem | null>(null);
@@ -515,7 +528,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       mark={dossier.bill_mark}
       origin={firstSource ? { channel: firstSource.channel, receivedAt: firstSource.received_at, message: firstSource.kind !== "attachment" } : null}
       place={position ? { ...position, previous: moves.previous, next: moves.next } : null}
-      footer={<ReceiptReviewFooter
+      footer={deletion.confirmBar ?? <ReceiptReviewFooter
         reviewNote={reviewNote}
         status={approval ? null
           : !canApprove ? line ? <p>{t("business.dossier.prepare_only", "Your permission allows preparing this record. A person with approval permission must approve it.")}</p> : null
@@ -523,9 +536,11 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           : null}
         actions={<>
           <ReceiptMoreMenu>
+            {canDelete ? <DeleteDocumentMenuItem disabled={busy || dirty || fiscalBusy || fiscalDirty || deletion.busy} onClick={deletion.ask} /> : null}
             <ReceiptMarksCard dossier={dossier} busy={busy || fiscalBusy || fiscalDirty} onChanged={setDossier} bare />
             {NOTES_ENTRY_ENABLED && canPrepare && mutable && !Object.keys(rows.rows).length ? <button type="button" className={`${secondaryButtonClass} w-full`} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
           </ReceiptMoreMenu>
+          {dossier.restore_available ? <RestoreDocumentButton id={draftId} onRestored={() => void refresh()} target={receipt ? { kind: "receipt", receiptId: receipt.id, list: "inbox" } : { kind: "draft", draftId, list: "inbox" }} /> : null}
           {approval && dossier.reopen_available === true ? <button type="button" data-testid="reopen-record" aria-busy={reopening === "sending"} className={`${secondaryButtonClass} whitespace-nowrap`} disabled={reopening !== null || busy || fiscalBusy || fiscalDirty} onClick={() => { setProblem(null); setReopening("asking"); }}>{reopening === "sending" ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.reopening", "Reopening…")}</> : t("business.dossier.reopen", "Reopen")}</button> : null}
           {!approval && canApprove ? <>
             <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${receipt ? secondaryButtonClass : primaryButtonClass} whitespace-nowrap`} aria-describedby={reason ? reasonId : attention.length ? "dossier-attention-title" : undefined} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : approvalLabel}</button>
@@ -575,6 +590,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
             <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
           </div> : null}
     </ReceiptReviewFrame>
+    {deletion.dialog}
     {reopening ? <ConfirmDialog
       isOpen
       tone="primary"

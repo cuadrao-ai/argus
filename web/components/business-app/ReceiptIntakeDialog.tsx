@@ -3,14 +3,16 @@
 import ReceiptReadingControl from "./ReceiptReadingControl";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
-import { ArrowLeft, Camera, ChevronDown, ChevronRight, CircleAlert, CircleCheck, Clock, FileText, FolderOpen, PenLine, FileUp, Mail, RotateCw, X } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type ReactNode } from "react";
+import { ArrowLeft, Camera, ChevronDown, ChevronRight, CircleAlert, CircleCheck, Clock, FileText, FolderOpen, PenLine, FileUp, Mail, RotateCcw, RotateCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
 import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
 import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { referenceCode, sessionEndedLoginPath, type FailureClass } from "@/lib/failure-screen";
+import { randomId } from "@/lib/random-id";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { pillButtonClass, primaryButtonClass } from "./business-ui";
@@ -20,6 +22,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeTarget, type ReceiptUpload, type UploadRejection } from "./receipt-upload-queue";
 import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
+import { showToast } from "./foundation/toasts";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { validCaptureText } from "./ManualCaptureDialog";
 import { hasDraftText, isUnfinishedNote, type TypedNote, type TypedNoteQueue } from "./typed-note-queue";
@@ -48,6 +51,7 @@ type DragState = { kind: "idle" } | { kind: "accept"; count: number } | { kind: 
 const MUTED = "text-[#56635e] dark:text-white/70";
 const DANGER = "text-[#9e2f39] dark:text-[#ec9aa0]";
 const smallAction = "inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-40 dark:text-[#8fcbb0]";
+const restoreAction = `inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-40 dark:hover:bg-white/5 ${MUTED}`;
 /** Upload failures a tap on the row can fix; the rest have their own screen above the list. */
 const ROW_RETRY: ReadonlySet<FailureClass> = new Set(["offline", "other", "server", "unavailable", "rate_limited"]);
 
@@ -93,7 +97,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   /** The photo row is for phones: a camera, file capture and a phone-sized screen. */
   const showCamera = capabilities.cameraCapture && isBelowTablet;
   const pasteKeys = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
-  const { bridge, clearLostAccess, source } = useBusiness();
+  const { bridge, clearLostAccess, source, chosen, reload, openPanel } = useBusiness();
   const forwardAddress = useForwardAddress();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replacingRef = useRef<string | null>(null);
@@ -112,10 +116,44 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
   const unfinishedUploads = entries.some(isUnfinishedUpload);
   // The next step waits while anything of this Business still sends or waits for a retry, a note as much as a file.
   const unfinished = unfinishedUploads || typed.some(isUnfinishedNote);
-  const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
   const batch = uploadBatchView(entries, queue.retryWaiting);
-  const renderRow = (item: ReceiptUpload) => (
-    <UploadRow
+  const saved = batch.saved.map(item => item.receipt);
+  const [deletedOpen, setDeletedOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreFailures, setRestoreFailures] = useState<ReadonlyMap<string, string>>(new Map());
+  const restoreKeys = useRef(new Map<string, string>());
+  const restoreInFlight = useRef(false);
+  const canRestore = Boolean(chosen?.capabilities.includes("approve") && source.restoreDocument);
+  const restorable = batch.deleted.filter(item => item.receipt.restore_available);
+  const restore = async (ids: readonly string[], view: "receipt" | "inbox" = "inbox") => {
+    if (!canRestore || !source.restoreDocument || restoreInFlight.current) return;
+    restoreInFlight.current = true;
+    setRestoring(true);
+    const restored: string[] = [];
+    try {
+      for (const id of new Set(ids)) {
+        const key = restoreKeys.current.get(id) ?? randomId();
+        restoreKeys.current.set(id, key);
+        setRestoreFailures(current => { const next = new Map(current); next.delete(id); return next; });
+        try {
+          await source.restoreDocument(id, key);
+          const receipt = await source.receipt(id);
+          queue.updateReceipt(receipt);
+          if (!receipt.deleted) { restoreKeys.current.delete(id); restored.push(id); }
+          reload();
+        } catch (error) {
+          setRestoreFailures(current => new Map(current).set(id, referenceCode(error)));
+        }
+      }
+    } finally {
+      restoreInFlight.current = false;
+      setRestoring(false);
+    }
+    if (restored.length > 0) showToast({ kind: "success", text: t("business.document_delete.restored"), action: { label: t("business.document_delete.view"), run: () => openPanel(view === "receipt" ? { kind: "receipt", receiptId: restored[0], list: "inbox" } : { kind: "inbox" }) } });
+  };
+  const renderRow = (item: ReceiptUpload) => {
+    const restoreFailure = item.status === "saved" ? restoreFailures.get(item.receipt.id) : undefined;
+    return <UploadRow
       key={item.key}
       item={item}
       locale={locale}
@@ -123,17 +161,22 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
       rejection={item.status === "rejected" ? rejectionText[item.reason] : null}
       retryWaiting={queue.retryWaiting(item.key)}
       canRemove={!uploading && item.status !== "uploading" && item.status !== "saved"}
+      restoreControl={item.status === "saved" && item.receipt.deleted ? <span className="inline-flex flex-col items-end">
+        {canRestore && item.receipt.restore_available ? <button type="button" className={restoreAction} disabled={restoring} onClick={() => void restore([item.receipt.id], "receipt")}>{t("business.document_delete.restore")}</button> : null}
+        {restoreFailure ? <span role="alert" className={`text-[13px] ${DANGER}`}>{t("business.document_delete.restore_failed")} <ReferenceCode reference={restoreFailure} /></span> : null}
+      </span> : null}
       onRemove={() => queue.remove(item.key)}
       onRetry={() => queue.retry(item.key)}
       onReplace={() => { replacingRef.current = item.key; fileInputRef.current?.click(); }}
-    />
-  );
+    />;
+  };
   const [savedOpen, setSavedOpen] = useState(false);
   const many = target === "inbox";
   const progress = many && queue.progress?.target === target ? queue.progress : null;
   const batchSummary = [
     progress ? t("business.intake.uploading_progress", "Uploading {{position}} of {{total}}…", { position: progress.position, total: progress.total }) : null,
     !progress && batch.saved.length > 0 ? t("business.intake.summary_saved", { count: batch.saved.length, defaultValue: "{{count}} saved" }) : null,
+    batch.deleted.length > 0 ? t("business.document_delete.upload_deleted_count", { count: batch.deleted.length }) : null,
     batch.attention.length > 0 ? t("business.intake.summary_failed", { count: batch.attention.length, defaultValue: "{{count}} not uploaded" }) : null,
   ].filter(Boolean).join(" · ");
   const failed = entries.find((item) => item.status === "failed");
@@ -262,7 +305,7 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
       // Half leaves the reading control 8px past a 844px phone once the note row is gone.
       initialSnap={isBelowTablet ? "full" : "half"}
       // The X closes; the footer holds only the next step, once there is one.
-      footer={saved.length > 0 && !unfinished && !uploading ? (
+      footer={saved.length > 0 && !unfinished && !uploading && !restoring ? (
         <div className="flex justify-end" data-testid="receipt-intake-footer">
           <button type="button" className={`${primaryButtonClass} w-full tablet:w-auto`} onClick={() => { queue.clear(target, grant); onReview(saved); }}>
             {t("business.intake.review_saved", "Review saved receipts")}
@@ -427,9 +470,9 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
             <ul className="space-y-2" data-testid="receipt-upload-queue">
               {typed.map((entry) => <TypedRow key={entry.key} entry={entry} onRetry={() => void notes.retry(entry.key, (input, key, noteGrant) => source.captureNote(input, key, noteGrant))} />)}
               {[...batch.attention, ...batch.active, ...batch.waiting].map(renderRow)}
-              {batch.saved.length === 1 ? batch.saved.map(renderRow) : null}
+              {batch.saved.length === 1 && batch.deleted.length === 0 ? batch.saved.map(renderRow) : null}
             </ul>
-            {batch.saved.length > 1 ? (
+            {batch.saved.length > 0 && (batch.saved.length > 1 || batch.deleted.length > 0) ? (
               <div className="mt-2 rounded-item border border-[#DCE0DA] dark:border-white/10" data-testid="receipt-upload-saved-fold">
                 <button
                   type="button"
@@ -443,6 +486,20 @@ function IntakeForm({ limits, target, queue, notes, onClose, onReview }: IntakeP
                   <ChevronDown className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${savedOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                 </button>
                 {savedOpen ? <ul id="receipt-upload-saved" className="space-y-2 px-2 pb-2">{batch.saved.map(renderRow)}</ul> : null}
+              </div>
+            ) : null}
+            {batch.deleted.length > 0 ? (
+              <div className="mt-2 rounded-item border border-[#DCE0DA] dark:border-white/10" data-testid="receipt-upload-deleted-fold">
+                <div className="flex items-center gap-1 px-3">
+                  <button type="button" aria-expanded={deletedOpen} aria-controls="receipt-upload-deleted" className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-item text-left text-[14px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${MUTED}`} onClick={() => setDeletedOpen(open => !open)}>
+                    <RotateCcw className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span className="flex-1 tabular-nums">{t("business.document_delete.upload_deleted_count", { count: batch.deleted.length })}</span>
+                    <ChevronDown className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${deletedOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                  </button>
+                  {canRestore && restorable.length > 0 ? <button type="button" className={`${restoreAction} shrink-0`} disabled={restoring} onClick={() => void restore(restorable.map(item => item.receipt.id))}>{t("business.document_delete.restore_all")}</button> : null}
+                </div>
+                {!deletedOpen && batch.deleted.some(item => restoreFailures.has(item.receipt.id)) ? <p role="alert" className={`px-3 pb-2 text-[13px] ${DANGER}`}>{t("business.document_delete.restore_failed")}</p> : null}
+                {deletedOpen ? <ul id="receipt-upload-deleted" className="space-y-2 px-2 pb-2">{batch.deleted.map(renderRow)}</ul> : null}
               </div>
             ) : null}
           </section>
@@ -521,11 +578,13 @@ export function uploadBatchView(entries: readonly ReceiptUpload[], retryWaiting:
   const attention = entries.filter((item) => item.status === "rejected" || (item.status === "failed" && !retryWaiting(item.key)));
   const active = entries.filter((item) => item.status === "uploading");
   const waiting = entries.filter((item) => item.status === "queued" || (item.status === "failed" && retryWaiting(item.key)));
-  const saved = entries.filter((item) => item.status === "saved");
+  const completed = entries.filter((item) => item.status === "saved");
+  const saved = completed.filter(item => !item.receipt.deleted);
+  const deleted = completed.filter(item => item.receipt.deleted);
   const bytesOf = (items: readonly ReceiptUpload[]) => items.reduce((sum, item) => sum + item.file.size, 0);
   const sending = active.reduce((sum, item) => sum + (item.status === "uploading" && item.bytes ? item.bytes.sent : 0), 0);
-  const total = bytesOf([...active, ...waiting, ...saved]);
-  const done = bytesOf(saved) + sending;
+  const total = bytesOf([...active, ...waiting, ...completed]);
+  const done = bytesOf(completed) + sending;
   const rate = active.flatMap((item) => (item.status === "uploading" && item.bytes?.bytesPerSecond ? [item.bytes.bytesPerSecond] : []))[0] ?? null;
   const remaining = total - done;
   return {
@@ -533,6 +592,7 @@ export function uploadBatchView(entries: readonly ReceiptUpload[], retryWaiting:
     active,
     waiting,
     saved,
+    deleted,
     share: total > 0 ? Math.min(1, done / total) : 0,
     secondsLeft: rate ? Math.ceil(remaining / rate) : null,
   };
@@ -600,7 +660,8 @@ function FileThumb({ file }: { file: File }) {
   );
 }
 
-function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove, onRemove, onRetry, onReplace }: {
+function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove, onRemove, onRetry, onReplace, restoreControl }: {
+  restoreControl: ReactNode;
   item: ReceiptUpload;
   locale: string;
   fileSize: (bytes: number) => string;
@@ -638,7 +699,7 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
             ) : null}
           </p>
         </div>
-        {item.status === "saved" ? <CircleCheck className="h-6 w-6 shrink-0 text-[#2f5a49] dark:text-[#8fcbb0]" aria-hidden="true" /> : null}
+        {item.status === "saved" && !item.receipt.deleted ? <CircleCheck className="h-6 w-6 shrink-0 text-[#2f5a49] dark:text-[#8fcbb0]" aria-hidden="true" /> : null}
         {canRemove ? (
           <button
             type="button"
@@ -667,7 +728,7 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
         </div>
       ) : null}
       {item.status === "saved" ? (
-        <p className="mt-2 text-[13px] text-[#2f5a49] dark:text-[#8fcbb0]">
+        item.receipt.deleted ? <div className={`mt-2 flex flex-wrap items-center justify-between gap-2 text-[13px] ${MUTED}`}><span>{t("business.document_delete.upload_deleted")}</span>{restoreControl}</div> : <p className="mt-2 text-[13px] text-[#2f5a49] dark:text-[#8fcbb0]">
           {item.receipt.replayed ? t("business.intake.replayed", "Already saved before. This is that receipt.") : t("business.intake.row_saved", "Saved")}
         </p>
       ) : null}

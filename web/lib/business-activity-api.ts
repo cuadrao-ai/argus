@@ -10,7 +10,7 @@ export type BusinessActivityItem = {
   occurred_at: string;
   actor: BusinessActivityActor;
   action: string;
-  object: { kind: "draft" | "grant" | "invite"; id: string } | null;
+  object: { kind: "draft" | "receipt" | "grant" | "invite"; id: string; label?: string } | null;
 };
 export type BusinessActivityPage = { items: BusinessActivityItem[]; next_cursor: string | null };
 

@@ -20,6 +20,8 @@ ActivityAction = Literal[
     "approve_income",
     "approve_refund",
     "reopen_draft",
+    "delete_document",
+    "restore_document",
     "capture_note",
     "prepare_attachment",
     "rebind_attachment",
@@ -49,7 +51,7 @@ ActivityAction = Literal[
     "receipt_reading_enabled",
     "other",
 ]
-ObjectKind = Literal["draft", "grant", "invite"]
+ObjectKind = Literal["draft", "receipt", "grant", "invite"]
 Area = Literal["documents", "records", "invoicing", "business"]
 ActionGroup = Literal[
     "uploads",

@@ -9158,6 +9158,53 @@ HTTP request already sent. Model/composition/send unknown outcomes retain the
 existing no-blind-retry rule. Business checkpoint persistence remains disabled
 pending proof of its authorization and deletion lifecycle.
 
+### Business document deletion and restore
+
+`POST /business/drafts/{draft_id}/delete` and
+`POST /business/drafts/{draft_id}/restore` require `Idempotency-Key` and the
+same owner-only `approve` permission as approval. The identifier is a draft
+UUID or the receipt connection UUID already used by the Bandeja when no draft
+exists. No body is required. Both return `{document_id, deleted}` and
+`Cache-Control: no-store`. Repeating the same action key returns its saved
+outcome without another change. Reusing it for another action or document
+returns 409 `business_action_conflict`.
+
+Delete accepts an open draft or a document with no draft that has finished
+reading. It refuses an approved or otherwise closed draft with 422
+`business_document_not_open`, a document being read with 422
+`business_document_reading`, and a non-owner with 403
+`business_permission_denied`. An approved document must use the existing
+reopen flow first. Restore requires the deletion marker and otherwise returns
+422 `business_document_not_deleted`. Sources, revisions and financial records
+are retained. Deleted documents have no expiry or purge schedule.
+
+Receipt summary, detail and dossier responses expose `deleted`,
+`delete_available` and `restore_available`. The deletion metadata contains
+`actor: {actor_id, display_name}`, `at`, `key`, and `previous_state: {state, group}`.
+The previous group is `attention` or `listo`. For several generic read
+candidates, `previous_state.events` retains their IDs and prior states for
+restore under the document's one marker. Server availability uses the
+current permission and document state. Row trash appears only for the server's
+`attention` group; an eligible `listo` document is deleted from its review menu.
+
+The Bandeja adds the server group `eliminados` and
+`bandeja_eliminados_count`. `GET /business/captures?view=eliminados` returns
+deleted standalone typed documents with the same metadata and availability.
+`limit` and a nonnegative `offset` page this feed in stable newest-first order;
+`has_more` reports whether another page exists. Eliminados loads all pages so
+search and restore also reach older deleted documents.
+Notes attached to a receipt remain part of that receipt and are not counted
+again. Deleted documents leave every other Bandeja group,
+its Inicio counts, month-close pending work, and duplicate checks. Registros,
+financial totals and exports do not change. Restore removes the marker and
+returns the stored state, retaining the document's facts and original.
+
+An exact-byte repeat upload returns the existing deleted document with its
+deletion metadata and restore availability. It neither creates another item
+nor restores the existing one. Activity records `delete_document` and
+`restore_document` through the action ledger. Their links open Eliminados and
+the restored document respectively.
+
 ### Business guide cards
 
 `GET /api/v1/business/guide-cards/{card_id}` returns `{dismissed: boolean}`
@@ -9179,11 +9226,11 @@ A Business owner explicitly enables scope version 3 `business_receipt_reading` f
 
 The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
-Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `needs_attention_count`, `ready_to_review_count`, `bandeja_listo_count`, `bandeja_attention_count` and `por_igualar_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
+Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `needs_attention_count`, `ready_to_review_count`, `bandeja_listo_count`, `bandeja_attention_count`, `bandeja_eliminados_count` and `por_igualar_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
 
 The Bandeja's counts have three meanings and three names. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists), plus each email whose `standing` is not null (see email deliveries). `needs_attention_count` is how many of those receipts are `needs_attention`, plus each email whose `standing` is `no_receipt`. `reading_count` also counts each email whose `standing` is `reading`, and `presentation` is `working` while any receipt or email is being read. An email's `standing` is `null` when it is no row of its own: it saved a new file (one no earlier email and no earlier upload brought), so that receipt is the row; it saved its own text as the original and no attachment, so that original is the row; or it settled with every saved file a repeat and nothing refused. Otherwise it is `reading` while the delivery is `received` or `processing` or any part is `pending`, and `no_receipt` once it settled and it is `rejected`, has no parts, or has a refused part. Mail from a blocked sender is `no_receipt`. Once a retry saves a new file, the email stops counting and that receipt counts instead, so nothing counts twice. `ready_to_review_count` is the "por revisar" number, the web's `porRevisar` rule: each receipt that is not `confirmed`, not `dismissed`, not an email original, not still being read (`queued`, `preparing`, `read_pending`, or `activity.state` `reading`) and whose `attention` is not `unreadable`, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source, one per draft. An email never counts here, whatever its `standing`. `por_igualar_count` is the Transacciones "Por igualar" number: every bank movement whose state is `sugerencia` or `falta_comprobante` plus every `sin_movimiento` document, from any period, by the movements read rule (`docs/contracts/business-bank-matching.md`). It is null while bank matching is off. `GET /business/email/deliveries`, `/{id}` and `/inbox` return `standing` on each delivery. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` derives its `needs_attention` and `awaiting_review` (`pending_review_count` minus `needs_attention_count`) from the same server projection and returns the same `ready_to_review_count`. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`; the Resumen's attention line renders `needs_attention_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja: {por_revisar, con_problema, leyendo}`, its membership in those buckets by the same three predicates the counts sum: `por_revisar` is the `ready_to_review_count` rule for that receipt, `con_problema` the `needs_attention_count` rule (the receipt is `needs_attention`), `leyendo` the `reading_count` rule (its `activity.state` is `reading`). A `confirmed` or `dismissed` receipt and an email original have all three false. So `ready_to_review_count` equals the receipts flagged `por_revisar` plus the notes, `needs_attention_count` the receipts flagged `con_problema` plus the `no_receipt` emails, and `reading_count` the receipts flagged `leyendo` plus the `reading` emails. The web renders the flags; it does not recompute them. `ReceiptActivityCounts` also carries `confirmed_count` and `dismissed_count`, the receipts that left the Bandeja each way (never the email original), counted over every receipt of the Business whichever `view` is read, so `view=inbox` says what it does not list and the web needs no second fetch of `view=all`.
 
-One server function, `bandeja_group.group_of`, puts each open receipt in one Bandeja group. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja_group: {group, reason, draft_id, version}`. `group` is `listo`, `attention` or `reading`; it is null for a `confirmed` or `dismissed` receipt and for an email original. `reading` is a receipt with `read_pending` true, and its `reason` is `reading`; a failed read is `attention`. `reason` is null for `listo` and otherwise one word, and the first gap below names it. `draft_id` and `version` are what an approval of this row names; they are null while the receipt has no open draft. The existing `bandeja`, `status` and `attention` fields keep their meaning.
+One server function, `bandeja_group.group_of`, puts each open receipt in one Bandeja group. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja_group: {group, reason, draft_id, version}`. `group` is `listo`, `attention`, `reading` or `eliminados`; it is null for a `confirmed` receipt, an unmarked `dismissed` receipt and an email original. A dismissed receipt with `resolution.deleted` belongs to `eliminados` and does not enter the open groups or counts. `reading` is a receipt with `read_pending` true, and its `reason` is `reading`; a failed read is `attention`. `reason` is null for `listo` and otherwise one word, and the first gap below names it. `draft_id` and `version` are what an approval of this row names; they are null while the receipt has no open draft. The existing `bandeja`, `status` and `attention` fields keep their meaning.
 
 A receipt is `listo` only when the server confirms all of these, in this order:
 

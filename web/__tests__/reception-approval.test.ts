@@ -41,7 +41,7 @@ test("only an unsettled item is replayed; a refusal waits for a person", async (
 test("every reason the contract names has a word in both languages", () => {
   const openapi = readFileSync(new URL("../../docs/api/openapi.yaml", import.meta.url), "utf8");
   const block = openapi.slice(openapi.indexOf("BandejaGroup:"), openapi.indexOf("draft_id:", openapi.indexOf("BandejaGroup:")));
-  const reasons = [...block.matchAll(/^\s+- ([a-z_]+)$/gm)].map(match => match[1]).filter(reason => !["listo", "attention", "string"].includes(reason));
+  const reasons = [...block.matchAll(/^\s+- ([a-z_]+)$/gm)].map(match => match[1]).filter(reason => !["listo", "attention", "eliminados", "string"].includes(reason));
   assert.ok(reasons.includes("sin_comprobante"));
   const word = (catalog: unknown, key: string) => key.split(".").reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], catalog);
   // `reading` is its own tag, and `other` says nothing a reason line could add.

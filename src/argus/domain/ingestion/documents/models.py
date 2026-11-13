@@ -164,10 +164,15 @@ class DraftProposal(_Frozen):
     item_assignments: tuple[ItemAssignment, ...] = Field(default=(), max_length=300)
 
 
-DraftStatus = Literal["saved", "queued", "preparing", "review_ready", "needs_attention"]
+DraftStatus = Literal[
+    "saved", "queued", "preparing", "review_ready", "needs_attention", "dismissed"
+]
 
 
 class DocumentDraft(_Frozen):
+    resolution: dict[str, object] = Field(
+        default_factory=dict, exclude_if=lambda value: not value
+    )
     connection_id: str
     filename: str = Field(max_length=80)
     media_type: str
@@ -189,6 +194,11 @@ class DocumentDraft(_Frozen):
     document_type: DocumentType | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+
+    def read_pending(self, reading_allowed: bool) -> bool:
+        return self.status == "preparing" or (
+            self.status == "queued" and self.consent and reading_allowed
+        )
 
 
 class PreparationJob(_Frozen):

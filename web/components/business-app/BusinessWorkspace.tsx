@@ -86,7 +86,7 @@ import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, pu
 
 export type BusinessPanelState =
   | { kind: "overview" }
-  | { kind: "inbox" }
+  | { kind: "inbox"; view?: "eliminados" }
   | { kind: "invoicing" }
   // Actividad: the history of changes in this Business, live from the server.
   | { kind: "activity" }
@@ -97,8 +97,8 @@ export type BusinessPanelState =
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
   // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
-  | { kind: "receipt"; receiptId: string; list?: RecordList; receiptIds?: readonly string[] }
-  | { kind: "draft"; draftId: string; list?: RecordList; receiptIds?: readonly string[] }
+  | { kind: "receipt"; receiptId: string; list?: RecordList; receiptIds?: readonly string[]; confirmDelete?: boolean }
+  | { kind: "draft"; draftId: string; list?: RecordList; receiptIds?: readonly string[]; confirmDelete?: boolean }
   // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
   | { kind: "email"; emailId: string };
 
