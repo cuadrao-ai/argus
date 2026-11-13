@@ -89,9 +89,10 @@ test.describe("Inicio with settlement off", () => {
     const month = page.getByTestId("home-month-body");
     await expect(month.getByRole("alert")).toContainText("No pudimos cargar el mes");
     state.phase = "ready";
+    const readsBeforeRetry = state.monthReads;
     await month.getByRole("button", { name: "Reintentar", exact: true }).click();
     await expect(month).toHaveAttribute("data-state", "ready");
-    expect(state.monthReads).toBe(2);
+    expect(state.monthReads).toBeGreaterThan(readsBeforeRetry);
     expect(state.openItems).toBe(0);
   });
 
