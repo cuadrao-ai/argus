@@ -15,6 +15,9 @@
 
 ## TL;DR
 
+Closes #<issue>
+Pilot flow: <upload | email | WhatsApp | review | month close | 606/607 | none (reason)>
+
 ## Motivation
 
 ## Changes

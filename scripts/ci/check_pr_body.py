@@ -1,6 +1,4 @@
-"""dependabot[bot] is exempt because .github/dependabot.yml opens those
-pull requests, and this template does not fill them.
-"""
+"""Validate required pull request metadata; bot-authored requests are exempt."""
 
 from __future__ import annotations
 
@@ -13,7 +11,11 @@ from pathlib import Path
 HEADING = "## Merge Danger"
 REQUIRED_FIELDS = ("Door", "Blast radius", "Rollback")
 DOORS = frozenset({"one-way", "two-way"})
-EXEMPT_AUTHORS = frozenset({"dependabot[bot]"})
+ISSUE_REFERENCE = re.compile(r"(?:Closes|Fixes|Refs)[ \t]+#[1-9][0-9]*")
+PILOT_FLOW = re.compile(
+    r"Pilot flow:[ \t]*(?:upload|email|WhatsApp|review|month close|606/607"
+    r"|none \((?P<reason>.+)\))"
+)
 FIELD_LINE = re.compile(
     r"^(?:[-*]\s+)?(?P<name>Door|Blast radius|Rollback|Eval tier):\s*(?P<value>.*)$"
 )
@@ -67,7 +69,22 @@ def body_problems(body: str) -> list[str]:
             continue
         if name == "Door" and value not in DOORS:
             problems.append("Door must be one-way or two-way")
+    lines = [line.strip() for line in body.splitlines()]
+    if not any(ISSUE_REFERENCE.fullmatch(line) for line in lines):
+        problems.append("missing issue reference line: Closes #n, Fixes #n or Refs #n")
+    if not any(valid_pilot_flow(line) for line in lines):
+        problems.append("missing or invalid Pilot flow line; none needs a written reason")
     return problems
+
+
+def valid_pilot_flow(line: str) -> bool:
+    match = PILOT_FLOW.fullmatch(line)
+    if match is None:
+        return False
+    reason = match.group("reason")
+    return reason is None or (
+        bool(reason.strip()) and not PLACEHOLDER.fullmatch(reason.strip())
+    )
 
 
 def pull_request(payload: object) -> dict | None:
@@ -85,6 +102,13 @@ def author_login(request: dict) -> str:
         return ""
     login = user.get("login")
     return login if isinstance(login, str) else ""
+
+
+def is_bot_author(request: dict) -> bool:
+    user = request.get("user")
+    return author_login(request).endswith("[bot]") or (
+        isinstance(user, dict) and user.get("type") == "Bot"
+    )
 
 
 def request_body(request: dict) -> str:
@@ -107,7 +131,7 @@ def main() -> int:
         print("The event has no pull request.", file=sys.stderr)
         return 1
     login = author_login(request)
-    if login in EXEMPT_AUTHORS:
+    if is_bot_author(request):
         print(f"exempt author {login}")
         return 0
     problems = body_problems(request_body(request))
