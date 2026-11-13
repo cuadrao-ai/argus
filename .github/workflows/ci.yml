@@ -309,6 +309,15 @@ jobs:
           NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3101 bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
           NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ENABLE_SPANISH=true PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
 
+      # The language spec builds its own production server, because a development
+      # server with mock auth previews a language choice without saving it.
+      - name: Verify Inicio, Bandeja and the Business language in a browser
+        run: |
+          cd web
+          bunx playwright test --config e2e/business-month-close.playwright.config.ts
+          bunx playwright test --config e2e/business-clutter.playwright.config.ts
+          bunx playwright test --config e2e/business-spanish-default.playwright.config.ts
+
       - name: Retain receipt upload browser evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
