@@ -50,6 +50,7 @@ class FiscalRecord:
     # Registros and the export handoff read them from the same place.
     personal: bool = False
     include_606: bool | None = None
+    fiscal_overrides: tuple[str, ...] | None = None
 
 
 def ncf_type(value: str) -> str | None:
@@ -77,6 +78,8 @@ def declarable(currency: str) -> bool:
 
 
 def fact_value(record: FiscalRecord, name: str) -> str | None:
+    if name == "itbis" and record.declaration is not None and record.declaration.itbis is not None:
+        return record.declaration.itbis
     fact = getattr(record.facts.fiscal, name, None)
     return fact.value if isinstance(fact, Known) else None
 
@@ -157,6 +160,7 @@ def record_issues(
     elif re.fullmatch(r"(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?", tax) is None:
         issue("fiscal_amount_precision_or_limit", "itbis")
     optional = {
+        "itbis",
         "modified_ncf",
         "paid_on",
         "withheld_on",

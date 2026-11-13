@@ -14,7 +14,14 @@ from .actions import ApprovalAction
 from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
 from .dgii import DgiiDeclaration, ExpenseType
-from .facts import BusinessFacts, Contract, FactField, ReadPurchase
+from .facts import (
+    BusinessFacts,
+    Contract,
+    FactField,
+    InheritedValue,
+    NetAmount,
+    ReadPurchase,
+)
 
 
 class MessageSource(Contract):
@@ -112,9 +119,10 @@ class ReviewFlag(Contract):
     """A read value to check again. ``confirm`` flags need ``approve_anyway``
     on the approve request; the rest only warn."""
 
-    code: Literal["rnc_check_digit", "ncf_malformed", "itbis_high"]
-    field: Literal["rnc", "ncf", "itbis"]
+    code: Literal["rnc_check_digit", "ncf_malformed", "itbis_high", "amounts_mismatch"]
+    field: Literal["rnc", "ncf", "itbis", "amount"]
     confirm: bool
+    difference: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class RecordedApproval(Contract):
@@ -183,6 +191,8 @@ class BusinessDossier(RecordContext):
     version: int = Field(ge=1)
     review_state: Literal["open", "accepting", "accepted", "dismissed"]
     facts: BusinessFacts
+    net_amount: NetAmount = NetAmount(amount=None, source=None)
+    inheritance: dict[str, InheritedValue] = Field(default_factory=dict)
     sources: tuple[SourceEvidence, ...]
     questions: tuple[ReviewQuestion, ...]
     history: tuple[DraftRevision, ...]
@@ -261,6 +271,9 @@ class BusinessDossier(RecordContext):
 
 #: The due date a person sets in review, wherever the dossier carries it.
 _UNMEASURED_DOSSIER_FIELDS = {
+    "net_amount": True,
+    "inheritance": True,
+    "facts": {"net_amount", "legal_tip"},
     "current_note": True,
     "note_edit_available": True,
     "supporting_append_available": True,
@@ -277,16 +290,18 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "review_flags": True,
     "history": {
         "__all__": {
-            "before_due_on",
-            "after_due_on",
-            "before_current_note",
-            "after_current_note",
+            "before_due_on": True,
+            "after_due_on": True,
+            "before_current_note": True,
+            "after_current_note": True,
+            "before": {"net_amount", "legal_tip"},
+            "after": {"net_amount", "legal_tip"},
         }
     },
 }
 
 
-_UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split")
+_UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split", "montos")
 
 
 def _unmeasured_removed(source: dict[str, Any]) -> dict[str, Any]:

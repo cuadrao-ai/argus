@@ -1,0 +1,124 @@
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+
+from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
+from argus.domain.business.contracts.facts import BusinessFacts, InheritedValue, Known
+from argus.domain.business.purchase_review import AMOUNT_SIDES, derived_amount, net_amount
+
+INHERITANCE = {
+    "billed_amount": ("607", "net_amount"),
+    "goods_amount": ("606", "net_amount"),
+    "itbis": (None, "itbis"),
+    "legal_tip": (None, "legal_tip"),
+    "paid_on": ("606", "occurred_on"),
+    "services_amount": ("606", "net_amount"),
+}
+
+
+def _text(value: object) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat() if isinstance(value, date) else str(value)
+
+
+def _equal(left: object, right: object) -> bool:
+    if left is None or right is None:
+        return left is right
+    if isinstance(left, date) or isinstance(right, date):
+        return _text(left) == _text(right)
+    return Decimal(str(left)) == Decimal(str(right))
+
+
+def inheritance_state(
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+    overrides: tuple[str, ...] | None = None,
+    *,
+    paid: bool = False,
+) -> dict[str, InheritedValue]:
+    if declaration is None:
+        return {}
+    tax = facts.fiscal.itbis if facts.fiscal is not None else None
+    sources = {
+        "net_amount": net_amount(facts, declaration).amount,
+        "itbis": tax.value if isinstance(tax, Known) else None,
+        "legal_tip": facts.legal_tip.value if isinstance(facts.legal_tip, Known) else None,
+        "occurred_on": facts.occurred_on.value if paid and isinstance(facts.occurred_on, Known) else None,
+    }
+    split = derived_amount(declaration, facts) if isinstance(declaration, PurchaseDeclaration) else None
+    result = {}
+    for target, (form, source) in INHERITANCE.items():
+        if form is not None and declaration.form != form:
+            continue
+        expected = getattr(split, target) if target in AMOUNT_SIDES else sources[source]
+        current = getattr(declaration, target)
+        inherited = target not in overrides if overrides is not None else current is None or _equal(current, expected)
+        result[target] = InheritedValue(field=source, value=_text(expected), inherited=inherited)
+    return result
+
+
+def inherit_amounts(
+    facts: BusinessFacts,
+    declaration: DgiiDeclaration | None,
+    overrides: tuple[str, ...],
+    *,
+    paid: bool = False,
+) -> DgiiDeclaration | None:
+    if declaration is None:
+        return None
+    changes = {
+        name: date.fromisoformat(state.value) if name == "paid_on" and state.value else state.value
+        for name, state in inheritance_state(facts, declaration, overrides, paid=paid).items()
+        if state.inherited
+    }
+    # Fiscal values use the form's precision and limit; incomplete source facts
+    # stay blank until they can fit, as the existing 606 derivation does.
+    from argus.domain.business.contracts.dgii import MONEY_LIMIT, money_text
+
+    for name, value in changes.items():
+        if name != "paid_on" and value is not None:
+            amount = Decimal(value)
+            changes[name] = money_text(amount) if 0 <= amount < MONEY_LIMIT else None
+    return declaration.model_copy(update=changes)
+
+
+def inheritance_overrides(
+    facts: BusinessFacts,
+    stored: DgiiDeclaration | None,
+    declared: DgiiDeclaration | None,
+    previous: tuple[str, ...] | None,
+    *,
+    written: tuple[str, ...] = (),
+    restore: tuple[str, ...] = (),
+    amount_derived: bool = False,
+) -> tuple[str, ...]:
+    if previous is None:
+        overrides = {
+            name for name, state in inheritance_state(facts, stored).items()
+            if not state.inherited
+        }
+        if amount_derived:
+            overrides.difference_update(AMOUNT_SIDES)
+    else:
+        overrides = set(previous)
+    if declared is not None:
+        for name, (form, _) in INHERITANCE.items():
+            if form is not None and declared.form != form:
+                continue
+            if name in written or (
+                getattr(declared, name) is not None
+                and (stored is None or not _equal(getattr(declared, name), getattr(stored, name)))
+            ):
+                overrides.add(name)
+    if overrides.intersection(AMOUNT_SIDES):
+        overrides.update(AMOUNT_SIDES)
+    if set(restore).intersection(AMOUNT_SIDES):
+        overrides.difference_update(AMOUNT_SIDES)
+    overrides.difference_update(restore)
+    return tuple(sorted(overrides))
+
+
+def paid_from_facts(facts: BusinessFacts) -> bool:
+    return isinstance(facts.funding, Known) and facts.kind.value in {"expense", "refund", "income"}

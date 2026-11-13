@@ -16,6 +16,7 @@ from argus.domain.business.contracts.dgii import (
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     Known,
+    NetAmount,
     is_sin_comprobante,
 )
 from argus.domain.business.dgii_codes import PAYMENT_FORM_BY_ACCOUNT_TYPE
@@ -95,26 +96,50 @@ def amount_is_derived(
     )
 
 
-def derived_amount(
-    declaration: PurchaseDeclaration, amount: str | None, itbis: str | None
-) -> PurchaseDeclaration:
-    """The declaration with its services or goods amount worked out from the
-    total: less ITBIS, selective tax, other taxes and tip, on the side the
-    confirmed Tipo de gasto names. The one owner of that rule. Empty while the
-    total or the type is unknown, or the taxes leave no amount a 606 can hold,
-    so one edit of several in a row never refuses the write."""
-
-    category = _confirmed_type(declaration)
-    base = (
-        None
-        if amount is None or category is None
-        else Decimal(amount)
+def net_amount(
+    facts: BusinessFacts | None = None,
+    declaration: DgiiDeclaration | None = None,
+    *,
+    total: str | None = None,
+    itbis: str | None = None,
+    legal_tip: str | None = None,
+) -> NetAmount:
+    """The document's net amount. Raw components support legacy minor-unit callers."""
+    if facts is not None:
+        stated = facts.net_amount
+        if isinstance(stated, Known):
+            return NetAmount(
+                amount=stated.value,
+                source="read" if stated.origin in {"extracted", "qr_decoded"} else "edited",
+            )
+        total, itbis = total_and_itbis(facts)
+        legal_tip = facts.legal_tip.value if isinstance(facts.legal_tip, Known) else None
+    if total is None:
+        return NetAmount(amount=None, source=None)
+    tip = legal_tip if legal_tip is not None else getattr(declaration, "legal_tip", None)
+    value = (
+        Decimal(total)
         - amount_or_zero(itbis)
-        - amount_or_zero(declaration.selective_tax)
-        - amount_or_zero(declaration.other_taxes)
-        - amount_or_zero(declaration.legal_tip)
+        - amount_or_zero(tip)
+        - amount_or_zero(getattr(declaration, "selective_tax", None))
+        - amount_or_zero(getattr(declaration, "other_taxes", None))
     )
-    value = money_text(base) if base is not None and base >= 0 else None
+    return NetAmount(amount=format(value, f".{max(2, -value.as_tuple().exponent)}f"), source="calculated")
+
+
+def derived_amount(
+    declaration: PurchaseDeclaration,
+    amount: BusinessFacts | str | None,
+    itbis: str | None = None,
+) -> PurchaseDeclaration:
+    category = _confirmed_type(declaration)
+    result = (
+        net_amount(amount, declaration)
+        if isinstance(amount, BusinessFacts)
+        else net_amount(declaration=declaration, total=amount, itbis=itbis)
+    )
+    base = Decimal(result.amount) if result.amount is not None else None
+    value = money_text(base) if category is not None and base is not None and 0 <= base < MONEY_LIMIT else None
     if value is not None and Decimal(value) >= MONEY_LIMIT:
         value = None
     services = category in SERVICE_EXPENSE_TYPES

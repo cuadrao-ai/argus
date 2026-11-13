@@ -27,6 +27,7 @@ from .facts import (
     FactField,
     FactInput,
     Funding,
+    MontosReview,
 )
 
 
@@ -153,6 +154,7 @@ class ReviewDraft(Contract):
     document_type: DocumentType | None = None
     #: Sets the due date, or takes it back to unknown, while the draft is open.
     due_on: DueOnInput | None = None
+    montos: MontosReview | None = None
 
     @model_validator(mode="after")
     def some_review_input(self):
@@ -163,6 +165,7 @@ class ReviewDraft(Contract):
             and self.payment_split is None
             and self.document_type is None
             and self.due_on is None
+            and self.montos is None
         ):
             raise ValueError(
                 "supply review facts, a fiscal declaration, 606 fields, a 607"

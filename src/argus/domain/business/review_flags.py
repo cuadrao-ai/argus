@@ -10,6 +10,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from argus.domain.business.contracts.dgii import (
+    DgiiDeclaration,
+    amount_or_zero,
+    money_text,
+)
 from argus.domain.business.contracts.dossier import ReviewFlag
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.fiscal_identity import (
@@ -18,6 +23,7 @@ from argus.domain.business.fiscal_identity import (
     normalized_ncf,
     rnc_check_digit_ok,
 )
+from argus.domain.business.purchase_review import net_amount
 from argus.domain.business.rnc_registry import RncRegistry, UnknownRncRegistry
 
 ITBIS_RATE = Decimal("0.18")
@@ -33,11 +39,13 @@ def itbis_too_high(total: Decimal, itbis: Decimal) -> bool:
     """ITBIS above 18% of the pre-tax amount, plus 1.00 in the receipt's own
     currency. A lower ITBIS (16%, exempt items) is never flagged."""
 
-    return itbis > (total - itbis) * ITBIS_RATE + ITBIS_TOLERANCE
+    base = net_amount(total=str(total), itbis=str(itbis))
+    return itbis > Decimal(base.amount) * ITBIS_RATE + ITBIS_TOLERANCE
 
 
 def review_flags(
-    facts: BusinessFacts, registry: RncRegistry | None = None
+    facts: BusinessFacts, registry: RncRegistry | None = None,
+    *, declaration: DgiiDeclaration | None = None,
 ) -> tuple[ReviewFlag, ...]:
     """A number the DGII register lists is never a check-digit flag, the same
     rule the 606 export applies."""
@@ -64,6 +72,17 @@ def review_flags(
         and itbis_too_high(Decimal(total), Decimal(itbis))
     ):
         flags.append(ReviewFlag(code="itbis_high", field="itbis", confirm=False))
+    net = net_amount(facts, declaration)
+    if total is not None and itbis is not None and net.amount is not None:
+        tip = _known(facts.legal_tip)
+        if tip is None:
+            tip = getattr(declaration, "legal_tip", None)
+        difference = Decimal(total) - Decimal(net.amount) - Decimal(itbis) - amount_or_zero(tip)
+        if abs(difference) > Decimal("0.01"):
+            flags.append(ReviewFlag(
+                code="amounts_mismatch", field="amount", confirm=False,
+                difference=money_text(difference),
+            ))
     return tuple(flags)
 
 
