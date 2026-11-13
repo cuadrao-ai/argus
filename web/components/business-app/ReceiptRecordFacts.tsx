@@ -12,7 +12,7 @@ import type { RowShown } from "./ReceiptEditRow";
 import { quietButtonClass, useCategoryLabel } from "./business-ui";
 import { UNKNOWN_VALUE } from "./business-format";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
-import { KIND_FIELDS, PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, type FactRow, type ReviewRow } from "./receipt-fact-rows";
+import { PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, type FactRow, type ReviewRow } from "./receipt-fact-rows";
 import type { AttentionItem } from "./dossier-attention";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -202,7 +202,9 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     <div data-testid="receipt-current-facts" className="space-y-5">
       {section("activity", kind.state === "known" ? t(`business.dossier.kind.${kind.value}`, kind.value) : t("business.dossier.field.kind", "Activity"), <>
         {typeRow}
-        {KIND_FIELDS.filter((key) => key !== "amount" && key !== "currency" && (key !== "kind" || kindShown)).map(recordField)}
+        {kindShown ? recordField("kind") : null}
+        {recordField("counterparty")}
+        {recordField("occurred_on")}
       </>)}
       <ReceiptAmounts attention={attention} dossier={dossier} />
       {section("fiscal", t("business.dossier.section.fiscal", "Fiscal"), <>

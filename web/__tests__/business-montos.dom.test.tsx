@@ -74,6 +74,12 @@ const fields: DgiiFields = { "606": [
   { name: "modified_ncf", label: "", kind: "text", options: [] },
 ], "607": [] };
 const noop = () => {};
+test("approved documents keep Fecha immediately before Montos", async () => {
+  const host = await mount(<ReceiptRecordFacts dossier={await dossier()} accounts={[]} />);
+  const activity = host.querySelector('[data-testid="receipt-facts-activity"]')!;
+  assert.deepEqual([...activity.querySelectorAll("[data-fact]")].map((row) => row.getAttribute("data-fact")), ["kind", "counterparty", "occurred_on"]);
+  assert.equal(activity.nextElementSibling?.getAttribute("data-testid"), "receipt-facts-montos");
+});
 for (const amount of ["181.00", "200.00"]) test(`Fiscal explicitly overriding ITBIS with ${amount} breaks inheritance and saves only in declaration`, async () => {
   const base = await dossier(); const writes: DgiiReview[] = [];
   const host = await mount(<FiscalDeclarationEditor dossier={base} fields={fields} disabled={false} open reviewFiscal={async (_, __, input) => { writes.push(input); return base; }} onChanged={noop} onBusy={noop} onDirty={noop} reviewMontos={async () => base} />);
