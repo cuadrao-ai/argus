@@ -4,8 +4,9 @@
       "counterparty",
       "fiscal_number",
       "date",
-      "gross_amount",
+      "net_amount",
       "itbis_amount",
+      "gross_amount",
       "stage",
       "note",
       "attachment",
@@ -17,8 +18,7 @@
       "funding",
       "payment_form",
       "expense_type",
-      "fiscal_number",
-      "itbis_amount"
+      "fiscal_number"
     ],
     "density": 48
   },

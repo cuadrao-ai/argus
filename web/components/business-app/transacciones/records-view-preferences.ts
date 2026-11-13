@@ -3,11 +3,13 @@ import { type RecordsSort } from "./records-pagination";
 import type { Density } from "./table-density";
 
 /** Registros table keys. Currency metadata remains shared with Bandeja. */
-export type RecordsColumnKey = Exclude<ColumnKey, "categoria" | "detalle"> | "tipo_gasto" | "forma_pago" | "estado" | "notas" | "ncf" | "itbis";
+export type RecordsColumnKey = Exclude<ColumnKey, "categoria" | "detalle"> | "tipo_gasto" | "forma_pago" | "estado" | "notas" | "ncf" | "itbis" | "net_amount";
 type RecordsColumn = { key: RecordsColumnKey | "moneda"; width: number | null; align: "left" | "right"; pin?: "left" | "right" };
 export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = [
   { key: "contraparte", width: 200, align: "left", pin: "left" },
   { key: "fecha", width: 116, align: "left" },
+  { key: "net_amount", width: 160, align: "right" },
+  { key: "itbis", width: 160, align: "right" },
   { key: "monto", width: 104, align: "right" },
   { key: "moneda", width: 80, align: "left" },
   { key: "tipo_gasto", width: 120, align: "left" },
@@ -17,12 +19,11 @@ export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = [
   { key: "cuenta", width: 176, align: "left" },
   { key: "comprobante", width: 88, align: "right", pin: "right" },
   { key: "ncf", width: 176, align: "left" },
-  { key: "itbis", width: 160, align: "right" },
 ];
 /** A column of either table: Registros' own, or the ledger's when bank matching mounts the records beside its movements. */
 export type TableColumnKey = RecordsColumnKey | ColumnKey | "moneda";
 /** Tipo de gasto and Forma de pago read the words Bandeja's review form uses, so the two screens never name a 606 field differently. */
-export const recordsColumnLabelKey = (key: TableColumnKey) => key === "detalle" ? "business.transactions.layout.column_type" : key === "estado" ? "business.transactions.layout.column_state" : key === "comprobante" ? "business.transactions.layout.column_attachment" : key === "tipo_gasto" ? "business.dossier.placeholder.expense_type" : key === "forma_pago" ? "business.dossier.placeholder.payment_form" : `business.transactions.columns.${key}`;
+export const recordsColumnLabelKey = (key: TableColumnKey) => key === "net_amount" ? "business.terms.net_amount" : key === "monto" ? "business.terms.total" : key === "itbis" ? "business.terms.itbis" : key === "detalle" ? "business.transactions.layout.column_type" : key === "estado" ? "business.transactions.layout.column_state" : key === "comprobante" ? "business.transactions.layout.column_attachment" : key === "tipo_gasto" ? "business.dossier.placeholder.expense_type" : key === "forma_pago" ? "business.dossier.placeholder.payment_form" : `business.transactions.columns.${key}`;
 export type RecordsViewPreferences = { order: RecordsColumnKey[]; hidden: RecordsColumnKey[]; density: Density; sort: RecordsSort };
 export const requiredColumn = (key: RecordsColumnKey) => key === "contraparte" || key === "monto";
 export function moveRecordsColumn(value: RecordsViewPreferences, key: RecordsColumnKey, target: number): RecordsViewPreferences {

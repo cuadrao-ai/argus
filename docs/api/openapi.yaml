@@ -2292,6 +2292,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/amounts-preview:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmountsPreviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AmountsPreview'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/approve:
     post:
       tags:
@@ -16045,6 +16101,43 @@ components:
       - goals
       - pools
       - replayed
+    AmountsPreview:
+      properties:
+        net_amount:
+          $ref: '#/components/schemas/NetAmount'
+        mismatch:
+          anyOf:
+          - $ref: '#/components/schemas/ReviewFlag'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - net_amount
+    AmountsPreviewRequest:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        amount:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+        itbis:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+        net_amount:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+        legal_tip:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - version
     AnswerDecisionAction:
       properties:
         type:
@@ -17724,6 +17817,13 @@ components:
           - dismissed
         facts:
           $ref: '#/components/schemas/BusinessFacts'
+        net_amount:
+          $ref: '#/components/schemas/NetAmount'
+          default: {}
+        inheritance:
+          additionalProperties:
+            $ref: '#/components/schemas/InheritedValue'
+          type: object
         sources:
           items:
             oneOf:
@@ -18014,6 +18114,18 @@ components:
             verified: false
             source_ids: []
         amount:
+          $ref: '#/components/schemas/Fact_Annotated_str__StringConstraints__AfterValidator__'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        net_amount:
+          $ref: '#/components/schemas/Fact_Annotated_str__StringConstraints__AfterValidator__'
+          default:
+            state: unknown
+            verified: false
+            source_ids: []
+        legal_tip:
           $ref: '#/components/schemas/Fact_Annotated_str__StringConstraints__AfterValidator__'
           default:
             state: unknown
@@ -21494,8 +21606,9 @@ components:
           - counterparty
           - fiscal_number
           - date
-          - gross_amount
+          - net_amount
           - itbis_amount
+          - gross_amount
           - stage
           - note
           - attachment
@@ -23995,6 +24108,27 @@ components:
       required:
       - event
       - preview
+    InheritedValue:
+      properties:
+        field:
+          type: string
+          enum:
+          - net_amount
+          - itbis
+          - legal_tip
+          - occurred_on
+        value:
+          anyOf:
+          - type: string
+          - type: 'null'
+        inherited:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - field
+      - value
+      - inherited
     InvitationBatch:
       properties:
         recipients:
@@ -26500,6 +26634,28 @@ components:
       - currencies
       - missing_rnc
       - missing_ncf
+    MontosReview:
+      properties:
+        net_amount:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+        legal_tip:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+        override_inherited:
+          items:
+            type: string
+          type: array
+          default: []
+        restore_inherited:
+          items:
+            type: string
+          type: array
+          default: []
+      additionalProperties: false
+      type: object
     MovementAccount:
       properties:
         account_id:
@@ -26741,6 +26897,25 @@ components:
       - counts
       - items
       - next_cursor
+    NetAmount:
+      properties:
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        source:
+          anyOf:
+          - type: string
+            enum:
+            - read
+            - calculated
+            - edited
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - amount
+      - source
     NetworkNumbers:
       properties:
         beta:
@@ -27825,8 +28000,9 @@ components:
             - counterparty
             - fiscal_number
             - date
-            - gross_amount
+            - net_amount
             - itbis_amount
+            - gross_amount
             - stage
             - note
             - attachment
@@ -27841,8 +28017,9 @@ components:
             - counterparty
             - fiscal_number
             - date
-            - gross_amount
+            - net_amount
             - itbis_amount
+            - gross_amount
             - stage
             - note
             - attachment
@@ -28000,6 +28177,11 @@ components:
             pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
           - type: 'null'
         legal_tip:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis:
           anyOf:
           - type: string
             pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
@@ -28283,6 +28465,11 @@ components:
             pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
           - type: 'null'
         legal_tip:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis:
           anyOf:
           - type: string
             pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
@@ -29526,8 +29713,9 @@ components:
             - counterparty
             - fiscal_number
             - date
-            - gross_amount
+            - net_amount
             - itbis_amount
+            - gross_amount
             - stage
             - note
             - attachment
@@ -30140,6 +30328,7 @@ components:
             - stage
             - counterparty
             - currency
+            - net_amount
             - gross_amount
             - recorded_amount
             - proposed_amount
@@ -30192,6 +30381,7 @@ components:
             - stage
             - counterparty
             - currency
+            - net_amount
             - gross_amount
             - recorded_amount
             - proposed_amount
@@ -30244,6 +30434,7 @@ components:
             - stage
             - counterparty
             - currency
+            - net_amount
             - gross_amount
             - recorded_amount
             - proposed_amount
@@ -30311,6 +30502,7 @@ components:
             - stage
             - counterparty
             - currency
+            - net_amount
             - gross_amount
             - recorded_amount
             - proposed_amount
@@ -30439,6 +30631,27 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        net_amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        net_amount_source:
+          anyOf:
+          - type: string
+            enum:
+            - read
+            - calculated
+            - edited
+          - type: 'null'
+        amounts_difference:
+          anyOf:
+          - type: string
+          - type: 'null'
+        inheritance:
+          additionalProperties:
+            $ref: '#/components/schemas/InheritedValue'
+          type: object
+          default: {}
         itbis_amount:
           anyOf:
           - type: string
@@ -30591,6 +30804,7 @@ components:
             - stage
             - counterparty
             - currency
+            - net_amount
             - gross_amount
             - recorded_amount
             - proposed_amount
@@ -30654,6 +30868,7 @@ components:
             - stage
             - counterparty
             - currency
+            - net_amount
             - gross_amount
             - recorded_amount
             - proposed_amount
@@ -30903,6 +31118,10 @@ components:
                 known: '#/components/schemas/KnownInput_date_'
                 unknown: '#/components/schemas/UnknownInput'
           - type: 'null'
+        montos:
+          anyOf:
+          - $ref: '#/components/schemas/MontosReview'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -30915,14 +31134,20 @@ components:
           - rnc_check_digit
           - ncf_malformed
           - itbis_high
+          - amounts_mismatch
         field:
           type: string
           enum:
           - rnc
           - ncf
           - itbis
+          - amount
         confirm:
           type: boolean
+        difference:
+          anyOf:
+          - type: string
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -31169,6 +31394,11 @@ components:
             pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
           - type: 'null'
         legal_tip:
+          anyOf:
+          - type: string
+            pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+          - type: 'null'
+        itbis:
           anyOf:
           - type: string
             pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
@@ -32722,6 +32952,9 @@ components:
           - document_gross_amount
           - document_credit_adjustment
           - document_family_amount
+          - document_net_amount
+          - document_net_credit_adjustment
+          - document_net_family_amount
         matching_count:
           type: integer
         known_amount_minor:

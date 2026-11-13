@@ -3851,6 +3851,16 @@ actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
 
+Montos adds `facts.net_amount` and `facts.legal_tip` to the existing resolution
+and immutable revision JSON. These are provenance-bearing facts: read subtotal
+or human net edit, and read service charge with tip as an absence-only fallback.
+Gross `facts.amount` and recorded money are unchanged. The existing declaration
+JSON may carry a fiscal ITBIS override. `resolution.business.fiscal_overrides`
+records which fields no longer inherit from Montos; null denotes older records
+whose override state must be interpreted from their saved declaration. No table,
+column, migration, or backfill is added. The review action receipt records every
+edit and restore under the existing version, grant and idempotency checks.
+
 Migration `20261110000127_business_legal_name.sql` adds the Business's legal name
 (razón social) to the same `spaces` row: `business_legal_name` (1 to 250 characters,
 trimmed), `business_legal_name_confirmed_by` (references `auth.users`, ON DELETE SET

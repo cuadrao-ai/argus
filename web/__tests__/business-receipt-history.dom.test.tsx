@@ -72,7 +72,7 @@ describe("Historial", () => {
     assert.deepEqual(lines(), [
       ["Moneda cambiada de DOP a USD", "Ana Peña · 11/10, 8:00 a.m."],
       ["Aprobado", "Lucía Mateo · 11/10, 12:05 a.m."],
-      ["Monto cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña · 10/10, 1:05 p.m."],
+      ["Total (con ITBIS) cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña · 10/10, 1:05 p.m."],
       ["Leído", "Cuadrao · 10/10, 9:25 a.m."],
       ["Recibido · WhatsApp", "10/10, 9:20 a.m."],
     ]);
@@ -120,7 +120,7 @@ describe("Historial", () => {
   test("events of one revision keep their field order", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), facts("100.00"), facts("200.00", "USD"))]} accounts={[]} />);
-    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Monto cambiado de RD$ 100.00 a US$ 200.00", "Moneda cambiada de DOP a USD"]);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Total (con ITBIS) cambiado de RD$ 100.00 a US$ 200.00", "Moneda cambiada de DOP a USD"]);
     await page.close();
   });
 
@@ -138,7 +138,7 @@ describe("Historial", () => {
     const created = { ...facts("500.00"), kind: unknown, occurred_on: unknown, counterparty: unknown } as unknown as BusinessFacts;
     const page = await render(<ReceiptHistory history={[revision(1, at(10, 9, 0), actor("Ana Peña"), null, created)]} accounts={[]} />);
     const text = [...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent);
-    assert.deepEqual(text.sort(), ["Moneda: DOP", "Monto: RD$ 500.00"]);
+    assert.deepEqual(text.sort(), ["Moneda: DOP", "Total (con ITBIS): RD$ 500.00"]);
     await page.close();
   });
 });

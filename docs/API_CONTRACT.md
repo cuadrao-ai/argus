@@ -9173,7 +9173,66 @@ sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
+Montos uses `purchase_review.net_amount` for the dossier, fiscal defaults,
+Registros, month close and exports. `BusinessFacts.amount` remains the gross
+amount paid. The dossier adds `net_amount: {amount, source}`. `amount` is an
+exact decimal string or null. `source` is `read`, `calculated`, `edited`, or
+null when the total is unknown. A known `facts.net_amount` retains the read
+subtotal or a person's edit. Otherwise the function subtracts the components
+in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes. The read's `service`
+is the legal tip; `tip` is used only when `service` is absent. Both values live
+in existing fact JSON and revision history. No database migration is required.
+
+`POST /business/drafts/{id}/amounts-preview` takes `version` and optional
+`amount`, `itbis`, `net_amount`, and `legal_tip` fact inputs. It requires the
+same selected Business, human actor, prepare permission, open draft and current
+version as amount review. The response contains `net_amount` and `mismatch`
+(the existing `amounts_mismatch` review flag, or null). It uses the review's
+fact mutations, inheritance, net owner and shared parts check without saving
+facts, sources, revisions or action receipts. Responses are `no-store`.
+The web discards a preview when its draft, version or typed values change.
+
+Human review also accepts top-level `montos`, with optional `net_amount` and
+`legal_tip` fact inputs and `override_inherited` or `restore_inherited` field
+names. These inputs do not enter the interpreter's fact patch. Changing a
+main amount requires an open draft. Restoring or overriding fiscal inheritance
+uses the existing fiscal edit permission and version checks.
+
+The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
+Each entry holds `{field, value, inherited}`; `value` is the current source
+value to restore, not a copy calculated by the browser. The single mapping is
+`amount_inheritance.INHERITANCE`:
+
+| Fiscal field | Main source |
+| --- | --- |
+| `billed_amount` (607) | `net_amount` |
+| `goods_amount` (606), by confirmed expense type | `net_amount` |
+| `itbis` (606 and 607) | `fiscal.itbis` |
+| `legal_tip` (606 and 607) | `legal_tip` |
+| `paid_on` (606), when paid | `occurred_on` |
+| `services_amount` (606), by confirmed expense type | `net_amount` |
+
+An explicit override stops inheritance even when the typed value equals the
+source. Goods and services share override ownership; restoring either restores
+both sides from the confirmed expense type. Their sum must equal the net
+amount before export. `modified_ncf` never inherits. The fiscal declaration's
+optional ITBIS override does not rewrite the main ITBIS fact. Main amount
+updates refresh inherited fields on every revision. Payment-date inheritance
+uses the stored document settlement or the existing paid-bill mark, never the
+selected account. Reads and exports refresh inherited values when settlement
+changes. An explicit fiscal date remains an override. The existing monthly
+sin-comprobante purchase cost remains the gross amount because its ITBIS is
+not creditable; all other monthly net calculations use the same net owner.
+
+`amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
+false` and `difference`. The signed exact decimal difference is gross minus
+net minus the same `AMOUNT_PARTS` components. It appears only when the absolute
+difference exceeds 0.01 and is recomputed for every read and revision. The
+existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
+overrides are excluded from the model-facing dossier and source text.
+
 The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
+objects, with `difference` on `amounts_mismatch`
 computed on every read from the stored facts; nothing is written. `rnc_check_digit`
 (field `rnc`) is a 9-digit RNC or 11-digit cédula whose check digit does not
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
@@ -10775,6 +10834,14 @@ accept path recorded.
   amounts. `coverage_notes` explicitly includes absent legal-cancellation coverage,
   unknown source subtype and evidence separation.
 
+  Montos adds `document_net_amount`, `document_net_credit_adjustment` and
+  `document_net_family_amount` totals with the same admission, credit sign,
+  currency grouping and completeness rules. The overview's purchase and sale
+  cards use `document_net_family_amount`. Each row adds `net_amount`,
+  `net_amount_source`, `amounts_difference` and `inheritance`. The default
+  table and its “Lo que ves” export place net amount, ITBIS and gross Total
+  together. Gross fields and recorded money retain their previous meaning.
+
   `fiscal_totals` is separate from those existing gross/activity totals. It is
   reduced on the server over the same full filtered records, before pagination,
   with the same Personal admission rule. Entries partition by nullable `currency`,
@@ -10782,9 +10849,9 @@ accept path recorded.
   `itbis`, `goods`, or `services`. No currency conversion or cross-currency sum
   occurs, and gross is never reconciled to the three fiscal amounts.
 
-  ITBIS has one source: the known `facts.fiscal.itbis` read through `fact_value`,
-  as in both 606 and 607 export. Neither declaration has another billed-ITBIS
-  field. Goods and services read the populated `goods_amount` and
+  Registros ITBIS reads the main `facts.fiscal.itbis`. The fiscal declaration
+  inherits this value unless a person overrides it; 606 and 607 exports read
+  that declaration value when present. Goods and services read the populated `goods_amount` and
   `services_amount` of the existing confirmed purchase declaration, including
   hand-entered values. No new split or fiscal mapping is computed. Each row
   carries nullable decimal `itbis_amount`, `goods_amount`, and `services_amount`.

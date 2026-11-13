@@ -55,7 +55,7 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   assert.match(dialogText(), /Exportar compras/);
   assert.match(dialogText(), /1 filtro · 63 registros · 3 monedas/);
   assert.equal(downloadButton()!.textContent!.trim(), "Exportar 63 registros");
-  assert.match(dialogText(), /Columnas de tu tabla \(6\)/);
+  assert.match(dialogText(), /Columnas de tu tabla \(8\)/);
   const [sent] = previews(page).map((call) => call.body as { report: ReportRequest }).slice(-1);
   assert.equal(sent.report.filters.q, "proveedor");
   assert.deepEqual(sent.report.filters.currencies, ["DOP"]);
@@ -66,7 +66,7 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
   const [body] = exports(page);
-  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty", "date", "gross_amount", "stage", "note", "attachment"], currencies: "all", format: "csv" });
+  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment"], currencies: "all", format: "csv" });
   assert.equal(body.report.filters.q, "proveedor");
   assert.equal(panel(), null, "the panel closes once the file is saved");
 });
@@ -125,23 +125,23 @@ test("Editar chooses columns in the table's order inside the same panel, with Co
   assert.equal(document.querySelectorAll('[role="dialog"]').length, 1, "a sub-view, not a second modal");
   const boxes = () => [...document.querySelectorAll<HTMLInputElement>('[data-testid="records-export-columns"] input[type="checkbox"]')];
   const labels = () => [...document.querySelectorAll('[data-testid="records-export-columns"] label')].map((label) => label.textContent);
-  assert.deepEqual(labels(), ["Contraparte", "NCF", "Fecha", "Monto", "Moneda", "ITBIS", "Estado", "Notas", "Adjunto", "Tipo de gasto", "Forma de pago", "Cuenta"]);
+  assert.deepEqual(labels(), ["Contraparte", "NCF", "Fecha", "Monto sin ITBIS", "ITBIS", "Total", "Moneda", "Estado", "Notas", "Adjunto", "Tipo de gasto", "Forma de pago", "Cuenta"]);
   assert.equal(boxes()[0].disabled, true);
-  assert.equal(boxes()[4].checked && boxes()[4].disabled, true, "Moneda is locked on with every currency");
+  assert.equal(boxes()[6].checked && boxes()[6].disabled, true, "Moneda is locked on with every currency");
   await act(async () => boxes()[1].click());
-  await act(async () => boxes()[7].click());
+  await act(async () => boxes()[8].click());
   await page.click(page.button("Listo"));
-  await page.settle(() => /Columnas personalizadas \(6\)/.test(dialogText()));
+  await page.settle(() => /Columnas personalizadas \(8\)/.test(dialogText()));
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
   await page.click(page.button("Usar las de mi tabla"));
   await page.click(page.button("Exportar compras"));
-  await page.settle(() => /Columnas de tu tabla \(6\)/.test(dialogText()));
+  await page.settle(() => /Columnas de tu tabla \(8\)/.test(dialogText()));
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
   await act(async () => boxes()[1].click());
   await page.click(page.button("Listo"));
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
-  assert.deepEqual(exports(page)[0].columns, ["counterparty", "fiscal_number", "date", "gross_amount", "stage", "note", "attachment"]);
+  assert.deepEqual(exports(page)[0].columns, ["counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment"]);
 });
 
 test("Formato DGII counts only tab and period, shows the server's notices and Revisar applies the fiscal filter", async () => {
@@ -400,4 +400,34 @@ test("607 keeps pending notices below the options", async () => {
   assert.ok(notice.contains(page.button("Revisar")!));
   assert.ok(page.button("Revisar")!.classList.contains("min-h-11"), "607 keeps its existing review button");
   assert.equal(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(page.button("Revisar")!), false);
+});
+
+test("Registros renders distinct server net, ITBIS and Total columns and its card uses only the net total", async () => {
+  const page = await mount({ queryAnswer: (_, answer) => ({
+    ...answer,
+    items: answer.items.map((row) => ({ ...row, net_amount: "80.00", net_amount_source: "read", itbis_amount: "18.00", gross_amount: "100.00" })),
+    totals: [
+      { currency: "DOP", kind: "expense", basis: "document_family_amount", matching_count: 1, known_amount_minor: 10000, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 10000, known_amount: "100.00", amount: "100.00" },
+      { currency: "DOP", kind: "expense", basis: "document_net_family_amount", matching_count: 1, known_amount_minor: 8000, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 8000, known_amount: "80.00", amount: "80.00" },
+    ],
+  }) });
+  const headings = [...document.querySelectorAll('thead th[data-col]')].map((cell) => cell.getAttribute("data-col"));
+  const index = headings.indexOf("net_amount");
+  assert.deepEqual(headings.slice(index, index + 3), ["net_amount", "itbis", "monto"]);
+  assert.equal(document.querySelector('th[data-col="net_amount"]')?.textContent, "Monto sin ITBIS");
+  assert.equal(document.querySelector('th[data-col="monto"]')?.textContent, "Total");
+  const row = document.querySelector("tbody tr")!;
+  for (const [key, value] of [["net_amount", "80.00"], ["itbis", "18.00"], ["monto", "100.00"]]) {
+    const cell = row.querySelector(`[data-col="${key}"]`)!;
+    assert.equal(cell.textContent, value);
+    assert.ok(cell.classList.contains("text-right"));
+    assert.ok(cell.classList.contains("tabular-nums"));
+    assert.ok(cell.querySelector(".cuadrao-amount"));
+  }
+  const card = document.querySelector('[data-overview-card="total"]')!;
+  assert.match(card.textContent!, /Compras sin ITBIS/);
+  assert.equal(card.querySelector(".cuadrao-amount")?.getAttribute("aria-label"), "DOP 80.00");
+  assert.equal(card.querySelector("button"), null);
+  await open(page);
+  assert.match(dialogText(), /Columnas de tu tabla \(8\)/);
 });

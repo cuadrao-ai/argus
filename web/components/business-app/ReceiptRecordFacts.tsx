@@ -1,5 +1,6 @@
 "use client";
 
+import ReceiptAmounts from "./ReceiptAmounts";
 import { CircleAlert } from "lucide-react";
 import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,13 +10,13 @@ import { rncStatus } from "@/lib/rnc-status";
 import RncStatusBlock from "./RncStatusBlock";
 import type { RowShown } from "./ReceiptEditRow";
 import { quietButtonClass, useCategoryLabel } from "./business-ui";
-import { formatMoney, UNKNOWN_VALUE } from "./business-format";
+import { UNKNOWN_VALUE } from "./business-format";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
-import { KIND_FIELDS, PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, totalMismatch, type FactRow, type ReviewRow } from "./receipt-fact-rows";
+import { PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, type FactRow, type ReviewRow } from "./receipt-fact-rows";
 import type { AttentionItem } from "./dossier-attention";
 import { resolveLanguage } from "@/lib/language-features";
 
-const FISCAL = ["rnc", "ncf", "ecf", "itbis"] as const;
+const FISCAL = ["rnc", "ncf", "ecf"] as const;
 
 /** One label/value row; the document type control uses it too, so the form reads as one list. */
 export const FACT_ROW_CLASS = "grid grid-cols-[minmax(7.5rem,34%)_minmax(0,1fr)] items-start gap-x-4 border-t border-[#E8EBE6] py-1.5 first:border-t-0 max-tablet:[&:has([data-row-open])]:grid-cols-1 dark:border-white/[0.07]";
@@ -31,6 +32,7 @@ const DIGIT_ROWS: ReadonlySet<string> = new Set(["amount", "itbis", "rnc", "ncf"
 
 /** An open draft's form: what each row edits, and what the page says under it. */
 export type FactsReview = {
+  amountsPreview?: { net_amount: NonNullable<BusinessDossier["net_amount"]>; mismatch: { difference?: string | null } | null; status: "ready" | "pending" | "error" };
   /** Absent for someone who cannot edit the record now. */
   onEdit?: (row: ReviewRow) => void;
   /** The row's control: its value with a pencil, or its open field. */
@@ -122,10 +124,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     </div>
   );
 
-  const mismatch = totalMismatch(dossier);
-  const inCurrency = (amount: string) => formatMoney(amount, dossier.facts.currency.value, locale) || amount;
-  const mismatchLine = mismatch ? <span data-testid="total-mismatch" className="cuadrao-amount mt-1 block text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t("business.dossier.placeholder.total_mismatch", { sum: inCurrency(mismatch.sum), total: inCurrency(mismatch.total), defaultValue: "Subtotal + ITBIS = {{sum}}, not {{total}}" })}</span> : null;
-
   const recordField = (key: BusinessFactField) => {
     const label = key === "funding" && sale ? t("business.dossier.field.collection_method") : t(`business.dossier.field.${key}`, key);
     const value = presentBusinessFact(key, dossier.facts, accounts, locale, labels);
@@ -134,8 +132,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     const row = own && currency ? { ...own, blocked: own.blocked || currency.blocked, asked: own.asked || currency.asked } : own;
     const tag = origin(key, dossier.facts[key]);
     const fact = dossier.facts[key];
-    const match = [value, fact.state === "known" && typeof fact.value === "string" ? fact.value : null];
-    if (review) return field(key, label, review.row(key, { label, value: value ? <>{value}{tag}</> : "" }), row, key === "amount" ? mismatchLine : undefined, match);
+    const match = [value, fact?.state === "known" && typeof fact.value === "string" ? fact.value : null];
+    if (review) return field(key, label, review.row(key, { label, value: value ? <>{value}{tag}</> : "" }), row, undefined, match);
     return field(key, label, key === "occurred_on" && !value ? UNKNOWN_VALUE : value, row, tag, match);
   };
 
@@ -157,18 +155,9 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     const number = fiscal?.ecf.state === "known" ? "ecf" : "ncf";
     const numberLabel = `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`;
     const numberValue = fiscal?.[number].value ?? (noFiscal ? t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "");
-    const itbisValue = presentFiscalFact("itbis", dossier.facts, locale, labels);
-    const itbisHigh = flags.some((flag) => flag.code === "itbis_high") ? (
-      <span data-testid="itbis-high" className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#735c14] dark:text-[#e8b26f]">
-        <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {t("business.dossier.review_flag.itbis_high.text")}
-      </span>
-    ) : null;
-    const itbisLabel = t("business.dossier.field.itbis", "ITBIS");
     return <>
       {field("rnc", rncLabel, form.row("rnc", rncAsked ? { label: rncLabel, value: "" } : { label: rncLabel, compound: true, pencil: !rncMissing, value: <><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin("rnc", fiscal?.rnc)}</> }), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
       {field("fiscal_number", numberLabel, form.row("fiscal_number", noFiscal ? { label: numberLabel, compound: true, value: noNumber(form) } : { label: numberLabel, value: numberValue ? <>{numberValue}{origin(number, fiscal?.[number])}</> : "" }), fiscalRows.get(number), form.noReceipt.note, [numberValue])}
-      {field("itbis", itbisLabel, form.row("itbis", { label: itbisLabel, value: itbisValue ? <>{itbisValue}{origin("itbis", fiscal?.itbis)}</> : "" }), fiscalRows.get("itbis"), itbisHigh, [itbisValue, fiscal?.itbis.value])}
     </>;
   };
 
@@ -194,8 +183,8 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
           {waits("kind") ? recordField("kind") : null}
           {recordField("counterparty")}
           {recordField("occurred_on")}
-          {recordField("amount")}
         </>)}
+        <ReceiptAmounts attention={attention} dossier={dossier} review={review} />
         {section("fiscal", t("business.dossier.section.fiscal", "Fiscal"), reviewFiscalFields(review))}
         {choicesSection}
         {payment.length ? section("payment", paymentTitle, payment.map(recordField)) : null}
@@ -206,28 +195,23 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
   const fiscalFields = (fiscal || noFiscal ? FISCAL.filter((key) => !noFiscal || (key !== "ncf" && key !== "ecf")) : []).flatMap((key) => {
     if (key === "rnc") return [field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} />, undefined, origin("rnc", fiscal?.rnc), [fiscal?.rnc.value])];
     const shownValue = presentFiscalFact(key, dossier.facts, locale, labels);
-    const itbisHigh = key === "itbis" && flags.some((flag) => flag.code === "itbis_high") ? (
-      <span data-testid="itbis-high" className="mt-1 flex items-center gap-1 text-[13px] leading-[18px] text-[#735c14] dark:text-[#e8b26f]">
-        <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {t("business.dossier.review_flag.itbis_high.text")}
-      </span>
-    ) : null;
-    const shown = field(key, t(`business.dossier.field.${key}`, key), shownValue, fiscalRows.get(key), <>{origin(key, fiscal?.[key])}{itbisHigh}</>, [shownValue, fiscal?.[key].value]);
-    return key === "itbis" && noFiscal
-      ? [field("fiscal_number", `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`, t("business.marks.no_fiscal_chip", "No fiscal receipt number")), shown]
-      : [shown];
+    return [field(key, t(`business.dossier.field.${key}`, key), shownValue, fiscalRows.get(key), origin(key, fiscal?.[key]), [shownValue, fiscal?.[key].value])];
   });
-  const paid = PAYMENT_FIELDS.filter((key) => dossier.facts[key].state === "known" || waits(key));
+  const paid = PAYMENT_FIELDS.filter((key) => dossier.facts[key]?.state === "known" || waits(key));
 
   return (
     <div data-testid="receipt-current-facts" className="space-y-5">
       {section("activity", kind.state === "known" ? t(`business.dossier.kind.${kind.value}`, kind.value) : t("business.dossier.field.kind", "Activity"), <>
         {typeRow}
-        {KIND_FIELDS.filter((key) => key !== "kind" || kindShown).map(recordField)}
+        {kindShown ? recordField("kind") : null}
+        {recordField("counterparty")}
+        {recordField("occurred_on")}
       </>)}
+      <ReceiptAmounts attention={attention} dossier={dossier} />
       {section("fiscal", t("business.dossier.section.fiscal", "Fiscal"), <>
         {recordField("receipt_state")}
         {fiscalFields}
+        {noFiscal ? field("fiscal_number", `${t("business.dossier.field.ncf")} / ${t("business.dossier.field.ecf")}`, t("business.marks.no_fiscal_chip")) : null}
       </>)}
       {choicesSection}
       {paid.length ? section("payment", paymentTitle, paid.map(recordField)) : null}

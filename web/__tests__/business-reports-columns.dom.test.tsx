@@ -16,8 +16,8 @@ afterEach(async () => { await cleanup(); (await import("@/components/layout/over
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
 
 const renderedColumnKeys = () => [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
-test("an old 11-column URL offers NCF and ITBIS hidden without losing the saved layout or later edits", async () => {
-  const order = recordedReportAnswer.presentation.order.filter((key) => key !== "fiscal_number" && key !== "itbis_amount");
+test("an old saved URL offers NCF, net and ITBIS hidden without losing the saved layout or later edits", async () => {
+  const order = recordedReportAnswer.presentation.order.filter((key) => key !== "fiscal_number" && key !== "net_amount" && key !== "itbis_amount");
   const presentation = { order: [order[0], ...order.slice(1).reverse()], hidden: ["date" as const], density: 40 as const };
   const request = reportRequestSchema.parse({ schema_version: 2, presentation });
   window.history.replaceState(null, "", `/biz?report=${encodeURIComponent(JSON.stringify(request))}`);
@@ -26,7 +26,7 @@ test("an old 11-column URL offers NCF and ITBIS hidden without losing the saved 
   assert.deepEqual(renderedColumnKeys(), expectedColumns);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  for (const key of ["ncf", "itbis"]) {
+  for (const key of ["ncf", "net_amount", "itbis"]) {
     const checkbox = document.querySelector<HTMLInputElement>(`[data-column-setting="${key}"] input[type="checkbox"]`);
     assert.equal(checkbox?.checked, false, `${key} must be available and hidden`);
   }
@@ -37,25 +37,25 @@ test("an old 11-column URL offers NCF and ITBIS hidden without losing the saved 
   await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
   assert.deepEqual(renderedColumnKeys(), [...expectedColumns, "ncf"]);
   const restored = restoreReportLocation(new URLSearchParams(window.location.search)).request;
-  assert.deepEqual(restored.schema_version === 2 && restored.presentation, { ...presentation, order: [...presentation.order, "fiscal_number", "itbis_amount"], hidden: ["date", "itbis_amount"] });
+  assert.deepEqual(restored.schema_version === 2 && restored.presentation, { ...presentation, order: [...presentation.order, "fiscal_number", "net_amount", "itbis_amount"], hidden: ["date", "net_amount", "itbis_amount"] });
 });
 
-for (const language of ["es-419", "en"] as const) test(`server defaults show six columns and all optional columns remain available in ${language}`, async () => {
+for (const language of ["es-419", "en"] as const) test(`server defaults show eight columns and all optional columns remain available in ${language}`, async () => {
   const page = await mount({ language });
-  assert.deepEqual(renderedColumnKeys(), ["contraparte", "fecha", "monto", "estado", "notas", "comprobante"]);
+  assert.deepEqual(renderedColumnKeys(), ["contraparte", "fecha", "net_amount", "itbis", "monto", "estado", "notas", "comprobante"]);
   assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).every((call) => !Object.hasOwn(call.body as object, "presentation")), "fresh V1 and V2 requests leave defaults to the server");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   for (const [key, label] of language === "en" ? [["tipo_gasto", "Expense type"], ["forma_pago", "Payment method"], ["cuenta", "Account"], ["ncf", "NCF"], ["itbis", "ITBIS"]] : [["tipo_gasto", "Tipo de gasto"], ["forma_pago", "Forma de pago"], ["cuenta", "Cuenta"], ["ncf", "NCF"], ["itbis", "ITBIS"]]) {
     const row = document.querySelector(`[data-column-setting="${key}"]`);
     assert.ok(row?.textContent?.includes(label));
-    assert.equal(row?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked, false);
+    assert.equal(row?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked, key === "itbis");
   }
 });
 
 test("server layout changes render, saved views retain the effective layout, and Restore asks for fresh defaults", async () => {
   const chosen: typeof recordedReportAnswer.presentation = { ...recordedReportAnswer.presentation, order: ["counterparty", ...recordedReportAnswer.presentation.order.slice(1).reverse()], hidden: [], density: 40 as const };
   const page = await mount({ presentation: chosen });
-  assert.deepEqual(renderedColumnKeys(), ["contraparte", "cuenta", "forma_pago", "tipo_gasto", "comprobante", "notas", "estado", "itbis", "monto", "fecha", "ncf"]);
+  assert.deepEqual(renderedColumnKeys(), ["contraparte", "cuenta", "forma_pago", "tipo_gasto", "comprobante", "notas", "estado", "monto", "itbis", "net_amount", "fecha", "ncf"]);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista actual"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Mi diseño"); await page.click(page.button("Guardar"));
@@ -123,9 +123,9 @@ for (const family of ["purchase", "sale"] as const) {
         rows.forEach((row, index) => { row.family = family; if (family === "sale") row.dgii_606 = null; row.currency = currency; row.fiscal_number = index < 2 ? "B0100000001" : index === 2 ? "E310000000001" : null; row.itbis_amount = index === 0 ? "18.25" : index === 1 ? "0.00" : index === 3 ? "9007199254740993.01" : null; });
       } });
       assert.equal(document.querySelector('th[data-col="ncf"]'), null);
-      assert.equal(document.querySelector('th[data-col="itbis"]'), null);
+      assert.ok(document.querySelector('th[data-col="itbis"]'));
       await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-      for (const label of ["NCF", "ITBIS"]) await page.click([...document.querySelectorAll('label')].find((item) => item.textContent?.trim() === label)?.querySelector('input'));
+      for (const label of ["NCF"]) await page.click([...document.querySelectorAll('label')].find((item) => item.textContent?.trim() === label)?.querySelector('input'));
       await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
       const rows = [...document.querySelectorAll("tbody tr")];
       assert.equal(rows.length, 25);
@@ -168,5 +168,5 @@ test("column up and down buttons move the saved order and keep counterparty fixe
   await page.click(row().querySelector('[aria-label="Bajar Fecha"]'));
   await page.click(row().querySelector('[aria-label="Bajar Fecha"]'));
   assert.equal(document.querySelector('[data-column-setting="contraparte"] button'), null);
-  assert.deepEqual(renderedColumnKeys().slice(0, 3), ["contraparte", "monto", "fecha"]);
+  assert.deepEqual(renderedColumnKeys().slice(0, 3), ["contraparte", "net_amount", "fecha"]);
 });

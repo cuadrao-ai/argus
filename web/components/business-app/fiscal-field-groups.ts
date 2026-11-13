@@ -20,6 +20,8 @@ const GROUP_OF: Readonly<Record<string, FiscalGroup>> = {
   gift: "amounts",
   barter: "amounts",
   other_payment: "amounts",
+  itbis: "itbis",
+  legal_tip: "amounts",
   itbis_proportionality: "itbis",
   itbis_cost: "itbis",
   itbis_perceived: "itbis",

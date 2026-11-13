@@ -22,9 +22,9 @@ export const REPORT_DOCUMENT_KINDS = ["credit_note", "unknown"] as const satisfi
 const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
-export const REPORT_PRESENTATION_KEYS = ["counterparty", "fiscal_number", "date", "gross_amount", "itbis_amount", "stage", "note", "attachment", "expense_type", "payment_form", "funding"] as const;
+export const REPORT_PRESENTATION_KEYS = ["counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment", "expense_type", "payment_form", "funding"] as const;
 export const reportPresentationSchema = z.strictObject({
-  order: z.array(z.enum([...REPORT_PRESENTATION_KEYS, "currency", "family"])).transform((values) => values.filter((key): key is typeof REPORT_PRESENTATION_KEYS[number] => key !== "currency" && key !== "family")).refine((values) => values[0] === "counterparty" && new Set(values).size === values.length && REPORT_PRESENTATION_KEYS.every((key) => key === "fiscal_number" || key === "itbis_amount" || values.includes(key))),
+  order: z.array(z.enum([...REPORT_PRESENTATION_KEYS, "currency", "family"])).transform((values) => values.filter((key): key is typeof REPORT_PRESENTATION_KEYS[number] => key !== "currency" && key !== "family")).refine((values) => values[0] === "counterparty" && new Set(values).size === values.length && REPORT_PRESENTATION_KEYS.every((key) => key === "fiscal_number" || key === "net_amount" || key === "itbis_amount" || values.includes(key))),
   hidden: z.array(z.enum([...REPORT_PRESENTATION_KEYS, "currency", "family"])).transform((values) => values.filter((key): key is typeof REPORT_PRESENTATION_KEYS[number] => key !== "currency" && key !== "family")).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount"].includes(key))),
   density: z.union([z.literal(40), z.literal(48), z.literal(56)]),
 });
@@ -74,6 +74,8 @@ export const reportRecordSchema = z.object({
   row_id: z.string().min(1), draft_id: z.string().nullable(), linked_activity_ids: z.array(z.string()), revision: count,
   report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), fiscal_data: z.enum(["complete", "missing"]).nullable().optional(), export_missing: z.string().nullable().optional(), export_missing_several: z.boolean().optional(), export_line: z.boolean().optional(),
   technical_state: z.string().nullable(), workflow_blockers: z.array(z.string()), currency: z.string().nullable(), gross_amount: decimal.nullable(),
+  net_amount: decimal.nullable().optional(), net_amount_source: z.enum(["read", "calculated", "edited"]).nullable().optional(), amounts_difference: decimal.nullable().optional(),
+  inheritance: z.record(z.string(), z.object({ field: z.enum(["net_amount", "itbis", "legal_tip", "occurred_on"]), value: z.string().nullable(), inherited: z.boolean() })).optional(),
   itbis_amount: decimal.nullable().optional(), goods_amount: decimal.nullable().optional(), services_amount: decimal.nullable().optional(),
   recorded_amount: decimal.nullable(), recorded_currency: z.string().nullable(), proposed_amount: decimal.nullable(), money_kind: z.string(),
   money_effect: effect, adjustment_effect: effect.nullable(), counterparty: z.string().nullable(), counterparty_key: z.string().nullable(),
@@ -83,7 +85,7 @@ export const reportRecordSchema = z.object({
   can_edit_note: z.boolean().optional(), can_append_supporting: z.boolean().optional(), annotation_unavailable_reason: z.string().nullable().optional(), attachment_sources: z.array(reportAttachmentSourceSchema).optional(),
 });
 export const reportTotalSchema = z.object({
-  currency: z.string().nullable(), kind: z.string(), basis: z.enum(["recorded_activity_amount", "proposed_activity_amount", "document_gross_amount", "document_credit_adjustment", "document_family_amount"]),
+  currency: z.string().nullable(), kind: z.string(), basis: z.enum(["recorded_activity_amount", "proposed_activity_amount", "document_gross_amount", "document_credit_adjustment", "document_family_amount", "document_net_amount", "document_net_credit_adjustment", "document_net_family_amount"]),
   matching_count: count, known_amount_minor: minorNumber, unknown_count: count, unsupported_count: count, complete: z.boolean(),
   amount_minor: minorNumber.nullable(), known_amount: decimal.nullable(), amount: decimal.nullable(),
 });

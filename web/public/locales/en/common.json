@@ -2556,6 +2556,25 @@
       "form_no_operations": "No operations",
       "form_summary_only": "Summary only"
     },
+    "terms": {
+      "calculated_hint": "Calculated: Total − ITBIS",
+      "calculated_hint_with_tip": "Calculated: Total − ITBIS − legal tip",
+      "currency_choose": "Choose",
+      "currency_fiscal_warning": "In {{currency}}, this document is excluded from {{form}} (the DGII requires pesos).",
+      "currency_missing": "Currency missing",
+      "difference": "Difference {{amount}}",
+      "difference_unavailable": "We could not check the sum.",
+      "inherited_from": "From {{field}}",
+      "itbis": "ITBIS",
+      "legal_tip": "Legal tip",
+      "montos_title": "Amounts",
+      "net_amount": "Amount before ITBIS",
+      "net_card_purchases": "Purchases before ITBIS",
+      "net_card_sales": "Sales before ITBIS",
+      "total": "Total",
+      "total_review": "Total (with ITBIS)",
+      "use_inherited": "Use Amounts ({{amount}})"
+    },
     "transactions": {
       "layout": {
         "all_types": "All types",
@@ -3204,7 +3223,7 @@
         "total_mismatch": "Subtotal + ITBIS = {{sum}}, not {{total}}",
         "save_first": "Save or cancel {{fields}} to approve.",
         "group_identity": "Identification",
-        "group_amounts": "Amounts",
+        "group_amounts": "Billed amounts",
         "group_retentions": "Withholdings",
         "group_other": "Other",
         "section_choices": "For the 606",

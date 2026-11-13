@@ -5,7 +5,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-a
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
-import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
+import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -880,4 +880,15 @@ export const inviteBusinessMembers = async (recipients:BusinessInvitationCommand
 /** Owner action: bind a receipt whose preparation grant is no longer live to the owner's current grant. */
 export async function rebindBusinessReceipt(id: string): Promise<ReceiptDetail> {
   return apiFetch(`/business/receipts/${encodeURIComponent(id)}/rebind`, { method: "POST" });
+}
+
+export async function reviewBusinessMontos(draftId: string, version: number, montos: BusinessMontosReview, key: string): Promise<BusinessDossier> {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, montos }) });
+}
+
+export type BusinessAmountsPreviewInput = Partial<Record<"amount" | "itbis" | "net_amount" | "legal_tip", { state: "known"; value: string } | { state: "unknown"; value: null }>>;
+const amountsPreviewSchema = z.object({ net_amount: z.object({ amount: z.string().nullable(), source: z.enum(["read", "calculated", "edited"]).nullable() }), mismatch: z.object({ code: z.literal("amounts_mismatch"), difference: z.string() }).nullable() });
+export type BusinessAmountsPreview = z.infer<typeof amountsPreviewSchema>;
+export async function previewBusinessAmounts(draftId: string, version: number, amounts: BusinessAmountsPreviewInput): Promise<BusinessAmountsPreview> {
+  return amountsPreviewSchema.parse(await apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/amounts-preview`, { method: "POST", body: JSON.stringify({ version, ...amounts }) }));
 }

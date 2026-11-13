@@ -51,6 +51,8 @@ export type BusinessDataSource = Readonly<{
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
   receipt: (id: string, signal?: AbortSignal) => Promise<ReceiptDetail>;
   dossier: (id: string) => Promise<BusinessDossier>;
+  reviewMontos?: typeof api.reviewBusinessMontos;
+  previewAmounts?: typeof api.previewBusinessAmounts;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   dgiiFields: () => Promise<DgiiFields>;
   reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>;
@@ -122,6 +124,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receipt: api.getBusinessReceipt,
   dossier: api.getBusinessDossier,
   reviewDraft: api.reviewBusinessDraft,
+  reviewMontos: api.reviewBusinessMontos,
+  previewAmounts: api.previewBusinessAmounts,
   dgiiFields: getDgiiFields,
   reviewFiscal: reviewDgii,
   reviewPurchase,
@@ -242,6 +246,8 @@ export function withBusinessSpace(
     expense: source.expense,
     dossier: source.dossier,
     reviewDraft: source.reviewDraft,
+    reviewMontos: source.reviewMontos,
+    previewAmounts: source.previewAmounts,
     dgiiFields: source.dgiiFields,
     reviewFiscal: source.reviewFiscal,
     reviewPurchase: source.reviewPurchase,

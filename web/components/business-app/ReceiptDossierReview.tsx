@@ -24,6 +24,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
+import { useAmountsPreview } from "./useAmountsPreview";
 import ReceiptFactEditor from "./ReceiptFactEditor";
 import ReceiptOwnerChoices from "./ReceiptOwnerChoices";
 import ReceiptRowSave from "./ReceiptRowSave";
@@ -41,7 +42,7 @@ import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { DeleteDocumentMenuItem, RestoreDocumentButton, useDocumentDelete } from "./DocumentDeleteControls";
 import ReceiptReviewFooter, { KEY_HINT_CLASS, ReceiptMoreMenu, usePrimaryKeys } from "./ReceiptReviewFooter";
 import { formatBusinessName, formatMoney, UNKNOWN_VALUE } from "./business-format";
-import { receiptCurrencyOptions } from "./receipt-currencies";
+import { recordsCurrencySchema } from "@/lib/business-reports-api";
 import { useReceiptStateWord } from "./receipt-state-word";
 import { bandejaReceipts, handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
 import { primaryButtonClass, secondaryButtonClass, StatusPill } from "./business-ui";
@@ -49,7 +50,7 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
-const FLAGGED_ROW: Record<ReviewFlagCode, ReviewRow> = { rnc_check_digit: "rnc", ncf_malformed: "fiscal_number", itbis_high: "itbis" };
+const FLAGGED_ROW: Record<ReviewFlagCode, ReviewRow> = { rnc_check_digit: "rnc", ncf_malformed: "fiscal_number", itbis_high: "itbis", amounts_mismatch: "amount" };
 
 /** The values a form row offers the original message to mark: its own data-match list. */
 function rowValues(target: EventTarget): string[] {
@@ -231,6 +232,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     : row === "category" ? t("business.dossier.placeholder.expense_type", "Expense type")
     : row === "payment_method" ? t("business.dossier.placeholder.payment_form", "Payment method")
     : row === "fiscal_number" ? `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`
+    : row === "net_amount" || row === "legal_tip" ? t(`business.terms.${row}`)
+    : row === "amount" ? t("business.terms.total_review")
     : t(`business.dossier.field.${row}`, row);
   const autosave = useReviewAutosave({
     source, draftId, dossier, fields, label: rowName,
@@ -242,7 +245,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     },
   });
 
-  const rows = useReviewRows({ dossier, autosave, currencies: receiptCurrencyOptions(records.workspace, dossier?.accounts ?? [], null) });
+  const rows = useReviewRows({ dossier, autosave, currencies: recordsCurrencySchema.options });
+  const amountsPreview = useAmountsPreview(dossier, rows.rows, source.previewAmounts);
   const dirty = rows.unsaved.length > 0;
   const openRow = rows.open;
 
@@ -467,23 +471,25 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const rowControl = (row: ReviewRow, shown: RowShown) => {
     const open = rows.rows[row];
     const edit = open?.edit;
-    const facts = edit?.change.write === "facts" ? edit.change.facts : {};
+    const facts = edit?.change.write === "facts" ? edit.change.facts : edit?.change.write === "montos" ? { net_amount: edit.change.montos.net_amount, legal_tip: edit.change.montos.legal_tip } : row === "net_amount" && dossier.net_amount?.amount != null ? { net_amount: { state: "known" as const, value: dossier.net_amount.amount } } : {};
     const fiscal = row === "rnc" || row === "fiscal_number" || row === "itbis" ? fiscalEdit[row] : null;
     const typed = edit?.change.write === "fiscal" && fiscal ? edit.change.fiscal[fiscal.name] ?? "" : fiscal?.value;
     const save = autosave.saves[row];
     const saving = save?.state === "saving";
     const retypes = row !== "document_type" || dossier.document_type_editable === true;
+    const montosEditable = row !== "net_amount" && row !== "legal_tip" || Boolean(source.reviewMontos);
     return (
       <ReceiptEditRow
         {...shown}
         open={Boolean(open)}
         saving={saving}
         locked={save?.state === "failed" && save.unknown}
-        onOpen={canPrepare && mutable && retypes ? () => rows.open(row) : undefined}
+        onOpen={canPrepare && mutable && retypes && montosEditable ? () => rows.open(row) : undefined}
         onSave={() => { if (edit?.change.write === "type" && retypeClears && !saving && changesRecord(dossier, edit.change)) setRetyping(true); else rows.save(row); }}
         onCancel={() => rows.cancel(row)}
       >
         <ReceiptFactEditor
+          fiscalForm={!dossier.sin_comprobante ? dossier.dgii?.form ?? (dossier.document_type === "venta" ? "607" : "606") : undefined}
           field={row}
           tried={open?.tried === true}
           facts={dossier.facts}
@@ -491,9 +497,9 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           fiscal={typed}
           documentType={edit?.change.write === "type" ? edit.change.documentType : dossier.document_type}
           accounts={accounts}
-          currencies={receiptCurrencyOptions(records.workspace, accounts, currency)}
+          currencies={recordsCurrencySchema.options}
           disabled={!mutable || saving}
-          onChange={(patch, invalid) => rows.hold(row, { change: { write: "facts", facts: { ...facts, ...patch } }, invalid: row === "amount" && !patch.amount ? edit?.invalid ?? false : invalid })}
+          onChange={(patch, invalid) => rows.hold(row, { change: row === "net_amount" || row === "legal_tip" ? { write: "montos", montos: { [row]: patch[row] } } : { write: "facts", facts: { ...facts, ...patch } }, invalid: row === "amount" && !patch.amount ? edit?.invalid ?? false : invalid })}
           onFiscalChange={(value, invalid) => { if (fiscal) rows.hold(row, { change: { write: "fiscal", fiscal: { [fiscal.name]: value || null } }, invalid }); }}
           onDocumentTypeChange={(documentType) => rows.hold(row, { change: { write: "type", documentType }, invalid: false })}
         />
@@ -567,6 +573,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
             onBlur={() => setHighlight([])}
           >
             <ReceiptRecordFacts dossier={dossier} accounts={accounts} attention={attention} choices={showsChoices ? <ReceiptOwnerChoices dossier={dossier} fields={fields} failed={fieldsFailed} disabled={!dossier.declaration_editable || (reviewing && !mutable)} readOnly={!reviewing && !canPrepare} saves={autosave.saves} onChoose={(choice, value) => void autosave.save(choice, { write: "purchase", purchase: { [choice]: value } })} onRetry={(choice) => void autosave.retry(choice)} onCancel={autosave.clear} onReload={() => setFieldsAttempt((value) => value + 1)} /> : undefined} typeRow={dossier.document_type ? <ReceiptDocumentType dossier={dossier} row={reviewing ? (shown) => rowControl("document_type", shown) : undefined} note={reviewing ? rowNote("document_type") : undefined} /> : undefined} review={reviewing ? {
+              amountsPreview,
               onEdit: canPrepare && mutable ? rows.open : undefined,
               row: rowControl,
               note: rowNote,
@@ -577,7 +584,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
               },
             } : undefined} />
           </div>
-          <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen} open={moreOpen} onOpenChange={setMoreOpen} reviewFiscal={source.reviewFiscal} onBusy={setFiscalBusy} onDirty={setFiscalDirty} onChanged={(value) => { setDossier(value); reload(); }} />
+          <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen} open={moreOpen} onOpenChange={setMoreOpen} reviewFiscal={source.reviewFiscal} reviewMontos={source.reviewMontos} onBusy={setFiscalBusy} onDirty={setFiscalDirty} onChanged={(value) => { setDossier(value); reload(); }} />
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptDuplicateResolution dossier={dossier} busy={busy || dirty || fiscalDirty || capturePending || captureOpen} onBusyChange={setDuplicateBusy} onChanged={(next) => { setDossier(next); reload(); }} onOpenOriginal={(id) => openPanel({ kind: "draft", draftId: id })} />
           {problem ? <div role="alert" className="text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><p className="flex items-start gap-2"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem.text}</p>{problem.reference ? <ReferenceCode reference={problem.reference} /> : null}</div> : null}

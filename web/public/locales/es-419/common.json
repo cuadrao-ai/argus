@@ -2556,6 +2556,25 @@
       "form_no_operations": "Sin operaciones",
       "form_summary_only": "Solo resumen"
     },
+    "terms": {
+      "calculated_hint": "Calculado: Total − ITBIS",
+      "calculated_hint_with_tip": "Calculado: Total − ITBIS − propina",
+      "currency_choose": "Elegir",
+      "currency_fiscal_warning": "En {{currency}} este documento no entra al {{form}} (la DGII pide pesos).",
+      "currency_missing": "Falta la moneda",
+      "difference": "Diferencia {{amount}}",
+      "difference_unavailable": "No pudimos revisar la suma.",
+      "inherited_from": "Viene de {{field}}",
+      "itbis": "ITBIS",
+      "legal_tip": "Propina legal",
+      "montos_title": "Montos",
+      "net_amount": "Monto sin ITBIS",
+      "net_card_purchases": "Compras sin ITBIS",
+      "net_card_sales": "Ventas sin ITBIS",
+      "total": "Total",
+      "total_review": "Total (con ITBIS)",
+      "use_inherited": "Usar Montos ({{amount}})"
+    },
     "transactions": {
       "layout": {
         "all_types": "Todos los tipos",
@@ -3204,7 +3223,7 @@
         "total_mismatch": "Subtotal + ITBIS = {{sum}}, no {{total}}",
         "save_first": "Guarda o cancela {{fields}} para aprobar.",
         "group_identity": "Identificación",
-        "group_amounts": "Montos",
+        "group_amounts": "Montos facturados",
         "group_retentions": "Retenciones",
         "group_other": "Otros",
         "section_choices": "Para el 606",

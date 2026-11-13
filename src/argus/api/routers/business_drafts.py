@@ -27,6 +27,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
     SettleRemainder,
 )
+from argus.domain.business.contracts.amounts import AmountsPreview, AmountsPreviewRequest
 from argus.domain.business.contracts.deletion import DocumentActionResult, DocumentCommand
 from argus.domain.business.contracts.dossier import BusinessDossier, RecordedApproval
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
@@ -133,6 +134,21 @@ def _run(request, response, context, draft_id, command=None, key=None):
             owner_id=actor.owner_id,
             service=context.service,
         )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
+
+
+@router.post("/{draft_id}/amounts-preview", response_model=AmountsPreview)
+def preview_amounts(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    body: AmountsPreviewRequest,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+):
+    response.headers.update(NO_STORE)
+    try:
+        return context.service.preview_amounts(context.for_draft(draft_id), draft_id, body)
     except ActionError as error:
         raise action_problem(request, error.result) from None
 
