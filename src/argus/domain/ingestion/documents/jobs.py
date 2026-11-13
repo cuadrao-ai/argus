@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -296,34 +297,41 @@ class PreparationJobs:
         )
 
 
-async def sweep_forever(jobs: PreparationJobs, interval: float) -> None:
+async def sweep_forever(
+    jobs: PreparationJobs,
+    interval: float,
+    upkeep: Callable[[], object] | None = None,
+) -> None:
     """Waits while extraction is off: a queued draft is then neither sent to
-    the model nor failed, and resumes when extraction is back."""
+    the model nor failed, and resumes when extraction is back. ``upkeep``
+    runs on every pass, extraction on or off, and paces itself."""
 
     while True:
-        try:
-            if load_document_extraction_settings().enabled:
-                sweep = asyncio.ensure_future(asyncio.to_thread(jobs.sweep))
-                try:
-                    await asyncio.shield(sweep)
-                except asyncio.CancelledError:
-                    # A cancel cannot stop the thread, so a stopping process
-                    # waits for the sweep to return before it drains reads.
-                    # The cancel wins over whatever that sweep raises: awaiting
-                    # it would raise its error, which the loop below swallows.
-                    await asyncio.wait({sweep})
-                    if not sweep.cancelled() and sweep.exception() is not None:
-                        logger.warning(
-                            "Document preparation sweep failed while stopping",
-                            failure_mode=type(sweep.exception()).__name__,
-                        )
-                    raise
-        except Exception as error:
-            logger.warning(
-                "Document preparation sweep failed",
-                failure_mode=type(error).__name__,
-            )
+        if upkeep is not None:
+            await _to_end(upkeep, "Document upkeep")
+        if load_document_extraction_settings().enabled:
+            await _to_end(jobs.sweep, "Document preparation sweep")
         await asyncio.sleep(interval)
+
+
+async def _to_end(work: Callable[[], object], name: str) -> None:
+    """Runs ``work`` on a thread and logs its failure. A cancel cannot stop the
+    thread, so a stopping process waits for it to return before it drains
+    reads. The cancel wins over whatever the work raises."""
+
+    running = asyncio.ensure_future(asyncio.to_thread(work))
+    try:
+        await asyncio.shield(running)
+    except asyncio.CancelledError:
+        await asyncio.wait({running})
+        if not running.cancelled() and running.exception() is not None:
+            logger.warning(
+                f"{name} failed while stopping",
+                failure_mode=type(running.exception()).__name__,
+            )
+        raise
+    except Exception as error:
+        logger.warning(f"{name} failed", failure_mode=type(error).__name__)
 
 
 async def run_attempt(
