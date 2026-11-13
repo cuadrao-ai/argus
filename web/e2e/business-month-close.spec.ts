@@ -7,11 +7,13 @@ import { monthCloseWire } from "./support/month-close-wire";
 test.describe("Inicio with settlement off", () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
-  async function openWire(page: Page, phase: "ready" | "empty" | "failed" = "ready") {
+  async function openWire(page: Page, phase: "ready" | "empty" | "failed" | "loading" = "ready") {
     await page.route("**/*", (route) => (["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
     await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
     const source = createFixtureBusinessDataSource({ chatAvailable: false });
-    const state = { openItems: 0, monthReads: 0, phase };
+    let release = () => {};
+    const waiting = new Promise<void>((resolve) => { release = resolve; });
+    const state = { openItems: 0, monthReads: 0, phase, release };
     await page.route("**/api/v1/business/**", async (route) => {
       const request = route.request();
       const url = new URL(request.url());
@@ -27,6 +29,7 @@ test.describe("Inicio with settlement off", () => {
       if (path === "consent") return fulfillAcceptedBusinessConsent(route);
       if (path === "month-close") {
         state.monthReads++;
+        if (state.phase === "loading") await waiting;
         if (state.phase === "failed") return route.fulfill({ status: 503, json: { code: "synthetic_failure" } });
         const wire = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
         if (state.phase === "empty") return route.fulfill({ json: { ...wire, earliest_month: null, currencies: [], cuentas_por_cobrar: [] } });
@@ -36,7 +39,7 @@ test.describe("Inicio with settlement off", () => {
       return route.fulfill({ status: 404, json: { code: "fixture_only" } });
     });
     await page.goto("/biz");
-    await expect(page.getByTestId("home-month-body")).toHaveAttribute("data-state", phase === "failed" ? "error" : "ready");
+    await expect(page.getByTestId("home-month-body")).toHaveAttribute("data-state", phase === "failed" ? "error" : phase === "loading" ? "loading" : "ready");
     return state;
   }
 
@@ -60,6 +63,18 @@ test.describe("Inicio with settlement off", () => {
       expect(state.openItems).toBe(0);
     });
   }
+
+  test("a loading month keeps its figure places until the server answers", async ({ page }) => {
+    const state = await openWire(page, "loading");
+    const month = page.getByTestId("home-month-body");
+    await expect(month).toHaveAttribute("aria-busy", "true");
+    await expect(page.getByTestId("home-month-net")).toHaveCount(0);
+    state.phase = "ready";
+    state.release();
+    await expect(month).toHaveAttribute("data-state", "ready");
+    await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-amount", "36200.00");
+    expect(state.openItems).toBe(0);
+  });
 
   test("an empty month shows its first-day state rather than settlement rows", async ({ page }) => {
     const state = await openWire(page, "empty");
