@@ -2974,7 +2974,7 @@
         "actor": "Eliminado por",
         "content": "Contenido",
         "previous": "Estaba en",
-        "purge": "Se elimina"
+        "purge": "Borrado definitivo"
       },
       "delete": "Eliminar",
       "deleted_state": "Eliminado",
@@ -2990,14 +2990,14 @@
         "total": "Total"
       },
       "label": "Eliminar {{name}}",
-      "list_help": "No cuentan en ningún total. Se eliminan definitivamente 7 días después.",
+      "list_help": "No cuentan en ningún total. Se borran definitivamente 7 días después.",
       "menu": "Eliminar documento",
       "open": "Abrir",
       "previous": {
         "attention": "Necesitan atención",
         "listo": "Listos"
       },
-      "purge": "Eliminar definitivamente",
+      "purge": "Borrar definitivamente",
       "purge_description": "No se puede deshacer. El archivo y sus datos se borran de Cuadrao.",
       "purge_failed": "No se pudo eliminar definitivamente el documento. Intenta de nuevo.",
       "purge_in_one": "en {{count}} día",

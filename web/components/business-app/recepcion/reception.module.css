@@ -213,6 +213,7 @@
 }
 
 .rowActions { display:flex; align-items:center; justify-content:flex-end; min-height:44px; }
+.trashSlot { width:44px; flex-shrink:0; }
 .trashAction { display:inline-flex; width:44px; height:44px; flex-shrink:0; align-items:center; justify-content:center; color:#9e2f39; opacity:0; transition:opacity 140ms ease-out; }
 .row:hover .trashAction,.row:has(:focus-visible) .trashAction { opacity:1; }
 .deletedRow:hover .trashAction,.deletedRow:has(:focus-visible) .trashAction { opacity:1; }
@@ -223,7 +224,7 @@
 @media (prefers-reduced-motion:reduce) { .trashAction,.deletedRow { transition:none; } }
 
 /* Eliminados: the header, the list and every row share one grid, so each column is as wide as its widest cell and no row reserves space for a hidden action. */
-.list:has(> .deletedColumns) { display:grid; grid-template-columns:minmax(160px,1fr) repeat(4,max-content); }
+.list:has(> .deletedColumns) { display:grid; grid-template-columns:minmax(160px,var(--content-cap)) repeat(3,max-content) minmax(max-content,1fr); }
 .list:has(> .deletedColumns) > * { grid-column:1 / -1; }
 .list:has(> .deletedColumns) > ul { display:grid; grid-template-columns:subgrid; min-width:0; }
 .deletedColumns,.deletedRow { display:grid; grid-template-columns:subgrid; grid-column:1 / -1; align-items:center; border-bottom:1px solid var(--line); }
@@ -248,7 +249,7 @@
 .restoreAction:hover::before { background:color-mix(in srgb,var(--fg) 5%,transparent); }
 .restoreAction:disabled { opacity:.45; }
 @container reception (max-width:939px) {
-  .list:has(> .deletedColumns) { grid-template-columns:minmax(160px,1fr) repeat(3,max-content); }
+  .list:has(> .deletedColumns) { grid-template-columns:minmax(160px,var(--content-cap)) repeat(2,max-content) minmax(max-content,1fr); }
   .deletedPrevious { display:none; }
 }
 @container reception (max-width:819px) {
