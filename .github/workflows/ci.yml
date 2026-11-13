@@ -68,6 +68,9 @@ jobs:
       - name: Reject credential literals in tracked configuration
         run: python scripts/check_config_credentials.py
 
+      - name: Check every browser spec runs in CI
+        run: python scripts/check_e2e_specs_run.py
+
       - name: Fetch the pull request base
         if: github.event_name == 'pull_request'
         env:
@@ -296,17 +299,27 @@ jobs:
       - name: Build frontend
         run: cd web && bun run build
 
-      # Observation backstop for the browser-storage disclosure. The chokepoint
-      # and the ESLint ban stop accidents; this catches a deliberate bypass by
-      # watching what a real browser actually keeps. One spec, not the suite.
+      # Every browser spec under web/e2e runs here or is deleted;
+      # scripts/check_e2e_specs_run.py fails a spec no workflow runs.
       - name: Install Playwright chromium
         run: cd web && bunx playwright install --with-deps chromium
 
-      - name: Verify browser storage matches the privacy disclosure
+      - name: Run browser specs
         run: |
           cd web
           bunx playwright test e2e/browser-storage-disclosure.spec.ts
-          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3101 bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
+          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3101 bunx playwright test \
+            e2e/business-receipt-upload-recovery.spec.ts \
+            e2e/amounts-hidden-css.spec.ts \
+            e2e/business-cambiar-imagen.spec.ts \
+            e2e/business-ecf-checks.spec.ts \
+            e2e/business-edit-row-placement.spec.ts \
+            e2e/business-manual-capture.spec.ts \
+            e2e/business-period-picker-layout.spec.ts \
+            e2e/font-offline.spec.ts \
+            e2e/menu-settings-auth-regression.spec.ts \
+            e2e/receipt-navigation-scope.spec.ts \
+            e2e/records-export-notices.spec.ts
           NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ENABLE_SPANISH=true PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
 
       - name: Retain receipt upload browser evidence

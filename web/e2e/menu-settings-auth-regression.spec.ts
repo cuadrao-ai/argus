@@ -1,7 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { mkdirSync } from "node:fs";
-import path from "node:path";
-import { AUDIT_CELLS, AUDIT_DIR as evidence, auditTag, openFixture } from "./support/menu-settings-fixture";
+import { AUDIT_CELLS, auditTag, openFixture } from "./support/menu-settings-fixture";
 import en from "../public/locales/en/common.json";
 import es from "../public/locales/es-419/common.json";
 
@@ -31,8 +29,7 @@ for (const cell of AUDIT_CELLS.filter((cell) => cell.account === "guest")) {
     await page.emulateMedia({ colorScheme: "dark" });
     await expect(page.locator("html")).toHaveClass(/\bdark\b/);
     await page.evaluate(() => document.fonts.ready);
-    mkdirSync(evidence, { recursive: true });
-    await page.screenshot({ path: path.join(evidence, `${auditTag(cell)}-auth-theme-controls.png`), animations: "disabled", scale: "css" });
+    await page.screenshot({ path: test.info().outputPath(`${auditTag(cell)}-auth-theme-controls.png`), animations: "disabled", scale: "css" });
     const language = page.getByTestId("auth-language-switch").getByRole("button", { name: cell.language === "en" ? /^Español/ : /^English/ });
     await language.focus();
     await expect(language).toBeFocused();
@@ -44,6 +41,6 @@ for (const cell of AUDIT_CELLS.filter((cell) => cell.account === "guest")) {
     await expect.poll(() => page.evaluate(() => localStorage.getItem("i18nextLng"))).toBe(cell.language === "en" ? "es-419" : "en");
     await expect(page).toHaveURL(/\?auth=login/);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.screenshot({ path: path.join(evidence, `${auditTag(cell)}-auth-footer-language.png`), animations: "disabled", scale: "css" });
+    await page.screenshot({ path: test.info().outputPath(`${auditTag(cell)}-auth-footer-language.png`), animations: "disabled", scale: "css" });
   });
 }

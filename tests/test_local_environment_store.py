@@ -646,8 +646,6 @@ def discovered_stack(tmp_path, store):
         ".github/warmup-render.sh",
         ".github/render-env-sync.sh",
         ".github/setup-worktree-env.sh",
-        "scripts/qa/run-local-auth-qa.sh",
-        "scripts/qa/run-guest-experience-qa.sh",
         "scripts/qa/write-local-env.sh",
         "scripts/qa/assert-nonprod-target.sh",
         "scripts/ops/staging_env.py",
@@ -693,9 +691,7 @@ def discovered_stack(tmp_path, store):
     "caller",
     [
         "loader",
-        "guest",
         "qa",
-        "auth",
         "dev",
         "smoke",
         "warmup",
@@ -719,38 +715,9 @@ def test_regeneration_refuses_to_switch_discovered_stack(
                 "postgresql://test:test@db.syntheticproject.supabase.co:5432/test",
             )
         )
-    if caller == "guest":
-        with (root / ".gitignore").open("a") as handle:
-            handle.write("bin/\nweb/node_modules\n")
-        (root / "supabase").mkdir()
-        (root / "supabase/config.toml").write_text('project_id = "argus-qa"\n')
-        docker = root / "bin/docker"
-        docker.write_text("#!/bin/sh\nprintf 'argus-qa|true\\n'\n")
-        docker.chmod(0o755)
-        subprocess.run(
-            ["git", "add", ".gitignore", ".github", "scripts", "supabase"],
-            cwd=root,
-            check=True,
-        )
-        subprocess.run(
-            [
-                "git",
-                "-c",
-                "user.name=Synthetic Test",
-                "-c",
-                "user.email=test@example.invalid",
-                "commit",
-                "-qm",
-                "fixture",
-            ],
-            cwd=root,
-            check=True,
-        )
     commands = {
-        "guest": ["bash", "scripts/qa/run-guest-experience-qa.sh", "preflight"],
         "loader": ["bash", "-c", "source .github/argus-env.sh; argus_load_root_env"],
         "qa": ["bash", ".github/qa.sh"],
-        "auth": ["bash", "scripts/qa/run-local-auth-qa.sh"],
         "dev": ["bash", ".github/dev.sh"],
         "smoke": ["bash", ".github/local-smoke.sh", "--contract-only"],
         "warmup": ["bash", ".github/warmup-render.sh", "--help"],
