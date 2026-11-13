@@ -2364,8 +2364,8 @@ profile owner. This is intentionally separate from `usage_counters`, whose
 anti-abuse ceiling (`guest_compute_turns`, one visitor-keyed row and one
 `session:<guest user id>` row, claimed atomically at turn start) and the
 signed-in compute ceiling (`account_compute_turns`, keyed on
-`user:<account id>`), which are not allowances and are never projected by
-`GET /me/usage`. Signed-in research uses the same `user:<account id>`
+`user:<account id>`), which are not allowances and were never projected by
+the retired `GET /me/usage`. Signed-in research uses the same `user:<account id>`
 subject on `research_searches`.
 
 ### Fields
@@ -2414,7 +2414,7 @@ subject on `research_searches`.
   UTC day. Renewing the temporary workspace does not reset that allowance.
 - A signed-in account receives 15 provider-backed research questions per
   UTC day (`ARGUS_REGISTERED_DAILY_RESEARCH_CEILING`), keyed on
-  `user:<account id>` in the same table. `GET /me/usage` does not project
+  `user:<account id>` in the same table. The retired `GET /me/usage` did not project
   that row.
 - Every signed-in or guest provider attempt also draws on the shared
   `global:research` daily row. Its ceiling is configured by

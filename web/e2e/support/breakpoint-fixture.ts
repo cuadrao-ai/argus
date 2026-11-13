@@ -4,7 +4,7 @@ import type { Page, Route } from "@playwright/test";
  * Deterministic whole-app fixture for breakpoint work.
  *
  * Extends the mobile-shell stub to the surfaces a breakpoint pass needs that a
- * shell pass does not: allowance states, the guest conversion prompt, archived
+ * shell pass does not: the guest conversion prompt, archived
  * and deleted rows, and a display name long enough to truncate. Every value is
  * fixed, so a capture differing between runs is a real change rather than a
  * different sentence coming back from a model.
@@ -13,15 +13,10 @@ import type { Page, Route } from "@playwright/test";
 export type Account = "registered" | "guest";
 export type Language = "en" | "es-419";
 export type Theme = "dark" | "light";
-/** `exhausted` drives the guest conversion prompt; `error` drives the retry state. */
-export type UsageState = "healthy" | "nearly_out" | "exhausted" | "error";
 
 const USER_ID = "breakpoint-user";
 const CREATED_AT = "2026-08-01T12:00:00Z";
 const RUN_ID = "run-alpha";
-const DAY_PERIOD_END = "2026-08-01T23:59:59Z";
-/* Distinct from the day end so the hourly line is not a copy of the daily one. */
-const HOUR_PERIOD_END = "2026-08-01T13:00:00Z";
 
 /* The longest title is deliberate: a name that cannot fit in a 390px rail is
    the only way a truncation bug shows up in a capture. */
@@ -74,47 +69,6 @@ function conversation(id: string, title: string, archived = false) {
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
     activity: IDLE_ACTIVITY,
-  };
-}
-
-function window_(limit: number, used: number, periodEnd: string) {
-  return {
-    limit,
-    used,
-    remaining: Math.max(0, limit - used),
-    period_end: periodEnd,
-  };
-}
-
-function allowances(state: UsageState, isGuest: boolean) {
-  const spent = state === "exhausted" ? 1 : state === "nearly_out" ? 0.9 : 0.2;
-  const day = (limit: number) =>
-    window_(limit, Math.round(limit * spent), DAY_PERIOD_END);
-  const hour = (limit: number) =>
-    window_(limit, Math.round(limit * spent), HOUR_PERIOD_END);
-  const available = state !== "exhausted";
-  return {
-    compute: {
-      hour: null,
-      day: null,
-      guest_session: null,
-      available_now: true,
-      limiting_window: null,
-    },
-    grounding: {
-      hour: isGuest ? null : hour(20),
-      day: day(60),
-      guest_session: null,
-      available_now: available,
-      limiting_window: isGuest ? "day" : "hour",
-    },
-    execution: {
-      hour: isGuest ? null : hour(5),
-      day: day(10),
-      guest_session: null,
-      available_now: available,
-      limiting_window: "day",
-    },
   };
 }
 
@@ -354,7 +308,6 @@ export async function installBreakpointFixture(
     account?: Account;
     language?: Language;
     theme?: Theme;
-    usage?: UsageState;
     emptyChat?: boolean;
     consent?: "accepted" | "required";
     /** Whether the account ever saved its language. Default true; false leaves the row default. */
@@ -364,7 +317,6 @@ export async function installBreakpointFixture(
   const account = options.account ?? "registered";
   const language = options.language ?? "en";
   const theme = options.theme ?? "dark";
-  const usage = options.usage ?? "healthy";
   const emptyChat = options.emptyChat ?? false;
   const consent = options.consent ?? "accepted";
   const languageChosen = options.languageChosen ?? true;
@@ -386,20 +338,6 @@ export async function installBreakpointFixture(
 
     if (path.endsWith("/api/v1/business/consent") && consent === "accepted") {
       return fulfillAcceptedBusinessConsent(route);
-    }
-
-    if (path.endsWith("/api/v1/me/usage")) {
-      if (usage === "error") {
-        return json(
-          route,
-          {
-            code: "usage_read_failed",
-            detail: "Current allowance information is unavailable.",
-          },
-          500,
-        );
-      }
-      return json(route, { allowances: allowances(usage, isGuest) });
     }
 
     if (path.endsWith("/api/v1/me")) {

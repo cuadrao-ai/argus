@@ -122,77 +122,6 @@ async function searchRowGeometry(row: Locator) {
   };
 }
 
-async function openUsageWithOneRemaining(page: Page) {
-  await page.setViewportSize(VIEWPORT);
-  await page.emulateMedia({ colorScheme: "dark" });
-  await installBreakpointFixture(page, {
-    language: "es-419",
-    theme: "dark",
-  });
-  const dayEnd = "2026-08-01T23:59:59Z";
-  const hourEnd = "2026-08-01T13:00:00Z";
-  await page.route("**/api/v1/me/usage", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        allowances: {
-          compute: {
-            hour: null,
-            day: null,
-            guest_session: null,
-            available_now: true,
-            limiting_window: null,
-          },
-          grounding: {
-            hour: {
-              limit: 20,
-              used: 19,
-              remaining: 1,
-              period_end: hourEnd,
-            },
-            day: {
-              limit: 60,
-              used: 59,
-              remaining: 1,
-              period_end: dayEnd,
-            },
-            guest_session: null,
-            available_now: true,
-            limiting_window: "hour",
-          },
-          execution: {
-            hour: {
-              limit: 5,
-              used: 4,
-              remaining: 1,
-              period_end: hourEnd,
-            },
-            day: {
-              limit: 10,
-              used: 9,
-              remaining: 1,
-              period_end: dayEnd,
-            },
-            guest_session: null,
-            available_now: true,
-            limiting_window: "day",
-          },
-        },
-      }),
-    }),
-  );
-  await page.goto("/chat", { waitUntil: "networkidle" });
-  await page.addStyleTag({ content: FREEZE_CSS });
-  await page.getByTestId("chat-shell-menu-trigger").click();
-  await page
-    .getByRole("button", { name: /^(ajustes|configuración)$/i })
-    .first()
-    .click();
-  await page.getByRole("button", { name: /^controles de datos$/i }).click();
-  await page.getByRole("button", { name: /^uso$/i }).click();
-  await page.waitForTimeout(300);
-}
 
 test.describe("issue #422 breakpoint regressions", () => {
   test("finding 2 keeps the full Omnisearch title at 390", async ({ page }) => {
@@ -273,27 +202,6 @@ test.describe("issue #422 breakpoint regressions", () => {
       renderedText,
       metadata: { symbolCount },
       verify: () => expect(symbolCount).toBe(1),
-    });
-  });
-
-  test("finding 5 uses singular Spanish usage agreement at count one", async ({
-    page,
-  }) => {
-    await openUsageWithOneRemaining(page);
-    const sheet = page.locator('[role="dialog"]').last();
-    const renderedText = await sheet.innerText();
-
-    await captureVerifiedFinding({
-      finding: 5,
-      slug: "spanish-usage-singular",
-      screenshot: () => sheet.screenshot(CAPTURE_SCREENSHOT_OPTIONS),
-      renderedText,
-      verify: () => {
-        expect(renderedText).toContain("Queda 1 hoy");
-        expect(renderedText).toContain("1 disponible esta hora");
-        expect(renderedText).not.toContain("Quedan 1 hoy");
-        expect(renderedText).not.toContain("1 disponibles esta hora");
-      },
     });
   });
 

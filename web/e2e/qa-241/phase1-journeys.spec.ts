@@ -9,7 +9,6 @@ import {
   sendTurn,
   shot,
   startNewChat,
-  usageSnapshot,
 } from "./j241.helpers";
 
 // Phase 1 reproduction driver for issue #241 (capability truth) at the exact
@@ -71,7 +70,6 @@ test("00 login + account probe", async () => {
     is_admin: probe.isAdmin,
     language: probe.language,
   });
-  saveEvidence("00-usage-before", await usageSnapshot(context));
   saveEvidence("00-history-before", await historySnapshot(context));
 });
 
@@ -246,6 +244,5 @@ test("07 future variants: basket, no capital, unresolved asset", async () => {
 });
 
 test("99 usage + history after journeys", async () => {
-  saveEvidence("99-usage-after", await usageSnapshot(context));
   saveEvidence("99-history-after", await historySnapshot(context));
 });

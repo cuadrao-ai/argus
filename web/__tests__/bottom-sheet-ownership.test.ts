@@ -28,7 +28,7 @@ const DRAWER = "components/sidebar/SidebarDrawer.tsx";
  *
  * The first version of this list claimed all of these were unrelated
  * pre-existing surfaces. That was wrong: below 720px the drawer renders
- * ProfileMenu, and Language, Usage, and Memory open from there, so dismissing
+ * ProfileMenu, and Language and Memory open from there, so dismissing
  * one closed the drawer underneath it. Those are fixed and off the list.
  *
  * `ProfileMenu` came off next, for the same reason it went on: it is what the

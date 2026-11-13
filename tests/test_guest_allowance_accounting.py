@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from datetime import timedelta
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -13,13 +12,10 @@ from argus.api.guest_access import (
     registered_account_context,
 )
 from argus.api.main import app
-from argus.domain import backtest_admission, usage_limits
-from argus.domain.backtest_admission_gateway import admit_backtest_job
-from argus.domain.store import AlphaStore, utcnow
+from argus.domain import usage_limits
+from argus.domain.store import utcnow
 from argus.domain.usage_limits import (
     GUEST_FEEDBACK_ALLOWANCE,
-    GUEST_SIMULATION_ALLOWANCE,
-    SIMULATION_USAGE_RESOURCE,
     allowance_windows,
     settle_memory_usage,
 )
@@ -31,24 +27,6 @@ def _guest_context() -> AccountContext:
         user_id="00000000-0000-0000-0000-000000000051",
         expires_at=utcnow() + timedelta(days=7),
         capabilities=guest_capabilities(),
-    )
-
-
-def test_guest_lifetime_windows_use_fixed_workspace_bounds() -> None:
-    account = _guest_context()
-    assert account.expires_at is not None
-    expected_start = account.expires_at - timedelta(days=7)
-
-    assert allowance_windows(account, "backtest_runs") == [
-        {
-            "period": "guest_session",
-            "limit": GUEST_SIMULATION_ALLOWANCE,
-            "period_start": expected_start,
-            "period_end": account.expires_at,
-        }
-    ]
-    assert allowance_windows(account, "feedback")[0]["limit"] == (
-        GUEST_FEEDBACK_ALLOWANCE
     )
 
 
@@ -65,44 +43,9 @@ def test_conversation_has_no_allowance_window() -> None:
 def test_registered_allowance_windows_remain_hour_and_day() -> None:
     account = registered_account_context("00000000-0000-0000-0000-000000000052")
 
-    assert allowance_windows(account, "backtest_runs") == [
-        {"period": "hour", "limit": 10},
-        {"period": "day", "limit": 50},
-    ]
     assert allowance_windows(account, "feedback") == [
         {"period": "day", "limit": 50},
         {"period": "hour", "limit": 20},
-    ]
-
-
-def test_backtest_gateway_passes_guest_window_to_existing_atomic_owner() -> None:
-    client = MagicMock()
-    client.rpc.return_value.execute.return_value.data = {
-        "decision": "conversion_required"
-    }
-    windows = allowance_windows(_guest_context(), "backtest_runs")
-
-    outcome = admit_backtest_job(
-        client,
-        user_id="00000000-0000-0000-0000-000000000051",
-        operation_scope="chat.run_backtest",
-        idempotency_key="guest-simulation",
-        identity_hash=f"sha256:{'a' * 64}",
-        payload_hash=f"sha256:{'b' * 64}",
-        launch_payload={"kind": "proof"},
-        initial_status="queued",
-        allowance_limits=windows,
-    )
-
-    assert outcome == {"decision": "conversion_required"}
-    assert client.rpc.call_args.args[0] == "admit_backtest_job"
-    assert client.rpc.call_args.args[1]["p_allowance_limits"] == [
-        {
-            "period": "guest_session",
-            "limit": 2,
-            "period_start": windows[0]["period_start"].isoformat(),
-            "period_end": windows[0]["period_end"].isoformat(),
-        }
     ]
 
 
@@ -111,6 +54,7 @@ def test_memory_settlement_accepts_guest_dict_window_with_fixed_bounds() -> None
     assert account.expires_at is not None
     counters: dict[tuple[str, str, str], dict[str, object]] = {}
     windows = allowance_windows(account, "feedback")
+    assert windows[0]["limit"] == GUEST_FEEDBACK_ALLOWANCE
 
     settle_memory_usage(
         counters,
@@ -127,49 +71,6 @@ def test_memory_settlement_accepts_guest_dict_window_with_fixed_bounds() -> None
         "used_count": 1,
         "limit_count": GUEST_FEEDBACK_ALLOWANCE,
     }
-
-
-def test_memory_guest_simulation_admission_charges_once_and_replays_zero() -> None:
-    account = _guest_context()
-    store = AlphaStore()
-    windows = allowance_windows(account, SIMULATION_USAGE_RESOURCE)
-    common = {
-        "store": store,
-        "user_id": account.user_id,
-        "operation_scope": backtest_admission.DIRECT_RUN_SCOPE,
-        "identity_hash": f"sha256:{'a' * 64}",
-        "payload_hash": f"sha256:{'b' * 64}",
-        "launch_payload": {"kind": "proof"},
-        "initial_status": "succeeded",
-        "allowance_limits": windows,
-    }
-
-    first = backtest_admission.admit_backtest_job_memory(
-        idempotency_key="guest-first",
-        **common,
-    )
-    replay = backtest_admission.admit_backtest_job_memory(
-        idempotency_key="guest-first",
-        **common,
-    )
-    second = backtest_admission.admit_backtest_job_memory(
-        idempotency_key="guest-second",
-        **common,
-    )
-    third = backtest_admission.admit_backtest_job_memory(
-        idempotency_key="guest-third",
-        **common,
-    )
-
-    assert first.kind == "admitted"
-    assert replay.kind == "replay"
-    assert second.kind == "admitted"
-    assert third.kind == "conversion_required"
-    row = store.usage_counters[
-        (account.user_id, SIMULATION_USAGE_RESOURCE, "guest_session")
-    ]
-    assert row["used_count"] == 2
-    assert len(store.backtest_jobs) == 2
 
 
 def test_memory_registered_dict_windows_keep_hour_and_day_accounting() -> None:

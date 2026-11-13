@@ -8,7 +8,6 @@ import {
   sendTurn,
   shot,
   startNewChat,
-  usageSnapshot,
 } from "./j241.helpers";
 
 // Final pre-eval browser recheck: three journeys, one attempt each.
@@ -47,7 +46,6 @@ test("p0 probe + usage baseline", async () => {
   const probe = await meProbe(context);
   expect(probe.status).toBe(200);
   expect(probe.isAdmin).toBe(false);
-  saveEvidence("p0-usage-before", await usageSnapshot(context));
 });
 
 test("p1 BTC future empty-intent corridor", async () => {
@@ -96,8 +94,4 @@ test("p3 historical lookback control", async () => {
   );
   await shot(page, "p3-lookback-control");
   await capture("p3-lookback-control", conversationId);
-});
-
-test("p9 usage after", async () => {
-  saveEvidence("p9-usage-after", await usageSnapshot(context));
 });

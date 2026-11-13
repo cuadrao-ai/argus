@@ -130,9 +130,6 @@ async function mockGuestClaimJourney(
     await fulfillJson(route, guestMe(language));
   });
 
-  await page.route("**/api/v1/me/usage", async (route) => {
-    await fulfillJson(route, { allowances: {} });
-  });
 
   await page.route("**/api/v1/conversations**", async (route) => {
     const url = new URL(route.request().url());
