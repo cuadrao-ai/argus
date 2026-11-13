@@ -200,11 +200,6 @@ export function messageDigest(items: Array<Record<string, unknown>>) {
   });
 }
 
-export async function usageSnapshot(context: BrowserContext) {
-  const { status, body } = await apiGet(context, "/me/usage");
-  return { status, body };
-}
-
 export async function historySnapshot(context: BrowserContext) {
   const { status, body } = await apiGet(context, "/history?limit=20");
   return { status, body };

@@ -9,7 +9,6 @@ import {
   sendTurn,
   shot,
   startNewChat,
-  usageSnapshot,
 } from "./j241.helpers";
 
 // Bounded live regression for the #241 correction pass: provider-resolved
@@ -52,7 +51,6 @@ test("c0 account probe + usage baseline", async () => {
   console.log(`me.status=${probe.status} is_admin=${probe.isAdmin}`);
   expect(probe.status).toBe(200);
   expect(probe.isAdmin).toBe(false);
-  saveEvidence("c0-usage-before", await usageSnapshot(context));
 });
 
 test("c1 BTC refusal regression + reload + selection + period", async () => {
@@ -136,5 +134,4 @@ test("c4 Spanish future control (es-419 profile)", async ({ browser }) => {
 });
 
 test("c9 usage after", async () => {
-  saveEvidence("c9-usage-after", await usageSnapshot(context));
 });

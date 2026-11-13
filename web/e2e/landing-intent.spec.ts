@@ -151,9 +151,6 @@ async function mockLandingJourney(
     });
   });
 
-  await page.route("**/api/v1/me/usage", async (route) => {
-    await fulfillJson(route, { allowances: {} });
-  });
 
   return evidence;
 }
