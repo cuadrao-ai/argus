@@ -14299,31 +14299,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/me/usage:
-    get:
-      tags:
-      - profile
-      description: 'Allowance truth keyed by operation class.
-
-
-        Compute never has a window. Execution and grounding project the counters
-
-        their admission owners charge, so availability here is availability there.'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UsageAllowanceResponse'
-        '503':
-          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
-        '500':
-          description: An unexpected server error occurred.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/v1/memory/availability:
     get:
       tags:
@@ -32635,27 +32610,6 @@ components:
         its
 
         supplier or description.'
-    UnboundedAllowance:
-      properties:
-        hour:
-          type: 'null'
-        day:
-          type: 'null'
-        guest_session:
-          type: 'null'
-        available_now:
-          type: boolean
-          const: true
-          default: true
-        limiting_window:
-          type: 'null'
-      type: object
-      description: 'An operation class no account window bounds, so nothing decrements.
-
-
-        Compute is never metered. A signed-in account''s grounding is bounded only
-
-        by the shared research ceiling, a circuit breaker rather than an allowance.'
     UncertainInput:
       properties:
         state:
@@ -32845,94 +32799,6 @@ components:
       required:
       - name
       - expected_version
-    UsageAllowance:
-      properties:
-        hour:
-          anyOf:
-          - $ref: '#/components/schemas/UsageWindow'
-          - type: 'null'
-        day:
-          anyOf:
-          - $ref: '#/components/schemas/UsageWindow'
-          - type: 'null'
-        guest_session:
-          anyOf:
-          - $ref: '#/components/schemas/UsageWindow'
-          - type: 'null'
-        available_now:
-          type: boolean
-        limiting_window:
-          type: string
-          enum:
-          - hour
-          - day
-          - guest_session
-      type: object
-      required:
-      - hour
-      - day
-      - guest_session
-      - available_now
-      - limiting_window
-      description: Backend-derived allowance truth for the account's active windows.
-    UsageAllowanceResponse:
-      properties:
-        allowances:
-          $ref: '#/components/schemas/UsageAllowances'
-      type: object
-      required:
-      - allowances
-    UsageAllowances:
-      properties:
-        compute:
-          $ref: '#/components/schemas/UnboundedAllowance'
-        grounding:
-          anyOf:
-          - $ref: '#/components/schemas/UsageAllowance'
-          - $ref: '#/components/schemas/UnboundedAllowance'
-        execution:
-          $ref: '#/components/schemas/UsageAllowance'
-        messages:
-          $ref: '#/components/schemas/UnboundedAllowance'
-          deprecated: true
-          readOnly: true
-        backtests:
-          $ref: '#/components/schemas/UsageAllowance'
-          deprecated: true
-          readOnly: true
-      type: object
-      required:
-      - compute
-      - grounding
-      - execution
-      - messages
-      - backtests
-      description: 'Allowance truth keyed by operation class.
-
-
-        Compute is free and unlimited, grounding is metered per retrieval, and
-
-        execution is metered per run.'
-    UsageWindow:
-      properties:
-        limit:
-          type: integer
-          minimum: 0.0
-        used:
-          type: integer
-          minimum: 0.0
-        remaining:
-          type: integer
-          minimum: 0.0
-        period_end:
-          type: string
-          format: date-time
-      type: object
-      required:
-      - limit
-      - used
-      - remaining
-      - period_end
     User:
       properties:
         id:

@@ -73,8 +73,6 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: fixturePort, async fetch
   }
   if (path === "/me")
     return json({ user: { id: "mock-auth-user", email: "pilot@example.test", username: null, display_name: "José de muestra", preferred_name: "José", language: "es-419", locale: "es-419", country: "DO", currency: "DOP", avatar_theme: "teal", onboarding: { completed: true, stage: "completed", language_confirmed: true, primary_goal: null } }, account_kind: "registered", guest: null, capabilities: { can_manage_account: true, can_submit_feedback: true, can_create_additional_conversation: true, can_manage_conversation: true, can_save_decision: true, can_use_omnisearch: true, can_search_current_workspace: true, can_use_grounded_discovery: false }, public_account_access_enabled: true });
-  if (path === "/me/usage")
-    return json({});
   if (path === "/conversations")
     return json({ items: [], next_cursor: null });
   if (path === "/business/consent")

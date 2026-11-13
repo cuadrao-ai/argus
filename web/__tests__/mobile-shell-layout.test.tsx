@@ -608,7 +608,6 @@ describe("omnisearch below threshold", () => {
     // dismissing one used to close the drawer underneath it.
     for (const file of [
       "../components/settings/LanguageModal.tsx",
-      "../components/settings/UsageModal.tsx",
       "../components/settings/MemoryControlsModal.tsx",
       "../components/settings/AppearanceModal.tsx",
       "../components/settings/ArchivedChatsView.tsx",

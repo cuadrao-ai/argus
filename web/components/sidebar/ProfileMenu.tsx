@@ -194,7 +194,6 @@ export default function ProfileMenu({
     archived: !isBusiness,
     // Business keeps no deleted chats, so it never asks for that list.
     deleted: !isBusiness,
-    usage: !isBusiness,
     business_name: false,
   } satisfies Record<SettingsPanel, boolean>)[panel]);
   const [editingName, setEditingName] = useState(false);
