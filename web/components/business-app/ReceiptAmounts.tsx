@@ -32,14 +32,17 @@ export default function ReceiptAmounts({ dossier, review, attention = [] }: { do
     const flagged = attention.some((item) => item.field === key || key === "amount" && item.field === "currency");
     const total = key === "amount";
     const calculated = key === "net_amount" && dossier.net_amount?.source === "calculated";
-    const value = <span className="inline-flex items-center justify-end gap-1.5">{calculated ? <Tooltip content={hint} side="top"><span tabIndex={0} aria-label={hint} data-testid="amount-calculated" className="text-[13px] font-normal text-[#56635e] dark:text-white/65">ƒ</span></Tooltip> : null}<span>{money(amount)}</span></span>;
+    const value = <span>{money(amount)}</span>;
     return <div key={key} data-fact={key} data-standing={standing?.standing} data-blocked={blocked || asked ? "true" : undefined} data-attention={flagged ? "true" : undefined} data-match={amount != null ? JSON.stringify([amount, money(amount)]) : undefined} className={`grid grid-cols-[minmax(7.5rem,34%)_minmax(0,1fr)] items-start gap-x-4 py-1.5 max-tablet:[&:has([data-row-open])]:grid-cols-1 ${total ? "mt-1 border-t border-[#DCE0DA] pt-3 font-semibold dark:border-white/10" : ""}`}>
-      <dt className="flex min-h-9 items-center text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{flagged ? <span aria-hidden="true" data-testid="attention-marker" className="mr-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#c27a1e] dark:bg-[#e8b26f]" /> : null}{label}</dt>
+      <dt className="flex min-h-9 items-center gap-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{flagged ? <span aria-hidden="true" data-testid="attention-marker" className="mr-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#c27a1e] dark:bg-[#e8b26f]" /> : null}{label}
+        {calculated ? <Tooltip content={hint} side="top"><span tabIndex={0} aria-label={hint} data-testid="amount-calculated" className="text-[13px] font-normal text-[#56635e] dark:text-white/65">ƒ</span></Tooltip> : null}
+        {total && mismatch ? <CircleAlert data-testid="amounts-warning" className="h-3.5 w-3.5 shrink-0 text-[#9a650d] dark:text-[#e8b26f]" aria-hidden="true" /> : null}
+      </dt>
       <dd className={`cuadrao-amount min-w-0 py-[7px] text-right text-[15px] leading-[22px] tabular-nums [&_button>span]:text-right ${total && mismatch ? "text-[#9a650d] dark:text-[#e8b26f]" : "text-[#172b26] dark:text-white"}`}>
-        {review ? review.row(key, { label, value, compound: calculated }) : value}
+        {review ? review.row(key, { label, value }) : value}
         {review?.note(key)}
         {(blocked || asked) && !(review && flagged) ? <span className="mt-1 block text-[13px] font-normal text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.dossier.needs_resolution")}</span> : null}
-        {total && mismatch?.difference != null ? <span data-testid="amounts-difference" className="mt-1 flex items-center justify-end gap-1 text-[13px] font-normal"><CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{t("business.terms.difference", { amount: money(mismatch.difference) })}</span> : null}
+        {total && mismatch?.difference != null ? <span data-testid="amounts-difference" className="mt-1 block text-[13px] font-normal">{t("business.terms.difference", { amount: formatAmount(mismatch.difference, currency ?? "DOP", locale) })}</span> : null}
       </dd>
     </div>;
   };

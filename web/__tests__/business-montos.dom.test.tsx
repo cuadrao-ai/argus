@@ -40,6 +40,9 @@ for (const documentType of ["recibo", "venta"] as const) {
     assert.deepEqual([...amounts.querySelectorAll("[data-fact]")].map((row) => row.getAttribute("data-fact")), ["net_amount", "itbis", "legal_tip", "amount"]);
     assert.equal(host.querySelector('[data-testid="receipt-facts-fiscal"] [data-fact="itbis"]'), null);
     assert.equal(host.querySelector('[data-testid="amount-calculated"]')?.getAttribute("aria-label"), "Calculado: Total − ITBIS − propina");
+    const formula = amounts.querySelector('[data-testid="amount-calculated"]')!;
+    assert.equal(formula.closest("dt")?.textContent, "Monto sin ITBISƒ");
+    assert.equal(formula.closest("dd"), null);
     for (const cell of amounts.querySelectorAll("dd")) { assert.ok(cell.classList.contains("cuadrao-amount")); assert.ok(cell.classList.contains("text-right")); assert.ok(cell.classList.contains("tabular-nums")); }
   });
 }
@@ -52,10 +55,16 @@ test("only calculated net gets the formula badge; no tip has the shorter formula
   host = await mount(<ReceiptRecordFacts dossier={{ ...base, net_amount: { amount: "1000.00", source: "read" } }} accounts={[]} />);
   assert.equal(host.querySelector('[data-testid="amount-calculated"]'), null);
 });
-test("the server mismatch flag alone colors total and shows its exact currency difference", async () => {
+for (const language of ["es-419", "en"]) test(`${language} puts the warning on Total and one exact difference line below`, async () => {
   const base = await dossier(); base.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "1.23" }];
-  const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />);
-  assert.equal(host.querySelector('[data-testid="amounts-difference"]')?.textContent, "Diferencia RD$ 1.23");
+  const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />, language);
+  const difference = host.querySelector('[data-testid="amounts-difference"]')!;
+  assert.equal(difference.textContent, `${language === "es-419" ? "Diferencia" : "Difference"} RD$ 1.23`);
+  assert.equal(host.querySelectorAll('[data-testid="amounts-difference"]').length, 1);
+  assert.equal(difference.querySelector("svg"), null);
+  const warning = host.querySelector('[data-testid="amounts-warning"]')!;
+  assert.equal(warning.closest("[data-fact]")?.getAttribute("data-fact"), "amount");
+  assert.equal(warning.closest("dt")?.textContent, language === "es-419" ? "Total (con ITBIS)" : "Total (with ITBIS)");
   assert.match(host.querySelector('[data-fact="amount"] dd')!.className, /9a650d/);
 });
 const fields: DgiiFields = { "606": [

@@ -2557,7 +2557,7 @@
     "terms": {
       "calculated_hint": "Calculated: Total − ITBIS",
       "calculated_hint_with_tip": "Calculated: Total − ITBIS − legal tip",
-      "difference": "Difference {{amount}}",
+      "difference": "Difference RD$ {{amount}}",
       "inherited_from": "From {{field}}",
       "itbis": "ITBIS",
       "legal_tip": "Legal tip",

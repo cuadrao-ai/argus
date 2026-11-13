@@ -2557,7 +2557,7 @@
     "terms": {
       "calculated_hint": "Calculado: Total − ITBIS",
       "calculated_hint_with_tip": "Calculado: Total − ITBIS − propina",
-      "difference": "Diferencia {{amount}}",
+      "difference": "Diferencia RD$ {{amount}}",
       "inherited_from": "Viene de {{field}}",
       "itbis": "ITBIS",
       "legal_tip": "Propina legal",
