@@ -221,6 +221,12 @@ class PostgresBusinessPurge:
                 (space,),
             ):
                 paths.update(path for path in (source, destination) if path)
+            # A document purge whose erase was still pending.
+            for (pending,) in db.execute(
+                "select pending_objects from argus_private.business_document_purges where space_id=%s",
+                (space,),
+            ):
+                paths.update(path for path in pending if not path.endswith("/"))
             for path in sorted(paths):
                 db.execute(
                     "insert into argus_private.business_purge_objects(run_id,path) values(%s,%s) on conflict do nothing",

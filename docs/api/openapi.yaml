@@ -2474,7 +2474,8 @@ paths:
           description: '`business_permission_denied` without approve permission; `business_human_command_required`
             for a non-person actor.'
         '404':
-          description: '`business_record_not_found` outside the selected Business.'
+          description: '`business_record_not_found` outside the selected Business; `business_document_purged`
+            once the document was purged.'
         '409':
           description: '`business_action_conflict` for a reused key; `business_action_unsettled`
             while the original result is unknown.'
@@ -2744,6 +2745,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/purge:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentActionResult'
+        '403':
+          description: '`business_permission_denied` without approve permission; `business_human_command_required`
+            for a non-person actor.'
+        '404':
+          description: '`business_record_not_found` outside the selected Business; `business_document_purged`
+            once the document was purged.'
+        '409':
+          description: '`business_action_conflict` for a reused key; `business_action_unsettled`
+            while the original result is unknown.'
+        '422':
+          description: '`business_document_not_deleted` outside Eliminados; `business_document_ambiguous`
+            for shared attachments; `business_document_purge_busy` while the Business changes custody.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/remainder/settle:
     post:
       tags:
@@ -2922,7 +2982,8 @@ paths:
           description: '`business_permission_denied` without approve permission; `business_human_command_required`
             for a non-person actor.'
         '404':
-          description: '`business_record_not_found` outside the selected Business.'
+          description: '`business_record_not_found` outside the selected Business; `business_document_purged`
+            once the document was purged.'
         '409':
           description: '`business_action_conflict` for a reused key; `business_action_unsettled`
             while the original result is unknown.'
@@ -15677,6 +15738,7 @@ components:
           - reopen_draft
           - delete_document
           - restore_document
+          - purge_document
           - capture_note
           - prepare_attachment
           - rebind_attachment
@@ -15704,6 +15766,7 @@ components:
           - change_role
           - ownership_transferred
           - receipt_reading_enabled
+          - expire_document
           - other
         object:
           anyOf:
@@ -20328,6 +20391,10 @@ components:
           type: string
         previous_state:
           $ref: '#/components/schemas/PreviousDocumentState'
+        purge_at:
+          type: string
+          format: date-time
+          readOnly: true
       additionalProperties: false
       type: object
       required:
@@ -20335,6 +20402,7 @@ components:
       - at
       - key
       - previous_state
+      - purge_at
     DeletingActor:
       properties:
         actor_id:

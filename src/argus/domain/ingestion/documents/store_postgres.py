@@ -39,6 +39,16 @@ _LIVE_DOCUMENTS = (
 )
 
 
+def lock_sources(connection, user_id: str) -> None:
+    """Hold the owner's stored-object lock until the transaction ends. A write
+    or an erase of the owner's source objects takes it."""
+
+    connection.execute(
+        "select pg_advisory_xact_lock(hashtextextended(%s,0))",
+        (f"document_sources:{user_id}",),
+    )
+
+
 class PostgresDocumentStore:
     def __init__(self, pool: ConnectionPool, objects: SourceObjects) -> None:
         self._pool = pool
@@ -88,10 +98,7 @@ class PostgresDocumentStore:
     @contextmanager
     def _locked(self, user_id: str) -> Iterator:
         with self._pool.connection() as connection, connection.transaction():
-            connection.execute(
-                "select pg_advisory_xact_lock(hashtextextended(%s,0))",
-                (f"document_sources:{user_id}",),
-            )
+            lock_sources(connection, user_id)
             yield connection
 
     @staticmethod

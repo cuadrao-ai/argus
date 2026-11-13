@@ -101,6 +101,12 @@ _EVENTS = f"""
                'receipt_reading_enabled', '{{}}'::jsonb, null::jsonb
         from public.business_receipt_reading_consents
         where space_id = %(space_id)s
+        union all
+        select {_key("space_id::text || ':purge:' || id::text")}, space_id,
+               purged_at, null::uuid, 'extractor', 'Cuadrao',
+               'expire_document', '{{}}'::jsonb, null::jsonb
+        from argus_private.business_document_purges
+        where space_id = %(space_id)s and reason = 'expiry'
     ), visible as (
         select e.id, e.created_at, e.actor_id, e.actor_kind, e.display_name,
                e.action, e.command, e.outcome, {_ACTOR_KEY} as actor_key,
