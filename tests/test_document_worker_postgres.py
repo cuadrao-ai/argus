@@ -41,17 +41,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-class Clock(support.Clock):
-    """Years ahead: the cap counts every read in the database, and rows other
-    tests leave behind hold no live lease or dispatch this far along."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.now += timedelta(days=3650)
-
-
-
-
 class Gauge(support.Extractor):
     """Measures reads at once. Each read holds long enough to overlap the next."""
 
@@ -84,6 +73,52 @@ def other_pool() -> Iterator[ConnectionPool]:
         yield opened
 
 
+@pytest.fixture
+def prior_documents(
+    request: pytest.FixtureRequest, pool: ConnectionPool
+) -> Iterator[tuple[DocumentsService, str, str, str] | None]:
+    if not getattr(request, "param", False):
+        yield None
+        return
+    with pool.connection() as connection:
+        people = shared._create_users(connection, ("previous", False))
+    owner = people["previous"]
+    api = support.instance(pool, support.Clock(), support.Extractor())
+
+    async def seed() -> tuple[str, str]:
+        pending, settled = await waiting(api.service, owner, 2)
+        api.jobs.start(user_id=owner, connection_id=settled)
+        [attempt] = api.attempts(settled)
+        assert await run_attempt(api.service, settled, attempt) == "prepared"
+        return pending, settled
+
+    try:
+        pending, settled = asyncio.run(seed())
+        yield api.service, owner, pending, settled
+    finally:
+        with pool.connection() as connection:
+            shared._delete_users(connection, people)
+
+
+@pytest.fixture(autouse=True)
+def isolated_queue(
+    pool: ConnectionPool, prior_documents: tuple[DocumentsService, str, str, str] | None
+) -> None:
+    with pool.connection() as connection:
+        unfinished = connection.execute(
+            "select d.user_id::text,d.connection_id::text "
+            "from public.financial_document_extractions d "
+            "join public.financial_source_connections c on c.id=d.connection_id "
+            "and c.user_id=d.user_id where c.source='statement' "
+            "and c.status <> 'disconnected' and (d.draft->>'status' in "
+            "('queued','preparing') or (d.draft->>'status'='needs_attention' "
+            "and (d.preparation_job->>'retry')::boolean))"
+        ).fetchall()
+    store = PostgresDocumentStore(pool, source_objects())
+    for owner, connection_id in unfinished:
+        store.forget(user_id=owner, connection_id=connection_id)
+
+
 def puller(service: DocumentsService, *mine: str) -> PreparationJobs:
     """Pull-mode jobs whose sweep sees only this test's rows."""
 
@@ -114,12 +149,22 @@ def observations(pool: ConnectionPool, owner: str, connection_id: str) -> int:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "prior_documents", [False, True], ids=["empty-queue", "prior-pending-read"], indirect=True
+)
 async def test_racing_pullers_take_each_attempt_once_and_stop_at_the_cap(
-    pool: ConnectionPool, other_pool: ConnectionPool, users: dict[str, str]
+    pool: ConnectionPool,
+    other_pool: ConnectionPool,
+    users: dict[str, str],
+    prior_documents: tuple[DocumentsService, str, str, str] | None,
 ) -> None:
-    clock = Clock()
+    clock = support.Clock()
     api = support.instance(pool, clock, support.Extractor())
-    connections = await waiting(api.service, users["owner"], 6)
+    owners = [users["owner"], users["other"]] * 3
+    connections = []
+    for owner in owners:
+        connections.extend(await waiting(api.service, owner, 1))
+    owners_by_connection = dict(zip(connections, owners, strict=True))
     stores = [
         PostgresDocumentStore(racing, source_objects()) for racing in (pool, other_pool)
     ]
@@ -135,10 +180,22 @@ async def test_racing_pullers_take_each_attempt_once_and_stop_at_the_cap(
     taken = [result for result in results if result is not None]
     assert sorted(connection for connection, _ in taken) == sorted(connections[:3])
     assert all(
-        api.service.store.job(user_id=users["owner"], connection_id=connection).attempt_id
+        api.service.store.job(
+            user_id=owners_by_connection[connection], connection_id=connection
+        ).attempt_id
         == attempt_id
         for connection, attempt_id in taken
     )
+    if prior_documents is not None:
+        previous, owner, pending, settled = prior_documents
+        assert previous.store.draft(user_id=owner, connection_id=pending) is None
+        assert previous.hub.connections.get(
+            user_id=owner, connection_id=pending, scope=PERSONAL
+        ).id == pending
+        assert previous.get(
+            user_id=owner, connection_id=settled, scope=PERSONAL
+        ).status == "review_ready"
+        assert previous.store.source(user_id=owner, connection_id=settled) is not None
 
 
 @pytest.mark.asyncio
@@ -155,7 +212,7 @@ async def test_two_workers_share_one_cap_and_read_each_receipt_once(
         await asyncio.Event().wait()
 
     monkeypatch.setattr(document_worker, "sweep_forever", no_sweep)
-    clock, gauge, owner = Clock(), Gauge(), users["owner"]
+    clock, gauge, owner = support.Clock(), Gauge(), users["owner"]
     first = support.instance(pool, clock, gauge)
     second = support.instance(other_pool, clock, gauge)
     connections = await waiting(first.service, owner, 9)
@@ -190,7 +247,7 @@ async def test_two_workers_share_one_cap_and_read_each_receipt_once(
 async def test_a_read_that_runs_outside_the_pull_counts_against_the_cap(
     pool: ConnectionPool, users: dict[str, str]
 ) -> None:
-    clock = Clock()
+    clock = support.Clock()
     api = support.instance(pool, clock, support.Extractor())
     store = api.service.store
     elsewhere, next_up = await waiting(api.service, users["owner"], 2)
@@ -208,7 +265,7 @@ async def test_a_read_that_runs_outside_the_pull_counts_against_the_cap(
 async def test_pull_takes_only_a_live_current_attempt(
     pool: ConnectionPool, users: dict[str, str]
 ) -> None:
-    clock, owner = Clock(), users["owner"]
+    clock, owner = support.Clock(), users["owner"]
     api = support.instance(pool, clock, support.Extractor())
     store, service = api.service.store, api.service
     gone, edited, current = await waiting(service, owner, 3)
@@ -230,7 +287,7 @@ async def test_pull_takes_only_a_live_current_attempt(
 async def test_a_kill_before_the_marker_reads_once_and_records_once(
     pool: ConnectionPool, users: dict[str, str]
 ) -> None:
-    clock, extractor, owner = Clock(), support.Extractor(), users["owner"]
+    clock, extractor, owner = support.Clock(), support.Extractor(), users["owner"]
     service = postgres_documents_service(pool, source_objects(), extractor)
     service.hub.clock = clock
     gated = support.GatedStore(pool, blocked=1)
@@ -259,7 +316,7 @@ async def test_a_kill_before_the_marker_reads_once_and_records_once(
 async def test_a_kill_after_the_marker_is_read_once_more_and_records_once(
     pool: ConnectionPool, users: dict[str, str]
 ) -> None:
-    clock, extractor, owner = Clock(), support.Extractor(hang=True), users["owner"]
+    clock, extractor, owner = support.Clock(), support.Extractor(hang=True), users["owner"]
     service = postgres_documents_service(pool, source_objects(), extractor)
     service.hub.clock = clock
     [connection] = await waiting(service, owner, 1)
