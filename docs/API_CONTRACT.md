@@ -10419,20 +10419,27 @@ accept path recorded.
   for a person; a source that names no currency never fires it. The batch
   metadata records `document_currency`.
 - A read that was saved but never became a record (the hosted hand-off refused
-  or failed after the extractor answered) is `needs_attention` with attention
-  `interrupted`, `preparable: true` and the real cause in `error_code`, except
-  two terminal refusals derived from the saved batch. An unreadable read
-  (`readable` false, or issue `unreadable_document`) is attention `unreadable`
-  and `preparable: false`. A notice or statement with no purchase, and any
-  read that has no receipt object, is attention `not_a_receipt` and
-  `preparable: false`. A readable fiscal bill (an NCF and a plain total on
-  `batch.receipt`) that was refused stays `interrupted` and `preparable: true`.
+  or failed after the extractor answered) is `needs_attention` and shows what
+  the hand-off does with that saved read now, with the real cause in
+  `error_code`. One rule decides both. When the hand-off makes a draft from
+  it, the attention is `interrupted` and `preparable: true`. When the
+  hand-off refuses it, the attention names that refusal and `preparable` is
+  false, because another read replays the same saved read: `unreadable` for an
+  unreadable read (`readable` false), `not_a_receipt` for a read with no
+  receipt object and no purchase amount, or a complete receipt whose only rows
+  are notices or statement periods, and `check_details` for an incomplete
+  receipt with no amount (`receipt_requires_review`). A readable read with an
+  amount a person can review is never refused: a fiscal bill (an NCF and a
+  plain total on `batch.receipt`), a positive priced amount, or a positive
+  receipt total or purchase row that names no currency. It becomes a review
+  draft: a fiscal receipt that names no currency takes DOP by default, any
+  other keeps the currency unknown. A read amount is parsed where it enters
+  the draft: a leading zero is dropped, and zero, a negative, or text the
+  facts cannot hold leaves the amount unknown for a person (the server logs
+  `business_post_read_rule ... rule=read_amount_unknown`).
   "Try again with AI" replays the saved read without a new provider call and
   runs the hand-off again. A saved read is never replaced, so a replay never
-  asks the provider for a new read. A readable receipt with a positive total
-  and no named currency becomes a review draft: a fiscal receipt takes DOP by
-  default, any other keeps the currency unknown. An incomplete receipt with no
-  total is refused again as `receipt_requires_review`. On a replay a fiscal bill becomes one expense
+  asks the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
   statement period. An NCF due notice is that one expense, marked
   `Factura por pagar` on the dossier as `bill_mark` (null while settlement is
@@ -10581,8 +10588,9 @@ accept path recorded.
   `outcome_unknown` (an attempt may have reached the provider; only the
   owner's consented retry starts another), `no_purchase_found`,
   `not_a_receipt` (a statement, a payment notice, or a file with no receipt
-  object), `several_purchases` (several or ambiguous purchases), `source_unavailable`,
-  `check_details` (a purchase is ready but the read was incomplete),
+  object and no purchase amount), `several_purchases` (several or ambiguous purchases), `source_unavailable`,
+  `check_details` (a purchase is ready but the read was incomplete, or an
+  incomplete receipt has no amount),
   `read_budget_day` or `read_budget_month` (the Business's read budget for
   the day or the month was spent before this read could start; `error_code`
   is `business_read_budget_day` or `business_read_budget_month`, the receipt

@@ -506,6 +506,30 @@ def test_a_positive_amount_with_no_currency_stays_refused(
     _assert_refused(checked, monkeypatch, draft, batch)
 
 
+def test_a_purchase_row_with_no_currency_and_no_receipt_is_a_review_draft(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """A transfer screenshot: one purchase row with an amount, no currency and
+    no receipt details. It waits for one more hand-off, and that hand-off
+    makes a review draft with the currency left for a person."""
+
+    draft = _draft(checked)
+    batch = _stored(
+        draft,
+        [_row("500.00", currency=None, evidence="transaction", row=1)],
+        receipt=None,
+    )
+    shown = compose(_refused(draft), batch, [], "web")
+    assert (shown.attention, shown.preparable) == ("interrupted", True)
+    _, resolution, saved = _prepare(checked, monkeypatch, batch, draft)
+    assert saved.state == "open"
+    assert resolution.facts.amount.state == "known"
+    assert resolution.facts.amount.verified is False
+    assert Decimal(resolution.facts.amount.value) == Decimal("500.00")
+    assert resolution.facts.currency.state == "unknown"
+
+
 def test_a_bare_amount_uses_the_one_currency_named_on_the_read(
     checked,  # noqa: F811
     monkeypatch,  # noqa: ANN001

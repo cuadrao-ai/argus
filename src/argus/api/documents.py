@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from typing import NoReturn
 from urllib.parse import unquote
 
 from fastapi import Depends, HTTPException, Request
@@ -309,29 +310,64 @@ async def dispatch_preparation(
     scope: OwnerScope,
 ) -> None:
     """Record one attempt for the read, the only way a receipt gets read.
-    The API never reads it: ``python -m workflows.document_worker`` pulls it."""
+    The API never reads it: ``python -m workflows.document_worker`` pulls it.
+
+    Every channel queues the draft, then calls this. A read it refuses or
+    cannot record is released (``release_unstarted``)."""
 
     from uuid import UUID
 
     from argus.domain.business.transactions import GrantImportStore
     from argus.domain.owner_scope import space_id
 
-    if space_id(scope) is not None and (
-        service.business_actions is not None or service.business_preparation_required
-    ):
-        imports = getattr(service.hub.sink, "store", None)
-        if service.business_actions is None or not isinstance(imports, GrantImportStore):
-            raise DocumentServiceError("business_preparation_unavailable")
+    try:
+        if space_id(scope) is not None and (
+            service.business_actions is not None or service.business_preparation_required
+        ):
+            imports = getattr(service.hub.sink, "store", None)
+            if service.business_actions is None or not isinstance(
+                imports, GrantImportStore
+            ):
+                raise DocumentServiceError("business_preparation_unavailable")
+            await asyncio.to_thread(
+                service.business_actions.capture_attachment_preparation,
+                imports.context,
+                UUID(connection_id),
+                target=None,
+            )
+        # Recorded before the response, so a closed client cannot lose the intake.
         await asyncio.to_thread(
-            service.business_actions.capture_attachment_preparation,
-            imports.context,
-            UUID(connection_id),
-            target=None,
+            PreparationJobs(service).start, user_id=user_id, connection_id=connection_id
         )
-    # Recorded before the response, so a closed client cannot lose the intake.
-    await asyncio.to_thread(
-        PreparationJobs(service).start, user_id=user_id, connection_id=connection_id
-    )
+    except Exception as error:
+        await asyncio.to_thread(
+            release_unstarted, service, user_id, connection_id, scope=scope, error=error
+        )
+
+
+def release_unstarted(
+    service: DocumentsService,
+    user_id: str,
+    connection_id: str,
+    *,
+    scope: OwnerScope,
+    error: Exception,
+) -> NoReturn:
+    """A queued read that could not start is not "reading": the draft waits
+    saved, with the reason, for the owner to prepare, and ``error`` is raised.
+    If the release fails too, ``error`` is still the one raised, with the
+    release failure chained behind it."""
+
+    try:
+        service.release_queued(
+            user_id=user_id,
+            connection_id=connection_id,
+            scope=scope,
+            code=getattr(error, "code", "document_delivery_failed"),
+        )
+    except Exception as release_error:  # noqa: BLE001
+        raise error from release_error
+    raise error
 
 
 def document_problem(request: Request, error: Exception) -> HTTPException:

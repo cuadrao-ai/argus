@@ -236,6 +236,19 @@ def load_env_file(path: Path) -> dict[str, str]:
     return values
 
 
+def configure_model_key_file(path: Path) -> None:
+    from argus.llm.openrouter_key_policy import (
+        MODEL_CREDENTIAL_ENV_NAMES,
+        resolve_openrouter_api_key,
+    )
+
+    values = load_env_file(path)
+    os.environ.update({name: values.get(name, "") for name in MODEL_CREDENTIAL_ENV_NAMES})
+    key = resolve_openrouter_api_key()
+    if not key or key == "local-qa-disabled":
+        raise SystemExit("no usable model credential in --openrouter-key-file")
+
+
 def require_loopback(url: str, what: str) -> None:
     if urlsplit(url.replace("postgresql://", "http://", 1)).hostname not in LOOPBACK:
         raise SystemExit(f"refusing: {what} is not a loopback address")
@@ -339,10 +352,7 @@ def serve_api(args: argparse.Namespace) -> None:
     if args.extractor == "real":
         if not args.openrouter_key_file:
             raise SystemExit("--extractor real needs --openrouter-key-file")
-        key = load_env_file(args.openrouter_key_file).get("OPENROUTER_API_KEY", "")
-        if not key or key == "local-qa-disabled":
-            raise SystemExit("no OPENROUTER_API_KEY in --openrouter-key-file")
-        os.environ["OPENROUTER_API_KEY"] = key
+        configure_model_key_file(args.openrouter_key_file)
     if args.extractor == "stub":
         import argus.api.documents as documents_api
         from argus.domain.ingestion.documents.models import DocumentExtractionError
@@ -3589,7 +3599,7 @@ def main() -> None:
             or REPO / ".git"
         ).parent
         / ".env",
-        help="real: env file whose OPENROUTER_API_KEY is read inside this process"
+        help="real: env file whose model credential (selected by openrouter_key_policy) is read inside this process"
         " (default: the main checkout .env)",
     )
     serve.set_defaults(handler=serve_api)

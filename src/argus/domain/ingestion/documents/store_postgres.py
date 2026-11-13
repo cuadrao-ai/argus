@@ -280,6 +280,7 @@ class PostgresDocumentStore:
         expected_version: int,
         holder: str | None = None,
         claim: str | None = None,
+        unstarted: bool = False,
     ) -> bool:
         with self._pool.connection() as connection, connection.transaction():
             row = connection.execute(
@@ -316,11 +317,15 @@ class PostgresDocumentStore:
                 return changed is not None
             changed = connection.execute(
                 "update public.financial_document_extractions set draft=%s "
-                "where connection_id=%s and user_id=%s and (draft->>'version')::integer=%s returning connection_id",
+                "where connection_id=%s and user_id=%s and (draft->>'version')::integer=%s "
+                "and (not %s or (preparation_job->>'draft_version')::integer "
+                "is distinct from %s) returning connection_id",
                 (
                     Jsonb(draft.model_dump(mode="json")),
                     draft.connection_id,
                     user_id,
+                    expected_version,
+                    unstarted,
                     expected_version,
                 ),
             ).fetchone()
