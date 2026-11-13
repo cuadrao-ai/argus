@@ -34,6 +34,7 @@ from argus.domain.business.document_type import (
 )
 from argus.domain.business.fiscal_identity import normalized_ncf
 from argus.domain.business.ledger import occurred_on
+from argus.domain.business.purchase_review import net_amount
 from argus.domain.recording.currency import (
     currency_exponent,
     format_minor_units,
@@ -73,6 +74,7 @@ class MonthDocument:
     #: A receipt's 606 Forma de Pago code, from its declaration; the one
     #: value the review, the approval and the export read.
     payment_form: str | None = None
+    net_amount_minor: int | None = None
 
 
 @dataclass(frozen=True)
@@ -118,7 +120,14 @@ def to_minor(text: str, currency: str) -> int:
 
 
 def before_itbis(total_minor: int, itbis_minor: int | None) -> int:
-    return total_minor - (itbis_minor or 0)
+    result = net_amount(total=str(total_minor), itbis=str(itbis_minor or 0))
+    return int(Decimal(result.amount)) if result.amount is not None else 0
+
+
+def document_net(document: MonthDocument) -> int:
+    if document.net_amount_minor is not None:
+        return document.net_amount_minor
+    return before_itbis(document.total_minor, document.itbis_minor)
 
 
 def expense_base(document: MonthDocument) -> int:
@@ -127,7 +136,7 @@ def expense_base(document: MonthDocument) -> int:
 
     if document.sin_comprobante:
         return document.total_minor
-    return before_itbis(document.total_minor, document.itbis_minor)
+    return document_net(document)
 
 
 def net_result(income_before: int, expense_before: int) -> int:
@@ -165,7 +174,7 @@ def in_607(document: MonthDocument) -> bool:
 
 
 def sales_base(document: MonthDocument) -> int:
-    """607 Monto Facturado when the draft declares it, otherwise total minus ITBIS.
+    """607 Monto Facturado when declared, otherwise the shared net amount.
 
     A credit note is stored positive and subtracted, the same way the 607 export nets it.
     """
@@ -173,7 +182,7 @@ def sales_base(document: MonthDocument) -> int:
     base = (
         document.declared_base_minor
         if document.declared_base_minor is not None
-        else before_itbis(document.total_minor, document.itbis_minor)
+        else document_net(document)
     )
     if credit_note(document.ecf or document.ncf):
         return -base
@@ -228,7 +237,7 @@ def formato_totals(
                 -tax if credit_note(document.ecf or document.ncf) else tax,
             )
         elif in_606(document):
-            bucket[1] += before_itbis(document.total_minor, document.itbis_minor)
+            bucket[1] += document_net(document)
             bucket[3] += document.itbis_minor or 0
         elif document.role == "invoice":
             bucket[0] += sales_base(document)
@@ -296,9 +305,7 @@ def _line(document: MonthDocument, settlement: bool = True) -> dict:
 
     currency = document.currency
     before = (
-        expense_base(document)
-        if document.role == "receipt"
-        else before_itbis(document.total_minor, document.itbis_minor)
+        expense_base(document) if document.role == "receipt" else document_net(document)
     )
     itbis = document.itbis_minor
     line = {
@@ -700,6 +707,7 @@ class FiscalParts:
     sin_comprobante: bool = False
     due_on: date | None = None
     payment_form: str | None = None
+    net_amount_minor: int | None = None
     #: The draft's type, the one owner of invoice or receipt. None with no draft.
     document_type: DocumentType | None = None
 
@@ -755,7 +763,8 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         parsed.dgii.payment_method
         if isinstance(parsed.dgii, PurchaseDeclaration)
         else None,
-        parsed.document_type,
+        net_amount_minor=itbis_or_none(net_amount(facts, parsed.dgii).amount, currency),
+        document_type=parsed.document_type,
     )
 
 
@@ -837,6 +846,7 @@ def project_documents(
                 sin_comprobante=parts.sin_comprobante,
                 due_on=parts.due_on,
                 payment_form=parts.payment_form,
+                net_amount_minor=parts.net_amount_minor,
                 status=settlement.status,
                 settled_on=settlement.settled_on,
                 payment_method=settlement.payment_method,

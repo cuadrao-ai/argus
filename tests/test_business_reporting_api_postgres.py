@@ -122,7 +122,7 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
         unquote(encoded),
     )
     assert fallback == f'attachment; filename="{unquote(encoded)}"'
-    assert written[0] == ["Contraparte", "Fecha", "Monto", "Moneda"]
+    assert written[0] == ["Contraparte", "Fecha", "Total", "Moneda"]
     assert len(written) == 27
     assert {line[3] for line in written[1:]} == {"DOP"}
     excel = export(http, format="xlsx")

@@ -86,6 +86,7 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
                 if resolution
                 else money_document_type(activity["kind"]),
                 facts=facts,
+                fiscal_overrides=resolution.fiscal_overrides if resolution else None,
                 declaration=TypeAdapter(DgiiDeclaration).validate_python(
                     row["after_dgii"]
                 )
