@@ -445,10 +445,13 @@ class DocumentsService:
     def release_queued(
         self, *, user_id: str, connection_id: str, scope: OwnerScope, code: str
     ) -> None:
-        """A queued read that could not start waits saved, unread, with its reason."""
+        """A queued read that could not start waits saved, unread, with its reason.
+        One with an attempt recorded for this version did start; it stays queued."""
 
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
-        if draft.status == "queued":
+        job = self.store.job(user_id=user_id, connection_id=connection_id)
+        started = job is not None and job.draft_version == draft.version
+        if draft.status == "queued" and not started:
             self._update(user_id, draft, status="saved", consent=False, error_code=code)
 
     def _business_permission(self, scope: OwnerScope, user_id: str) -> dict:
