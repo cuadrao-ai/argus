@@ -13,9 +13,9 @@ from argus.domain.business.actions import plans, sources
 from argus.domain.business.actions.facts import facts_of, patched_facts, validate_facts
 from argus.domain.business.amount_inheritance import (
     INHERITANCE,
+    draft_is_paid,
     inherit_amounts,
     inheritance_overrides,
-    paid_from_facts,
 )
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
@@ -184,7 +184,7 @@ def save_revision(
         )
     declaration = inherit_amounts(
         after, declaration, fiscal_overrides,
-        paid=paid_from_facts(after) or bill_mark == "Factura pagada",
+        paid=draft_is_paid(tx, event.activity_id, bill_mark),
     )
     amount_derived = isinstance(declaration, PurchaseDeclaration) and not set(fiscal_overrides).intersection({"goods_amount", "services_amount"})
     resolution["business"] = BusinessResolution(

@@ -9781,7 +9781,10 @@ source. Goods and services share override ownership; restoring either restores
 both sides from the confirmed expense type. Their sum must equal the net
 amount before export. `modified_ncf` never inherits. The fiscal declaration's
 optional ITBIS override does not rewrite the main ITBIS fact. Main amount
-updates refresh inherited fields on every revision. The existing monthly
+updates refresh inherited fields on every revision. Payment-date inheritance
+uses the stored document settlement or the existing paid-bill mark, never the
+selected account. Reads and exports refresh inherited values when settlement
+changes. An explicit fiscal date remains an override. The existing monthly
 sin-comprobante purchase cost remains the gross amount because its ITBIS is
 not creditable; all other monthly net calculations use the same net owner.
 

@@ -73,3 +73,52 @@ def test_service_charge_read_is_saved_with_subtotal_without_changing_gross(actio
     assert view.net_amount.amount == "1289.46"
     assert Decimal(view.facts.legal_tip.value) == Decimal("100")
     assert Decimal(view.facts.amount.value) == Decimal("33254.91")
+
+
+@pytest.mark.owner_acts
+def test_payment_date_follows_settlement_in_dossier_and_fiscal_snapshot(actions):
+    from datetime import date
+
+    from argus.domain.business.contracts.actions import ApproveExpense
+    from argus.domain.business.dgii_snapshot import fiscal_snapshot
+    from argus.domain.business.month_close import Settlement
+    from argus.domain.business.month_close_store import settle_document
+    from psycopg.rows import dict_row
+
+    from tests.test_business_dgii_postgres import business_account
+
+    service, context, _ = actions
+    draft, version = create(service, context)
+    account = business_account(service, context)
+    result = service.review(context, draft, ReviewDraft(
+        version=version,
+        facts=BusinessFactPatch.model_validate({
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "expense", "amount": "1180", "currency": "DOP",
+                "occurred_on": "2026-11-01", "counterparty": "Prueba local",
+                "funding": {"kind": "business_account", "account_id": str(account)},
+                "business_share": {"kind": "all"}, "receipt_state": "fiscal_receipt",
+            }.items()
+        }),
+        dgii=FiscalReview(fiscal=FiscalInput(rnc="199990021", ncf="B0100000088", itbis="180"), declaration=apply_purchase(None, PurchaseReview(category="09", payment_method="01", id_type="1"))),
+    ), str(uuid4()))
+    assert result.outcome == "applied"
+    pending = service.dossier(context, draft)
+    assert pending.dgii.paid_on is None
+    assert pending.inheritance["paid_on"].value is None
+    approved = service.approve(context, draft, ApproveExpense(version=result.version, action="record_expense", approve_anyway=True), str(uuid4()))
+    assert approved.outcome == "applied", approved
+    activity_id = service.dossier(context, draft).approval_result.activity_id
+    settle_document(service.authority, context, str(activity_id), Settlement("pagado", date(2026, 11, 3), "efectivo"))
+    paid = service.dossier(context, draft)
+    assert paid.dgii.paid_on == date(2026, 11, 1)
+    assert paid.inheritance["paid_on"].value == "2026-11-01"
+    with service.authority.pool.connection() as db:
+        activities = [service.imports.money.repository.get_activity(user_id=context.owner_id, activity_id=str(activity_id), scope=context.scope)]
+        with db.cursor(row_factory=dict_row) as cursor:
+            records, _, _ = fiscal_snapshot(cursor, context, activities)
+    record = next(record for record in records if str(record.activity_id) == str(activity_id))
+    assert record.declaration.paid_on == date(2026, 11, 1)
+    settle_document(service.authority, context, str(activity_id), Settlement("pendiente", None, None))
+    assert service.dossier(context, draft).dgii.paid_on is None

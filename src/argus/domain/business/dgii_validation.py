@@ -51,6 +51,7 @@ class FiscalRecord:
     personal: bool = False
     include_606: bool | None = None
     fiscal_overrides: tuple[str, ...] | None = None
+    paid: bool = False
 
 
 def ncf_type(value: str) -> str | None:

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from argus.domain.business.transactions import ActionTransaction
 
 from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
 from argus.domain.business.contracts.facts import BusinessFacts, InheritedValue, Known
@@ -62,7 +66,7 @@ def inheritance_state(
 def inherit_amounts(
     facts: BusinessFacts,
     declaration: DgiiDeclaration | None,
-    overrides: tuple[str, ...],
+    overrides: tuple[str, ...] | None,
     *,
     paid: bool = False,
 ) -> DgiiDeclaration | None:
@@ -122,5 +126,16 @@ def inheritance_overrides(
     return tuple(sorted(overrides))
 
 
-def paid_from_facts(facts: BusinessFacts) -> bool:
-    return isinstance(facts.funding, Known) and facts.kind.value in {"expense", "refund", "income"}
+def document_is_paid(status: str | None, bill_mark: str | None = None) -> bool:
+    return status in {"pagado", "cobrado"} or bill_mark == "Factura pagada"
+
+
+def draft_is_paid(
+    tx: ActionTransaction, activity_id: str | None, bill_mark: str | None
+) -> bool:
+    rows = tx.rows(
+        "select status from public.business_document_settlements"
+        " where space_id=%s and owner_id=%s and activity_id=%s",
+        (tx.context.actor.space_id, tx.context.owner_id, activity_id),
+    ) if activity_id else []
+    return document_is_paid(rows[0]["status"] if rows else None, bill_mark)
