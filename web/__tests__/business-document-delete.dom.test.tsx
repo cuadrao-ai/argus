@@ -327,8 +327,8 @@ test("Eliminados lines each row up with its headers: who on one line, when on it
   assert.equal(actor.children[1].getAttribute("datetime"), "2026-11-12T10:00:00Z");
   assert.doesNotMatch(actor.textContent ?? "", /·/);
   const actions = row.lastElementChild!;
-  assert.deepEqual([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label") ?? button.textContent), ["Eliminar definitivamente Documento eliminado", "Ver", "Restaurar"]);
-  assert.equal(actions.querySelector('[data-testid="purge-document"]')!.textContent, "", "the hidden action is an icon, so showing it moves nothing");
+  assert.deepEqual([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label") ?? button.textContent), ["Ver", "Restaurar", "Eliminar definitivamente Documento eliminado"]);
+  assert.equal(actions.querySelector('[data-testid="purge-document"]')!.textContent, "", "the hidden action is an icon at the far right, so showing it moves nothing");
 });
 
 test("Eliminados counts down to the server's purge day", async () => {

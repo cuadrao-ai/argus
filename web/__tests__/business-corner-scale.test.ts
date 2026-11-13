@@ -56,6 +56,8 @@ const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
     ".checkbox input | border-radius | 4px",
     ".bulkBar button | border-radius | 999px",
     ".unseenDot | border-radius | 50%",
+    ".viewAction | border-radius | 999px",
+    ".restoreAction::before | border-radius | 999px",
     ".detailHeader h2:focus-visible | border-radius | 4px",
   ],
   "components/business-app/invoicing/invoicing-preview.module.css": [

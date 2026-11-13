@@ -136,7 +136,7 @@ describe("pointer capability stays an affordance concern", () => {
     const mediaBlocks = (source: string) => source.match(/@media[^{}]*\{(?:[^{}]|\{[^{}]*\})*\}/g)?.map((block) => block.replace(/\s+/g, " ").trim()) ?? [];
     const reception = readFileSync(join(import.meta.dir, "../components/business-app/recepcion/reception.module.css"), "utf-8");
     expect(mediaBlocks(reception).filter(block => /hover:|pointer:/.test(block))).toEqual([
-      "@media (hover:none) { .trashAction,.purgeAction { opacity:1; } }",
+      "@media (hover:none) { .trashAction { opacity:1; } }",
     ]);
     expect(mediaBlocks(recordCells)).toEqual(approved);
     expect(mediaBlocks(recordCells + "\n@media (pointer:fine) { :global(body) { display:none; } }")).not.toEqual(approved);

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { FileText, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { referenceCode } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
@@ -122,7 +123,7 @@ function purgedBefore(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "business_document_purged";
 }
 
-export function RestoreDocumentButton({ id, target, onRestored }: { id: string; target: BusinessPanelState; onRestored?: () => void }) {
+export function RestoreDocumentButton({ id, target, onRestored, className = secondaryButtonClass }: { id: string; target: BusinessPanelState; onRestored?: () => void; className?: string }) {
   const { t } = useTranslation();
   const { source, reload, openPanel, chosen } = useBusiness();
   const [busy, setBusy] = useState(false);
@@ -150,11 +151,11 @@ export function RestoreDocumentButton({ id, target, onRestored }: { id: string; 
     } finally { inFlight.current = false; setBusy(false); }
   };
   if (!chosen?.capabilities.includes("approve") || !source.restoreDocument) return null;
-  return <span className="inline-flex flex-col items-start"><button type="button" className={secondaryButtonClass} disabled={busy} onClick={() => void restore()}>{t("business.document_delete.restore")}</button>{failure ? <span role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.document_delete.restore_failed")} <ReferenceCode reference={failure} /></span> : null}</span>;
+  return <span className="inline-flex flex-col items-start"><button type="button" className={className} disabled={busy} onClick={() => void restore()}>{t("business.document_delete.restore")}</button>{failure ? <span role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.document_delete.restore_failed")} <ReferenceCode reference={failure} /></span> : null}</span>;
 }
 
 /** "Eliminar definitivamente" in Eliminados: the owner confirms, the server purges, and there is no undo. */
-export function PurgeDocumentButton({ target }: { target: DeleteDocumentTarget }) {
+export function PurgeDocumentButton({ target, className }: { target: DeleteDocumentTarget; className: string }) {
   const { t } = useTranslation();
   const { source, reload, chosen } = useBusiness();
   const [open, setOpen] = useState(false);
@@ -181,7 +182,7 @@ export function PurgeDocumentButton({ target }: { target: DeleteDocumentTarget }
   };
   if (!chosen?.capabilities.includes("approve") || !source.purgeDocument) return null;
   return <>
-    <button type="button" data-testid="purge-document" aria-label={t("business.document_delete.purge_label", { name: target.name })} onClick={() => { setFailure(null); setOpen(true); }} className={`min-h-11 rounded-full px-3 text-[14px] font-medium text-[#9e2f39] hover:bg-[#f6dfe0]/50 dark:text-[#ec9aa0] dark:hover:bg-white/5 ${FOCUS_RING}`}>{t("business.document_delete.purge")}</button>
+    <Tooltip content={t("business.document_delete.purge")} side="top"><button type="button" data-testid="purge-document" aria-label={t("business.document_delete.purge_label", { name: target.name })} onClick={() => { setFailure(null); setOpen(true); }} className={`${className} rounded-full`}><Trash2 size={17} aria-hidden="true" /></button></Tooltip>
     {open ? <ConfirmDialog isOpen title={t("business.document_delete.purge_title")} description={t("business.document_delete.purge_description")} confirmLabel={t("business.document_delete.purge")} cancelLabel={t("common.cancel")} isBusy={busy} onCancel={close} onConfirm={() => void purge()} error={failure ? <>{t("business.document_delete.purge_failed")} <ReferenceCode reference={failure} /></> : null}><DeleteFacts target={target} withState={false} /></ConfirmDialog> : null}
   </>;
 }

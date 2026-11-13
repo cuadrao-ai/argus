@@ -3,9 +3,9 @@
 import { useTranslation } from "react-i18next";
 import { dueDistance } from "@/lib/business-month-close";
 import { formatRelativeTime, todayIso } from "../business-format";
-import { quietButtonClass } from "../business-ui";
 import { PurgeDocumentButton, RestoreDocumentButton } from "../DocumentDeleteControls";
 import type { BusinessPanelState } from "../BusinessWorkspace";
+import ReceptionCutText from "./ReceptionCutText";
 import { receptionTarget, rowDeleteTarget, type ReceptionRow } from "./reception-model";
 import styles from "./reception.module.css";
 
@@ -17,7 +17,7 @@ export function purgeDays(purgeAt: string, now = new Date()): number {
 
 export function DeletedColumns() {
   const { t } = useTranslation();
-  return <div className={styles.deletedColumns}>{["content", "previous", "actor", "purge"].map(key => <span key={key} className={key === "previous" ? styles.deletedPrevious : undefined}>{t(`business.document_delete.columns.${key}`)}</span>)}<span className="sr-only">{t("business.document_delete.actions")}</span></div>;
+  return <div className={styles.deletedColumns} data-testid="deleted-columns">{["content", "previous", "actor", "purge"].map(key => <span key={key} className={key === "previous" ? styles.deletedPrevious : undefined}>{t(`business.document_delete.columns.${key}`)}</span>)}<span className="sr-only">{t("business.document_delete.actions")}</span></div>;
 }
 
 export default function ReceptionDeletedRow({ row, title, openPanel }: { row: ReceptionRow; title: string; openPanel: (panel: BusinessPanelState) => void }) {
@@ -29,10 +29,10 @@ export default function ReceptionDeletedRow({ row, title, openPanel }: { row: Re
   const target = receptionTarget(row);
   const days = purgeDays(deletion.purge_at);
   return <li className={styles.deletedRow} data-testid="deleted-document-row">
-    <span className={styles.deletedName}>{title}</span>
+    <ReceptionCutText text={title} className={styles.deletedName} />
     <span className={`${styles.deletedMeta} ${styles.deletedPrevious}`}>{t(`business.document_delete.previous.${deletion.previous_state.group}`)}</span>
-    <span className={styles.deletedMeta}>{deletion.actor.display_name} · <time dateTime={deletion.at}>{formatRelativeTime(deletion.at, i18n.resolvedLanguage ?? i18n.language)}</time></span>
-    <time className={styles.deletedMeta} dateTime={deletion.purge_at} data-testid="purge-countdown"><span className={styles.purgeLead}>{t("business.document_delete.columns.purge")} </span>{days > 0 ? t("business.document_delete.purge_in", { count: days }) : t("business.document_delete.purge_today")}</time>
-    <span className={styles.deletedActions}>{document.restore_available ? <span className={styles.purgeAction}><PurgeDocumentButton target={rowDeleteTarget(row, "", title)} /></span> : null}<button type="button" className={quietButtonClass} onClick={() => openPanel(target)}>{t("business.document_delete.view")}</button>{document.restore_available ? <RestoreDocumentButton id={row.id} target={target} /> : null}</span>
+    <span className={styles.deletedActor} data-testid="deleted-actor"><ReceptionCutText text={deletion.actor.display_name} className={styles.deletedActorName} /><time className={styles.deletedMeta} dateTime={deletion.at}>{formatRelativeTime(deletion.at, i18n.resolvedLanguage ?? i18n.language)}</time></span>
+    <time className={styles.deletedMeta} dateTime={deletion.purge_at} data-testid="purge-countdown" data-last-day={days === 0}><span className={styles.purgeLead}>{t("business.document_delete.columns.purge")} </span>{days > 0 ? t("business.document_delete.purge_in", { count: days }) : t("business.document_delete.purge_today")}</time>
+    <span className={styles.deletedActions}><button type="button" className={styles.viewAction} onClick={() => openPanel(target)}>{t("business.document_delete.view")}</button>{document.restore_available ? <RestoreDocumentButton id={row.id} target={target} className={styles.restoreAction} /> : null}{document.restore_available ? <PurgeDocumentButton target={rowDeleteTarget(row, "", title)} className={styles.trashAction} /> : null}</span>
   </li>;
 }
