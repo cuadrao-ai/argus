@@ -48,6 +48,6 @@ export default function ReceptionArrivalRow({ row, view, panel, openPanel, prefe
     {preferences.currency ? <span data-testid="reception-currency" className={styles.currencyCell}>{receipt?.currency ? currencySymbol(receipt.currency) : <Unknown />}</span> : null}
     {view === "listos" ? null : <ReceptionStatus row={row} reasonOnly={view === "attention"} />}
     {arrival ? <span className={styles.arrival}>{arrival}</span> : null}
-    <div className={styles.rowActions}>{onDelete ? <Tooltip content={t("business.document_delete.delete")} side="top"><button type="button" className={`${styles.trashAction} rounded-full`} onClick={onDelete} aria-label={t("business.document_delete.label", { name: title })}><Trash2 size={17} aria-hidden="true" /></button></Tooltip> : null}<button type="button" className={`${styles.rowAction} rounded-full`} onClick={open}><span>{word("placeholder.open")}</span></button></div>
+    <div className={styles.rowActions}><button type="button" className={`${styles.rowAction} rounded-full`} onClick={open}><span>{word("placeholder.open")}</span></button>{onDelete ? <Tooltip content={t("business.document_delete.delete")} side="top"><button type="button" className={`${styles.trashAction} rounded-full`} onClick={onDelete} aria-label={t("business.document_delete.label", { name: title })}><Trash2 size={17} aria-hidden="true" /></button></Tooltip> : <span className={styles.trashSlot} aria-hidden="true" />}</div>
   </li>;
 }
