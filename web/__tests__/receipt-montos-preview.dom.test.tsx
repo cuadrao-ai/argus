@@ -101,7 +101,7 @@ test("a failed amount preview retains the last warning instead of claiming a bal
   } finally { await page.close(); }
 });
 
-test("a preview shows only for the amounts it was computed from, and a failed one says the check is unavailable", async () => {
+test("a preview shows only for the amounts it was computed from, and a failed one says the sum is checked on save", async () => {
   const requests: { resolve: (value: import("@/lib/business-api").BusinessAmountsPreview) => void; reject: (error: Error) => void }[] = [];
   const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }]; }, () => ({
     previewAmounts: async () => new Promise((resolve, reject) => { requests.push({ resolve, reject }); }),
@@ -119,7 +119,7 @@ test("a preview shows only for the amounts it was computed from, and a failed on
     await page.wait(() => requests.length === 2);
     await page.act(async () => requests[1].reject(new Error("preview offline")));
     assert.equal(difference(), "Diferencia 20.00");
-    assert.equal(unavailable()?.textContent, "No pudimos revisar la suma.");
+    assert.equal(unavailable()?.textContent, "Se revisa al guardar.", "the server checks the sum again when the person saves");
     assert.equal(page.writes.length, 0);
   } finally { await page.close(); }
 });

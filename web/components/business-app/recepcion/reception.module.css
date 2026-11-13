@@ -25,7 +25,7 @@
 /* Documento starts 16px in: the open row's 3px bar, a 4px gap, the 5px unseen dot and 4px before the title each keep their own lane. */
 .columns > .contentHeading { padding-left:16px; }
 .row { position:relative; min-height:var(--row-height); padding:0; border-bottom:1px solid var(--line); transition:background-color 140ms ease; cursor:pointer; }
-.row:hover,.row:focus-within { background:color-mix(in srgb,var(--fg) 3%,transparent); }
+.row:hover,.row:has(:focus-visible) { background:color-mix(in srgb,var(--fg) 3%,transparent); }
 .row[data-selected=true],.row[data-checked=true] { background:color-mix(in srgb,var(--cuadrao-green) 7%,transparent); }
 .row[data-selected=true] { box-shadow:inset 3px 0 var(--cuadrao-green); }
 .identity { display:flex; align-items:center; gap:10px; min-width:0; width:100%; min-height:44px; padding:6px 12px 6px 16px; text-align:left; border-radius:4px; }
@@ -214,7 +214,8 @@
 
 .rowActions { display:flex; align-items:center; justify-content:flex-end; min-height:44px; }
 .trashAction { display:inline-flex; width:44px; height:44px; flex-shrink:0; align-items:center; justify-content:center; color:#9e2f39; opacity:0; transition:opacity 140ms ease-out; }
-.row:hover .trashAction,.row:focus-within .trashAction,.deletedRow:hover .trashAction,.deletedRow:focus-within .trashAction { opacity:1; }
+.row:hover .trashAction,.row:has(:focus-visible) .trashAction { opacity:1; }
+.deletedRow:hover .trashAction,.deletedRow:has(:focus-visible) .trashAction { opacity:1; }
 .trashAction:hover { background:#f6dfe0; }
 :global(.dark) .trashAction { color:#ec9aa0; }
 :global(.dark) .trashAction:hover { background:#4a2a2f; }
@@ -228,7 +229,7 @@
 .deletedColumns,.deletedRow { display:grid; grid-template-columns:subgrid; grid-column:1 / -1; align-items:center; border-bottom:1px solid var(--line); }
 .deletedColumns { min-height:40px; color:var(--muted); font-size:13px; font-weight:500; }
 .deletedRow { min-height:var(--row-height); padding:8px 0; font-size:14px; line-height:20px; transition:background-color 140ms ease; }
-.deletedRow:hover,.deletedRow:focus-within { background:color-mix(in srgb,var(--fg) 3%,transparent); }
+.deletedRow:hover,.deletedRow:has(:focus-visible) { background:color-mix(in srgb,var(--fg) 3%,transparent); }
 .deletedColumns > span,.deletedRow > * { min-width:0; padding:0 12px; white-space:nowrap; }
 .deletedColumns > :first-child,.deletedRow > :first-child { padding-left:16px; }
 .deletedName,.deletedActorName { display:block; overflow:hidden; text-overflow:ellipsis; }

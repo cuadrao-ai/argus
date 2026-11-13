@@ -130,7 +130,7 @@ describe("pointer capability stays an affordance concern", () => {
 
     const recordCells = readFileSync(join(import.meta.dir, "../components/business-app/transacciones/transacciones-cells.module.css"), "utf-8");
     const approved = [
-      "@media (hover:hover) and (pointer:fine) { .emptyActionDash { visibility:visible; } .emptyActionIcon { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionDash, :global(tr[data-record-key]:focus-within) .emptyActionDash { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionIcon, :global(tr[data-record-key]:focus-within) .emptyActionIcon { visibility:visible; } }",
+      "@media (hover:hover) and (pointer:fine) { .emptyActionDash { visibility:visible; } .emptyActionIcon { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionDash, :global(tr[data-record-key]:focus-visible) .emptyActionDash, :global(tr[data-record-key]:has(:focus-visible)) .emptyActionDash { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionIcon, :global(tr[data-record-key]:focus-visible) .emptyActionIcon, :global(tr[data-record-key]:has(:focus-visible)) .emptyActionIcon { visibility:visible; } }",
       "@media (any-pointer:coarse) { .emptyActionDash { visibility:hidden; } .emptyActionIcon { visibility:visible; } }",
     ];
     const mediaBlocks = (source: string) => source.match(/@media[^{}]*\{(?:[^{}]|\{[^{}]*\})*\}/g)?.map((block) => block.replace(/\s+/g, " ").trim()) ?? [];

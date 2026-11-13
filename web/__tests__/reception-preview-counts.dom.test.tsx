@@ -227,22 +227,44 @@ test("the tabs own status: Filtros adds nothing for a tab and the four tabs stay
   assert.equal(page.host.querySelectorAll('[role="tab"][id^="reception-tab-"]').length, 4);
 });
 
-test("Estado is the tag on Todos, the plain reason on Necesitan atención, and gone on Listos", async () => {
+test("the state column is Estado with the tag on Todos, Motivo with the plain reason on Necesitan atención, and gone on Listos", async () => {
   const page = await mount();
-  const estado = () => [...page.host.querySelectorAll("#reception-list > div:first-child > span")].some(cell => cell.textContent === "Estado");
+  const heading = (word: string) => [...page.host.querySelectorAll("#reception-list > div:first-child > span")].some(cell => cell.textContent === word);
+  const estado = () => heading("Estado");
   const row = () => page.row("Recibo con problema")!;
   assert.equal(estado(), true);
   assert.equal(row().querySelector('[data-testid="status-pill"]')?.textContent, "Necesita atención");
   assert.equal(row().querySelector('[data-testid="reception-reason"]'), null, "the tag alone on Todos");
+  assert.equal(heading("Motivo"), false);
   await page.click(page.tab("attention"));
-  assert.equal(estado(), true);
+  assert.equal(heading("Motivo"), true, "every row here needs attention, so the column names why");
+  assert.equal(estado(), false);
+  await page.click(page.host.querySelector<HTMLButtonElement>('button[aria-label="Opciones de vista"]'));
+  const columns = [...document.querySelectorAll('section[aria-label="Información visible"] li')].map(item => item.textContent);
+  assert.ok(columns.some(text => text?.startsWith("Motivo")), "the settings name the column as the header does");
+  assert.ok(!columns.some(text => text?.startsWith("Estado")));
   assert.equal(row().querySelector('[data-testid="status-pill"]'), null, "no tag where the tab already says it");
   assert.equal(row().querySelector('[data-testid="reception-reason"]')?.textContent, "No se pudo leer");
   assert.equal(page.row("Recibo en lectura"), undefined, "a read still running shows only on Todos");
   await page.click(page.tab("listos"));
   assert.equal(estado(), false);
+  assert.equal(heading("Motivo"), false);
   assert.equal(page.row("Listo uno")?.querySelector('[data-testid="status-pill"]'), null);
   assert.equal(page.row("Listo uno")?.querySelector('[data-testid="reception-reason"]'), null);
+});
+
+test("the file button names the file in one tooltip and keeps its label", async () => {
+  const page = await mount();
+  const { TOOLTIP_DELAY_MS } = await import("@/components/ui/Tooltip");
+  const file = page.row("Recibo con problema")!.querySelector<HTMLButtonElement>('[data-testid="reception-original"]')!;
+  const name = (page.context.records.inbox.find(receipt => receipt.id === "problem-receipt")!.filename)!;
+  assert.ok(name);
+  assert.equal(file.hasAttribute("title"), false, "a native title would show a second tooltip");
+  assert.equal(file.getAttribute("aria-label"), `Abrir original: ${name}`);
+  await page.act(async () => { file.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); });
+  await page.act(async () => { await new Promise(resolve => setTimeout(resolve, TOOLTIP_DELAY_MS + 30)); });
+  assert.equal(document.querySelectorAll('[role="tooltip"]').length, 1);
+  assert.equal(document.querySelector('[role="tooltip"]')?.textContent, name);
 });
 
 test("the boxes live only on Listos, for the owner", async () => {

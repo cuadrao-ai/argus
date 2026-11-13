@@ -15,9 +15,11 @@ button.noteButton { min-height:44px; line-height:44px; }
   .emptyActionDash { visibility:visible; }
   .emptyActionIcon { visibility:hidden; }
   :global(tr[data-record-key]:hover) .emptyActionDash,
-  :global(tr[data-record-key]:focus-within) .emptyActionDash { visibility:hidden; }
+  :global(tr[data-record-key]:focus-visible) .emptyActionDash,
+  :global(tr[data-record-key]:has(:focus-visible)) .emptyActionDash { visibility:hidden; }
   :global(tr[data-record-key]:hover) .emptyActionIcon,
-  :global(tr[data-record-key]:focus-within) .emptyActionIcon { visibility:visible; }
+  :global(tr[data-record-key]:focus-visible) .emptyActionIcon,
+  :global(tr[data-record-key]:has(:focus-visible)) .emptyActionIcon { visibility:visible; }
 }
 @media (any-pointer:coarse) {
   .emptyActionDash { visibility:hidden; }
