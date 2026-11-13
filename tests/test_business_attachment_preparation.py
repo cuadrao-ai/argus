@@ -464,3 +464,88 @@ def test_existing_currency_takes_precedence_over_fiscal_receipt_default(
             assert after.source_ids == ()
     else:
         assert after == prior.currency
+
+
+@pytest.mark.parametrize("rows", ["no-rows", "transaction-row", "unclassified-row"])
+@pytest.mark.parametrize(
+    ("fiscal", "currency", "origin"),
+    [
+        (
+            {"ecf": "E310000000001", "rnc": "199990021", "itbis": "538.50"},
+            "DOP",
+            "default",
+        ),
+        ({}, None, "extracted"),
+    ],
+    ids=["fiscal", "not-fiscal"],
+)
+def test_a_receipt_total_that_names_no_currency_becomes_a_draft(
+    checked, monkeypatch, faker, rows, fiscal, currency, origin
+):
+    """An incomplete read with a positive total and no currency anywhere is a
+    draft, not a refusal: DOP by default when it carries an NCF or e-CF,
+    currency unknown for a person to choose when it does not."""
+
+    from decimal import Decimal
+
+    from argus.domain.business.actions import mutations, sources
+    from argus.domain.ingestion.documents.extractor import (
+        batch_from_result,
+        named_currencies,
+    )
+    from argus.domain.ingestion.documents.models import ExtractionResult
+    from loguru import logger
+
+    _, tx, binding, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    tx.context.owner_id = str(binding.owner_id)
+    merchant = faker.company()
+    observed = {
+        "no-rows": [],
+        "transaction-row": [
+            dict(
+                page=1,
+                row=1,
+                evidence="transaction",
+                amount="10189.45",
+                merchant=merchant,
+            )
+        ],
+        "unclassified-row": [dict(page=1, row=1, evidence="unclassified")],
+    }[rows]
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=False,
+            readable=True,
+            pages_read=[1],
+            observations=observed,
+            receipt=dict(merchant=merchant, total="10189.45", **fiscal),
+        )
+    )
+    batch = batch_from_result(
+        result, draft.sha256, draft.connection_id, draft.created_at, 1
+    )
+    assert named_currencies(batch) == set()
+    event = mutations.new_candidate(str(binding.owner_id), draft.created_at)
+    monkeypatch.setattr(mutations, "new_candidate", lambda *args: event)
+    monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
+    save = Mock()
+    monkeypatch.setattr(mutations, "save_revision", save)
+    records = []
+    sink = logger.add(lambda message: records.append(message.record), level="INFO")
+    try:
+        mutations.prepare_attachment(tx, None, batch, draft, binding.actor)
+    finally:
+        logger.remove(sink)
+
+    after = save.call_args.args[3]
+    assert (after.amount.state, Decimal(str(after.amount.value))) == (
+        "known",
+        Decimal("10189.45"),
+    )
+    assert after.amount.verified is False
+    assert (after.currency.value, after.currency.origin) == (currency, origin)
+    assert after.currency.state == ("known" if currency else "unknown")
+    assert after.currency.verified is False
+    fired = [r for r in records if "fiscal_receipt_currency_default" in r["message"]]
+    assert len(fired) == int(bool(fiscal))

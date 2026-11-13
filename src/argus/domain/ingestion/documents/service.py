@@ -624,12 +624,7 @@ class DocumentsService:
                 raise DocumentServiceError("document_attempt_superseded")
         replayed = batch is not None
         from argus.domain.business import analytics as business_analytics
-        from argus.domain.business.actions.mutations import _read_refusal
 
-        if batch is not None and _read_refusal(batch) == "receipt_requires_review":
-            # The same saved batch refuses again. Only a new read can finish it.
-            batch = None
-            replayed = False
         # Set once a provider call is admitted: only such a read is reported.
         provider_called = False
         read_started = read_ms = None

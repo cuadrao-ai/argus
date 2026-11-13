@@ -10390,9 +10390,11 @@ accept path recorded.
   `preparable: false`. A readable fiscal bill (an NCF and a plain total on
   `batch.receipt`) that was refused stays `interrupted` and `preparable: true`.
   "Try again with AI" replays the saved read without a new provider call and
-  runs the hand-off again, except for an incomplete receipt that is not a
-  fiscal bill. Replaying that batch refuses the same way, so the retry asks
-  the provider for a new read. On a replay a fiscal bill becomes one expense
+  runs the hand-off again. A saved read is never replaced, so a replay never
+  asks the provider for a new read. A readable receipt with a positive total
+  and no named currency becomes a review draft: a fiscal receipt takes DOP by
+  default, any other keeps the currency unknown. An incomplete receipt with no
+  total is refused again as `receipt_requires_review`. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
   statement period. An NCF due notice is that one expense, marked
   `Factura por pagar` on the dossier as `bill_mark` (null while settlement is
