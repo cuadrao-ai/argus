@@ -121,6 +121,8 @@ def test_purged_document_is_not_found_and_cannot_be_restored(actions):
     with pytest.raises(ActionError) as missing:
         service.dossier(context, draft_id)
     assert missing.value.code == "business_record_not_found"
+    stale = client.get(f"/api/v1/business/drafts/{draft_id}/dossier")
+    assert (stale.status_code, stale.json()["code"]) == (404, "business_record_not_found")
     with pytest.raises(Exception) as gone:
         web.service.receipt(web.scope, cid)
     assert "NotFound" in type(gone.value).__name__
