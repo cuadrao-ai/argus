@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { chromium, expect } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "../e2e/support/breakpoint-fixture";
-import { monthCloseWire, OPEN_ITEMS_WIRE } from "../e2e/support/month-close-wire";
+import { monthCloseWire } from "../e2e/support/month-close-wire";
 import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
 import { designServerFieldsReception } from "../e2e/support/design-server-fields-reception";
 import { supportEmail } from "../lib/support-email";
@@ -16,7 +16,7 @@ const stage = process.env.EVIDENCE_STAGE ?? "after";
 const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const output = resolve(process.env.EVIDENCE_OUTPUT ?? "../temp/lucas-design-server-fields", stage);
 mkdirSync(output, { recursive: true });
-const cases = process.env.EVIDENCE_CASE === "receipt" ? ["inicio-receipts-failed"] : ["inicio-business-refused", "inicio-month-500", "inicio-open-items-refused", "inicio-month-refused", "bandeja-al-dia", "bandeja-mixed", "bandeja-refused", "inicio-receipts-failed", "inicio-known-zero", "inicio-receipts-loading", "inicio-receipts-refused", "inicio-receipts-unknown", "inicio-receipts-tasks"];
+const cases = process.env.EVIDENCE_CASE === "receipt" ? ["inicio-receipts-failed"] : ["inicio-business-refused", "inicio-month-500", "inicio-settlement-off", "inicio-month-refused", "bandeja-al-dia", "bandeja-mixed", "bandeja-refused", "inicio-receipts-failed", "inicio-known-zero", "inicio-receipts-loading", "inicio-receipts-refused", "inicio-receipts-unknown", "inicio-receipts-tasks"];
 const receiptChecks: { state: string; width: number; retry: boolean; recovered?: boolean; reads_before?: number; reads_after?: number }[] = [];
 const monthChecks: { width: number; reads_before: number; reads_after: number }[] = [];
 const retryChecks: { width: number; notes_before: number; notes_after: number; emails_before: number; emails_after: number }[] = [];
@@ -36,14 +36,12 @@ try {
       await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
       const source = createFixtureBusinessDataSource({ chatAvailable: false });
       const spaces = (await source.spaces()).slice(0, 1);
-      const calls = { notes: 0, emails: 0, receipts: 0, month: 0 };
+      const calls = { notes: 0, emails: 0, receipts: 0, month: 0, openItems: 0 };
       let receiptsDown = true;
       let releaseReceipts = () => {};
       const receiptRead = new Promise<void>((resolve) => { releaseReceipts = resolve; });
       let emailsDown = true;
       let monthDown = true;
-      // Por cobrar and Por pagar exist only while the server's settlement is on.
-      const settles = state === "inicio-open-items-refused" || state === "inicio-receipts-tasks";
       await page.route("**/api/v1/business/**", async (route) => {
         const url = new URL(route.request().url());
         const path = url.pathname.split("/business/")[1];
@@ -51,7 +49,7 @@ try {
         if (state === "inicio-business-refused" && path === "overview") return refuse();
         if (state === "inicio-month-refused" && path === "month-close") return refuse();
         if (state === "inicio-month-500" && path === "month-close") { calls.month += 1; if (monthDown) return refuse(500, "internal_error"); }
-        if (state === "inicio-open-items-refused" && path === "open-items") return refuse();
+        if (path === "open-items") { calls.openItems += 1; return refuse(); }
         if (path === "receipts") {
           calls.receipts += 1;
           if ((state === "inicio-receipts-failed" || state === "inicio-receipts-tasks") && receiptsDown) return route.abort("connectionfailed");
@@ -62,7 +60,7 @@ try {
         if ((state === "bandeja-refused" || state === "bandeja-mixed") && path === "captures") { calls.notes += 1; return refuse(); }
         if (state === "bandeja-refused" && path === "email/deliveries") return refuse(503, "email_capture_unavailable");
         if (state === "bandeja-mixed" && path === "email/deliveries") { calls.emails += 1; return emailsDown ? refuse(500, "internal_error") : route.fulfill({ json: { items: [] } }); }
-        if (path === "workspace") return route.fulfill({ json: settles ? { ...await source.workspace(), settlement_available: true } : await source.workspace() });
+        if (path === "workspace") return route.fulfill({ json: { ...await source.workspace(), settlement_available: false } });
         if (path === "space/name-prompt") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba", name_required: false, name_prompt_seen: true, show_prompt: false } });
         if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba" } });
         if (path === "spaces") return route.fulfill({ json: { spaces } });
@@ -74,14 +72,9 @@ try {
         if (path === "captures" || path === "email/deliveries" || path === "email/senders") return route.fulfill({ json: { items: [] } });
         if (path === "consent") return fulfillAcceptedBusinessConsent(route);
         if (path === "month-close") {
-          const wire = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
-          if (state === "inicio-receipts-tasks") return route.fulfill({ json: wire });
+          const original = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
+          const wire = { ...original, missing_fiscal_rows: state === "inicio-receipts-tasks" ? [{ family: "purchase", currency: "DOP", count: 3, by_currency: false }] : [], currencies: original.currencies.map((block) => ({ ...block, itbis_charged: "8730.00", itbis_charged_minor: 873000, documents_counted: 4, documents_total: 4, documents_in_bandeja: 0 })) };
           return route.fulfill({ json: { ...wire, cuentas_por_cobrar: [], currencies: wire.currencies.map((block) => ({ ...block, net_result_final: true, by_status: { invoices: { pendiente: { count: 0, before_itbis_minor: 0 }, cobrado: { count: 1, before_itbis_minor: 5000000 } }, receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } } })) } });
-        }
-        if (path === "open-items") {
-          if (state === "inicio-receipts-tasks") return route.fulfill({ json: OPEN_ITEMS_WIRE });
-          const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] };
-          return route.fulfill({ json: { today: "2026-10-21", cuentas_por_cobrar: none, cuentas_por_pagar: none } });
         }
         if (path === "invitations") return route.fulfill({ json: [] });
         if (path === "spaces/fixture-space/profile") return route.fulfill({ json: { space_id: "fixture-space", name: "Colmado de prueba", country: "DO", currency: "DOP", revision: 0, details: {}, appearance: { kind: "default" }, image: null } });
@@ -105,7 +98,6 @@ try {
       const attentionLoading = page.getByTestId("home-attention-loading");
       const monthBody = page.getByTestId("home-month-body");
       const monthRetry = monthBody.getByRole("button", { name: "Reintentar", exact: true });
-      const moneyError = page.getByTestId("month-close-money-error");
       const receiptsFail = state === "inicio-receipts-failed" || state === "inicio-receipts-tasks";
       const attentionFails = receiptsFail || state === "inicio-business-refused" || state === "inicio-receipts-refused";
       const monthFails = state === "inicio-month-refused" || state === "inicio-month-500";
@@ -188,7 +180,7 @@ try {
           await noAttentionClaim();
           receiptChecks.push({ state, width, retry: false });
         }
-        if (state === "inicio-known-zero" || monthFails || state === "inicio-open-items-refused") {
+        if (state === "inicio-known-zero" || monthFails || state === "inicio-settlement-off") {
           await expect(attentionClear).toBeVisible();
           await expect(attentionClear).toContainText("Todo al día");
           await expect(attentionLoading).toHaveCount(0);
@@ -207,18 +199,16 @@ try {
           await expect(monthBody).toHaveAttribute("data-state", "ready");
           await expect(page.getByTestId("home-month-income")).toHaveAttribute("data-amount", "48500.00");
           await expect(page.getByTestId("home-month-expenses")).toHaveAttribute("data-amount", "12300.00");
-          // The server's net: final once nothing is left to mark, unknown (never a guess) while a document waits.
-          if (state === "inicio-receipts-tasks") await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-state", "unknown");
-          else await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-amount", "36200.00");
+          await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-amount", "36200.00");
+          await expect(page.getByTestId("home-month-itbis-sales")).toHaveAttribute("data-amount", "8730.00");
+          await expect(page.getByTestId("home-month-itbis-purchases")).toHaveAttribute("data-amount", "6516.00");
+          if (state === "inicio-receipts-tasks") {
+            await expect(page.getByTestId("home-month-fiscal")).toContainText("3");
+            await expect(page.getByTestId("home-month-fiscal-open")).toBeVisible();
+          }
         }
-        if (state === "inicio-open-items-refused") {
-          await expect(moneyError).toBeVisible();
-          await expect(moneyError.getByRole("alert")).toContainText("No pudimos cargar lo que falta por cobrar y por pagar");
-          await expect(moneyError).toContainText(`Si crees que es un error, escríbenos a ${supportEmail}.`);
-          await expect(moneyError).not.toContainText("conexión");
-          await expect(moneyError.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
-          for (const id of ["month-close-receivable", "month-close-payable", "month-close-nothing-open"]) await expect(page.getByTestId(id)).toHaveCount(0);
-        } else await expect(page.getByTestId("month-close-money")).toHaveCount(0);
+        for (const id of ["month-close-money", "month-close-close", "month-close-blockers"]) await expect(page.getByTestId(id)).toHaveCount(0);
+        expect(calls.openItems, "settlement off makes no open-items request").toBe(0);
       }
       if (state === "bandeja-refused" || state === "bandeja-mixed") {
         for (const [key, label] of [["attention", "Necesitan atención"], ["listos", "Listos"]] as const) {
@@ -249,13 +239,11 @@ try {
         await expect(attentionClear).toBeVisible();
         expect(calls.receipts).toBeGreaterThan(before);
         if (state === "inicio-receipts-tasks") {
-          // The same read brings the workspace: with settlement on, the document still to mark shows once it lands.
-          const receivable = page.getByTestId("month-close-receivable");
-          await expect(receivable.getByTestId("month-close-row")).toHaveCount(1);
-          await expect(receivable).toContainText("Colmado La Esquina");
-          await expect(receivable.getByTestId("month-close-receivable-total")).toHaveAttribute("data-currency", "DOP");
-          await expect(moneyError).toHaveCount(0);
-          await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-state", "unknown");
+          await expect(page.getByTestId("home-month-fiscal")).toContainText("3");
+          await expect(page.getByTestId("home-month-fiscal-open")).toBeVisible();
+          await expect(page.getByTestId("month-close-money")).toHaveCount(0);
+          await expect(page.getByTestId("home-month-net")).toHaveAttribute("data-amount", "36200.00");
+          expect(calls.openItems).toBe(0);
         }
         receiptChecks.push({ state, width, retry: true, recovered: true, reads_before: before, reads_after: calls.receipts });
         const recovered = `${state}-${width}-recovered.png`;

@@ -36,17 +36,18 @@ for (const width of [1280, 390]) {
     await setup(page);
     for (const view of ["overview", "inbox"]) {
       await page.goto(view === "overview" ? "/biz" : "/biz?view=inbox");
-      await expect(page.getByTestId(view === "overview" ? "month-close-task-review" : "business-inbox-receipts")).toBeVisible();
+      await expect(page.getByTestId(view === "overview" ? "home-attention" : "business-inbox-receipts")).toBeVisible();
       if (evidence) await page.screenshot({ path: `${evidence}/${baseline ? "before" : "after"}-${view}-${width}.png`, fullPage: true });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (baseline) continue;
       if (view === "overview") {
-        const action = page.getByTestId("month-close-task-review");
-        await expect(action).toContainText("Revisa 1 recibo en la Bandeja");
-        await expect(action).not.toContainText("8");
-        const cards = page.getByTestId("month-close-cards");
+        const action = page.getByTestId("home-attention");
+        await expect(action.getByTestId("home-attention-count")).toHaveText("8");
+        await expect(action.getByTestId("home-attention-rows").locator("li")).toHaveCount(1);
+        const cards = page.getByTestId("home-month");
         await expect(cards).toBeVisible();
-        expect((await action.boundingBox())!.y).toBeLessThan((await cards.boundingBox())!.y);
+        if (width === 390) expect((await action.boundingBox())!.y).toBeLessThan((await cards.boundingBox())!.y);
+        else expect((await action.boundingBox())!.x).toBeLessThan((await cards.boundingBox())!.x);
         await expect(cards).not.toContainText("RD$ 0");
       } else {
         await expect(page.getByTestId("receipt-reading-control")).toHaveCount(0);
