@@ -132,4 +132,3 @@ test("c4 Spanish future control (es-419 profile)", async ({ browser }) => {
     await esContext.close();
   }
 });
-

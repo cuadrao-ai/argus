@@ -95,4 +95,3 @@ test("p3 historical lookback control", async () => {
   await shot(page, "p3-lookback-control");
   await capture("p3-lookback-control", conversationId);
 });
-

@@ -106,4 +106,3 @@ test("f4 one-shot future refusal control", async () => {
   await shot(page, "f4-eth-future");
   await capture("f4-eth-future", conversationId);
 });
-

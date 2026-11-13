@@ -30,7 +30,6 @@ const REGISTERED: Surface[] = [
   { name: "feedback-menu", path: [FEEDBACK], marker: "feedback.type.bug" },
   { name: "archived", path: [DATA, "settings.data.archived_chats"] },
   { name: "deleted", path: [DATA, "settings.data.recently_deleted"] },
-  { name: "usage", path: [DATA, "settings.data.usage"] },
   { name: "shared-links", path: [DATA, "settings.data.shared_links"], optional: true },
   { name: "account-delete", path: [DATA, "settings.profile.delete_account"] },
   { name: "appearance", path: [PREFS, "settings.app.appearance"] },
