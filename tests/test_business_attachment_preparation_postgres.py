@@ -698,7 +698,7 @@ def test_a_stuck_fiscal_receipt_with_no_currency_recovers_without_a_new_read(
     with monkeypatch.context() as before_the_fix:
         # The stuck state dates from when the hand-off refused this read.
         before_the_fix.setattr(
-            mutations, "_read_refusal", lambda _: "receipt_requires_review"
+            mutations, "read_refusal", lambda _: "receipt_requires_review"
         )
         uploaded = _upload(web, RECEIPT + faker.binary(length=8))
     assert uploaded.status_code == 200, uploaded.text
