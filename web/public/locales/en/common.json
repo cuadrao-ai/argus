@@ -2429,6 +2429,7 @@
         "capture_note": "created a record from a note",
         "change_role": "changed a role",
         "decide_606": "decided whether an expense goes in the 606",
+        "delete_document": "deleted {{document}}.",
         "document_read": "read a document",
         "document_read_failed": "could not read a document",
         "edit_current_note": "edited a note",
@@ -2449,6 +2450,7 @@
         "receipt_upload": "uploaded a document",
         "reopen_draft": "reopened an approved record",
         "resolve_duplicate": "resolved a duplicate",
+        "restore_document": "restored {{document}}.",
         "review_draft": "reviewed a record",
         "revoke_grant": "removed access",
         "revoke_invite": "cancelled an invitation",
@@ -2957,6 +2959,48 @@
     },
     "tray": {
       "title": "Details"
+    },
+    "document_delete": {
+      "actions": "Actions",
+      "columns": {
+        "actor": "Deleted by",
+        "content": "Content",
+        "previous": "Previously in",
+        "when": "When"
+      },
+      "delete": "Delete",
+      "deleted_state": "Deleted",
+      "description": "It leaves the Inbox and its counts. You can restore it from Deleted.",
+      "empty_body": "Documents you delete will appear here. You can restore them at any time.",
+      "empty_title": "No deleted documents",
+      "failed": "The document could not be deleted. Try again.",
+      "fields": {
+        "counterparty": "Counterparty",
+        "date": "Date",
+        "file": "File",
+        "state": "Status",
+        "total": "Total"
+      },
+      "label": "Delete {{name}}",
+      "list_help": "They do not count in any total. Restoring returns them to the Inbox as they were.",
+      "menu": "Delete document",
+      "open": "Open",
+      "previous": {
+        "attention": "Needs attention",
+        "listo": "Ready"
+      },
+      "restore": "Restore",
+      "restore_all": "Restore all",
+      "restore_failed": "The document could not be restored. Try again.",
+      "restored": "Document restored to the Inbox",
+      "title": "Delete this document?",
+      "unnamed": "Document",
+      "upload_deleted": "Previously deleted",
+      "upload_deleted_count_one": "{{count}} previously deleted",
+      "upload_deleted_count_other": "{{count}} previously deleted",
+      "view": "View",
+      "view_deleted": "View in Deleted",
+      "view_document": "View document"
     },
     "dossier": {
       "read_purchases_title": "Purchases read on this receipt",
@@ -4320,6 +4364,7 @@
       "document": "Content",
       "document_range_one": "{{from}}–{{to}} of {{count}} item",
       "document_range_other": "{{from}}–{{to}} of {{count}} items",
+      "eliminados": "Deleted",
       "empty": "No content in this view",
       "empty_help": "Try another view or change the filters.",
       "empty_start": "Your files and notes arrive here",

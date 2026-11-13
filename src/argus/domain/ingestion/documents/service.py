@@ -293,6 +293,8 @@ class DocumentsService:
         scope: OwnerScope,
     ) -> DocumentDraft:
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if draft.status == "dismissed":
+            raise DocumentServiceError("business_document_deleted")
         if version != draft.version or draft.status == "preparing":
             raise DocumentServiceError("document_version_conflict", retryable=True)
         return self._update(user_id, draft, proposal=proposal)
@@ -484,18 +486,16 @@ class DocumentsService:
         consent and the owner's reading is allowed right now. A queued document
         whose owner switched reading off waits for a person, not for a read."""
 
-        if draft.status == "preparing":
-            return True
-        return (
-            draft.status == "queued"
-            and draft.consent
-            and self._reading_allowed(user_id, connection_id)
+        return draft.read_pending(
+            draft.status == "queued" and self._reading_allowed(user_id, connection_id)
         )
 
     def queue(
         self, *, user_id: str, connection_id: str, consent: bool, scope: OwnerScope
     ) -> DocumentOutcome:
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if draft.status == "dismissed":
+            raise DocumentServiceError("business_document_deleted")
         if draft.status == "preparing":
             raise DocumentServiceError("document_busy", retryable=True)
         batch = self.store.get(user_id=user_id, connection_id=connection_id)
@@ -539,6 +539,8 @@ class DocumentsService:
         """
 
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if draft.status == "dismissed":
+            raise DocumentServiceError("business_document_deleted")
         if draft.status in ("queued", "preparing"):
             raise DocumentServiceError("document_busy", retryable=True)
         batch = self.store.get(user_id=user_id, connection_id=connection_id)
@@ -596,6 +598,8 @@ class DocumentsService:
             not draft.consent or (queued_only and draft.status != "queued")
         ):
             raise DocumentServiceError("document_preparation_not_queued")
+        if draft.status == "dismissed":
+            raise DocumentServiceError("business_document_deleted")
         if draft.status == "preparing":
             raise DocumentServiceError("document_busy", retryable=True)
         if batch is None and not self._reading_allowed(user_id, connection_id):

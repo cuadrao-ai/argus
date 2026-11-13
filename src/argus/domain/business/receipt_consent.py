@@ -9,6 +9,7 @@ from contextlib import nullcontext
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 from argus.domain.business.authority import ActionError
@@ -106,13 +107,19 @@ class BusinessReceiptConsentStore:
                     result["enabled"] = False
                 return result
         with self.pool.connection() as db:
-            owner = db.execute(
-                "select created_by::text from public.spaces where id=%s and created_by=%s and kind='business' and closed_at is null",
-                (space_id, owner_id),
-            ).fetchone()
-            if owner is None:
-                return _view(None, space_id, owner_id, route, language)
-            return _view(_row(db, space_id), space_id, owner[0], route, language)
+            return self.status_on_connection(db, space_id, owner_id, language)
+
+    def status_on_connection(
+        self, db: Connection, space_id: str, owner_id: str, language: str = "en"
+    ) -> dict:
+        route = self._route()
+        owner = db.execute(
+            "select created_by::text from public.spaces where id=%s and created_by=%s and kind='business' and closed_at is null",
+            (space_id, owner_id),
+        ).fetchone()
+        if owner is None:
+            return _view(None, space_id, owner_id, route, language)
+        return _view(_row(db, space_id), space_id, owner[0], route, language)
 
     def enabled(
         self, space_id: str, owner_id: str, consent_id: str | None = None

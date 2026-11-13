@@ -15,6 +15,7 @@ from argus.domain.business.contracts.actions import (
     CaptureCommand,
     CaptureNote,
 )
+from argus.domain.business.contracts.deletion import deletion
 from argus.domain.business.contracts.dossier import MessageSource
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
@@ -22,7 +23,7 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.document_type import resolved_document_type, typed_facts
-from argus.domain.business.transactions import transaction
+from argus.domain.business.transactions import ActionTransaction, transaction
 
 if TYPE_CHECKING:
     from argus.domain.business.actions.service import BusinessActions
@@ -115,7 +116,11 @@ def capture(
             outcome = plans.finish_receipt(tx, key, result)
     except ActionError as error:
         return error.result
-    if request.draft is None and isinstance(outcome, Applied) and outcome.outcome == "applied":
+    if (
+        request.draft is None
+        and isinstance(outcome, Applied)
+        and outcome.outcome == "applied"
+    ):
         business_analytics.document_received(
             channel="note",
             business_id=str(context.actor.space_id),
@@ -140,12 +145,22 @@ _NOTES = (
 )
 # The Bandeja's notes: drafts still awaiting review that no receipt carries.
 # A note added to a receipt's record is part of that receipt's row.
-_AWAITING_WITHOUT_RECEIPT = (
-    " and e.state in ('open','accepting') and not exists ("
+_WITHOUT_RECEIPT = (
+    " and not exists ("
     "   select 1 from public.business_draft_sources l2"
     "   join public.business_sources s2 on s2.id=l2.source_id and s2.space_id=l2.space_id"
     "   where l2.draft_id=e.id and l2.space_id=e.owner_space_id"
     "   and s2.connection_id is not null)"
+)
+_AWAITING_WITHOUT_RECEIPT = " and e.state in ('open','accepting')" + _WITHOUT_RECEIPT
+_DELETED_NOTES = (
+    " from public.financial_import_events e"
+    " join public.business_draft_sources l on l.draft_id=e.id and l.space_id=e.owner_space_id"
+    " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
+    " join lateral (select min(version) as version from public.business_draft_revisions"
+    " where draft_id=e.id and space_id=e.owner_space_id and s.id=any(source_ids)) v on true"
+    " where e.owner_space_id=%s and e.user_id=%s and s.kind='message'"
+    " and e.state='dismissed' and e.resolution ? 'deleted'" + _WITHOUT_RECEIPT
 )
 
 
@@ -156,8 +171,11 @@ def entries(
     query: str = "",
     limit: int = 20,
     view: str = "all",
+    offset: int = 0,
 ) -> list[dict]:
-    return page(service, context, query=query, limit=limit, view=view)["items"]
+    return page(service, context, query=query, limit=limit, view=view, offset=offset)[
+        "items"
+    ]
 
 
 def page(
@@ -167,25 +185,49 @@ def page(
     query: str = "",
     limit: int = 20,
     view: str = "all",
+    offset: int = 0,
 ) -> dict:
     """One page of notes, newest first, and whether more exist past it. Each
     note says how many notes of its draft came before it, counted over the
     draft's notes whatever ``query`` keeps."""
 
-    if "\x00" in query or len(query) > 200 or not 1 <= limit <= 50:
+    if "\x00" in query or len(query) > 200 or not 1 <= limit <= 50 or offset < 0:
         raise ActionError("invalid_input", "business_capture_query_invalid")
     with transaction(service.authority, context) as tx:
         rows = tx.rows(
             "select * from (select e.id as draft_id,e.version,v.version as revision,"
-            " s.id as source_id,s.text_content as text,s.received_at,e.state as review_state,"
+            " s.id as source_id,s.text_content as text,s.received_at,e.state as review_state,e.resolution,"
             " count(*) over (partition by e.id order by s.received_at,s.id"
             " rows between unbounded preceding and 1 preceding) as earlier_count"
-            + _NOTES
+            + (_DELETED_NOTES if view == "eliminados" else _NOTES)
             + (_AWAITING_WITHOUT_RECEIPT if view == "inbox" else "")
             + ") n where strpos(lower(n.text),lower(%s))>0"
-            " order by n.received_at desc,n.source_id desc limit %s",
-            (context.actor.space_id, context.owner_id, query, limit + 1),
+            + (" and n.earlier_count=0" if view == "eliminados" else "")
+            + " order by n.received_at desc,n.source_id desc limit %s offset %s",
+            (context.actor.space_id, context.owner_id, query, limit + 1, offset),
         )
+        for row in rows:
+            marker = deletion(row["review_state"], row.pop("resolution"))
+            group = (
+                "eliminados"
+                if marker
+                else "attention"
+                if row["review_state"] == "open"
+                else None
+            )
+            row.update(
+                deleted=marker,
+                delete_available=row["review_state"] == "open"
+                and "approve" in tx.authorization.capabilities,
+                restore_available=marker is not None
+                and "approve" in tx.authorization.capabilities,
+                bandeja_group={
+                    "group": group,
+                    "reason": "not_read" if group == "attention" else None,
+                    "draft_id": row["draft_id"],
+                    "version": row["version"],
+                },
+            )
     return {"items": rows[:limit], "has_more": len(rows) > limit}
 
 
@@ -199,10 +241,7 @@ def awaiting_note_arrivals(tx) -> list[tuple]:  # noqa: ANN001
             "select min(s.received_at) as arrived_at,"
             " max(e.resolution #>> '{business,facts,currency,value}')"
             " filter (where e.resolution #>> '{business,facts,currency,state}' = 'known')"
-            " as currency"
-            + _NOTES
-            + _AWAITING_WITHOUT_RECEIPT
-            + " group by e.id",
+            " as currency" + _NOTES + _AWAITING_WITHOUT_RECEIPT + " group by e.id",
             (tx.context.actor.space_id, tx.context.owner_id),
         )
     ]
@@ -214,5 +253,12 @@ def awaiting_notes(tx) -> int:  # noqa: ANN001
 
     return tx.rows(
         "select count(distinct e.id) as drafts" + _NOTES + _AWAITING_WITHOUT_RECEIPT,
+        (tx.context.actor.space_id, tx.context.owner_id),
+    )[0]["drafts"]
+
+
+def deleted_notes(tx: ActionTransaction) -> int:
+    return tx.rows(
+        "select count(distinct e.id) as drafts" + _DELETED_NOTES,
         (tx.context.actor.space_id, tx.context.owner_id),
     )[0]["drafts"]

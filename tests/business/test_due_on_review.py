@@ -60,6 +60,7 @@ def test_a_receipt_whose_own_event_is_the_draft_shows_the_draft_due_date():
     drafts = [
         {
             "id": draft_id,
+            "state": "open",
             "resolution": {
                 "business": BusinessResolution(
                     facts=BusinessFacts(), due_on=date(2026, 11, 4)
@@ -68,6 +69,6 @@ def test_a_receipt_whose_own_event_is_the_draft_shows_the_draft_due_date():
         }
     ]
     detail = {"id": "receipt", "draft_id": draft_id, "due_on": None}
-    assert draft_overlay(detail, drafts) == {**detail, "due_on": date(2026, 11, 4)}
+    assert draft_overlay(detail, drafts) == {**detail, "deleted": None, "due_on": date(2026, 11, 4)}
     summary = {"id": "receipt", "draft_id": draft_id, "status": "review_ready"}
-    assert draft_overlay(summary, drafts) == summary
+    assert draft_overlay(summary, drafts) == {**summary, "deleted": None}

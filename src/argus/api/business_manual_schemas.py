@@ -4,10 +4,16 @@ from uuid import UUID
 
 from pydantic import Field
 
+from argus.api.business_schemas import BandejaGroup
+from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.contracts.facts import Contract
 
 
 class ManualCapture(Contract):
+    deleted: DeletedDocument | None = None
+    delete_available: bool = False
+    restore_available: bool = False
+    bandeja_group: BandejaGroup | None = None
     draft_id: UUID
     version: int = Field(ge=1)
     # The revision this note created: the number the draft's history lists.

@@ -127,6 +127,8 @@ def test_an_area_or_group_filter_is_or_within_and_and_across():
         "rebind_attachment",
         "append_supporting_file",
         "business_attach_source",
+        "delete_document",
+        "restore_document",
     }
     assert selected(ActivityFilters(areas=("invoicing",))) == set()
     assert selected(NONE) == set(ACTIONS)

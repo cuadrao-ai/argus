@@ -3502,6 +3502,41 @@ cascade preference metadata only. They neither own nor reference financial rows,
 original objects or custody state, and do not enable account deletion. Synthetic
 PostgreSQL view, conflict, revocation and client-grant tests prove this boundary.
 
+### Business document deletion actions
+
+Migration `20261112221308_business_document_delete_actions.sql` extends
+`business_action_receipts_unplanned_command` with `delete_document` and
+`restore_document`, preserving every previously allowed action. The new
+`business_document_delete_human_commands` check requires both commands to have
+`actor.actor_kind = member`, no `turn_key`, and no `action_index`. They use the
+existing action-key ledger and approve permission. The migration changes only
+these constraints, adds no columns or tables, and changes no data. Hosted
+application remains a separate deployment step.
+
+Deletion state has one owner. For a linked draft it is
+`financial_import_events.state = dismissed` together with
+`financial_import_events.resolution.deleted`. For a receipt without a draft,
+it is `financial_document_extractions.draft.status = dismissed` together with
+`financial_document_extractions.draft.resolution.deleted`. Receipt lists and
+counts already load that document JSON. A linked draft does not copy its marker
+onto the receipt. A dismissed item without this marker is not deleted.
+
+The marker holds `{actor: {actor_id, display_name}, at, key, previous_state}`.
+The actor uses the existing account-deletion identity shape, so departure replaces
+its ID with the Business alias and its name with `Exmiembro`. Delete and restore
+action receipts keep the existing `ActorProvenance` snapshot; restore removes the
+deleted marker.
+`previous_state` holds the original `state` and Bandeja `group` (`attention`
+or `listo`). A receipt with several generic, unapproved read candidates keeps
+one marker on its document JSON. Its optional `previous_state.events` maps
+candidate IDs to their prior review states. Delete dismisses those open
+candidates in the same transaction without copying the marker onto them.
+Restore removes the marker and restores those states. A receipt with an
+approved or accepting candidate cannot be deleted. The command
+ledger retains who deleted or restored the document and when. Original bytes,
+source links, facts and revisions remain in place. There is no deletion expiry,
+purge job or change to financial records, totals or exports.
+
 ### Business record annotations and version-two preferences
 
 The additive `20261026095000_registros_preferences_annotations.sql` migration

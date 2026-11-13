@@ -257,7 +257,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       captureReceipts.set(key, { input, draftId: id });
       return get(id);
     },
-    captures: async (query = "", limit = 20, view: "inbox" | "all" = "all") => {
+    captures: async (query = "", limit = 20, view: "inbox" | "all" | "eliminados" = "all") => {
+      if (view === "eliminados") return { items: [], has_more: false };
       if (query.includes("\0") || [...query].length > 200 || !Number.isInteger(limit) || limit < 1 || limit > 50) fail(422, "invalid_request");
       // The Bandeja's notes, as the API answers them: drafts awaiting review that no receipt carries.
       const listed = (note: BusinessCapture) => view === "all" || (["open", "accepting"].includes(get(note.draft_id).review_state) && !get(note.draft_id).sources.some((item) => item.kind === "attachment"));

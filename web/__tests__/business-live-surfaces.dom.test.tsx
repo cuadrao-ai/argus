@@ -125,6 +125,28 @@ describe("Actividad on a live Business", () => {
   });
 });
 
+for (const action of ["delete_document", "restore_document"] as const) {
+  test(`Actividad links ${action} to the document's current surface`, async () => {
+    feed = async () => ({ items: [{ ...item("document-event", "Lucía Peña", action, 5), object: { kind: "receipt", id: "rcpt-blurry", label: "Documento equivocado" } }], next_cursor: null });
+    const page = await mount("view=activity");
+    try {
+      const label = action === "delete_document" ? "Ver en Eliminados" : "Abrir";
+      await page.settle(() => page.host.textContent?.includes(label) === true);
+      const row = [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="business-activity-draft"] button')].find(button => button.textContent?.includes(label));
+      assert.ok(row);
+      assert.match(row.textContent ?? "", action === "delete_document" ? /eliminó Documento equivocado/ : /restauró Documento equivocado/);
+      await page.click(row);
+      if (action === "delete_document") {
+        await page.settle(() => !!page.host.querySelector('#reception-tab-eliminados[aria-selected="true"]'));
+        assert.ok(page.host.querySelector('#reception-tab-eliminados[aria-selected="true"]'));
+      } else {
+        await page.settle(() => !!document.querySelector('[data-testid="receipt-original-source"]'));
+        assert.ok(document.querySelector('[data-testid="receipt-original-source"]'));
+      }
+    } finally { await page.close(); }
+  });
+}
+
 describe("Actividad failures carry a reference", () => {
   const failWith = (requestId?: string) => async () => { throw Object.assign(new Error("Unavailable"), { status: 503, ...(requestId ? { requestId } : {}) }); };
 

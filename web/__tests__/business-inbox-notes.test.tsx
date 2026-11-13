@@ -24,9 +24,15 @@ describe("notes awaiting review in the Inbox", () => {
       { draftId: "draft-e", text: "Aprobando el pago de luz", receivedAt: "2026-10-11T12:00:00Z", revision: 2, earlier: 0 },
       { draftId: "draft-b", text: "Me pagaron 5,000 por la reparación.", receivedAt: "2026-10-11T09:00:00Z", revision: 1, earlier: 0 },
       { draftId: "draft-a", text: "Pagué con mi dinero.", receivedAt: "2026-10-10T15:30:00Z", revision: 2, earlier: 4 },
-    ]);
+    ].map(row => ({ ...row, deleted: undefined, delete_available: undefined, restore_available: undefined, bandeja_group: undefined })));
     assert.deepEqual(openNotesByDraft([]), []);
   });
+});
+
+test("a note row keeps the server's delete access and group", () => {
+  const access = { deleted: null, delete_available: true, restore_available: false, bandeja_group: { group: "attention" as const, reason: null, draft_id: "draft-a", version: 4 } };
+  const [row] = openNotesByDraft([{ ...CAPTURES[0], ...access }]);
+  assert.deepEqual({ deleted: row.deleted, delete_available: row.delete_available, restore_available: row.restore_available, bandeja_group: row.bandeja_group }, access);
 });
 
 describe("the inbox count on the Overview card and the sidebar badge", () => {
