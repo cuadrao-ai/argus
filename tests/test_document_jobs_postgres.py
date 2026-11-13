@@ -39,7 +39,11 @@ from psycopg_pool import ConnectionPool
 from tests import test_financial_accounts_postgres as shared
 from tests.business_reading_support import ROUTE, reading_setting, turn_reading
 from tests.document_extractor_support import StubPreparation, start_request
-from tests.document_reads_support import TakenAtOnce
+from tests.document_reads_support import (
+    TakenAtOnce,
+    read_receipt,
+    refused_while_another_records,
+)
 from tests.document_sources_support import source_objects, stored_paths
 
 users = shared.users
@@ -335,6 +339,26 @@ async def test_kill_after_the_marker_is_rerun_once_and_both_completions_save_onc
     read = api.service.get(user_id=owner, connection_id=connection, scope=PERSONAL)
     assert (read.status, read.error_code) == ("review_ready", None)
     api.sink.submit.assert_called_once()
+    forget(api.service, owner, connection)
+
+
+@pytest.mark.asyncio
+async def test_a_refused_read_never_releases_an_attempt_recorded_after_its_read(
+    pool: ConnectionPool, users: dict[str, str]
+) -> None:
+    extractor = Extractor()
+    api = instance(pool, Clock(), extractor)
+    owner = users["owner"]
+    connection = await capture(api.service, owner)
+
+    await refused_while_another_records(api.service, owner, connection)
+
+    raced = api.service.get(user_id=owner, connection_id=connection, scope=PERSONAL)
+    assert (raced.status, raced.consent, raced.error_code) == ("queued", True, None)
+    job = api.service.store.job(user_id=owner, connection_id=connection)
+    assert job.draft_version == raced.version
+    assert await read_receipt(api.service, owner, connection) == "prepared"
+    assert extractor.calls == 1
     forget(api.service, owner, connection)
 
 
