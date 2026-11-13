@@ -96,5 +96,3 @@ test("p3 historical lookback control", async () => {
   await capture("p3-lookback-control", conversationId);
 });
 
-test("p9 usage after", async () => {
-});

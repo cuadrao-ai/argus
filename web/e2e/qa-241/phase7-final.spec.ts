@@ -125,5 +125,3 @@ test("r5 provider-resolved NVDA future conservation", async () => {
   await capture("r5-nvda-future", conversationId);
 });
 
-test("r9 usage after", async () => {
-});

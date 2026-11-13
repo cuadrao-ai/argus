@@ -50,7 +50,7 @@ async function mount(content: ReactNode, business = true) {
 const button = (text: string) => [...document.body.querySelectorAll("button")].find((item) => item.textContent?.trim() === text);
 
 for (const business of [true, false]) {
-  test(`${business ? "Business hides" : "Personal preserves"} country, legacy legal, usage, and archived chats`, async () => {
+  test(`${business ? "Business hides" : "Personal preserves"} country, legacy legal, and archived chats; neither offers retired Usage`, async () => {
     const { default: ProfileMenu } = await import("@/components/sidebar/ProfileMenu");
     const anchor = document.createElement("button");
     document.body.appendChild(anchor);
@@ -69,7 +69,7 @@ for (const business of [true, false]) {
     await act(async () => button("Ajustes")!.click());
     assert.equal(Boolean(button("País y moneda")), !business);
     assert.equal(Boolean(button("Chats archivados")), !business);
-    assert.equal(Boolean(button("Uso")), !business);
+    assert.equal(button("Uso"), undefined);
     assert.equal(Boolean(button("Borrados recientemente")), !business, "Business keeps no deleted chats");
     assert.equal(button("Eliminar todas las conversaciones"), undefined);
     assert.ok(button("Seguridad"));

@@ -82,5 +82,3 @@ test("q2 historical lookback control", async () => {
   await capture("q2-lookback-control", conversationId);
 });
 
-test("q9 usage after", async () => {
-});
