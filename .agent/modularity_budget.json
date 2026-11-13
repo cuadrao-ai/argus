@@ -117,20 +117,12 @@
     "web/__tests__/chat-backtest-jobs.test.ts": 1147,
     "web/__tests__/chat-message-hydration.test.ts": 1390,
     "web/__tests__/conversation-activity-rail.test.ts": 1178,
-    "web/__tests__/guest-browser-harness.test.ts": 1184,
     "web/__tests__/transacciones-screen.dom.test.tsx": 1143,
     "web/__tests__/use-conversation-activity.test.tsx": 1059,
     "web/components/chat/ChatInput.tsx": 1107,
     "web/components/chat/ChatInterface.tsx": 2523,
     "web/components/sidebar/ChatCommandPalette.tsx": 1910,
     "web/components/sidebar/ProfileMenu.tsx": 1545,
-    "web/e2e/chat-action-recovery.spec.ts": 1663,
-    "web/e2e/conversation-activity-ui.spec.ts": 1296,
-    "web/e2e/guest-entry.spec.ts": 1461,
-    "web/e2e/guest-experience.spec.ts": 2443,
-    "web/e2e/issue-245-recents-progressive-disclosure.spec.ts": 1195,
-    "web/e2e/issue-252-conversation-switching.spec.ts": 1121,
-    "web/e2e/support/guest-qa.ts": 3412,
     "web/lib/argus-api.ts": 1181
   }
 }

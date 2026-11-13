@@ -11,7 +11,6 @@ const businessPilot = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED ?? "false";
 
 export default defineConfig({
   testDir: "./e2e",
-  testIgnore: "**/guest-auth-captcha-ux.spec.ts",
   outputDir: `./temp/playwright-results/${runId}`,
   // lastRunFile: `./temp/playwright/${runId}.last-run.json`,
   timeout: 30_000,

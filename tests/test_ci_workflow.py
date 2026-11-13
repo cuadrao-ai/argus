@@ -822,6 +822,12 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
     assert size_step["env"]["PR_BASE_SHA"] == (
         "${{ github.event.pull_request.base.sha }}"
     )
+    browser_spec_step = next(
+        step
+        for step in ownership_steps
+        if step.get("run") == "python scripts/check_e2e_specs_run.py"
+    )
+    assert "if" not in browser_spec_step
 
     heavy_if = (
         f"({_DRAFT_OR_PUSH} || {_FULL_RUN}) && "
