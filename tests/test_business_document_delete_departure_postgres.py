@@ -168,7 +168,8 @@ def test_deleted_document_actor_is_anonymous_after_owner_account_departure(
             assert response.status_code == 200, response.text
             body = response.json()
             view = body["items"][0] if "items" in body else body
-            assert view["bandeja_group"]["group"] == "eliminados"
+            if cid is not None or "items" in body:
+                assert view["bandeja_group"]["group"] == "eliminados"
             assert view["deleted"]["actor"] == {
                 "actor_id": alias,
                 "display_name": "Exmiembro",

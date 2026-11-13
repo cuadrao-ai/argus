@@ -149,7 +149,7 @@ def test_owner_delete_restore_counts_history_and_exact_replay(actions, prepared)
     rows = receipt_summaries(web, "all")
     [view] = [row for row in rows if row["id"] == cid]
     marker = DeletedDocument.model_validate(view["deleted"])
-    assert marker.actor.id == context.actor.actor_id
+    assert marker.actor.actor_id == context.actor.actor_id
     assert marker.previous_state.group == before["bandeja_group"]["group"]
     assert view["status"] == "dismissed"
     assert view["bandeja_group"]["group"] == "eliminados"

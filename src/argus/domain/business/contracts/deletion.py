@@ -10,7 +10,7 @@ from argus.domain.business.contracts.facts import Contract
 
 
 class DeletingActor(Contract):
-    id: UUID
+    actor_id: UUID
     display_name: str
 
 

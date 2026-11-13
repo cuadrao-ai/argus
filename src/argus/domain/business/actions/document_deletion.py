@@ -163,7 +163,7 @@ def _change(tx: ActionTransaction, command: DocumentCommand, key: str) -> Applie
             group = "attention" if listo_reason(standing) else "listo"
         marker = DeletedDocument(
             actor=DeletingActor(
-                id=tx.context.actor.actor_id,
+                actor_id=tx.context.actor.actor_id,
                 display_name=tx.authorization.provenance.display_name,
             ),
             at=datetime.now(timezone.utc),
