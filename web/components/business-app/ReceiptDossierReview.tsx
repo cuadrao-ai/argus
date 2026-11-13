@@ -496,6 +496,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           patch={facts}
           fiscal={typed}
           documentType={edit?.change.write === "type" ? edit.change.documentType : dossier.document_type}
+          uploadedAt={firstSource?.received_at ?? null}
           accounts={accounts}
           currencies={recordsCurrencySchema.options}
           disabled={!mutable || saving}
