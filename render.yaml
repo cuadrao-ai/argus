@@ -190,6 +190,8 @@ services:
         value: "5"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
+      - key: CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS
+        value: "3600"
       - key: POSTHOG_PROJECT_TOKEN
         sync: false
       - key: POSTHOG_REGION
@@ -417,6 +419,8 @@ services:
         value: "60"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
+      - key: CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS
+        value: "3600"
       - key: POSTHOG_PROJECT_TOKEN
         sync: false
       - key: POSTHOG_REGION

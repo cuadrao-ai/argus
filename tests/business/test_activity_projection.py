@@ -57,7 +57,7 @@ ACCESS_CHANGES = {
     "revoke_invite",
     "change_role",
 }
-MANAGER_ONLY = ACCESS_CHANGES | set(DERIVED)
+MANAGER_ONLY = ACCESS_CHANGES | {"ownership_transferred", "receipt_reading_enabled"}
 NONE = ActivityFilters()
 
 
@@ -129,6 +129,8 @@ def test_an_area_or_group_filter_is_or_within_and_and_across():
         "business_attach_source",
         "delete_document",
         "restore_document",
+        "purge_document",
+        "expire_document",
     }
     assert selected(ActivityFilters(areas=("invoicing",))) == set()
     assert selected(NONE) == set(ACTIONS)
@@ -381,7 +383,12 @@ def test_the_item_carries_the_stored_name_and_only_the_promised_fields():
         "id": ACTOR_KEY,
         "membership": "current",
     }
-    assert dumped["object"] == {"kind": "draft", "id": str(DRAFT), "label": None}
+    assert dumped["object"] == {
+        "kind": "draft",
+        "id": str(DRAFT),
+        "label": None,
+        "purged": False,
+    }
 
 
 def test_a_row_with_no_recorded_name_has_no_actor_and_an_extractor_no_membership():

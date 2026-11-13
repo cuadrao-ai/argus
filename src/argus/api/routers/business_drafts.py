@@ -4,6 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, Request, Response
+from loguru import logger
 
 from argus.api.business_drafts import (
     DraftContext,
@@ -383,11 +384,34 @@ def _document_action(
                 detail=result.code,
                 headers=NO_STORE,
             )
-        return DocumentActionResult(
-            document_id=draft_id, deleted=action == "delete_document"
-        )
     except ActionError as error:
         raise action_problem(request, error.result) from None
+    if action == "purge_document":
+        _erase_now(context)
+    return DocumentActionResult(
+        document_id=draft_id, deleted=action != "restore_document"
+    )
+
+
+def _erase_now(context: DraftContext) -> None:
+    """The stored objects go inside the request when Storage answers; the
+    documents worker's next expiry run finishes what is left."""
+    from argus.api.documents import documents_service
+    from argus.domain.business.actions.document_purge import erase
+    from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
+
+    store = getattr(documents_service(), "store", None)
+    try:
+        erase(
+            context.service.authority.pool,
+            store.objects if isinstance(store, PostgresDocumentStore) else None,
+            UUID(context.space_id),
+        )
+    except Exception as error:
+        logger.warning(
+            "Document erase failed; the expiry run retries",
+            failure_mode=type(error).__name__,
+        )
 
 
 @router.post(
@@ -398,7 +422,7 @@ def _document_action(
             "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
         },
         404: {
-            "description": "`business_record_not_found` outside the selected Business."
+            "description": "`business_record_not_found` outside the selected Business; `business_document_purged` once the document was purged."
         },
         409: {
             "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
@@ -428,7 +452,7 @@ def delete_document(
             "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
         },
         404: {
-            "description": "`business_record_not_found` outside the selected Business."
+            "description": "`business_record_not_found` outside the selected Business; `business_document_purged` once the document was purged."
         },
         409: {
             "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
@@ -447,4 +471,34 @@ def restore_document(
 ) -> DocumentActionResult:
     return _document_action(
         request, response, context, draft_id, idempotency_key, "restore_document"
+    )
+
+
+@router.post(
+    "/{draft_id}/purge",
+    response_model=DocumentActionResult,
+    responses={
+        403: {
+            "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
+        },
+        404: {
+            "description": "`business_record_not_found` outside the selected Business; `business_document_purged` once the document was purged."
+        },
+        409: {
+            "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
+        },
+        422: {
+            "description": "`business_document_not_deleted` outside Eliminados; `business_document_ambiguous` for shared attachments; `business_document_purge_busy` while the Business changes custody."
+        },
+    },
+)
+def purge_document(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> DocumentActionResult:
+    return _document_action(
+        request, response, context, draft_id, idempotency_key, "purge_document"
     )

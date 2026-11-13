@@ -8556,7 +8556,8 @@ reading. It refuses an approved or otherwise closed draft with 422
 `business_permission_denied`. An approved document must use the existing
 reopen flow first. Restore requires the deletion marker and otherwise returns
 422 `business_document_not_deleted`. Sources, revisions and financial records
-are retained. Deleted documents have no expiry or purge schedule.
+are retained until the purge below. A deleted or restored purged document
+returns 404 `business_document_purged`.
 
 Receipt summary, detail and dossier responses expose `deleted`,
 `delete_available` and `restore_available`. The deletion metadata contains
@@ -8584,6 +8585,41 @@ deletion metadata and restore availability. It neither creates another item
 nor restores the existing one. Activity records `delete_document` and
 `restore_document` through the action ledger. Their links open Eliminados and
 the restored document respectively.
+
+### Business document purge
+
+A deleted document stays in Eliminados for 7 calendar days, then the server
+purges it for good. The deletion metadata adds a read-only `purge_at`, which
+is the deletion `at` plus 7 days; the stored marker does not hold it.
+
+`POST /business/drafts/{draft_id}/purge` purges one deleted document at once.
+It requires `Idempotency-Key`, the owner-only `approve` permission and a person
+actor, takes no body, and returns `{document_id, deleted: true}` with
+`Cache-Control: no-store`. The identifier rules match delete and restore. A
+document outside Eliminados returns 422 `business_document_not_deleted`;
+shared attachments return 422 `business_document_ambiguous`; a Business whose
+owner account is being deleted or whose files are being moved returns 422
+`business_document_purge_busy`. A repeat with the same key returns the saved
+outcome. A purge of an already purged document returns 200 and changes
+nothing, so the button and the expiry can race safely.
+
+A purge removes the stored file, the read, the draft with its revisions,
+questions and source links, and the draft's own message sources. A message
+source that another draft also uses stays. The Activity entries stay. A purge
+by the owner adds `purge_document` and the expiry adds `expire_document` with
+the Cuadrao actor; neither names the document or links to it. Older entries
+of the purged document keep their `object` with `purged: true` and `label:
+null`, so the client says "un documento" and opens nothing. After the purge every
+document route answers its usual not-found error, and delete and restore
+answer 404 `business_document_purged`.
+
+The database part runs in one transaction and records the purge with the
+stored objects still to erase. The objects are then erased; when Storage fails,
+the record keeps them and the next expiry run finishes the erase. The expiry
+is a step of the documents worker's sweep loop. It runs at most once every
+`CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS` (default 3600; 0 turns it off) with
+extraction on or off. Each run finishes left-over erases, then purges deleted
+documents older than 7 days in batches of 25, at most 500 per run.
 
 ### Business guide cards
 
@@ -9314,11 +9350,13 @@ and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
 changes, the two derived events and `other`), so the client can mark it.
 
-`object` is `{kind: draft|grant|invite, id, label}` when the action names one
+`object` is `{kind: draft|grant|invite, id, label, purged}` when the action names one
 and the server knows its id, else `null`. `label` is a human name for the
 object from a record the reader may read, else `null`: a draft's counterparty
 when it is known, a grant's person by their current profile label. An invite
-names only an email, so its label is always `null`. No amount, email or other
+names only an email, so its label is always `null`. `purged` is `true` when a
+document purge removed the draft or upload, read from the purge record; its
+`label` is then always `null`. It is `false` otherwise. No amount, email or other
 field of the command leaves the ledger.
 
 Three actions carry one typed field of the stored command, `null` elsewhere:

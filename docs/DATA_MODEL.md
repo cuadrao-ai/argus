@@ -3545,8 +3545,41 @@ candidates in the same transaction without copying the marker onto them.
 Restore removes the marker and restores those states. A receipt with an
 approved or accepting candidate cannot be deleted. The command
 ledger retains who deleted or restored the document and when. Original bytes,
-source links, facts and revisions remain in place. There is no deletion expiry,
-purge job or change to financial records, totals or exports.
+source links, facts and revisions remain in place until the purge below.
+Deletion changes no financial records, totals or exports.
+
+### Business document purge
+
+Migration `20261113091746_business_document_purge.sql` adds `purge_document`
+to `business_action_receipts_unplanned_command` and to the person-only
+`business_document_delete_human_commands` check. It adds
+`argus_private.business_document_purge_marked(space)`. The evidence guard
+`business_immutable_evidence` now also accepts a delete of
+`business_sources` or `business_draft_revisions` while that transaction-local,
+Postgres-only mark names the row's Business. Updates stay refused.
+
+`argus_private.business_document_purges` holds one row per purged document:
+`space_id` (cascade with the Business), `document_ids` (the draft, candidate
+and upload ids the document answered to), `reason` (`owner` or `expiry`),
+`purged_at`, and `pending_objects` (stored paths and legacy upload prefixes
+still to erase). It holds no name, amount, file name or content. Row-level
+security is on with no policy, and API roles have no schema access. A Business
+purge copies every pending path and upload prefix into its own object plan in
+the transaction that removes the space, then erases them: a path when no live
+document or custody copy names it, a prefix with all objects under it.
+
+The 7-day window is `PURGE_AFTER` in the deletion contract; the marker `at`
+is its one stored fact. Partial indexes `financial_import_events_deleted_idx`
+and `financial_document_extractions_deleted_idx` cover only rows with a
+deletion marker, so the hourly expiry query reads deleted documents only.
+
+A purge runs in one transaction under the owner lock. It writes the purge row
+first, then deletes the drafts, the draft's own message sources and the upload
+connections. Cascades remove revisions, source links, questions,
+observations, reads and read states. It removes custody object rows that
+recorded finished copies of the same paths. The erase then removes each path no
+live document or custody copy still references, under the owner's stored-object
+lock, and takes it off `pending_objects`.
 
 ### Business record annotations and version-two preferences
 

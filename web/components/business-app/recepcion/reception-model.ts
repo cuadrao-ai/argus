@@ -1,6 +1,7 @@
 import type { BusinessCapture, ListoItem, ReceiptChannel, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery } from "@/lib/business-email";
 import type { BusinessPanelState } from "../BusinessWorkspace";
+import { receiptDeleteTarget, type DeleteDocumentTarget } from "../DocumentDeleteControls";
 import { bandejaReceipts } from "../bandeja-order";
 import { bandejaEmails, openNotesByDraft, type BandejaEmail, type OpenNote } from "../inbox-count";
 
@@ -71,4 +72,11 @@ export function receptionDocumentTitle(row: ReceptionRow, labels: { untitled: st
   const receipt = row.receipt;
   if (receipt.attention === "unreadable") return receipt.filename?.trim() || labels.untitled;
   return receipt.merchant?.trim() || receipt.filename?.trim() || labels.untitled;
+}
+
+/** What the delete and purge dialogs show of a receipt or a note row. */
+export function rowDeleteTarget(row: Exclude<ReceptionRow, { kind: "email" }>, state: string, unnamed: string): DeleteDocumentTarget {
+  return row.kind === "receipt"
+    ? receiptDeleteTarget(row.receipt, state, unnamed)
+    : { id: row.id, name: row.note.text, merchant: null, date: null, amount: null, currency: null, filename: null, state };
 }

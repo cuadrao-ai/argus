@@ -1238,6 +1238,13 @@
           }
         },
         {
+          "name": "CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS",
+          "kind": "plain",
+          "production": {
+            "value": "3600"
+          }
+        },
+        {
           "name": "POSTHOG_PROJECT_TOKEN",
           "kind": "secret",
           "keep_current": true,
