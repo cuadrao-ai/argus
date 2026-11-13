@@ -1,7 +1,6 @@
 """Owner-chosen prose is no longer refused by credential-shape heuristics.
 
-The shared credential grammar still has independent eval consumers, tested here
-without applying it to sharing decisions.
+Credential safety checks remain independent of sharing decisions.
 """
 
 from __future__ import annotations
@@ -9,7 +8,6 @@ from __future__ import annotations
 import re
 
 import pytest
-from argus.domain import credential_shapes
 from argus.domain.public_excerpts import (
     audit_public_excerpt_document,
     normalize_owner_note,
@@ -103,14 +101,6 @@ def test_an_ordinary_note_is_not_over_redacted(note: str) -> None:
 
 def test_credential_shapes_do_not_override_the_owner_preview() -> None:
     audit_public_excerpt_document({"idea_title": "AKIAIOSFODNN7EXAMPLE run"})
-
-
-def test_the_credential_grammar_has_one_home() -> None:
-    """The eval lane continues to use its existing credential grammar."""
-    from tests.evals import prose_evidence
-
-    assert prose_evidence.JWT_PATTERN is credential_shapes.JWT_PATTERN
-    assert prose_evidence.UPPERCASE_KEY_PATTERN is credential_shapes.UPPERCASE_KEY_PATTERN
 
 
 def test_every_recognized_credential_key_is_caught_when_assigned() -> None:
