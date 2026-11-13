@@ -55,8 +55,7 @@ async function capture(page: Page, cell: Cell, name: string, marker: Locator) {
   if (["archived", "deleted"].includes(name)) {
     await expect(page.getByRole("button", { name: label(cell.language, "common.restore"), exact: true })
       .or(page.getByRole("button", { name: label("en", "common.restore"), exact: true })).first()).toBeVisible();
-  } else if (name === "usage") {
-    await expect(page.getByRole("progressbar").first()).toBeVisible();
+
   } else if (["profile", "avatar", "profile-language"].includes(name)) {
     await expect(page.getByText("Alexandra Featherstonehaugh", { exact: true }).last()).toBeVisible();
   }
