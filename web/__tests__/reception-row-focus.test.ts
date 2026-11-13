@@ -15,7 +15,7 @@ test("a row tints and shows its trash on hover or keyboard focus, never on focus
 });
 
 test("an Eliminados row shows its purge action on hover or keyboard focus, never after its panel closes from a click", () => {
-  assert.match(rule(".deletedRow:hover .purgeAction") ?? "", /^\.deletedRow:hover \.purgeAction,\.deletedRow:has\(:focus-visible\) \.purgeAction \{ opacity:1; \}/);
+  assert.match(rule(".deletedRow:hover .trashAction") ?? "", /^\.deletedRow:hover \.trashAction,\.deletedRow:has\(:focus-visible\) \.trashAction \{ opacity:1; \}/);
 });
 
 test("no Business app row reveals or tints on focus-within, since a closed panel or dialog returns focus after a click", () => {

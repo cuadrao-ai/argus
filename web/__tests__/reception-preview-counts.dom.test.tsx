@@ -143,6 +143,24 @@ test("a receipt is unseen only when the server says its activity is unread, and 
   assert.equal(dotted().length, 1, "opening a note marks nothing locally");
 });
 
+test("an open row keeps the server's unseen dot until the server says it was seen", async () => {
+  const page = await mount({ tweak: receipts => receipts.map(receipt => ({ ...receipt, activity: { state: "ready" as const, unread: receipt.id === "review-receipt", completion_cursor: "c1" } })) });
+  page.context.panel = { kind: "receipt", receiptId: "review-receipt", list: "inbox" };
+  page.context.revision++;
+  await page.remount();
+  const open = page.row("Recibo admitido")!;
+  assert.equal(open.getAttribute("aria-current"), "true");
+  assert.equal(open.getAttribute("data-unseen"), "true", "opening alone is not the server's acknowledgement");
+  assert.ok(open.querySelector('[class*="unseenDot"]'));
+  page.context.records = { ...page.context.records, inbox: page.context.records.inbox!.map(receipt => ({ ...receipt, activity: { state: "ready" as const, unread: false, completion_cursor: "c1" } })) };
+  page.context.source = { ...page.context.source, receiptPage: async () => ({ items: page.context.records.inbox!, activity: page.context.records.receiptActivity! }) };
+  page.context.revision++;
+  await page.remount();
+  await page.settle(() => page.row("Recibo admitido")?.getAttribute("data-unseen") === "false");
+  assert.equal(page.row("Recibo admitido")!.getAttribute("aria-current"), "true");
+  assert.equal(page.row("Recibo admitido")!.querySelector('[class*="unseenDot"]'), null);
+});
+
 test("a receipt still being read never carries the dot, and each channel keeps its own word", async () => {
   const page = await mount({
     production: true,

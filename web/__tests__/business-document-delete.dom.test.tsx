@@ -314,6 +314,23 @@ for (const kind of ["draft", "receipt"] as const) {
   });
 }
 
+test("Eliminados lines each row up with its headers: who on one line, when on its own quiet line, and the actions as one group", async () => {
+  const page = await mount();
+  await page.click(document.getElementById("reception-tab-eliminados"));
+  const row = document.querySelector('[data-testid="deleted-document-row"]')!;
+  const headers = [...document.querySelectorAll('[data-testid="deleted-columns"] > span')];
+  assert.deepEqual(headers.map(header => header.textContent), ["Contenido", "Estaba en", "Eliminado por", "Se elimina", "Acciones"]);
+  assert.equal(row.children.length, headers.length, "every header has its cell");
+  const actor = row.querySelector('[data-testid="deleted-actor"]')!;
+  assert.deepEqual([...actor.children].map(line => line.tagName), ["SPAN", "TIME"], "the name and the time are two lines");
+  assert.equal(actor.children[0].textContent, "María Pérez");
+  assert.equal(actor.children[1].getAttribute("datetime"), "2026-11-12T10:00:00Z");
+  assert.doesNotMatch(actor.textContent ?? "", /·/);
+  const actions = row.lastElementChild!;
+  assert.deepEqual([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label") ?? button.textContent), ["Ver", "Restaurar", "Eliminar definitivamente Documento eliminado"]);
+  assert.equal(actions.querySelector('[data-testid="purge-document"]')!.textContent, "", "the hidden action is an icon at the far right, so showing it moves nothing");
+});
+
 test("Eliminados counts down to the server's purge day", async () => {
   const { purgeDays } = await import("@/components/business-app/recepcion/ReceptionDeletedRow");
   const now = new Date(2026, 10, 13, 9);
