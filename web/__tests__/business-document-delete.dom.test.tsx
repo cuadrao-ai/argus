@@ -136,6 +136,13 @@ test("trash belongs only to the server attention row and only the owner", async 
   }
 });
 
+test("a Todos row puts Abrir next to its content and the trash last, at the far right", async () => {
+  await mount();
+  const row = [...document.querySelectorAll('[data-testid="reception-row"]')].find(node => node.textContent?.includes("Documento equivocado"))!;
+  const controls = [...row.querySelectorAll("button")].map(button => button.getAttribute("aria-label") ?? button.textContent?.trim());
+  assert.deepEqual(controls.slice(-2), ["Abrir", "Eliminar Documento equivocado"]);
+});
+
 test("delete asks with facts, starts on Cancel and Escape returns to the row", async () => {
   const page = await mount();
   const trash = document.querySelector<HTMLButtonElement>('button[aria-label="Eliminar Documento equivocado"]')!;
@@ -319,7 +326,7 @@ test("Eliminados lines each row up with its headers: who on one line, when on it
   await page.click(document.getElementById("reception-tab-eliminados"));
   const row = document.querySelector('[data-testid="deleted-document-row"]')!;
   const headers = [...document.querySelectorAll('[data-testid="deleted-columns"] > span')];
-  assert.deepEqual(headers.map(header => header.textContent), ["Contenido", "Estaba en", "Eliminado por", "Se elimina", "Acciones"]);
+  assert.deepEqual(headers.map(header => header.textContent), ["Contenido", "Estaba en", "Eliminado por", "Borrado definitivo", "Acciones"]);
   assert.equal(row.children.length, headers.length, "every header has its cell");
   const actor = row.querySelector('[data-testid="deleted-actor"]')!;
   assert.deepEqual([...actor.children].map(line => line.tagName), ["SPAN", "TIME"], "the name and the time are two lines");
@@ -343,8 +350,8 @@ test("Eliminados counts down to the server's purge day", async () => {
   const countdown = document.querySelector('[data-testid="purge-countdown"]')!;
   assert.equal(countdown.getAttribute("datetime"), "2026-11-19T10:00:00Z");
   const days = purgeDays("2026-11-19T10:00:00Z");
-  assert.equal(countdown.textContent, days > 0 ? `Se elimina en ${days} ${days === 1 ? "día" : "días"}` : "Se elimina hoy");
-  assert.match(document.body.textContent ?? "", /Se eliminan definitivamente 7 días después/);
+  assert.equal(countdown.textContent, days > 0 ? `Borrado definitivo en ${days} ${days === 1 ? "día" : "días"}` : "Borrado definitivo hoy");
+  assert.match(document.body.textContent ?? "", /No cuentan en ningún total\. Se borran definitivamente 7 días después\./);
 });
 
 test("Eliminar definitivamente asks without Estado, retries its key and leaves no undo", async () => {
@@ -357,6 +364,7 @@ test("Eliminar definitivamente asks without Estado, retries its key and leaves n
   await page.wait(() => document.activeElement?.textContent === "Cancelar");
   const dialog = document.querySelector('[role="alertdialog"]')!;
   assert.match(dialog.textContent ?? "", /¿Eliminar definitivamente\?/);
+  assert.equal(document.querySelector('[data-testid="confirm-dialog-confirm"]')!.textContent, "Borrar definitivamente");
   assert.match(dialog.textContent ?? "", /Contraparte.*Fecha.*Total.*Archivo/);
   assert.doesNotMatch(dialog.textContent ?? "", /Estado/);
   assert.match(dialog.textContent ?? "", /No se puede deshacer\. El archivo y sus datos se borran de Cuadrao\./);
