@@ -189,6 +189,13 @@ def _saved_read(kind: str) -> ExtractionBatch:
         return ExtractionBatch(
             complete=False, readable=True, candidates=(), receipt=receipt
         )
+    if kind == "no_total":
+        return ExtractionBatch(
+            complete=False,
+            readable=True,
+            candidates=(),
+            receipt=ReceiptDetails(merchant="Colmado La Esquina"),
+        )
     if kind == "unreadable":
         return ExtractionBatch(
             complete=True, readable=False, candidates=(), receipt=receipt
@@ -207,24 +214,24 @@ def _saved_read(kind: str) -> ExtractionBatch:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("kind", "attention", "preparable", "extracts_again"),
+    ("kind", "attention", "preparable"),
     [
-        ("incomplete", "interrupted", True, False),
-        ("unreadable", "unreadable", False, False),
-        ("no_receipt", "not_a_receipt", False, False),
-        ("ncf_bill", "interrupted", True, False),
+        ("incomplete", "interrupted", True),
+        ("no_total", "not_a_receipt", False),
+        ("unreadable", "unreadable", False),
+        ("no_receipt", "not_a_receipt", False),
+        ("ncf_bill", "interrupted", True),
     ],
 )
-async def test_a_retry_rereads_only_a_saved_read_that_cannot_finish(
+async def test_a_retry_replays_the_saved_read_and_never_reads_again(
     document_bridge,  # noqa: F811
     kind: str,
     attention: str,
     preparable: bool,
-    extracts_again: bool,
 ):
-    """A second prepare asks the provider only when replaying the saved batch
-    would refuse the same way and a new read could differ. An unreadable file
-    and a file with no receipt stay closed. A fiscal bill replays and finishes."""
+    """A second prepare never asks the provider: the saved read is the only
+    read a document has. A read the hand-off still refuses ends in the same
+    refusal. A fiscal bill replays and finishes."""
 
     service, bridge, extractor, _ = document_bridge
     saved = _saved_read(kind)
@@ -257,24 +264,18 @@ async def test_a_retry_rereads_only_a_saved_read_that_cannot_finish(
     batch = service.store.get(user_id=owner, connection_id=uploaded.connection_id)
     shown = compose(draft, batch, [], "web")
     assert (shown.attention, shown.preparable) == (attention, preparable)
-    if extracts_again:
-        with pytest.raises(ActionError):
+    if kind == "ncf_bill":
+        outcome = await service.resume(
+            user_id=owner, connection_id=uploaded.connection_id, scope=scope
+        )
+        assert outcome.replayed is True
+    else:
+        with pytest.raises(ActionError, match="receipt_requires_review"):
             await service.resume(
                 user_id=owner, connection_id=uploaded.connection_id, scope=scope
             )
-        assert extractor.extract.await_count == 2
-    else:
-        if kind == "ncf_bill":
-            outcome = await service.resume(
-                user_id=owner, connection_id=uploaded.connection_id, scope=scope
-            )
-            assert outcome.replayed is True
-        else:
-            with pytest.raises(ActionError):
-                await service.resume(
-                    user_id=owner, connection_id=uploaded.connection_id, scope=scope
-                )
-        assert extractor.extract.await_count == 1
+    assert extractor.extract.await_count == 1
+    assert service.store.get(user_id=owner, connection_id=uploaded.connection_id) == saved
 
 
 @pytest.mark.asyncio
