@@ -54,7 +54,7 @@ function DocumentThumbnail({ receipt }: { receipt?: ReceiptSummary }) {
   </div>;
 }
 
-function DeleteFacts({ target }: { target: DeleteDocumentTarget }) {
+function DeleteFacts({ target, withState = true }: { target: DeleteDocumentTarget; withState?: boolean }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const facts = {
@@ -62,7 +62,7 @@ function DeleteFacts({ target }: { target: DeleteDocumentTarget }) {
     date: target.date ? formatDay(target.date, locale) : UNKNOWN_VALUE,
     total: formatMoney(target.amount, target.currency, locale) || UNKNOWN_VALUE,
     file: target.filename || UNKNOWN_VALUE,
-    state: target.state,
+    ...(withState ? { state: target.state } : {}),
   };
   return <div className="mt-4 flex items-start gap-3" data-testid="document-delete-facts">
     <DocumentThumbnail receipt={target.receipt} />
@@ -117,6 +117,11 @@ export function DeleteDocumentMenuItem({ disabled, onClick }: { disabled?: boole
   return <button type="button" data-testid="delete-document-menu" onClick={onClick} disabled={disabled} className={`flex min-h-11 w-full items-center gap-2 rounded-item px-3 text-left text-[14px] text-[#9e2f39] hover:bg-[#f6dfe0]/50 disabled:opacity-50 dark:text-[#ec9aa0] ${FOCUS_RING}`}><Trash2 size={16} aria-hidden="true" />{t("business.document_delete.menu")}</button>;
 }
 
+/** The server's answer when the document was already purged: the row leaves on the next read. */
+function purgedBefore(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "business_document_purged";
+}
+
 export function RestoreDocumentButton({ id, target, onRestored }: { id: string; target: BusinessPanelState; onRestored?: () => void }) {
   const { t } = useTranslation();
   const { source, reload, openPanel, chosen } = useBusiness();
@@ -137,9 +142,46 @@ export function RestoreDocumentButton({ id, target, onRestored }: { id: string; 
       onRestored?.();
       showToast({ kind: "success", text: t("business.document_delete.restored"), action: { label: t("business.document_delete.view"), run: () => openPanel(target) } });
     } catch (error) {
-      setFailure(referenceCode(error));
+      if (purgedBefore(error)) {
+        key.current = null;
+        showToast({ kind: "info", text: t("business.document_delete.purged_already") });
+        reload();
+      } else setFailure(referenceCode(error));
     } finally { inFlight.current = false; setBusy(false); }
   };
   if (!chosen?.capabilities.includes("approve") || !source.restoreDocument) return null;
   return <span className="inline-flex flex-col items-start"><button type="button" className={secondaryButtonClass} disabled={busy} onClick={() => void restore()}>{t("business.document_delete.restore")}</button>{failure ? <span role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.document_delete.restore_failed")} <ReferenceCode reference={failure} /></span> : null}</span>;
+}
+
+/** "Eliminar definitivamente" in Eliminados: the owner confirms, the server purges, and there is no undo. */
+export function PurgeDocumentButton({ target }: { target: DeleteDocumentTarget }) {
+  const { t } = useTranslation();
+  const { source, reload, chosen } = useBusiness();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const key = useRef<string | null>(null);
+  const inFlight = useRef(false);
+  const close = () => { if (!inFlight.current) { setOpen(false); setFailure(null); } };
+  const purge = async () => {
+    if (!source.purgeDocument || inFlight.current) return;
+    inFlight.current = true;
+    key.current ??= randomId();
+    setBusy(true);
+    setFailure(null);
+    try {
+      await source.purgeDocument(target.id, key.current);
+      key.current = null;
+      setOpen(false);
+      reload();
+      showToast({ kind: "success", text: t("business.document_delete.purged") });
+    } catch (error) {
+      setFailure(referenceCode(error));
+    } finally { inFlight.current = false; setBusy(false); }
+  };
+  if (!chosen?.capabilities.includes("approve") || !source.purgeDocument) return null;
+  return <>
+    <button type="button" data-testid="purge-document" aria-label={t("business.document_delete.purge_label", { name: target.name })} onClick={() => { setFailure(null); setOpen(true); }} className={`min-h-11 rounded-full px-3 text-[14px] font-medium text-[#9e2f39] hover:bg-[#f6dfe0]/50 dark:text-[#ec9aa0] dark:hover:bg-white/5 ${FOCUS_RING}`}>{t("business.document_delete.purge")}</button>
+    {open ? <ConfirmDialog isOpen title={t("business.document_delete.purge_title")} description={t("business.document_delete.purge_description")} confirmLabel={t("business.document_delete.purge")} cancelLabel={t("common.cancel")} isBusy={busy} onCancel={close} onConfirm={() => void purge()} error={failure ? <>{t("business.document_delete.purge_failed")} <ReferenceCode reference={failure} /></> : null}><DeleteFacts target={target} withState={false} /></ConfirmDialog> : null}
+  </>;
 }

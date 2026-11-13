@@ -28,7 +28,7 @@ import { dossierFixtureIds } from "../dossier-fixtures";
 
 type ActorKind = "member" | "owner_via_agent" | "extractor";
 type LedgerAction =
-  | "delete_document" | "restore_document" | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "reopen_draft" | "capture_note" | "prepare_attachment"
+  | "delete_document" | "restore_document" | "purge_document" | "expire_document" | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "reopen_draft" | "capture_note" | "prepare_attachment"
   | "rebind_attachment" | "settle_remainder" | "mark_personal" | "decide_606" | "resolve_duplicate" | "edit_current_note"
   | "append_supporting_file" | "receipt_upload" | "receipt_review" | "receipt_confirm" | "business_ask"
   | "set_business_rnc" | "set_business_legal_name" | "business_propose_activity" | "business_attach_source" | "business_propose_allocation"
@@ -61,6 +61,8 @@ type Group = "uploads" | "reading" | "reviews" | "approvals" | "edits" | "files"
 const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   delete_document: { area: "documents", group: "edits" },
   restore_document: { area: "documents", group: "edits" },
+  purge_document: { area: "documents", group: "edits" },
+  expire_document: { area: "documents", group: "edits" },
   receipt_upload: { area: "documents", group: "uploads" },
   document_read: { area: "documents", group: "reading" },
   document_read_failed: { area: "documents", group: "reading" },

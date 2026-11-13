@@ -27,12 +27,12 @@ import ReceptionFilters, { ReceptionFilterChips } from "./ReceptionFilters";
 import { emptyReceptionFilters, receptionFilterMatches, receptionArrivedInPeriod, receptionSenderIdentity, type SenderIdentity, type ReceptionFiltersValue } from "./reception-filters";
 import ReceptionEmptyState from "./ReceptionEmptyState";
 import { canAddRecords, quietButtonClass } from "../business-ui";
-import { listoItem, receptionDocumentTitle, receptionMatches, receptionRows, receptionSearchText, receptionTarget, type ReceptionRow, type ReceptionView } from "./reception-model";
+import { listoItem, receptionDocumentTitle, receptionMatches, receptionRows, receptionSearchText, receptionTarget, rowDeleteTarget, type ReceptionRow, type ReceptionView } from "./reception-model";
 import { bandejaAttentionCount, bandejaListoCount } from "../inbox-count";
 import ReceptionArrivalRow from "./ReceptionArrivalRow";
 import ReceptionDeletedRow, { DeletedColumns } from "./ReceptionDeletedRow";
 import { useDeletedNotes } from "./useDeletedNotes";
-import { receiptDeleteTarget, useDocumentDelete } from "../DocumentDeleteControls";
+import { useDocumentDelete } from "../DocumentDeleteControls";
 import { useReceiptStateWord } from "../receipt-state-word";
 import ReceptionSkeleton from "./ReceptionSkeleton";
 import { ReceptionSearch, ReceptionSettings, defaultReceptionPreferences, type ReceptionPreferences } from "./ReceptionControls";
@@ -79,7 +79,7 @@ function ReceptionWorkspace() {
   const stateWord = useReceiptStateWord();
   const [deleting, setDeleting] = useState<ReceptionRow | null>(null);
   const deletedNotes = useDeletedNotes(view === "eliminados");
-  const deletion = useDocumentDelete(deleting?.kind === "receipt" ? receiptDeleteTarget(deleting.receipt, stateWord(deleting.receipt), t("business.document_delete.unnamed")) : deleting?.kind === "note" ? { id: deleting.id, name: deleting.note.text, merchant: null, date: null, amount: null, currency: null, filename: null, state: t("business.document_delete.previous.attention") } : null, {
+  const deletion = useDocumentDelete(deleting && deleting.kind !== "email" ? rowDeleteTarget(deleting, deleting.kind === "receipt" ? stateWord(deleting.receipt) : t("business.document_delete.previous.attention"), t("business.document_delete.unnamed")) : null, {
     onClose: () => setDeleting(null),
     onView: () => { if (deleting) { const target = receptionTarget(deleting); if (target.kind === "receipt" || target.kind === "draft") navigateFrom({ ...target, confirmDelete: true }); } setDeleting(null); },
   });

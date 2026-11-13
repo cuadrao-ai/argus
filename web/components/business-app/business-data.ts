@@ -62,6 +62,7 @@ export type BusinessDataSource = Readonly<{
   reopenDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   deleteDocument?: typeof api.deleteBusinessDocument;
   restoreDocument?: typeof api.restoreBusinessDocument;
+  purgeDocument?: typeof api.purgeBusinessDocument;
   approveListos: typeof api.approveBusinessListos;
   /** The owner marks the receipt as personal or takes the mark back. */
   markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;
@@ -131,6 +132,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   reopenDraft: api.reopenBusinessDraft,
   deleteDocument: api.deleteBusinessDocument,
   restoreDocument: api.restoreBusinessDocument,
+  purgeDocument: api.purgeBusinessDocument,
   approveListos: api.approveBusinessListos,
   markPersonal: api.markBusinessPersonal,
   decideFiscalInclusion: api.decideBusinessFiscalInclusion,
@@ -251,6 +253,7 @@ export function withBusinessSpace(
     reopenDraft: source.reopenDraft,
     deleteDocument: source.deleteDocument,
     restoreDocument: source.restoreDocument,
+    purgeDocument: source.purgeDocument,
     approveListos: source.approveListos,
     markPersonal: source.markPersonal,
     decideFiscalInclusion: source.decideFiscalInclusion,
