@@ -62,6 +62,10 @@ HOST_SHUTDOWN_MARGIN_SECONDS, HOST_SHUTDOWN_MAX_SECONDS = 5, 300
 JOB_SETTINGS = {
     "CUADRAO_DOCUMENT_JOBS_MAX_READS": "3",
     "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS": f"{read_seconds():g}",
+    # The Eliminados countdown promises the purge wherever the button shows.
+    "CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS": (
+        f"{DocumentJobSettings.model_fields['purge_every_seconds'].default:g}"
+    ),
 }
 # Deleted with the one read path (issue 1795): nothing may declare them again.
 REMOVED_SETTINGS = (
