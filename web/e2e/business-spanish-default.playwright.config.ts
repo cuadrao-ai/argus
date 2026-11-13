@@ -4,14 +4,13 @@ import path from "node:path";
 export default defineConfig({
   testDir: ".",
   testMatch: "business-spanish-default.spec.ts",
-  outputDir: "/tmp/business-es419-results",
+  outputDir: "../temp/business-es419-results",
   workers: 1,
   retries: 0,
   timeout: 90_000,
   use: {
     baseURL: "http://127.0.0.1:3198",
     locale: "en-US",
-    channel: "chrome",
     viewport: { width: 1280, height: 900 },
   },
   webServer: {
