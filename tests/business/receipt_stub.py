@@ -49,7 +49,8 @@ DETAILS: dict[str, Any] = {
 
 class ReceiptStub:
     """``rows`` replaces the one purchase; ``failure`` makes the next read raise
-    that extraction code, the way the real extractor fails."""
+    that extraction code, the way the real extractor fails; ``complete`` is
+    what the read says of itself."""
 
     def __init__(
         self,
@@ -59,6 +60,7 @@ class ReceiptStub:
         self.rows: list[dict[str, Any]] = [purchase or PURCHASE]
         self.details = details or DETAILS
         self.readable = True
+        self.complete = True
         self.failure: str | None = None
         self.calls: list[str] = []
 
@@ -89,7 +91,7 @@ class ReceiptStub:
         digest = hashlib.sha256(content).hexdigest()
         result = ExtractionResult.model_validate(
             {
-                "complete": True,
+                "complete": self.complete,
                 "readable": self.readable,
                 "pages_read": [1],
                 "observations": self.rows,
