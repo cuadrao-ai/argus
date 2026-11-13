@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { Activity, Archive, Brain, Globe, History, Link2, MapPin, MessageCircle, Palette, PanelLeft, type LucideIcon } from "lucide-react";
+import { Archive, Brain, Globe, History, Link2, MapPin, MessageCircle, Palette, PanelLeft, type LucideIcon } from "lucide-react";
 
 import BusinessNameSettings from "@/components/settings/BusinessNameSettings";
 import AppearanceModal from "@/components/settings/AppearanceModal";
@@ -11,7 +11,6 @@ import DeletedItemsView from "@/components/settings/DeletedItemsView";
 import HomeCountryModal from "@/components/settings/HomeCountryModal";
 import MemoryControlsModal from "@/components/settings/MemoryControlsModal";
 import SharedReceiptsView from "@/components/settings/SharedReceiptsView";
-import UsageModal from "@/components/settings/UsageModal";
 import WhatsAppLinkModal from "@/components/settings/WhatsAppLinkModal";
 import SidebarPreferenceModal, { type SidebarMode } from "@/components/settings/SidebarPreferenceModal";
 import type { ApiUser } from "@/lib/argus-api";
@@ -122,19 +121,6 @@ const SETTINGS_PANELS = {
       />
     ),
   },
-  usage: {
-    parent: "data",
-    nav: { label: ["settings.data.usage", "Usage"], icon: Activity },
-    render: ({ locale, onClose, onBack, backLabel, anchorRef }) => (
-      <UsageModal
-        locale={locale}
-        onClose={onClose}
-        onBack={onBack}
-        backLabel={backLabel}
-        returnFocusRef={anchorRef}
-      />
-    ),
-  },
   sidebar: {
     parent: "settings",
     nav: { label: ["settings.app.sidebar", "Sidebar"], icon: PanelLeft },
@@ -190,7 +176,6 @@ export const SETTINGS_WINDOW_ORDER: readonly SettingsPanel[] = [
   "receipts",
   "archived",
   "deleted",
-  "usage",
 ];
 
 export function settingsPanelNav(panel: SettingsPanel): { group: SettingsPanelParent; label: [string, string]; icon: LucideIcon } | null {

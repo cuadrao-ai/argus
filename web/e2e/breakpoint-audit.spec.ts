@@ -7,7 +7,6 @@ import {
   type Account,
   type Language,
   type Theme,
-  type UsageState,
 } from "./support/breakpoint-fixture";
 
 /**
@@ -45,7 +44,6 @@ type Ctx = {
   account?: Account;
   language?: Language;
   theme?: Theme;
-  usage?: UsageState;
   emptyChat?: boolean;
 };
 
@@ -99,7 +97,6 @@ const PROOF = {
   dossier: /Retest with current data|Volver a probar con datos actuales/i,
   conversionPrompt: /KEEP GOING WITH ARGUS|Request access|Solicitar acceso|SIGUE|Start a new conversation|nueva conversación/i,
   settingsRoot: /Data Controls|Controles de datos/i,
-  usage: /left today|available this hour|hoy|esta hora/i,
   settingsProfile: /Avatar color|Color de avatar/i,
   settingsData: /Recently deleted|Borrados recientemente/i,
   settingsPreferences: /Appearance|Apariencia/i,
@@ -121,7 +118,6 @@ const PROOF = {
      after that click is the chat shell. Named for what it is. */
   chatShell: /Describe an investing idea|Describe una idea/i,
   recents: /Recents|Recientes/i,
-  usageError: /Try again|Reintentar/i,
   /* The typed question itself, which the composer renders into the DOM. */
   typedQuestion: /drawdown/i,
   login: /Forgot password|Olvidaste tu contraseña/i,
@@ -273,7 +269,6 @@ test.describe("guest surfaces", () => {
 
       await open(page, band, "/chat?conversation=conversation-alpha", {
         account: "guest",
-        usage: "exhausted",
       });
       await capture(page, `guest/exhausted-${band}-en-dark`, PROOF.transcript);
 
@@ -376,7 +371,6 @@ test.describe("signed-in surfaces", () => {
           name: /^(security|seguridad)$/i,
           proof: PROOF.settingsSecurity,
         },
-        { leaf: "usage", name: /^(usage|uso)$/i, proof: PROOF.usage },
       ]) {
         if (bands && !bands.includes(band)) continue;
         await open(page, band, "/chat", { emptyChat: true });
@@ -404,32 +398,11 @@ test.describe("signed-in surfaces", () => {
       }
     });
 
-    /* The profile menu is the `settings-profile` capture above; this test
-       carries the two allowance states the healthy fixture never reaches. */
-    test(`usage states at ${band}`, async ({ page }) => {
-      await open(page, band, "/chat", { emptyChat: true, usage: "error" });
-      await openSettings(page, band);
-      if (await clickByName(page, /^(data controls|controles de datos)$/i)) {
-        if (await clickByName(page, /^(usage|uso)$/i)) {
-          await capture(page, `signed-in/usage-error-${band}-en-dark`, PROOF.usageError);
-        }
-      }
-
-      await open(page, band, "/chat", { emptyChat: true, usage: "nearly_out" });
-      await openSettings(page, band);
-      if (await clickByName(page, /^(data controls|controles de datos)$/i)) {
-        if (await clickByName(page, /^(usage|uso)$/i)) {
-          await capture(page, `signed-in/usage-nearly-out-${band}-en-dark`, PROOF.usage);
-        }
-      }
-
-    });
-
     /*
      * The cross pass. Crossing every view by language and theme is ~300
      * captures that nobody reads, so it is spent only where copy length or
-     * theming actually breaks things: the metric table, the allowance meters
-     * and their status chips, the truncated conversation titles, and the
+     * theming actually breaks things: the metric table,
+     * the truncated conversation titles, and the
      * five-action confirmation row.
      */
     test(`language and theme cross at ${band}`, async ({ page }) => {
@@ -454,18 +427,6 @@ test.describe("signed-in surfaces", () => {
           await capture(page, `cross/dossier-${suffix}`, PROOF.dossier);
         }
 
-        await open(page, band, "/chat", {
-          emptyChat: true,
-          language,
-          theme,
-          usage: "nearly_out",
-        });
-        await openSettings(page, band);
-        if (await clickByName(page, /^(data controls|controles de datos)$/i)) {
-          if (await clickByName(page, /^(usage|uso)$/i)) {
-            await capture(page, `cross/usage-${suffix}`, PROOF.usage);
-          }
-        }
       }
     });
 

@@ -189,11 +189,6 @@ const LEAVES: Array<{
     pageUrl: /\/account\/security$/,
   },
   {
-    name: "settings-usage",
-    section: /^(data controls|controles de datos)$/i,
-    leaf: /^(usage|uso)$/i,
-  },
-  {
     name: "settings-appearance",
     section: /^(preferences|preferencias)$/i,
     leaf: /^(appearance|apariencia)$/i,

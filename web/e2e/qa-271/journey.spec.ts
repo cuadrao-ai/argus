@@ -12,7 +12,6 @@ import {
   messageDigest,
   sendTurn,
   startNewChat,
-  usageSnapshot,
 } from "../qa-241/j241.helpers";
 
 // Issue #271 modeled-cost continuity acceptance: one continuous real-interpreter
@@ -132,7 +131,6 @@ test.afterAll(async () => {
 
 test("modeled costs survive edits, honor explicit zero, and reload", async () => {
   test.setTimeout(1_500_000);
-  saveEvidence("00-usage-before", await usageSnapshot(context));
   await startNewChat(page);
 
   // T1 — establish nonzero modeled costs on a ready confirmation.
@@ -246,5 +244,4 @@ test("modeled costs survive edits, honor explicit zero, and reload", async () =>
   expect(afterReload).not.toBeNull();
   expect(canonicalCosts(afterReload!.payload)).toEqual(c6);
 
-  saveEvidence("08-usage-after", await usageSnapshot(context));
 });

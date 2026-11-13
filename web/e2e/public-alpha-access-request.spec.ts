@@ -200,15 +200,6 @@ async function mockGuestJourney(
         : guestMe(publicAccountAccessEnabled, language),
     ),
   );
-  await page.route("**/api/v1/me/usage", (route) =>
-    fulfillJson(route, page, {
-      allowances: {
-        compute: { available_now: true, limiting_window: null },
-        grounding: { available_now: true },
-        execution: { available_now: true },
-      },
-    }),
-  );
   await page.route("**/api/v1/history**", (route) =>
     fulfillJson(route, page, { items: [], next_cursor: null }),
   );

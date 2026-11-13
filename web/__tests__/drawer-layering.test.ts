@@ -93,7 +93,6 @@ describe("drawer layering", () => {
   test("the walk reaches both what the drawer opens and what sits beside it", () => {
     // A silently narrow graph would make every assertion below vacuous.
     expect(SCREEN.has("components/sidebar/ProfileMenu.tsx")).toBe(true);
-    expect(SCREEN.has("components/settings/UsageModal.tsx")).toBe(true);
     expect(SCREEN.has("components/sidebar/RecentsQuickPeek.tsx")).toBe(true);
     expect(SCREEN.size).toBeGreaterThan(100);
   });

@@ -8,7 +8,6 @@ import {
   sendTurn,
   shot,
   startNewChat,
-  usageSnapshot,
 } from "./j241.helpers";
 
 // Final release-captain pass: bounded browser regression for the two P1
@@ -49,7 +48,6 @@ test("r0 probe + usage baseline", async () => {
   const probe = await meProbe(context);
   expect(probe.status).toBe(200);
   expect(probe.isAdmin).toBe(false);
-  saveEvidence("r0-usage-before", await usageSnapshot(context));
 });
 
 test("r1 BTC future (empty-intent route target) + reload", async () => {
@@ -125,8 +123,4 @@ test("r5 provider-resolved NVDA future conservation", async () => {
   );
   await shot(page, "r5-nvda-future");
   await capture("r5-nvda-future", conversationId);
-});
-
-test("r9 usage after", async () => {
-  saveEvidence("r9-usage-after", await usageSnapshot(context));
 });

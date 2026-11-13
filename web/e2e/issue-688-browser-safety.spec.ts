@@ -197,7 +197,6 @@ test(`explicit guest claim retains destination identity with ${recentsState} Rec
   });
   if (holdRecents) {
     await page.route('**/api/v1/conversations/*/messages**', route => route.fulfill({ json: { items: [{ id: 'synthetic-confirmation', role: 'assistant', content: 'Ready for a synthetic simulation', created_at: stamp, metadata: { confirmation_card: { version: 'argus_confirmation/v1', status: 'awaiting_confirmation', title: 'Ready to test', strategy_label: 'Buy and hold', rows: [{ key: 'assets', label: 'Assets', value: 'AAPL' }], actions: [{ id: 'run', type: 'run_backtest', label: 'Run test' }] } } }], next_cursor: null } }));
-    await page.route('**/api/v1/me/usage', route => route.fulfill({ json: { allowances: Object.fromEntries(['compute', 'grounding', 'execution'].map(kind => [kind, { hour: null, day: null, guest_session: null, available_now: kind !== 'execution' || converted, limiting_window: null }])) } }));
   }
   await page.reload();
   if (holdRecents) {
