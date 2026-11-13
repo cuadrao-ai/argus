@@ -47,6 +47,7 @@ from argus.domain.owner_scope import PERSONAL
 from argus.llm import openrouter
 
 from tests.document_extractor_support import start_request
+from tests.document_reads_support import read_receipt, refused_while_another_records
 from tests.ingestion import test_document_jobs_api as api
 from tests.ingestion import test_document_jobs_recharge as support
 from tests.ingestion.test_document_timeout_retry import OK, Provider
@@ -201,6 +202,29 @@ async def test_a_read_that_cannot_start_waits_saved_and_a_started_one_stays_queu
         False,
         "business_preparation_binding_conflict",
     )
+
+
+@pytest.mark.asyncio
+async def test_a_refused_read_never_releases_an_attempt_recorded_after_its_read(pull):
+    service, _, _, extractor = pull
+    connection = (
+        await service.upload(
+            user_id=OWNER,
+            content=b"%PDF-raced",
+            filename="receipt.pdf",
+            media_type="application/pdf",
+            consent=True,
+            scope=PERSONAL,
+        )
+    ).connection_id
+
+    await refused_while_another_records(service, OWNER, connection)
+
+    raced = read(service, connection)
+    assert (raced.status, raced.consent, raced.error_code) == ("queued", True, None)
+    assert attempt(service, connection).draft_version == raced.version
+    assert await read_receipt(service, OWNER, connection) == "prepared"
+    assert extractor.calls == 1
 
 
 @pytest.mark.asyncio
