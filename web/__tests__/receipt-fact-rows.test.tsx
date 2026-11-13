@@ -134,7 +134,7 @@ describe("the form marks the fields the server's blockers name; the attention st
     // Confirming the value a blocker refuses cannot succeed, so the blocked suggestion offers no Confirmar.
     assert.ok(!html.includes("confirm-amount"));
     assert.ok(html.includes('data-fact="funding" data-standing="owner_unknown" data-blocked="true"'));
-    assert.ok(!html.includes('data-fact="currency"'), "currency belongs to the total row");
+    assert.ok(html.includes('data-fact="currency"'), "currency belongs to the Montos header");
     assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 2);
   });
 
@@ -182,7 +182,7 @@ describe("the record facts on the review page", () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, fiscal: { rnc: { ...known("qr_decoded"), value: "131999888" }, ncf: known("extracted"), ecf: unknown, itbis: known("extracted") } }, fiscal_value: "ncf", blockers: [], questions: [] } as unknown as BusinessDossier;
     const { html } = await render(dossier, "es-419", true, [], true);
-    assert.deepEqual([...html.matchAll(/data-fact="([a-z_0-9]+)"/g)].map((match) => match[1]), ["counterparty", "occurred_on", "net_amount", "itbis", "amount", "rnc", "fiscal_number"]);
+    assert.deepEqual([...html.matchAll(/data-fact="([a-z_0-9]+)"/g)].map((match) => match[1]), ["counterparty", "occurred_on", "currency", "net_amount", "itbis", "amount", "rnc", "fiscal_number"]);
     for (const row of ["Contraparte", "Fecha", "Monto sin ITBIS", "Total (con ITBIS)", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
   });
 
