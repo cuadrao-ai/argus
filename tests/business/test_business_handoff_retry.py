@@ -231,9 +231,7 @@ _READS = {
         observations=[_ROW | dict(evidence="transaction", amount="500.00")]
     ),
     "zero_purchase": dict(
-        observations=[
-            _ROW | dict(evidence="transaction", amount="0.00", currency="DOP")
-        ],
+        observations=[_ROW | dict(evidence="transaction", amount="0.00", currency="DOP")],
         receipt=_RECEIPT | dict(total="0.00"),
     ),
     "leading_zero_total": dict(complete=False, receipt=_RECEIPT | dict(total="01180.00")),

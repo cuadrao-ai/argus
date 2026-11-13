@@ -807,7 +807,13 @@ def _dossier_facts(web, draft_id: str) -> dict:  # noqa: ANN001, F811
     [
         ("transaction", {}, "0.00", "amount_positive_required", None),
         ("none", {"ncf": "B0100000001"}, "0.00", "amount_positive_required", None),
-        ("none", {"ncf": "B0100000001"}, "01180.00", "document_extraction_failed", "1180"),
+        (
+            "none",
+            {"ncf": "B0100000001"},
+            "01180.00",
+            "document_extraction_failed",
+            "1180",
+        ),
     ],
     ids=["zero-purchase", "zero-fiscal-bill", "leading-zero-fiscal-bill"],
 )
@@ -846,9 +852,10 @@ def test_a_receipt_stuck_on_a_read_amount_recovers_without_a_new_read(
         if row == "transaction"
         else []
     )
-    reads.details = dict(
-        merchant=merchant, occurred_on="2026-11-10", total=total, currency="DOP"
-    ) | fiscal
+    reads.details = (
+        dict(merchant=merchant, occurred_on="2026-11-10", total=total, currency="DOP")
+        | fiscal
+    )
     assert _reading(web, True).status_code == 200
     with monkeypatch.context() as before_the_fix:
         # The stuck state dates from when the hand-off took the model's amount as is.
@@ -866,7 +873,9 @@ def test_a_receipt_stuck_on_a_read_amount_recovers_without_a_new_read(
     detail = _read_again(web, monkeypatch, receipt_id)
 
     assert reads.calls == []
-    assert web.documents.store.get(user_id=web.alice.id, connection_id=receipt_id) == stored
+    assert (
+        web.documents.store.get(user_id=web.alice.id, connection_id=receipt_id) == stored
+    )
     assert _connection_state(receipt_id) == ("active", None)
     facts = _dossier_facts(web, detail["draft_id"])
     if amount is None:
@@ -920,7 +929,9 @@ def test_a_transfer_with_no_currency_recovers_without_a_new_read(
     detail = _read_again(web, monkeypatch, receipt_id)
 
     assert reads.calls == []
-    assert web.documents.store.get(user_id=web.alice.id, connection_id=receipt_id) == stored
+    assert (
+        web.documents.store.get(user_id=web.alice.id, connection_id=receipt_id) == stored
+    )
     assert _connection_state(receipt_id) == ("active", None)
     facts = _dossier_facts(web, detail["draft_id"])
     assert Decimal(str(facts["amount"]["value"])) == Decimal("500.00")
