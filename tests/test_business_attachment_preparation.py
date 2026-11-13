@@ -641,3 +641,66 @@ def test_a_read_amount_the_facts_cannot_hold_leaves_a_review_draft(
         if amount is None
         else []
     )
+
+
+@pytest.mark.parametrize(
+    ("total", "subtotal", "itbis", "expected"),
+    [
+        ("11,800.00", "10,000.00", "1,800.00", (None, None, None)),
+        ("11800.00", "10,000.00", "1,800.00", ("11800", None, None)),
+        ("1000.00", "1000.00", "0.00", ("1000", "1000", "0")),
+    ],
+)
+def test_one_parse_reads_every_receipt_amount_and_only_a_total_must_be_positive(
+    checked, monkeypatch, faker, total, subtotal, itbis, expected
+):
+    """Total, Monto sin ITBIS and ITBIS follow one rule: text with a thousands
+    separator is unknown wherever it is read. Zero is a component amount; only
+    the purchase total must be positive."""
+
+    from argus.domain.business.actions import mutations, sources
+    from argus.domain.business.actions.facts import validate_facts
+    from argus.domain.ingestion.documents.extractor import batch_from_result
+    from argus.domain.ingestion.documents.models import ExtractionResult
+
+    _, tx, binding, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    tx.context.owner_id = str(binding.owner_id)
+    merchant = faker.company()
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=True,
+            readable=True,
+            pages_read=[1],
+            observations=[
+                dict(
+                    page=1,
+                    row=1,
+                    evidence="transaction",
+                    amount=total,
+                    currency="DOP",
+                    direction="outflow",
+                    kind_hint="expense",
+                    merchant=merchant,
+                )
+            ],
+            receipt=dict(
+                merchant=merchant, total=total, subtotal=subtotal, itbis=itbis, currency="DOP"
+            ),
+        )
+    )
+    batch = batch_from_result(result, draft.sha256, draft.connection_id, draft.created_at, 1)
+    event = mutations.new_candidate(str(binding.owner_id), draft.created_at)
+    monkeypatch.setattr(mutations, "new_candidate", lambda *args: event)
+    monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
+    saved = []
+
+    def save(tx, event, before, after, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        validate_facts(tx, after)
+        saved.append(after)
+
+    monkeypatch.setattr(mutations, "save_revision", save)
+    mutations.prepare_attachment(tx, None, batch, draft, binding.actor)
+
+    [after] = saved
+    assert (after.amount.value, after.net_amount.value, after.fiscal.itbis.value) == expected

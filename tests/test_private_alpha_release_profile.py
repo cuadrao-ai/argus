@@ -284,6 +284,7 @@ def test_settings_tool_emits_the_production_pairs_the_audit_reads() -> None:
         "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS=210",
         "CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS=5",
         "CUADRAO_DOCUMENT_JOBS_MAX_READS=3",
+        "CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS=3600",
         "POSTHOG_REGION=us",
     ]
     assert _settings_tool("print", "production", "workflow").returncode != 0

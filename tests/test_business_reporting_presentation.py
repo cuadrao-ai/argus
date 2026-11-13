@@ -23,14 +23,14 @@ LEGACY_ORDER = [
 ]
 
 
-def test_default_presentation_has_six_visible_columns():
+def test_default_presentation_has_net_tax_and_gross_visible():
     presentation = Presentation()
     assert presentation.order == TABLE_COLUMNS
     assert "category" not in TABLE_COLUMNS
     assert (
         presentation.hidden
         == HIDDEN_COLUMNS
-        == ("funding", "payment_form", "expense_type", "fiscal_number", "itbis_amount")
+        == ("funding", "payment_form", "expense_type", "fiscal_number")
     )
 
 
@@ -41,6 +41,7 @@ def test_legacy_category_order_upgrades_in_place():
     assert presentation.order == (
         "counterparty",
         "date",
+        "net_amount",
         "gross_amount",
         "expense_type",
         "payment_form",
@@ -110,6 +111,8 @@ def test_query_returns_backend_default_presentation(version):
     ] == [
         "counterparty",
         "date",
+        "net_amount",
+        "itbis_amount",
         "gross_amount",
         "stage",
         "note",
@@ -120,7 +123,6 @@ def test_query_returns_backend_default_presentation(version):
         "payment_form",
         "expense_type",
         "fiscal_number",
-        "itbis_amount",
     )
 
 
@@ -185,11 +187,9 @@ def test_saved_order_appends_fiscal_columns_hidden_without_moving_existing_colum
     presentation = Presentation.model_validate(
         {"order": order, "hidden": ["date"], "density": 56}
     )
-    assert presentation.order == (
-        *(key for key in order if key not in {"currency", "family"}),
-        "fiscal_number",
-        "itbis_amount",
-    )
+    expected = [key for key in order if key not in {"currency", "family"}]
+    expected.insert(expected.index("gross_amount"), "net_amount")
+    assert presentation.order == (*expected, "fiscal_number", "itbis_amount")
     assert presentation.hidden == ("date", "fiscal_number", "itbis_amount")
     assert presentation.density == 56
 
@@ -235,8 +235,9 @@ def test_default_columns_keep_fiscal_numbers_and_itbis_next_to_their_related_col
         "counterparty",
         "fiscal_number",
         "date",
-        "gross_amount",
+        "net_amount",
         "itbis_amount",
+        "gross_amount",
         "stage",
         "note",
         "attachment",
@@ -247,6 +248,8 @@ def test_default_columns_keep_fiscal_numbers_and_itbis_next_to_their_related_col
     assert [key for key in TABLE_COLUMNS if key not in HIDDEN_COLUMNS] == [
         "counterparty",
         "date",
+        "net_amount",
+        "itbis_amount",
         "gross_amount",
         "stage",
         "note",

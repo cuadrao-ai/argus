@@ -1,10 +1,11 @@
 import { apiFetch } from "./argus-api-transport";
-import { readBusinessDossier, type BusinessDossier } from "./business-dossier";
+import { readBusinessDossier, type BusinessDossier, type BusinessMontosReview } from "./business-dossier";
 
 export type DgiiDeclaration = Record<string, string | boolean | null> & { form: "606" | "607" };
 export type DgiiReview = {
   fiscal: { rnc: string | null; ncf: string | null; itbis: string | null };
   declaration: DgiiDeclaration;
+  montos?: BusinessMontosReview;
 };
 export type DgiiField = { name: string; label: string; kind: "select" | "date" | "text" | "money"; options: string[]; /** The label of each option that has one, by code. */ labels?: Record<string, string> };
 export type DgiiFields = Record<"606" | "607", DgiiField[]>;
@@ -32,5 +33,5 @@ export const getFiscalProfile = (draftId?: string): Promise<FiscalProfile> => ap
 export const setFiscalProfile = (input: FiscalProfileInput, key: string): Promise<FiscalProfile> => apiFetch("/business/fiscal-profile", { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify(input) });
 export const lookupRegistry = (taxId: TaxId, signal?: AbortSignal): Promise<RegistryAnswer> => apiFetch("/business/fiscal-profile/registry", { method: "POST", body: JSON.stringify({ tax_id: taxId }), signal });
 export const setLegalName = (input: LegalNameInput, key: string): Promise<FiscalProfile> => apiFetch("/business/fiscal-profile/legal-name", { method: "PUT", headers: { "Idempotency-Key": key }, body: JSON.stringify(input) });
-export const reviewDgii = (draftId: string, version: number, dgii: DgiiReview, key: string): Promise<BusinessDossier> => apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, dgii }) }).then(readBusinessDossier);
+export const reviewDgii = (draftId: string, version: number, dgii: DgiiReview, key: string): Promise<BusinessDossier> => apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, dgii: { fiscal: dgii.fiscal, declaration: dgii.declaration }, ...(dgii.montos ? { montos: dgii.montos } : {}) }) }).then(readBusinessDossier);
 export const reviewPurchase = (draftId: string, version: number, purchase: PurchaseChoice, key: string): Promise<BusinessDossier> => apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, purchase }) }).then(readBusinessDossier);

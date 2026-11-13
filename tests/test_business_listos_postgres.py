@@ -101,6 +101,7 @@ def _set_read(rig, index: int, read: dict) -> None:  # noqa: ANN001
     details = {
         **DETAILS,
         "merchant": f"FERRETERIA {index}",
+        "subtotal": None,
         "total": amount,
         "rnc": SUPPLIER,
         "ncf": f"B01{index:08d}",
@@ -277,6 +278,7 @@ def _state(item: dict) -> tuple:
         pytest.param({"itbis": None}, "missing_itbis", id="no ITBIS"),
         pytest.param({"currency": "USD"}, "foreign_currency", id="USD"),
         pytest.param({"itbis": "900.00"}, "review_flag", id="ITBIS above the rate"),
+        pytest.param({"subtotal": "900.00"}, "review_flag", id="amounts do not add up"),
         pytest.param({"ncf": "B0400000002"}, "credit_note", id="a credit note"),
     ],
 )

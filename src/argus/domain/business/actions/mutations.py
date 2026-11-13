@@ -11,7 +11,18 @@ from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.actions import plans, sources
-from argus.domain.business.actions.facts import facts_of, patched_facts, validate_facts
+from argus.domain.business.actions.facts import (
+    facts_of,
+    patched_facts,
+    reviewed_amount_facts,
+    validate_facts,
+)
+from argus.domain.business.amount_inheritance import (
+    INHERITANCE,
+    draft_is_paid,
+    inherit_amounts,
+    inheritance_overrides,
+)
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import (
     Applied,
@@ -32,14 +43,15 @@ from argus.domain.business.contracts.dgii import (
     SalePaymentSplit,
 )
 from argus.domain.business.contracts.facts import (
-    Amount,
     BusinessFactPatch,
     BusinessFacts,
     BusinessResolution,
     DueOnInput,
     Known,
     KnownInput,
+    MontosReview,
     ReadPurchase,
+    Unknown,
 )
 from argus.domain.business.document_type import (
     TYPE_OF_KIND,
@@ -57,13 +69,11 @@ from argus.domain.business.purchase_review import (
     apply_payment_split,
     apply_purchase,
     changes_recorded_refund,
-    derived_amount,
     takes_payment_split,
     takes_purchase_declaration,
-    total_and_itbis,
 )
+from argus.domain.business.receipt_amounts import read_amount, read_amount_facts
 from argus.domain.business.transactions import ActionTransaction
-from argus.domain.ingestion.contract import plain_decimal
 from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
@@ -127,10 +137,13 @@ def save_revision(
     dgii: DgiiDeclaration | None = None,
     clear_dgii: bool = False,
     amount_derived: bool | None = None,
+    fiscal_overrides: tuple[str, ...] | None = None,
     document_type: DocumentType | None = None,
     document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
 ) -> Applied:
+    if before is None and isinstance(after.legal_tip, Unknown) and after.legal_tip.origin is None:
+        after = after.model_copy(update={"legal_tip": Unknown(origin="matched", source_ids=source_ids)})
     validate_facts(tx, after)
     resolution = dict(event.resolution)
     previous = resolution.get("business") or {}
@@ -166,10 +179,20 @@ def save_revision(
     # Every path that moves a fact lands here, so the amount follows all of them.
     if amount_derived is None:
         amount_derived = not clear_dgii and previous.get("amount_derived", False)
-    if amount_derived:
-        declaration = derived_amount(
-            PurchaseDeclaration.model_validate(declaration), *total_and_itbis(after)
+    if declaration is not None:
+        declaration = TypeAdapter(DgiiDeclaration).validate_python(declaration)
+    elif document_type == "venta":
+        declaration = apply_payment_split(None, SalePaymentSplit())
+    if fiscal_overrides is None:
+        fiscal_overrides = inheritance_overrides(
+            before or after, declaration, None, previous.get("fiscal_overrides"),
+            amount_derived=bool(amount_derived),
         )
+    declaration = inherit_amounts(
+        after, declaration, fiscal_overrides,
+        paid=draft_is_paid(tx, event.activity_id, bill_mark),
+    )
+    amount_derived = isinstance(declaration, PurchaseDeclaration) and not set(fiscal_overrides).intersection({"goods_amount", "services_amount"})
     resolution["business"] = BusinessResolution(
         facts=after,
         read_purchases=read_purchases,
@@ -180,6 +203,7 @@ def save_revision(
         remainder_settled=bool(previous.get("remainder_settled", False)),
         dgii=declaration,
         amount_derived=amount_derived,
+        fiscal_overrides=fiscal_overrides,
         document_type=document_type,
         document_type_detected=document_type_detected,
         due_on=after_due_on,
@@ -226,6 +250,7 @@ def revise(
     payment_split: SalePaymentSplit | None = None,
     document_type: DocumentType | None = None,
     due_on: DueOnInput | None = None,
+    montos: MontosReview | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     named_type = document_type is not None
@@ -237,7 +262,8 @@ def revise(
             raise ActionError("invalid_input", "activity_kind_unsupported")
     now = datetime.now(timezone.utc)
     declaration_only = (
-        (purchase is not None or payment_split is not None)
+        (purchase is not None or payment_split is not None or montos is not None)
+        and (montos is None or montos.net_amount is None and montos.legal_tip is None)
         and patch is None
         and fiscal_review is None
         and document_type is None
@@ -286,6 +312,10 @@ def revise(
             after = reviewed_fiscal_facts(after, fiscal_review, source_ids, origin)
     except ValidationError:
         raise ActionError("invalid_input", "business_fact_provenance_invalid") from None
+    if montos is not None:
+        if not set((*montos.override_inherited, *montos.restore_inherited)) <= INHERITANCE.keys():
+            raise ActionError("invalid_input", "business_amount_inheritance_invalid")
+        after = reviewed_amount_facts(after, montos, source_ids, origin=origin)
     if document_type is not None or not kind_disagrees(previous_type, after):
         # A kind saved before the type owned it stays blocked until a person
         # states the kind or the type; an edit that states neither leaves it.
@@ -306,6 +336,11 @@ def revise(
     if declared is not None and declared.form != current_form:
         raise ActionError("invalid_input", "fiscal_direction_unsupported")
     stored = _stored_declaration(event, retyped, current_form)
+    previous_resolution = event.resolution.get("business") or {}
+    stored = inherit_amounts(
+        before or after, stored, previous_resolution.get("fiscal_overrides"),
+        paid=draft_is_paid(tx, event.activity_id, previous_resolution.get("bill_mark")),
+    )
     if purchase is not None:
         current = declared or stored
         if not takes_purchase_declaration(current_type, after):
@@ -336,6 +371,13 @@ def revise(
         actor,
         turn_key,
         dgii=declared,
+        fiscal_overrides=inheritance_overrides(
+            before or after, stored, declared,
+            None if retyped else (event.resolution.get("business") or {}).get("fiscal_overrides"),
+            written=tuple(purchase.model_fields_set if purchase is not None else ()) + (montos.override_inherited if montos else ()),
+            restore=montos.restore_inherited if montos else (),
+            amount_derived=bool((event.resolution.get("business") or {}).get("amount_derived")),
+        ),
         # A declaration filled under the other type no longer applies.
         clear_dgii=retyped and declared is None,
         amount_derived=amount_is_derived(
@@ -601,6 +643,10 @@ def prepare_attachment(
         }
     if chosen is not None and (amount := _read_amount(chosen.amount)) is not None:
         facts = _mark_unverified_review(facts, amount)
+    if not ambiguous:
+        for name, fact in read_amount_facts(batch.receipt, source_id).items():
+            facts[name] = fact.model_dump(mode="json")
+            values[name] = fact.value
     facts["fiscal"] = fiscal_facts_from_receipt(
         batch.receipt, source_id=source_id
     ).model_dump(mode="json")
@@ -805,23 +851,14 @@ def read_refusal(batch: ExtractionBatch) -> str | None:
     return None
 
 
-_FACT_AMOUNT = TypeAdapter(Amount)
-
-
 def _read_amount(text: str | None) -> str | None:
-    """A read's amount as the facts hold it, or None when it is unknown.
+    """A read amount that books a purchase: the one parse, and positive.
 
-    The model's output is external data. A leading zero is dropped. Zero, a
-    negative, or text the facts cannot hold is no amount: a person enters it.
+    Zero is no purchase amount: a person enters it.
     """
 
-    if text is None:
-        return None
-    try:
-        amount = _FACT_AMOUNT.validate_python(plain_decimal(text))
-    except ValueError:
-        return None
-    return amount if Decimal(amount) > 0 else None
+    amount = read_amount(text)
+    return amount if amount is not None and Decimal(amount) > 0 else None
 
 
 def _booked_rows(batch: ExtractionBatch) -> list:

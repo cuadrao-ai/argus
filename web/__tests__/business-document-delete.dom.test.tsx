@@ -12,7 +12,8 @@ beforeAll(() => {
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 const PREVIEW_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPlkAAAAASUVORK5CYII=";
 const cleanups: (() => Promise<void>)[] = [];
-afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; });
+let restorePurged = false;
+afterEach(async () => { while (cleanups.length) await cleanups.pop()!(); document.body.innerHTML = ""; restorePurged = false; });
 
 async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", failFirst = false, noteCount = 0, deletedDossier = false) {
   const { act } = await import("react");
@@ -29,7 +30,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const ready = await fixture.receipt("rcpt-ferreteria");
   const blurry = await fixture.receipt("rcpt-blurry");
-  const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez" }, at: "2026-11-12T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
+  const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez" }, at: "2026-11-12T10:00:00Z", purge_at: "2026-11-19T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
   let dossierDeleted = true;
   let items: ReceiptDetail[] = [
     { ...blurry, id: "attention", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
@@ -43,6 +44,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   const captureOffsets: number[] = [];
   const calls: { id: string; key: string }[] = [];
   const restores: string[] = [];
+  const purges: { id: string; key: string }[] = [];
   const source: BusinessDataSource = {
     ...fixture,
     spaces: async () => (await fixture.spaces()).map(space => ({ ...space, role: role === "owner" ? "owner" : "accountant", business_role: role, grant_id: role === "owner" ? space.grant_id : "synthetic-role", capabilities: role === "owner" ? space.capabilities : role === "viewer" ? ["read"] : ["read", "prepare"] })),
@@ -75,8 +77,19 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
       items = items.map(item => item.id === id || item.draft_id === id ? { ...item, status: "dismissed", deleted: deletion, delete_available: false, restore_available: true, bandeja_group: { ...item.bandeja_group!, group: "eliminados" } } : item);
       return { document_id: id, deleted: true };
     },
+    purgeDocument: async (id, key) => {
+      purges.push({ id, key });
+      if (failFirst && purges.length === 1) throw new Error("synthetic outage");
+      items = items.filter(item => item.id !== id);
+      notes = notes.filter(note => note.draft_id !== id);
+      return { document_id: id, deleted: true };
+    },
     restoreDocument: async id => {
       restores.push(id);
+      if (restorePurged) {
+        items = items.filter(item => item.id !== id);
+        throw Object.assign(new Error("Purged"), { status: 404, code: "business_document_purged" });
+      }
       dossierDeleted = false;
       notes = notes.map(note => note.draft_id === id ? { ...note, review_state: "open", deleted: null, delete_available: true, restore_available: false, bandeja_group: { ...note.bandeja_group!, group: "attention" } } : note);
       items = items.map(item => item.id === id || item.draft_id === id ? { ...item, status: "needs_attention", deleted: null, delete_available: true, restore_available: false, bandeja_group: { ...item.bandeja_group!, group: "attention" } } : item);
@@ -100,7 +113,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   await wait(() => document.querySelectorAll('[data-testid="reception-row"]').length === 4);
   const click = async (element: HTMLElement | null) => { assert.ok(element); await act(async () => element!.click()); };
   const button = (label: string, within: ParentNode = document) => [...within.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === label) ?? null;
-  return { act, wait, click, button, calls, restores, captureOffsets, source, items, api: () => api! };
+  return { act, wait, click, button, calls, restores, purges, captureOffsets, source, items, api: () => api! };
 }
 
 test("trash belongs only to the server attention row and only the owner", async () => {
@@ -300,3 +313,71 @@ for (const kind of ["draft", "receipt"] as const) {
 
   });
 }
+
+test("Eliminados counts down to the server's purge day", async () => {
+  const { purgeDays } = await import("@/components/business-app/recepcion/ReceptionDeletedRow");
+  const now = new Date(2026, 10, 13, 9);
+  assert.equal(purgeDays(new Date(2026, 10, 20, 8).toISOString(), now), 7);
+  assert.equal(purgeDays(new Date(2026, 10, 14, 23).toISOString(), now), 1);
+  assert.equal(purgeDays(new Date(2026, 10, 13, 23).toISOString(), now), 0);
+  assert.equal(purgeDays(new Date(2026, 10, 12, 23).toISOString(), now), 0);
+  const page = await mount();
+  await page.click(document.getElementById("reception-tab-eliminados"));
+  const countdown = document.querySelector('[data-testid="purge-countdown"]')!;
+  assert.equal(countdown.getAttribute("datetime"), "2026-11-19T10:00:00Z");
+  const days = purgeDays("2026-11-19T10:00:00Z");
+  assert.equal(countdown.textContent, days > 0 ? `Se elimina en ${days} ${days === 1 ? "día" : "días"}` : "Se elimina hoy");
+  assert.match(document.body.textContent ?? "", /Se eliminan definitivamente 7 días después/);
+});
+
+test("Eliminar definitivamente asks without Estado, retries its key and leaves no undo", async () => {
+  const page = await mount("owner", true);
+  await page.click(document.getElementById("reception-tab-eliminados"));
+  const trigger = document.querySelector<HTMLButtonElement>('[data-testid="purge-document"]')!;
+  assert.equal(trigger.getAttribute("aria-label"), "Eliminar definitivamente Documento eliminado");
+  trigger.focus();
+  await page.click(trigger);
+  await page.wait(() => document.activeElement?.textContent === "Cancelar");
+  const dialog = document.querySelector('[role="alertdialog"]')!;
+  assert.match(dialog.textContent ?? "", /¿Eliminar definitivamente\?/);
+  assert.match(dialog.textContent ?? "", /Contraparte.*Fecha.*Total.*Archivo/);
+  assert.doesNotMatch(dialog.textContent ?? "", /Estado/);
+  assert.match(dialog.textContent ?? "", /No se puede deshacer\. El archivo y sus datos se borran de Cuadrao\./);
+  await page.act(async () => { document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+  await page.wait(() => !document.querySelector('[role="alertdialog"]'));
+  assert.equal(page.purges.length, 0);
+  await page.click(trigger);
+  await page.wait(() => !!document.querySelector('[role="alertdialog"]'));
+  await page.click(document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]'));
+  await page.wait(() => !!document.querySelector('[data-testid="confirm-dialog-error"]'));
+  assert.match(document.querySelector('[data-testid="confirm-dialog-error"]')!.textContent ?? "", /No se pudo eliminar definitivamente el documento/);
+  await page.click(document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]'));
+  await page.wait(() => !document.querySelector('[data-testid="deleted-document-row"]'));
+  assert.equal(page.purges.length, 2);
+  assert.equal(page.purges[0].key, page.purges[1].key);
+  assert.equal(page.purges[0].id, "deleted");
+  assert.match(document.body.textContent ?? "", /Documento eliminado definitivamente/);
+  assert.equal(page.button("Deshacer"), null);
+  assert.match(document.body.textContent ?? "", /Los documentos que elimines quedan aquí 7 días\. Después se eliminan definitivamente\./);
+});
+
+test("only the owner sees Eliminar definitivamente", async () => {
+  for (const role of ["admin", "editor", "viewer"] as const) {
+    const page = await mount(role);
+    await page.click(document.getElementById("reception-tab-eliminados"));
+    await page.wait(() => !!document.querySelector('[data-testid="deleted-document-row"]'));
+    assert.equal(document.querySelector('[data-testid="purge-document"]'), null);
+    await cleanups.pop()!();
+  }
+});
+
+test("restoring a document the expiry already purged says so", async () => {
+  restorePurged = true;
+  const page = await mount();
+  await page.click(document.getElementById("reception-tab-eliminados"));
+  const row = document.querySelector('[data-testid="deleted-document-row"]')!;
+  await page.click(page.button("Restaurar", row));
+  await page.wait(() => /Este documento ya se eliminó definitivamente\./.test(document.body.textContent ?? ""));
+  await page.wait(() => !document.querySelector('[data-testid="deleted-document-row"]'));
+  assert.doesNotMatch(document.body.textContent ?? "", /No se pudo restaurar/);
+});

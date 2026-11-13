@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import TypeAdapter
 
+from argus.domain.business.amount_inheritance import document_is_paid, inheritance_state
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, SalesDeclaration
 from argus.domain.business.contracts.dossier import AccountChoice
 from argus.domain.business.contracts.facts import (
@@ -29,7 +30,9 @@ from argus.domain.business.dgii_validation import (
 )
 from argus.domain.business.document_type import SALE, direction
 from argus.domain.business.fiscal_identity import normalized_ncf, normalized_taxpayer_id
+from argus.domain.business.purchase_review import net_amount
 from argus.domain.business.reporting_query import DgiiChoice, Purchase606, ReportRecord
+from argus.domain.business.review_flags import review_flags
 from argus.domain.ingestion.reconcile.model import ImportEvent
 
 if TYPE_CHECKING:
@@ -232,6 +235,15 @@ def project(
         if purchase is not None and isinstance(declaration, PurchaseDeclaration)
         else None
     )
+    net = net_amount(facts, declaration, total=gross)
+    mismatch = next(
+        (
+            flag
+            for flag in review_flags(facts, declaration=declaration)
+            if flag.code == "amounts_mismatch"
+        ),
+        None,
+    )
     return ReportRecord(
         row_id=f"draft:{draft.event.id}"
         if draft
@@ -247,7 +259,16 @@ def project(
         workflow_blockers=blocked,
         currency=currency,
         gross_amount=gross,
-        itbis_amount=fact_value(approved, "itbis"),
+        net_amount=net.amount,
+        net_amount_source=net.source,
+        amounts_difference=mismatch.difference if mismatch else None,
+        inheritance=inheritance_state(
+            facts,
+            declaration,
+            approved.fiscal_overrides,
+            paid=approved.paid or document_is_paid(recorded.settlement.status if recorded.settlement else None),
+        ),
+        itbis_amount=value(facts.fiscal, "itbis") if facts.fiscal else None,
         goods_amount=purchase_amounts.goods_amount if purchase_amounts else None,
         services_amount=purchase_amounts.services_amount if purchase_amounts else None,
         recorded_amount=str(activity["amount"]),

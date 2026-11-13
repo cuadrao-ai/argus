@@ -68,9 +68,10 @@ _HEADER_PATHS: dict[FileColumn, str] = {
     "counterparty": "business.transactions.columns.contraparte",
     "fiscal_number": "business.transactions.columns.ncf",
     "date": "business.transactions.columns.fecha",
-    "gross_amount": "business.transactions.columns.monto",
+    "net_amount": "business.terms.net_amount",
+    "gross_amount": "business.terms.total",
     "currency": "business.transactions.columns.moneda",
-    "itbis_amount": "business.transactions.columns.itbis",
+    "itbis_amount": "business.terms.itbis",
     "stage": "business.transactions.layout.column_state",
     "note": "business.transactions.columns.notas",
     "attachment": "business.transactions.layout.column_attachment",
@@ -365,6 +366,8 @@ def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
         return row.fiscal_number
     if key == "date":
         return row.report_date
+    if key == "net_amount":
+        return _amount(row.net_amount) if row.currency else None
     if key == "gross_amount":
         return _amount(row.gross_amount) if row.currency else None
     if key == "currency":

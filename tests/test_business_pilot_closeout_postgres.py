@@ -79,6 +79,8 @@ def test_a_typed_purchase_holds_what_the_person_typed_and_nothing_else(world) ->
     assert {name: fact["value"] for name, fact in facts.items() if name != "fiscal"} == {
         "kind": "expense",
         "amount": "500",
+        "net_amount": None,
+        "legal_tip": None,
         "currency": "DOP",
         "occurred_on": "2026-09-03",
         "counterparty": TEXT,
@@ -460,7 +462,10 @@ def test_a_sale_with_no_declaration_gets_the_split_and_nothing_else(world) -> No
     ).json()
     assert _approve(world, draft, reviewed["version"], "income").is_success
     before = _dossier(world, draft)
-    assert (before["review_state"], before["dgii"]) == ("accepted", None)
+    assert before["review_state"] == "accepted"
+    assert before["dgii"]["form"] == "607"
+    assert before["dgii"]["billed_amount"] == "1180.00"
+    assert before["inheritance"]["billed_amount"]["inherited"] is True
 
     answer = _split(world, draft, before["version"], bank="1180.00")
 
@@ -472,7 +477,7 @@ def test_a_sale_with_no_declaration_gets_the_split_and_nothing_else(world) -> No
         name: value
         for name, value in declared.items()
         if name not in {"form", "bank"} and value is not None
-    } == {}
+    } == {"billed_amount": "1180.00"}
     assert _month(world)["dgii_forms"]["607"] != "prepared_candidate"
     assert _export(world)[2] == {}
     assert (

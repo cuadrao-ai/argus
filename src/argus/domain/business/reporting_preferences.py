@@ -30,6 +30,7 @@ Column = Literal[
     "stage",
     "counterparty",
     "currency",
+    "net_amount",
     "gross_amount",
     "recorded_amount",
     "proposed_amount",
@@ -156,8 +157,9 @@ TableColumn = Literal[
     "counterparty",
     "fiscal_number",
     "date",
-    "gross_amount",
+    "net_amount",
     "itbis_amount",
+    "gross_amount",
     "stage",
     "note",
     "attachment",
@@ -169,8 +171,9 @@ TABLE_COLUMNS: tuple[TableColumn, ...] = (
     "counterparty",
     "fiscal_number",
     "date",
-    "gross_amount",
+    "net_amount",
     "itbis_amount",
+    "gross_amount",
     "stage",
     "note",
     "attachment",
@@ -185,7 +188,6 @@ HIDDEN_COLUMNS: tuple[TableColumn, ...] = (
     "payment_form",
     "expense_type",
     "fiscal_number",
-    "itbis_amount",
 )
 Sort = Literal[
     "date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"
@@ -214,6 +216,9 @@ def _current_columns(value: Any) -> Any:
             order.append(key)
             if key not in hidden:
                 hidden.append(key)
+    if "net_amount" not in order:
+        index = order.index("gross_amount") if "gross_amount" in order else len(order)
+        order.insert(index, "net_amount")
     return {**value, "order": order, "hidden": hidden}
 
 

@@ -223,7 +223,7 @@ def test_lo_que_ves_follows_every_filter_and_the_chosen_columns(fake):
     assert [value for _, value, _ in cells[0]] == [
         "Contraparte",
         "Fecha",
-        "Monto",
+        "Total",
         "Notas",
     ]
     assert [[value for _, value, _ in line] for line in cells[1:]] == [
@@ -238,7 +238,7 @@ def test_lo_que_ves_follows_every_filter_and_the_chosen_columns(fake):
         source(*rows), table(request, ("gross_amount",), currencies="all", format="csv")
     )
     lines = list(csv.reader(io.StringIO(every.content.decode("utf-8-sig"))))
-    assert lines[0] == ["Contraparte", "Monto", "Moneda"]
+    assert lines[0] == ["Contraparte", "Total", "Moneda"]
     assert sorted(line[2] for line in lines[1:]) == ["DOP", "USD"]
 
 
@@ -291,6 +291,7 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
         ("counterparty", True),
         ("note", True),
         ("date", True),
+        ("net_amount", True),
         ("gross_amount", True),
         ("fiscal_number", False),
         ("itbis_amount", False),
@@ -305,7 +306,7 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
     assert next(csv.reader(io.StringIO(built.content.decode("utf-8-sig")))) == [
         "Contraparte",
         "Notas",
-        "Monto",
+        "Total",
     ]
     with pytest.raises(ActionError) as refused:
         build_file(source(), table(request, ("expense_type",), currencies="current"))
@@ -346,8 +347,8 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     assert [value for _, value, _ in cells[0]] == [
         "Contraparte",
         "Fecha",
-        "Monto",
         "ITBIS",
+        "Total",
         "Estado",
         "Adjunto",
         "Tipo de gasto",
@@ -380,8 +381,8 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     )[1]
     assert csv_line[1:4] == [
         record.report_date.strftime("%d/%m/%Y"),
-        record.gross_amount,
         "18.00",
+        record.gross_amount,
     ]
 
     english = build_file(
@@ -403,13 +404,13 @@ def test_amounts_keep_their_currency_precision_in_both_formats(fake):
     choice = table(request, ("gross_amount", "itbis_amount"), currencies="current")
     cells = xlsx(build_file(source(record), choice).content)
     assert [cell for cell in cells[1][1:]] == [
-        ("n", Decimal("1.234"), "#,##0.000"),
         ("n", Decimal("0.185"), "#,##0.000"),
+        ("n", Decimal("1.234"), "#,##0.000"),
     ]
     written = build_file(
         source(record), choice.model_copy(update={"format": "csv"})
     ).content.decode("utf-8-sig")
-    assert written.splitlines()[1].split(",")[1:] == ["1.234", "0.185"]
+    assert written.splitlines()[1].split(",")[1:] == ["0.185", "1.234"]
 
 
 def test_an_amount_past_excel_precision_stays_exact_text(fake):
@@ -418,8 +419,8 @@ def test_an_amount_past_excel_precision_stays_exact_text(fake):
         report(currencies=["DOP"]), ("gross_amount", "itbis_amount"), currencies="current"
     )
     cells = xlsx(build_file(source(record), choice).content)
-    assert cells[1][1][:2] == ("s", "123456789012345.67")
-    assert cells[1][2] == ("n", Decimal("18"), "#,##0.00")
+    assert cells[1][2][:2] == ("s", "123456789012345.67")
+    assert cells[1][1] == ("n", Decimal("18"), "#,##0.00")
 
 
 def test_formula_like_cells_are_escaped_in_both_formats(fake):
@@ -843,3 +844,21 @@ def test_every_606_code_has_the_exact_export_rendering(
         )
         expected = TOOL_CATEGORIES if field == "category" else TOOL_PAYMENTS
         assert result[label] == expected[int(code) - 1]
+
+
+def test_lo_que_ves_exports_server_net_itbis_and_total_in_table_order(fake):
+    record = row(
+        fake, net_amount="1000.00", itbis_amount="180.00", gross_amount="1280.00"
+    )
+    written = build_file(
+        source(record),
+        table(
+            report(currencies=["DOP"]),
+            ("gross_amount", "net_amount", "itbis_amount"),
+            currencies="current",
+            format="csv",
+        ),
+    ).content.decode("utf-8-sig")
+    header, values = csv.reader(io.StringIO(written))
+    assert header == ["Contraparte", "Monto sin ITBIS", "ITBIS", "Total"]
+    assert values[1:] == ["1000.00", "180.00", "1280.00"]

@@ -34,8 +34,9 @@ def test_v1_remains_strict_and_v2_hides_purchase_fields_and_funding_by_default()
         "payment_form",
         "expense_type",
         "fiscal_number",
-        "itbis_amount",
     )
+    assert "net_amount" not in request.presentation.hidden
+    assert "itbis_amount" not in request.presentation.hidden
     assert request.page_size == 25
     with pytest.raises(ValidationError):
         ReportRequestV2(presentation={"hidden": ["currency"]})

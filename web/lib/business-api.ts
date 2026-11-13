@@ -5,7 +5,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-a
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
-import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
+import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -89,7 +89,8 @@ export type ReceiptActivityCounts = {
 export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; leyendo: boolean };
 /** The server's one Bandeja group of an open receipt: `reason` is its one plain word, null when Listos. A closed receipt has no group. `draft_id` and `version` are what an approval of this row names. */
 export type BandejaGroup = { group: "listo" | "attention" | "reading" | "eliminados" | null; reason: string | null; draft_id: string | null; version: number | null };
-export type DocumentDeletion = { actor: { actor_id: string; display_name: string }; at: string; key: string; previous_state: { state: string; group: "attention" | "listo" } };
+/** `purge_at` is when the server purges the document for good. */
+export type DocumentDeletion = { actor: { actor_id: string; display_name: string }; at: string; purge_at: string; key: string; previous_state: { state: string; group: "attention" | "listo" } };
 export type DocumentDeleteAccess = { deleted?: DocumentDeletion | null; delete_available?: boolean; restore_available?: boolean };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
@@ -323,6 +324,10 @@ export function deleteBusinessDocument(id: string, key: string): Promise<{ docum
 
 export function restoreBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
   return apiFetch(`/business/drafts/${encodeURIComponent(id)}/restore`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
+}
+
+export function purgeBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(id)}/purge`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
 }
 
 /** The account types POST /business/accounts accepts; the server's ExpenseAccountType. */
@@ -880,4 +885,15 @@ export const inviteBusinessMembers = async (recipients:BusinessInvitationCommand
 /** Owner action: bind a receipt whose preparation grant is no longer live to the owner's current grant. */
 export async function rebindBusinessReceipt(id: string): Promise<ReceiptDetail> {
   return apiFetch(`/business/receipts/${encodeURIComponent(id)}/rebind`, { method: "POST" });
+}
+
+export async function reviewBusinessMontos(draftId: string, version: number, montos: BusinessMontosReview, key: string): Promise<BusinessDossier> {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, montos }) });
+}
+
+export type BusinessAmountsPreviewInput = Partial<Record<"amount" | "itbis" | "net_amount" | "legal_tip", { state: "known"; value: string } | { state: "unknown"; value: null }>>;
+const amountsPreviewSchema = z.object({ net_amount: z.object({ amount: z.string().nullable(), source: z.enum(["read", "calculated", "edited"]).nullable() }), mismatch: z.object({ code: z.literal("amounts_mismatch"), difference: z.string() }).nullable() });
+export type BusinessAmountsPreview = z.infer<typeof amountsPreviewSchema>;
+export async function previewBusinessAmounts(draftId: string, version: number, amounts: BusinessAmountsPreviewInput): Promise<BusinessAmountsPreview> {
+  return amountsPreviewSchema.parse(await apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/amounts-preview`, { method: "POST", body: JSON.stringify({ version, ...amounts }) }));
 }

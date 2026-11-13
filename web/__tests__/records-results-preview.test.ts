@@ -11,13 +11,13 @@ import en from "@/public/locales/en/common.json";
 const record = (id: string, kind: RecordRow["kind"], amount: string, currency: string): RecordRow => ({ id, kind, occurredOn: "2026-10-25", counterparty: "Sample", money: { amount, currency }, categoryId: null, account: null, hasProof: null, marks: { personal: false, markedBy: null, fiscal: null }, opens: null });
 const rows = [record("exp-gas", "gasto", "-2100.00", "DOP"), record("exp-hosting", "gasto", "-24.00", "USD"), record("exp-lunch", "gasto", "-1250.00", "DOP"), record("exp-gas", "venta", "2100.00", "DOP"), record("exp-hosting", "venta", "24.00", "USD"), record("exp-lunch", "venta", "1250.00", "DOP")];
 
-test("preview defaults keep six columns with optional purchase and account fields", () => {
+test("preview defaults keep eight columns with optional purchase and account fields", () => {
   const prefs = sampleRecordsPreferences();
   assert.equal(prefs.order.length, recordedReportAnswer.presentation.order.length);
-  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["contraparte", "fecha", "monto", "estado", "notas", "comprobante"]);
-  assert.deepEqual(prefs.hidden, ["cuenta", "forma_pago", "tipo_gasto", "ncf", "itbis"]);
-  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "cuenta")).length, 7);
-  assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(toggleRecordsColumn(prefs, "tipo_gasto"), "forma_pago")).map(({ key }) => key).slice(6, 8), ["tipo_gasto", "forma_pago"], "Forma de pago shows beside Tipo de gasto once chosen");
+  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["contraparte", "fecha", "net_amount", "itbis", "monto", "estado", "notas", "comprobante"]);
+  assert.deepEqual(prefs.hidden, ["cuenta", "forma_pago", "tipo_gasto", "ncf"]);
+  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "cuenta")).length, 9);
+  assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(toggleRecordsColumn(prefs, "tipo_gasto"), "forma_pago")).map(({ key }) => key).slice(8, 10), ["tipo_gasto", "forma_pago"], "Forma de pago shows beside Tipo de gasto once chosen");
   assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "estado")).some(({ key }) => key === "estado"), false);
 });
 

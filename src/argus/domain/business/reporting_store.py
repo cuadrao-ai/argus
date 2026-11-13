@@ -349,6 +349,7 @@ def _projected(
             tuple(source.source_id for source in sources),
             personal=is_personal(facts),
             include_606=fiscal_inclusion(facts),
+            fiscal_overrides=resolution.fiscal_overrides,
         )
         dependency = hashlib.sha256(
             _json(

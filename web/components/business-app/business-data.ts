@@ -51,6 +51,8 @@ export type BusinessDataSource = Readonly<{
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
   receipt: (id: string, signal?: AbortSignal) => Promise<ReceiptDetail>;
   dossier: (id: string) => Promise<BusinessDossier>;
+  reviewMontos?: typeof api.reviewBusinessMontos;
+  previewAmounts?: typeof api.previewBusinessAmounts;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   dgiiFields: () => Promise<DgiiFields>;
   reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>;
@@ -62,6 +64,7 @@ export type BusinessDataSource = Readonly<{
   reopenDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   deleteDocument?: typeof api.deleteBusinessDocument;
   restoreDocument?: typeof api.restoreBusinessDocument;
+  purgeDocument?: typeof api.purgeBusinessDocument;
   approveListos: typeof api.approveBusinessListos;
   /** The owner marks the receipt as personal or takes the mark back. */
   markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;
@@ -122,6 +125,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receipt: api.getBusinessReceipt,
   dossier: api.getBusinessDossier,
   reviewDraft: api.reviewBusinessDraft,
+  reviewMontos: api.reviewBusinessMontos,
+  previewAmounts: api.previewBusinessAmounts,
   dgiiFields: getDgiiFields,
   reviewFiscal: reviewDgii,
   reviewPurchase,
@@ -131,6 +136,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   reopenDraft: api.reopenBusinessDraft,
   deleteDocument: api.deleteBusinessDocument,
   restoreDocument: api.restoreBusinessDocument,
+  purgeDocument: api.purgeBusinessDocument,
   approveListos: api.approveBusinessListos,
   markPersonal: api.markBusinessPersonal,
   decideFiscalInclusion: api.decideBusinessFiscalInclusion,
@@ -242,6 +248,8 @@ export function withBusinessSpace(
     expense: source.expense,
     dossier: source.dossier,
     reviewDraft: source.reviewDraft,
+    reviewMontos: source.reviewMontos,
+    previewAmounts: source.previewAmounts,
     dgiiFields: source.dgiiFields,
     reviewFiscal: source.reviewFiscal,
     reviewPurchase: source.reviewPurchase,
@@ -251,6 +259,7 @@ export function withBusinessSpace(
     reopenDraft: source.reopenDraft,
     deleteDocument: source.deleteDocument,
     restoreDocument: source.restoreDocument,
+    purgeDocument: source.purgeDocument,
     approveListos: source.approveListos,
     markPersonal: source.markPersonal,
     decideFiscalInclusion: source.decideFiscalInclusion,

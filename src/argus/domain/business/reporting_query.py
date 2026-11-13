@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from argus.domain.business.contracts.facts import personal_mark_admits
+from argus.domain.business.contracts.facts import InheritedValue, personal_mark_admits
 from argus.domain.business.reporting import (
     FiscalAmount,
     ReportIdentity,
@@ -99,6 +99,10 @@ class ReportRecord(Contract):
     workflow_blockers: tuple[str, ...] = ()
     currency: str | None = None
     gross_amount: str | None = None
+    net_amount: str | None = None
+    net_amount_source: Literal["read", "calculated", "edited"] | None = None
+    amounts_difference: str | None = None
+    inheritance: dict[str, InheritedValue] = {}
     itbis_amount: str | None = None
     goods_amount: str | None = None
     services_amount: str | None = None
@@ -139,6 +143,9 @@ class Total(Contract):
         "document_gross_amount",
         "document_credit_adjustment",
         "document_family_amount",
+        "document_net_amount",
+        "document_net_credit_adjustment",
+        "document_net_family_amount",
     ]
     matching_count: int
     known_amount_minor: int
@@ -409,8 +416,66 @@ def _totals(
                 else None
             )
             result.append(Total(**fields))
+    result.extend(_net_totals(rows))
     result.extend(_document_totals(result, rows))
     return tuple(result)
+
+
+def _net_totals(rows: tuple[ReportRecord, ...]) -> list[Total]:
+    result = []
+    for credit in (False, True):
+        components = []
+        for row in rows:
+            if (row.document_kind == "credit_note") != credit or (
+                not credit and row.date_basis != "document_issue"
+            ):
+                continue
+            kind = {"sale": "income", "purchase": "expense"}.get(row.family, "unknown")
+            effect = (row.adjustment_effect or "unknown") if credit else row.money_effect
+            if row.net_amount is None or row.currency is None or kind == "unknown":
+                effect = "unknown"
+            amount_minor = None
+            if row.net_amount is not None and row.currency is not None:
+                try:
+                    amount_minor = _fiscal_minor_units(row.net_amount, row.currency)
+                except RecordingInputError:
+                    effect = "unsupported"
+            components.append(
+                FiscalAmount(
+                    currency=row.currency,
+                    kind=kind,
+                    basis="net_amount",
+                    amount_minor=amount_minor,
+                    populated=row.net_amount is not None,
+                    effect=effect,
+                    sign=-1 if credit else 1,
+                )
+            )
+        for total in summarize_fiscal(components):
+            result.append(
+                Total(
+                    currency=total.currency,
+                    kind=total.kind,
+                    basis="document_net_credit_adjustment"
+                    if credit
+                    else "document_net_amount",
+                    matching_count=total.applicable_count,
+                    known_amount_minor=total.known_amount_minor,
+                    unknown_count=total.unknown_count,
+                    unsupported_count=total.unsupported_count,
+                    complete=total.complete,
+                    amount_minor=total.amount_minor,
+                    known_amount=format_minor_units(
+                        total.known_amount_minor, total.currency
+                    )
+                    if total.currency
+                    else None,
+                    amount=format_minor_units(total.amount_minor, total.currency)
+                    if total.currency and total.amount_minor is not None
+                    else None,
+                )
+            )
+    return result
 
 
 def _fiscal_minor_units(amount: str, currency: str) -> int:
@@ -473,12 +538,24 @@ def _fiscal_totals(rows: tuple[ReportRecord, ...]) -> tuple[FiscalReportTotal, .
 def _document_totals(
     components: list[Total], rows: tuple[ReportRecord, ...]
 ) -> list[Total]:
-    groups: dict[tuple[str | None, str], list[Total]] = {}
+    groups: dict[tuple[str | None, str, str], list[Total]] = {}
     for component in components:
-        if component.basis in ("document_gross_amount", "document_credit_adjustment"):
-            groups.setdefault((component.currency, component.kind), []).append(component)
+        if component.basis in (
+            "document_gross_amount",
+            "document_credit_adjustment",
+            "document_net_amount",
+            "document_net_credit_adjustment",
+        ):
+            basis = (
+                "document_net_family_amount"
+                if "net" in component.basis
+                else "document_family_amount"
+            )
+            groups.setdefault((component.currency, component.kind, basis), []).append(
+                component
+            )
     totals = []
-    for (currency, kind), members in groups.items():
+    for (currency, kind, basis), members in groups.items():
         known = sum(member.known_amount_minor for member in members)
         unknown = sum(member.unknown_count for member in members)
         unsupported = sum(member.unsupported_count for member in members)
@@ -487,7 +564,7 @@ def _document_totals(
             Total(
                 currency=currency,
                 kind=kind,
-                basis="document_family_amount",
+                basis=basis,
                 matching_count=sum(member.matching_count for member in members),
                 known_amount_minor=known,
                 unknown_count=unknown,

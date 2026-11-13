@@ -8556,7 +8556,8 @@ reading. It refuses an approved or otherwise closed draft with 422
 `business_permission_denied`. An approved document must use the existing
 reopen flow first. Restore requires the deletion marker and otherwise returns
 422 `business_document_not_deleted`. Sources, revisions and financial records
-are retained. Deleted documents have no expiry or purge schedule.
+are retained until the purge below. A deleted or restored purged document
+returns 404 `business_document_purged`.
 
 Receipt summary, detail and dossier responses expose `deleted`,
 `delete_available` and `restore_available`. The deletion metadata contains
@@ -8584,6 +8585,41 @@ deletion metadata and restore availability. It neither creates another item
 nor restores the existing one. Activity records `delete_document` and
 `restore_document` through the action ledger. Their links open Eliminados and
 the restored document respectively.
+
+### Business document purge
+
+A deleted document stays in Eliminados for 7 calendar days, then the server
+purges it for good. The deletion metadata adds a read-only `purge_at`, which
+is the deletion `at` plus 7 days; the stored marker does not hold it.
+
+`POST /business/drafts/{draft_id}/purge` purges one deleted document at once.
+It requires `Idempotency-Key`, the owner-only `approve` permission and a person
+actor, takes no body, and returns `{document_id, deleted: true}` with
+`Cache-Control: no-store`. The identifier rules match delete and restore. A
+document outside Eliminados returns 422 `business_document_not_deleted`;
+shared attachments return 422 `business_document_ambiguous`; a Business whose
+owner account is being deleted or whose files are being moved returns 422
+`business_document_purge_busy`. A repeat with the same key returns the saved
+outcome. A purge of an already purged document returns 200 and changes
+nothing, so the button and the expiry can race safely.
+
+A purge removes the stored file, the read, the draft with its revisions,
+questions and source links, and the draft's own message sources. A message
+source that another draft also uses stays. The Activity entries stay. A purge
+by the owner adds `purge_document` and the expiry adds `expire_document` with
+the Cuadrao actor; neither names the document or links to it. Older entries
+of the purged document keep their `object` with `purged: true` and `label:
+null`, so the client says "un documento" and opens nothing. After the purge every
+document route answers its usual not-found error, and delete and restore
+answer 404 `business_document_purged`.
+
+The database part runs in one transaction and records the purge with the
+stored objects still to erase. The objects are then erased; when Storage fails,
+the record keeps them and the next expiry run finishes the erase. The expiry
+is a step of the documents worker's sweep loop. It runs at most once every
+`CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS` (default 3600; 0 turns it off) with
+extraction on or off. Each run finishes left-over erases, then purges deleted
+documents older than 7 days in batches of 25, at most 500 per run.
 
 ### Business guide cards
 
@@ -9173,7 +9209,66 @@ sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
+Montos uses `purchase_review.net_amount` for the dossier, fiscal defaults,
+Registros, month close and exports. `BusinessFacts.amount` remains the gross
+amount paid. The dossier adds `net_amount: {amount, source}`. `amount` is an
+exact decimal string or null. `source` is `read`, `calculated`, `edited`, or
+null when the total is unknown. A known `facts.net_amount` retains the read
+subtotal or a person's edit. Otherwise the function subtracts the components
+in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes. The read's `service`
+is the legal tip; `tip` is used only when `service` is absent. Both values live
+in existing fact JSON and revision history. No database migration is required.
+
+`POST /business/drafts/{id}/amounts-preview` takes `version` and optional
+`amount`, `itbis`, `net_amount`, and `legal_tip` fact inputs. It requires the
+same selected Business, human actor, prepare permission, open draft and current
+version as amount review. The response contains `net_amount` and `mismatch`
+(the existing `amounts_mismatch` review flag, or null). It uses the review's
+fact mutations, inheritance, net owner and shared parts check without saving
+facts, sources, revisions or action receipts. Responses are `no-store`.
+The web discards a preview when its draft, version or typed values change.
+
+Human review also accepts top-level `montos`, with optional `net_amount` and
+`legal_tip` fact inputs and `override_inherited` or `restore_inherited` field
+names. These inputs do not enter the interpreter's fact patch. Changing a
+main amount requires an open draft. Restoring or overriding fiscal inheritance
+uses the existing fiscal edit permission and version checks.
+
+The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
+Each entry holds `{field, value, inherited}`; `value` is the current source
+value to restore, not a copy calculated by the browser. The single mapping is
+`amount_inheritance.INHERITANCE`:
+
+| Fiscal field | Main source |
+| --- | --- |
+| `billed_amount` (607) | `net_amount` |
+| `goods_amount` (606), by confirmed expense type | `net_amount` |
+| `itbis` (606 and 607) | `fiscal.itbis` |
+| `legal_tip` (606 and 607) | `legal_tip` |
+| `paid_on` (606), when paid | `occurred_on` |
+| `services_amount` (606), by confirmed expense type | `net_amount` |
+
+An explicit override stops inheritance even when the typed value equals the
+source. Goods and services share override ownership; restoring either restores
+both sides from the confirmed expense type. Their sum must equal the net
+amount before export. `modified_ncf` never inherits. The fiscal declaration's
+optional ITBIS override does not rewrite the main ITBIS fact. Main amount
+updates refresh inherited fields on every revision. Payment-date inheritance
+uses the stored document settlement or the existing paid-bill mark, never the
+selected account. Reads and exports refresh inherited values when settlement
+changes. An explicit fiscal date remains an override. The existing monthly
+sin-comprobante purchase cost remains the gross amount because its ITBIS is
+not creditable; all other monthly net calculations use the same net owner.
+
+`amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
+false` and `difference`. The signed exact decimal difference is gross minus
+net minus the same `AMOUNT_PARTS` components. It appears only when the absolute
+difference exceeds 0.01 and is recomputed for every read and revision. The
+existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
+overrides are excluded from the model-facing dossier and source text.
+
 The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
+objects, with `difference` on `amounts_mismatch`
 computed on every read from the stored facts; nothing is written. `rnc_check_digit`
 (field `rnc`) is a 9-digit RNC or 11-digit cédula whose check digit does not
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
@@ -9255,11 +9350,13 @@ and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
 changes, the two derived events and `other`), so the client can mark it.
 
-`object` is `{kind: draft|grant|invite, id, label}` when the action names one
+`object` is `{kind: draft|grant|invite, id, label, purged}` when the action names one
 and the server knows its id, else `null`. `label` is a human name for the
 object from a record the reader may read, else `null`: a draft's counterparty
 when it is known, a grant's person by their current profile label. An invite
-names only an email, so its label is always `null`. No amount, email or other
+names only an email, so its label is always `null`. `purged` is `true` when a
+document purge removed the draft or upload, read from the purge record; its
+`label` is then always `null`. It is `false` otherwise. No amount, email or other
 field of the command leaves the ledger.
 
 Three actions carry one typed field of the stored command, `null` elsewhere:
@@ -10775,6 +10872,14 @@ accept path recorded.
   amounts. `coverage_notes` explicitly includes absent legal-cancellation coverage,
   unknown source subtype and evidence separation.
 
+  Montos adds `document_net_amount`, `document_net_credit_adjustment` and
+  `document_net_family_amount` totals with the same admission, credit sign,
+  currency grouping and completeness rules. The overview's purchase and sale
+  cards use `document_net_family_amount`. Each row adds `net_amount`,
+  `net_amount_source`, `amounts_difference` and `inheritance`. The default
+  table and its “Lo que ves” export place net amount, ITBIS and gross Total
+  together. Gross fields and recorded money retain their previous meaning.
+
   `fiscal_totals` is separate from those existing gross/activity totals. It is
   reduced on the server over the same full filtered records, before pagination,
   with the same Personal admission rule. Entries partition by nullable `currency`,
@@ -10782,9 +10887,9 @@ accept path recorded.
   `itbis`, `goods`, or `services`. No currency conversion or cross-currency sum
   occurs, and gross is never reconciled to the three fiscal amounts.
 
-  ITBIS has one source: the known `facts.fiscal.itbis` read through `fact_value`,
-  as in both 606 and 607 export. Neither declaration has another billed-ITBIS
-  field. Goods and services read the populated `goods_amount` and
+  Registros ITBIS reads the main `facts.fiscal.itbis`. The fiscal declaration
+  inherits this value unless a person overrides it; 606 and 607 exports read
+  that declaration value when present. Goods and services read the populated `goods_amount` and
   `services_amount` of the existing confirmed purchase declaration, including
   hand-entered values. No new split or fiscal mapping is computed. Each row
   carries nullable decimal `itbis_amount`, `goods_amount`, and `services_amount`.

@@ -134,8 +134,8 @@ describe("the form marks the fields the server's blockers name; the attention st
     // Confirming the value a blocker refuses cannot succeed, so the blocked suggestion offers no Confirmar.
     assert.ok(!html.includes("confirm-amount"));
     assert.ok(html.includes('data-fact="funding" data-standing="owner_unknown" data-blocked="true"'));
-    assert.ok(html.includes('data-fact="currency" data-standing="person" data-blocked="true"'));
-    assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 3);
+    assert.ok(html.includes('data-fact="currency"'), "currency belongs to the Montos header");
+    assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 2);
   });
 
   test("a blocker marks its row and a read value nobody confirmed does not", async () => {
@@ -172,8 +172,8 @@ describe("the record facts on the review page", () => {
     assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && !html.includes('data-fact="category_id"'));
     for (const chip of ["Sin verificar", "lucide-circle-dashed"]) assert.ok(!html.includes(chip), chip);
     assert.ok(html.includes('data-fact="ecf" data-standing="suggestion"') && !html.includes("confirm-ecf"));
-    assert.ok(html.indexOf('data-fact="occurred_on"') < html.indexOf('data-fact="counterparty"'));
-    assert.ok(html.indexOf('data-fact="amount"') < html.indexOf('data-fact="counterparty"'));
+    assert.ok(html.indexOf('data-fact="counterparty"') < html.indexOf('data-fact="occurred_on"'));
+    assert.ok(html.indexOf('data-fact="amount"') > html.indexOf('data-fact="counterparty"'));
     assert.ok(!html.includes("Desconocido"), "the unknown amount is an empty field");
     assert.ok(!html.includes("verificada") && !html.includes("—"));
   });
@@ -182,8 +182,8 @@ describe("the record facts on the review page", () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, fiscal: { rnc: { ...known("qr_decoded"), value: "131999888" }, ncf: known("extracted"), ecf: unknown, itbis: known("extracted") } }, fiscal_value: "ncf", blockers: [], questions: [] } as unknown as BusinessDossier;
     const { html } = await render(dossier, "es-419", true, [], true);
-    assert.deepEqual([...html.matchAll(/data-fact="([a-z_0-9]+)"/g)].map((match) => match[1]), ["counterparty", "occurred_on", "amount", "rnc", "fiscal_number", "itbis"]);
-    for (const row of ["Contraparte", "Fecha", "Monto", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
+    assert.deepEqual([...html.matchAll(/data-fact="([a-z_0-9]+)"/g)].map((match) => match[1]), ["counterparty", "occurred_on", "currency", "net_amount", "itbis", "amount", "rnc", "fiscal_number"]);
+    for (const row of ["Contraparte", "Fecha", "Monto sin ITBIS", "Total (con ITBIS)", "RNC", "NCF", "ITBIS"]) assert.ok(html.includes(`Editar detalles · ${row}`), row);
   });
 
   test("an open draft brings a row back only while the server waits on it, so a blocker always has a way forward", async () => {
@@ -231,7 +231,7 @@ describe("the record facts on the review page", () => {
     const reviewed = { ...known("member_set"), value: "Ferretería Norte" };
     const { html } = await render({ ...base, facts: { ...base.facts, counterparty: reviewed, fiscal: { rnc: unknown, ncf: { ...known("extracted"), value: "B01" }, ecf: unknown, itbis: { ...known("extracted"), value: "10.00" } } }, fiscal_value: "ncf", review_flags: [{ code: "ncf_malformed", field: "ncf", confirm: true }], ecf_checks: { encf: null, tipo_ecf: null, checked_at: "2026-10-10T14:25:00Z", checks: [{ name: "read_matches_xml", state: "failed", code: null, detail: { itbis: "read=10 xml=11" } }] } } as unknown as BusinessDossier, "es-419", true, [], true);
     assert.ok(html.includes("· del revisor"));
-    assert.equal((html.match(/data-doubtful="true"/g) ?? []).length, 2, "the flagged NCF and the ITBIS the file disputes");
+    assert.equal((html.match(/data-doubtful="true"/g) ?? []).length, 1, "the flagged NCF keeps its note; Montos uses symbols");
     assert.ok(html.includes("· revisar"));
   });
 
