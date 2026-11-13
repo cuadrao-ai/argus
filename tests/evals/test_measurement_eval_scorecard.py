@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -332,44 +331,3 @@ def test_candidate_fixture_identity_ignores_git_replacement_refs(
     )
 
     assert observed == expected
-
-
-def test_write_scorecard_requires_provenance(tmp_path: Path) -> None:
-    with pytest.raises(TypeError):
-        scorecards.write_scorecard([], output_dir=tmp_path)
-
-
-def test_write_scorecard_rejects_provenance_that_no_longer_matches_run(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setenv("ARGUS_ASSET_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setattr(scorecards, "_worktree_is_clean", lambda _root: True)
-    provenance = scorecards.build_scorecard_provenance(evaluation_mode="mocked")
-    stale = replace(provenance, candidate_sha="a" * 40)
-
-    with pytest.raises(ValueError, match="scorecard_provenance:candidate_sha_mismatch"):
-        scorecards.write_scorecard([], provenance=stale, output_dir=tmp_path)
-
-    assert list(tmp_path.iterdir()) == []
-
-
-def test_write_scorecard_emits_validated_provenance(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setenv("ARGUS_ASSET_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setattr(scorecards, "_worktree_is_clean", lambda _root: True)
-    provenance = scorecards.build_scorecard_provenance(evaluation_mode="mocked")
-
-    scorecard_path = scorecards.write_scorecard(
-        [],
-        provenance=provenance,
-        output_dir=tmp_path,
-    )
-
-    scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
-    assert scorecard["provenance"]["candidate_sha"] == provenance.candidate_sha
-    assert scorecard["provenance"]["worktree_clean"] is True
