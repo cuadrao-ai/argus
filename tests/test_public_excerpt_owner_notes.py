@@ -1,4 +1,6 @@
 """Owner-chosen prose is no longer refused by credential-shape heuristics.
+
+Credential safety checks remain independent of sharing decisions.
 """
 
 from __future__ import annotations
@@ -126,7 +128,8 @@ def test_every_recognized_credential_key_is_caught_when_assigned() -> None:
 
 def test_the_two_credential_grammars_cannot_disagree() -> None:
     """One list, both grammars. A second list is how the class stayed open."""
-    
+    from argus.domain import credential_shapes
+
     for name in credential_shapes.CREDENTIAL_KEY_NAMES:
         spelling = "_".join(name.split())
         # Present in the shared pattern the eval lane consumes...
