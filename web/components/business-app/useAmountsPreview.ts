@@ -21,11 +21,10 @@ export function useAmountsPreview(dossier: BusinessDossier | null, rows: ReturnT
       if (fact) input[field] = fact.state === "known" ? fact : { state: "unknown", value: null };
     }
   }
-  const fields = Object.keys(input).join(",");
   const serialized = JSON.stringify(input);
   const active = Object.keys(input).length > 0;
   const key = `${dossier?.draft_id}:${dossier?.version}:${invalid}:${serialized}`;
-  const [result, setResult] = useState<{ key: string; draftId: string; version: number; fields: string; value: BusinessAmountsPreview } | null>(null);
+  const [result, setResult] = useState<{ key: string; value: BusinessAmountsPreview } | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const id = dossier?.draft_id;
   const version = dossier?.version;
@@ -35,13 +34,13 @@ export function useAmountsPreview(dossier: BusinessDossier | null, rows: ReturnT
     if (!preview || !id || !version || !active || invalid) return;
     let current = true;
     const timer = setTimeout(() => {
-      void preview(id, version, JSON.parse(serialized)).then((value) => { if (current) setResult({ key, draftId: id, version, fields, value }); }).catch(() => { if (current) setFailedKey(key); });
+      void preview(id, version, JSON.parse(serialized)).then((value) => { if (current) setResult({ key, value }); }).catch(() => { if (current) setFailedKey(key); });
     }, 120);
     return () => { current = false; clearTimeout(timer); };
-  }, [preview, id, version, active, invalid, serialized, key, fields]);
+  }, [preview, id, version, active, invalid, serialized, key]);
   if (!active) return undefined;
   const mismatch = dossier?.review_flags?.find((flag) => flag.code === "amounts_mismatch");
-  const value: BusinessAmountsPreview = result !== null && result.draftId === id && result.version === version && result.fields === fields ? result.value : {
+  const value: BusinessAmountsPreview = result?.key === key ? result.value : {
     net_amount: dossier?.net_amount ?? { amount: null, source: null },
     mismatch: mismatch?.difference != null ? { code: "amounts_mismatch", difference: mismatch.difference } : null,
   };

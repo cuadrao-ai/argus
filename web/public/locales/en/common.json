@@ -2563,6 +2563,7 @@
       "currency_fiscal_warning": "In {{currency}}, this document is excluded from {{form}} (the DGII requires pesos).",
       "currency_missing": "Currency missing",
       "difference": "Difference {{amount}}",
+      "difference_unavailable": "We could not check the sum.",
       "inherited_from": "From {{field}}",
       "itbis": "ITBIS",
       "legal_tip": "Legal tip",

@@ -22,6 +22,7 @@ export default function ReceiptAmounts({ dossier, review, attention = [] }: { do
   const mismatch = review?.amountsPreview !== undefined ? review.amountsPreview?.mismatch : dossier.review_flags?.find((flag) => flag.code === "amounts_mismatch");
   const hint = t(tip !== null && tip !== undefined ? "business.terms.calculated_hint_with_tip" : "business.terms.calculated_hint");
   const money = (amount: string | null | undefined) => amount == null ? UNKNOWN_VALUE : formatAmount(amount, currency ?? "DOP", locale);
+  const totalNote = `${AMOUNT_BOX_CLASS} mt-1 flex justify-end whitespace-nowrap px-[13px] text-right text-[13px] font-normal`;
   const rows = new Map([...recordFactRows(dossier), ...fiscalFactRows(dossier.facts)].map((entry) => [entry.key, entry]));
   const row = (key: "net_amount" | "itbis" | "legal_tip" | "amount", label: string, amount: string | null | undefined) => {
     const standing = rows.get(key);
@@ -40,7 +41,8 @@ export default function ReceiptAmounts({ dossier, review, attention = [] }: { do
         {review ? review.row(key, { label, value, layout: "amount" }) : <span data-number-box="" className={`${AMOUNT_BOX_CLASS} flex h-11 items-center justify-end border border-transparent px-3 text-[16px] leading-6`}>{value}</span>}
         {review?.note(key)}
         {(blocked || asked) && !(review && flagged) ? <span className="mt-1 block text-[13px] font-normal text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.dossier.needs_resolution")}</span> : null}
-        {total && mismatch?.difference != null ? <span data-testid="amounts-difference" className={`${AMOUNT_BOX_CLASS} mt-1 flex justify-end whitespace-nowrap px-[13px] text-right text-[13px] font-normal`}>{t("business.terms.difference", { amount: formatAmount(mismatch.difference, currency ?? "DOP", locale) })}</span> : null}
+        {total && mismatch?.difference != null ? <span data-testid="amounts-difference" className={totalNote}>{t("business.terms.difference", { amount: formatAmount(mismatch.difference, currency ?? "DOP", locale) })}</span> : null}
+        {total && review?.amountsPreview?.status === "error" ? <span data-testid="amounts-unavailable" className={totalNote}>{t("business.terms.difference_unavailable")}</span> : null}
       </dd>
     </div>;
   };

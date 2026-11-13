@@ -100,3 +100,26 @@ test("a failed amount preview retains the last warning instead of claiming a bal
     assert.equal(page.writes.length, 0);
   } finally { await page.close(); }
 });
+
+test("a preview shows only for the amounts it was computed from, and a failed one says the check is unavailable", async () => {
+  const requests: { resolve: (value: import("@/lib/business-api").BusinessAmountsPreview) => void; reject: (error: Error) => void }[] = [];
+  const page = await setup("fiscal", (dossier) => { dossier.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "20.00" }]; }, () => ({
+    previewAmounts: async () => new Promise((resolve, reject) => { requests.push({ resolve, reject }); }),
+  }));
+  const difference = () => page.row("amount").querySelector('[data-testid="amounts-difference"]')?.textContent;
+  const unavailable = () => page.row("amount").querySelector('[data-testid="amounts-unavailable"]');
+  try {
+    await page.openRow("amount");
+    await fill(page, '[data-testid="dossier-review-amount"]', "1201");
+    await page.wait(() => requests.length === 1);
+    await page.act(async () => requests[0].resolve({ net_amount: { amount: "1000", source: "read" }, mismatch: null }));
+    assert.equal(difference(), undefined);
+    await fill(page, '[data-testid="dossier-review-amount"]', "1202");
+    assert.equal(difference(), "Diferencia 20.00");
+    await page.wait(() => requests.length === 2);
+    await page.act(async () => requests[1].reject(new Error("preview offline")));
+    assert.equal(difference(), "Diferencia 20.00");
+    assert.equal(unavailable()?.textContent, "No pudimos revisar la suma.");
+    assert.equal(page.writes.length, 0);
+  } finally { await page.close(); }
+});
