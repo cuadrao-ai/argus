@@ -20337,7 +20337,7 @@ components:
       - previous_state
     DeletingActor:
       properties:
-        id:
+        actor_id:
           type: string
           format: uuid
         display_name:
@@ -20345,7 +20345,7 @@ components:
       additionalProperties: false
       type: object
       required:
-      - id
+      - actor_id
       - display_name
     DeliveryPreparation:
       properties:

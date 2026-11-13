@@ -9180,7 +9180,7 @@ are retained. Deleted documents have no expiry or purge schedule.
 
 Receipt summary, detail and dossier responses expose `deleted`,
 `delete_available` and `restore_available`. The deletion metadata contains
-`actor: {id, display_name}`, `at`, `key`, and `previous_state: {state, group}`.
+`actor: {actor_id, display_name}`, `at`, `key`, and `previous_state: {state, group}`.
 The previous group is `attention` or `listo`. For several generic read
 candidates, `previous_state.events` retains their IDs and prior states for
 restore under the document's one marker. Server availability uses the

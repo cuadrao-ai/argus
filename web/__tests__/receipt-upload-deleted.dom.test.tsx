@@ -27,7 +27,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 async function mount({ count = 1, saved = 0, approve = true, available = true, failFirst = false, failRead = false, stillDeleted = false } = {}) {
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const base = await fixture.receipt("rcpt-ferreteria");
-  const deletion = { actor: { display_name: "María Pérez" }, at: "2026-11-12T10:00:00Z", key: "delete", previous_state: { state: "open", group: "attention" as const } };
+  const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez" }, at: "2026-11-12T10:00:00Z", key: "delete", previous_state: { state: "open", group: "attention" as const } };
   const receipts = new Map<string, ReceiptSummary>(Array.from({ length: count + saved }, (_, index) => {
     const id = `receipt-${index}`;
     return [id, { ...base, id, deleted: index < count ? deletion : null, restore_available: index < count && available }];

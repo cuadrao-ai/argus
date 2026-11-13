@@ -29,7 +29,7 @@ async function mount(role: "owner" | "admin" | "editor" | "viewer" = "owner", fa
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const ready = await fixture.receipt("rcpt-ferreteria");
   const blurry = await fixture.receipt("rcpt-blurry");
-  const deletion = { actor: { display_name: "María Pérez" }, at: "2026-11-12T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
+  const deletion = { actor: { actor_id: "c93a5c81-2f69-4c0d-932e-1a7c5526c941", display_name: "María Pérez" }, at: "2026-11-12T10:00:00Z", key: "earlier-delete", previous_state: { state: "open", group: "attention" as const } };
   let dossierDeleted = true;
   let items: ReceiptDetail[] = [
     { ...blurry, id: "attention", merchant: "Documento equivocado", filename: "Documento equivocado", delete_available: true, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
