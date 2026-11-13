@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import platform
 import re
@@ -360,21 +359,6 @@ def scorecard_for_results(
         },
         "results": results,
     }
-
-
-def write_scorecard(
-    results: list[dict[str, Any]],
-    *,
-    provenance: EvalScorecardProvenance,
-    output_dir: Path = SCORECARD_DIR,
-) -> Path:
-    assert_provenance_matches_current_run(provenance)
-    scorecard = scorecard_for_results(results, provenance=provenance)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    path = output_dir / f"argus-eval-scorecard-{stamp}.json"
-    path.write_text(json.dumps(scorecard, indent=2, sort_keys=True), encoding="utf-8")
-    return path
 
 
 def validated_provenance_payload(

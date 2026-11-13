@@ -9,6 +9,7 @@ import pytest
 
 from tests.promotion_evidence_configuration import (
     assert_release_configuration_matches,
+    measured_release_configuration,
     release_configuration_at_commit,
 )
 from tests.promotion_evidence_repository import (
@@ -245,25 +246,30 @@ def test_new_promotion_refuses_older_scorecard(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("key", sorted(_configuration(_manifest())))
-def test_writer_records_environment_and_refuses_a_mid_run_change(
+def test_capture_records_environment_and_refuses_a_mid_run_change(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
-    from tests.evals import measurement_eval_scorecard as writer
-
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    commit_measured_repository(repository)
+    sha = commit_files(repository, {MANIFEST: json.dumps(_manifest())})
     expected = _configuration(_manifest())
     for name, value in expected.items():
         monkeypatch.setenv(name, value)
-    monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setenv("ARGUS_ASSET_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setattr(writer, "_worktree_is_clean", lambda _root: True)
-    provenance = writer.build_scorecard_provenance(evaluation_mode="mocked")
-    assert provenance.release_configuration == expected
+    recorded = measured_release_configuration(sha, repository_root=repository)
+    assert recorded == expected
+    assert_release_configuration_matches(
+        recorded, shipped_sha=sha, repository_root=repository, evidence="before"
+    )
     old = expected[key]
     new = "false" if old == "true" else "true" if old == "false" else old + "-changed"
     monkeypatch.setenv(key, new)
-    with pytest.raises(ValueError, match="release_configuration_mismatch"):
-        writer.write_scorecard([], provenance=provenance, output_dir=tmp_path)
-    assert not list(tmp_path.iterdir())
+    observed = measured_release_configuration(sha, repository_root=repository)
+    with pytest.raises(AssertionError, match=key):
+        assert_release_configuration_matches(
+            observed, shipped_sha=sha, repository_root=repository, evidence="after"
+        )
+    assert recorded == expected
 
 
 def test_capture_uses_runtime_model_resolution_and_keeps_missing_flags_unknown(
@@ -379,21 +385,15 @@ def test_baseline_configuration_change_does_not_hide_new_failures(tmp_path: Path
 
 
 @pytest.mark.parametrize("key", ["CUADRAO_CHAT_MODEL", "CUADRAO_ACCOUNT_DELETION_ENABLED"])
-def test_scorecard_records_a_disagreeing_environment_without_substituting_contract(
+def test_capture_records_a_disagreeing_environment_without_substituting_contract(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
-    from tests.evals import measurement_eval_scorecard as writer
-
+    commit_measured_repository(tmp_path)
+    sha = commit_files(tmp_path, {MANIFEST: json.dumps(_manifest())})
     for name, value in _configuration(_manifest()).items():
         monkeypatch.setenv(name, value)
     expected = _configuration(_manifest())[key]
     different = "wrong/model" if key.endswith("_MODEL") else str(expected != "true").lower()
     monkeypatch.setenv(key, different)
-    monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setenv("ARGUS_ASSET_PROVIDER_MODE", "synthetic_unit_fixture")
-    monkeypatch.setattr(writer, "_worktree_is_clean", lambda _root: True)
-    provenance = writer.build_scorecard_provenance(evaluation_mode="mocked")
-    path = writer.write_scorecard([], provenance=provenance, output_dir=tmp_path)
-    recorded = json.loads(path.read_text())
-    assert recorded["schema_version"] == 3
-    assert recorded["provenance"]["release_configuration"][key] == different
+    recorded = measured_release_configuration(sha, repository_root=tmp_path)
+    assert recorded[key] == different
