@@ -628,7 +628,9 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
         "Tipo Id",
         "Tipo Bienes y Servicios Comprados",
     ]
-    assert [line[5] for line in written[1:]] == sorted(line[5] for line in lines["606"])
+    assert [(line[5], line[6]) for line in written[1:]] == sorted(
+        (line[5][:6], line[5][6:]) for line in lines["606"]
+    )
     expected = []
     for original in lines["606"]:
         line = list(original)
@@ -636,6 +638,7 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
         line[22] = TOOL_PAYMENTS[int(line[22]) - 1]
         for column in (11, 17):
             line[column] = line[column] or "0"
+        line[5:7] = [line[5][:6], line[5][6:], line[6][:6], line[6][6:]]
         expected.append(line)
     assert sorted(written[1:]) == sorted(expected)
     sales = summarize_export(
@@ -671,7 +674,7 @@ def test_dgii_excel_amounts_are_numbers_and_codes_stay_text():
     line = dict(zip(header, cells[1], strict=True))
     assert line["Tipo Bienes y Servicios Comprados"][0] == "s"
     assert line["Tipo Bienes y Servicios Comprados"][1] in TOOL_CATEGORIES
-    assert line["Fecha Comprobante"][0] == "s"
+    assert line["Fecha Comprobante (AAAAMM)"][0] == "s"
     assert line["Total Monto Facturado"][:1] == ("n",)
     assert line["Total Monto Facturado"][2] == "#,##0.00"
 
@@ -718,7 +721,8 @@ def test_606_tool_values_exact_for_every_choice_and_withholding(fake, format):
         withholding = ("0", "0", "12.34")[(index - 1) % 3]
         expected = {
             "Tipo Bienes y Servicios Comprados": category,
-            "Fecha Comprobante": day,
+            "Fecha Comprobante (AAAAMM)": day[:6],
+            "Fecha Comprobante (DD)": day[6:],
             "Forma de Pago": payment,
             "ITBIS Retenido": withholding,
             "Monto Retención Renta": withholding,

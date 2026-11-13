@@ -186,6 +186,8 @@ services:
     envVars:
       - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
         value: "210"
+      - key: CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS
+        value: "5"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
       - key: POSTHOG_PROJECT_TOKEN
@@ -411,6 +413,8 @@ services:
     envVars:
       - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
         value: "210"
+      - key: CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS
+        value: "60"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
       - key: POSTHOG_PROJECT_TOKEN

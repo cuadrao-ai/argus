@@ -1,5 +1,5 @@
 import { recordedReportAnswer } from "./recorded-report-answer";
-import { reportAnswerSchema, reportRequestSchema, type ReportRecord, type ReportRequest, type ReportTotal } from "@/lib/business-reports-api";
+import { reportAnswerSchema, reportRequestSchema, type ExportPreview, type ReportRecord, type ReportRequest, type ReportTotal } from "@/lib/business-reports-api";
 
 export const fixtureId = (value: number) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
 export const FROZEN_REPORT_BACKEND = "eda4bb38ab2a195761523b084dbbfb6862e67c7e";
@@ -46,7 +46,7 @@ export function createBusinessReportHttpFixture() {
   let createdViews = 0;
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
-  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
+  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", rncSuppliers: [] as ExportPreview["dgii"]["rnc_suppliers"], noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
   const dossier = (row: ReportRecord) => ({ draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
   const problem = (status: number, code: string) => Response.json({ code, detail: code }, { status });
   const matchingRecords = (report: ReportRequest) => {
@@ -93,7 +93,7 @@ export function createBusinessReportHttpFixture() {
       const pendingFiscal = family.filter((row) => row.fiscal_data === "missing" && row.currency === controls.dgiiCurrency).length;
       return Response.json({
         table: { columns: presentation.order.filter((key) => !sale || (key !== "expense_type" && key !== "payment_form")).map((key) => ({ key, shown: !presentation.hidden.includes(key) })), current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } })) },
-        dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort() },
+        dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort(), rnc_suppliers: controls.rncSuppliers, rnc_supplier_count: controls.rncSuppliers.length, rnc_warning_count: controls.rncSuppliers.reduce((sum, supplier) => sum + supplier.record_count, 0) },
       });
     }
     if (path.endsWith("/reports/export")) {

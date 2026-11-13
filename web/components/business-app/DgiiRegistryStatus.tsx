@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useContext, useEffect, useId, useState } from "react";
-import { AlertCircle, Check } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { RegistryAnswer, TaxId } from "@/lib/business-dgii";
 import { referenceCode } from "@/lib/failure-screen";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { BusinessContext } from "./BusinessWorkspace";
 import { quietButtonClass } from "./business-ui";
+import DgiiRegistryTag from "./DgiiRegistryTag";
 
 /** The registry check of the tax id on screen. */
 export type RegistryLookup = { status: "checking" } | { status: "failed"; reference: string } | { status: "done"; answer: RegistryAnswer };
@@ -59,12 +60,6 @@ export function registryStatusOf(lookup: RegistryLookup): RegistryStatus {
   return { status: "verified", name: record.name };
 }
 
-const TAGS = {
-  verified: "bg-[#E3EFE8] text-[#2f5a49] dark:bg-[#8fcbb0]/15 dark:text-[#8fcbb0]",
-  neutral: "bg-[#EDECE6] text-[#56635e] dark:bg-white/10 dark:text-white/80",
-  inactive: "bg-[#F6EBD4] text-[#7a5512] dark:bg-[#f6e7c1]/15 dark:text-[#f6e7c1]",
-} as const;
-
 /**
  * The one rendering of a registry check: the pulse while it waits, the failure with its reference and retry,
  * and the tag with the DGII source line and the registered name.
@@ -89,11 +84,7 @@ export default function DgiiRegistryStatus({ state, onRetry, testId, label }: { 
       </div>
     </div>;
   }
-  const tag = state.status === "verified"
-    ? <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.verified}`}><Check className="h-3 w-3" aria-hidden="true" />{t("business.dgii.legal_name.tag_verified")}</span>
-    : state.status === "inactive"
-      ? <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.inactive}`}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{t("business.dgii.legal_name.tag_inactive")}</span>
-      : <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-medium ${TAGS.neutral}`}>{t(state.status === "pending" ? "business.dgii.legal_name.tag_pending" : "business.dgii.legal_name.tag_unverified")}</span>;
+  const tag = <DgiiRegistryTag status={state.status} />;
   // Sin verificar names no source: the registry copy is loaded by hand and can be stale.
   const sourceText = state.status === "unverified" ? null : state.status === "inactive" ? t("business.dgii.legal_name.source_status", { status: state.registryStatus }) : t("business.dgii.legal_name.source");
   const source = sourceText ? <p className={`${label ? "text-[14px]" : "text-[13px] leading-5"} text-[#56635e] dark:text-white/70`}>{sourceText}</p> : null;
