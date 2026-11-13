@@ -1,5 +1,7 @@
 """Offline checks for measurement credential selection and redaction."""
 
+import os
+
 import pytest
 from faker import Faker
 
@@ -38,18 +40,33 @@ def test_qa_key_file_uses_policy(monkeypatch, tmp_path):
     assert _redact_api_key(secret) == ""
 
 
+def test_qa_key_file_changes_only_model_credentials(monkeypatch, tmp_path):
+    from scripts.qa.jose_demo_rehearsal import configure_model_key_file
+
+    secret = Faker().uuid4()
+    path = tmp_path / "keys.env"
+    path.write_text(
+        f"CUADRAO_OPENROUTER_API_KEY_DEV={secret}\n"
+        "CUADRAO_BUSINESS_PILOT_ENABLED=false\n"
+        "APP_ENV=production\n"
+    )
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "true")
+    configure_model_key_file(path)
+    assert os.environ["CUADRAO_BUSINESS_PILOT_ENABLED"] == "true"
+    assert os.environ["APP_ENV"] == "test"
+    assert _redact_api_key(secret) == ""
+
+
 def test_hermetic_commands_blank_every_policy_credential():
     from pathlib import Path
 
-    from argus.llm.openrouter_key_policy import _KeySettings
-    from pydantic import SecretStr
+    from argus.llm.openrouter_key_policy import MODEL_CREDENTIAL_ENV_NAMES
 
     from tests.conftest import PROVIDER_CREDENTIAL_ENV_VARS
 
-    for field in _KeySettings.model_fields.values():
-        if field.annotation is not SecretStr:
-            continue
-        name = field.validation_alias
+    assert "CUADRAO_OPENROUTER_API_KEY_DEV" in MODEL_CREDENTIAL_ENV_NAMES
+    for name in MODEL_CREDENTIAL_ENV_NAMES:
         assert name in PROVIDER_CREDENTIAL_ENV_VARS
         for document in ("AGENTS.md", "scripts/qa/README.md"):
             assert f"{name}= " in Path(document).read_text()

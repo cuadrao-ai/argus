@@ -237,9 +237,13 @@ def load_env_file(path: Path) -> dict[str, str]:
 
 
 def configure_model_key_file(path: Path) -> None:
-    from argus.llm.openrouter_key_policy import resolve_openrouter_api_key
+    from argus.llm.openrouter_key_policy import (
+        MODEL_CREDENTIAL_ENV_NAMES,
+        resolve_openrouter_api_key,
+    )
 
-    os.environ.update(load_env_file(path))
+    values = load_env_file(path)
+    os.environ.update({name: values.get(name, "") for name in MODEL_CREDENTIAL_ENV_NAMES})
     key = resolve_openrouter_api_key()
     if not key or key == "local-qa-disabled":
         raise SystemExit("no usable model credential in --openrouter-key-file")
