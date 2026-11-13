@@ -40,7 +40,7 @@ export default function ReceiptAmounts({ dossier, review, attention = [] }: { do
         {review ? review.row(key, { label, value, layout: "amount" }) : <span data-number-box="" className={`${AMOUNT_BOX_CLASS} flex h-11 items-center justify-end border border-transparent px-3 text-[16px] leading-6`}>{value}</span>}
         {review?.note(key)}
         {(blocked || asked) && !(review && flagged) ? <span className="mt-1 block text-[13px] font-normal text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.dossier.needs_resolution")}</span> : null}
-        {total && mismatch?.difference != null ? <span data-testid="amounts-difference" className={`${AMOUNT_BOX_CLASS} mt-1 block px-[13px] text-right text-[13px] font-normal`}>{t("business.terms.difference", { amount: formatAmount(mismatch.difference, currency ?? "DOP", locale) })}</span> : null}
+        {total && mismatch?.difference != null ? <span data-testid="amounts-difference" className={`${AMOUNT_BOX_CLASS} mt-1 block whitespace-nowrap px-[13px] text-right text-[13px] font-normal`}>{t("business.terms.difference", { amount: formatAmount(mismatch.difference, currency ?? "DOP", locale) })}</span> : null}
       </dd>
     </div>;
   };
