@@ -45,6 +45,7 @@ from argus.domain.business.contracts.actions import (
     TurnPlan,
     canonical_input_hash,
 )
+from argus.domain.business.contracts.amounts import AmountsPreview, AmountsPreviewRequest
 from argus.domain.business.contracts.authority import ActorProvenance, TrustedActor
 from argus.domain.business.contracts.dossier import (
     BusinessDossier,
@@ -248,6 +249,19 @@ class BusinessActions:
             return views.dossier(
                 tx, draft_id, ledger=lambda: self._activities(context, tx.connection)
             )
+
+    def preview_amounts(self, context: ActionContext, draft_id: UUID, request: AmountsPreviewRequest) -> AmountsPreview:
+        from argus.domain.business.actions.amounts_preview import preview_amounts
+        from argus.domain.business.amount_inheritance import draft_is_paid
+        from argus.domain.business.contracts.facts import BusinessResolution
+
+        with transaction(self.authority, context, "prepare") as tx:
+            if context.actor.actor_kind != "member":
+                raise ActionError("permission_denied", "business_human_command_required")
+            event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=request.version))
+            mutations.facts_of(event)
+            resolution = BusinessResolution.model_validate(event.resolution.get("business"))
+            return preview_amounts(resolution, request, paid=draft_is_paid(tx, event.activity_id, resolution.bill_mark))
 
     def _activities(self, context: ActionContext, connection: Connection) -> list[dict]:
         """The Business's current money activities, as the Resumen reads them."""

@@ -32,6 +32,7 @@ const DIGIT_ROWS: ReadonlySet<string> = new Set(["amount", "itbis", "rnc", "ncf"
 
 /** An open draft's form: what each row edits, and what the page says under it. */
 export type FactsReview = {
+  amountsPreview?: { net_amount: NonNullable<BusinessDossier["net_amount"]>; mismatch: { difference?: string | null } | null; status: "ready" | "pending" | "error" };
   /** Absent for someone who cannot edit the record now. */
   onEdit?: (row: ReviewRow) => void;
   /** The row's control: its value with a pencil, or its open field. */

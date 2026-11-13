@@ -2292,6 +2292,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/amounts-preview:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmountsPreviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AmountsPreview'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/approve:
     post:
       tags:
@@ -16045,6 +16101,43 @@ components:
       - goals
       - pools
       - replayed
+    AmountsPreview:
+      properties:
+        net_amount:
+          $ref: '#/components/schemas/NetAmount'
+        mismatch:
+          anyOf:
+          - $ref: '#/components/schemas/ReviewFlag'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - net_amount
+    AmountsPreviewRequest:
+      properties:
+        version:
+          type: integer
+          minimum: 1.0
+        amount:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+        itbis:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+        net_amount:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+        legal_tip:
+          anyOf:
+          - $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__AfterValidator__'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - version
     AnswerDecisionAction:
       properties:
         type:

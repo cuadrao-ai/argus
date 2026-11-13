@@ -37,7 +37,7 @@ for (const documentType of ["recibo", "venta"] as const) {
     assert.ok(blocks.indexOf("receipt-facts-activity") < blocks.indexOf("receipt-facts-montos"));
     assert.ok(blocks.indexOf("receipt-facts-montos") < blocks.indexOf("receipt-facts-fiscal"));
     const amounts = host.querySelector('[data-testid="receipt-facts-montos"]')!;
-    assert.deepEqual([...amounts.querySelectorAll("[data-fact]")].map((row) => row.getAttribute("data-fact")), ["net_amount", "itbis", "legal_tip", "amount"]);
+    assert.deepEqual([...amounts.querySelectorAll("[data-fact]")].map((row) => row.getAttribute("data-fact")), ["currency", "net_amount", "itbis", "legal_tip", "amount"]);
     assert.equal(host.querySelector('[data-testid="receipt-facts-fiscal"] [data-fact="itbis"]'), null);
     assert.equal(host.querySelector('[data-testid="amount-calculated"]')?.getAttribute("aria-label"), "Calculado: Total − ITBIS − propina");
     const formula = amounts.querySelector('[data-testid="amount-calculated"]')!;
@@ -59,9 +59,10 @@ for (const language of ["es-419", "en"]) test(`${language} puts the warning on T
   const base = await dossier(); base.review_flags = [{ code: "amounts_mismatch", field: "amount", confirm: false, difference: "1.23" }];
   const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />, language);
   const difference = host.querySelector('[data-testid="amounts-difference"]')!;
-  assert.equal(difference.textContent, `${language === "es-419" ? "Diferencia" : "Difference"} RD$ 1.23`);
+  assert.equal(difference.textContent, `${language === "es-419" ? "Diferencia" : "Difference"} 1.23`);
   assert.equal(host.querySelectorAll('[data-testid="amounts-difference"]').length, 1);
   assert.equal(difference.querySelector("svg"), null);
+  assert.ok(host.querySelector(".lucide-triangle-alert"));
   const warning = host.querySelector('[data-testid="amounts-warning"]')!;
   assert.equal(warning.closest("[data-fact]")?.getAttribute("data-fact"), "amount");
   assert.equal(warning.closest("dt")?.textContent, language === "es-419" ? "Total (con ITBIS)" : "Total (with ITBIS)");
@@ -132,4 +133,13 @@ test("Fiscal restore shows unknown for null money and date targets", async () =>
   for (const field of ["goods_amount", "paid_on"]) {
     assert.equal(host.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label"), "Usar Montos (-)");
   }
+});
+
+for (const currency of ["DOP", "USD", "EUR", null]) test(`Montos names ${currency ?? "missing currency"} once and rows contain only numbers`, async () => {
+  const base = await dossier();
+  base.facts.currency = currency ? known(currency) : { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
+  const host = await mount(<ReceiptRecordFacts dossier={base} accounts={[]} />);
+  const block = host.querySelector('[data-testid="receipt-facts-montos"]')!;
+  assert.ok(block.textContent?.includes(currency ? `Montos · ${currency}` : "Falta la moneda"));
+  assert.doesNotMatch(block.querySelector("dl")!.textContent!, /RD\$|US\$|€/);
 });

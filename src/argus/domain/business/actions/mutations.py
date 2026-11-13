@@ -10,7 +10,12 @@ from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.actions import plans, sources
-from argus.domain.business.actions.facts import facts_of, patched_facts, validate_facts
+from argus.domain.business.actions.facts import (
+    facts_of,
+    patched_facts,
+    reviewed_amount_facts,
+    validate_facts,
+)
 from argus.domain.business.amount_inheritance import (
     INHERITANCE,
     draft_is_paid,
@@ -309,12 +314,7 @@ def revise(
     if montos is not None:
         if not set((*montos.override_inherited, *montos.restore_inherited)) <= INHERITANCE.keys():
             raise ActionError("invalid_input", "business_amount_inheritance_invalid")
-        changes = {}
-        for name in ("net_amount", "legal_tip"):
-            value = getattr(montos, name)
-            if value is not None:
-                changes[name] = {**value.model_dump(), "origin": origin, "verified": False, "source_ids": source_ids}
-        after = BusinessFacts.model_validate(after.model_dump() | changes)
+        after = reviewed_amount_facts(after, montos, source_ids, origin=origin)
     if document_type is not None or not kind_disagrees(previous_type, after):
         # A kind saved before the type owned it stays blocked until a person
         # states the kind or the type; an edit that states neither leaves it.

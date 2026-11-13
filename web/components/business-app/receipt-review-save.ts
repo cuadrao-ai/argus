@@ -164,7 +164,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
 
 /** What a row holds as it opens: a receipt with no currency starts on the only one the picker offers, for the check to confirm. */
 function startingEdit(row: ReviewRow, dossier: BusinessDossier | null, currencies: readonly string[]): RowEdit | null {
-  if (row !== "amount" || !dossier || dossier.facts.currency.state === "known" || currencies.length !== 1) return null;
+  if (row !== "currency" || !dossier || dossier.facts.currency.state === "known" || currencies.length !== 1) return null;
   return { change: { write: "facts", facts: { currency: { state: "known", value: currencies[0] } } }, invalid: false };
 }
 

@@ -100,7 +100,7 @@ const groupsOf = (host: Element) => [...host.querySelectorAll<HTMLElement>("[dat
 test("the fields read in five groups, every field the server sends stays, and no date is a native input", async () => {
   const view = await mountEditor({ fields: fullForm });
   try {
-    assert.deepEqual(groupsOf(view.host), [["identity", "Identificación"], ["amounts", "Montos"], ["itbis", "ITBIS"], ["retentions", "Retenciones"], ["other", "Otros"]]);
+    assert.deepEqual(groupsOf(view.host), [["identity", "Identificación"], ["amounts", "Montos facturados"], ["itbis", "ITBIS"], ["retentions", "Retenciones"], ["other", "Otros"]]);
     const other = view.host.querySelector('[data-group="other"]');
     assert.ok(other?.textContent?.includes("a_new_server_column"), "an unknown field keeps its code instead of backend Spanish");
     assert.equal(view.host.querySelectorAll('input[type="date"]').length, 0);

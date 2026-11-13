@@ -122,3 +122,45 @@ def test_payment_date_follows_settlement_in_dossier_and_fiscal_snapshot(actions)
     assert record.declaration.paid_on == date(2026, 11, 1)
     settle_document(service.authority, context, str(activity_id), Settlement("pendiente", None, None))
     assert service.dossier(context, draft).dgii.paid_on is None
+
+
+def test_amount_preview_is_read_only_and_uses_current_version(actions):
+    from argus.domain.business.authority import ActionError
+    from argus.domain.business.contracts.amounts import AmountsPreviewRequest
+
+    service, context, _ = actions
+    draft, version = create(service, context)
+    result = service.review(context, draft, ReviewDraft(
+        version=version,
+        facts=BusinessFactPatch(amount={"state": "known", "value": "1180"}),
+        montos=MontosReview(net_amount={"state": "known", "value": "1000"}),
+        dgii=FiscalReview(fiscal=FiscalInput(rnc="199990021", ncf="B0100000044", itbis="180"), declaration=apply_purchase(None, PurchaseReview(category="09"))),
+    ), str(uuid4()))
+    assert result.outcome == "applied"
+    before = service.dossier(context, draft)
+
+    def counts():
+        with service.authority.pool.connection() as connection:
+            return tuple(connection.execute(f"select count(*) from public.{table} where space_id=%s", (context.actor.space_id,)).fetchone()[0] for table in ("business_action_receipts", "business_sources", "business_draft_revisions"))
+
+    old_counts = counts()
+    preview = service.preview_amounts(context, draft, AmountsPreviewRequest(version=before.version, amount={"state": "known", "value": "1200"}))
+    assert preview.mismatch.difference == "20.00"
+    assert service.dossier(context, draft).model_dump() == before.model_dump()
+    assert counts() == old_counts
+    with pytest.raises(ActionError) as stale:
+        service.preview_amounts(context, draft, AmountsPreviewRequest(version=before.version - 1))
+    assert stale.value.result.code == "stale_version"
+
+
+def test_amount_preview_requires_prepare(actions):
+    from argus.domain.business.authority import ActionError
+    from argus.domain.business.contracts.amounts import AmountsPreviewRequest
+
+    service, context, grant = actions
+    draft, version = create(service, context)
+    with service.authority.pool.connection() as connection:
+        connection.execute("update public.business_client_grants set capabilities=array['read'] where id=%s", (grant,))
+    with pytest.raises(ActionError) as denied:
+        service.preview_amounts(context, draft, AmountsPreviewRequest(version=version))
+    assert denied.value.result.outcome == "permission_denied"

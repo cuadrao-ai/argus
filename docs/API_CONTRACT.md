@@ -9803,6 +9803,15 @@ in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes. The read's `service`
 is the legal tip; `tip` is used only when `service` is absent. Both values live
 in existing fact JSON and revision history. No database migration is required.
 
+`POST /business/drafts/{id}/amounts-preview` takes `version` and optional
+`amount`, `itbis`, `net_amount`, and `legal_tip` fact inputs. It requires the
+same selected Business, human actor, prepare permission, open draft and current
+version as amount review. The response contains `net_amount` and `mismatch`
+(the existing `amounts_mismatch` review flag, or null). It uses the review's
+fact mutations, inheritance, net owner and shared parts check without saving
+facts, sources, revisions or action receipts. Responses are `no-store`.
+The web discards a preview when its draft, version or typed values change.
+
 Human review also accepts top-level `montos`, with optional `net_amount` and
 `legal_tip` fact inputs and `override_inherited` or `restore_inherited` field
 names. These inputs do not enter the interpreter's fact patch. Changing a
