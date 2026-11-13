@@ -152,6 +152,8 @@ class Receipt:
     # from the draft's status alone, for callers without a documents service.
     read_pending: bool | None = None
     deleted: DeletedDocument | None = None
+    # Why the hand-off refuses the saved read. Another read replays that read.
+    refusal: str | None = None
 
     @property
     def id(self) -> str:
@@ -217,7 +219,7 @@ class Receipt:
             and self.review.blocker == "not_prepared"
             and self.draft.source_available
             and not self.busy
-            and self.review.terminal is None
+            and self.refusal is None
             and _UNREAD_ATTENTION.get(self.draft.error_code or "") not in _NO_RETRY
         )
 
@@ -228,8 +230,8 @@ class Receipt:
 
         if self.status != "needs_attention":
             return None
-        if self.review.terminal is not None:
-            return self.review.terminal
+        if self.refusal is not None:
+            return READ_REFUSAL_ATTENTION[self.refusal]
         blocker = self.review.blocker
         if blocker is None:
             return "check_details"
@@ -354,8 +356,14 @@ def compose(
     channel: Channel,
     read_pending: bool | None = None,
 ) -> Receipt:
+    # Lazy: the action package imports this module.
+    from argus.domain.business.actions.mutations import read_refusal
+
     events = tuple(events)
     review = receipt_review(draft, batch, events)
+    entered = entered_by_owner(batch)
+    # A saved read, not an entry by hand, that is still waiting for its hand-off.
+    waiting = batch is not None and not entered and review.blocker == "not_prepared"
     event = next((event for event in events if event["id"] == review.event_id), None)
     marker = deletion(draft.status, draft.resolution)
     if marker is None and event is not None:
@@ -364,9 +372,10 @@ def compose(
         draft,
         review,
         channel,
-        entered_by_owner(batch),
+        entered,
         read_pending=read_pending,
         deleted=marker,
+        refusal=read_refusal(batch) if waiting else None,
     )
 
 
