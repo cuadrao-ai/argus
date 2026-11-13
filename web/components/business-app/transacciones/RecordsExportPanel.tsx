@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, CircleMinus, Loader2, TriangleAlert } from "lucide-react";
 import BottomSheet from "@/components/ui/BottomSheet";
 import CenteredDialog from "@/components/ui/CenteredDialog";
@@ -8,13 +8,12 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { joinCurrencyList } from "@/lib/business-month-close";
-import { recordColumnKey, reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
-import type { ExportColumnKey, ExportPreview, RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
+import { reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
+import type { ExportPreview, RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
 import { saveBlobDownload } from "../ExportRecordsPanel";
 import DgiiRegistryTag from "../DgiiRegistryTag";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { showToast } from "../foundation/toasts";
-import { recordsColumnLabelKey } from "./records-view-preferences";
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-filter-preview.module.css";
 
@@ -57,7 +56,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [mode, setMode] = useState<Mode>("table");
-  const [chosen, setChosen] = useState<ExportColumnKey[] | null>(null);
+  const [chosen, setChosen] = useState<string[] | null>(null);
   const [editing, setEditing] = useState(false);
   const [currencies, setCurrencies] = useState<Currencies>("all");
   const [suppliersExpanded, setSuppliersExpanded] = useState(false);
@@ -79,13 +78,14 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   useEffect(() => () => running.current?.abort(), []);
 
   const preview = load.kind === "ready" ? load.preview : null;
-  const tableColumns = preview?.table.columns ?? [];
-  const ownColumns = tableColumns.filter((column) => column.shown).map((column) => column.key);
-  const columns = chosen ?? ownColumns;
   const everyCurrency = currencies === "all" && preview?.table.all !== null;
   const selection = preview ? (everyCurrency ? preview.table.all : preview.table.current) : null;
+  // The server lists the file's columns for this currency choice; a required one is always checked.
+  const fileColumns = selection?.columns ?? [];
+  const ownColumns = fileColumns.filter((column) => column.shown || column.required).map((column) => column.key);
+  const checked = (key: string) => (chosen ?? ownColumns).includes(key) || fileColumns.some((column) => column.key === key && column.required);
+  const columns = fileColumns.map((column) => column.key).filter(checked);
   const count = preview ? (mode === "dgii" ? preview.dgii.record_count : selection?.record_count ?? 0) : null;
-  const label = (key: ExportColumnKey) => t(recordsColumnLabelKey(recordColumnKey(key)), { currency: "" }).trim();
 
   const summary = !preview ? [periodLabel] : mode === "dgii"
     ? preview.dgii.pending_count
@@ -116,8 +116,8 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     showToast({ kind: "success", text: t("business.transactions.reporting.export.done"), action: { label: t("business.transactions.reporting.export.download_again"), run: () => saveBlobDownload(file.blob, file.filename) } });
   };
 
-  const toggle = (key: ExportColumnKey) => setChosen(columns.includes(key) ? columns.filter((item) => item !== key) : tableColumns.map((column) => column.key).filter((item) => item === key || columns.includes(item)));
-  const custom = chosen !== null && (chosen.length !== ownColumns.length || chosen.some((key) => !ownColumns.includes(key)));
+  const toggle = (key: string) => setChosen(columns.includes(key) ? columns.filter((item) => item !== key) : fileColumns.map((column) => column.key).filter((item) => item === key || columns.includes(item)));
+  const custom = chosen !== null && (columns.length !== ownColumns.length || columns.some((key) => !ownColumns.includes(key)));
   const problem = run.kind === "failed" ? run.problem : load.kind === "failed" ? load.problem : null;
   const preparing = run.kind === "preparing";
 
@@ -181,14 +181,10 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />{tabTitle}
         </button>
         <ul data-testid="records-export-columns">
-          {tableColumns.map(({ key }) => <Fragment key={key}>
-            <li><label className={styles.choice}>
-              <input type="checkbox" checked={key === "counterparty" || columns.includes(key)} disabled={key === "counterparty"} onChange={() => toggle(key)} />
-              <span>{label(key)}</span>
-            </label></li>
-            {/* All currencies put Moneda after Monto in the file, locked on. */}
-            {key === "gross_amount" && everyCurrency ? <li><label className={styles.choice}><input type="checkbox" checked disabled /><span>{t("business.transactions.columns.moneda")}</span></label></li> : null}
-          </Fragment>)}
+          {fileColumns.map(({ key, label_key, required }) => <li key={key}><label className={styles.choice}>
+            <input type="checkbox" checked={columns.includes(key)} disabled={required} onChange={() => toggle(key)} />
+            <span>{t(label_key, { currency: "" }).trim()}</span>
+          </label></li>)}
         </ul>
       </> : <>
         <p data-testid="records-export-summary" className="mb-4 text-[14px] text-[#56635e] dark:text-white/70">{summary.filter(Boolean).join(" · ")}</p>
@@ -206,7 +202,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
         </div>
         {preview && mode === "table" ? <>
           <div className="mt-3 flex min-h-11 items-center justify-between gap-3">
-            <span className="text-[14px]">{t(custom ? "business.transactions.reporting.export.columns_custom" : "business.transactions.reporting.export.columns_table", { count: columns.length })}</span>
+            <span className="text-[14px]">{t(custom ? "business.transactions.reporting.export.columns_custom" : "business.transactions.reporting.export.columns_table", { count: columns.filter((key) => preview.table.current.columns.some((column) => column.key === key)).length })}</span>
             <button type="button" data-testid="records-export-edit-columns" className={quietButtonClass} onClick={() => setEditing(true)}>{t("business.transactions.reporting.export.columns_edit")}</button>
           </div>
           <div className="mt-3"><SegmentedControl fill testId="records-export-currencies" label={t("business.transactions.reporting.export.currencies")} disabled={preview.table.all === null} value={everyCurrency ? "all" : "current"} onChange={setCurrencies} segments={[{ key: "all" as const, label: t("business.transactions.reporting.export.currencies_all") }, { key: "current" as const, label: t("business.transactions.reporting.export.currencies_current", { currency: current }) }]} /></div>

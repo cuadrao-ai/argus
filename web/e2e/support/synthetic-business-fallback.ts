@@ -41,6 +41,7 @@ export async function fulfillSyntheticBusinessFallback(
     if (report.filters.period.kind !== "all" || report.sort !== "date_desc") throw new Error("Synthetic reports/query supports only all periods and date_desc");
     return route.fulfill({ json: reportAnswerSchema.parse({
       presentation: report.schema_version === 2 ? report.presentation ?? recordedAnswer.presentation : recordedAnswer.presentation,
+      columns: recordedAnswer.columns,
       items: [],
       overview: { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 },
       effective_sort: "date_desc",

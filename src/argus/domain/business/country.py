@@ -15,6 +15,9 @@ from typing import Literal
 class BusinessCountry:
     code: str
     currency: str
+    #: Registros columns no Business of this country is offered, by key from
+    #: `reporting_columns.COLUMNS`. A required column is never omitted.
+    omitted_columns: frozenset[str] = frozenset()
 
 
 CountryCode = Literal["DO", "US", "CA"]

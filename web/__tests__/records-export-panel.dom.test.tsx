@@ -66,7 +66,7 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
   const [body] = exports(page);
-  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment"], currencies: "all", format: "csv" });
+  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty", "date", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "note", "attachment"], currencies: "all", format: "csv" });
   assert.equal(body.report.filters.q, "proveedor");
   assert.equal(panel(), null, "the panel closes once the file is saved");
 });
@@ -141,7 +141,7 @@ test("Editar chooses columns in the table's order inside the same panel, with Co
   await page.click(page.button("Listo"));
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
-  assert.deepEqual(exports(page)[0].columns, ["counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment"]);
+  assert.deepEqual(exports(page)[0].columns, ["counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "note", "attachment"]);
 });
 
 test("Formato DGII counts only tab and period, shows the server's notices and Revisar applies the fiscal filter", async () => {
@@ -413,11 +413,11 @@ test("Registros renders distinct server net, ITBIS and Total columns and its car
   }) });
   const headings = [...document.querySelectorAll('thead th[data-col]')].map((cell) => cell.getAttribute("data-col"));
   const index = headings.indexOf("net_amount");
-  assert.deepEqual(headings.slice(index, index + 3), ["net_amount", "itbis", "monto"]);
+  assert.deepEqual(headings.slice(index, index + 3), ["net_amount", "itbis_amount", "gross_amount"]);
   assert.equal(document.querySelector('th[data-col="net_amount"]')?.textContent, "Monto sin ITBIS");
-  assert.equal(document.querySelector('th[data-col="monto"]')?.textContent, "Total");
+  assert.equal(document.querySelector('th[data-col="gross_amount"]')?.textContent, "Total");
   const row = document.querySelector("tbody tr")!;
-  for (const [key, value] of [["net_amount", "80.00"], ["itbis", "18.00"], ["monto", "100.00"]]) {
+  for (const [key, value] of [["net_amount", "80.00"], ["itbis_amount", "18.00"], ["gross_amount", "100.00"]]) {
     const cell = row.querySelector(`[data-col="${key}"]`)!;
     assert.equal(cell.textContent, value);
     assert.ok(cell.classList.contains("text-right"));

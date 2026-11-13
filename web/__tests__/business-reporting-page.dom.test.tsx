@@ -69,11 +69,11 @@ test("a connected last page uses full server count and original row order, with 
   assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /101.*102.*102/);
   const rows = [...document.querySelectorAll('tbody tr[data-record-id]')];
   assert.deepEqual(rows.map((item) => item.getAttribute("data-record-id")), ["zeta", "alfa"]);
-  assert.match(rows[0].querySelector('[data-col="monto"]')!.textContent!, /-/);
-  assert.equal(rows[0].querySelector('[data-col="notas"]')!.textContent, "Nota actual");
-  assert.equal(rows[0].querySelector('[data-col="notas"] button'), null);
+  assert.match(rows[0].querySelector('[data-col="gross_amount"]')!.textContent!, /-/);
+  assert.equal(rows[0].querySelector('[data-col="note"]')!.textContent, "Nota actual");
+  assert.equal(rows[0].querySelector('[data-col="note"] button'), null);
   assert.equal(document.querySelector('[data-record-workflow="ready"]'), null);
-  await act(async () => (document.querySelector('th[data-col="fecha"] button') as HTMLElement).click());
+  await act(async () => (document.querySelector('th[data-col="date"] button') as HTMLElement).click());
   await act(async () => (document.querySelector('button[aria-label="Primera página"]') as HTMLElement).click());
   assert.deepEqual(pages, [1]);
   const picker = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("25 por página"));

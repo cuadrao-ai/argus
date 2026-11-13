@@ -2,17 +2,16 @@
 .bar { display:block; height:13px; max-width:100%; border-radius:4px; }
 .overview { height:32px; width:64px; }
 .right { margin-left:auto; }
-.contraparte { width:144px; }
-.fecha { width:90px; }
-.monto { width:80px; }
-.moneda { width:28px; }
-.detalle { width:44px; }
-.estado { width:82px; height:24px; }
-.notas { width:108px; }
-.tipo_gasto { width:88px; }
-.forma_pago { width:88px; }
-.cuenta { width:116px; }
-.comprobante { width:16px; height:16px; }
+.counterparty { width:144px; }
+.date { width:90px; }
+.gross_amount { width:80px; }
+.detail { width:44px; }
+.stage { width:82px; height:24px; }
+.note { width:108px; }
+.expense_type { width:88px; }
+.payment_form { width:88px; }
+.funding { width:116px; }
+.attachment { width:16px; height:16px; }
 .narrow { display:none; }
 .actions { display:flex; flex-direction:column; align-items:center; justify-content:center; width:44px; flex-shrink:0; gap:20px; padding-block:14px; }
 .action { width:16px; height:16px; }

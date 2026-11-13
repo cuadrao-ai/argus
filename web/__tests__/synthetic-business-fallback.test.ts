@@ -27,6 +27,7 @@ describe("synthetic Business fallback", () => {
     const answer = reportAnswerSchema.parse(route.responses[0]);
     expect(answer).toEqual({
       presentation: recordedAnswer.presentation,
+      columns: recordedAnswer.columns,
       items: [],
       overview: { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 },
       effective_sort: "date_desc",

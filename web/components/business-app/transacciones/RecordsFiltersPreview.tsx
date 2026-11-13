@@ -15,19 +15,21 @@ import { REPORT_DOCUMENT_KINDS, type DgiiChoice } from "@/lib/business-reports-a
 import styles from "./records-filter-preview.module.css";
 
 export type ReportFilterCatalogues = { counterparties: { key: string; labels: string[] }[]; expense_types: DgiiChoice[]; funding_sources: { key: string; label: string | null; kind: string | null }[] };
+/** A filter group that reads one table column shows only while the table offers that column. */
+const GROUP_COLUMN: Partial<Record<FilterGroup, string>> = { expense_type: "expense_type", account: "funding" };
 const ICONS: Record<FilterGroup, LucideIcon> = { fiscal_data: CheckCheck, review: CheckCheck, attachment: Paperclip, amount: Banknote, counterparty: Users, expense_type: Tag, account: Building2, document: FileText, fiscal: ReceiptText };
 const COUNTERPARTIES = ["Estación Ruta 3", "Nube Hosting", "Comedor Doña Ana"];
 const ACCOUNTS = ["checking", "card", "owner"];
 /** The tipo de gasto choices: every type the records carry, then `missing` for a purchase that still needs one. */
 const expenseTypeValues = (types: readonly DgiiChoice[]) => [...types.map((choice) => choice.code), "missing"];
 
-function FilterEditor({ initial, apply, close, phone = false, catalogues, purchase, initialGroup = "fiscal_data" }: { purchase: boolean; initialGroup?: FilterGroup | "filters"; catalogues?: ReportFilterCatalogues; phone?: boolean; initial: PreviewFilters; apply: (next: PreviewFilters) => void; close: () => void }) {
+function FilterEditor({ initial, apply, close, phone = false, catalogues, offered, initialGroup = "fiscal_data" }: { offered?: readonly string[]; initialGroup?: FilterGroup | "filters"; catalogues?: ReportFilterCatalogues; phone?: boolean; initial: PreviewFilters; apply: (next: PreviewFilters) => void; close: () => void }) {
   const { t } = useTransaccionesWords();
   const [draft, setDraft] = useState(initial);
   const [amountInvalid, setAmountInvalid] = useState({ min: false, max: false });
   const [amountReset, setAmountReset] = useState(0);
   const [group, setGroup] = useState<FilterGroup>(initialGroup === "filters" ? "fiscal_data" : initialGroup);
-  const groups = FILTER_GROUPS.filter((key) => key !== "review" && (purchase || key !== "expense_type"));
+  const groups = FILTER_GROUPS.filter((key) => { const column = GROUP_COLUMN[key]; return key !== "review" && (!column || !offered || offered.includes(column)); });
   const [query, setQuery] = useState("");
   const [choosingGroup, setChoosingGroup] = useState(phone && initialGroup === "filters");
   const rail = useRef<HTMLDivElement>(null);
@@ -77,7 +79,7 @@ function FilterEditor({ initial, apply, close, phone = false, catalogues, purcha
   return phone ? <BottomSheet isOpen onClose={close} title={word("title")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen footer={footer}>{body}</BottomSheet> : <>{body}{footer}</>;
 }
 
-export default function RecordsFiltersPreview({ options, value: filters, onChange, catalogues, purchase = true }: { purchase?: boolean; catalogues?: ReportFilterCatalogues; options: ReactNode; value: PreviewFilters; onChange: (next: PreviewFilters) => void }) {
+export default function RecordsFiltersPreview({ options, value: filters, onChange, catalogues, offered }: { offered?: readonly string[]; catalogues?: ReportFilterCatalogues; options: ReactNode; value: PreviewFilters; onChange: (next: PreviewFilters) => void }) {
   const { t } = useTransaccionesWords();
   const { isBelowDesktop: phone } = useResponsiveLayout();
   const [editor, setEditor] = useState<"amount" | "filters" | null>(null);
@@ -122,7 +124,7 @@ export default function RecordsFiltersPreview({ options, value: filters, onChang
   };
   return <>
     <button type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={(event) => openEditor(event.currentTarget, "filters")}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span>{active.length > 0 ? <span className={styles.count}>{active.length}</span> : null}<ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
-    {editor !== null ? phone ? <FilterEditor purchase={purchase} key={editor} catalogues={catalogues} phone initialGroup={editor} initial={filters} apply={setFilters} close={close} /> : createPortal(<div ref={panel} role="dialog" aria-label={word("title")} className={styles.popover} style={position}><FilterEditor purchase={purchase} key={editor} catalogues={catalogues} initialGroup={editor} initial={filters} apply={setFilters} close={close} /></div>, document.body) : null}
+    {editor !== null ? phone ? <FilterEditor offered={offered} key={editor} catalogues={catalogues} phone initialGroup={editor} initial={filters} apply={setFilters} close={close} /> : createPortal(<div ref={panel} role="dialog" aria-label={word("title")} className={styles.popover} style={position}><FilterEditor offered={offered} key={editor} catalogues={catalogues} initialGroup={editor} initial={filters} apply={setFilters} close={close} /></div>, document.body) : null}
     <div className={styles.toolbarOptions}>{options}</div>
     <div className={styles.chips} data-testid="records-preview-filter-chips">{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={group === "amount" ? undefined : word("remove") + " " + chipLabel(group)} aria-haspopup={group === "amount" ? "dialog" : undefined} onClick={(event) => group === "amount" ? openEditor(event.currentTarget, "amount") : setFilters({ ...filters, [group]: emptyPreviewFilters(filters.amount.currency)[group] })}><span>{group === "counterparty" ? t("business.transactions.layout.filters.counterparty_short", { count: filters.counterparty.length }) : `${chipLabel(group)} · ${valueLabel(group)}`}</span>{group !== "amount" ? <X size={14} aria-hidden="true" /> : null}</button>)}{canClear ? <button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(filters.amount.currency))}>{t("business.transactions.layout.clear")}</button> : null}</div>
   </>;

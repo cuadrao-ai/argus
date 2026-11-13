@@ -1,0 +1,160 @@
+{
+  "purchase": [
+    {
+      "key": "counterparty",
+      "label_key": "business.transactions.columns.contraparte",
+      "required": true,
+      "pinned": true,
+      "shown": true
+    },
+    {
+      "key": "fiscal_number",
+      "label_key": "business.transactions.columns.ncf",
+      "required": false,
+      "pinned": false,
+      "shown": false
+    },
+    {
+      "key": "date",
+      "label_key": "business.transactions.columns.fecha",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "net_amount",
+      "label_key": "business.terms.net_amount",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "itbis_amount",
+      "label_key": "business.terms.itbis",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "gross_amount",
+      "label_key": "business.terms.total",
+      "required": true,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "stage",
+      "label_key": "business.transactions.layout.column_state",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "note",
+      "label_key": "business.transactions.columns.notas",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "attachment",
+      "label_key": "business.transactions.layout.column_attachment",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "expense_type",
+      "label_key": "business.dossier.placeholder.expense_type",
+      "required": false,
+      "pinned": false,
+      "shown": false
+    },
+    {
+      "key": "payment_form",
+      "label_key": "business.dossier.placeholder.payment_form",
+      "required": false,
+      "pinned": false,
+      "shown": false
+    },
+    {
+      "key": "funding",
+      "label_key": "business.transactions.columns.cuenta",
+      "required": false,
+      "pinned": false,
+      "shown": false
+    }
+  ],
+  "sale": [
+    {
+      "key": "counterparty",
+      "label_key": "business.transactions.columns.contraparte",
+      "required": true,
+      "pinned": true,
+      "shown": true
+    },
+    {
+      "key": "fiscal_number",
+      "label_key": "business.transactions.columns.ncf",
+      "required": false,
+      "pinned": false,
+      "shown": false
+    },
+    {
+      "key": "date",
+      "label_key": "business.transactions.columns.fecha",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "net_amount",
+      "label_key": "business.terms.net_amount",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "itbis_amount",
+      "label_key": "business.terms.itbis",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "gross_amount",
+      "label_key": "business.terms.total",
+      "required": true,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "stage",
+      "label_key": "business.transactions.layout.column_state",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "note",
+      "label_key": "business.transactions.columns.notas",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "attachment",
+      "label_key": "business.transactions.layout.column_attachment",
+      "required": false,
+      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "funding",
+      "label_key": "business.transactions.columns.cuenta",
+      "required": false,
+      "pinned": false,
+      "shown": false
+    }
+  ]
+}

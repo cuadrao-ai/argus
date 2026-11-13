@@ -109,8 +109,11 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
         record_expense(service, context)
     assert len(query(http, filters=PURCHASES)["items"]) == 25
     summary = preview(http)
-    assert summary["table"]["current"] == {"record_count": 26, "currencies": ["DOP"]}
+    current = summary["table"]["current"]
+    assert (current["record_count"], current["currencies"]) == (26, ["DOP"])
+    assert "currency" not in [column["key"] for column in current["columns"]]
     assert summary["table"]["all"]["record_count"] == 26
+    assert "currency" in [column["key"] for column in summary["table"]["all"]["columns"]]
     response = export(http)
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
     written = lines(response)

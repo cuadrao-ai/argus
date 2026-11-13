@@ -11,6 +11,7 @@ from typing import Literal
 from zoneinfo import ZoneInfo
 
 from argus.domain.business.contracts.facts import InheritedValue, personal_mark_admits
+from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.reporting import (
     FiscalAmount,
     ReportIdentity,
@@ -18,12 +19,7 @@ from argus.domain.business.reporting import (
     summarize,
     summarize_fiscal,
 )
-from argus.domain.business.reporting_preferences import (
-    DEFAULT_COLUMNS as DEFAULT_COLUMNS,
-)
-from argus.domain.business.reporting_preferences import (
-    Column as Column,
-)
+from argus.domain.business.reporting_columns import SPECS, TableColumn, offered_columns
 from argus.domain.business.reporting_preferences import (
     Contract,
     DocumentKind,
@@ -202,8 +198,42 @@ class ExcludedPersonal(Contract):
     expense: int = 0
 
 
+class ReportColumn(Contract):
+    """One column the table offers, with the rules the web draws it by."""
+
+    key: TableColumn
+    #: Locale path of its name; the web reads the words in the reader's language.
+    label_key: str
+    #: Always shown.
+    required: bool
+    #: Fixed first.
+    pinned: bool
+    shown: bool
+
+
+def report_columns(
+    presentation: Presentation, families: tuple[Family, ...], country: str
+) -> tuple[ReportColumn, ...]:
+    """The columns these families offer in this country, in the layout's order."""
+
+    offered = offered_columns(families, country)
+    return tuple(
+        ReportColumn(
+            key=key,
+            label_key=SPECS[key].label,
+            required=SPECS[key].required,
+            pinned=SPECS[key].pinned,
+            shown=key not in presentation.hidden,
+        )
+        for key in presentation.order
+        if key in offered
+    )
+
+
 class ReportAnswer(Contract):
+    #: The request's layout after the upgrade; the web keeps this one.
     presentation: Presentation
+    columns: tuple[ReportColumn, ...]
     items: tuple[ReportRecord, ...]
     overview: ReportOverview = ReportOverview()
     effective_sort: str = "date_desc"
@@ -622,6 +652,8 @@ def run_query(
     records: tuple[ReportRecord, ...] | list[ReportRecord],
     request: ReportRequest | ReportRequestV2,
     observed_at: datetime,
+    *,
+    country: str = DEFAULT_COUNTRY,
 ) -> ReportAnswer:
     ids = [row.row_id for row in records]
     effects = [effect for row in records for effect in row.linked_activity_ids]
@@ -630,7 +662,7 @@ def run_query(
     period = resolve_period(request.filters.period, records, observed_at)
     rows = matching_records(records, request, observed_at)
     semantic = request.model_dump(
-        mode="json", exclude={"page", "page_size", "columns", "presentation"}
+        mode="json", exclude={"page", "page_size", "presentation"}
     )
     # Multiselect order and repeated keys do not change the semantic query.
     for key, value in semantic["filters"].items():
@@ -720,10 +752,12 @@ def run_query(
     )
     chosen_sort, reason = effective_sort(rows, request.sort)
     left_out = [row for row in rows if not _admitted(row)]
+    presentation = (
+        request.presentation if isinstance(request, ReportRequestV2) else Presentation()
+    )
     return ReportAnswer(
-        presentation=request.presentation
-        if isinstance(request, ReportRequestV2)
-        else Presentation(),
+        presentation=presentation,
+        columns=report_columns(presentation, request.filters.record_families, country),
         excluded_personal=ExcludedPersonal(
             income=sum(row.family == "sale" for row in left_out),
             expense=sum(row.family == "purchase" for row in left_out),

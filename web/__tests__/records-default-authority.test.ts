@@ -3,13 +3,22 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { test } from "bun:test";
 import ts from "typescript";
-import { REPORT_PRESENTATION_KEYS, reportPresentationSchema, reportRequestSchema } from "@/lib/business-reports-api";
+import { REPORT_PRESENTATION_KEYS, reportAnswerSchema, reportPresentationSchema, reportRequestSchema } from "@/lib/business-reports-api";
 import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
 import { recordsPresentationToReport } from "@/lib/business-reporting-wire";
 
 const root = path.resolve(import.meta.dir, "..");
 const columnKeys = new Set<string>([...REPORT_PRESENTATION_KEYS, ...sampleRecordsPreferences().order]);
+/** The enum one schema in docs/api/openapi.yaml gives one property: the server registry's keys as the contract publishes them. */
+function openapiEnum(schema: string, property: string): string[] {
+  const lines = readFileSync(path.join(root, "../docs/api/openapi.yaml"), "utf8").split("\n");
+  const start = lines.indexOf(`    ${schema}:`);
+  const field = lines.findIndex((line, index) => index > start && line.startsWith(`        ${property}:`));
+  const values: string[] = [];
+  for (let index = lines.indexOf(lines.slice(field).find((line) => line.trim() === "enum:")!, field) + 1; /^\s+- /.test(lines[index]); index++) values.push(lines[index].trim().slice(2));
+  return values;
+}
 function enclosing(node: ts.Node, predicate: (node: ts.Node) => boolean): boolean {
   for (let current = node.parent; current; current = current.parent) if (predicate(current)) return true;
   return false;
@@ -21,6 +30,11 @@ function columnDefaults(source: string, filename: string): string[] {
   const validation = (node: ts.Node) => ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && ["enum", "refine"].includes(node.expression.name.text);
   const exportSelection = (node: ts.Node) => filename.endsWith("lib/business-reports-api.ts") && ts.isPropertyAssignment(node) && node.name.getText(tree) === "columns";
   const visit = (node: ts.Node) => {
+    // A rule kept by hand, such as which columns are required or purchase-only, reads as a map of columns to flags.
+    if (ts.isObjectLiteralExpression(node)) {
+      const flags = node.properties.filter((property) => ts.isPropertyAssignment(property) && columnKeys.has(property.name.getText(tree).replace(/^["']|["']$/g, "")) && [ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword].includes(property.initializer.kind));
+      if (flags.length >= 2) violations.push(node.getText(tree));
+    }
     if (ts.isArrayLiteralExpression(node)) {
       const values = node.elements.filter(ts.isStringLiteral).map((element) => element.text);
       const namesColumns = values.length >= 2 && values.every((value) => columnKeys.has(value));
@@ -61,10 +75,20 @@ test("web contains validation catalogues but no table default column arrays", ()
   });
   assert.deepEqual(violations, []);
 });
+test("the web's column keys are the contract's: the openapi Presentation and ReportColumn enums", () => {
+  assert.deepEqual(openapiEnum("Presentation", "order"), [...REPORT_PRESENTATION_KEYS]);
+  assert.deepEqual(openapiEnum("ReportColumn", "key"), [...REPORT_PRESENTATION_KEYS]);
+});
+test("the web validates a layout's shape only and keeps no column rule of its own", () => {
+  assert.equal(reportPresentationSchema.safeParse({ order: ["date", "counterparty", "category"], hidden: ["counterparty"], density: 48 }).success, true);
+  const ruled = { ...recordedReportAnswer, columns: recordedReportAnswer.columns.map((column) => ({ ...column, required: column.key === "note", pinned: false })) };
+  assert.deepEqual(reportAnswerSchema.parse(ruled).columns, ruled.columns);
+});
 test("authority guard rejects renamed literal defaults and order derived from a catalogue", () => {
   for (const source of [
+    'const required = { counterparty: true, gross_amount: true };',
     'const startingColumns = ["counterparty", "date", "gross_amount"];',
-    'const layout = () => ({ order: RECORDS_PREVIEW_COLUMNS.map(column => column.key), hidden: ["cuenta"] });',
+    'const layout = () => ({ order: RECORDS_PREVIEW_COLUMNS.map(column => column.key), hidden: ["funding"] });',
     'const schema = z.object({ order: z.array(key).default([...REPORT_PRESENTATION_KEYS]) });',
   ]) assert.ok(columnDefaults(source, "hooks/candidate.js").length > 0, source);
 });

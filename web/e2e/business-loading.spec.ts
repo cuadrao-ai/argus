@@ -125,7 +125,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByTestId("business-primary-upload").first()).toHaveAttribute("data-primary", "true");
     if (width >= 1024) {
       // An empty cell is a question: a record with no receipt or no read says "-" in Comprobante.
-      const cells = await page.locator('td[data-col="comprobante"]').evaluateAll((nodes) => nodes.map((node) => ({ icon: node.querySelector('[data-testid="record-proof"]') !== null, text: node.textContent?.trim() ?? "" })));
+      const cells = await page.locator('td[data-col="attachment"]').evaluateAll((nodes) => nodes.map((node) => ({ icon: node.querySelector('[data-testid="record-proof"]') !== null, text: node.textContent?.trim() ?? "" })));
       expect(cells.length).toBeGreaterThan(0);
       for (const cell of cells) expect(cell.icon || cell.text.startsWith("-")).toBe(true);
     }

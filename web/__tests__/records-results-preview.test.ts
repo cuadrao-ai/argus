@@ -14,11 +14,11 @@ const rows = [record("exp-gas", "gasto", "-2100.00", "DOP"), record("exp-hosting
 test("preview defaults keep eight columns with optional purchase and account fields", () => {
   const prefs = sampleRecordsPreferences();
   assert.equal(prefs.order.length, recordedReportAnswer.presentation.order.length);
-  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["contraparte", "fecha", "net_amount", "itbis", "monto", "estado", "notas", "comprobante"]);
-  assert.deepEqual(prefs.hidden, ["cuenta", "forma_pago", "tipo_gasto", "ncf"]);
-  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "cuenta")).length, 9);
-  assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(toggleRecordsColumn(prefs, "tipo_gasto"), "forma_pago")).map(({ key }) => key).slice(8, 10), ["tipo_gasto", "forma_pago"], "Forma de pago shows beside Tipo de gasto once chosen");
-  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "estado")).some(({ key }) => key === "estado"), false);
+  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["counterparty", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment"]);
+  assert.deepEqual(prefs.hidden, ["fiscal_number", "expense_type", "payment_form", "funding"]);
+  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "funding")).length, 9);
+  assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(toggleRecordsColumn(prefs, "expense_type"), "payment_form")).map(({ key }) => key).slice(8, 10), ["expense_type", "payment_form"], "Forma de pago shows beside Tipo de gasto once chosen");
+  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "stage")).some(({ key }) => key === "stage"), false);
 });
 
 test("summary keeps workflow and financial eligibility separate and never mixes currencies", () => {

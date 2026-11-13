@@ -1,7 +1,7 @@
 import {
   downloadRecordsExport, listBusinessReportViews, mutateBusinessReportView, previewRecordsExport, queryBusinessReport,
   reportRecipeSchema, reportRequestSchema,
-  type ReportAnswer, type ReportProblem, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand, type SavedReportView, type ReportPresentation,
+  type ReportAnswer, type ReportColumn, type ReportProblem, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand, type SavedReportView, type ReportPresentation,
 } from "./business-reports-api";
 import type { ReportRecord } from "./business-reports-api";
 import { consumeOverlayEntriesForNavigation } from "./overlay-history";
@@ -9,7 +9,7 @@ import type { RecordRow } from "@/components/business-app/transacciones/transacc
 import type { SettlementSummary } from "@/components/business-app/transacciones/records-results-preview";
 import type { RecordsSort } from "@/components/business-app/transacciones/records-pagination";
 import type { ReportSort } from "./business-reports-api";
-import type { RecordsColumnKey, RecordsViewPreferences } from "@/components/business-app/transacciones/records-view-preferences";
+import type { RecordsViewPreferences } from "@/components/business-app/transacciones/records-view-preferences";
 import { DENSITIES, DENSITY_ROW_PX } from "@/components/business-app/transacciones/table-density";
 
 const SORT_KEYS = { fecha: "date", contraparte: "name", monto: "amount" } as const;
@@ -20,13 +20,11 @@ export function reportSortToRecords(sort: ReportSort): RecordsSort {
   const key = (Object.keys(SORT_KEYS) as RecordsSort["key"][]).find((key) => sort.startsWith(`${SORT_KEYS[key]}_`))!;
   return { key, direction: sort.endsWith("_asc") ? "asc" : "desc" };
 }
-const COLUMN_KEYS: Record<RecordsColumnKey, ReportPresentation["order"][number]> = { contraparte: "counterparty", fecha: "date", monto: "gross_amount", tipo_gasto: "expense_type", forma_pago: "payment_form", estado: "stage", notas: "note", comprobante: "attachment", cuenta: "funding", ncf: "fiscal_number", itbis: "itbis_amount", net_amount: "net_amount" };
-export const recordColumnKey = (key: ReportPresentation["order"][number]): RecordsColumnKey => (Object.keys(COLUMN_KEYS) as RecordsColumnKey[]).find((column) => COLUMN_KEYS[column] === key)!;
-export function reportPresentationToRecords(presentation: ReportPresentation, sort: ReportSort): RecordsViewPreferences {
-  return { order: presentation.order.map(recordColumnKey), hidden: presentation.hidden.map(recordColumnKey), density: DENSITIES.find((density) => DENSITY_ROW_PX[density] === presentation.density)!, sort: reportSortToRecords(sort) };
+export function reportPresentationToRecords(presentation: ReportPresentation, sort: ReportSort, columns: readonly ReportColumn[]): RecordsViewPreferences {
+  return { columns, order: presentation.order, hidden: presentation.hidden, density: DENSITIES.find((density) => DENSITY_ROW_PX[density] === presentation.density)!, sort: reportSortToRecords(sort) };
 }
 export function recordsPresentationToReport(preferences: RecordsViewPreferences): ReportPresentation {
-  return { order: preferences.order.map((key) => COLUMN_KEYS[key]), hidden: preferences.hidden.map((key) => COLUMN_KEYS[key]), density: DENSITY_ROW_PX[preferences.density] };
+  return { order: preferences.order, hidden: preferences.hidden, density: DENSITY_ROW_PX[preferences.density] };
 }
 
 export function businessReportRow(report: ReportRecord): RecordRow {
@@ -53,7 +51,7 @@ export function reportSummary(answer: ReportAnswer | undefined, kind: RecordRow[
 
 export const defaultReportRequest = (): ReportRequest => reportRequestSchema.parse({});
 export const recipeFromRequest = (request: ReportRequest, presentation?: ReportPresentation): ReportRecipe => {
-  const recipe = { schema_version: request.schema_version, filters: request.filters, columns: request.columns, sort: request.sort };
+  const recipe = { schema_version: request.schema_version, filters: request.filters, sort: request.sort };
   return reportRecipeSchema.parse(request.schema_version === 2 ? { ...recipe, presentation: request.presentation ?? presentation, page_size: request.page_size } : recipe);
 };
 export type ReportFailure = { kind: "access" | "version" | "conflict" | "unavailable" | "uncertain" | "failed"; code: string; requestId?: string };
@@ -158,12 +156,9 @@ export function createBusinessReportController(scope: ReportScope, initial = def
         // A page the records no longer have opens the last one that exists.
         const lastPage = Math.max(1, answer.page_count);
         if (report.page > lastPage) return controller.load({ ...state.request, page: lastPage });
-        let request = state.request;
-        if (request.schema_version === 2 && request.presentation) {
-          const presentation = request.presentation;
-          const missing = answer.presentation.order.filter((key) => !presentation.order.includes(key));
-          if (missing.length) request = { ...request, presentation: { ...presentation, order: presentation.order.concat(missing), hidden: Array.from(new Set(presentation.hidden.concat(missing))) } };
-        }
+        // The request's layout becomes the server's upgrade of it, unless the person changed it while this answer was on its way.
+        const sent = report.schema_version === 2 ? report.presentation : undefined;
+        const request = sent && state.request.schema_version === 2 && state.request.presentation === sent ? { ...state.request, presentation: answer.presentation } : state.request;
         publish({ request, load: { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
       } catch (error) {
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
@@ -236,6 +231,10 @@ export function writeReportLocation(request: ReportRequest, anchor: string | nul
 export function restoreReportLocation(params: URLSearchParams): { request: ReportRequest; anchor: string | null } {
   try {
     const encoded = params.get("report");
-    return { request: encoded ? reportRequestSchema.parse(JSON.parse(encoded)) : defaultReportRequest(), anchor: params.get("report_row") };
+    if (!encoded) return { request: defaultReportRequest(), anchor: params.get("report_row") };
+    const linked = JSON.parse(encoded);
+    // An old link still names the first table's columns, which nothing reads.
+    if (linked && typeof linked === "object") delete linked.columns;
+    return { request: reportRequestSchema.parse(linked), anchor: params.get("report_row") };
   } catch { return { request: defaultReportRequest(), anchor: null }; }
 }
