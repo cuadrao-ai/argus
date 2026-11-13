@@ -29,7 +29,14 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 SourceKind = Literal["plaid", "gmail", "shortcuts", "statement"]
 SOURCE_KINDS: tuple[SourceKind, ...] = ("plaid", "gmail", "shortcuts", "statement")
@@ -218,6 +225,11 @@ class ImportCandidate(_Frozen):
     attachments: tuple[Attachment, ...] = Field(default=(), max_length=10)
     uncertain: frozenset[UncertainField] = frozenset()
 
+    @field_serializer("uncertain", when_used="json")
+    def _uncertain_sorted(self, value: frozenset[str]) -> list[str]:
+        # Set order changes per process; a hashed read must not.
+        return sorted(value)
+
     @field_validator("amount", mode="before")
     @classmethod
     def _amount(cls, value: object) -> str | None:
@@ -293,7 +305,6 @@ class ImportCandidate(_Frozen):
 
         body = self.model_dump(mode="json")
         body["source"].pop("observed_at", None)
-        body["uncertain"] = sorted(body["uncertain"])
         raw = json.dumps(body, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(raw.encode()).hexdigest()
 
