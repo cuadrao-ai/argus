@@ -235,7 +235,7 @@ def project(
         if purchase is not None and isinstance(declaration, PurchaseDeclaration)
         else None
     )
-    net = net_amount(facts, declaration)
+    net = net_amount(facts, declaration, total=gross)
     mismatch = next(
         (
             flag

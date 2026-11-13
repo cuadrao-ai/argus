@@ -34,6 +34,9 @@
       "to": "to"
     },
     "business.export.form_no_aplica": "Does not apply",
+    "business.terms.itbis": "ITBIS",
+    "business.terms.net_amount": "Amount before ITBIS",
+    "business.terms.total": "Total",
     "business.transactions.columns.contraparte": "Counterparty",
     "business.transactions.columns.cuenta": "Account",
     "business.transactions.columns.fecha": "Date",
@@ -98,6 +101,9 @@
       "to": "a"
     },
     "business.export.form_no_aplica": "No aplica",
+    "business.terms.itbis": "ITBIS",
+    "business.terms.net_amount": "Monto sin ITBIS",
+    "business.terms.total": "Total",
     "business.transactions.columns.contraparte": "Contraparte",
     "business.transactions.columns.cuenta": "Cuenta",
     "business.transactions.columns.fecha": "Fecha",
