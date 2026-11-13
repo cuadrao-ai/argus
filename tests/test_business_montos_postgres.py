@@ -160,7 +160,7 @@ def test_amount_preview_requires_prepare(actions):
     service, context, grant = actions
     draft, version = create(service, context)
     with service.authority.pool.connection() as connection:
-        connection.execute("update public.business_client_grants set capabilities=array['read'] where id=%s", (grant,))
+        connection.execute("update public.business_client_grants set business_role='viewer' where id=%s", (grant,))
     with pytest.raises(ActionError) as denied:
         service.preview_amounts(context, draft, AmountsPreviewRequest(version=version))
     assert denied.value.result.outcome == "permission_denied"
