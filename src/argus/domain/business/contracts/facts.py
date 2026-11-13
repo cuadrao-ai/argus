@@ -213,6 +213,8 @@ class FiscalFacts(Contract):
         return self
 
 
+#: Facts only a person reviews. No model reads them: the dossier and the
+#: read context both drop them on the way to a model.
 HUMAN_AMOUNT_FIELDS = ("net_amount", "legal_tip")
 
 

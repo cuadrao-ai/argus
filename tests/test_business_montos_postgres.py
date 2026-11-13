@@ -153,6 +153,24 @@ def test_amount_preview_is_read_only_and_uses_current_version(actions):
     assert stale.value.result.code == "stale_version"
 
 
+def test_read_context_never_gives_a_model_the_human_only_amounts(actions):
+    from argus.domain.business.contracts.facts import HUMAN_AMOUNT_FIELDS
+
+    service, context, _ = actions
+    draft, version = create(service, context)
+    result = service.review(context, draft, ReviewDraft(
+        version=version,
+        facts=BusinessFactPatch(amount={"state": "known", "value": "1180"}),
+        montos=MontosReview(net_amount={"state": "known", "value": "1000"}, legal_tip={"state": "known", "value": "80"}),
+    ), str(uuid4()))
+    assert result.outcome == "applied"
+    saved = service.dossier(context, draft).facts
+    assert saved.net_amount.state == saved.legal_tip.state == "known"
+    row = next(row for row in service.read_context(context)["drafts"] if row["id"] == str(draft))
+    assert Decimal(row["facts"]["amount"]["value"]) == Decimal("1180")
+    assert not set(HUMAN_AMOUNT_FIELDS) & set(row["facts"])
+
+
 def test_amount_preview_requires_prepare(actions):
     from argus.domain.business.authority import ActionError
     from argus.domain.business.contracts.amounts import AmountsPreviewRequest

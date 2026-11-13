@@ -54,6 +54,7 @@ from argus.domain.business.contracts.dossier import (
     WebActionSource,
     web_action_text,
 )
+from argus.domain.business.contracts.facts import HUMAN_AMOUNT_FIELDS
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
@@ -287,10 +288,10 @@ class BusinessActions:
     def read_context(self, context: ActionContext) -> dict:
         with transaction(self.authority, context) as tx:
             drafts = tx.rows(
-                "select id,version,resolution->'business'->'facts' as facts"
+                "select id,version,(resolution->'business'->'facts') - %s::text[] as facts"
                 " from public.financial_import_events where owner_space_id=%s and user_id=%s"
                 " and state='open' and resolution ? 'business' order by updated_at desc,id limit 20",
-                (context.actor.space_id, context.owner_id),
+                (list(HUMAN_AMOUNT_FIELDS), context.actor.space_id, context.owner_id),
             )
             questions = tx.rows(
                 "select id,draft_id,field,asked_of,channel,state,prompt,allowed_answers,"
