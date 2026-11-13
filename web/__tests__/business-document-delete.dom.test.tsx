@@ -187,10 +187,12 @@ test("an exact repeat upload says it is deleted and offers the owner's restore",
   const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
   Object.defineProperty(input, "files", { configurable: true, value: [new File(["synthetic pdf"], "wrong.pdf", { type: "application/pdf" })] });
   await page.act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
-  await page.wait(() => document.querySelector('[data-testid="receipt-upload-row"]')?.textContent?.includes("Ya está en Eliminados") === true);
+  await page.wait(() => !!document.querySelector('[data-testid="receipt-upload-deleted-fold"]'));
+  await page.click(document.querySelector<HTMLButtonElement>('[data-testid="receipt-upload-deleted-fold"] button[aria-expanded="false"]'));
+  await page.wait(() => document.querySelector('[data-testid="receipt-upload-row"]')?.textContent?.includes("Eliminado antes") === true);
   const row = document.querySelector('[data-testid="receipt-upload-row"]')!;
   await page.click(page.button("Restaurar", row));
-  await page.wait(() => !row.textContent?.includes("Ya está en Eliminados"));
+  await page.wait(() => !document.querySelector('[data-testid="receipt-upload-deleted-fold"]'));
   assert.deepEqual(page.restores, ["deleted"]);
 });
 
