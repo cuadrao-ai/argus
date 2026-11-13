@@ -172,7 +172,7 @@ describe("the record facts on the review page", () => {
     assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && !html.includes('data-fact="category_id"'));
     for (const chip of ["Sin verificar", "lucide-circle-dashed"]) assert.ok(!html.includes(chip), chip);
     assert.ok(html.includes('data-fact="ecf" data-standing="suggestion"') && !html.includes("confirm-ecf"));
-    assert.ok(html.indexOf('data-fact="occurred_on"') < html.indexOf('data-fact="counterparty"'));
+    assert.ok(html.indexOf('data-fact="counterparty"') < html.indexOf('data-fact="occurred_on"'));
     assert.ok(html.indexOf('data-fact="amount"') > html.indexOf('data-fact="counterparty"'));
     assert.ok(!html.includes("Desconocido"), "the unknown amount is an empty field");
     assert.ok(!html.includes("verificada") && !html.includes("—"));
