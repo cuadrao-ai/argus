@@ -27,8 +27,14 @@ from argus.domain.business.authority import ActionContext, ActionError, Business
 from argus.domain.business.dgii_codes import TOOL_LABELS
 from argus.domain.business.dgii_columns import COLUMNS
 from argus.domain.business.dgii_export import line_values
-from argus.domain.business.dgii_validation import DECLARABLE_CURRENCY, declarable
+from argus.domain.business.dgii_line import line_review
+from argus.domain.business.dgii_validation import (
+    DECLARABLE_CURRENCY,
+    declarable,
+    fact_value,
+)
 from argus.domain.business.export import spreadsheet_cell
+from argus.domain.business.fiscal_identity import identity_digits
 from argus.domain.business.reporting_preferences import (
     PURCHASE_ONLY_COLUMNS,
     Contract,
@@ -89,6 +95,12 @@ _DGII_TEXT = frozenset(
 )
 _REQUIRED_ZERO = frozenset({"itbis_withheld", "income_withheld"})
 _DGII_DATES = frozenset({"occurred_on", "paid_on", "withheld_on"})
+_SPLIT_DATES = frozenset({"occurred_on", "paid_on"})
+_PURCHASE_HEADERS = tuple(
+    f"{label} ({part})" if name in _SPLIT_DATES else label
+    for name, label in COLUMNS["606"]
+    for part in (("AAAAMM", "DD") if name in _SPLIT_DATES else (None,))
+)
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 CSV = "text/csv; charset=utf-8"
 
@@ -132,6 +144,14 @@ class TableExport(Contract):
     all: CurrencySelection | None
 
 
+class RncSupplier(Contract):
+    name: str
+    rnc: str
+    estado: str
+    status: Literal["rnc_inactive", "rnc_unverified"]
+    record_count: int
+
+
 class DgiiExport(Contract):
     form: Literal["606", "607"]
     #: The one currency the form states; Revisar shows its pending records.
@@ -144,6 +164,9 @@ class DgiiExport(Contract):
     #: Foreign-currency records the 606/607 holds until they have a rate.
     pending_rate_count: int
     pending_rate_currencies: tuple[str, ...]
+    rnc_warning_count: int
+    rnc_supplier_count: int
+    rnc_suppliers: tuple[RncSupplier, ...]
 
 
 class ExportPreview(Contract):
@@ -212,14 +235,42 @@ class _DgiiSelection:
     lines: tuple[ReportRecord, ...]
     pending_fiscal: tuple[ReportRecord, ...]
     pending_rate: tuple[ReportRecord, ...]
+    rnc_suppliers: tuple[RncSupplier, ...]
 
 
 def _dgii_selection(
     source: ExportSource, request: ReportRequest | ReportRequestV2
 ) -> _DgiiSelection:
     rows = matching_records(source.records, _dgii_request(request), source.observed_at)
+    lines = tuple(row for row in rows if row.fiscal_data == "complete")
+    suppliers: dict[str, RncSupplier] = {}
+    if _family(request) == "purchase":
+        for row in lines:
+            record = source.approved[row.linked_activity_ids[0]]
+            check, warnings = line_review(record, source.rnc_registry)
+            warning = next(
+                (
+                    item
+                    for item in warnings
+                    if item["code"] in {"rnc_inactive", "rnc_unverified"}
+                ),
+                None,
+            )
+            if warning is None:
+                continue
+            rnc = identity_digits(fact_value(record, "rnc"))
+            assert rnc is not None
+            previous = suppliers.get(rnc)
+            suppliers[rnc] = RncSupplier(
+                name=check["name"] or row.counterparty or rnc,
+                rnc=rnc,
+                estado=check["estado"] or "sin verificar",
+                status=warning["code"],
+                record_count=previous.record_count + 1 if previous else 1,
+            )
     return _DgiiSelection(
-        lines=tuple(row for row in rows if row.fiscal_data == "complete"),
+        lines=lines,
+        rnc_suppliers=tuple(suppliers[key] for key in sorted(suppliers)),
         pending_fiscal=tuple(
             row
             for row in rows
@@ -268,6 +319,11 @@ def summarize_export(
             pending_fiscal_count=len(dgii.pending_fiscal),
             pending_rate_count=len(dgii.pending_rate),
             pending_rate_currencies=_currencies(dgii.pending_rate),
+            rnc_warning_count=sum(
+                supplier.record_count for supplier in dgii.rnc_suppliers
+            ),
+            rnc_supplier_count=len(dgii.rnc_suppliers),
+            rnc_suppliers=dgii.rnc_suppliers,
         ),
     )
 
@@ -481,7 +537,9 @@ def build_file(
     if choice.mode == "dgii":
         form = "607" if family == "sale" else "606"
         columns = COLUMNS[form]
-        headers = [label for _, label in columns]
+        headers = (
+            _PURCHASE_HEADERS if form == "606" else tuple(label for _, label in columns)
+        )
         records = sorted(
             (
                 source.approved[row.linked_activity_ids[0]]
@@ -491,8 +549,13 @@ def build_file(
         )
         rows = [
             [
-                _dgii_cell(name, value)
+                cell
                 for (name, _), value in zip(columns, line_values(record), strict=True)
+                for cell in (
+                    (value[:6] or None, value[6:] or None)
+                    if form == "606" and name in _SPLIT_DATES
+                    else (_dgii_cell(name, value),)
+                )
             ]
             for record in records
         ]
