@@ -220,6 +220,8 @@
 .trashAction { display:inline-flex; width:44px; height:44px; flex-shrink:0; align-items:center; justify-content:center; color:#9e2f39; opacity:0; transition:opacity 140ms ease-out; }
 .row:hover .trashAction,.row:focus-within .trashAction { opacity:1; }
 .trashAction:hover { background:#f6dfe0; }
+:global(.dark) .trashAction { color:#ec9aa0; }
+:global(.dark) .trashAction:hover { background:#4a2a2f; }
 @media (hover:none) { .trashAction { opacity:1; } }
 @media (prefers-reduced-motion:reduce) { .trashAction { transition:none; } }
 .deletedColumns,.deletedRow { display:grid; grid-template-columns:minmax(180px,1fr) 160px 160px 130px 180px; align-items:center; gap:13px; padding:13px 12px; border-bottom:1px solid var(--line); font-size:14px; }

@@ -2994,11 +2994,14 @@
         "listo": "Listos"
       },
       "restore": "Restaurar",
+      "restore_all": "Restaurar todos",
       "restore_failed": "No se pudo restaurar el documento. Intenta de nuevo.",
       "restored": "Documento restaurado en la Bandeja",
       "title": "¿Eliminar este documento?",
       "unnamed": "Documento",
-      "upload_deleted": "Ya está en Eliminados",
+      "upload_deleted": "Eliminado antes",
+      "upload_deleted_count_one": "{{count}} eliminado antes",
+      "upload_deleted_count_other": "{{count}} eliminados antes",
       "view": "Ver",
       "view_deleted": "Ver en Eliminados",
       "view_document": "Ver documento"
