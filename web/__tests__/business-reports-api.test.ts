@@ -73,7 +73,6 @@ describe("Business report transport", () => {
     expect(result.overview?.needs_review).toBe(40);
     expect(report.sort).toBe("amount_asc");
     expect(report.schema_version === 2 && report.presentation?.density).toBe(56);
-    expect(() => reportRequestSchema.parse({ ...report, presentation: { ...report.schema_version === 2 ? report.presentation : {}, hidden: ["gross_amount"] } })).toThrow();
   });
   test("a changed grant before or during a response never yields records", async () => {
     const calls = respond(answer());
@@ -95,7 +94,7 @@ describe("Business report transport", () => {
   });
   test("previews the export from the table's request and saves the file under the server's name", async () => {
     const report = reportRequestSchema.parse({ schema_version: 2, page: 4, filters: { record_families: ["purchase"], currencies: ["DOP"] } });
-    const preview = { table: { columns: [{ key: "counterparty", shown: true }], current: { record_count: 3, currencies: ["DOP"] }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [] } };
+    const preview = { table: { current: { record_count: 3, currencies: ["DOP"], columns: [{ key: "counterparty", label_key: "business.transactions.columns.contraparte", required: true, shown: true }] }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [] } };
     const previewCalls = respond(preview);
     expect(await previewRecordsExport(scope, report)).toEqual(preview);
     expect(previewCalls[0].path).toEndWith("/business/reports/export/preview");
@@ -199,19 +198,20 @@ test("old saved presentations reach the server unchanged and retain current choi
   const selected = { ...current, hidden: [] };
   const selectedRequest = reportRequestSchema.parse({ schema_version: 2, presentation: selected });
   expect(selectedRequest.schema_version === 2 && selectedRequest.presentation).toEqual(selected);
-  for (const invalid of [
-    { ...current, order: [...current.order, "fiscal_number"] },
-    { ...current, order: [...current.order.slice(1), "counterparty"] },
-    { ...current, hidden: ["fiscal_number", "fiscal_number"] },
-    { ...current, hidden: ["unrecognized"] },
-  ]) expect(() => reportRequestSchema.parse({ schema_version: 2, presentation: invalid })).toThrow();
 });
 
-test("old presentations remove family and currency while saved review stages remain readable", () => {
-  const request = reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, order: [...recordedReportAnswer.presentation.order, "family", "currency"], hidden: ["family", "currency"] }, filters: { review_stages: ["exported"], fiscal_data: null } });
-  expect(request.schema_version === 2 && request.presentation?.order.includes("family" as never)).toBe(false);
-  expect(request.schema_version === 2 && request.presentation?.hidden).toEqual([]);
+test("old presentations reach the server with their removed keys while saved review stages remain readable", () => {
+  const presentation = { ...recordedReportAnswer.presentation, order: [...recordedReportAnswer.presentation.order, "family", "currency"], hidden: ["family", "currency"] };
+  const request = reportRequestSchema.parse({ schema_version: 2, presentation, filters: { review_stages: ["exported"], fiscal_data: null } });
+  expect(request.schema_version === 2 && request.presentation).toEqual(presentation);
   expect(request.filters.review_stages).toEqual(["exported"]);
+});
+
+test("an old link's first-table columns list is dropped on the way in", () => {
+  const linked = new URLSearchParams({ report: JSON.stringify({ schema_version: 2, columns: ["date", "family"], sort: "name_asc" }) });
+  const restored = restoreReportLocation(linked).request;
+  expect(restored).not.toHaveProperty("columns");
+  expect(restored.sort).toBe("name_asc");
 });
 
 test("sales recipes clear purchase-only expense filters", () => {

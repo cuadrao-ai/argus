@@ -26,7 +26,7 @@ import { EMPTY_RECORDS_FILTER, RecordsToolbar, type RecordsFilter } from "./Reco
 import RecordsTypeTabs from "./RecordsTypeTabs";
 import RecordsSettingsPreview from "./RecordsSettingsPreview";
 import type { RecordsViewPreferences } from "./records-view-preferences";
-import { sampleRecordsPreferences } from "./sample-records-preferences";
+import { sampleRecordsColumns, sampleRecordsPreferences } from "./sample-records-preferences";
 import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
 import { emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment, type PreviewFilters } from "./records-filter-preview-model";
@@ -100,6 +100,7 @@ function LegacyTransaccionesPanel() {
   const fiscalToggle = useFiscalStageToggle(previewFilters, (selection) => setPreviewFilters((current) => ({ ...current, ...selection })));
   const [previewPeriod, setPreviewPeriod] = useState(period);
   const [previewRevision, setPreviewRevision] = useState(0);
+  const shownPreferences = useMemo(() => viewPreferences && { ...viewPreferences, columns: sampleRecordsColumns(filter.kind === "venta" ? "sale" : "purchase") }, [viewPreferences, filter.kind]);
   const localPaging = viewPreferences !== undefined && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.review, previewFilters.fiscal_data, previewFilters.attachment, previewFilters.expense_type]);
   const query = filter.query.trim().toLocaleLowerCase(locale);
@@ -179,7 +180,7 @@ function LegacyTransaccionesPanel() {
         </div> : null}
         {!igualar ? <RecordsTypeTabs value={filter.kind} onChange={(kind) => { if (kind === "venta") setPreviewFilters((current) => ({ ...current, expense_type: [] })); setFilter((current) => ({ ...current, kind })); }} /> : null}
         {!igualar && source.mode === "fixture" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview family={filter.kind === "venta" ? "sale" : "purchase"} loading={list.kind === "loading"} answer={sampleOverview?.answer} fiscalCount={sampleOverview?.fiscalCount ?? null} selected={previewFilters.fiscal_data === "missing" ? ["fiscal"] : []} onChoose={fiscalToggle.toggle} /> : null}
-        {!igualar ? <RecordsToolbar onViewRestore={fiscalToggle.clear} appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={changePreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={previewChanged} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<><RecordsExportButton onExport={openExport} />{localPaging && viewPreferences ? <RecordsSettingsPreview purchase={filter.kind === "gasto"} value={viewPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
+        {!igualar ? <RecordsToolbar onViewRestore={fiscalToggle.clear} appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={changePreviewFilters} preferences={shownPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={previewChanged} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<><RecordsExportButton onExport={openExport} />{localPaging && shownPreferences ? <RecordsSettingsPreview value={shownPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
@@ -195,9 +196,9 @@ function LegacyTransaccionesPanel() {
             <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />
           </div>
         ) : list.kind === "loading" ? (
-          igualar ? <LoadingRows density={phone ? "amplio" : density} /> : <RecordsLoadingPreview density={localPaging && viewPreferences ? viewPreferences.density : density} preferences={localPaging ? viewPreferences : undefined} />
+          igualar ? <LoadingRows density={phone ? "amplio" : density} /> : <RecordsLoadingPreview density={localPaging && viewPreferences ? viewPreferences.density : density} preferences={localPaging ? shownPreferences : undefined} />
         ) : saved ? (
-          localPaging && viewPreferences ? <RecordsPagePreview purchase={filter.kind === "gasto"} onSortChange={(sort) => setViewPreferences((current) => current ? { ...current, sort } : current)} preferences={viewPreferences} records={visibleRecords ?? saved} density={viewPreferences.density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
+          localPaging && shownPreferences ? <RecordsPagePreview onSortChange={(sort) => setViewPreferences((current) => current ? { ...current, sort } : current)} preferences={shownPreferences} records={visibleRecords ?? saved} density={shownPreferences.density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
             : saved.length === 0 || visibleRecords?.length === 0 ? recordsEmptyContent
               : phone ? <RecordsList records={visibleRecords ?? saved} rowRef={rowRef} /> : <RecordsTable records={visibleRecords ?? saved} density={density} rowRef={rowRef} />
         ) : !bank ? null : bank.counts !== null && bank.counts.movimientos + bank.counts.sinMovimiento === 0 ? (

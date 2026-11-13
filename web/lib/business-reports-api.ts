@@ -22,14 +22,18 @@ export const REPORT_DOCUMENT_KINDS = ["credit_note", "unknown"] as const satisfi
 const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
+/** The server registry's column keys, the `Presentation` enum in docs/api/openapi.yaml. Cell renderers and layouts key on them; a test pins the two lists equal. */
 export const REPORT_PRESENTATION_KEYS = ["counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment", "expense_type", "payment_form", "funding"] as const;
+export type ReportColumnKey = typeof REPORT_PRESENTATION_KEYS[number];
+/** A layout as a request carries it. An old link's keys pass through; the server upgrades them and answers the layout the web keeps. */
 export const reportPresentationSchema = z.strictObject({
-  order: z.array(z.enum([...REPORT_PRESENTATION_KEYS, "currency", "family"])).transform((values) => values.filter((key): key is typeof REPORT_PRESENTATION_KEYS[number] => key !== "currency" && key !== "family")).refine((values) => values[0] === "counterparty" && new Set(values).size === values.length && REPORT_PRESENTATION_KEYS.every((key) => key === "fiscal_number" || key === "net_amount" || key === "itbis_amount" || values.includes(key))),
-  hidden: z.array(z.enum([...REPORT_PRESENTATION_KEYS, "currency", "family"])).transform((values) => values.filter((key): key is typeof REPORT_PRESENTATION_KEYS[number] => key !== "currency" && key !== "family")).refine((values) => new Set(values).size === values.length && !values.some((key) => ["counterparty", "gross_amount"].includes(key))),
+  order: z.array(z.string()),
+  hidden: z.array(z.string()),
   density: z.union([z.literal(40), z.literal(48), z.literal(56)]),
 });
+/** One column the table offers, with the rules the server gives it. `label_key` is a locale path. */
+export const reportColumnSchema = z.object({ key: z.enum(REPORT_PRESENTATION_KEYS), label_key: z.string(), required: z.boolean(), pinned: z.boolean(), shown: z.boolean() });
 const pageSize = z.union([z.literal(25), z.literal(50), z.literal(100)]);
-const column = z.enum(["date", "family", "stage", "counterparty", "currency", "gross_amount", "recorded_amount", "proposed_amount", "category", "funding", "document_kind", "fiscal_classification", "note"]);
 export const reportPeriodSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("custom"), from_date: day, to_date: day }).refine((value) => value.from_date <= value.to_date),
   z.strictObject({ kind: z.enum(["all", "this_month", "last_month", "this_year", "latest_month"]), from_date: z.null().optional(), to_date: z.null().optional() }),
@@ -51,7 +55,6 @@ export const reportFiltersSchema = z.strictObject({
 }).transform((filters) => filters.record_families[0] === "sale" ? { ...filters, expense_types: [] } : filters);
 const reportRecipeV1Schema = z.strictObject({
   schema_version: z.literal(1).default(1), filters: reportFiltersSchema.default(() => reportFiltersSchema.parse({})),
-  columns: z.array(column).min(1).refine((values) => new Set(values).size === values.length).default(["date", "family", "stage", "counterparty", "currency", "gross_amount"]),
   sort: z.literal("date_desc").default("date_desc"),
 });
 const reportRecipeV2Schema = reportRecipeV1Schema.extend({
@@ -96,7 +99,7 @@ export const reportFiscalTotalSchema = z.object({
   amount_minor: minorNumber.nullable(), known_amount: decimal.nullable(), amount: decimal.nullable(),
 });
 export const reportAnswerSchema = z.object({
-  presentation: reportPresentationSchema,
+  presentation: reportPresentationSchema, columns: z.array(reportColumnSchema),
   items: z.array(reportRecordSchema), matching_count: count, page: z.number().int().positive(), page_size: z.union([z.literal(25), z.literal(50), z.literal(100)]), page_count: count,
   fiscal_totals: z.array(reportFiscalTotalSchema).optional(),
   totals: z.array(reportTotalSchema), fingerprint: z.string().regex(/^[0-9a-f]{64}$/), captured_at: z.string(),
@@ -112,6 +115,7 @@ export const savedReportViewSchema = z.object({
 });
 export type ReportPeriod = z.infer<typeof reportPeriodSchema>;
 export type ReportPresentation = z.infer<typeof reportPresentationSchema>;
+export type ReportColumn = z.infer<typeof reportColumnSchema>;
 export type ReportSort = z.infer<typeof reportSortSchema>;
 export type ReportFilters = z.infer<typeof reportFiltersSchema>;
 export type ReportRecipe = z.infer<typeof reportRecipeSchema>;
@@ -172,11 +176,12 @@ async function json<T>(scope: ReportScope, path: string, schema: z.ZodType<T>, o
 export async function queryBusinessReport(scope: ReportScope, report: ReportRequest, signal?: AbortSignal): Promise<ReportAnswer> {
   return json(scope, "/business/reports/query", reportAnswerSchema, { method: "POST", body: JSON.stringify(reportRequestSchema.parse(report)), signal });
 }
-const currencySelectionSchema = z.object({ record_count: count, currencies: z.array(z.string()) });
+/** One file column: `required` ones are always in the file. */
+const exportColumnSchema = z.object({ key: z.string(), label_key: z.string(), required: z.boolean(), shown: z.boolean() });
+const currencySelectionSchema = z.object({ record_count: count, currencies: z.array(z.string()), columns: z.array(exportColumnSchema).min(1) });
 /** What the Registros export would hold, counted by the server before any file is built. */
 export const exportPreviewSchema = z.object({
   table: z.object({
-    columns: z.array(z.object({ key: z.enum(REPORT_PRESENTATION_KEYS), shown: z.boolean() })).min(1),
     current: currencySelectionSchema,
     /** Null while an amount range ties the export to the screen's currency. */
     all: currencySelectionSchema.nullable(),
@@ -184,9 +189,8 @@ export const exportPreviewSchema = z.object({
   dgii: z.object({ form: z.enum(["606", "607"]), currency: z.string(), record_count: count, pending_count: count, pending_fiscal_count: count, pending_rate_count: count, pending_rate_currencies: z.array(z.string()), rnc_warning_count: count, rnc_supplier_count: count, rnc_suppliers: z.array(z.object({ name: z.string(), rnc: z.string(), estado: z.string(), status: z.enum(["rnc_inactive", "rnc_unverified"]), record_count: count })) }),
 });
 export type ExportPreview = z.infer<typeof exportPreviewSchema>;
-export type ExportColumnKey = typeof REPORT_PRESENTATION_KEYS[number];
 export type RecordsExportChoice =
-  | { mode: "table"; columns: ExportColumnKey[]; currencies: "all" | "current"; format: "xlsx" | "csv" }
+  | { mode: "table"; columns: string[]; currencies: "all" | "current"; format: "xlsx" | "csv" }
   | { mode: "dgii"; format: "xlsx" | "csv" };
 export type RecordsExportFile = { blob: Blob; filename: string };
 const FILE_TYPES = new Set(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/csv"]);

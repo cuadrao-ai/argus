@@ -34,7 +34,7 @@ def test_private_recipe_survives_reread_and_replay_without_result_cache(actions,
     assert save_view(service.authority, context, command, key) == first
     [saved] = list_views(service.authority, context)
     assert saved.recipe.filters.period.kind == "this_month"
-    assert saved.recipe.columns == ("counterparty", "gross_amount")
+    assert "columns" not in saved.recipe.model_dump()
     assert saved.version == 1
     viewer = viewer_context(service, context, users["other"])
     assert list_views(service.authority, viewer) == ()

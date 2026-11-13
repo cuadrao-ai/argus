@@ -13,17 +13,18 @@ import { commandForKey, useRowCommands, type Command } from "./transacciones-com
 import { useTransaccionesWords } from "./transacciones-words";
 import { movementName, type TransaccionesController } from "./useTransacciones";
 
-export type ColumnKey = "contraparte" | "fecha" | "monto" | "detalle" | "categoria" | "cuenta" | "comprobante";
+/** The ledger's columns. Five share Registros' server keys; the detail and category columns are the ledger's own. */
+export type ColumnKey = "counterparty" | "date" | "gross_amount" | "detail" | "category" | "funding" | "attachment";
 
 /** The columns, left to right: text left, numbers right; Contraparte pins left and Comprobante right. */
-export const COLUMNS: readonly { key: ColumnKey; width: number | null; align: "left" | "right"; pin?: "left" | "right" }[] = [
-  { key: "contraparte", width: 260, align: "left", pin: "left" },
-  { key: "fecha", width: 84, align: "left" },
-  { key: "monto", width: 136, align: "right" },
-  { key: "detalle", width: null, align: "left" },
-  { key: "categoria", width: 144, align: "left" },
-  { key: "cuenta", width: 176, align: "left" },
-  { key: "comprobante", width: 112, align: "right", pin: "right" },
+export const COLUMNS: readonly { key: ColumnKey; label_key: string; width: number | null; align: "left" | "right"; pin?: "left" | "right" }[] = [
+  { key: "counterparty", label_key: "business.transactions.columns.contraparte", width: 260, align: "left", pin: "left" },
+  { key: "date", label_key: "business.transactions.columns.fecha", width: 84, align: "left" },
+  { key: "gross_amount", label_key: "business.transactions.columns.monto", width: 136, align: "right" },
+  { key: "detail", label_key: "business.transactions.columns.detalle", width: null, align: "left" },
+  { key: "category", label_key: "business.transactions.columns.categoria", width: 144, align: "left" },
+  { key: "funding", label_key: "business.transactions.columns.cuenta", width: 176, align: "left" },
+  { key: "attachment", label_key: "business.transactions.columns.comprobante", width: 112, align: "right", pin: "right" },
 ];
 
 export const PIN_CLASS = { left: "sticky left-0 z-10 shadow-[inset_-1px_0_0_#DCE0DA] dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.1)]", right: "sticky right-0 z-10 shadow-[inset_1px_0_0_#DCE0DA] dark:shadow-[inset_1px_0_0_rgba(255,255,255,0.1)]" } as const;
@@ -113,12 +114,12 @@ export function TransaccionesTable({ controller, view, density, onSegmentStep, o
         style={{ minWidth: amountSize.minTableWidth }}
         className="w-full min-w-[1100px] table-fixed border-separate border-spacing-0 text-[14px] text-[#172b26] dark:text-white"
       >
-        <colgroup>{COLUMNS.map((column) => <col key={column.key} style={column.key === "monto" ? { width: amountSize.width } : column.width ? { width: column.width } : undefined} />)}</colgroup>
+        <colgroup>{COLUMNS.map((column) => <col key={column.key} style={column.key === "gross_amount" ? { width: amountSize.width } : column.width ? { width: column.width } : undefined} />)}</colgroup>
         <thead>
           <tr>
             {COLUMNS.map((column) => {
-              const label = column.key === "monto" ? t("business.transactions.columns.monto", { currency: header ? currencySymbol(header) : "" }).trim() : t(`business.transactions.columns.${column.key}`);
-              const sortHere = sorted && column.key === "fecha";
+              const label = t(column.label_key, { currency: header ? currencySymbol(header) : "" }).trim();
+              const sortHere = sorted && column.key === "date";
               return (
                 <th
                   key={column.key}
@@ -202,21 +203,21 @@ function SectionRows({ section, controller, commandsOf, header, today, locale, h
             onClick={() => controller.open(movement.id)}
             className="group cursor-pointer outline-none focus-visible:[&>td]:shadow-[inset_0_2px_0_var(--cuadrao-green),inset_0_-2px_0_var(--cuadrao-green)]"
           >
-            <td data-col="contraparte" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}>
+            <td data-col="counterparty" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}>
               <span className="flex min-w-0 items-center gap-2.5">
                 <StateIcon state={movement.match.state} />
                 <Truncated text={name} className="font-medium" />
               </span>
             </td>
-            <td data-col="fecha" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{formatRelativeDay(movement.occurredOn, today, locale)}</td>
-            <td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}><SignedAmount money={movement.money} header={header} /></td>
-            <td data-col="detalle" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}><Truncated text={sentence} /></td>
-            <td data-col="categoria" className={`${CELL} text-left`}>{movement.categoryId ? <Truncated text={t(`business.category.${movement.categoryId}`, { defaultValue: movement.categoryId })} /> : <Unknown />}</td>
-            <td data-col="cuenta" className={`${CELL} relative text-left`}>
+            <td data-col="date" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{formatRelativeDay(movement.occurredOn, today, locale)}</td>
+            <td data-col="gross_amount" className={`${CELL} text-right font-medium tabular-nums`}><SignedAmount money={movement.money} header={header} /></td>
+            <td data-col="detail" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}><Truncated text={sentence} /></td>
+            <td data-col="category" className={`${CELL} text-left`}>{movement.categoryId ? <Truncated text={t(`business.category.${movement.categoryId}`, { defaultValue: movement.categoryId })} /> : <Unknown />}</td>
+            <td data-col="funding" className={`${CELL} relative text-left`}>
               <AccountLabel account={movement.account} />
               <RowActions name={name} commands={commands.slice(0, 2)} all={commands} />
             </td>
-            <td data-col="comprobante" data-pinned="right" className={`${CELL} ${PIN_CLASS.right} text-right`}>
+            <td data-col="attachment" data-pinned="right" className={`${CELL} ${PIN_CLASS.right} text-right`}>
               <ProofSlot movement={movement} name={name} commands={commands} onOpen={() => controller.open(movement.id)} />
             </td>
           </tr>

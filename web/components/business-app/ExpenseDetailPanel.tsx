@@ -8,7 +8,6 @@ import { useBusiness } from "./BusinessWorkspace";
 import type { RecordRow } from "./transacciones/transacciones-model";
 import RecordWorkflowBadge from "./transacciones/RecordWorkflowBadge";
 import RecordDgiiCell, { DgiiAnswer } from "./transacciones/RecordDgiiCell";
-import { recordsColumnLabelKey } from "./transacciones/records-view-preferences";
 import { RecordAttachmentPreview, RecordNotePreview } from "./transacciones/RecordsAnnotationsPreview";
 import { formatRecordActivityDate } from "./transacciones/records-row-preview";
 import { AccountLabel, PlainAmount } from "./transacciones/transacciones-parts";
@@ -46,7 +45,7 @@ function LoadedRecordGlance({ row }: { row: RecordRow }) {
     </header>
     <div className={cardClass}><dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[14px]">
       <dt>{t("business.review.date")}</dt><dd>{formatRecordActivityDate(row.occurredOn, locale)}</dd>
-      <dt>{t(recordsColumnLabelKey("tipo_gasto"))}</dt><dd className="min-w-0"><RecordDgiiCell row={row} field="expense_type" /></dd>
+      <dt>{t("business.dossier.placeholder.expense_type")}</dt><dd className="min-w-0"><RecordDgiiCell row={row} field="expense_type" /></dd>
       <dt>{t("business.transactions.columns.cuenta")}</dt><dd><AccountLabel account={row.account} /></dd>
       <dt>{t("business.transactions.layout.column_state")}</dt><dd><RecordWorkflowBadge row={row} /></dd>
       <dt>{t("business.transactions.columns.notas")}</dt><dd className="min-w-0"><RecordNotePreview row={row} /></dd>
@@ -116,7 +115,7 @@ function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[14px]">
               <dt className="text-black/55 dark:text-white/55">{t("business.review.date", "Date")}</dt>
               <dd className="text-black dark:text-white">{formatDay(state.expense.occurred_on, locale)}</dd>
-              <dt className="text-black/55 dark:text-white/55">{t(recordsColumnLabelKey("tipo_gasto"))}</dt>
+              <dt className="text-black/55 dark:text-white/55">{t("business.dossier.placeholder.expense_type")}</dt>
               <dd className="min-w-0 text-black dark:text-white"><DgiiAnswer purchase={state.expense.dgii_606} field="expense_type" /></dd>
               <dt className="text-black/55 dark:text-white/55">{t("business.review.account", "Paid from")}</dt>
               <dd className="text-black dark:text-white">{state.expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : (state.expense.account_id && accounts.get(state.expense.account_id)?.nickname) || t("business.expenses.account_unknown", "Unknown")}</dd>

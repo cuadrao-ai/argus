@@ -19710,13 +19710,6 @@ components:
               q: ''
               record_families: []
               review_stages: []
-            columns:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - gross_amount
             sort: date_desc
           discriminator:
             propertyName: schema_version
@@ -19845,11 +19838,16 @@ components:
           items:
             type: string
           type: array
+        columns:
+          items:
+            $ref: '#/components/schemas/ExportColumn'
+          type: array
       additionalProperties: false
       type: object
       required:
       - record_count
       - currencies
+      - columns
     CurrencySummaryResponse:
       properties:
         currency:
@@ -21686,12 +21684,19 @@ components:
           - expense_type
           - payment_form
           - funding
+          - currency
+        label_key:
+          type: string
+        required:
+          type: boolean
         shown:
           type: boolean
       additionalProperties: false
       type: object
       required:
       - key
+      - label_key
+      - required
       - shown
     ExportPreview:
       properties:
@@ -29793,6 +29798,7 @@ components:
             - expense_type
             - payment_form
             - funding
+            - currency
           type: array
           default: []
         currencies:
@@ -30005,6 +30011,10 @@ components:
       properties:
         presentation:
           $ref: '#/components/schemas/Presentation'
+        columns:
+          items:
+            $ref: '#/components/schemas/ReportColumn'
+          type: array
         items:
           items:
             $ref: '#/components/schemas/ReportRecord'
@@ -30085,6 +30095,7 @@ components:
       type: object
       required:
       - presentation
+      - columns
       - items
       - matching_count
       - page
@@ -30129,6 +30140,40 @@ components:
       - filename
       - media_type
       - source_available
+    ReportColumn:
+      properties:
+        key:
+          type: string
+          enum:
+          - counterparty
+          - fiscal_number
+          - date
+          - net_amount
+          - itbis_amount
+          - gross_amount
+          - stage
+          - note
+          - attachment
+          - expense_type
+          - payment_form
+          - funding
+        label_key:
+          type: string
+        required:
+          type: boolean
+        pinned:
+          type: boolean
+        shown:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - key
+      - label_key
+      - required
+      - pinned
+      - shown
+      description: One column the table offers, with the rules the web draws it by.
     ReportFilters:
       properties:
         q:
@@ -30390,32 +30435,6 @@ components:
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
-        columns:
-          items:
-            type: string
-            enum:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - net_amount
-            - gross_amount
-            - recorded_amount
-            - proposed_amount
-            - category
-            - funding
-            - document_kind
-            - fiscal_classification
-            - note
-          type: array
-          default:
-          - date
-          - family
-          - stage
-          - counterparty
-          - currency
-          - gross_amount
         sort:
           type: string
           const: date_desc
@@ -30443,32 +30462,6 @@ components:
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
-        columns:
-          items:
-            type: string
-            enum:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - net_amount
-            - gross_amount
-            - recorded_amount
-            - proposed_amount
-            - category
-            - funding
-            - document_kind
-            - fiscal_classification
-            - note
-          type: array
-          default:
-          - date
-          - family
-          - stage
-          - counterparty
-          - currency
-          - gross_amount
         sort:
           type: string
           const: date_desc
@@ -30496,32 +30489,6 @@ components:
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
-        columns:
-          items:
-            type: string
-            enum:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - net_amount
-            - gross_amount
-            - recorded_amount
-            - proposed_amount
-            - category
-            - funding
-            - document_kind
-            - fiscal_classification
-            - note
-          type: array
-          default:
-          - date
-          - family
-          - stage
-          - counterparty
-          - currency
-          - gross_amount
         sort:
           type: string
           enum:
@@ -30564,32 +30531,6 @@ components:
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
-        columns:
-          items:
-            type: string
-            enum:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - net_amount
-            - gross_amount
-            - recorded_amount
-            - proposed_amount
-            - category
-            - funding
-            - document_kind
-            - fiscal_classification
-            - note
-          type: array
-          default:
-          - date
-          - family
-          - stage
-          - counterparty
-          - currency
-          - gross_amount
         sort:
           type: string
           enum:
@@ -30866,32 +30807,6 @@ components:
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
-        columns:
-          items:
-            type: string
-            enum:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - net_amount
-            - gross_amount
-            - recorded_amount
-            - proposed_amount
-            - category
-            - funding
-            - document_kind
-            - fiscal_classification
-            - note
-          type: array
-          default:
-          - date
-          - family
-          - stage
-          - counterparty
-          - currency
-          - gross_amount
         sort:
           type: string
           const: date_desc
@@ -30930,32 +30845,6 @@ components:
             funding_sources: []
             document_kinds: []
             fiscal_classifications: []
-        columns:
-          items:
-            type: string
-            enum:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - net_amount
-            - gross_amount
-            - recorded_amount
-            - proposed_amount
-            - category
-            - funding
-            - document_kind
-            - fiscal_classification
-            - note
-          type: array
-          default:
-          - date
-          - family
-          - stage
-          - counterparty
-          - currency
-          - gross_amount
         sort:
           type: string
           enum:
@@ -31647,13 +31536,6 @@ components:
               q: ''
               record_families: []
               review_stages: []
-            columns:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - gross_amount
             sort: date_desc
           discriminator:
             propertyName: schema_version
@@ -32966,10 +32848,6 @@ components:
       - sha256
     TableExport:
       properties:
-        columns:
-          items:
-            $ref: '#/components/schemas/ExportColumn'
-          type: array
         current:
           $ref: '#/components/schemas/CurrencySelection'
         all:
@@ -32979,7 +32857,6 @@ components:
       additionalProperties: false
       type: object
       required:
-      - columns
       - current
       - all
     TaxId:
@@ -33364,13 +33241,6 @@ components:
               q: ''
               record_families: []
               review_stages: []
-            columns:
-            - date
-            - family
-            - stage
-            - counterparty
-            - currency
-            - gross_amount
             sort: date_desc
           discriminator:
             propertyName: schema_version

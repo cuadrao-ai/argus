@@ -11,33 +11,22 @@ import json
 import sys
 from pathlib import Path
 
+from argus.domain.business.reporting_columns import COLUMNS, CURRENCY_LABEL
+
 ROOT = Path(__file__).resolve().parents[1]
 LOCALES = ROOT / "web" / "public" / "locales"
 LANGUAGES = ("es-419", "en")
 TARGET = (
     ROOT / "src" / "argus" / "domain" / "business" / "records_file_words.generated.json"
 )
+#: Every column's name comes from the registry; these are the file's other words.
 PATHS = (
+    *sorted({spec.label for spec in COLUMNS} | {CURRENCY_LABEL}),
     "business.dgii.option.category",
     "business.dgii.option.payment_method",
-    "business.dossier.placeholder.expense_type",
-    "business.dossier.placeholder.payment_form",
     "business.dossier.standing.missing",
     "business.export.filename",
     "business.export.form_no_aplica",
-    "business.terms.itbis",
-    "business.terms.net_amount",
-    "business.terms.total",
-    "business.transactions.columns.contraparte",
-    "business.transactions.columns.cuenta",
-    "business.transactions.columns.fecha",
-    "business.transactions.columns.itbis",
-    "business.transactions.columns.moneda",
-    "business.transactions.columns.monto",
-    "business.transactions.columns.ncf",
-    "business.transactions.columns.notas",
-    "business.transactions.layout.column_attachment",
-    "business.transactions.layout.column_state",
     "business.transactions.layout.overview.purchases",
     "business.transactions.layout.overview.sales",
     "business.transactions.layout.workflow.exported",

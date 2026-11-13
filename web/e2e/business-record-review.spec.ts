@@ -453,13 +453,13 @@ test.describe("pilot dictionary labels", () => {
       await page.goto("/dev/business-preview");
       await page.getByTestId("business-sidebar-nav").getByRole("button", { name: es ? /^Registros/ : /^Records/ }).click();
       await page.getByRole("button", { name: es ? "Opciones de vista" : "View options", exact: true }).click();
-      for (const key of ["tipo_gasto", "forma_pago"]) await page.locator(`[data-column-setting="${key}"] input`).check();
+      for (const key of ["expense_type", "payment_form"]) await page.locator(`[data-column-setting="${key}"] input`).check();
       await page.keyboard.press("Escape");
       for (const label of es ? ["Contraparte", "Fecha", "Monto", "Tipo de gasto", "Estado", "Adjunto"] : ["Counterparty", "Date", "Amount", "Expense type", "Status", "Attachment"]) {
         await expect(page.getByRole("columnheader", { name: label, exact: true })).toBeVisible();
       }
-      await expect(page.locator('[data-col="tipo_gasto"]').filter({ hasText: /^09 - / })).toBeVisible();
-      await expect(page.locator('[data-col="forma_pago"]').filter({ hasText: /^02 - / })).toBeVisible();
+      await expect(page.locator('[data-col="expense_type"]').filter({ hasText: /^09 - / })).toBeVisible();
+      await expect(page.locator('[data-col="payment_form"]').filter({ hasText: /^02 - / })).toBeVisible();
       await capture("records-headers");
       await page.getByRole("button", { name: es ? "Filtros" : "Filters", exact: true }).click();
       await page.getByRole("tab", { name: es ? "Tipo de gasto" : "Expense type", exact: true }).click();

@@ -30,7 +30,7 @@ def test_default_presentation_has_net_tax_and_gross_visible():
     assert (
         presentation.hidden
         == HIDDEN_COLUMNS
-        == ("funding", "payment_form", "expense_type", "fiscal_number")
+        == ("fiscal_number", "expense_type", "payment_form", "funding")
     )
 
 
@@ -80,10 +80,10 @@ def test_category_is_no_longer_a_column():
 def test_legacy_order_with_no_hidden_key_hides_forma_de_pago_once():
     presentation = Presentation.model_validate({"order": LEGACY_ORDER})
     assert presentation.hidden == (
-        "funding",
-        "payment_form",
-        "expense_type",
         "fiscal_number",
+        "expense_type",
+        "payment_form",
+        "funding",
         "itbis_amount",
     )
 
@@ -119,10 +119,10 @@ def test_query_returns_backend_default_presentation(version):
         "attachment",
     ]
     assert answer.presentation.hidden == (
-        "funding",
-        "payment_form",
-        "expense_type",
         "fiscal_number",
+        "expense_type",
+        "payment_form",
+        "funding",
     )
 
 

@@ -15,39 +15,22 @@ from pydantic import (
 )
 
 from argus.domain.business.contracts.dgii import ExpenseType
+from argus.domain.business.reporting_columns import (
+    HIDDEN_COLUMNS,
+    PINNED_COLUMNS,
+    REQUIRED_COLUMNS,
+    TABLE_COLUMNS,
+    Family,
+    TableColumn,
+)
 from argus.domain.recording.currency import normalize_currency, parse_minor_units
 from argus.domain.recording.errors import RecordingInputError
 
-Family = Literal["sale", "purchase"]
 #: A recorded row's place on the way to the DGII. Registros lists approved
 #: records only; a draft waits in the Bandeja and is no stage here.
 Stage = Literal["needs_review", "needs_fiscal_data", "ready_for_export", "exported"]
 FiscalData = Literal["complete", "missing"]
 DocumentKind = Literal["invoice", "receipt", "credit_note", "unknown"]
-Column = Literal[
-    "date",
-    "family",
-    "stage",
-    "counterparty",
-    "currency",
-    "net_amount",
-    "gross_amount",
-    "recorded_amount",
-    "proposed_amount",
-    "category",
-    "funding",
-    "document_kind",
-    "fiscal_classification",
-    "note",
-]
-DEFAULT_COLUMNS: tuple[Column, ...] = (
-    "date",
-    "family",
-    "stage",
-    "counterparty",
-    "currency",
-    "gross_amount",
-)
 
 
 class Contract(BaseModel):
@@ -138,14 +121,17 @@ class ReportFilters(Contract):
 class ReportRecipe(Contract):
     schema_version: Literal[1] = 1
     filters: ReportFilters = ReportFilters()
-    columns: tuple[Column, ...] = DEFAULT_COLUMNS
     sort: Literal["date_desc"] = "date_desc"
 
-    @model_validator(mode="after")
-    def unique_columns(self) -> ReportRecipe:
-        if not self.columns or len(set(self.columns)) != len(self.columns):
-            raise ValueError("columns must be nonempty and unique")
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def drop_unread_columns(cls, value: Any) -> Any:
+        """Saved views and old tabs still carry the first table's `columns`
+        list. Nothing reads it, so it is dropped on the way in."""
+
+        if isinstance(value, dict) and "columns" in value:
+            return {key: item for key, item in value.items() if key != "columns"}
+        return value
 
 
 class ReportRequest(ReportRecipe):
@@ -153,48 +139,16 @@ class ReportRequest(ReportRecipe):
     page_size: Literal[25, 50, 100] = 25
 
 
-TableColumn = Literal[
-    "counterparty",
-    "fiscal_number",
-    "date",
-    "net_amount",
-    "itbis_amount",
-    "gross_amount",
-    "stage",
-    "note",
-    "attachment",
-    "expense_type",
-    "payment_form",
-    "funding",
-]
-TABLE_COLUMNS: tuple[TableColumn, ...] = (
-    "counterparty",
-    "fiscal_number",
-    "date",
-    "net_amount",
-    "itbis_amount",
-    "gross_amount",
-    "stage",
-    "note",
-    "attachment",
-    "expense_type",
-    "payment_form",
-    "funding",
-)
-#: Offered and rendered on Compras only.
-PURCHASE_ONLY_COLUMNS: tuple[TableColumn, ...] = ("expense_type", "payment_form")
-HIDDEN_COLUMNS: tuple[TableColumn, ...] = (
-    "funding",
-    "payment_form",
-    "expense_type",
-    "fiscal_number",
-)
 Sort = Literal[
     "date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"
 ]
 
 
 def _current_columns(value: Any) -> Any:
+    """Upgrade a stored or linked layout to today's columns. A column the
+    layout does not name joins it at the end, hidden unless it is required.
+    Tipo de gasto, Forma de pago and the net amount keep their shipped places."""
+
     if not isinstance(value, dict) or not isinstance(value.get("order"), list):
         return value
     order = [
@@ -211,14 +165,14 @@ def _current_columns(value: Any) -> Any:
         order.insert(order.index("expense_type") + 1, "payment_form")
         if "payment_form" not in hidden:
             hidden.append("payment_form")
-    for key in ("fiscal_number", "itbis_amount"):
-        if key not in order:
-            order.append(key)
-            if key not in hidden:
-                hidden.append(key)
     if "net_amount" not in order:
         index = order.index("gross_amount") if "gross_amount" in order else len(order)
         order.insert(index, "net_amount")
+    for key in TABLE_COLUMNS:
+        if key not in order:
+            order.append(key)
+            if key not in hidden and key not in REQUIRED_COLUMNS:
+                hidden.append(key)
     return {**value, "order": order, "hidden": hidden}
 
 
@@ -237,13 +191,12 @@ class Presentation(Contract):
         if (
             len(self.order) != len(TABLE_COLUMNS)
             or set(self.order) != set(TABLE_COLUMNS)
-            or self.order[0] != "counterparty"
+            or self.order[: len(PINNED_COLUMNS)] != PINNED_COLUMNS
         ):
-            raise ValueError("all table columns occur once; counterparty is pinned first")
-        if len(set(self.hidden)) != len(self.hidden) or set(self.hidden) & {
-            "counterparty",
-            "gross_amount",
-        }:
+            raise ValueError("all table columns occur once; pinned columns lead")
+        if len(set(self.hidden)) != len(self.hidden) or set(self.hidden) & (
+            REQUIRED_COLUMNS
+        ):
             raise ValueError(
                 "required columns cannot be hidden; hidden columns are unique"
             )

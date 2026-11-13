@@ -287,18 +287,30 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
         presentation=presentation,
     )
     preview = summarize_export(source(row(fake, family="sale")), request)
-    assert [(column.key, column.shown) for column in preview.table.columns] == [
-        ("counterparty", True),
-        ("note", True),
-        ("date", True),
-        ("net_amount", True),
-        ("gross_amount", True),
-        ("fiscal_number", False),
-        ("itbis_amount", False),
-        ("stage", True),
-        ("attachment", True),
-        ("funding", False),
+    current = [
+        (column.key, column.required, column.shown)
+        for column in preview.table.current.columns
     ]
+    assert current == [
+        ("counterparty", True, True),
+        ("note", False, True),
+        ("date", False, True),
+        ("net_amount", False, True),
+        ("gross_amount", False, True),
+        ("fiscal_number", False, False),
+        ("itbis_amount", False, False),
+        ("stage", False, True),
+        ("attachment", False, True),
+        ("funding", False, False),
+    ]
+    every = [
+        (column.key, column.required, column.shown)
+        for column in preview.table.all.columns
+    ]
+    assert every == [*current[:5], ("currency", True, True), *current[5:]]
+    assert preview.table.all.columns[5].label_key == (
+        "business.transactions.columns.moneda"
+    )
     built = build_file(
         source(row(fake, family="sale")),
         table(request, ("gross_amount", "note"), currencies="current", format="csv"),
@@ -311,6 +323,38 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
     with pytest.raises(ActionError) as refused:
         build_file(source(), table(request, ("expense_type",), currencies="current"))
     assert refused.value.result.code == "business_export_column_unavailable"
+
+
+def test_a_country_omission_leaves_the_preview_and_the_file(fake, monkeypatch):
+    from argus.domain.business import country
+
+    monkeypatch.setitem(
+        country.COUNTRIES,
+        "DO",
+        country.BusinessCountry("DO", "DOP", frozenset({"funding"})),
+    )
+    request = report(currencies=["DOP"])
+    dominican = replace(source(row(fake)), country="DO")
+    preview = summarize_export(dominican, request)
+    assert "funding" not in [column.key for column in preview.table.current.columns]
+    assert "funding" in [
+        column.key
+        for column in summarize_export(
+            replace(dominican, country="US"), request
+        ).table.current.columns
+    ]
+    with pytest.raises(ActionError) as refused:
+        build_file(dominican, table(request, ("funding",), currencies="current"))
+    assert refused.value.result.code == "business_export_column_unavailable"
+
+
+def test_required_columns_join_the_file_even_when_not_chosen(fake):
+    built = build_file(source(row(fake)), table(report(), ("note",), format="csv"))
+    assert next(csv.reader(io.StringIO(built.content.decode("utf-8-sig")))) == [
+        "Contraparte",
+        "Moneda",
+        "Notas",
+    ]
 
 
 def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):

@@ -3586,7 +3586,8 @@ lock, and takes it off `pending_objects`.
 The additive `20261026095000_registros_preferences_annotations.sql` migration
 allows recipe schema versions 1 and 2 in the existing private saved-view table.
 Version 2 stores presentation order/hidden columns/density and page size; neither
-version stores result money or cached rows. Existing RLS, person/Business scope,
+version stores result money or cached rows. New writes no longer store the first
+table's `columns` list; a stored one stays in the row and is dropped when read. Existing RLS, person/Business scope,
 FKs, client privilege denial and deletion behavior remain unchanged.
 
 Current editable text is `financial_import_events.resolution.current_note`.
