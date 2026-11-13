@@ -2342,6 +2342,10 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '409':
+          description: '`stale_version` or `idempotency_conflict`; an uncertain approval returns
+            409 with its existing outcome code. A historical approval whose recorded activity
+            is absent or changed returns `stale_version`.'
         '422':
           description: Validation Error
           content:
@@ -2518,6 +2522,9 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '409':
+          description: '`stale_version` or `idempotency_conflict`; an uncertain action returns
+            409 with its existing outcome code.'
         '422':
           description: Validation Error
           content:
@@ -2584,6 +2591,9 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '409':
+          description: '`stale_version` or `idempotency_conflict`; an uncertain action returns
+            409 with its existing outcome code.'
         '422':
           description: Validation Error
           content:
@@ -2650,6 +2660,9 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '409':
+          description: '`stale_version` or `idempotency_conflict`; an uncertain action returns
+            409 with its existing outcome code.'
         '422':
           description: Validation Error
           content:
@@ -2716,7 +2729,8 @@ paths:
           description: '`business_permission_denied` without approve permission; `business_human_command_required`
             for a non-person actor.'
         '409':
-          description: '`stale_version` or `idempotency_conflict`.'
+          description: '`stale_version` or `idempotency_conflict`; an uncertain action returns
+            409 with its existing outcome code.'
         '422':
           description: '`business_draft_not_recorded` before approval; `business_remainder_none`
             when nothing is left.'
@@ -2784,7 +2798,8 @@ paths:
           description: '`business_permission_denied` without approve permission; `business_human_command_required`
             for a non-person actor.'
         '409':
-          description: '`stale_version` or `idempotency_conflict`.'
+          description: '`stale_version` or `idempotency_conflict`; an uncertain action returns
+            409 with its existing outcome code.'
         '422':
           description: '`business_draft_not_recorded` on a draft that is not approved; `business_record_matched`
             while a bank line is matched to the record; `business_refund_linked` while a credit
@@ -2846,6 +2861,9 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '409':
+          description: '`stale_version` or `idempotency_conflict`; an uncertain action returns
+            409 with its existing outcome code.'
         '422':
           description: Validation Error
           content:
