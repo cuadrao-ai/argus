@@ -2565,7 +2565,7 @@
       "currency_fiscal_warning": "En {{currency}} este documento no entra al {{form}} (la DGII pide pesos).",
       "currency_missing": "Falta la moneda",
       "difference": "Diferencia {{amount}}",
-      "difference_unavailable": "No pudimos revisar la suma.",
+      "difference_unavailable": "Se revisa al guardar.",
       "inherited_from": "Viene de {{field}}",
       "itbis": "ITBIS",
       "legal_tip": "Propina legal",
