@@ -2245,6 +2245,8 @@
       "placeholder": "dd/mm/aaaa",
       "previous_month": "Mes anterior",
       "today": "Hoy",
+      "uploaded_in": "Subido en {{year}}",
+      "use_date": "Usar {{date}}",
       "weekdays": "lu ma mi ju vi sá do",
       "yesterday": "Ayer"
     },
