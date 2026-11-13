@@ -446,13 +446,17 @@ class DocumentsService:
         self, *, user_id: str, connection_id: str, scope: OwnerScope, code: str
     ) -> None:
         """A queued read that could not start waits saved, unread, with its reason.
-        One with an attempt recorded for this version did start; it stays queued."""
+        One store write checks and releases, so a dispatch that records an
+        attempt for this version, or any writer that moves the draft, keeps it."""
 
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
-        job = self.store.job(user_id=user_id, connection_id=connection_id)
-        started = job is not None and job.draft_version == draft.version
-        if draft.status == "queued" and not started:
-            self._update(user_id, draft, status="saved", consent=False, error_code=code)
+        if draft.status == "queued":
+            self.store.update(
+                user_id=user_id,
+                draft=self.revise(draft, status="saved", consent=False, error_code=code),
+                expected_version=draft.version,
+                unstarted=True,
+            )
 
     def _business_permission(self, scope: OwnerScope, user_id: str) -> dict:
         """The owner's setting for this Business; off when the service has none."""
