@@ -213,6 +213,9 @@ class FiscalFacts(Contract):
         return self
 
 
+HUMAN_AMOUNT_FIELDS = ("net_amount", "legal_tip")
+
+
 class BusinessFacts(Contract):
     kind: Fact[ActivityKind] = Unknown()
     amount: Fact[Amount] = Unknown()

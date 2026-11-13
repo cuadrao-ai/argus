@@ -16,7 +16,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
 )
 from argus.domain.business.contracts.dgii import FiscalReview, PurchaseReview
-from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.contracts.facts import BusinessFactPatch, MontosReview
 from argus.domain.business.fiscal_profile import set_profile
 
 from tests import test_business_actions_postgres as shared
@@ -101,6 +101,9 @@ class Draft:
                 }
             )
         )
+
+    def tip(self, value: str) -> None:
+        self.write(montos=MontosReview(legal_tip={"state": "known", "value": value}))
 
     def settled(self, **written: str | None) -> None:
         self.write(purchase=PurchaseReview(**written))
@@ -207,7 +210,7 @@ CASES = {
         (("fiscal_billed_amount_must_be_positive", "billed_amount"), CONFLICT),
     ),
     "tip_written_after_the_pick": Case(
-        (step("pick", "02"), step("settled", legal_tip="30.00")),
+        (step("pick", "02"), step("tip", "30.00")),
         ("270.00", "", "0.00"),
     ),
     "mixed_split_a_person_typed_agrees": Case(
@@ -304,12 +307,12 @@ def test_a_606_write_on_an_approved_record_still_moves_the_amount(actions):  # n
     draft.settled(payment_method="01")
     records.approved(service, context, draft.id, draft.view.version)
 
-    draft.settled(legal_tip="30.00")
+    draft.settled(selective_tax="30.00")
 
     assert draft.split == ("270.00", None)
     manifest, [row] = records.txt_606_rows(service, context)
     assert manifest["issues"] == []
-    assert (row["services_amount"], row["legal_tip"]) == ("270.00", "30.00")
+    assert (row["services_amount"], row["selective_tax"]) == ("270.00", "30.00")
 
 
 def test_a_replay_of_the_same_key_moves_nothing(actions):  # noqa: ANN001
@@ -378,7 +381,7 @@ def test_a_pick_taken_back_empties_the_amount_and_a_new_pick_refills_it(actions)
     assert draft.split == ("300.00", None)
 
 
-def test_a_person_clears_the_amount_and_it_stays_clear_until_a_pick(actions):  # noqa: ANN001
+def test_a_person_clears_the_amount_and_it_stays_clear_until_restore(actions):  # noqa: ANN001
     service, context, _ = actions
     draft = drafted(service, context)
     draft.pick("09")
@@ -388,6 +391,8 @@ def test_a_person_clears_the_amount_and_it_stays_clear_until_a_pick(actions):  #
     assert draft.split == (None, None)
 
     draft.pick("09")
+    assert draft.split == (None, None)
+    draft.write(montos=MontosReview(restore_inherited=("goods_amount",)))
     assert draft.split == (None, "700.00")
 
 
@@ -400,7 +405,8 @@ def test_a_retyped_draft_forgets_the_amount_was_worked_out(actions):  # noqa: AN
     draft.pick("09")
     draft.fact("kind", value="income")
     draft.write(document_type="venta")
-    assert draft.view.dgii is None
+    assert draft.view.dgii.form == "607"
+    assert draft.view.dgii.billed_amount == "300.00"
     draft.write(document_type="recibo")
     draft.fact("kind", value="expense")
 

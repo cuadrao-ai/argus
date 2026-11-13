@@ -15,6 +15,7 @@ from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
 from .dgii import DgiiDeclaration, ExpenseType
 from .facts import (
+    HUMAN_AMOUNT_FIELDS,
     BusinessFacts,
     Contract,
     FactField,
@@ -273,7 +274,7 @@ class BusinessDossier(RecordContext):
 _UNMEASURED_DOSSIER_FIELDS = {
     "net_amount": True,
     "inheritance": True,
-    "facts": {"net_amount", "legal_tip"},
+    "facts": set(HUMAN_AMOUNT_FIELDS),
     "dgii": {"itbis"},
     "current_note": True,
     "note_edit_available": True,
@@ -295,8 +296,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
             "after_due_on": True,
             "before_current_note": True,
             "after_current_note": True,
-            "before": {"net_amount", "legal_tip"},
-            "after": {"net_amount", "legal_tip"},
+            "before": set(HUMAN_AMOUNT_FIELDS),
+            "after": set(HUMAN_AMOUNT_FIELDS),
             "before_dgii": {"itbis"},
             "after_dgii": {"itbis"},
         }

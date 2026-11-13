@@ -366,9 +366,10 @@ def record_issues(
         if isinstance(declaration, PurchaseDeclaration) and base <= 0:
             issue("fiscal_billed_amount_must_be_positive", "billed_amount")
         net = net_amount(record.facts, declaration)
-        if isinstance(declaration, PurchaseDeclaration) and net.amount is not None and base != Decimal(net.amount):
-            issue("fiscal_invoice_total_conflict", "amount")
-        if gross != Decimal(record.amount):
+        if gross != Decimal(record.amount) or (
+            isinstance(declaration, PurchaseDeclaration)
+            and net.amount is not None and base != Decimal(net.amount)
+        ):
             issue("fiscal_invoice_total_conflict", "amount")
         if base >= MONEY_LIMIT:
             issue("fiscal_amount_precision_or_limit", "billed_amount")

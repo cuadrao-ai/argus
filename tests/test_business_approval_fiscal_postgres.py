@@ -493,7 +493,7 @@ def test_declaration_saved_before_approval_is_kept(actions):
     assert outcome.outcome == "applied", outcome
     history = revisions(service, draft)
     assert history[-1]["version"] == approved
-    assert history[-1]["dgii"] == saved
+    assert history[-1]["dgii"] == {**saved, "itbis": "180.00"}
     lines, issues = lines_606(service, context)
     assert issues == []
     [line] = lines
@@ -667,7 +667,7 @@ def test_failed_money_write_keeps_the_saved_declaration(actions, monkeypatch):
     failed = approve(service, context, draft, approved)
 
     assert failed.outcome == "invalid_input", failed
-    assert service.dossier(context, draft).dgii.model_dump(mode="json") == saved
+    assert service.dossier(context, draft).dgii.model_dump(mode="json") == {**saved, "itbis": "180.00"}
     assert revisions(service, draft)[-1]["version"] == approved
 
 
@@ -763,10 +763,10 @@ def test_failed_money_write_puts_back_the_declaration_the_approval_filled(
 
     assert failed.outcome == "invalid_input", failed
     reopened = service.dossier(context, draft)
-    assert reopened.dgii.model_dump(mode="json") == blank
+    assert reopened.dgii.model_dump(mode="json") == {**blank, "itbis": "180.00"}
     filled, undone = revisions(service, draft)[-2:]
     assert (filled["dgii"]["id_type"], filled["dgii"]["payment_method"]) == ("1", "02")
-    assert (undone["version"], undone["dgii"]) == (reopened.version, blank)
+    assert (undone["version"], undone["dgii"]) == (reopened.version, {**blank, "itbis": "180.00"})
 
 
 def test_reapproval_rebuilds_a_declaration_the_clear_missed(actions, monkeypatch):

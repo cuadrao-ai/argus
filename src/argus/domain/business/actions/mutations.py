@@ -335,6 +335,11 @@ def revise(
     if declared is not None and declared.form != current_form:
         raise ActionError("invalid_input", "fiscal_direction_unsupported")
     stored = _stored_declaration(event, retyped, current_form)
+    previous_resolution = event.resolution.get("business") or {}
+    stored = inherit_amounts(
+        before or after, stored, previous_resolution.get("fiscal_overrides"),
+        paid=draft_is_paid(tx, event.activity_id, previous_resolution.get("bill_mark")),
+    )
     if purchase is not None:
         current = declared or stored
         if not takes_purchase_declaration(current_type, after):

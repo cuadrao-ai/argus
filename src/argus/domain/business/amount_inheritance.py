@@ -114,7 +114,7 @@ def inheritance_overrides(
             if form is not None and declared.form != form:
                 continue
             if name in written or (
-                getattr(declared, name) is not None
+                (stored is not None or getattr(declared, name) is not None)
                 and (stored is None or not _equal(getattr(declared, name), getattr(stored, name)))
             ):
                 overrides.add(name)
