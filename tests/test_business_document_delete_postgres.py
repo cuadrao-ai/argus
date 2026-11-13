@@ -359,10 +359,10 @@ def test_deleted_draft_leaves_duplicate_checks_and_returns(actions):
         assert str(draft) in pending_duplicates(tx.imports, other)
 
 
-def _finish_repeat(receipt):
+def _finish_repeat(receipt, target=None):
     from tests import test_business_attachment_preparation_postgres as preparation
 
-    preparation.bind(receipt)
+    preparation.bind(receipt, target)
     result = preparation.finish(receipt)
     assert result.outcome == "applied", result
     service, _, _, cid, _, _ = receipt
@@ -634,11 +634,10 @@ def test_restore_keeps_a_valid_duplicate_decision_but_matching_ncf_still_collide
 
 
 @pytest.mark.parametrize("changed_side", ["original", "repeated"])
-@pytest.mark.parametrize("evidence", ["source", "observation"])
 def test_restore_reopens_both_sides_when_duplicate_decision_evidence_changed(
-    actions, changed_side, evidence
+    actions, changed_side
 ):
-    from dataclasses import replace
+    from argus.domain.business.contracts.actions import ExistingDraft
 
     from tests import test_business_duplicates_postgres as duplicates
     from tests.test_business_duplicate_resolution_postgres import request_for
@@ -650,6 +649,7 @@ def test_restore_reopens_both_sides_when_duplicate_decision_evidence_changed(
     assert _act(client, original_id, "delete").status_code == 200
     repeated = duplicates._receipt(actions, b"Synthetic repeat decided purchase")
     repeated_id = _finish_repeat(repeated)
+    changed_id = original_id if changed_side == "original" else repeated_id
     assert _act(client, original_id, "restore").status_code == 200
     decided = service.resolve_duplicate(
         context,
@@ -658,27 +658,15 @@ def test_restore_reopens_both_sides_when_duplicate_decision_evidence_changed(
         str(uuid4()),
     )
     assert decided.outcome == "applied", decided
+    added = duplicates._receipt(actions, b"Synthetic revised source evidence")
+    assert _finish_repeat(
+        added,
+        ExistingDraft(
+            draft_id=changed_id,
+            version=service.dossier(context, changed_id).version,
+        ),
+    ) == changed_id
     assert _act(client, original_id, "delete").status_code == 200
-    changed = original if changed_side == "original" else repeated
-    changed_id = original_id if changed_side == "original" else repeated_id
-    with transaction(service.authority, context) as tx:
-        if evidence == "source":
-            tx.rows(
-                "update public.financial_document_extractions set batch=jsonb_set("
-                "batch,'{metadata,revision}','\"synthetic revised source\"') where connection_id=%s",
-                (changed[3],),
-            )
-        else:
-            [observation] = tx.imports.observations(str(changed_id))
-            tx.imports.put_observation(
-                replace(
-                    observation,
-                    candidate={
-                        **observation.candidate,
-                        "memo": "Synthetic revised observation",
-                    },
-                )
-            )
     assert _act(client, original_id, "restore").status_code == 200
     _assert_duplicate_approval_refused(service, context, original_id, repeated_id)
     _assert_duplicate_approval_refused(service, context, repeated_id, original_id)

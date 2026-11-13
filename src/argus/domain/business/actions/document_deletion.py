@@ -17,6 +17,7 @@ from argus.domain.business.contracts.deletion import (
     PreviousDocumentState,
     deletion,
 )
+from argus.domain.business.duplicates import flag_receipt_duplicates
 from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.documents.models import DocumentDraft
@@ -192,7 +193,13 @@ def _change(tx: ActionTransaction, command: DocumentCommand, key: str) -> Applie
                 updated_at=datetime.now(timezone.utc),
             )
         )
-        return Applied(outcome="applied", draft_id=event.id, version=event.version + 1)
+        if not deleting:
+            _recheck_duplicates(tx, (event.id,))
+        return Applied(
+            outcome="applied",
+            draft_id=event.id,
+            version=tx.imports.event(event.id).version,
+        )
     for candidate in candidates:
         candidate_state = (
             "dismissed" if deleting else marker.previous_state.events[candidate.id]
@@ -217,4 +224,19 @@ def _change(tx: ActionTransaction, command: DocumentCommand, key: str) -> Applie
         " where user_id=%s and connection_id=%s",
         (Jsonb(updated), tx.context.owner_id, command.document_id),
     )
+    if not deleting:
+        _recheck_duplicates(tx, tuple(candidate.id for candidate in candidates))
     return Applied(outcome="applied")
+
+
+def _recheck_duplicates(tx: ActionTransaction, event_ids: tuple[str, ...]) -> None:
+    from argus.domain.business.actions.duplicate_resolution import attachment_signature
+
+    for event_id in event_ids:
+        if tx.imports.event(event_id).state == "open":
+            flag_receipt_duplicates(
+                tx.imports,
+                event_id,
+                lambda draft_id: attachment_signature(tx, draft_id),
+                symmetric=True,
+            )

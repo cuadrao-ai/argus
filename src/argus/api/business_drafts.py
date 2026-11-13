@@ -407,10 +407,15 @@ def linked_drafts(tx, connection_ids: list[str]) -> dict[str, list[dict]]:  # no
     found: dict[str, list[dict]] = {}
     for row in rows:
         if row["attention"] == "possible_duplicate":
+            from argus.domain.business.actions.duplicate_resolution import (
+                attachment_signature,
+            )
             from argus.domain.business.duplicates import pending_duplicates
 
             event = tx.imports.event(str(row["id"]))
-            if event.possible_duplicates and not pending_duplicates(tx.imports, event):
+            if event.possible_duplicates and not pending_duplicates(
+                tx.imports, event, lambda event_id: attachment_signature(tx, event_id)
+            ):
                 row["attention"] = None
         facts = BusinessResolution.model_validate(row["resolution"]["business"]).facts
         row["marks"] = record_marks(facts, row, tx.context.owner_id)

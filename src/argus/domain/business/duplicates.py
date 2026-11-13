@@ -3,9 +3,9 @@
 Two receipts are a possible repeat when the read merchant, date, amount and
 currency are all known and all equal. The mark is the import event's own
 ``possible_duplicate`` attention, so it is durable, every reader sees it, and
-approval stays closed until a person settles it. Only the newer event is
-marked; an event that already names this one is left alone, so a retried
-read of the original never turns both into duplicates of each other.
+approval stays closed until a person settles it. Intake marks only the newer
+event, so a retried read keeps the original clean. Restoration also marks
+open counterparts because both purchases are waiting for review again.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution, Known
@@ -137,8 +137,6 @@ def pending_duplicates(
         if candidate.state in OPEN_OR_RECORDED:
             pending.add(candidate_id)
     decisions = event.resolution.get("different_purchases", {})
-    if not decisions:
-        return tuple(sorted(pending))
     key = event_key(event, tx.observations)
     for other_id in set(decisions) | pending:
         try:
@@ -161,6 +159,8 @@ def flag_receipt_duplicates(
     tx: ImportTx,
     event_id: str,
     source_signature: Callable[[str], str] | None = None,
+    *,
+    symmetric: bool = False,
 ) -> tuple[str, ...]:
     """Mark ``event_id`` as a possible repeat of the other open or recorded
     events of this scope that share its read facts. Returns what it named."""
@@ -171,7 +171,9 @@ def flag_receipt_duplicates(
         return ()
     found = []
     for other in tx.events(OPEN_OR_RECORDED):
-        if other.id == event.id or event.id in other.possible_duplicates:
+        if other.id == event.id or (
+            not symmetric and event.id in other.possible_duplicates
+        ):
             continue
         if event_key(other, tx.observations) == key and not different_purchase(
             tx, event, other, source_signature
@@ -179,16 +181,36 @@ def flag_receipt_duplicates(
             found.append(other.id)
     if not found:
         return ()
-    flagged = duplicates.flag(event, found)
+    flagged = duplicates.flag(
+        event, set(found) | set(event.possible_duplicates) if symmetric else found
+    )
     if event.attention == "ambiguous_match":
         # The import layer's bank-match warning outranks a repeat mark; both
         # are settled by a person, and the repeat is still recorded below.
         flagged = replace(flagged, attention="ambiguous_match")
-    flagged = replace(
-        flagged,
-        attention_detail={"basis": "read_facts", "fields": list(DUPLICATE_FIELDS)},
-    )
+    detail = {"basis": "read_facts", "fields": list(DUPLICATE_FIELDS)}
+    if not symmetric or flagged.attention == "possible_duplicate":
+        flagged = replace(flagged, attention_detail=detail)
     tx.put_event(flagged)
+    if symmetric:
+        for other_id in found:
+            other = tx.event(other_id)
+            if other.state != "open":
+                continue
+            reciprocal = duplicates.flag(
+                other, (*other.possible_duplicates, event.id),
+                ambiguous=other.attention == "ambiguous_match",
+            )
+            if reciprocal.attention == "possible_duplicate":
+                reciprocal = replace(reciprocal, attention_detail=detail)
+            if reciprocal != other:
+                tx.put_event(
+                    replace(
+                        reciprocal,
+                        version=other.version + 1,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                )
     return tuple(flagged.possible_duplicates)
 
 
