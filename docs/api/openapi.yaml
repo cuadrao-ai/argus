@@ -20448,6 +20448,14 @@ components:
           items:
             type: string
           type: array
+        rnc_warning_count:
+          type: integer
+        rnc_supplier_count:
+          type: integer
+        rnc_suppliers:
+          items:
+            $ref: '#/components/schemas/RncSupplier'
+          type: array
       additionalProperties: false
       type: object
       required:
@@ -20457,6 +20465,9 @@ components:
       - pending_fiscal_count
       - pending_rate_count
       - pending_rate_currencies
+      - rnc_warning_count
+      - rnc_supplier_count
+      - rnc_suppliers
     DgiiForeignCurrency:
       properties:
         '606':
@@ -31018,6 +31029,29 @@ components:
       - created_at
     Rnc:
       type: string
+    RncSupplier:
+      properties:
+        name:
+          type: string
+        rnc:
+          type: string
+        estado:
+          type: string
+        status:
+          type: string
+          enum:
+          - rnc_inactive
+          - rnc_unverified
+        record_count:
+          type: integer
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - rnc
+      - estado
+      - status
+      - record_count
     RunDossier:
       properties:
         run_id:
