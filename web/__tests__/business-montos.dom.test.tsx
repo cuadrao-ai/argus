@@ -113,3 +113,17 @@ test("Montos has no provenance words or tax warning text, and edited net has no 
   assert.equal(block.querySelector("[data-origin], [data-doubtful], [data-testid=itbis-high], [data-testid=amount-calculated]"), null);
   assert.doesNotMatch(block.textContent!, /revisor|revisar/);
 });
+
+
+test("Fiscal restore shows unknown for null money and date targets", async () => {
+  const base = await dossier();
+  const empty: BusinessDossier = { ...base, inheritance: {
+    ...base.inheritance,
+    goods_amount: { field: "net_amount", value: null, inherited: false },
+    paid_on: { field: "occurred_on", value: null, inherited: false },
+  } };
+  const host = await mount(<FiscalDeclarationEditor dossier={empty} fields={fields} disabled={false} open reviewFiscal={async () => empty} reviewMontos={async () => empty} onChanged={noop} onBusy={noop} onDirty={noop} />);
+  for (const field of ["goods_amount", "paid_on"]) {
+    assert.equal(host.querySelector(`[data-restore-inherited="${field}"]`)?.getAttribute("aria-label"), "Usar Montos (-)");
+  }
+});

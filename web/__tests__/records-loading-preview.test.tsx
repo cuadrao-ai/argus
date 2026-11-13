@@ -21,7 +21,6 @@ test("pending table follows selected columns, pinned identity, required amounts 
   let preferences = sampleRecordsPreferences();
   preferences = toggleRecordsColumn(preferences, "notas");
   preferences = toggleRecordsColumn(preferences, "monto");
-  preferences = toggleRecordsColumn(preferences, "itbis");
   preferences = moveRecordsColumn(preferences, "itbis", 1);
   const html = await render(<RecordsLoadingPreview preferences={preferences} density="compacto" />);
   const columns = [...html.matchAll(/<th\b[^>]*data-col="([^"]+)"/g)].map((match) => match[1]);

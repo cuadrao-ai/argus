@@ -124,7 +124,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     const inherited = dossier.inheritance?.[field.name];
     const linked = inherited?.inherited && !overrides.has(field.name);
     const sourceLabel = inherited?.field === "occurred_on" ? t("business.dossier.field.occurred_on") : t(`business.terms.${inherited?.field}`);
-    const sourceValue = inherited?.field === "occurred_on" ? formatDay(inherited.value ?? "", locale) : formatMoney(inherited?.value ?? "", currency, locale) || UNKNOWN_VALUE;
+    const sourceValue = inherited?.value == null ? UNKNOWN_VALUE : inherited.field === "occurred_on" ? formatDay(inherited.value, locale) : formatMoney(inherited.value, currency, locale) || UNKNOWN_VALUE;
     const inheritedLabel = t("business.terms.inherited_from", { field: sourceLabel });
     const restoreLabel = t("business.terms.use_inherited", { amount: sourceValue });
     const title = <span className={`${FIELD_LABEL_CLASS} flex items-center gap-1.5`}>{label}{inherited ? linked ? <Tooltip content={inheritedLabel} side="top"><span tabIndex={0} aria-label={inheritedLabel} data-inherited={field.name}><Link2 className="h-3.5 w-3.5" aria-hidden="true" /></span></Tooltip> : reviewMontos ? <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-inherited={field.name} className="-my-2 flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.06]" disabled={!editable || dirty || uncertain && restoring !== field.name} onClick={() => void restore(field.name)}><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /></button></Tooltip> : null : null}</span>;
