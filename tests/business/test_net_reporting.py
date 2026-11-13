@@ -230,3 +230,11 @@ def test_legacy_activity_total_keeps_read_tip_when_fact_total_is_unknown():
     )
     assert projected.net_amount_minor == 100000
     assert projected.total_minor == 128000
+
+
+def test_report_keeps_exact_subcent_net_without_breaking_totals():
+    answer = run([record(net_amount="170.425")])
+    net = next(total for total in answer.totals if total.basis == "document_net_family_amount")
+    assert net.amount is None
+    assert net.unsupported_count == 1
+    assert not net.complete

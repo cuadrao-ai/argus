@@ -434,14 +434,18 @@ def _net_totals(rows: tuple[ReportRecord, ...]) -> list[Total]:
             effect = (row.adjustment_effect or "unknown") if credit else row.money_effect
             if row.net_amount is None or row.currency is None or kind == "unknown":
                 effect = "unknown"
+            amount_minor = None
+            if row.net_amount is not None and row.currency is not None:
+                try:
+                    amount_minor = _fiscal_minor_units(row.net_amount, row.currency)
+                except RecordingInputError:
+                    effect = "unsupported"
             components.append(
                 FiscalAmount(
                     currency=row.currency,
                     kind=kind,
                     basis="net_amount",
-                    amount_minor=_fiscal_minor_units(row.net_amount, row.currency)
-                    if row.net_amount is not None and row.currency is not None
-                    else None,
+                    amount_minor=amount_minor,
                     populated=row.net_amount is not None,
                     effect=effect,
                     sign=-1 if credit else 1,
