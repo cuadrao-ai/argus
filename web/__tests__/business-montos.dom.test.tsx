@@ -63,6 +63,7 @@ for (const language of ["es-419", "en"]) test(`${language} puts the warning on T
   assert.equal(host.querySelectorAll('[data-testid="amounts-difference"]').length, 1);
   assert.equal(difference.querySelector("svg"), null);
   assert.ok(difference.classList.contains("whitespace-nowrap"));
+  assert.ok(difference.classList.contains("justify-end"));
   assert.ok(host.querySelector(".lucide-triangle-alert"));
   const warning = host.querySelector('[data-testid="amounts-warning"]')!;
   assert.equal(warning.closest("[data-fact]")?.getAttribute("data-fact"), "amount");
