@@ -397,8 +397,9 @@ def _assert_duplicate_approval_refused(service, context, draft_id, other_id):
 
 
 @pytest.mark.parametrize("by_draft", [False, True])
+@pytest.mark.parametrize("arrived_while_deleted", [False, True])
 def test_restore_rechecks_newly_arrived_receipt_duplicates_on_both_sides(
-    actions, by_draft
+    actions, by_draft, arrived_while_deleted
 ):
     from tests import test_business_duplicates_postgres as duplicates
     from tests.test_business_receipt_views_postgres import _web
@@ -408,10 +409,14 @@ def test_restore_rechecks_newly_arrived_receipt_duplicates_on_both_sides(
     original_id = _finish_repeat(original)
     client = _client(service, context)
     target = original_id if by_draft else original[3]
-    assert _act(client, target, "delete").status_code == 200
+    if arrived_while_deleted:
+        assert _act(client, target, "delete").status_code == 200
     repeated = duplicates._receipt(actions, b"Synthetic second photograph")
     repeated_id = _finish_repeat(repeated)
-    assert duplicates._event(service, repeated_id) == (None, [], None)
+    if arrived_while_deleted:
+        assert duplicates._event(service, repeated_id) == (None, [], None)
+    else:
+        assert _act(client, target, "delete").status_code == 200
     key = str(uuid4())
     restored = _act(client, target, "restore", key)
     assert restored.status_code == 200, restored.text
@@ -592,6 +597,12 @@ def test_restore_keeps_a_valid_duplicate_decision_but_matching_ncf_still_collide
         assert "possible_duplicate" not in {
             blocker.code for blocker in service.dossier(context, draft_id).blockers
         }
+    from tests.test_business_receipt_views_postgres import _web
+
+    web = _web(service, context)
+    for receipt in (original, repeated):
+        row = receipt_detail(web, web.service.receipt(web.scope, receipt[3]))
+        assert row["attention"] is None and row["error_code"] is None
     approved = service.approve(
         context,
         repeated_id,
@@ -620,6 +631,88 @@ def test_restore_keeps_a_valid_duplicate_decision_but_matching_ncf_still_collide
             "select count(*) from public.financial_records where owner_space_id=%s",
             (context.actor.space_id,),
         ).fetchone() == (1,)
+
+
+@pytest.mark.parametrize("changed_side", ["original", "repeated"])
+@pytest.mark.parametrize("evidence", ["source", "observation"])
+def test_restore_reopens_both_sides_when_duplicate_decision_evidence_changed(
+    actions, changed_side, evidence
+):
+    from dataclasses import replace
+
+    from tests import test_business_duplicates_postgres as duplicates
+    from tests.test_business_duplicate_resolution_postgres import request_for
+
+    service, context, _ = actions
+    original = duplicates._receipt(actions, b"Synthetic original decided purchase")
+    original_id = _finish_repeat(original)
+    client = _client(service, context)
+    assert _act(client, original_id, "delete").status_code == 200
+    repeated = duplicates._receipt(actions, b"Synthetic repeat decided purchase")
+    repeated_id = _finish_repeat(repeated)
+    assert _act(client, original_id, "restore").status_code == 200
+    decided = service.resolve_duplicate(
+        context,
+        original_id,
+        request_for(service, context, original_id, repeated_id),
+        str(uuid4()),
+    )
+    assert decided.outcome == "applied", decided
+    assert _act(client, original_id, "delete").status_code == 200
+    changed = original if changed_side == "original" else repeated
+    changed_id = original_id if changed_side == "original" else repeated_id
+    with transaction(service.authority, context) as tx:
+        if evidence == "source":
+            tx.rows(
+                "update public.financial_document_extractions set batch=jsonb_set("
+                "batch,'{metadata,revision}','\"synthetic revised source\"') where connection_id=%s",
+                (changed[3],),
+            )
+        else:
+            [observation] = tx.imports.observations(str(changed_id))
+            tx.imports.put_observation(
+                replace(
+                    observation,
+                    candidate={
+                        **observation.candidate,
+                        "memo": "Synthetic revised observation",
+                    },
+                )
+            )
+    assert _act(client, original_id, "restore").status_code == 200
+    _assert_duplicate_approval_refused(service, context, original_id, repeated_id)
+    _assert_duplicate_approval_refused(service, context, repeated_id, original_id)
+
+
+def test_restore_flags_a_recorded_match_without_changing_the_recorded_event(actions):
+    from argus.domain.business.contracts.actions import ApproveExpense
+
+    from tests import test_business_duplicates_postgres as duplicates
+
+    service, context, _ = actions
+    original = duplicates._receipt(actions, b"Synthetic original pending purchase")
+    original_id = _finish_repeat(original)
+    client = _client(service, context)
+    assert _act(client, original_id, "delete").status_code == 200
+    repeated = duplicates._receipt(actions, b"Synthetic recorded matching purchase")
+    repeated_id = _finish_repeat(repeated)
+    approved = service.approve(
+        context,
+        repeated_id,
+        ApproveExpense(
+            action="record_expense",
+            version=service.dossier(context, repeated_id).version,
+            approve_anyway=True,
+        ),
+        str(uuid4()),
+    )
+    assert approved.outcome == "applied", approved
+    with transaction(service.authority, context) as tx:
+        before = tx.imports.event(str(repeated_id))
+    assert _act(client, original_id, "restore").status_code == 200
+    _assert_duplicate_approval_refused(service, context, original_id, repeated_id)
+    with transaction(service.authority, context) as tx:
+        assert tx.imports.event(str(repeated_id)) == before
 
 
 def test_unsettled_action_never_reports_success(actions):
