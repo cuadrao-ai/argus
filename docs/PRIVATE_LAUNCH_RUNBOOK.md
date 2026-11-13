@@ -1212,7 +1212,7 @@ Keep true secrets manual in Render:
 - `DATABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_JWT_SECRET`
-- `OPENROUTER_API_KEY`
+- `CUADRAO_OPENROUTER_API_KEY_STG` for staging, `CUADRAO_OPENROUTER_API_KEY_PROD` for production; selection and legacy fallbacks belong to `src/argus/llm/openrouter_key_policy.py`
 - `ALPACA_API_KEY`
 - `ALPACA_SECRET_KEY`
 - `CUADRAO_OPS_TOKEN`

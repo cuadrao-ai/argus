@@ -69,7 +69,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - When changing the remaining runtime, use the hermetic chat sweep.
   If it takes minutes rather than seconds, stop and check for a leaked live path:
-  `OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
+  `OPENROUTER_API_KEY= CUADRAO_OPENROUTER_API_KEY_DEV= CUADRAO_OPENROUTER_API_KEY_STG= CUADRAO_OPENROUTER_API_KEY_PROD= CUADRAO_PROD_OPENROUTER_API_KEY= CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
 - Postgres tests need `ARGUS_DISPOSABLE_DATABASE_URL` on a throwaway local DB, never staging/prod.
 - Evals: read the Test Tiers in `tests/evals/README.md`. Use the mocked harness for
   runtime changes. Docs-only PRs use No Eval under `.github/pull_request_template.md`.

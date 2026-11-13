@@ -54,6 +54,7 @@
   {"consumer": "scripts/qa/jose_demo_rehearsal.py", "owner": "src/argus/api/main.py", "how": "literal path/import or generated-copy credit", "fact": "API/app contract agreement", "issue": "#2009"},
   {"consumer": "scripts/qa/jose_demo_rehearsal.py", "owner": "src/argus/api/whatsapp.py", "how": "literal path/import or generated-copy credit", "fact": "API/app contract agreement", "issue": "#2009"},
   {"consumer": "scripts/qa/jose_demo_rehearsal.py", "owner": "src/argus/domain/ingestion/documents/models.py", "how": "literal path/import or generated-copy credit", "fact": "API/app contract agreement", "issue": "#2009"},
+  {"consumer": "scripts/qa/jose_demo_rehearsal.py", "owner": "src/argus/llm/openrouter_key_policy.py", "how": "import", "fact": "Model credential selection uses the existing runtime owner", "issue": "#1998"},
   {"consumer": "scripts/qa/jose_demo_rehearsal.py", "owner": "web", "how": "literal path/import or generated-copy credit; directory read/scan", "fact": "API/app contract agreement", "issue": "#2009"},
   {"consumer": "src/argus/api/business_schemas.py", "owner": "web/lib/business-api.ts", "how": "literal path/import or generated-copy credit", "fact": "API/app contract agreement", "issue": "#2009"},
   {"consumer": "src/argus/domain/resend_email.py", "owner": "web/argus_display_contract/support_contact.json", "how": "literal path/import or generated-copy credit", "fact": "Support contact and its packaged contract", "issue": "#2004"},
