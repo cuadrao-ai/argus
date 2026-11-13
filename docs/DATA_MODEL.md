@@ -2646,6 +2646,17 @@ Every user-owned table must enforce strict Row Level Security (RLS).
   `profiles` (`20261005090000_explicit_client_grants.sql`). The backend writes
   these tables with the service role.
 
+### Retired investing context packets (#2001)
+
+`context_packets` and `run_context_packets` are retained legacy investing storage.
+No mounted product path reads these packets or attaches them to a run. The
+remaining gateway methods are compatibility code, not a current feature. This
+retirement changes no tables, rows, grants or migrations.
+
+Conversation, message, lifecycle, read-state and saved-result tables are not
+unread: retained Business history and search still use their scoped projections.
+Their ownership, security and read contracts remain in force.
+
 ### Chat-turn lifecycle
 - `chat_turn_lifecycles` grants authenticated owners `SELECT` only. No client
   role may insert, update, delete, or execute its server transition function;
