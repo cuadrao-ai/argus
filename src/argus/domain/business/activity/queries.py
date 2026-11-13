@@ -249,8 +249,12 @@ def read_activity(
                 facets = cursor.fetchall()
             page = rows[:limit]
             _fill_names(cursor, context.actor.space_id, page + (facets or []))
-            items = _document_targets(
-                cursor, context.actor.space_id, tuple(project(row) for row in page)
+            items = _purged(
+                cursor,
+                context.actor.space_id,
+                _document_targets(
+                    cursor, context.actor.space_id, tuple(project(row) for row in page)
+                ),
             )
             labels = _labels(cursor, context.actor.space_id, items)
     items = tuple(with_labels(item, labels) for item in items)
@@ -288,6 +292,40 @@ def _document_targets(
         if item.action in ("delete_document", "restore_document")
         and item.object is not None
         and item.object.id in targets
+        else item
+        for item in items
+    )
+
+
+def _purged(
+    cursor, space_id: UUID, items: tuple[ActivityItem, ...]
+) -> tuple[ActivityItem, ...]:
+    """Every entry whose document a purge removed says so. The purge record
+    keeps the draft and upload ids the document answered to, never a name."""
+
+    ids = sorted(
+        {
+            item.object.id
+            for item in items
+            if item.object is not None and item.object.kind in ("draft", "receipt")
+        }
+    )
+    if not ids:
+        return items
+    cursor.execute(
+        "select distinct d.id from argus_private.business_document_purges p,"
+        " unnest(p.document_ids) as d(id)"
+        " where p.space_id=%s and p.document_ids && %s::uuid[]",
+        (space_id, ids),
+    )
+    gone = {row["id"] for row in cursor.fetchall()}
+    return tuple(
+        item.model_copy(
+            update={"object": item.object.model_copy(update={"purged": True})}
+        )
+        if item.object is not None
+        and item.object.kind in ("draft", "receipt")
+        and item.object.id in gone
         else item
         for item in items
     )

@@ -10,10 +10,11 @@ from argus.api.business_receipt_activity import counts
 from argus.api.documents import configure_documents
 from argus.domain.business.actions.document_purge import DocumentExpiry, erase
 from argus.domain.business.activity.queries import read_activity
-from argus.domain.business.authority import ActionError
+from argus.domain.business.authority import ActionError, authorize
 from argus.domain.business.contracts.activity import ActivityFilters
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.deletion import PURGE_AFTER, DeletedDocument
+from argus.domain.business.transactions import record_legacy_action
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 
 from tests import test_business_actions_postgres as shared
@@ -80,6 +81,8 @@ def test_owner_purge_removes_the_document_and_keeps_one_nameless_entry(
     configure_documents(web.service.documents)
     with service.authority.pool.connection() as db:
         paths = _paths(db, cid)
+        live = authorize(db, context.actor, context.grant_id)
+        record_legacy_action(db, live, "receipt_upload", [str(cid)], str(uuid4()))
     assert all(source_objects().get(path) for path in paths)
     assert paths or prepared
     key = str(uuid4())
@@ -100,8 +103,18 @@ def test_owner_purge_removes_the_document_and_keeps_one_nameless_entry(
     assert counts(web, receipt_summaries(web, "all"))["bandeja_eliminados_count"] == 0
     [entry] = _purges(service, context, "purge_document")
     assert entry.object is None and entry.actor.kind == "member"
-    [older] = _purges(service, context, "delete_document")
-    assert older.object is not None
+    feed = read_activity(service.authority, context, limit=25, filters=ActivityFilters())
+    older = [item for item in feed.items if item.action != "purge_document"]
+    assert {"receipt_upload", "delete_document"} <= {item.action for item in older}
+    named = [item.object for item in older if item.object is not None]
+    assert {item.action for item in older if item.object is not None} >= {"delete_document"}
+    for gone in named:
+        assert gone.model_dump(mode="json") == {
+            "kind": gone.kind,
+            "id": str(gone.id),
+            "label": None,
+            "purged": True,
+        }
     again = deleting._act(client, target, "purge")
     assert (again.status_code, again.json()) == (200, purged.json())
     assert len(_purges(service, context, "purge_document")) == 1

@@ -199,7 +199,7 @@ def project(row: EventRow) -> ActivityItem:
 def with_labels(
     item: ActivityItem, labels: Mapping[tuple[ObjectKind, UUID], str]
 ) -> ActivityItem:
-    if item.object is None:
+    if item.object is None or item.object.purged:
         return item
     label = labels.get((item.object.kind, item.object.id))
     if label is None:

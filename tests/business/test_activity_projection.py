@@ -383,7 +383,12 @@ def test_the_item_carries_the_stored_name_and_only_the_promised_fields():
         "id": ACTOR_KEY,
         "membership": "current",
     }
-    assert dumped["object"] == {"kind": "draft", "id": str(DRAFT), "label": None}
+    assert dumped["object"] == {
+        "kind": "draft",
+        "id": str(DRAFT),
+        "label": None,
+        "purged": False,
+    }
 
 
 def test_a_row_with_no_recorded_name_has_no_actor_and_an_extractor_no_membership():

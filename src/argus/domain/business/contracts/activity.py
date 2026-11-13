@@ -91,6 +91,8 @@ class ActivityObject(Contract):
     kind: ObjectKind
     id: UUID
     label: str | None = None
+    #: The document is purged: it has no label, and nothing opens it.
+    purged: bool = False
 
 
 class ActivityItem(Contract):

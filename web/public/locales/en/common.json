@@ -2986,6 +2986,7 @@
       "purge_today": "today",
       "purged": "Document deleted for good",
       "purged_already": "This document was already deleted for good.",
+      "purged_document": "a document",
       "restore": "Restore",
       "restore_all": "Restore all",
       "restore_failed": "The document could not be restored. Try again.",

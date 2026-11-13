@@ -2986,6 +2986,7 @@
       "purge_today": "hoy",
       "purged": "Documento eliminado definitivamente",
       "purged_already": "Este documento ya se eliminó definitivamente.",
+      "purged_document": "un documento",
       "restore": "Restaurar",
       "restore_all": "Restaurar todos",
       "restore_failed": "No se pudo restaurar el documento. Intenta de nuevo.",

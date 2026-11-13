@@ -8608,7 +8608,8 @@ questions and source links, and the draft's own message sources. A message
 source that another draft also uses stays. The Activity entries stay. A purge
 by the owner adds `purge_document` and the expiry adds `expire_document` with
 the Cuadrao actor; neither names the document or links to it. Older entries
-lose their document label because the document is gone. After the purge every
+of the purged document keep their `object` with `purged: true` and `label:
+null`, so the client says "un documento" and opens nothing. After the purge every
 document route answers its usual not-found error, and delete and restore
 answer 404 `business_document_purged`.
 
@@ -9290,11 +9291,13 @@ and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
 changes, the two derived events and `other`), so the client can mark it.
 
-`object` is `{kind: draft|grant|invite, id, label}` when the action names one
+`object` is `{kind: draft|grant|invite, id, label, purged}` when the action names one
 and the server knows its id, else `null`. `label` is a human name for the
 object from a record the reader may read, else `null`: a draft's counterparty
 when it is known, a grant's person by their current profile label. An invite
-names only an email, so its label is always `null`. No amount, email or other
+names only an email, so its label is always `null`. `purged` is `true` when a
+document purge removed the draft or upload, read from the purge record; its
+`label` is then always `null`. It is `false` otherwise. No amount, email or other
 field of the command leaves the ledger.
 
 Three actions carry one typed field of the stored command, `null` elsewhere:

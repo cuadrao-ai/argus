@@ -15819,6 +15819,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        purged:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:

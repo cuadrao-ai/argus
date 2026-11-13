@@ -687,6 +687,7 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
                 "kind",
                 "id",
                 "label",
+                "purged",
             }
         assert {a["display_name"] for a in page["actors"]} == {
             "Synthetic member",

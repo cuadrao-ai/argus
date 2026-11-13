@@ -162,6 +162,25 @@ for (const [action, words] of [["purge_document", "eliminó definitivamente un d
   });
 }
 
+test("Actividad names a purged document as un documento, with no link, on every entry", async () => {
+  const gone = { kind: "receipt", id: "rcpt-gone", label: null, purged: true };
+  feed = async () => ({ items: [
+    { ...item("gone-restore", "Lucía Peña", "restore_document", 5), object: gone },
+    { ...item("gone-delete", "Lucía Peña", "delete_document", 6), object: gone },
+    { ...item("gone-upload", "Lucía Peña", "receipt_upload", 7), object: null },
+  ], next_cursor: null });
+  const page = await mount("view=activity");
+  try {
+    await page.settle(() => page.host.textContent?.includes("eliminó un documento.") === true);
+    const surface = page.host.querySelector('[data-testid="business-activity-draft"]');
+    assert.ok(surface);
+    const text = surface.textContent ?? "";
+    for (const words of ["Restauró un documento.", "restauró un documento.", "Eliminó un documento.", "eliminó un documento.", "Subió un documento", "subió un documento"]) assert.ok(text.includes(words), words);
+    assert.doesNotMatch(text, /Documento\.|Ver en Eliminados|Abrir/);
+    assert.equal(surface.querySelectorAll("li button").length, 0, "no entry opens the purged document");
+  } finally { await page.close(); }
+});
+
 describe("Actividad failures carry a reference", () => {
   const failWith = (requestId?: string) => async () => { throw Object.assign(new Error("Unavailable"), { status: 503, ...(requestId ? { requestId } : {}) }); };
 
