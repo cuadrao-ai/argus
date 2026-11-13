@@ -30,7 +30,6 @@ const REGISTERED: Surface[] = [
   { name: "feedback-menu", path: [FEEDBACK], marker: "feedback.type.bug" },
   { name: "archived", path: [DATA, "settings.data.archived_chats"] },
   { name: "deleted", path: [DATA, "settings.data.recently_deleted"] },
-  { name: "usage", path: [DATA, "settings.data.usage"] },
   { name: "shared-links", path: [DATA, "settings.data.shared_links"], optional: true },
   { name: "account-delete", path: [DATA, "settings.profile.delete_account"] },
   { name: "appearance", path: [PREFS, "settings.app.appearance"] },
@@ -56,8 +55,7 @@ async function capture(page: Page, cell: Cell, name: string, marker: Locator) {
   if (["archived", "deleted"].includes(name)) {
     await expect(page.getByRole("button", { name: label(cell.language, "common.restore"), exact: true })
       .or(page.getByRole("button", { name: label("en", "common.restore"), exact: true })).first()).toBeVisible();
-  } else if (name === "usage") {
-    await expect(page.getByRole("progressbar").first()).toBeVisible();
+
   } else if (["profile", "avatar", "profile-language"].includes(name)) {
     await expect(page.getByText("Alexandra Featherstonehaugh", { exact: true }).last()).toBeVisible();
   }

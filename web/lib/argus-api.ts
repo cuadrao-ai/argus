@@ -28,8 +28,6 @@ import { isConversationMemoryOptOut } from "./memory-privacy";
 import { currentViewportBand } from "./responsive-layout";
 import {
   runActionIdempotencyKey,
-  normalizeUsageAllowances,
-  type RawUsageAllowanceResponse,
 } from "./usage-allowance";
 import type {
   DemonstratedInterest,
@@ -624,12 +622,6 @@ function readAccount(response: UserResponse): UserResponse {
 
 export async function getMe(expectedUserId?: string) {
   return readAccount(await apiFetch<UserResponse>("/me", { expectedUserId }));
-}
-
-export async function getUsageAllowances() {
-  return normalizeUsageAllowances(
-    await apiFetch<RawUsageAllowanceResponse>("/me/usage"),
-  );
 }
 
 export type MarketSessionResponse = {

@@ -9,7 +9,6 @@ import {
   sendTurn,
   shot,
   startNewChat,
-  usageSnapshot,
 } from "./j241.helpers";
 
 // PR #266 Codex correction pass: clarification-owned future prose (EN/ES),
@@ -52,7 +51,6 @@ test("p0 probe + usage baseline", async () => {
   const probe = await meProbe(context);
   expect(probe.status).toBe(200);
   expect(probe.isAdmin).toBe(false);
-  saveEvidence("p0-usage-before", await usageSnapshot(context));
 });
 
 test("p1 EN future ask gets clarification-owned refusal, no card", async () => {
@@ -116,8 +114,4 @@ test("p5 reload keeps the EN future recovery byte-identical", async () => {
   await shot(page, "p5-reload");
   const items = await capture("p5-reload", futureConversationId as string);
   expect(items.length).toBeGreaterThan(0);
-});
-
-test("p9 usage after", async () => {
-  saveEvidence("p9-usage-after", await usageSnapshot(context));
 });

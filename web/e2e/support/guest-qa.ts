@@ -211,39 +211,6 @@ export type GuestMe = {
   } | null;
 };
 
-export type UsageWindow = {
-  used: number;
-  limit: number;
-  remaining: number;
-  period_end: string;
-};
-
-export type GuestUsage = {
-  allowances: {
-    compute: {
-      hour: null;
-      day: null;
-      guest_session: null;
-      available_now: true;
-      limiting_window: null;
-    };
-    grounding: {
-      hour: null;
-      day: UsageWindow;
-      guest_session: null;
-      available_now: boolean;
-      limiting_window: "day";
-    };
-    execution: {
-      hour: null;
-      day: UsageWindow;
-      guest_session: UsageWindow;
-      available_now: boolean;
-      limiting_window: "day" | "guest_session";
-    };
-  };
-};
-
 export type OwnerSnapshot = {
   conversations: number;
   messages: number;

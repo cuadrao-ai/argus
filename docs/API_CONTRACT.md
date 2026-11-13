@@ -203,8 +203,8 @@ claims (`claim_guest_compute_usage`, `claim_registered_compute_usage`)
 left with the chat routes (#1625) and were dropped from the database by
 `20261110160100_drop_unowned_objects.sql` (#1890). No endpoint claims a
 `guest_compute_turns` or `account_compute_turns` unit, and no `429` or
-`503` is answered for one. `GET /me/usage` reports conversation as
-unbounded and never projects such a counter.
+`503` is answered for one. The retired `GET /me/usage` reported conversation as
+unbounded and never projected such a counter.
 
 Supported rate-limit headers where applicable:
 - `X-RateLimit-Limit`
@@ -3180,166 +3180,9 @@ for a fresh one.
 
 ## `GET /me/usage`
 
-Return the authenticated account's current allowance truth keyed by operation
-class. This is an owner-only read surface. The backend returns zero-state
-windows when a counter row does not exist; reading usage does not create or
-increment a counter.
-
-Three operation classes, one meter each:
-
-| Class | Covers | Metered |
-| --- | --- | --- |
-| `compute` | Conversation: interpretation, answers, clarifications, edits | Never. Free and unlimited. |
-| `grounding` | A retrieval that produces cited facts | Per retrieval. |
-| `execution` | A backtest run | Per unique durable admission. |
-
-**Response (registered account, research rail on):**
-```json
-{
-  "allowances": {
-    "compute": {
-      "hour": null,
-      "day": null,
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": null
-    },
-    "grounding": {
-      "hour": null,
-      "day": null,
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": null
-    },
-    "execution": {
-      "hour": {
-        "limit": 10,
-        "used": 1,
-        "remaining": 9,
-        "period_end": "2026-07-21T15:00:00Z"
-      },
-      "day": {
-        "limit": 50,
-        "used": 4,
-        "remaining": 46,
-        "period_end": "2026-07-22T00:00:00Z"
-      },
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": "hour"
-    }
-  }
-}
-```
-
-**Response (guest whose workspace allowance is spent):**
-```json
-{
-  "allowances": {
-    "compute": {
-      "hour": null,
-      "day": null,
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": null
-    },
-    "grounding": {
-      "hour": null,
-      "day": {
-        "limit": 3,
-        "used": 1,
-        "remaining": 2,
-        "period_end": "2026-07-22T00:00:00Z"
-      },
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": "day"
-    },
-    "execution": {
-      "hour": null,
-      "day": {
-        "limit": 2,
-        "used": 0,
-        "remaining": 2,
-        "period_end": "2026-07-22T00:00:00Z"
-      },
-      "guest_session": {
-        "limit": 2,
-        "used": 2,
-        "remaining": 0,
-        "period_end": "2026-07-27T14:03:09Z"
-      },
-      "available_now": false,
-      "limiting_window": "guest_session"
-    }
-  }
-}
-```
-
-**Allowance semantics:**
-- Every class carries the same five keys. An unbounded class has every window
-  `null`, `available_now: true`, and `limiting_window: null`. `compute` is
-  always unbounded. `grounding` is unbounded for a signed-in account while the
-  research rail is on: the per-account research cap and the shared daily
-  ceiling are anti-abuse circuit breakers rather than allowance windows and
-  are not projected here.
-- `grounding` reports the counter the live retrieval rail claims. Rail on, that
-  is `research_searches`: guests receive the visitor-owned UTC `day` window of
-  three. Rail off, it is `discovery_searches`: guests receive two per visitor
-  day and signed-in accounts receive the discovery `hour` and `day` windows.
-- `execution` reports the `backtest_runs` counters charged by unique durable
-  simulation admission. Registered accounts receive both UTC calendar windows.
-  Guests receive the visitor-owned UTC `day` window and the workspace-lifetime
-  `guest_session` window, whose `period_end` is the fixed workspace expiry,
-  because admission enforces both.
-- Every populated window carries the exact backend-owned `period_end`; clients
-  may localize its display, but must not infer or replace it with a countdown,
-  local timer, or `Retry-After` value.
-- `remaining` is computed by the backend as `max(limit - used, 0)`. Settlement
-  is truthful accounting, not a ceiling: `used` may exceed `limit` after
-  concurrent in-flight admissions settle, and `remaining` clamps at zero.
-- `available_now` is backend-derived and true only when every window the class
-  carries has capacity. A guest whose workspace counter is at 2/2 reads
-  `available_now: false` even after the visitor day has reset (#546).
-- `limiting_window` is backend-derived: the window with the smaller remaining
-  capacity, and on ties the window whose `period_end` is later (`day` over
-  `hour`; for a guest, whichever of `day` and `guest_session` ends later, which
-  on the workspace's final calendar day is `day`). The frontend must not compute, estimate, or
-  hardcode quota truth; it renders these derived fields and reads
-  `limiting_window` to choose which reset horizon to show.
-- The UI emphasizes the daily allowance, reveals the hourly window whenever
-  `limiting_window` is `hour`, and reveals the workspace window whenever it is
-  `guest_session`.
-- `messages` and `backtests` are deprecated aliases of `compute` and
-  `execution`, present in every response (omitted from the examples above)
-  so deployed web bundles keep a stable shape during the rollout, as `GET /me`
-  does for `onboarding`. They are derived from the classes, marked
-  `deprecated` in the OpenAPI artifact, and are removed after the first
-  promotion that carries the operation-class keys. New clients must not read
-  them.
-
-**Accounting semantics:**
-- Conversation is compute. Ordinary turns settle no allowance at entry or at
-  their terminal outcome, are never rejected for an exhausted allowance, and
-  write no `chat_messages` row; that resource survives only in historical rows.
-  A guest turn additionally counts one unit against the silent anti-abuse
-  ceiling described under Rate Limiting, in the same terminal transaction; that
-  counter is not an allowance and is not projected here.
-- Grounding capacity is claimed atomically immediately before billable
-  provider work (see the research rail section); cache hits, unconfigured
-  providers, and replays claim nothing.
-- `chat.run_backtest` action turns consume the execution allowance at unique
-  durable admission; replays and pre-admission rejections (including
-  data-window preflight) consume zero, and a post-admission execution or
-  finalization failure still counts exactly one. Chat and direct API launches
-  follow the same rule.
-
-**Error rules:**
-- `401 Unauthorized`: authentication is missing or invalid.
-- `403 Forbidden`: the authenticated identity no longer has private-alpha
-  access.
-- `500 Server Error`: durable usage truth is unavailable outside the explicit
-  development fallback mode.
+**Retired (#2001).** The investing usage panel and its allowance projection are
+removed. This endpoint is not served and returns 404. Business document-read
+usage and budgets retain their existing owners.
 
 ## `GET /market/session`
 
@@ -4956,9 +4799,9 @@ Contract rules:
   through `release_research_usage`, the same way a guest question is
   returned. Every provider attempt also uses the shared ceiling.
   `ARGUS_RESEARCH_GLOBAL_DAILY_CEILING` defaults to `5000`.
-  `GET /me/usage` still leaves signed-in `grounding` unbounded: the
+  The retired `GET /me/usage` left signed-in `grounding` unbounded: the
   per-account research cap is anti-abuse, not an allowance window.
-  `GET /me/usage` projects this meter as the `grounding` operation class.
+  The retired `GET /me/usage` projected this meter as the `grounding` operation class.
   Ordinary chat turns, cache hits, unconfigured-provider paths, and idempotent
   persisted thorough-job replays do not claim capacity. An unreadable or
   unwritable
