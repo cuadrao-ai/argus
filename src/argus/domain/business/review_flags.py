@@ -12,8 +12,6 @@ from decimal import Decimal
 
 from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
-    amount_or_zero,
-    money_text,
 )
 from argus.domain.business.contracts.dossier import ReviewFlag
 from argus.domain.business.contracts.facts import BusinessFacts, Known
@@ -23,7 +21,11 @@ from argus.domain.business.fiscal_identity import (
     normalized_ncf,
     rnc_check_digit_ok,
 )
-from argus.domain.business.purchase_review import net_amount
+from argus.domain.business.purchase_review import (
+    amount_parts,
+    exact_amount_text,
+    net_amount,
+)
 from argus.domain.business.rnc_registry import RncRegistry, UnknownRncRegistry
 
 ITBIS_RATE = Decimal("0.18")
@@ -74,14 +76,11 @@ def review_flags(
         flags.append(ReviewFlag(code="itbis_high", field="itbis", confirm=False))
     net = net_amount(facts, declaration)
     if total is not None and itbis is not None and net.amount is not None:
-        tip = _known(facts.legal_tip)
-        if tip is None:
-            tip = getattr(declaration, "legal_tip", None)
-        difference = Decimal(total) - Decimal(net.amount) - Decimal(itbis) - amount_or_zero(tip)
+        difference = Decimal(total) - Decimal(net.amount) - sum(amount_parts(facts, declaration))
         if abs(difference) > Decimal("0.01"):
             flags.append(ReviewFlag(
                 code="amounts_mismatch", field="amount", confirm=False,
-                difference=money_text(difference),
+                difference=exact_amount_text(difference),
             ))
     return tuple(flags)
 

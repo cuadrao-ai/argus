@@ -96,6 +96,36 @@ def amount_is_derived(
     )
 
 
+def exact_amount_text(value: Decimal) -> str:
+    return format(value, f".{max(2, -value.as_tuple().exponent)}f")
+
+
+AMOUNT_PARTS = ("itbis", "legal_tip", "selective_tax", "other_taxes")
+
+
+def amount_parts(
+    facts: BusinessFacts | None = None,
+    declaration: DgiiDeclaration | None = None,
+    *,
+    itbis: str | None = None,
+    legal_tip: str | None = None,
+) -> tuple[Decimal, ...]:
+    if facts is not None:
+        _, known_itbis = total_and_itbis(facts)
+        itbis = known_itbis if known_itbis is not None else itbis
+        if isinstance(facts.legal_tip, Known):
+            legal_tip = facts.legal_tip.value
+        elif facts.legal_tip.origin is not None:
+            legal_tip = "0"
+    values = {
+        "itbis": itbis,
+        "legal_tip": legal_tip if legal_tip is not None else getattr(declaration, "legal_tip", None),
+        "selective_tax": getattr(declaration, "selective_tax", None),
+        "other_taxes": getattr(declaration, "other_taxes", None),
+    }
+    return tuple(amount_or_zero(values[name]) for name in AMOUNT_PARTS)
+
+
 def net_amount(
     facts: BusinessFacts | None = None,
     declaration: DgiiDeclaration | None = None,
@@ -112,19 +142,13 @@ def net_amount(
                 amount=stated.value,
                 source="read" if stated.origin in {"extracted", "qr_decoded"} else "edited",
             )
-        total, itbis = total_and_itbis(facts)
-        legal_tip = facts.legal_tip.value if isinstance(facts.legal_tip, Known) else None
+        known_total, known_itbis = total_and_itbis(facts)
+        total = known_total if known_total is not None else total
+        itbis = known_itbis if known_itbis is not None else itbis
     if total is None:
         return NetAmount(amount=None, source=None)
-    tip = legal_tip if legal_tip is not None else getattr(declaration, "legal_tip", None)
-    value = (
-        Decimal(total)
-        - amount_or_zero(itbis)
-        - amount_or_zero(tip)
-        - amount_or_zero(getattr(declaration, "selective_tax", None))
-        - amount_or_zero(getattr(declaration, "other_taxes", None))
-    )
-    return NetAmount(amount=format(value, f".{max(2, -value.as_tuple().exponent)}f"), source="calculated")
+    value = Decimal(total) - sum(amount_parts(facts, declaration, itbis=itbis, legal_tip=legal_tip))
+    return NetAmount(amount=exact_amount_text(value), source="calculated")
 
 
 def derived_amount(

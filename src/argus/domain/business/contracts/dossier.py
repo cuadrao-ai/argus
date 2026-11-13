@@ -274,6 +274,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "net_amount": True,
     "inheritance": True,
     "facts": {"net_amount", "legal_tip"},
+    "dgii": {"itbis"},
     "current_note": True,
     "note_edit_available": True,
     "supporting_append_available": True,
@@ -296,6 +297,8 @@ _UNMEASURED_DOSSIER_FIELDS = {
             "after_current_note": True,
             "before": {"net_amount", "legal_tip"},
             "after": {"net_amount", "legal_tip"},
+            "before_dgii": {"itbis"},
+            "after_dgii": {"itbis"},
         }
     },
 }
@@ -306,10 +309,14 @@ _UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split", "montos")
 
 def _unmeasured_removed(source: dict[str, Any]) -> dict[str, Any]:
     if source["kind"] != "web_action" or not any(
-        f'"{name}"' in source["text"] for name in _UNMEASURED_REVIEW_INPUT
+        f'"{name}"' in source["text"] for name in (*_UNMEASURED_REVIEW_INPUT, "itbis")
     ):
         return source
     command = json.loads(source["text"])
     for name in _UNMEASURED_REVIEW_INPUT:
         command.get("request", {}).pop(name, None)
+    request = command.get("request", {})
+    for declaration in ((request.get("dgii") or {}).get("declaration"), request.get("purchase")):
+        if isinstance(declaration, dict):
+            declaration.pop("itbis", None)
     return {**source, "text": web_action_text(command)}

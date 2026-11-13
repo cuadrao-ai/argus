@@ -346,6 +346,8 @@ def record_issues(
         ):
             issue("fiscal_payment_total_conflict", "cash")
     if not issues:
+        from argus.domain.business.purchase_review import net_amount
+
         base = (
             amount_or_zero(declaration.services_amount)
             + amount_or_zero(declaration.goods_amount)
@@ -362,6 +364,9 @@ def record_issues(
         )
         if isinstance(declaration, PurchaseDeclaration) and base <= 0:
             issue("fiscal_billed_amount_must_be_positive", "billed_amount")
+        net = net_amount(record.facts, declaration)
+        if isinstance(declaration, PurchaseDeclaration) and net.amount is not None and base != Decimal(net.amount):
+            issue("fiscal_invoice_total_conflict", "amount")
         if gross != Decimal(record.amount):
             issue("fiscal_invoice_total_conflict", "amount")
         if base >= MONEY_LIMIT:

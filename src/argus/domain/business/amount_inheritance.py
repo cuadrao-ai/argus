@@ -73,14 +73,13 @@ def inherit_amounts(
         for name, state in inheritance_state(facts, declaration, overrides, paid=paid).items()
         if state.inherited
     }
-    # Fiscal values use the form's precision and limit; incomplete source facts
-    # stay blank until they can fit, as the existing 606 derivation does.
     from argus.domain.business.contracts.dgii import MONEY_LIMIT, money_text
 
     for name, value in changes.items():
         if name != "paid_on" and value is not None:
             amount = Decimal(value)
-            changes[name] = money_text(amount) if 0 <= amount < MONEY_LIMIT else None
+            rounded = money_text(amount)
+            changes[name] = rounded if 0 <= amount and Decimal(rounded) < MONEY_LIMIT else None
     return declaration.model_copy(update=changes)
 
 
@@ -101,8 +100,11 @@ def inheritance_overrides(
         }
         if amount_derived:
             overrides.difference_update(AMOUNT_SIDES)
+        elif isinstance(stored, PurchaseDeclaration) and any(getattr(stored, side) is not None for side in AMOUNT_SIDES):
+            overrides.update(AMOUNT_SIDES)
     else:
         overrides = set(previous)
+    overrides.update(written)
     if declared is not None:
         for name, (form, _) in INHERITANCE.items():
             if form is not None and declared.form != form:
