@@ -3,12 +3,19 @@ from dataclasses import replace
 from decimal import Decimal
 from uuid import UUID
 
-from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts, Known
+from argus.domain.business.contracts.facts import (
+    BusinessFacts,
+    FiscalFacts,
+    Known,
+    Unknown,
+)
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.export import sheet_rows
 from argus.domain.business.month_close import (
+    Settlement,
     formato_totals,
     month_period,
+    project_documents,
     read_fiscal,
     sales_base,
 )
@@ -18,6 +25,7 @@ from argus.domain.business.reporting_preferences import Presentation
 from argus.domain.business.reporting_projection import project
 from argus.domain.business.reporting_store import RecordedRecord
 
+from tests.business.test_business_export import activity
 from tests.business.test_business_reporting_query import record, run
 from tests.business.test_month_close import document
 from tests.dgii.test_packet import practice_records
@@ -182,6 +190,19 @@ def test_registros_projects_read_net_difference_and_fiscal_override_separately()
     assert result.itbis_amount == "180"
     assert result.inheritance["itbis"].value == "180"
     assert result.inheritance["itbis"].inherited is False
+    credit_facts = supplied.model_copy(
+        update={
+            "kind": known("credit_purchase"),
+            "occurred_on": known(base.occurred_on),
+        }
+    )
+    credit = replace(recorded, approved=replace(approved, facts=credit_facts))
+    assert project(credit, None, {}, None).inheritance["paid_on"].value is None
+    settled = replace(
+        credit, settlement=Settlement("pagado", base.occurred_on, "efectivo")
+    )
+    paid_on = project(settled, None, {}, None).inheritance["paid_on"]
+    assert (paid_on.value, paid_on.inherited) == (base.occurred_on.isoformat(), True)
 
 
 def test_negative_calculated_net_is_signed_without_changing_gross_totals():
@@ -189,3 +210,23 @@ def test_negative_calculated_net_is_signed_without_changing_gross_totals():
     totals = {total.basis: total for total in answer.totals}
     assert totals["document_net_family_amount"].amount == "-25.00"
     assert totals["document_family_amount"].amount == "100.00"
+
+
+def test_legacy_activity_total_keeps_read_tip_when_fact_total_is_unknown():
+    purchase_facts = facts().model_copy(update={"amount": Unknown()})
+    saved = activity(amount="1280.00", amount_minor=128000)
+    [projected] = project_documents(
+        [saved],
+        [
+            {
+                "activity_id": saved["activity_id"],
+                "resolution": {
+                    "business": {"facts": purchase_facts.model_dump(mode="json")}
+                },
+            }
+        ],
+        {},
+        "space",
+    )
+    assert projected.net_amount_minor == 100000
+    assert projected.total_minor == 128000

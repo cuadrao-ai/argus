@@ -719,7 +719,9 @@ def _known(fact: object) -> object | None:
     return fact.value if isinstance(fact, Known) else None
 
 
-def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
+def read_fiscal(
+    resolution: Mapping | None, currency: str, *, total_minor: int | None = None
+) -> FiscalParts:
     """RNC, fiscal number, ITBIS, marks, counterparty, and due date from one draft.
 
     An unreadable draft contributes no fiscal parts. The activity total is not
@@ -763,7 +765,16 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         parsed.dgii.payment_method
         if isinstance(parsed.dgii, PurchaseDeclaration)
         else None,
-        net_amount_minor=itbis_or_none(net_amount(facts, parsed.dgii).amount, currency),
+        net_amount_minor=itbis_or_none(
+            net_amount(
+                facts,
+                parsed.dgii,
+                total=format_minor_units(total_minor, currency)
+                if total_minor is not None
+                else None,
+            ).amount,
+            currency,
+        ),
         document_type=parsed.document_type,
     )
 
@@ -824,7 +835,9 @@ def project_documents(
             continue
         activity_id = str(activity["activity_id"])
         parts = read_fiscal(
-            latest.get(activity_id, {}).get("resolution"), activity["currency"]
+            latest.get(activity_id, {}).get("resolution"),
+            activity["currency"],
+            total_minor=int(activity["amount_minor"]),
         )
         document_type = parts.document_type or money_document_type(activity["kind"])
         documents.append(

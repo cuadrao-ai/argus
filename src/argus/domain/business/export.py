@@ -243,7 +243,7 @@ def sheet_rows(
         purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
         itbis = _known(getattr(facts.fiscal, "itbis", None))
         settlement = document_settlement(row, settlements)
-        net = net_amount(facts, declaration).amount
+        net = net_amount(facts, declaration, total=row["amount"]).amount
         sheet.append(
             {
                 "Fecha": row["occurred_on"],
