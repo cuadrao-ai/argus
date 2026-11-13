@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from argus.api.message_store import message_preview
+from argus.api.chat.previews import stored_message_preview as message_preview
 
 
 def test_message_preview_renders_markdown_as_plain_text() -> None:

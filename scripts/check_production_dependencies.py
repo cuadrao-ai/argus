@@ -39,7 +39,7 @@ ENTRY_POINTS = (
     "workflows.document_worker",
     "workflows.document_job",
 )
-SMOKE_ENTRY_POINT = "argus.api.chat.backtest_jobs"
+SMOKE_ENTRY_POINT = "argus.agent_runtime.business.runner"
 
 
 @dataclass(frozen=True)

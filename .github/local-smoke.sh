@@ -222,36 +222,6 @@ PYTHON
   echo "production_import_probe=ready"
 }
 
-run_workflow_probe() {
-  poetry run python - <<'PY'
-import os
-
-from workflows.trigger_proof import _task_id
-from argus.api.chat import backtest_jobs
-
-mode = os.environ["ARGUS_LOCAL_SMOKE_WORKFLOW_MODE"]
-task = os.environ["ARGUS_BACKTEST_WORKFLOW_TASK"]
-real_task = os.environ["ARGUS_BACKTEST_REAL_WORKFLOW_TASK"]
-
-if _task_id(task) != task:
-    raise SystemExit("workflow proof task id mismatch")
-if real_task != "argus-backtests/run_backtest_job":
-    raise SystemExit("real workflow task id mismatch")
-
-shadow = backtest_jobs.backtest_jobs_shadow_enabled()
-dispatch = backtest_jobs.backtest_jobs_dispatch_enabled()
-execution = backtest_jobs.backtest_workflow_execution_enabled()
-if mode == "safe-off" and (shadow or dispatch or execution):
-    raise SystemExit("safe-off workflow flags are not off")
-if mode == "proof-shadow" and not shadow:
-    raise SystemExit("proof-shadow did not enable shadow job bookkeeping")
-if dispatch or execution:
-    raise SystemExit("local smoke must not dispatch or execute Render workflows")
-
-print("workflow_probe=ready")
-PY
-}
-
 wait_for_url() {
   local label="$1"
   local url="$2"
@@ -386,7 +356,6 @@ if [ "$CONTRACT_ONLY" = true ]; then
 fi
 
 run_production_import_probe
-run_workflow_probe
 start_api
 start_web
 wait_for_url "api_health" "${API_URL}/health"
