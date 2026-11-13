@@ -35,6 +35,18 @@ def _equal(left: object, right: object) -> bool:
     return Decimal(str(left)) == Decimal(str(right))
 
 
+def inherits(
+    target: str, current: object, expected: object, overrides: tuple[str, ...] | None
+) -> bool:
+    """Whether a declaration field follows its source. A recorded override
+    never does, even when empty: a person cleared it. A draft saved before
+    overrides were recorded follows the source while empty or equal to it."""
+
+    if overrides is not None:
+        return target not in overrides
+    return current is None or _equal(current, expected)
+
+
 def inheritance_state(
     facts: BusinessFacts,
     declaration: DgiiDeclaration | None,
@@ -58,8 +70,9 @@ def inheritance_state(
             continue
         expected = getattr(split, target) if target in AMOUNT_SIDES else sources[source]
         current = getattr(declaration, target)
-        inherited = target not in overrides if overrides is not None else current is None or _equal(current, expected)
-        result[target] = InheritedValue(field=source, value=_text(expected), inherited=inherited)
+        result[target] = InheritedValue(
+            field=source, value=_text(expected), inherited=inherits(target, current, expected, overrides)
+        )
     return result
 
 

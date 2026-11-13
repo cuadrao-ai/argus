@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+from argus.domain.business.amount_inheritance import inherits
 from argus.domain.business.contracts.dgii import (
     MONEY_LIMIT,
     DgiiDeclaration,
@@ -79,10 +80,13 @@ def declarable(currency: str) -> bool:
 
 
 def fact_value(record: FiscalRecord, name: str) -> str | None:
-    if name == "itbis" and record.declaration is not None and record.declaration.itbis is not None:
-        return record.declaration.itbis
     fact = getattr(record.facts.fiscal, name, None)
-    return fact.value if isinstance(fact, Known) else None
+    value = fact.value if isinstance(fact, Known) else None
+    if name == "itbis" and record.declaration is not None:
+        declared = record.declaration.itbis
+        if declared is not None or not inherits(name, declared, value, record.fiscal_overrides):
+            return declared
+    return value
 
 
 def is_credit(record: FiscalRecord) -> bool:
