@@ -36,6 +36,11 @@ feature flag is enabled. Historical payloads, examples and behavior below are
 retained as history only; this retirement ledger supersedes those descriptions.
 Conversation catch-all refusals do not implement the retired operations.
 
+The web chat stream and starter-prompt operations were also retired in #2001.
+Their endpoint descriptions have been removed below. Historical investing
+admission, action and result contracts describe compatibility data only; they
+do not enable a writer, an execution endpoint or a Personal conversation.
+
 | Method | Path | Status |
 | --- | --- | --- |
 | `GET` | `/api/v1/computations/answers` | Retired |
@@ -116,12 +121,6 @@ preferences remain read-only compatibility metadata.
 
 Every backtest run must be reproducible from its `config_snapshot`. Defaults must be persisted, and result cards must show the assumptions used during execution.
 
-## First Use Is Ordinary Chat
-
-There is no explicit onboarding flow. Authentication leads directly into
-normal chat, localized generic starter prompts reduce blank-page friction,
-and the first successful backtest is the meaningful onboarding milestone.
-
 ## Ask Only What Improves the Next Useful Response
 
 Do not block users with friction. Language is chosen at signup and improves comprehension. Everything else should be delayed until contextually useful or derived through conversation.
@@ -138,7 +137,6 @@ Language preference is global, persistent, and reversible. Changing language upd
 Base URL: /api/v1
 Transport: HTTPS
 Format: JSON
-Streaming: SSE for chat
 Auth: Supabase Auth session cookie or bearer token
 Timezone: UTC server-side
 
@@ -433,8 +431,8 @@ every replay deterministic.
 <a id="contract-request-boundaries"></a>
 ### Chat request-size and RFC 9457 ownership
 
-These are Argus-owned limits for `POST /api/v1/chat/stream`; provider token or
-gateway defaults do not define the product contract.
+These retained schema/security limits describe historical chat payloads, not a
+served chat endpoint. Provider token or gateway defaults never defined them.
 
 | Boundary | Inclusive maximum |
 | --- | ---: |
@@ -516,16 +514,9 @@ allowlist. Documentation-only fields (`description`, `summary`, `operationId`,
 `tags`, examples, and external documentation links) do not participate in the
 structural comparison.
 
-One manual streaming difference is approved: for the
-`POST /api/v1/chat/stream` 200 `text/event-stream` response body, the gate
-normalizes FastAPI's generated success media type to `text/event-stream` and
-excludes only that success body schema from comparison. The checked artifact
-may then describe SSE events and examples precisely. The route, method, header
-parameter name/schema, request schema, 200 status, and all RFC 9457 error
-statuses/media/schema remain structural gate inputs. The conditional
-requirement that the header equal `confirmation_id` for `run_backtest` is
-semantic text because OpenAPI cannot express that body/header dependency. There
-are no other schema or public-route exclusions.
+The retired chat streaming success-body exception no longer describes a public
+operation. The retained conversation reads use their generated response schemas;
+no replacement chat endpoint is introduced.
 
 <a id="contract-run-action-reconciliation"></a>
 ### Stable Run action identity and ambiguous-result reconciliation
@@ -594,21 +585,12 @@ confirmation as unsuccessful. A timeout, disconnect, fetch exception, empty
 response, or `404` lookup alone must never produce `could_not_run`.
 
 <a id="contract-chat-turn-lifecycle"></a>
-### Durable ordinary chat-turn lifecycle
+### Retained chat-turn lifecycle reads
 
-Supabase owns one current lifecycle row for every accepted non-backtest chat
-turn. Here, an ordinary turn is an accepted `POST /api/v1/chat/stream` request
-that is not admitted under `operation_scope = chat.run_backtest`; it includes
-message-only requests and all other supported structured chat actions.
-`chat.run_backtest` is excluded because `backtest_jobs` owns that action's
-durable execution and recovery state. This record is recovery truth, not a
-second queue, chat brain, transcript, or replacement for LangGraph checkpointer
-state.
-
-Acceptance occurs only after auth, request validation, quota, conversation
-ownership, and the durable user message plus lifecycle row succeed. The server
-preallocates one `turn_id` and uses it as the user `request_message_id`, so one
-accepted user message maps to one lifecycle identity.
+Existing lifecycle rows remain readable through Business conversation history.
+The retired web chat request boundary and runtime no longer create these turns.
+The persisted terminal metadata and read-time recovery rules below continue to
+interpret historical rows; they do not expose a new chat writer.
 
 Every terminal assistant message for this ordinary turn persists immutable
 `metadata.agent_runtime_turn` with `turn_id`, the lifecycle `request_id`,
@@ -617,14 +599,16 @@ recoverable-failure message also stores `failure_code` and `retryable`. This
 metadata is written with the terminal message before the lifecycle CAS, so it
 remains discoverable if that CAS is the interrupted operation.
 
-| State | Meaning | Transition owner |
-| --- | --- | --- |
-| `accepted` | User message and lifecycle identity are durable; runtime work has not started. | Chat request boundary transaction |
-| `running` | LangGraph/runtime work has started for the accepted turn. | Runtime worker before the first graph operation |
-| `completed` | Terminal assistant message/artifact is durable. Network delivery is irrelevant. | Terminal message persistence/finalizer |
-| `recoverable_failed` | Existing terminal runtime-failure owner persisted safe recovery and any retry metadata. | Terminal failure guard/message store |
-| `abandoned` | A stale accepted/running turn has no durable success or failure proof after the reconciliation window. | Server reconciler |
-| `reconciled` | The normal terminal transition was missing, but durable evidence proves `completed` or `recoverable_failed`. | Server reconciler |
+| State | Persisted meaning |
+| --- | --- |
+| `accepted` | User message and lifecycle identity are durable. |
+| `running` | Runtime work had started for the accepted turn. |
+| `completed` | A terminal assistant message/artifact is durable. |
+| `recoverable_failed` | A terminal failure and retry metadata were persisted. |
+| `abandoned` | A stale turn has no durable success or failure proof. |
+| `reconciled` | Durable evidence proves `completed` or `recoverable_failed`. |
+
+Server reconciler behavior remains part of the retained read path.
 
 Allowed transitions are `accepted -> running`, `accepted|running -> completed`,
 `accepted|running -> recoverable_failed`, `accepted|running -> abandoned`, and
@@ -644,8 +628,7 @@ disconnect/cancellation never marks a turn failed or abandoned by itself;
 process loss and incomplete terminal persistence belong to reconciliation.
 
 An `accepted` or `running` row becomes stale after `15 minutes` according to the
-database clock and `stale_since = COALESCE(running_at, accepted_at)`. Before the
-next chat POST for that conversation and before returning
+database clock and `stale_since = COALESCE(running_at, accepted_at)`. Before returning
 `GET /conversations/{id}/messages`, the server selects at most `20` stale rows
 for that conversation in deterministic `stale_since ASC, turn_id ASC` order;
 private alpha adds no background sweeper.
@@ -3627,32 +3610,15 @@ chat turn recalls no saved memory, and `POST /memory/candidates` and
 when a source is a Business conversation, one of its messages, or evidence it
 produced.
 
-**Business chat.** `CUADRAO_BUSINESS_CHAT_ENABLED` (older `ARGUS_BUSINESS_CHAT_ENABLED`) is a default-off flag nested
-inside `CUADRAO_BUSINESS_PILOT_ENABLED` (older `ARGUS_BUSINESS_PILOT_ENABLED`); Business chat stays off until Business
-turns have their own tool restrictions. While it is off (or the pilot is off),
-`POST /conversations` with `surface: business` and every turn or card action on
-a Business conversation answer 404 `business_chat_unavailable` with
-`Cache-Control: no-store`, before any model or provider work:
-`POST /chat/stream`, `POST /backtests/run` with its `conversation_id`, and the
-`continue`, `computation/refresh`, `tool-results/{id}/recompute`,
-`confirmations/{id}/peer-assets` and `confirmations/{id}/direct-edit` routes.
-The pilot flag is checked first, so creating with the pilot off still answers
-`business_unavailable`. Reading, renaming and deleting existing Business
-conversations keep working, so their owner can see and delete them. Every
-`POST` under `/conversations/{conversation_id}` must declare its side, Business
-chat or Personal only; `tests/test_business_chat_flag.py` enforces this.
-`GET /business/workspace` reports the flag as `chat_available`.
-
-## `GET /chat/starter-prompts`
-
-Returns the localized generic starter prompts for the signed-in user's profile
-language. Requires a session.
-
-```json
-{ "prompts": ["string"] }
-```
-
----
+**Business conversation creation.** `CUADRAO_BUSINESS_CHAT_ENABLED` (older
+`ARGUS_BUSINESS_CHAT_ENABLED`) remains default-off inside the Business pilot
+switch. `POST /conversations` refuses with `business_chat_unavailable` while
+it is off; the pilot check runs first and returns `business_unavailable` when
+appropriate. `GET /business/workspace` reports `chat_available`. Reading,
+renaming and deleting existing Business conversations remain available under
+their existing scope checks. This capability does not restore retired stream,
+starter-prompt or card-action endpoints. WhatsApp intake uses its separate
+Business runtime, not a web chat endpoint.
 
 ## `GET /conversations`
 
@@ -3959,127 +3925,13 @@ stores nothing and makes no LLM, provider, or market-data call.
 
 ---
 
-# 12. Chat Streaming Endpoint
+# 12. Retained conversation payload compatibility
 
-`POST /chat/stream` accepts optional `failed_assistant_id: string | null`
-(1 to 128 characters when supplied). Retry sends the failed assistant reply's
-message ID alongside the original question or structured action, both live and
-after reload. The API accepts the ID only when it identifies this conversation's
-latest assistant reply and that reply has `recovery.retryable: true`. Validation
-and history selection use the same owned newest 20-message snapshot, augmented
-by the bounded imported shared context, in chronological order. This includes
-Supabase-backed conversations and needs no separate retry-validation read.
-Other IDs are ignored and
-are not persisted. The API stores an accepted ID as
-`metadata.failed_assistant_id` on the new user message, preserving any original
-`chat_action` metadata. This also applies to canonical `run_backtest` retries:
-their user-message ID is stable per confirmation and failed reply, so the retry
-is saved after the failure without changing the backtest execution identity.
-
-For that retry turn, runtime history omits only the assistant message with that
-ID from the owned conversation. The question and every other reply, including
-degraded answers, remain eligible for history. An absent, unmatched, stale, or
-nonretryable ID drops nothing. Once an assistant reply follows the persisted
-retry request, later turns omit that same failed reply through the durable retry
-link, subject to the same validation against the preceding latest assistant.
-If the retry stream is interrupted, the next ordinary user turn clears its
-pending retirement; a later assistant cannot complete that abandoned link. The legacy
-`chat_action.type: retry_last_turn` / `payload.failed_assistant_id` link remains
-read-compatible. Matching repeated question text alone does not remove replies
-from model history; that compatibility behavior belongs to transcript display.
-
-### Declared tool calls and results
-
-The neutral transport `ToolCall` is `{tool_name, call_id, arguments}`. Each
-declaration supplies its callable's typed argument and return schemas. Calls are
-ordered, bounded by `MAX_TOOL_CALLS`, and have distinct call IDs. The dispatcher
-supports different tools and repeated calls; a local call bypasses backtest
-launch preparation. The existing validated Run action enters this dispatcher
-with its confirmed canonical strategy.
-
-The interpreter retains its seven intents and reads no calculation. Since Any
-grounded math the answering step returns one typed `calculation` beside its
-prose (see Calculation turns); the kinds and argument names it reads are
-generated from the declarations, so the catalogue the model sees and the math
-that runs share one owner. The model never emits a `ToolCall` itself: the
-runtime validates the calculation against the declaration and dispatches the
-call.
-
-An actual invocation emits `stage_start.tool_progress` containing
-`{locale_key, interpolation_args, call_id, tool_name}`. Interpolation values are
-typed argument facts; the client selects localized copy from `locale_key`.
-Stage-only events carry operational state and display a neutral loader. They do
-not imply strategy extraction, backtest execution, or metric calculation.
-
-Final payloads and persisted assistant metadata carry `tool_result_cards` as a
-list. Each card is `{kind: "tool_result", schema_version: 1, tool_name, call_id,
-artifact_id, input_revision, card_type, card_version, arguments, outcome,
-presentation, artifact_state}`. The outcome status is `succeeded`, `invalid`,
-`ambiguous`, `bounded`, or `unavailable`. Only success has a typed result;
-unsuccessful outcomes contain a failure code and affected field names and cannot
-present an answer. The declaration validates the result before projecting it.
-`presentation` contains a localized title, answer, supporting rows, inputs,
-notes, and optional narrative, public source citations and a typed visual.
-Facts retain their raw value; optional `value_text` supplies localized display
-for typed tokens. Input facts preserve units, editability and the retained
-unknown. Their `visibility` defaults to `private`; a declaration explicitly
-marks shareable input facts `public`. This display contract does not
-replace any tool's argument or result model.
-
-Supporting row facts may carry `comparison_only: true` (absent means false).
-These facts participate in answer comparisons but are omitted from displayed
-card rows, card copy text and public receipts. Ranked comparisons retain a
-`gap_0` fact with value zero for the first item this way: every item's gap can
-be paired by item identity when the leader changes, without an extra zero row.
-
-Additive since the calculations lane (2026-09-11): every fact may carry a
-`source`, `{kind, title?, url?, date?}`, where `kind` is `user` (the user
-stated it), `page` (a retrieved page, which alone carries its title, url and
-`YYYY-MM-DD` date), `market_data` (Argus's own market data, carrying only the
-date of its bar), `assumption` (a figure the answer states as an assumption,
-carrying no citation), `computed` (derived from the other inputs; every answer
-and row) or `not_found` (readable on older cards, no longer produced). Cards
-written before this lane carry no source and remain readable. An input fact
-also carries `driving`: the declaration names the inputs that drive its result,
-most telling first, and a card marks at most five of them that carry a value,
-never the retained unknown; a computed answer's card starts collapsed under the
-prose and shows only those inputs, never a blank one. An unsuccessful
-outcome's `failure` may carry a typed `repair`, `{kind: "set_inputs", label,
-changes}`, an argument edit the recompute route accepts that the client offers
-as a tap; the backend computed it, the client never invents one. `visual.kind`
-also admits `value_path`, a computed path over dated periods such as a balance
-paid down. An argument model may carry its inputs' provenance under the one
-field `sources`, keyed by field name; the declaration projects it onto the
-card, the retained unknown reads as `computed`, an input the call left to its default is
-recorded as `assumption`, and an edited input is marked `user` by the recompute path.
-
-`tool_jobs` retains asynchronous work as
-`[{call_id, tool_name, artifact_id, job}]`. Existing job polling and result-message
-publication resolve each entry independently, including repeated calls and
-out-of-order completions. The legacy `result_card` still identifies a backtest;
-general tools never manufacture runs or use that key to force publication.
-
-`POST /conversations/{conversation_id}/tool-results/{artifact_id}/recompute`
-takes `{message_id, input_revision, arguments}`, where `arguments` is a nonempty
-partial edit. Only a declared local, unconfirmed, editable tool is eligible.
-The endpoint verifies ownership, current message/card liveness and revision,
-retains the original unknown, validates all cross-argument rules, and invokes
-the same callable. Zero remains a known input. It returns `{message}` after a
-guarded update of the same artifact with its next revision; it adds no chat turn.
-Missing/foreign results return 404, dead artifacts return
-`409 artifact_action_invalid_state`, stale revisions or racing writes return
-`409 tool_result_changed`, and rejected inputs return
-`422 tool_arguments_invalid`. A missing or incompatible declaration binding
-returns `422 tool_inputs_not_editable`.
-
-When the recomputed card belongs to a free calculation, the same write stores
-`metadata.computation` derived from every free calculation card the message
-carries, in order, by its one owner (`argus.domain.computation_marker`), so the
-marker and the cards never disagree and a decision saved afterward stores every
-option's current inputs. When the answer stated its figures through
-`metadata.answer_text_template`, `content` is re-rendered from every card the
-template names; a card that no longer computes hands the prose to Argus's own
-lead.
+The chat streaming and starter-prompt endpoints are retired (#2001) and are not
+in OpenAPI. No flag enables them. The shared response/stream types remain in
+the Business shell; stored result payloads remain readable through Business
+history and search. The following legacy action metadata describes those stored
+artifacts only, not available commands or a running investing interpreter.
 
 ### Structured Action Semantics
 
@@ -4196,472 +4048,6 @@ actions and to ordinary user text.
 - Generic guidance responses such as "try next" are valid only for open-ended
   result questions. They must not replace a patch response when the user is
   modifying, rerunning, or retrying a known setup.
-
-### Grounded Discovery Responses
-
-An explicit peer/category asset-discovery turn (typed
-`asset_discovery` interpretation) returns an ordinary assistant response whose
-final payload and persisted assistant-message metadata may include an additive
-`discovery` sidecar. Two producers emit the same sidecar contract:
-
-- **Model-knowledge (default):** the interpreter judged the answer stable
-  (`needs_current_facts=false`) or the caller's search allowance is exhausted.
-  Candidates come from model knowledge, individually verified by provider
-  asset resolution. `sources` is empty and `retrieved_at` is composition time.
-- **Grounded search:** the interpreter judged the answer needs current facts,
-  or the user explicitly asked to search, and allowance remains. Candidates
-  are extracted from provider results and carry `source_indices`.
-
-`sources.length == 0` **is** the ungrounded signal: clients derive the
-"general knowledge, not a current search" marker from it and must not rely on
-any separate flag. A grounded search that yields no usable sources is
-correctly marked ungrounded by the same rule.
-
-The runtime Search path is enabled by default.
-`ARGUS_GROUNDED_DISCOVERY_ENABLED=false` is the emergency kill switch; with
-the flag off, discovery turns return typed honest recovery and make zero
-Search-provider calls.
-
-```json
-{
-  "discovery": {
-    "schema_version": "argus_discovery/v1",
-    "kind": "asset_discovery",
-    "relationship": "category",
-    "query_summary": "cybersecurity stocks",
-    "retrieved_at": "2026-07-26T15:04:05Z",
-    "sources": [
-      {
-        "title": "…",
-        "domain": "example.com",
-        "url": "https://example.com/article",
-        "source_date": "2026-07-20"
-      }
-    ],
-    "candidates": [
-      {
-        "symbol": "CRWD",
-        "name": "CrowdStrike",
-        "asset_class": "equity",
-        "reason_text": "Named as a leading cybersecurity vendor.",
-        "source_indices": [0]
-      }
-    ],
-    "unverified_names": ["ExamplePrivateCo"],
-    "can_request_search": true
-  }
-}
-```
-
-`can_request_search` is optional, backend-owned, and emitted only on
-model-knowledge responses: `true` means the caller still has search allowance,
-so clients may render a "search for current results" escalation that sends a
-plain natural-language turn (no typed action). Absent or `false`, no
-escalation renders — an affordance that cannot fire must not exist.
-
-Contract rules:
-
-- Every entry in `candidates` has passed provider-backed asset resolution and
-  carries a supported `asset_class`; only these may render as selectable
-  actions. `unverified_names` are prose-only context and must never be
-  actionable.
-- Bounds: at most 5 sources, 5 candidates, and 3 unverified names; all strings
-  are backend-sanitized and length-capped; source URLs are https-only.
-- Search-provider identity is intentionally absent from this sidecar and from
-  user-facing prose; route receipts and the cost ledger own provider
-  provenance.
-- Selecting a candidate sends a normal user turn (with optional `chat_action`
-  metadata) through the ordinary interpretation, clarification, and
-  confirmation lifecycle. Discovery never auto-runs a backtest.
-- Clients render source `domain` plus locale-formatted dates from the ISO
-  fields; the sources drawer renders `url` as an outbound link
-  (`target="_blank"`, `rel="noopener noreferrer"`), with the domain always
-  visible from the href.
-- Discovery turns never mutate pending drafts, active confirmations, or the
-  latest result; reload hydrates the response and this sidecar from persisted
-  message metadata without re-querying any provider.
-- Typed discovery recovery uses the standard `recovery` object with codes
-  `discovery_unavailable` (non-retryable when Search is disabled, missing its
-  configured credentials, or receives HTTP 401/403),
-  `discovery_search_failed` (retryable for temporary timeout, transport, other
-  HTTP, malformed-provider-response, extraction, or voicing failures),
-  `discovery_no_verified_candidates`, `discovery_suggestions_unavailable`
-  (retryable; the model-knowledge path failed), `discovery_limit_reached`
-  (retained; an exhausted allowance now falls through to the model-knowledge
-  path instead of this recovery), and `discovery_target_missing`. Direct
-  backtests and ordinary follow-ups make zero Search calls.
-- A retryable discovery recovery finalizes its chat turn as
-  `recoverable_failed` with a durable `retry_last_turn` anchored to the
-  persisted user request, and settles no allowance.
-- Charging: the per-subject search allowance settles only for usable results
-  (no `fallback_code`); the global daily ceiling counts every attempt.
-
-**Retry semantics:**
-- `retry_last_turn` replays a specific failed user message and may include
-  `failed_assistant_id`.
-- `retry_failed_action` retries a specific failed action artifact and launch
-  payload.
-- A later user turn, new confirmation, completed result, or cancellation
-  supersedes stale retry affordances. Hydrated clients must hide or disable
-  stale retry actions when their referenced artifact is no longer the active
-  failed-action anchor.
-
-**Request:**
-```json
-{
-  "conversation_id": "uuid",
-  "message": "Quiero probar comprar cuando baja Tesla",
-  "mentions": [
-    {
-      "id": "asset:crypto:BTC",
-      "type": "asset",
-      "label": "Bitcoin",
-      "symbol": "BTC",
-      "asset_class": "crypto",
-      "description": "Crypto",
-      "insert_text": "BTC",
-      "provider": "kraken",
-      "message_range": { "start": 4, "end": 7 },
-      "support_status": "supported"
-    }
-  ],
-  "language": "es"
-}
-```
-
-`mentions` is optional selection provenance. It records user-selected asset or
-indicator hints, but it does not rewrite `message`, bypass LLM interpretation,
-or create hidden execution state. It accompanies a `message` from the composer
-affordance, and may also accompany an `action` when the action is itself an
-asset selection — today only `select_discovery_candidate`, whose candidate
-already passed provider-backed resolution before it was renderable. Carrying
-that identity keeps the interpreter from re-deriving an asset the resolver
-already verified; it is identity, never a prepared action, so the selection
-turn still re-enters interpretation and still requires confirmation. Asset mentions
-should include durable `asset_class` (`equity`, `crypto`, or `currency_pair`)
-and IDs shaped as `asset:{asset_class}:{symbol}` so selected ambiguous symbols
-preserve the user's chosen asset identity. Backend resolution still validates
-extracted candidates after interpretation. `provider` is optional machine
-provenance for resolver/debugging continuity; it must not be rendered as
-assistant-facing copy or used to bypass execution validation.
-
-`mentions[].message_range` is optional display-only provenance for the final
-serialized `message`. It is a UTF-16 `{ start, end }` span whose substring must
-equal the mention's `insert_text`. The composer calculates it after its existing
-whitespace normalization, so duplicate symbols remain unambiguous in the
-transcript. Admission accepts an ordinary turn even when this display metadata
-is malformed, stale, or out of bounds: it simply omits the range from durable
-metadata. A valid range is rendered on the submitted user message only; it does
-not enter `ResolutionProvenance`, context hints, LangGraph input, provider
-resolution, execution state, message content, or Omnisearch indexing/querying.
-
-**Conditional Header:**
-- `Idempotency-Key` is required when `action.type = run_backtest`, and its value
-  must equal `action.payload.confirmation_id`.
-- It is optional for non-executing ordinary chat turns.
-- Missing or mismatched Run-action identity returns the exact error defined in
-  `contract-run-action-reconciliation` before admission or compute.
-
-**Language Resolution:**
-Backend resolves preferred response language from:
-1. Explicit request `language`
-2. Authenticated user profile `language`
-3. Fallback English
-
-AI response uses the resolved language unless the user clearly asks otherwise in-message.
-
-**Response Transport:**
-`Content-Type: text/event-stream`
-
-**Reconnect Behavior:**
-If the stream disconnects, the client should reconnect by re-fetching the conversation messages (`GET /conversations/{id}/messages`).
-- No token-level replay is guaranteed in Alpha.
-- No `last_message_id` reconnect contract is enforced yet.
-- A disconnected `run_backtest` action additionally reconciles through
-  `GET /backtest-jobs/by-action/{confirmation_id}` and, only when no admission
-  exists, an exact replay with the same key and request identity.
-- Hydrated confirmation actions are valid only when the runtime checkpoint still has pending confirmation state or structured metadata can safely reconstruct the pending snapshot.
-- Hydrated result actions that save or explain a run require canonical run and conversation context.
-
-**Recommended Header:**
-- `X-Accel-Buffering: no` (To prevent proxy buffering)
-
-**Stream Events:**
-
-Frame fields are recorded in [Message and stream shapes](message-and-stream-shapes.md). The examples below describe turn behavior.
-
-All events follow the SSE format: `data: {json}\n\n`.
-
-Events are emitted in this order per turn:
-
-**1. `stage_start`** — emitted when each pipeline stage begins
-```jsonl
-{ "type": "stage_start", "stage": "interpret" }
-{ "type": "stage_start", "stage": "clarify" }
-{ "type": "stage_start", "stage": "confirm" }
-{ "type": "stage_start", "stage": "execute" }
-{ "type": "stage_start", "stage": "explain" }
-{ "type": "stage_start", "stage": "next_step" }
-```
-
-The frontend maps `stage` values to human-readable progress labels:
-- `interpret` → "Understanding your idea..."
-- `clarify` → "I have a question..."
-- `confirm` → "Here's what I found..."
-- `execute` → "Running backtest..."
-- `explain` → "Reviewing results..."
-- `next_step` → "What's next..."
-
-**2. `token`** — streaming LLM response text, one chunk at a time
-```jsonl
-{ "type": "token", "content": "Based on your idea" }
-{ "type": "token", "content": " about Tesla..." }
-```
-Frontend appends tokens progressively. Applies to `clarify`, `explain`, and `next_step` nodes.
-
-**3. `stage_outcome`** — emitted after `interpret` completes, so the frontend can render the correct UI element before the full graph finishes
-```jsonl
-{ "type": "stage_outcome", "outcome": "ready_for_confirmation" }
-{ "type": "stage_outcome", "outcome": "needs_clarification" }
-{ "type": "stage_outcome", "outcome": "approved_for_execution" }
-{ "type": "stage_outcome", "outcome": "ready_to_respond" }
-```
-
-**4. `final`** — last event, carries the complete response payload
-```json
-{
-  "type": "final",
-  "payload": {
-    "stage_outcome": "execution_succeeded",
-    "assistant_response": "The strategy returned +23%...",
-    "confirmation_payload": null,
-    "run": { },
-    "next_actions": ["refine_strategy", "show_breakdown"],
-    "message_id": "uuid"
-  }
-}
-```
-
-When chat execution is accepted as an asynchronous durable job instead of a
-completed in-stream run, the final payload includes `backtest_job` and omits
-`run` until the workflow writes the canonical result:
-
-```json
-{
-  "type": "final",
-  "payload": {
-    "stage_outcome": "ready_to_respond",
-    "assistant_response": "I started the backtest. I will show the result here as soon as it is ready.",
-    "backtest_job": {
-      "id": "uuid",
-      "conversation_id": "uuid",
-      "status": "queued",
-      "result_run_id": null,
-      "failure_code": null,
-      "failure_detail": null,
-      "retryable": false
-    },
-    "message_id": "uuid"
-  }
-}
-```
-
-The final event may also carry nullable `final_response_payload`, the typed
-graph output. Its optional nullable `code` is the authoritative conversion
-signal for admission refusals (`account_conversion_required`). The frontend
-stream type imports `ChatFinalResponsePayload`, generated from the backend
-`FinalResponsePayload` model by
-`scripts/generate_chat_final_response_type.py`; do not hand-maintain a second
-field list. Clients accept legacy payloads without this object or code.
-
-When a turn reaches a recoverable assistant response without a completed card,
-the final payload and persisted assistant message metadata may include
-`retry_last_turn` and `recovery`. `recovery` is a typed status object with a
-stable `code`, `retryable`, and optional `params`. User-facing recovery copy is
-presentation only; clients must render retry affordances and localized recovery
-copy from structured metadata, not by matching assistant prose.
-
-The final payload and persisted assistant message metadata may also include
-`clarification`. This typed contract carries the reason, requested field,
-strategy payload, structured option payloads, and `prompt_source` provenance.
-`prompt_source = llm_generated` means `assistant_prompt` or
-`assistant_response` owns the exact user-visible prose; clients keep that text
-while hydrating actions from `clarification`. `prompt_source =
-degraded_fallback` means clients render localized deterministic copy from
-static i18n bundles using the typed fields. Legacy sidecars without
-`prompt_source` are treated as degraded fallback for reload compatibility.
-The persisted `content` on a degraded fallback remains compatibility transport
-for reload and non-upgraded clients; it is excluded from later interpreter
-history and from `last_message_preview` (therefore Recents and conversation
-search). Exact `llm_generated` prose remains eligible for interpreter history
-and preview surfaces. Clarification and recovery writers receive the current
-typed decision, its options, the current user message, and preferred language;
-they do not receive transcript history. Earlier replies therefore cannot supply
-a competing reason for the current question.
-
-Recoverable streaming error frames may also include the same structured fields
-so live clients can render retry controls immediately, before reload hydration:
-
-```json
-{
-  "type": "error",
-  "code": "agent_runtime_failure",
-  "message": "Something went wrong. Your conversation is saved. Please try again.",
-  "message_id": "uuid",
-  "recovery": {
-    "code": "runtime_failure",
-    "retryable": true,
-    "language": "en"
-  },
-  "retry_last_turn": {
-    "message": "What if I bought BTC last year?"
-  }
-}
-```
-
-Example degraded clarification payload:
-
-```json
-{
-  "type": "final",
-  "payload": {
-    "stage_outcome": "await_user_reply",
-    "assistant_prompt": "What date window should I use for AAPL?",
-    "requested_field": "date_range",
-    "clarification": {
-      "kind": "clarification",
-      "reason_code": "missing_period",
-      "prompt_source": "degraded_fallback",
-      "requested_field": "date_range",
-      "requested_fields": ["date_range"],
-      "semantic_needs": ["period"],
-      "payload": {
-        "strategy": {
-          "asset_universe": ["AAPL"],
-          "asset_class": "equity"
-        }
-      },
-      "options": []
-    }
-  }
-}
-```
-
-Example unsupported-recovery clarification payload:
-
-```json
-{
-  "clarification": {
-    "kind": "unsupported_recovery",
-    "reason_code": "unsupported_strategy_logic",
-    "prompt_source": "degraded_fallback",
-    "requested_field": "unsupported_constraints",
-    "requested_fields": ["unsupported_constraints"],
-    "semantic_needs": ["simplification_choice"],
-    "payload": {
-      "strategy": {
-        "asset_universe": ["TSLA"],
-        "asset_class": "equity"
-      }
-    },
-    "options": [
-      {
-        "id": "rsi_threshold",
-        "replacement_values": {
-          "simplify_logic": "rsi_only"
-        }
-      },
-      {
-        "id": "buy_and_hold",
-        "replacement_values": {
-          "strategy_type": "buy_and_hold"
-        }
-      }
-    ]
-  }
-}
-```
-
-### Cause-aware unsupported recovery
-
-`unsupported_recovery` is an additive typed projection. Its cause determines
-both the recovery route and the facts available to deterministic fallback copy:
-
-- A surviving `unsupported_strategy_logic` capability constraint may use
-  `unsupported_recovery` with supported simplification options. Only this
-  capability route may say that Argus cannot run a strategy.
-- `future_performance` is a test asked over a window that points forward from
-  today. There is no market data for it, so the recovery says so, offers the
-  historical test, and mentions that Argus can research what analysts expect.
-  It is not a refusal of forward-looking questions: those are research answers
-  (decision 10, 2026-09-10) and never produce `unsupported_recovery`.
-- Incomplete or unparseable extraction is a normal clarification outcome. It
-  asks for the missing executable detail and must not be represented as a
-  strategy-capability refusal.
-- `unsupported_starting_capital` is a launch-validation range outcome, not a
-  strategy-capability refusal. It asks for a starting-capital amount before a
-  confirmation card or acknowledgement is emitted.
-- `capital_amount` remains role-sensitive at launch validation. For DCA it is
-  the recurring contribution, so an invalid DCA contribution routes to the
-  normal sizing clarification and never inherits the one-time bankroll floor.
-
-`raw_value` may remain in runtime records as opaque diagnostic or interpreter
-evidence. It is never a generic display subject and is not included in the
-generic clarifier voice input, `assistant_prompt`, or deterministic fallback
-copy. A generic capability recovery instead speaks about the typed capability
-and its supported options.
-
-For `unsupported_starting_capital`, `payload.minimum` is a typed finite number
-and `payload.maximum` is an optional typed finite number. A finite minimum
-alone is a valid floor projection. When a maximum is present, the projection
-emits both bounds only if both are finite and ordered with `minimum <= maximum`;
-missing minimum, malformed, non-finite, or reversed pairs fail closed by
-omitting the numeric bounds and using the generic starting-capital prompt.
-
-`unsupported_time_granularity` is the dedicated typed exception. Its typed bar
-size may be supplied to the clarifier and displayed in the bar-size recovery,
-because it names the specific timeframe field rather than a generic strategy
-or interpretation value. This exception does not permit other `raw_value`
-fields to become clarifier voice input or display text.
-
-When a pending strategy exists for `await_user_reply`, `ready_for_confirmation`,
-or `await_approval`, the final payload may include:
-
-```json
-{
-  "pending_strategy": {
-    "strategy": {
-      "strategy_type": "buy_and_hold",
-      "asset_universe": ["AAPL"],
-      "asset_class": "equity",
-      "date_range": "past year"
-    },
-    "requested_field": "asset_universe",
-    "missing_required_fields": ["asset_universe"],
-    "pending_resolution": {
-      "field": "asset_universe",
-      "raw_value": "Apple",
-      "candidate_normalized_value": "AAPL",
-      "asset_class": "equity"
-    }
-  }
-}
-```
-
-When `pending_resolution` is present, it represents the candidate behind a
-specific clarification prompt. A short affirmative answer such as "yes" may
-accept that candidate only for that pending field; it does not bypass normal LLM
-interpretation for unrelated turns.
-
-**5. `done`** — signals stream end (no data payload required beyond SSE `data: [DONE]`)
-```
-data: [DONE]
-```
-
-The stream does not write an SSE `retry` field. Clients own reconnect timing.
-
-> [!IMPORTANT]
-> Frontend must never use local timers to fake progress states. Progress labels must be driven by `stage_start` events from the backend. This is the binding contract between DESIGN.md Section 11 and the agent runtime pipeline.
 
 ---
 
@@ -6836,17 +6222,11 @@ Endpoints (all under `/api/v1`):
 - `GET /memory/export` -> readable portable
   `argus.personalization-memory-export/v1` document as an attachment.
 
-Chat integration:
+Stored chat metadata compatibility (no live chat endpoint):
 - Completed ordinary turns may carry `memory_recalls` (record id, label,
   value, category) in the final stream payload and assistant message
   metadata. It is an annotation added after the turn finishes; it never
   feeds back into a request.
-- `POST /chat/stream` accepts optional `memory_opt_out: true` (private
-  chat). Opting out only disables recall and proposals for that turn.
-- `POST /chat/stream` accepts optional `viewport: "narrow" | "wide"`, the
-  width band the turn was sent from. It only shortens a generated
-  conversation title at generation time, so a phone header shows a title
-  composed short rather than one clipped by the client. Absent means wide.
 - Try next rows in `next_experiments` may carry `label_short` and
   `label_short_key` beside `label` and `label_key`. The short form is the
   same ask written for a narrow screen; the backend owns both, and the
@@ -10530,15 +9910,11 @@ person starts their space, every route below except POST `/space` answers 404
     `business_permission_denied` wherever the chat is a Business one: `POST`
     and `GET /conversations` with `surface=business`, and on a Business
     conversation `PATCH` and `DELETE /conversations/{id}`, `GET
-    /conversations/{id}/messages`, `GET` and `PATCH
-    /conversations/{id}/activity`, `GET /conversations/{id}/run-dossiers`,
-    `POST /chat/stream`, `POST /backtests/run`, `GET /backtests/{run_id}`,
-    the `continue`, `computation/refresh`, `tool-results/{id}/recompute`,
-    `confirmations/{id}/peer-assets` and `confirmations/{id}/direct-edit`
-    routes. The person's own Personal chat is theirs whatever Business is
-    chosen: those routes answer as before on a Personal conversation. The
-    web client sends `X-Business-Grant` only on `/business` calls and on
-    `/conversations` with `surface=business`, never on Personal chat. A
+    /conversations/{id}/messages`. Retired chat, action and run endpoints
+    are not restored by a grant. Personal conversation access refuses with
+    404 regardless of the selected Business. The web client sends
+    `X-Business-Grant` only on `/business` calls and on `/conversations`
+    with `surface=business`, never on Personal chat. A
     client's `GET /business/workspace` reports
     `chat_available: false`. With no header and no own Business nothing is
     in scope: the Business routes answer 404 `business_space_missing`, record
