@@ -174,13 +174,18 @@ def test_expiry_purges_on_day_seven_and_a_restore_before_keeps_it(actions, prepa
     at = _marker(web, cid).at
     expiry = DocumentExpiry(service.authority.pool, source_objects(), every=timedelta(hours=1))
 
-    assert expiry.run(at + PURGE_AFTER - timedelta(minutes=1))["purged"] == 0
+    # A run purges every due document in the database, so each check reads
+    # this document's own rows rather than the run's totals.
+    expiry.run(at + PURGE_AFTER - timedelta(minutes=1))
+    assert _marker(web, cid) is not None
     assert deleting._act(client, target, "restore").status_code == 200
-    assert expiry.run(at + PURGE_AFTER * 2)["purged"] == 0
+    expiry.run(at + PURGE_AFTER * 2)
+    with service.authority.pool.connection() as db:
+        assert _remaining(db, context.actor.space_id, cid, draft_id)["uploads"] == 1
     assert deleting._act(client, target, "delete").status_code == 200
     again = _marker(web, cid).at
 
-    assert expiry.run(again + PURGE_AFTER)["purged"] == 1
+    expiry.run(again + PURGE_AFTER)
 
     with service.authority.pool.connection() as db:
         assert set(_remaining(db, context.actor.space_id, cid, draft_id).values()) == {0}
@@ -382,8 +387,11 @@ def test_the_button_and_the_expiry_racing_end_in_one_purge(actions):
             (context.actor.space_id,),
         ).fetchone()[0] == 1
         assert set(_remaining(db, context.actor.space_id, cid, draft_id).values()) == {0}
-    entries = _purges(service, context, "purge_document") + _purges(
-        service, context, "expire_document"
-    )
-    assert len(entries) == 1
-    assert expiry.run(at + PURGE_AFTER * 2)["purged"] == 0
+    def entries():
+        return _purges(service, context, "purge_document") + _purges(
+            service, context, "expire_document"
+        )
+
+    assert len(entries()) == 1
+    expiry.run(at + PURGE_AFTER * 2)
+    assert len(entries()) == 1
