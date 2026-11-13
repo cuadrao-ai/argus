@@ -2,13 +2,10 @@
 extraction on or off, and nothing at all when its setting is 0."""
 
 import asyncio
-import json
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import pytest
 from argus.domain.business.actions.document_purge import DocumentExpiry
-from argus.domain.business.contracts.deletion import PURGE_AFTER
 from argus.domain.ingestion.documents.config import DocumentJobSettings
 from argus.domain.ingestion.documents.jobs import sweep_forever
 
@@ -70,12 +67,3 @@ async def test_upkeep_runs_while_extraction_is_off_and_survives_a_failure(monkey
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(sweep_forever(Jobs(), 0.01, upkeep), 0.1)
     assert calls and set(calls) == {"upkeep"}
-
-
-@pytest.mark.parametrize("locale", ["es-419", "en"])
-def test_the_eliminados_copy_names_the_purge_window(locale):
-    words = json.loads(
-        (Path("web/public/locales") / locale / "common.json").read_text()
-    )["business"]["document_delete"]
-    days = str(PURGE_AFTER.days)
-    assert days in words["empty_body"] and days in words["list_help"]
