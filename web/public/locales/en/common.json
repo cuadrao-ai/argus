@@ -4421,6 +4421,7 @@
       "source_web": "Manual upload",
       "source_whatsapp": "WhatsApp",
       "status": "Status",
+      "status_reason": "Reason",
       "text_intake": "Text entry",
       "unseen": "Unseen",
       "update_list": "Update list",

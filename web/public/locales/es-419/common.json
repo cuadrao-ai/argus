@@ -4518,6 +4518,7 @@
       "source_web": "Carga manual",
       "source_whatsapp": "WhatsApp",
       "status": "Estado",
+      "status_reason": "Motivo",
       "text_intake": "Entrada de texto",
       "unseen": "No visto",
       "update_list": "Actualizar lista",
