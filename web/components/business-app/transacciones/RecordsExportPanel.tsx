@@ -11,6 +11,7 @@ import { joinCurrencyList } from "@/lib/business-month-close";
 import { recordColumnKey, reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
 import type { ExportColumnKey, ExportPreview, RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
 import { saveBlobDownload } from "../ExportRecordsPanel";
+import DgiiRegistryTag from "../DgiiRegistryTag";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { showToast } from "../foundation/toasts";
 import { recordsColumnLabelKey } from "./records-view-preferences";
@@ -123,7 +124,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const supplierLines = preview?.dgii.rnc_suppliers.map((supplier) => <li key={supplier.rnc}>
     <div className="flex items-start justify-between gap-3">
       <span className="min-w-0">{supplier.name}</span>
-      <span className="shrink-0 text-amber-600 dark:text-amber-400">{t(`business.transactions.reporting.export.${supplier.status === "rnc_unverified" ? "rnc_unverified" : supplier.estado === "SUSPENDIDO" ? "rnc_suspended" : "rnc_inactive"}`)}</span>
+      <span className="shrink-0"><DgiiRegistryTag status={supplier.status === "rnc_inactive" ? "inactive" : "unverified"} /></span>
     </div>
     <span className="block font-mono">{supplier.rnc}</span>
   </li>);

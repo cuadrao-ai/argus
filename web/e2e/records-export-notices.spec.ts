@@ -119,15 +119,17 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     for (const border of scroll.borders) expect(border).toBeGreaterThan(0);
     const first = list.locator(":scope > li").first();
     await expect(first.locator(":scope > div > span").first()).toHaveText("Proveedor sintético 01");
-    await expect(first.locator(":scope > div > span").last()).toHaveText("Suspendido");
-    await expect(list.locator(":scope > li").nth(1).locator(":scope > div > span").last()).toHaveText("No encontrado");
+    await expect(first.locator(":scope > div > span").last()).toHaveText("No activo");
+    await expect(list.locator(":scope > li").nth(1).locator(":scope > div > span").last()).toHaveText("Sin verificar");
     await expect(first.locator(":scope > span")).toHaveText(fixture.controls.rncSuppliers[0].rnc);
+    await expect(first.locator(":scope > div > span").last().locator("span").first()).toHaveCSS("background-color", "rgb(246, 235, 212)");
+    await expect(list.locator(":scope > li").nth(1).locator(":scope > div > span").last().locator("span")).toHaveCSS("background-color", "rgb(237, 236, 230)");
     const supplier = await first.evaluate((element) => {
       const line = element.firstElementChild!;
       const name = line.firstElementChild!.getBoundingClientRect();
       const status = line.lastElementChild!.getBoundingClientRect();
       const rnc = element.lastElementChild!;
-      return { nameTop: name.top, statusTop: status.top, statusRight: status.right, lineRight: line.getBoundingClientRect().right, rncTop: rnc.getBoundingClientRect().top, nameBottom: name.bottom, font: getComputedStyle(rnc).fontFamily, statusColor: getComputedStyle(line.lastElementChild!).color, nameColor: getComputedStyle(line.firstElementChild!).color };
+      return { nameTop: name.top, statusTop: status.top, statusRight: status.right, lineRight: line.getBoundingClientRect().right, rncTop: rnc.getBoundingClientRect().top, nameBottom: name.bottom, font: getComputedStyle(rnc).fontFamily, statusColor: getComputedStyle(line.lastElementChild!.firstElementChild!).color, nameColor: getComputedStyle(line.firstElementChild!).color };
     });
     expect(supplier.nameTop).toBe(supplier.statusTop);
     expect(supplier.statusRight).toBe(supplier.lineRight);

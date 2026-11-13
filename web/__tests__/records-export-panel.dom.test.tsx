@@ -4,6 +4,8 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { I18nextProvider } from "react-i18next";
 import { readFileSync } from "node:fs";
+import { renderToStaticMarkup } from "react-dom/server";
+import DgiiRegistryTag from "@/components/business-app/DgiiRegistryTag";
 import { reportFiltersSchema, reportRequestSchema, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
 import { openRecordsExport, useRecordsExportRequested } from "@/components/business-app/transacciones/records-export-request";
 import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
@@ -321,8 +323,8 @@ for (const language of ["es-419", "en"] as const) {
     assert.equal(list.getAttribute("aria-label"), language === "es-419" ? "Ver proveedores" : "View suppliers");
     assert.equal(list.hidden, true);
     assert.equal(noticeSentence(notice), language === "es-419"
-      ? "27 proveedores con RNC suspendido o no encontrado."
-      : "27 suppliers whose RNC is suspended or not found.");
+      ? "27 proveedores con RNC no activo o sin verificar"
+      : "27 suppliers with an inactive or unverified RNC");
     assert.ok(notice.textContent?.includes(language === "es-419" ? "La DGII puede rechazar sus líneas." : "The DGII may reject their lines."));
     await page.click(toggle);
     assert.equal(toggle.getAttribute("aria-expanded"), "true");
@@ -337,16 +339,24 @@ for (const language of ["es-419", "en"] as const) {
       status: item.firstElementChild?.lastElementChild?.textContent,
       rnc: item.lastElementChild?.textContent,
     })), [
-      { name: "Suplidor registrado", status: language === "es-419" ? "Suspendido" : "Suspended", rnc: "101001577" },
-      { name: "Proveedor sin registro", status: language === "es-419" ? "No encontrado" : "Not found", rnc: "101010632" },
-      { name: "Proveedor cancelado", status: language === "es-419" ? "No activo" : "Inactive", rnc: "101010633" },
+      { name: "Suplidor registrado", status: language === "es-419" ? "No activo" : "Not active", rnc: "101001577" },
+      { name: "Proveedor sin registro", status: language === "es-419" ? "Sin verificar" : "Not verified", rnc: "101010632" },
+      { name: "Proveedor cancelado", status: language === "es-419" ? "No activo" : "Not active", rnc: "101010633" },
     ]);
     for (const item of list.children) {
       assert.ok(item.firstElementChild?.classList.contains("justify-between"));
-      assert.ok(item.firstElementChild?.lastElementChild?.classList.contains("text-amber-600"));
+      assert.ok(item.firstElementChild?.lastElementChild?.firstElementChild?.classList.contains("rounded-full"));
+      assert.ok(item.firstElementChild?.lastElementChild?.firstElementChild?.classList.contains("text-[12px]"));
       assert.ok(item.lastElementChild?.classList.contains("font-mono"));
     }
-    assert.doesNotMatch(list.textContent!, /SUSPENDIDO|DADO DE BAJA|ANULADO|sin verificar/);
+    assert.doesNotMatch(list.textContent!, /SUSPENDIDO|DADO DE BAJA|ANULADO/);
+    const i18n = await translate(language);
+    for (const [index, status] of (["inactive", "unverified", "inactive"] as const).entries()) {
+      const tag = renderToStaticMarkup(<I18nextProvider i18n={i18n}><DgiiRegistryTag status={status} /></I18nextProvider>);
+      assert.equal(list.children[index].firstElementChild?.lastElementChild?.innerHTML, tag);
+    }
+    assert.ok(list.children[0].firstElementChild?.lastElementChild?.firstElementChild?.classList.contains("bg-[#F6EBD4]"));
+    assert.ok(list.children[1].firstElementChild?.lastElementChild?.firstElementChild?.classList.contains("bg-[#EDECE6]"));
     assert.equal(downloadButton()!.disabled, false);
     await page.click(toggle);
     assert.equal(list.hidden, true);
@@ -365,8 +375,8 @@ for (const language of ["es-419", "en"] as const) {
     const notice = document.querySelector('[data-testid="records-export-rnc-notice"]');
     assert.equal(document.querySelector('[data-testid="records-export-notices"]')?.children.length, 1);
     assert.equal(noticeSentence(notice), language === "es-419"
-      ? "1 proveedor con RNC suspendido o no encontrado."
-      : "1 supplier whose RNC is suspended or not found.");
+      ? "1 proveedor con RNC no activo o sin verificar"
+      : "1 supplier with an inactive or unverified RNC");
     assert.equal(downloadButton()!.disabled, false);
   });
 }
