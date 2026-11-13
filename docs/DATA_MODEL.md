@@ -3564,8 +3564,9 @@ and upload ids the document answered to), `reason` (`owner` or `expiry`),
 `purged_at`, and `pending_objects` (stored paths and legacy upload prefixes
 still to erase). It holds no name, amount, file name or content. Row-level
 security is on with no policy, and API roles have no schema access. A Business
-purge copies its pending paths into its own object plan before it removes the
-space.
+purge copies every pending path and upload prefix into its own object plan in
+the transaction that removes the space, then erases them: a path when no live
+document or custody copy names it, a prefix with all objects under it.
 
 The 7-day window is `PURGE_AFTER` in the deletion contract; the marker `at`
 is its one stored fact. Partial indexes `financial_import_events_deleted_idx`

@@ -221,12 +221,13 @@ class PostgresBusinessPurge:
                 (space,),
             ):
                 paths.update(path for path in (source, destination) if path)
-            # A document purge whose erase was still pending.
+            # A document purge whose erase was still pending: its record goes
+            # with the space, so its paths and upload folders move to this plan.
             for (pending,) in db.execute(
                 "select pending_objects from argus_private.business_document_purges where space_id=%s",
                 (space,),
             ):
-                paths.update(path for path in pending if not path.endswith("/"))
+                paths.update(pending)
             for path in sorted(paths):
                 db.execute(
                     "insert into argus_private.business_purge_objects(run_id,path) values(%s,%s) on conflict do nothing",
@@ -270,15 +271,19 @@ class PostgresBusinessPurge:
         for (path,) in paths:
             with self.connections.connection() as db:
                 self._live(db, run, claim)
-                shared = db.execute(
+                shared = not path.endswith("/") and db.execute(
                     "select exists(select 1 from public.financial_document_extractions where source_path=%s or rebuilt_path=%s) or exists(select 1 from argus_private.business_custody_objects where source_path=%s or destination_path=%s)",
                     (path, path, path, path),
                 ).fetchone()[0]
             if not shared:
                 try:
-                    self.objects.remove(path)
-                    if self.objects.get(path) is not None:
-                        raise BusinessPurgePending("business_source_delete_unverified")
+                    if path.endswith("/"):
+                        # The folder of one purged upload, which no live document names.
+                        self.objects.delete(path)
+                    else:
+                        self.objects.remove(path)
+                        if self.objects.get(path) is not None:
+                            raise BusinessPurgePending("business_source_delete_unverified")
                 except Exception as error:
                     raise BusinessPurgePending(
                         "business_source_delete_pending"
