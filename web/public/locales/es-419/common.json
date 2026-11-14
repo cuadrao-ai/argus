@@ -4284,7 +4284,7 @@
         "download": "Descargar copia",
         "title": "Cerrar este negocio",
         "title_named": "Cerrar {{businessName}}",
-        "warning": "Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borrará y no se podrá recuperar. Descarga una copia antes de continuar."
+        "warning": "Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borra y no se puede recuperar. Descarga una copia antes de continuar."
       },
       "close_alert_title": "¿Cerrar {{businessName}}?",
       "close_preview": {

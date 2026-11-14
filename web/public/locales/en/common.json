@@ -3951,7 +3951,7 @@
         "download": "Download copy",
         "title": "Close this business",
         "title_named": "Close {{businessName}}",
-        "warning": "After you close, you have 30 days to reopen this business. After that, it will be deleted and can't be recovered. Download a copy before you continue."
+        "warning": "After you close, you have 30 days to reopen this business. After that, it's deleted and can't be recovered. Download a copy before you continue."
       },
       "close_alert_title": "Close {{businessName}}?",
       "close_preview": {

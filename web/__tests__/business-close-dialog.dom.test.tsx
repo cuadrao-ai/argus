@@ -49,7 +49,7 @@ test("closing is one centered dialog, never the side dossier or a second overlay
     assert.equal(dialog.getAttribute("role"), "dialog");
     assert.equal(dialog.getAttribute("aria-modal"), "true");
     assert.equal(document.querySelector("h2")?.textContent, "Cerrar Taller Luna");
-    assert.ok(text().includes("Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borrará y no se podrá recuperar. Descarga una copia antes de continuar."));
+    assert.ok(text().includes("Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borra y no se puede recuperar. Descarga una copia antes de continuar."));
     assert.ok(text().includes("La copia incluye tus registros en Excel y CSV y, cuando es posible, el archivo de cada documento."));
     assert.ok(view.button("Descargar copia") && view.button("Continuar sin descargar"));
     await view.openConfirm();
@@ -201,7 +201,7 @@ for (const [members, line] of [[0, null], [1, "1 miembro pierde acceso al cerrar
 test("the locked copy is in both locales and the retired keys are gone", () => {
   const locked = {
     "close.title_named": ["Cerrar {{businessName}}", "Close {{businessName}}"],
-    "close.warning": ["Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borrará y no se podrá recuperar. Descarga una copia antes de continuar.", "After you close, you have 30 days to reopen this business. After that, it will be deleted and can't be recovered. Download a copy before you continue."],
+    "close.warning": ["Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borra y no se puede recuperar. Descarga una copia antes de continuar.", "After you close, you have 30 days to reopen this business. After that, it's deleted and can't be recovered. Download a copy before you continue."],
     "export.package": ["La copia incluye tus registros en Excel y CSV y, cuando es posible, el archivo de cada documento.", "The copy includes your records in Excel and CSV and, when possible, the file for each document."],
     "close.download": ["Descargar copia", "Download copy"],
     "close.continue_without": ["Continuar sin descargar", "Continue without downloading"],
