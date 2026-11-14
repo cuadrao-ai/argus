@@ -2584,22 +2584,10 @@
     "export": {
       "start": "From",
       "end": "Through",
-      "access_error": "This export isn't available with your current access.",
       "limit_error": "This export exceeds a package limit. Choose a shorter period.",
-      "error": "The export could not be downloaded. Check your access and try again.",
-      "preview": "Downloads are available in the connected Business view.",
       "action": "Export",
-      "preparing": "Preparing your file…",
-      "done": "Done. Find the ZIP in your downloads.",
       "range": "{{from}} to {{to}}",
-      "range_invalid": "Choose between 1 and 366 days.",
-      "other_dates": "Other dates",
       "pick_end": "Now pick the last day",
-      "includes": "Includes",
-      "records": "Records",
-      "records_detail": "Excel and CSV",
-      "originals": "Originals",
-      "originals_detail": "Photos and PDFs of each receipt",
       "filename": {
         "dgii": "DGII",
         "mixed": "Purchases and sales",
@@ -2608,16 +2596,7 @@
         "sales": "Sales",
         "to": "to"
       },
-      "fiscal": "606 and 607",
-      "fiscal_detail": "For the DGII",
-      "included": "Included",
-      "fiscal_month_only": "Whole month only",
-      "fiscal_checking": "Checking…",
-      "fiscal_profile": "Name and RNC on the 606",
-      "form_needs_review": "Needs review",
-      "form_no_aplica": "Does not apply",
-      "form_no_operations": "No operations",
-      "form_summary_only": "Summary only"
+      "form_no_aplica": "Does not apply"
     },
     "terms": {
       "calculated_hint": "Calculated: Total − ITBIS",

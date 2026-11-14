@@ -1194,13 +1194,10 @@ test("amount sort stays available when changing the single currency", async () =
 });
 
 
-test("phone legacy Registros keeps its export button and existing export sheet", async () => {
+test("legacy Registros offers no export: the period ZIP is retired", async () => {
   const page = await mount({ enabled: false, width: 390 });
   await page.settle(() => page.records().length > 0, "saved records");
-  const button = document.querySelector('[data-testid="records-export"]');
-  assert.ok(button);
-  await page.click(button);
-  await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
+  assert.equal(document.querySelector('[data-testid="records-export"]'), null);
 });
 
 

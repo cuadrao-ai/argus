@@ -1,14 +1,9 @@
 from __future__ import annotations
 
 import calendar
-import io
-import json
 from collections import Counter
-from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date
 from decimal import Decimal
-
-import xlsxwriter
 
 from argus.domain.business.contracts.dgii import (
     PurchaseDeclaration,
@@ -44,8 +39,6 @@ from argus.domain.business.fiscal_identity import (
 from argus.domain.business.rnc_registry import RncRegistry, UnknownRncRegistry
 
 FOREIGN_CURRENCY_NOTE = "Moneda extranjera: pendiente de tasa"
-# Plain words a person reads in place of a reason code.
-REASON_TEXT = {"fiscal_conversion_required": FOREIGN_CURRENCY_NOTE}
 
 
 def fiscal_form(record: FiscalRecord) -> str | None:
@@ -56,14 +49,8 @@ def fiscal_form(record: FiscalRecord) -> str | None:
     return found.form if found else None
 
 
-@dataclass(frozen=True)
-class FiscalPacket:
-    manifest: dict
-    files: dict[str, bytes]
-
-
 def line_values(record: FiscalRecord) -> tuple[str, ...]:
-    """One 606 or 607 line in annex order, as the TXT writes it."""
+    """One 606 or 607 line in annex order, each value as DGII's format writes it."""
 
     declaration = confirmed_declaration(record)
     values = declaration.model_dump()
@@ -106,75 +93,6 @@ def line_values(record: FiscalRecord) -> tuple[str, ...]:
     return tuple(result)
 
 
-def _txt(form: str, rnc: str, period: str, rows: list[tuple[str, ...]]) -> bytes:
-    fields = [(form, rnc, period, str(len(rows))), *rows]
-    if any(
-        any(character in field for character in "|\r\n\x00")
-        for row in fields
-        for field in row
-    ):
-        raise ValueError("fiscal_unsafe_field")
-    return "\r\n".join("|".join(row) for row in fields).encode("ascii")
-
-
-def _workbook(manifest: dict, rows: dict[str, list[tuple[str, ...]]]) -> bytes:
-    output = io.BytesIO()
-    with xlsxwriter.Workbook(
-        output,
-        {"in_memory": True, "strings_to_formulas": False, "strings_to_urls": False},
-    ) as book:
-        book.set_properties({"created": datetime(1980, 1, 1, tzinfo=timezone.utc)})
-        summary = book.add_worksheet("Resumen ITBIS")
-        summary.write_row(0, 0, ("Campo", "Valor"))
-        for index, (name, value) in enumerate(manifest.items(), 1):
-            summary.write_string(index, 0, name)
-            summary.write_string(
-                index,
-                1,
-                json.dumps(value, ensure_ascii=False)
-                if isinstance(value, (dict, list))
-                else str(value),
-            )
-        summary.set_column(0, 0, 34)
-        summary.set_column(1, 1, 75)
-        for form, columns in COLUMNS.items():
-            sheet = book.add_worksheet(form)
-            for column, (_, label) in enumerate(columns):
-                sheet.write_string(0, column, label)
-            for index, row in enumerate(rows[form], 1):
-                for column, value in enumerate(row):
-                    sheet.write_string(index, column, value)
-            if not rows[form]:
-                sheet.write_string(1, 0, manifest["forms"][form]["label"])
-            sheet.freeze_panes(1, 0)
-            sheet.set_column(0, 22, 22)
-        bridge = book.add_worksheet("Conciliación")
-        columns = (
-            "activity_id",
-            "draft_id",
-            "activity_revision",
-            "approved_revision",
-            "kind",
-            "gross",
-            "disposition",
-            "reason",
-            "source_ids",
-        )
-        bridge.write_row(0, 0, columns)
-        for index, record in enumerate(manifest["reconciliation"], 1):
-            for column, name in enumerate(columns):
-                value = record.get(name, "")
-                if name == "reason":
-                    value = REASON_TEXT.get(value, value)
-                bridge.write_string(
-                    index,
-                    column,
-                    json.dumps(value) if isinstance(value, list) else str(value),
-                )
-        bridge.set_column(0, len(columns) - 1, 28)
-    return output.getvalue()
-
-
 def fiscal_manifest(
     records: tuple[FiscalRecord, ...],
     *,
@@ -187,8 +105,9 @@ def fiscal_manifest(
 ) -> tuple[dict, dict[str, list[tuple[str, ...]]]]:
     """The DGII summary and the 606 and 607 rows for ``[start, end]``.
 
-    The packet writes its files from these. Month close reads each form's
-    status from the same summary, so both say the same thing about a month.
+    Month close, Registros and the handover records sheet read each form's
+    status and each record's place from this one summary, so all say the same
+    thing about a month.
     """
 
     registry = registry or UnknownRncRegistry()
@@ -428,17 +347,6 @@ def fiscal_manifest(
         "issues": issues,
         "warnings": warnings,
         "rnc_checks": checks,
-        "physical_format": {
-            "encoding": "ASCII",
-            "newline": "CRLF",
-            "bom": False,
-            "code_padding": {
-                "606_category_payment_isr": "two_digits",
-                "607_income_type": "single_digit",
-                "identity_type": "single_digit",
-            },
-            "official_tool_verified": False,
-        },
     }
     return manifest, rows
 
@@ -491,35 +399,3 @@ def manifest_verdicts(
             ]
             verdicts[identifier] = missing_items(by_id[identifier], issues)
     return verdicts
-
-
-def build_fiscal_packet(
-    records: tuple[FiscalRecord, ...],
-    *,
-    rnc: str | None,
-    business_name: str,
-    start: date,
-    end: date,
-    captured_on: date,
-    registry: RncRegistry | None = None,
-) -> FiscalPacket:
-    manifest, rows = fiscal_manifest(
-        records,
-        rnc=rnc,
-        business_name=business_name,
-        start=start,
-        end=end,
-        captured_on=captured_on,
-        registry=registry,
-    )
-    period = manifest["period"]
-    files = {
-        f"dgii/DGII_F_{form}_{rnc}_{period}.TXT": _txt(form, rnc, period, rows[form])
-        for form, shape in manifest["forms"].items()
-        if shape["status"] == "prepared_candidate"
-    }
-    files["dgii/summary.json"] = json.dumps(
-        manifest, ensure_ascii=False, indent=2
-    ).encode("utf-8")
-    files["dgii/606-607.xlsx"] = _workbook(manifest, rows)
-    return FiscalPacket(manifest, files)

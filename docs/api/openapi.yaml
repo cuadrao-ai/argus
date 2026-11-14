@@ -4089,7 +4089,9 @@ paths:
           a live grant on a closed Business answers 403 business_closed.
       responses:
         '200':
-          description: Successful Response
+          description: 'The close-Business handover package: the original receipts under `originals/`,
+            `records.csv`, `records.xlsx`, `personal.csv`, `unresolved.csv` and `manifest.json`.
+            It carries no DGII file.'
           content:
             application/zip:
               schema:

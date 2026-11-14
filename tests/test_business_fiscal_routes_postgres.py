@@ -9,6 +9,7 @@ exports the ready line, and the next 606 write is refused with a clear code."""
 
 from __future__ import annotations
 
+import csv
 import io
 import json
 from types import SimpleNamespace
@@ -21,7 +22,6 @@ from argus.api import state as api_state
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
 from argus.domain.business.contracts.dgii import PurchaseDeclaration
-from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
 from fastapi.testclient import TestClient
 from psycopg import Connection
 
@@ -115,6 +115,23 @@ def _review(world, draft: str, body: dict, headers: dict):  # noqa: ANN001, ANN2
         json=body,
         headers={**headers, "Idempotency-Key": str(uuid4())},
     )
+
+
+def dgii_file(world, family: str) -> list[dict[str, str]]:  # noqa: ANN001
+    """The Registros "Formato DGII" CSV of one tab, one dict per line."""
+
+    answer = world.client.post(
+        f"{API}/business/reports/export",
+        json={
+            "report": {"schema_version": 2, "filters": {"record_families": [family]}},
+            "mode": "dgii",
+            "columns": [],
+            "format": "csv",
+        },
+        headers=world.alice.headers,
+    )
+    assert answer.status_code == 200, answer.text
+    return list(csv.DictReader(io.StringIO(answer.content.decode("utf-8-sig"))))
 
 
 def _known(values: dict) -> dict:
@@ -233,8 +250,8 @@ def test_review_write_path_from_capture_to_the_606_line(world) -> None:  # noqa:
     )
     assert exported.status_code == 200, exported.text
     with ZipFile(io.BytesIO(exported.content)) as archive:
-        assert "dgii/DGII_F_606_199990013_202609.TXT" in archive.namelist()
         manifest = json.loads(archive.read("manifest.json"))["dgii"]
+    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
     [placed] = [item for item in manifest["reconciliation"] if item["draft_id"] == draft]
     assert placed["disposition"] == "606"
 
@@ -337,20 +354,14 @@ def test_an_edit_after_the_tipo_de_gasto_reaches_the_606_line(world) -> None:  #
     assert exported.status_code == 200, exported.text
     with ZipFile(io.BytesIO(exported.content)) as archive:
         manifest = json.loads(archive.read("manifest.json"))["dgii"]
-        line = archive.read("dgii/DGII_F_606_199990013_202609.TXT").decode()
     assert manifest["issues"] == []
-    row = dict(
-        zip(
-            (name for name, _ in PURCHASE_COLUMNS),
-            line.split("\r\n")[1].split("|"),
-            strict=True,
-        )
-    )
-    assert (row["goods_amount"], row["services_amount"], row["itbis"]) == (
-        "600.00",
-        "",
-        "100.00",
-    )
+    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
+    [row] = dgii_file(world, "purchase")
+    assert (
+        row["Monto Facturado en Bienes"],
+        row["Monto Facturado en Servicios"],
+        row["ITBIS Facturado"],
+    ) == ("600.00", "", "100.00")
 
 
 def _recorded(world) -> tuple[str, dict]:  # noqa: ANN001

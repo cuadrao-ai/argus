@@ -12,6 +12,8 @@ from argus.domain.business import export
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_validation import FiscalRecord
 
+from tests.dgii.test_packet import practice_records
+
 ACTIVITY = UUID(int=1)
 DRAFT = UUID(int=2)
 SOURCE = UUID(int=3)
@@ -98,6 +100,34 @@ def test_csv_xlsx_and_manifest_share_canonical_money():
         manifest["files"]["records.xlsx"]
         == hashlib.sha256(files["records.xlsx"]).hexdigest()
     )
+
+
+def test_a_month_with_a_prepared_606_hands_over_records_and_originals_only():
+    september = datetime(2026, 9, 10, 12, tzinfo=timezone.utc)
+    archive = export.build_archive(
+        snapshot(
+            period=export.ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
+            activities=(activity(occurred_at=september, recorded_at=september),),
+            captured_at=datetime(2026, 10, 18, 12, tzinfo=timezone.utc),
+            fiscal_records=practice_records(),
+            business_rnc="199990013",
+            business_name="Taller Ensayo",
+        ),
+        lambda _: None,
+    )
+    files = unpack(archive)
+    assert set(files) == {
+        f"originals/{SOURCE}.txt",
+        "records.csv",
+        "personal.csv",
+        "records.xlsx",
+        "unresolved.csv",
+        "manifest.json",
+    }
+    manifest = json.loads(files["manifest.json"])
+    assert set(manifest["files"]) == {"records.csv", "personal.csv", "records.xlsx"}
+    assert manifest["dgii"]["forms"]["606"]["status"] == "prepared_candidate"
+    assert manifest["dgii"]["forms"]["606"]["record_count"] == 3
 
 
 @pytest.mark.parametrize(

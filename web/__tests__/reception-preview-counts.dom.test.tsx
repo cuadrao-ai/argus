@@ -44,7 +44,6 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: !prepare ? ["read"] : role === "owner" ? ["read", "prepare", "approve"] : ["read", "prepare"], permissions: permissions ?? (role === "owner" ? OWNER_PERMISSIONS : EDITOR_PERMISSIONS), access_seen: true };
   let uploads = 0;
   let reloads = 0;
-  let exports = 0;
   const opened: BusinessPanelState[] = [];
   let context: BusinessContextValue = { receivingChannels: { email: { available: true }, whatsapp: { available: true } },
     userId: "count-person", source: { ...source, receiptPage: async () => ({ items: receipts, activity: globalActivity }), ...(receiptsOnly ? { captures: async () => ({ items: [], has_more: false }) } : {}), ...(markRead ? { markReceiptRead: markRead } : {}), ...(approveListos ? { approveListos } : {}) },
@@ -52,7 +51,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
     spaces: [chosen], chosen, chooseBusiness: () => {}, markAccessSeen: async () => {}, lostAccess: false, clearLostAccess: () => {}, revision: 0, reload: () => { reloads++; }, refresh: async () => "updated",
     period: { key: "all", from: "", to: null }, setPeriod: () => {}, panel: { kind: "inbox" }, openPanel: next => opened.push(next),
     actions: { create: role === "owner" && prepare ? [{ id: "upload_receipt", label: "Agregar", icon: Plus, run: () => { uploads++; } }] : [], composer: [], starterEntries: [] },
-    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, openExport: () => { exports++; }, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
+    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
   };
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   const render = () => act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>{bar ? <header data-testid="top-bar"><BusinessHeader home={false} name={null} title="Bandeja" screen="inbox" /></header> : null}<Inbox /></BusinessContext.Provider></I18nextProvider>); });
@@ -65,7 +64,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   const badge = (key: string) => tab(key)?.querySelector("span")?.textContent;
   const row = (name: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')].find(element => element.textContent?.includes(name));
   const remount = async () => { await act(async () => root.unmount()); const again = createRoot(host); await act(async () => { again.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Inbox /></BusinessContext.Provider></I18nextProvider>); }); cleanup = async () => { await act(async () => again.unmount()); host.remove(); }; await settle(() => host.querySelector('[data-testid="reception-row"]') !== null); };
-  return { host, context, opened, remount, uploads: () => uploads, exports: () => exports, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await settle(() => host.textContent?.includes("Actualizar lista") === true); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
+  return { host, context, opened, remount, uploads: () => uploads, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await settle(() => host.textContent?.includes("Actualizar lista") === true); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
 }
 
 const rows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')];

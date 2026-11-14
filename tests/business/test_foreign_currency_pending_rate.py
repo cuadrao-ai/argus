@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import io
 from dataclasses import replace
 from datetime import date
-from xml.etree import ElementTree
-from zipfile import ZipFile
 
 from argus.api.business_month_close_schemas import MonthClose
-from argus.domain.business.dgii_export import build_fiscal_packet, fiscal_manifest
+from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.month_close import PAYMENT_METHODS, summarize
 from argus.domain.business.month_close_store import foreign_currency, month_close
 
@@ -32,22 +29,6 @@ def _dollars(*indexes):
         replace(record, currency="USD") if index in indexes else record
         for index, record in enumerate(records)
     )
-
-
-def _conciliacion(packet):
-    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-    with ZipFile(io.BytesIO(packet.files["dgii/606-607.xlsx"])) as book:
-        strings = [
-            "".join(item.itertext())
-            for item in ElementTree.fromstring(book.read("xl/sharedStrings.xml")).findall(
-                "m:si", ns
-            )
-        ]
-        sheet = ElementTree.fromstring(book.read("xl/worksheets/sheet4.xml"))
-    return [
-        [strings[int(cell.find("m:v", ns).text)] for cell in row]
-        for row in sheet.findall("m:sheetData/m:row", ns)
-    ]
 
 
 def test_peso_only_month_has_no_pending_rate_and_no_note():
@@ -84,14 +65,6 @@ def test_counting_leaves_lines_totals_and_status_alone():
     [bridge] = [b for b in manifest["reconciliation"] if b["currency"] == "USD"]
     assert bridge["reason"] == "fiscal_conversion_required"
     assert bridge["note"] == NOTE
-
-
-def test_workbook_reads_the_note_and_never_the_raw_code():
-    rows = _conciliacion(build_fiscal_packet(_dollars(0, 4), **SEPTEMBER))
-    reason = rows[0].index("reason")
-    reasons = [row[reason] for row in rows[1:]]
-    assert reasons.count(NOTE) == 2
-    assert "fiscal_conversion_required" not in reasons
 
 
 def test_older_summary_without_the_count_reads_as_zero():

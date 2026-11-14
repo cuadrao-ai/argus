@@ -1388,8 +1388,8 @@ count. Editar opens the column choice inside the same dialog with a back arrow. 
 the DGII notice shows exactly the records it counted: the tab, the period, pesos
 and Faltan datos fiscales, with the other filters and the search cleared.
 A finished download closes the dialog and says so in a toast with "Descargar de
-nuevo". The period ZIP sheet stays for the sample and bank-matching Registros
-screen and the close-a-Business copy.
+nuevo". The period ZIP has no sheet in Registros. Only the close-a-Business
+dialog downloads it, as the handover of the original receipts.
 
 **Behavior rules (pending from Product).**
 

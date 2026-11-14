@@ -185,17 +185,7 @@ export type ReceiptDetail = ReceiptSummary & {
   missing_fields: (keyof ReceiptReviewFields)[];
 };
 
-export function businessExportPeriodValid(start: string, end: string): boolean {
-  const date = (value: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000-")) return NaN;
-    const parsed = Date.parse(`${value}T00:00:00Z`);
-    return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value ? parsed : NaN;
-  };
-  const days = (date(end) - date(start)) / 86_400_000;
-  return days >= 0 && days <= 365;
-}
-
-export async function fetchBusinessExport(draftId: string | undefined, start: string, end: string, signal?: AbortSignal, expectedGrant = getChosenGrant()): Promise<Blob> {
+export async function fetchBusinessExport(start: string, end: string, signal?: AbortSignal, expectedGrant = getChosenGrant()): Promise<Blob> {
   const generation = browserAuthGeneration();
   const grant = expectedGrant;
   const requireScope = () => {
@@ -206,7 +196,6 @@ export async function fetchBusinessExport(draftId: string | undefined, start: st
   const authHeaders = await authenticatedRequestHeaders();
   requireScope();
   const query = new URLSearchParams({ start, end });
-  if (draftId) query.set("draft_id", draftId);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/exports?${query}`, {
     headers: argusApiRequestHeaders(undefined, authHeaders, grant), credentials: "include", cache: "no-store", signal,
   });

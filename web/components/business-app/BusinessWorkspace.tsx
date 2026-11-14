@@ -61,14 +61,12 @@ import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
 import { intakeWork } from "./intake-work";
 import { TypedNoteQueue } from "./typed-note-queue";
-import ExportRecordsPanel from "./ExportRecordsPanel";
 import { openRecordsExport } from "./transacciones/records-export-request";
 import { HandHeart } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AmountsToggle } from "./foundation/AmountsToggle";
 import BusinessNotifications from "./foundation/BusinessNotifications";
 import BusinessHeader from "./foundation/BusinessHeader";
-import { useMonthCloseSource } from "./BusinessMonthClosePanel";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
@@ -178,8 +176,6 @@ export type BusinessContextValue = Readonly<{
   bridge: ChatShellBridge | null;
   attachedReceipt: ReceiptSummary | null;
   clearAttachedReceipt: () => void;
-  /** Opens the period ZIP export; only the sample and bank-matching Registros screen uses it. */
-  openExport: () => void;
   /** Asks the server for the emails again; the Negocio history shows it working. */
   emailRefresh: Readonly<{ refresh: () => void; refreshing: boolean; stalled: boolean }>;
   /** Asks again for only the lists named; the rest stay as they are. */
@@ -661,8 +657,6 @@ function BusinessWorkspaceContent({
     openPanel,
   });
 
-  const [exportOpen, setExportOpen] = useState(false);
-  const openExport = useCallback(() => setExportOpen(true), []);
   // Exportar registros from search opens Registros and its own export dialog.
   const exportRegistros = useCallback(() => openRecordsExport(openPanel), [openPanel]);
 
@@ -694,11 +688,10 @@ function BusinessWorkspaceContent({
       bridge,
       attachedReceipt,
       clearAttachedReceipt: () => setAttachedReceipt(null),
-      openExport,
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, invitationsAvailable, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, invitationsAvailable, lostAccess, markAccessSeen, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
@@ -800,7 +793,6 @@ function BusinessWorkspaceContent({
             openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id } : { kind: "inbox" });
           }}
         />
-        {exportOpen ? <WorkspaceExport onClose={() => setExportOpen(false)} /> : null}
         <ToastViewport />
       </ChatWorkspaceProvider>
     </BusinessContext.Provider>
@@ -811,8 +803,3 @@ export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; c
   return <BusinessReviewShortcutsProvider><BusinessWorkspaceContent {...props} /></BusinessReviewShortcutsProvider>;
 }
 
-/** The period ZIP export, opened from the sample and bank-matching Registros screen. */
-function WorkspaceExport({ onClose }: { onClose: () => void }) {
-  const monthClose = useMonthCloseSource();
-  return <ExportRecordsPanel monthClose={monthClose} onClose={onClose} />;
-}

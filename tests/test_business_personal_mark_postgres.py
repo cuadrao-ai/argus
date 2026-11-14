@@ -58,11 +58,12 @@ def _package(world) -> tuple[list[dict], list[dict], dict, dict]:  # noqa: ANN00
                 csv.DictReader(io.StringIO(archive.read(name).decode("utf-8-sig")))
             )
 
+        manifest = json.loads(archive.read("manifest.json"))
         return (
             sheet("records.csv"),
             sheet("personal.csv"),
-            json.loads(archive.read("dgii/summary.json")),
-            json.loads(archive.read("manifest.json")),
+            manifest["dgii"],
+            manifest,
         )
 
 

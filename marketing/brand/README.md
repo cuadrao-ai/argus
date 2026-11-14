@@ -12,6 +12,8 @@ Source files for the Cuadrao mark, the wordmark and the mark-and-wordmark lockup
 | `cuadrao-wordmark.svg`, `cuadrao-wordmark-dark.svg` | The lowercase wordmark as outlines, `#172b26` and `#fafbf8` | Light, dark |
 | `cuadrao-lockup-light.svg`, `cuadrao-lockup-dark.svg` | Mark and wordmark together, one composition | Light, dark |
 | `../scripts/make-brand-assets.py` | Generates the wordmark and the lockups from the font and the marks | |
+| `../public/email/lockup-dark.png` | Generated from `cuadrao-lockup-dark.svg` with its 0.5 em clear space by `node scripts/make-email-images.mjs`, at twice its 209 x 72 display size | Email header, always `#172b26` |
+| `../public/email/wordmark-light.png`, `../public/email/wordmark-dark.png` | Generated from `cuadrao-wordmark-dark.svg` by the same script | Only emails published or sent before the lockup header |
 
 The light mark owns the favicon artwork. Run `node scripts/make-icons.mjs` after changing it to regenerate all three browser icon files. The dark mark remains a separate palette for the pine footer.
 

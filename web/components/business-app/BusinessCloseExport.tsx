@@ -4,7 +4,7 @@ import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchBusinessExport } from "@/lib/business-api";
 import type { OwnedBusiness } from "@/lib/business-lifecycle-api";
-import { saveBlobDownload } from "./ExportRecordsPanel";
+import { saveBlobDownload } from "@/lib/save-blob-download";
 import { primaryButtonClass } from "./business-ui";
 
 type ExportState = "idle" | "loading" | "failed" | "complete";
@@ -28,7 +28,7 @@ export default function BusinessCloseExport({ business, label, journal, setJourn
     try {
       while (nextWindow < business.export_windows.length) {
         const period = business.export_windows[nextWindow];
-        const blob = await fetchBusinessExport(undefined, period.start, period.end, controller.signal, business.grant_id);
+        const blob = await fetchBusinessExport(period.start, period.end, controller.signal, business.grant_id);
         controller.signal.throwIfAborted();
         saveBlobDownload(blob, `business-export-${period.start}-${period.end}.zip`);
         nextWindow += 1;

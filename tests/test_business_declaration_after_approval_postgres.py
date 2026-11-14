@@ -1,17 +1,15 @@
 """Over the actions service on Postgres: approval needs no 606 data, a saved
 declaration keeps a person's values and takes only the Tipo Id and Forma de
 Pago it left unknown from the account that paid, a person adds any 606 data on
-the approved record and the export carries it, a line in a downloaded TXT
-stays editable, and the export-line table is server-only."""
+the approved record and the 606 carries it, and the export-line table is
+server-only."""
 
 from __future__ import annotations
 
-import io
 import json
 from datetime import date
 from unittest.mock import patch
 from uuid import uuid4
-from zipfile import ZipFile
 
 import psycopg
 import pytest
@@ -30,9 +28,8 @@ from argus.domain.business.contracts.dgii import (
 )
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
-from argus.domain.business.export import ExportPeriod, export_package
+from argus.domain.business.export import ExportPeriod
 from argus.domain.business.fiscal_profile import set_profile
-from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_dgii_postgres as dgii
@@ -50,7 +47,6 @@ pytestmark = [shared.pytestmark, pytest.mark.owner_acts]
 PERIOD = ExportPeriod(date(2026, 9, 1), date(2026, 9, 30))
 FILER = "199990013"
 SUPPLIER = "199990021"
-TXT_606 = f"dgii/DGII_F_606_{FILER}_202609.TXT"
 
 
 def blank_declaration(**chosen) -> dict:
@@ -174,40 +170,22 @@ def declared(service, context, draft_id, version, **review):  # noqa: ANN001, AN
     )
 
 
-def export_lines(service, context):  # noqa: ANN001, ANN201
-    with service.authority.pool.connection() as connection:
-        return connection.execute(
-            "select activity_id::text,form,period from public.business_dgii_export_lines"
-            " where space_id=%s order by exported_at,id",
-            (context.actor.space_id,),
-        ).fetchall()
-
-
 def account_funding(account) -> dict:  # noqa: ANN001
     return {"kind": "business_account", "account_id": str(account)}
 
 
-def txt_606_rows(service, context):  # noqa: ANN001, ANN201
-    """The packet's DGII manifest and its 606 TXT lines by column name, empty
-    when no 606 TXT shipped."""
+def rows_606(service, context):  # noqa: ANN001, ANN201
+    """The handover's DGII summary and its 606 rows by column name."""
 
-    blob = export_package(service.authority, context, PERIOD, InMemorySourceObjects())
-    with ZipFile(io.BytesIO(blob)) as archive:
-        manifest = json.loads(archive.read("manifest.json"))["dgii"]
-        if TXT_606 not in archive.namelist():
-            return manifest, []
-        lines = archive.read(TXT_606).decode().split("\r\n")[1:]
+    manifest, rows = dgii.handover_dgii(service, context, PERIOD)
     names = [name for name, _ in PURCHASE_COLUMNS]
-    return manifest, [
-        dict(zip(names, line.split("|"), strict=True)) for line in lines if line
-    ]
+    return manifest, [dict(zip(names, row, strict=True)) for row in rows["606"]]
 
 
-def txt_606(service, context):  # noqa: ANN001, ANN201
-    """The packet's DGII manifest and its one 606 TXT line, None when no 606
-    TXT shipped."""
+def row_606(service, context):  # noqa: ANN001, ANN201
+    """The handover's DGII summary and its one 606 row, None when it has none."""
 
-    manifest, rows = txt_606_rows(service, context)
+    manifest, rows = rows_606(service, context)
     return manifest, rows[0] if rows else None
 
 
@@ -246,7 +224,7 @@ def test_approval_fills_only_what_a_saved_declaration_left_unknown(actions):  # 
     assert owner.dgii.category is None
 
 
-def test_606_data_is_added_after_approval_and_after_an_export(actions):  # noqa: ANN001
+def test_606_data_is_added_after_approval_and_the_606_carries_it(actions):  # noqa: ANN001
     service, context, _ = actions
     set_profile(service.authority, context, filer_change(FILER), "rnc")
     cash = account_funding(cash_account(service, context))
@@ -280,27 +258,14 @@ def test_606_data_is_added_after_approval_and_after_an_export(actions):  # noqa:
         str(uuid4()),
     )
     assert facts.code == "recorded_correction_unsupported"
-    assert export_lines(service, context) == []
 
-    blob = export_package(service.authority, context, PERIOD, InMemorySourceObjects())
-    with ZipFile(io.BytesIO(blob)) as archive:
-        manifest = json.loads(archive.read("manifest.json"))["dgii"]
-        assert TXT_606 in archive.namelist()
-        line = archive.read(TXT_606).split(b"\r\n")[1].decode()
-    assert line.split("|")[2] == "02"
+    manifest, row = row_606(service, context)
+    assert manifest["forms"]["606"]["status"] == "prepared_candidate", manifest["issues"]
+    assert row["category"] == "02"
     [placed] = [
         item for item in manifest["reconciliation"] if item["draft_id"] == str(draft_id)
     ]
     assert placed["disposition"] == "606"
-    assert export_lines(service, context) == [(placed["activity_id"], "606", "202609")]
-
-    view = service.dossier(context, draft_id)
-    assert view.declaration_editable is True
-    edited = declared(service, context, draft_id, view.version, payment_method="04")
-    assert edited.outcome == "applied", edited
-    after = service.dossier(context, draft_id)
-    assert after.dgii.payment_method == "04"
-    assert len(after.history) == len(view.history) + 1
 
 
 def legacy_amount_facts(service, context, draft_id):
@@ -315,14 +280,15 @@ def legacy_amount_facts(service, context, draft_id):
         )
         db.execute(
             "update public.business_draft_revisions set after_facts=after_facts - 'net_amount' - 'legal_tip'"
-            " where draft_id=%s and space_id=%s", (draft_id, context.actor.space_id),
+            " where draft_id=%s and space_id=%s",
+            (draft_id, context.actor.space_id),
         )
 
 
 def test_a_record_the_old_approval_left_blank_takes_the_whole_606(actions):  # noqa: ANN001
     """The approval before this slice saved the blank form and filled nothing.
     Every 606 field a person then supplies lands on the approved record in one
-    write, and the TXT carries each one."""
+    write, and the 606 carries each one."""
 
     service, context, _ = actions
     set_profile(service.authority, context, filer_change(FILER), "rnc")
@@ -353,7 +319,7 @@ def test_a_record_the_old_approval_left_blank_takes_the_whole_606(actions):  # n
     assert {name: getattr(view.dgii, name) for name in chosen} == chosen
     assert view.review_state == "accepted"
 
-    manifest, row = txt_606(service, context)
+    manifest, row = row_606(service, context)
     assert manifest["forms"]["606"]["status"] == "prepared_candidate", manifest["issues"]
     assert {name: row[name] for name in chosen} == chosen
 
@@ -382,7 +348,7 @@ def test_a_restaurant_receipt_ships_its_base_itbis_and_tip(actions):  # noqa: AN
     view = service.dossier(context, draft_id)
     assert (view.dgii.services_amount, view.dgii.legal_tip) == ("1000.00", "100.00")
 
-    manifest, row = txt_606(service, context)
+    manifest, row = row_606(service, context)
     assert manifest["forms"]["606"]["status"] == "prepared_candidate", manifest["issues"]
     assert (
         row["services_amount"],
@@ -394,7 +360,7 @@ def test_a_restaurant_receipt_ships_its_base_itbis_and_tip(actions):  # noqa: AN
 
 def test_a_debit_note_names_the_comprobante_it_modifies_after_approval(actions):  # noqa: ANN001
     """A B03 debit note is approved like any purchase. The comprobante it
-    modifies is 606 data, written after approval, and the TXT carries it."""
+    modifies is 606 data, written after approval, and the 606 carries it."""
 
     service, context, _ = actions
     set_profile(service.authority, context, filer_change(FILER), "rnc")
@@ -414,7 +380,7 @@ def test_a_debit_note_names_the_comprobante_it_modifies_after_approval(actions):
     assert added.outcome == "applied", added
     assert service.dossier(context, draft_id).dgii.modified_ncf == "B0100000001"
 
-    manifest, row = txt_606(service, context)
+    manifest, row = row_606(service, context)
     assert manifest["forms"]["606"]["status"] == "prepared_candidate", manifest["issues"]
     assert (row["ncf"], row["modified_ncf"]) == ("B0300000011", "B0100000001")
 
@@ -535,7 +501,7 @@ def test_an_approved_credit_note_keeps_the_refund_its_approval_recorded(actions)
         service, context, credit, same.version, modified_ncf="B0100002302"
     )
     assert wrong_number.outcome == "applied", wrong_number
-    manifest, _ = txt_606_rows(service, context)
+    manifest, _ = rows_606(service, context)
     assert manifest["forms"]["606"]["status"] == "needs_review"
     assert "fiscal_credit_reference_conflict" in {
         issue["code"] for issue in manifest["issues"]
@@ -545,7 +511,7 @@ def test_an_approved_credit_note_keeps_the_refund_its_approval_recorded(actions)
         service, context, credit, wrong_number.version, modified_ncf="b01-00002301"
     )
     assert corrected.outcome == "applied", corrected
-    manifest, rows = txt_606_rows(service, context)
+    manifest, rows = rows_606(service, context)
     assert manifest["forms"]["606"]["status"] == "prepared_candidate", manifest["issues"]
     note = next(row for row in rows if row["ncf"] == "B0400000013")
     assert note["modified_ncf"] == "B0100002301"
@@ -573,7 +539,7 @@ def test_a_wrong_refund_flag_on_an_approved_expense_can_be_cleared(actions):  # 
         ),
     )
     view = approved(service, context, draft_id, version)
-    manifest, line = txt_606(service, context)
+    manifest, line = row_606(service, context)
     assert manifest["forms"]["606"]["status"] == "needs_review"
     assert line is None
 
@@ -586,7 +552,7 @@ def test_a_wrong_refund_flag_on_an_approved_expense_can_be_cleared(actions):  # 
         "recorded_correction_unsupported",
     )
     assert service.dossier(context, draft_id).dgii.actual_refund is False
-    manifest, line = txt_606(service, context)
+    manifest, line = row_606(service, context)
     assert manifest["forms"]["606"]["status"] == "prepared_candidate"
     assert line["ncf"] == "B0100002401"
 
@@ -653,7 +619,7 @@ def test_a_record_that_takes_no_606_refuses_the_606_write(actions):  # noqa: ANN
 
 def test_export_lines_are_server_only_and_append_only(actions):  # noqa: ANN001
     """A signed-in person cannot read the table. The service role reads and
-    inserts and can neither update nor delete: a downloaded line stays."""
+    inserts and can neither update nor delete: a recorded line stays."""
 
     service, context, _ = actions
     with psycopg.connect(accounts.DSN) as connection, connection.cursor() as cursor:
