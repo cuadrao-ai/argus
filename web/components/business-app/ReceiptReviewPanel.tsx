@@ -21,6 +21,7 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import { useReceiptStateWord } from "./receipt-state-word";
+import { receiptTag } from "./recepcion/reception-status";
 import type { ReceiptDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
@@ -125,7 +126,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       recordId={receiptId}
       back={confirmed ? "transactions" : "inbox"}
       title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
-      badge={<StatusPill status={detail.status} label={stateWord(detail) || undefined} />}
+      badge={<StatusPill tag={receiptTag(detail).tag} label={stateWord(detail)} />}
       amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
       origin={{ channel: detail.channel, receivedAt: detail.received_at }}
       place={place}

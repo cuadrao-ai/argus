@@ -1,13 +1,13 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import type { ReceiptStatus } from "@/lib/business-api";
-import { BUSINESS_STATUS, statusNameForReceipt } from "./presentation";
+import type { ReceptionTag } from "../recepcion/reception-status";
+import { BUSINESS_STATUS, statusNameForTag } from "./presentation";
 
-/** `label` names a finer state in the status's colour and mark, as a search preview names what its row says. */
-export function StatusPill({ status, label: stateLabel }: { status: ReceiptStatus; label?: string }) {
+/** `label` names a finer state in the tag's colour and mark, as a search preview names what its row says. */
+export function StatusPill({ tag, label: stateLabel }: { tag: ReceptionTag["tag"]; label?: string }) {
   const { t } = useTranslation();
-  const name = statusNameForReceipt(status);
+  const name = statusNameForTag(tag);
   const tone = BUSINESS_STATUS[name];
   const label = stateLabel || t(tone.labelKey, tone.label);
   const Icon = tone.icon;

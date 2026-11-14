@@ -2,10 +2,10 @@
 
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { ReceiptAttention, ReceiptStatus } from "@/lib/business-api";
+import type { ReceiptAttention } from "@/lib/business-api";
 import { BusinessContext } from "./BusinessWorkspace";
 import { FOCUS_RING } from "./foundation/presentation";
-import { StatusPill as FoundationStatusPill } from "./foundation/StatusPill";
+export { StatusPill } from "./foundation/StatusPill";
 
 export const cardClass =
   "rounded-surface border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
@@ -36,24 +36,6 @@ export function PanelHeading({ title, subtitle, action }: { title: string; subti
       {action}
     </div>
   );
-}
-
-export function StatusPill({ status, label }: { status: ReceiptStatus; label?: string }) {
-  return <FoundationStatusPill status={status} label={label} />;
-}
-
-export function useStatusLabel() {
-  const { t } = useTranslation();
-  return (status: ReceiptStatus) =>
-    ({
-      saved: t("business.status.saved", "Saved, not prepared"),
-      queued: t("business.status.queued", "Waiting to prepare"),
-      preparing: t("business.status.preparing", "Preparing"),
-      review_ready: t("business.status.review_ready", "Ready to review"),
-      needs_attention: t("business.status.needs_attention", "Needs attention"),
-      confirmed: t("business.status.confirmed", "Expense saved"),
-      dismissed: t("business.status.dismissed", "Dismissed"),
-    })[status];
 }
 
 export function useCategoryLabel() {
