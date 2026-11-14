@@ -310,10 +310,10 @@ describe("the review page's fiscal details", () => {
     assert.equal(english.host.querySelector('[data-fact="fiscal_number"] dd')?.textContent, "No fiscal receipt number");
     await english.act(async () => english.root.unmount());
     const withNcf = await facts({ rnc: unknown, ncf: { state: "known", value: "B0100000001", origin: "extracted", verified: false, source_ids: ["s"] }, ecf: unknown, itbis: unknown });
-    assert.equal(withNcf.host.querySelector('[data-fact="fiscal_number"]'), null);
+    assert.equal(withNcf.host.querySelector('[data-fact="ncf"]'), null);
     // The read number carries its origin tag after the value.
-    assert.ok(withNcf.host.querySelector('[data-fact="ncf"] dd')?.textContent?.startsWith("B0100000001"));
-    assert.ok(withNcf.host.querySelector('[data-fact="ncf"] dd [data-origin="extracted"]'));
+    assert.ok(withNcf.host.querySelector('[data-fact="fiscal_number"] dd')?.textContent?.startsWith("B0100000001"));
+    assert.ok(withNcf.host.querySelector('[data-fact="fiscal_number"] dd [data-origin="extracted"]'));
     await withNcf.act(async () => withNcf.root.unmount());
   });
 });
