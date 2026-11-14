@@ -1,22 +1,25 @@
 {
   "presentation": {
     "order": [
+      "counterparty_id",
       "counterparty",
-      "fiscal_number",
       "date",
+      "expense_type",
       "net_amount",
       "itbis_amount",
       "gross_amount",
       "stage",
+      "fiscal_number",
       "note",
       "attachment",
-      "expense_type",
       "payment_form",
       "funding"
     ],
     "hidden": [
+      "counterparty",
       "fiscal_number",
-      "expense_type",
+      "note",
+      "attachment",
       "payment_form",
       "funding"
     ],
@@ -24,87 +27,68 @@
   },
   "columns": [
     {
-      "key": "counterparty",
-      "label_key": "business.transactions.columns.contraparte",
-      "required": true,
-      "pinned": true,
+      "key": "counterparty_id",
+      "label_key": "business.transactions.columns.rnc_cedula",
       "shown": true
     },
     {
-      "key": "fiscal_number",
-      "label_key": "business.transactions.columns.ncf",
-      "required": false,
-      "pinned": false,
+      "key": "counterparty",
+      "label_key": "business.transactions.columns.contraparte",
       "shown": false
     },
     {
       "key": "date",
       "label_key": "business.transactions.columns.fecha",
-      "required": false,
-      "pinned": false,
-      "shown": true
-    },
-    {
-      "key": "net_amount",
-      "label_key": "business.terms.net_amount",
-      "required": false,
-      "pinned": false,
-      "shown": true
-    },
-    {
-      "key": "itbis_amount",
-      "label_key": "business.terms.itbis",
-      "required": false,
-      "pinned": false,
-      "shown": true
-    },
-    {
-      "key": "gross_amount",
-      "label_key": "business.terms.total",
-      "required": true,
-      "pinned": false,
-      "shown": true
-    },
-    {
-      "key": "stage",
-      "label_key": "business.transactions.layout.column_state",
-      "required": false,
-      "pinned": false,
-      "shown": true
-    },
-    {
-      "key": "note",
-      "label_key": "business.transactions.columns.notas",
-      "required": false,
-      "pinned": false,
-      "shown": true
-    },
-    {
-      "key": "attachment",
-      "label_key": "business.transactions.layout.column_attachment",
-      "required": false,
-      "pinned": false,
       "shown": true
     },
     {
       "key": "expense_type",
       "label_key": "business.dossier.placeholder.expense_type",
-      "required": false,
-      "pinned": false,
+      "shown": true
+    },
+    {
+      "key": "net_amount",
+      "label_key": "business.terms.net_amount",
+      "shown": true
+    },
+    {
+      "key": "itbis_amount",
+      "label_key": "business.terms.itbis",
+      "shown": true
+    },
+    {
+      "key": "gross_amount",
+      "label_key": "business.terms.total",
+      "shown": true
+    },
+    {
+      "key": "stage",
+      "label_key": "business.transactions.layout.column_state",
+      "shown": true
+    },
+    {
+      "key": "fiscal_number",
+      "label_key": "business.transactions.columns.ncf",
+      "shown": false
+    },
+    {
+      "key": "note",
+      "label_key": "business.transactions.columns.notas",
+      "shown": false
+    },
+    {
+      "key": "attachment",
+      "label_key": "business.transactions.layout.column_attachment",
       "shown": false
     },
     {
       "key": "payment_form",
       "label_key": "business.dossier.placeholder.payment_form",
-      "required": false,
-      "pinned": false,
       "shown": false
     },
     {
       "key": "funding",
       "label_key": "business.transactions.columns.cuenta",
-      "required": false,
-      "pinned": false,
       "shown": false
     }
   ],

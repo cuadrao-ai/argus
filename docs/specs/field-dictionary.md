@@ -101,28 +101,31 @@ Tipo de gasto: 01–11 · Forma de pago: 01–07
 
 ## Registros columns
 
-One registry owns every column fact: `COLUMNS` in `src/argus/domain/business/reporting_columns.py`. Each entry names the column's server key, the locale path of its name, whether it is required (never hidden), pinned (fixed first, and in every export file), hidden by default, and which record families offer it. The default layout, the stored-layout upgrade, the report answer, the export preview and the export file all read it. A country can withhold optional columns with `omitted_columns` on its entry in `src/argus/domain/business/country.py`; no country withholds any today.
+One registry owns every column fact: `COLUMNS` in `src/argus/domain/business/reporting_columns.py`. Each entry names the column's server key, the locale path of its name, whether it is hidden by default, which record families offer it, and what the "Lo que ves" file does with it. The registry's order is the default order. The default layout, the stored-layout upgrade, the report answer, the export preview and the export file all read it. A country can withhold columns with `omitted_columns` on its entry in `src/argus/domain/business/country.py`; no country withholds any today.
 
-Every report answer carries `columns`: the columns the request's type offers in the Business's country, in the layout's order, each `{key, label_key, required, pinned, shown}`. Keys are server keys and language-neutral. `label_key` is a locale path; the web turns it into words from `web/public/locales/<language>/common.json`, and the export file reads the same words through `records_file_words.generated.json`, which `scripts/generate_records_file_words.py` builds from the registry's paths. The web keeps only how a column draws: its width, alignment and cell renderer, keyed by server key. It keeps no column list, default or rule. `records-default-authority.test.ts` pins the web's keys to the openapi enum and rejects a column list or table written by hand; `test_reporting_columns.py` pins a name for every column in every locale.
+Every report answer carries `columns`: the columns the request's type offers in the Business's country, in the layout's order, each `{key, label_key, shown}`. Keys are server keys and language-neutral. `label_key` is a locale path; the web turns it into words from `web/public/locales/<language>/common.json`, and the export file reads the same words through `records_file_words.generated.json`, which `scripts/generate_records_file_words.py` builds from the registry's paths. The web keeps only how a column draws: its width, alignment and cell renderer, keyed by server key. It keeps no column list or default. `records-default-authority.test.ts` pins the web's keys to the openapi enum and rejects a column list or table written by hand; `test_reporting_columns.py` pins a name for every column in every locale.
 
-A stored or linked layout is upgraded on the server, and the web keeps the answer's `presentation`. A column the layout does not name joins it at the end, hidden unless it is required. The shipped exceptions keep their places: `category` becomes `expense_type`, `payment_form` joins after it hidden, `net_amount` joins just before `gross_amount` shown, and `family` and `currency` are dropped.
+A stored or linked layout is upgraded on the server, and the web keeps the answer's `presentation`. A column the layout does not name joins it at the end, hidden. The shipped exceptions keep their places: `category` becomes `expense_type`, `payment_form` joins after it hidden, `net_amount` joins just before `gross_amount` shown, and `family` and `currency` are dropped.
+
+No column is locked by name. The person can hide or move any column, and one column always stays shown: the server refuses a layout that hides them all, and the column menu disables the last shown column's box. The first shown column stays frozen when the table scrolls sideways, whatever it is. Adjunto freezes on the right while it is last.
 
 | Key | Name (ES / EN) | Default | Rule |
 |---|---|---|---|
-| `counterparty` | Contraparte / Counterparty | Shown | Required and pinned |
-| `fiscal_number` | NCF / NCF | Hidden | NCF or e-CF; missing stays unknown |
+| `counterparty_id` | RNC o Cédula / RNC or ID | Shown | The supplier's or client's taxpayer id. The table adds the DGII's hyphens (`1-01-00157-7`, `001-0000000-1`); the file writes plain digits. Hovering shows the name. |
+| `counterparty` | Contraparte / Counterparty | Hidden | Always in the "Lo que ves" file |
 | `date` | Fecha / Date | Shown | Short for Fecha del comprobante |
+| `expense_type` | Tipo de gasto / Expense type | Shown | Compras only |
 | `net_amount` | Monto sin ITBIS / Amount before ITBIS | Shown | |
 | `itbis_amount` | ITBIS / ITBIS | Shown | Row currency; missing stays unknown, zero stays numeric |
-| `gross_amount` | Total / Total | Shown | Required |
+| `gross_amount` | Total / Total | Shown | |
 | `stage` | Estado / Status | Shown | |
-| `note` | Notas / Notes | Shown | |
-| `attachment` | Adjunto / Attachment | Shown | |
-| `expense_type` | Tipo de gasto / Expense type | Hidden | Compras only |
-| `payment_form` | Forma de pago / Payment method | Hidden | Compras only |
+| `fiscal_number` | NCF / NCF | Hidden | NCF or e-CF; missing stays unknown |
+| `note` | Notas / Notes | Hidden | |
+| `attachment` | Adjunto / Attachment | Hidden | |
+| `payment_form` | Forma de pago / Payment method | Hidden | Compras only. Checked by default in the "Lo que ves" file, where it goes last while the table hides it |
 | `funding` | Cuenta / Account | Hidden | Forma de pago ≠ Cuenta |
 
-The names in the table are today's words; the locale files own them. A per-type name, such as Emisor on Compras and Cliente on Ventas, is one more registry field, resolved where the answer sets `label_key`. The export modal lists the preview's columns for the chosen currencies: the table's, then Moneda after the total when the file holds every currency. NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client's workflow. See `docs/API_CONTRACT.md` for the answer and export contracts.
+The names in the table are today's words; the locale files own them. A per-type name, such as Emisor on Compras and Cliente on Ventas, is one more registry field, resolved where the answer sets `label_key`. The export modal lists the preview's columns for the chosen currencies: the table's, then Moneda after the total when the file holds every currency. The registry's file rule (`as_shown`, `default` or `always`) says which the file always holds and which it offers checked while the table hides it. NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client's workflow. See `docs/API_CONTRACT.md` for the answer and export contracts.
 
 ## Score cards
 

@@ -23,7 +23,7 @@ const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
 /** The server registry's column keys, the `Presentation` enum in docs/api/openapi.yaml. Cell renderers and layouts key on them; a test pins the two lists equal. */
-export const REPORT_PRESENTATION_KEYS = ["counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment", "expense_type", "payment_form", "funding"] as const;
+export const REPORT_PRESENTATION_KEYS = ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "fiscal_number", "note", "attachment", "payment_form", "funding"] as const;
 export type ReportColumnKey = typeof REPORT_PRESENTATION_KEYS[number];
 /** A layout as a request carries it. An old link's keys pass through; the server upgrades them and answers the layout the web keeps. */
 export const reportPresentationSchema = z.strictObject({
@@ -31,8 +31,8 @@ export const reportPresentationSchema = z.strictObject({
   hidden: z.array(z.string()),
   density: z.union([z.literal(40), z.literal(48), z.literal(56)]),
 });
-/** One column the table offers, with the rules the server gives it. `label_key` is a locale path. */
-export const reportColumnSchema = z.object({ key: z.enum(REPORT_PRESENTATION_KEYS), label_key: z.string(), required: z.boolean(), pinned: z.boolean(), shown: z.boolean() });
+/** One column the table offers. `label_key` is a locale path. */
+export const reportColumnSchema = z.object({ key: z.enum(REPORT_PRESENTATION_KEYS), label_key: z.string(), shown: z.boolean() });
 const pageSize = z.union([z.literal(25), z.literal(50), z.literal(100)]);
 export const reportPeriodSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("custom"), from_date: day, to_date: day }).refine((value) => value.from_date <= value.to_date),

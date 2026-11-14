@@ -199,15 +199,11 @@ class ExcludedPersonal(Contract):
 
 
 class ReportColumn(Contract):
-    """One column the table offers, with the rules the web draws it by."""
+    """One column the table offers. The person can hide or move any of them."""
 
     key: TableColumn
     #: Locale path of its name; the web reads the words in the reader's language.
     label_key: str
-    #: Always shown.
-    required: bool
-    #: Fixed first.
-    pinned: bool
     shown: bool
 
 
@@ -221,8 +217,6 @@ def report_columns(
         ReportColumn(
             key=key,
             label_key=SPECS[key].label,
-            required=SPECS[key].required,
-            pinned=SPECS[key].pinned,
             shown=key not in presentation.hidden,
         )
         for key in presentation.order

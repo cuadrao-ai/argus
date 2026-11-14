@@ -249,22 +249,18 @@ describe("the gate", () => {
       assert.ok(page.records()[0].querySelector('[data-col="payment_form"]'), "every row gets the Forma de pago cell");
       await page.click(document.querySelector('[data-column-setting="payment_form"] label'));
       const category = document.querySelector('[data-column-setting="expense_type"] label')!;
-      assert.equal(document.querySelector('th[data-col="expense_type"]'), null, "Tipo de gasto starts hidden");
-      await page.click(category);
-      assert.equal(document.querySelector('th[data-col="expense_type"]')?.textContent, "Tipo de gasto");
+      assert.equal(document.querySelector('th[data-col="expense_type"]')?.textContent, "Tipo de gasto", "Tipo de gasto starts shown");
       assert.ok(page.records()[0].querySelector('[data-col="expense_type"]'));
       await page.click(category);
       assert.equal(document.querySelector('th[data-col="expense_type"]'), null);
       assert.equal(page.records()[0].querySelector('[data-col="expense_type"]'), null);
-      assert.equal(document.querySelectorAll('colgroup col').length, 8);
-      assert.equal(document.querySelector('[data-column-setting="gross_amount"] input'), null);
-      assert.equal(document.querySelector('[data-column-setting="counterparty"] input'), null);
-      assert.match(document.querySelector('[data-column-setting="gross_amount"]')!.textContent ?? "", /Siempre visible/);
-      assert.equal(document.querySelector('[data-column-setting="counterparty"] button'), null);
+      assert.equal(document.querySelectorAll('colgroup col').length, 6);
+      await page.click(category); assert.equal(document.querySelectorAll('colgroup col').length, 7);
+      for (const setting of document.querySelectorAll("[data-column-setting]")) assert.ok(setting.querySelector<HTMLInputElement>('input[type="checkbox"]')?.disabled === false && setting.querySelector("button[draggable]") && !/Siempre visible/.test(setting.textContent ?? ""), "no column is locked by name");
       const categoryGrip = document.querySelector('[data-column-setting="expense_type"] button[draggable]')!;
       assert.equal(categoryGrip.closest("label"), null, "reorder grip is separate from the checkbox label");
       await page.click(categoryGrip);
-      assert.equal((category.querySelector("input") as HTMLInputElement).checked, false, "grip click does not toggle visibility");
+      assert.equal((category.querySelector("input") as HTMLInputElement).checked, true, "grip click does not toggle visibility");
       const drag = async (target: string, name = "Adjunto") => {
         const handle = document.querySelector(`button[aria-label="Mover ${name}"]`)!;
         const destination = document.querySelector(`[data-column-setting="${target}"]`)!;
@@ -280,6 +276,7 @@ describe("the gate", () => {
       assert.ok(settingOrder().indexOf("note") > settingOrder().indexOf("funding"));
       assert.deepEqual([...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col")), settingOrder().filter((key) => !sampleRecordsPreferences().hidden.some((hidden) => hidden === key)));
       await drag("attachment", "Notas");
+      await page.click(document.querySelector('[data-column-setting="attachment"] label'));
       await drag("date");
       assert.equal(document.querySelectorAll('thead th')[1].getAttribute("data-col"), "attachment");
       assert.equal(document.querySelector('th[data-col="attachment"]')?.getAttribute("data-pinned"), "top");
@@ -296,14 +293,14 @@ describe("the gate", () => {
       await key(" ", true);
       assert.equal(grip.getAttribute("aria-pressed"), "true", "holding Space must not release the column");
       await key("ArrowUp");
-      assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["counterparty", "date", "net_amount", "gross_amount"]);
+      assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 5), ["counterparty_id", "date", "expense_type", "net_amount", "gross_amount"]);
       await key("Escape");
       assert.ok(document.querySelector('[role="dialog"]'), "Escape restores grabbed order before dismissing");
       assert.equal(document.querySelector('[data-picked-up="true"]'), null);
-      assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 3), ["counterparty", "date", "net_amount"]);
+      assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 5), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount"]);
       await key(" "); await key("ArrowUp"); await key(" "); await key("Escape");
       assert.equal(document.querySelector('[role="dialog"]'), null);
-      assert.deepEqual([...page.records()[0].querySelectorAll('td')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["counterparty", "date", "net_amount", "gross_amount"]);
+      assert.deepEqual([...page.records()[0].querySelectorAll('td')].map((node) => node.getAttribute("data-col")).slice(0, 5), ["counterparty_id", "date", "expense_type", "net_amount", "gross_amount"]);
       const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
       assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
       await clickText("Vistas"); await clickText("Guardar vista actual");
@@ -313,8 +310,8 @@ describe("the gate", () => {
       await page.click(document.querySelector('[data-testid="transacciones-view-options"]')); await clickText("Restaurar valores iniciales");
       await page.act(async () => document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
       await page.click(document.querySelector('button[aria-label="Vistas: Mi tabla"]')); await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Mi tabla")!);
-      assert.equal(document.querySelector<HTMLElement>('[data-testid="transacciones-records"]')!.dataset.density, "compacto"); assert.equal(document.querySelector('th[data-col="expense_type"]'), null);
-      assert.equal(document.querySelectorAll('thead th')[3].getAttribute("data-col"), "gross_amount");
+      assert.equal(document.querySelector<HTMLElement>('[data-testid="transacciones-records"]')!.dataset.density, "compacto"); assert.ok(document.querySelector('th[data-col="attachment"]'), "the saved view shows Adjunto again after Restore hid it");
+      assert.equal(document.querySelectorAll('thead th')[4].getAttribute("data-col"), "gross_amount");
       assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
       await page.click(document.querySelector('button[aria-label="Página siguiente"]'));
       assert.equal(footer().dataset.page, "2");
@@ -356,10 +353,9 @@ describe("the gate", () => {
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
       await page.settle(() => page.records().length === 2, "purchase scope summary");
       assert.equal(summary(), null, "Total has no subcard");
-      assert.equal(document.querySelectorAll('thead th').length, 8);
+      assert.equal(document.querySelectorAll('thead th').length, 7);
       assert.equal(document.querySelector('th[data-col="funding"]'), null);
-      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["counterparty", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment"]);
-      assert.equal(document.querySelector('th[data-col="expense_type"]'), null);
+      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
       const amount = page.records().find((row) => row.dataset.kind === "gasto")!.querySelector('[data-col="gross_amount"]')!;
       assert.equal(amount.textContent, "2,100.00");
       assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]'), null);
@@ -1141,6 +1137,8 @@ test("local header and phone sorts share preference state, reset pages and resto
     await page.settle(() => page.records().length === 25, "sorting rows");
     const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
     const count = () => document.querySelector('[data-testid="records-count"]')!.textContent;
+    // The name column is hidden by default; its title sorts by name once it is shown.
+    for (const control of ['[data-testid="transacciones-view-options"]', '[data-column-setting="counterparty"] label', '[data-testid="transacciones-view-options"]']) await page.click(document.querySelector(control));
     await page.click(document.querySelector('button[aria-label="Página siguiente"]'));
     await page.click(document.querySelector('th[data-col="gross_amount"] button'));
     assert.equal(footer().dataset.page, "1"); assert.equal(page.records()[0].dataset.recordId, "sort-29");

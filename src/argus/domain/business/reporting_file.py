@@ -35,7 +35,11 @@ from argus.domain.business.dgii_validation import (
 )
 from argus.domain.business.export import spreadsheet_cell
 from argus.domain.business.fiscal_identity import identity_digits
-from argus.domain.business.reporting_columns import CURRENCY_LABEL, FileColumn
+from argus.domain.business.reporting_columns import (
+    CURRENCY_LABEL,
+    SPECS,
+    FileColumn,
+)
 from argus.domain.business.reporting_preferences import (
     Contract,
     Family,
@@ -192,16 +196,20 @@ def _file_columns(
     request: ReportRequest | ReportRequestV2, country: str, all_: bool
 ) -> tuple[ExportColumn, ...]:
     """The table's offered columns in its order, with Moneda after the gross
-    amount when the file holds every currency. The fixed column is always in."""
+    amount when the file holds every currency. The registry says which column
+    the file always holds and which it offers checked while the table hides it;
+    that one goes last."""
 
     columns: list[ExportColumn] = []
+    last: list[ExportColumn] = []
     for column in report_columns(_presentation(request), (_family(request),), country):
-        columns.append(
+        rule = SPECS[column.key].file
+        (last if rule == "default" and not column.shown else columns).append(
             ExportColumn(
                 key=column.key,
                 label_key=column.label_key,
-                required=column.pinned,
-                shown=column.shown,
+                required=rule == "always",
+                shown=column.shown or rule != "as_shown",
             )
         )
         if column.key == "gross_amount" and all_:
@@ -210,7 +218,7 @@ def _file_columns(
                     key="currency", label_key=CURRENCY_LABEL, required=True, shown=True
                 )
             )
-    return tuple(columns)
+    return (*columns, *last)
 
 
 def _with_currencies(
@@ -365,6 +373,8 @@ def _amount(text: str | None) -> Decimal | None:
 def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
     if key == "counterparty":
         return row.counterparty
+    if key == "counterparty_id":
+        return row.counterparty_key
     if key == "fiscal_number":
         return row.fiscal_number
     if key == "date":
