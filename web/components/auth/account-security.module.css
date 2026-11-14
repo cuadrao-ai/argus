@@ -43,14 +43,16 @@
 .screen .sessions button.sessionAction {
   min-height: 44px;
   padding-inline: 0.75rem;
-  background-color: transparent;
-  color: var(--cuadrao-green);
   font-size: 0.875rem;
   white-space: normal;
   max-width: 100%;
   text-align: center;
 }
-.screen .sessions button.sessionAction:hover:not(:disabled) { background-color: var(--auth-sage); }
+.screen .sessions button.sessionAction:not([data-destructive]) {
+  background-color: transparent;
+  color: var(--cuadrao-green);
+}
+.screen .sessions button.sessionAction:not([data-destructive]):hover:not(:disabled) { background-color: var(--auth-sage); }
 .screen .sessions button.sessionAction:disabled { cursor: not-allowed; }
 @media (max-width: 35rem) {
   .sessionRow { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }

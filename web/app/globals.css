@@ -900,11 +900,11 @@ body[data-workspace-bounded] [data-workspace-canvas] {
 }
 
 [data-auth-brand="cuadrao"] a,
-[data-auth-brand="cuadrao"] button[type="button"]:hover {
+[data-auth-brand="cuadrao"] button[type="button"]:not([data-destructive]):hover {
   color: var(--auth-pine);
 }
 
-[data-auth-brand="cuadrao"] button[aria-label]:hover {
+[data-auth-brand="cuadrao"] button[aria-label]:not([data-destructive]):hover {
   background-color: var(--auth-sage);
 }
 

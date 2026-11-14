@@ -931,7 +931,9 @@ a 44px target.
 | **Primary** | Cuadrao green fill | The screen's one main action: Agregar, Aprobar, Descargar. One per screen or sheet. |
 | **Secondary** | Outlined | An alternative next to the primary: Volver, Revisar después, No es este. |
 | **Quiet** | Green text, no fill | An action inside content: Reintentar, Ver correo, Mostrar más. |
-| **Danger** | `#9e2f39` | Only the confirm of a delete, inside its alert. The outlined form opens that alert. |
+| **Danger** | Shared danger tokens from `dangerButtonClass` and `dangerConfirmButtonClass` | A destructive action, including Cerrar todas. The outlined form opens its confirmation alert. |
+
+Destructive actions retain their danger treatment at rest, hover, focus-visible, pressed and disabled in both appearances; shared session-action and auth-brand sage hovers must exclude them.
 
 - Black fills, ad-hoc green pills and one-off outlines are not a level. Pick
   the nearest of the four.

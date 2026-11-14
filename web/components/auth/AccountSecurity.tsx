@@ -437,6 +437,7 @@ export function AccountSecurity({ actions = getAuthSecurityActions, loadSession 
                 </div>
                 <button
                   type="button"
+                  data-destructive={choice.scope === "global" || undefined}
                   disabled={disabled}
                   aria-label={choice.name}
                   aria-describedby={`session-${choice.scope}-line`}
