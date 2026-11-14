@@ -7,7 +7,7 @@ export type SocialPlatform = {
 
 export const SOCIAL_PLATFORMS: readonly SocialPlatform[] = [
   { id: "tiktok", label: "TikTok", href: null },
-  { id: "instagram", label: "Instagram", href: null },
+  { id: "instagram", label: "Instagram", href: "https://www.instagram.com/cuadraoai/" },
   { id: "youtube", label: "YouTube", href: null },
 ];
 

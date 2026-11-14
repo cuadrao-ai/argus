@@ -9,8 +9,10 @@ import {
 const live: SocialPlatform = { id: "youtube", label: "YouTube", href: "https://example.test/y" };
 
 describe("social links", () => {
-  test("nothing shows before any account exists and the preview is off", () => {
-    expect(visibleSocials(SOCIAL_PLATFORMS, false)).toEqual([]);
+  test("with the preview off, only Instagram shows, linked to the real account", () => {
+    expect(visibleSocials(SOCIAL_PLATFORMS, false)).toEqual([
+      { id: "instagram", label: "Instagram", href: "https://www.instagram.com/cuadraoai/" },
+    ]);
   });
 
   test("the preview shows every platform", () => {
