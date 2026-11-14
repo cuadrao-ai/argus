@@ -8628,7 +8628,7 @@ for the signed-in person. `POST /api/v1/business/guide-cards/{card_id}/dismiss`
 takes no body. After a dismissal commits, it returns `{dismissed: true}`.
 Repeating the request keeps the first dismissal time.
 
-The card IDs are `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
+The card IDs are `actividad-intro`, `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
 follows the registered person across Businesses and sessions. The server takes
 the person ID from the session and ignores `X-Business-Grant` for these routes.
 Both responses use `Cache-Control: no-store`. If storage is unavailable, both

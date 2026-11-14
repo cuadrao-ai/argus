@@ -4571,6 +4571,7 @@ paths:
         required: true
         schema:
           enum:
+          - actividad-intro
           - bandeja-intro
           - registros-intro
           type: string
@@ -4609,6 +4610,7 @@ paths:
         required: true
         schema:
           enum:
+          - actividad-intro
           - bandeja-intro
           - registros-intro
           type: string
