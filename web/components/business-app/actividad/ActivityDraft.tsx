@@ -2,8 +2,7 @@
 
 // Actividad: the live history reads GET /business/activity (#1407) and shows only what that feed returns. The local
 // preview (sample data, `?activity=contract|empty|loading|error`) also shows the fields #1410 and ACT-2a add.
-// The action labels live in the locale files (`business.activity_feed`); the rest of the copy still lives here,
-// draft, until the copy pass moves it.
+// UI copy lives in the locale files (`business.activity` and `business.activity_feed`).
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -104,57 +103,6 @@ const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   other: { area: "business", group: "other" },
 };
 
-/* ---------- Draft copy (es-419 first) ---------- */
-
-const COPY = {
-  es: {
-    cols: { who: "Quién", what: "Qué pasó", record: "Registro", area: "Área", time: "Hora" },
-    filters: { title: "Filtros", date: "Fecha", person: "Persona", area: "Área", action: "Acción", clear: "Limpiar filtros", clearGroup: "Limpiar", remove: "Quitar filtro:", all: "Todas las fechas", today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días" },
-    areas: { documents: "Documentos", records: "Registros", invoicing: "Facturación", business: "Negocio" },
-    groups: { uploads: "Subidas", reading: "Lecturas", reviews: "Revisiones", approvals: "Aprobaciones", edits: "Cambios en registros", files: "Adjuntos", invoices: "Facturas", access: "Accesos", settings: "Datos del negocio", other: "Otros" },
-    viaChat: "desde el chat",
-    formerMember: "Exmiembro",
-    unmarkPersonal: "devolvió un gasto al negocio",
-    managersOnly: "Solo lo ven dueños y administradores",
-    noActor: "Actor no registrado",
-    noRecord: "sin dato",
-    loadMore: "Cargar más",
-    am: "a.m.", pm: "p.m.",
-    firstRunTitle: "Todavía no hay actividad",
-    firstRunBody: "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
-    filteredTitle: "Nada coincide con estos filtros",
-    filteredBody: "Hay actividad fuera de esta fecha o de estos filtros.",
-    errorTitle: "No pudimos cargar la actividad",
-    errorBody: "Tus registros están bien. Inténtalo de nuevo en un momento.",
-    goHome: "Ir a Inicio",
-    loadMoreFailed: "No pudimos cargar más actividad.",
-    retry: "Reintentar",
-  },
-  en: {
-    cols: { who: "Who", what: "What happened", record: "Record", area: "Area", time: "Time" },
-    filters: { title: "Filters", date: "Date", person: "Person", area: "Area", action: "Action", clear: "Clear filters", clearGroup: "Clear", remove: "Remove filter:", all: "All dates", today: "Today", week: "Last 7 days", month: "Last 30 days" },
-    areas: { documents: "Documents", records: "Records", invoicing: "Invoicing", business: "Business" },
-    groups: { uploads: "Uploads", reading: "Reading", reviews: "Reviews", approvals: "Approvals", edits: "Record changes", files: "Attachments", invoices: "Invoices", access: "Access", settings: "Business details", other: "Other" },
-    viaChat: "from chat",
-    formerMember: "Former member",
-    unmarkPersonal: "moved an expense back to the business",
-    managersOnly: "Only owners and admins see this",
-    noActor: "Actor not recorded",
-    noRecord: "no data",
-    loadMore: "Load more",
-    am: "a.m.", pm: "p.m.",
-    firstRunTitle: "No activity yet",
-    firstRunBody: "When someone uploads, reviews or approves something in this business, you will see it here.",
-    filteredTitle: "Nothing matches these filters",
-    filteredBody: "There is activity outside this date or these filters.",
-    errorTitle: "We could not load the activity",
-    errorBody: "Your records are fine. Try again in a moment.",
-    goHome: "Go to Home",
-    loadMoreFailed: "We couldn't load more activity.",
-    retry: "Try again",
-  },
-} as const;
-
 /* ---------- Fixtures, relative to now so the draft always reads fresh ---------- */
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -215,7 +163,32 @@ export default function ActivityDraft() {
   const feed = useActivityFeed(live, chosen?.space_id ?? null);
   const lang = (i18n.resolvedLanguage ?? resolveLanguage({})) === "en" ? "en" : "es";
   const locale = lang === "en" ? "en-US" : "es-419";
-  const c = COPY[lang];
+  const c = {
+    cols: { who: t("business.activity.cols.who"), what: t("business.activity.cols.what"), record: t("business.activity.cols.record"), area: t("business.activity.cols.area"), time: t("business.activity.cols.time") },
+    filters: { title: t("business.activity.filters.title"), date: t("business.activity.filters.date"), person: t("business.activity.filters.person"), area: t("business.activity.filters.area"), action: t("business.activity.filters.action"), clear: t("business.activity.filters.clear"), clearGroup: t("business.activity.filters.clearGroup"), remove: t("business.activity.filters.remove"), all: t("business.activity.filters.all"), today: t("business.activity.filters.today"), week: t("business.activity.filters.week"), month: t("business.activity.filters.month") },
+    areas: { documents: t("business.activity.areas.documents"), records: t("business.activity.areas.records"), invoicing: t("business.activity.areas.invoicing"), business: t("business.activity.areas.business") },
+    groups: { uploads: t("business.activity.groups.uploads"), reading: t("business.activity.groups.reading"), reviews: t("business.activity.groups.reviews"), approvals: t("business.activity.groups.approvals"), edits: t("business.activity.groups.edits"), files: t("business.activity.groups.files"), invoices: t("business.activity.groups.invoices"), access: t("business.activity.groups.access"), settings: t("business.activity.groups.settings"), other: t("business.activity.groups.other") },
+    viaChat: t("business.activity.viaChat"),
+    formerMember: t("business.activity.formerMember"),
+    unmarkPersonal: t("business.activity.unmarkPersonal"),
+    managersOnly: t("business.activity.managersOnly"),
+    noActor: t("business.activity.noActor"),
+    noRecord: t("business.activity.noRecord"),
+    loadMore: t("business.activity.loadMore"),
+    am: t("business.activity.am"),
+    pm: t("business.activity.pm"),
+    firstRunTitle: t("business.activity.firstRunTitle"),
+    firstRunBody: t("business.activity.firstRunBody"),
+    filteredTitle: t("business.activity.filteredTitle"),
+    filteredBody: t("business.activity.filteredBody"),
+    errorTitle: t("business.activity.errorTitle"),
+    errorBody: t("business.activity.errorBody"),
+    goHome: t("business.activity.goHome"),
+    loadMoreFailed: t("business.activity.loadMoreFailed"),
+    retry: t("business.activity.retry"),
+    extractorName: t("business.activity.extractorName"),
+    recordPlaceholder: t("business.activity.recordPlaceholder"),
+  };
   const mode = live || typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("activity");
   const [filters, setFilters] = useState<ActivityFilterValue>(EMPTY_ACTIVITY_FILTERS);
   const [shown, setShown] = useState(PAGE);
@@ -298,7 +271,7 @@ export default function ActivityDraft() {
 
   const actor = (item: DraftItem, size: 24 | 32) => {
     if (!item.actor) return { mark: <Avatar name={null} size={size} />, name: <span className="text-[#56635e] dark:text-white/60">{c.noActor}</span> };
-    if (item.actor.kind === "extractor") return { mark: <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#e3ebe1] dark:bg-white/10 ${size === 24 ? "h-6 w-6" : "h-8 w-8"}`}><CuadraoMark size={size === 24 ? 14 : 18} /></span>, name: <span>Cuadrao</span> };
+    if (item.actor.kind === "extractor") return { mark: <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#e3ebe1] dark:bg-white/10 ${size === 24 ? "h-6 w-6" : "h-8 w-8"}`}><CuadraoMark size={size === 24 ? 14 : 18} /></span>, name: <span>{c.extractorName}</span> };
     // An erased account reaches us already renamed; a member who left keeps the name the ledger stored.
     const erased = item.actor.display_name === "Exmiembro";
     const former = item.actor.membership === "former" && !erased;
@@ -318,7 +291,7 @@ export default function ActivityDraft() {
   const restricted = (item: DraftItem) => ACTION_META[item.action].group === "access" || ACTION_META[item.action].group === "settings";
   const record = (item: DraftItem) => item.missing?.object_label
     ? <>{item.missing.object_label}{item.missing.detail ? <span className="text-[#56635e] dark:text-white/60"> · {item.missing.detail}</span> : null}</>
-    : <span aria-label={c.noRecord} className="text-[#56635e] dark:text-white/60">-</span>;
+    : <span aria-label={c.noRecord} className="text-[#56635e] dark:text-white/60">{c.recordPlaceholder}</span>;
 
   const columns = live ? [c.cols.who, c.cols.what, c.cols.area, c.cols.time] : [c.cols.who, c.cols.what, c.cols.record, c.cols.area, c.cols.time];
   let body: React.ReactNode;
