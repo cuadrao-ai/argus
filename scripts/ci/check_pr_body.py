@@ -11,11 +11,13 @@ from pathlib import Path
 HEADING = "## Merge Danger"
 REQUIRED_FIELDS = ("Door", "Blast radius", "Rollback")
 DOORS = frozenset({"one-way", "two-way"})
-ISSUE_REFERENCE = re.compile(r"(?:Closes|Fixes|Refs)[ \t]+#[1-9][0-9]*")
-PILOT_FLOW = re.compile(
-    r"Pilot flow:[ \t]*(?:upload|email|WhatsApp|review|month close|606/607"
-    r"|none \((?P<reason>.+)\))"
+ISSUE_REFERENCE = re.compile(
+    r"(?:[-*]\s+)?(?:closes|fixes|refs)\s+#[1-9][0-9]*\b", re.IGNORECASE
 )
+PILOT_FLOWS = ("upload", "email", "WhatsApp", "review", "month close", "606/607")
+PILOT_FLOW = re.compile(r"Pilot flow:[ \t]*(?P<value>.*)")
+NO_PILOT_FLOW = re.compile(r"none \((?P<reason>.+)\)")
+TEMPLATE_REASON_HINT = "reason"
 FIELD_LINE = re.compile(
     r"^(?:[-*]\s+)?(?P<name>Door|Blast radius|Rollback|Eval tier):\s*(?P<value>.*)$"
 )
@@ -70,10 +72,15 @@ def body_problems(body: str) -> list[str]:
         if name == "Door" and value not in DOORS:
             problems.append("Door must be one-way or two-way")
     lines = [line.strip() for line in body.splitlines()]
-    if not any(ISSUE_REFERENCE.fullmatch(line) for line in lines):
-        problems.append("missing issue reference line: Closes #n, Fixes #n or Refs #n")
+    if not any(ISSUE_REFERENCE.match(line) for line in lines):
+        problems.append(
+            "missing issue reference: start a line with Closes #n, Fixes #n or Refs #n"
+        )
     if not any(valid_pilot_flow(line) for line in lines):
-        problems.append("missing or invalid Pilot flow line; none needs a written reason")
+        problems.append(
+            "missing or invalid Pilot flow line; use one or more of "
+            f"{', '.join(PILOT_FLOWS)} (comma-separated), or none (<written reason>)"
+        )
     return problems
 
 
@@ -81,10 +88,16 @@ def valid_pilot_flow(line: str) -> bool:
     match = PILOT_FLOW.fullmatch(line)
     if match is None:
         return False
-    reason = match.group("reason")
-    return reason is None or (
-        bool(reason.strip()) and not PLACEHOLDER.fullmatch(reason.strip())
-    )
+    value = match.group("value").strip()
+    no_flow = NO_PILOT_FLOW.fullmatch(value)
+    if no_flow is not None:
+        reason = no_flow.group("reason").strip()
+        return (
+            bool(reason)
+            and not PLACEHOLDER.fullmatch(reason)
+            and reason.lower() != TEMPLATE_REASON_HINT
+        )
+    return all(flow.strip() in PILOT_FLOWS for flow in value.split(","))
 
 
 def pull_request(payload: object) -> dict | None:

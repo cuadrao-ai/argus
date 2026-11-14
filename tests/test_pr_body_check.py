@@ -153,7 +153,21 @@ def test_missing_or_invalid_issue_reference_fails(tmp_path: Path, reference: str
     assert "issue reference" in result.stderr
 
 
-@pytest.mark.parametrize("reference", ["Closes #1599", "Fixes #1599", "Refs #1599"])
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "Closes #1599",
+        "Fixes #1599",
+        "Refs #1599",
+        "Closes #1599.",
+        "- Closes #1599",
+        "* Fixes #1599",
+        "closes #1599",
+        "Closes #1599. Refs #1598.",
+        "Closes #1599 (item 1 only; the rest stays open)",
+        "Fixes #1599 on integration",
+    ],
+)
 def test_issue_reference_lines_pass(tmp_path: Path, reference: str) -> None:
     result = _run(_event(tmp_path, VALID_BODY.replace("Closes #1599", reference)))
 
@@ -170,7 +184,11 @@ def test_issue_reference_lines_pass(tmp_path: Path, reference: str) -> None:
         "Pilot flow: none ()",
         "Pilot flow: none (   )",
         "Pilot flow: none (<reason>)",
+        "Pilot flow: none (reason)",
         "Pilot flow: upload | email",
+        "Pilot flow: upload, unknown",
+        "Pilot flow: upload,",
+        "Pilot flow: upload, none (CI metadata only)",
         "See Pilot flow: review",
     ],
 )
@@ -179,6 +197,7 @@ def test_missing_or_invalid_pilot_flow_fails(tmp_path: Path, flow: str) -> None:
 
     assert result.returncode != 0
     assert "Pilot flow" in result.stderr
+    assert "upload, email, WhatsApp, review, month close, 606/607" in result.stderr
 
 
 @pytest.mark.parametrize(
@@ -191,6 +210,8 @@ def test_missing_or_invalid_pilot_flow_fails(tmp_path: Path, flow: str) -> None:
         "month close",
         "606/607",
         "none (CI metadata only)",
+        "upload, review",
+        "upload,review,606/607",
     ],
 )
 def test_allowed_pilot_flow_passes(tmp_path: Path, flow: str) -> None:
