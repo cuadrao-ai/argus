@@ -53,7 +53,7 @@ export function listoItem(row: ReceptionRow): ListoItem | null {
 
 /** The one thing every row does: it opens its own record. */
 export function receptionTarget(row: ReceptionRow): BusinessPanelState {
-  if (row.kind === "receipt") return row.receipt.expense_id ? { kind: "expense", expenseId: row.receipt.expense_id } : { kind: "receipt", receiptId: row.id, list: "inbox" };
+  if (row.kind === "receipt") return { kind: "receipt", receiptId: row.id, list: "inbox" };
   if (row.kind === "note") return { kind: "draft", draftId: row.id, list: "inbox" };
   return { kind: "email", emailId: row.id };
 }
