@@ -18,7 +18,7 @@ import type { ReceptionPreferences } from "./ReceptionControls";
 import ReceptionOriginal from "./ReceptionOriginal";
 import styles from "./reception.module.css";
 
-export default function ReceptionArrivalRow({ row, view, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck, onDelete }: { onDelete?: () => void; row: ReceptionRow; view: ReceptionView; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
+export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck, onDelete }: { onDelete?: () => void; row: ReceptionRow; rowKey: string; arrived: boolean; view: ReceptionView; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const word = (key: string) => t(`business.reception_preview.${key}`);
@@ -35,7 +35,7 @@ export default function ReceptionArrivalRow({ row, view, panel, openPanel, prefe
   const identity = <button type="button" onClick={open} className={styles.identity}>
     <span className={styles.documentText}>{unseen ? <span className={styles.unseenDot} aria-hidden="true" /> : null}<span ref={titleRef} className={styles.title}>{unseen ? <span className="sr-only">{word("unseen")}: </span> : null}{row.kind === "note" ? <ChatCircle className={styles.noteIcon} size={15} aria-hidden="true" /> : null}{title}</span>{money ? <span className={`${styles.mobileMoney} cuadrao-amount`}>{money}</span> : null}</span>
   </button>;
-  return <li className={styles.row} data-selected={selected} data-checked={checkable && checked} data-unseen={unseen} aria-current={selected ? "true" : undefined} data-testid="reception-row" data-kind={row.kind} onClick={event => { if (!(event.target as HTMLElement).closest("button,input,label,a")) open(); }}>
+  return <li className={styles.row} data-list-row={rowKey} data-arrived={arrived} data-selected={selected} data-checked={checkable && checked} data-unseen={unseen} aria-current={selected ? "true" : undefined} data-testid="reception-row" data-kind={row.kind} onClick={event => { if (!(event.target as HTMLElement).closest("button,input,label,a")) open(); }}>
     {!selectable ? null : checkable ? <label className={styles.checkbox}><input type="checkbox" checked={checked} onChange={onCheck} aria-label={t("business.reception_preview.select_document", { name: title })} /></label> : <span className={styles.checkbox} />}
     {titleCut ? <Tooltip content={title} side="top">{identity}</Tooltip> : identity}
     <span className={styles.fileCell} data-file={!!receipt || row.kind === "note"}>{receipt ? <ReceptionOriginal receipt={receipt} /> : row.kind === "note" ? <Unknown meaning={word("without_file")} /> : <Unknown meaning={word("no_file")} />}</span>
