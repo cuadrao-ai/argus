@@ -27,7 +27,7 @@ from argus.domain.business.authority import ActionContext, ActionError, Business
 from argus.domain.business.dgii_codes import TOOL_LABELS
 from argus.domain.business.dgii_columns import COLUMNS
 from argus.domain.business.dgii_export import line_values
-from argus.domain.business.dgii_line import line_review
+from argus.domain.business.dgii_line import REQUIRED_ZERO_606, line_review
 from argus.domain.business.dgii_validation import (
     DECLARABLE_CURRENCY,
     declarable,
@@ -78,7 +78,6 @@ _DGII_TEXT = frozenset(
         "income_withholding_type",
     }
 )
-_REQUIRED_ZERO = frozenset({"itbis_withheld", "income_withheld"})
 _DGII_DATES = frozenset({"occurred_on", "paid_on", "withheld_on"})
 _SPLIT_DATES = frozenset({"occurred_on", "paid_on"})
 _PURCHASE_HEADERS = tuple(
@@ -508,7 +507,7 @@ def _xlsx(
 
 def _dgii_cell(name: str, value: str) -> Cell:
     if value == "":
-        return Decimal(0) if name in _REQUIRED_ZERO else None
+        return Decimal(0) if name in REQUIRED_ZERO_606 else None
     if name in TOOL_LABELS:
         return TOOL_LABELS[name][value]
     if name in _DGII_TEXT or name in _DGII_DATES:

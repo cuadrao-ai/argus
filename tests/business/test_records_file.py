@@ -763,7 +763,7 @@ def test_606_tool_values_exact_for_every_choice_and_withholding(fake, format):
         category = TOOL_CATEGORIES[index - 1]
         payment = TOOL_PAYMENTS[(index - 1) % len(TOOL_PAYMENTS)]
         day = f"202609{index:02d}"
-        withholding = ("0", "0", "12.34")[(index - 1) % 3]
+        withholding = ("0.00", "0.00", "12.34")[(index - 1) % 3]
         expected = {
             "Tipo Bienes y Servicios Comprados": category,
             "Fecha Comprobante (AAAAMM)": day[:6],
