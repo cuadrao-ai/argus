@@ -64,10 +64,7 @@ export function serverRequestId(response: Response, body: Record<string, unknown
   return typeof id === "string" && id ? id : undefined;
 }
 
-export async function apiFetch<T>(
-  path: string,
-  options?: AccountRequestOptions,
-): Promise<T> {
+async function apiResponse(path: string, options?: AccountRequestOptions): Promise<{ response: Response; generation: number }> {
   const { expectedUserId, ...requestOptions } = options ?? {};
   const generation = browserAuthGeneration();
   // Read before the auth await: a Business switch in that gap must not redirect the request.
@@ -82,28 +79,61 @@ export async function apiFetch<T>(
     headers: argusApiRequestHeaders(requestOptions.headers, authHeaders, grant),
   });
   requireBrowserAuthGeneration(generation);
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    requireBrowserAuthGeneration(generation);
-    const detail = (body as { detail?: unknown }).detail;
-    const errorMsg =
-      typeof detail === "object" && detail !== null
-        ? ((detail as { title?: unknown }).title as string)
-        : detail;
+  return { response, generation };
+}
 
-    const error = new Error(
-      (errorMsg as string) ?? `API error ${response.status}`,
-    ) as Error & { status: number; code: string; context?: unknown; requestId?: string };
-    error.status = response.status;
-    error.requestId = serverRequestId(response, body as Record<string, unknown>);
-    error.code =
-      ((body as Record<string, unknown>).code as string) ?? "unknown";
-    error.context = (body as Record<string, unknown>).context;
-    throw error;
-  }
+async function apiFailure(response: Response, generation: number): Promise<Error> {
+  const body = await response.json().catch(() => ({}));
+  requireBrowserAuthGeneration(generation);
+  const detail = (body as { detail?: unknown }).detail;
+  const errorMsg =
+    typeof detail === "object" && detail !== null
+      ? ((detail as { title?: unknown }).title as string)
+      : detail;
+
+  const error = new Error(
+    (errorMsg as string) ?? `API error ${response.status}`,
+  ) as Error & { status: number; code: string; context?: unknown; requestId?: string };
+  error.status = response.status;
+  error.requestId = serverRequestId(response, body as Record<string, unknown>);
+  error.code =
+    ((body as Record<string, unknown>).code as string) ?? "unknown";
+  error.context = (body as Record<string, unknown>).context;
+  return error;
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options?: AccountRequestOptions,
+): Promise<T> {
+  const { response, generation } = await apiResponse(path, options);
+  if (!response.ok) throw await apiFailure(response, generation);
   const body = await response.json() as T;
   requireBrowserAuthGeneration(generation);
   return body;
+}
+
+/**
+ * A read that names the version the caller already holds. The server answers
+ * 304 with no body when nothing changed, and this answers null. Otherwise it
+ * answers the body with the version to send next time.
+ */
+export async function apiFetchIfChanged<T>(
+  path: string,
+  known: string | null,
+  options?: AccountRequestOptions,
+): Promise<{ body: T; version: string | null } | null> {
+  const { response, generation } = await apiResponse(path, {
+    ...options,
+    // The version is compared by the server alone; the browser's own cache stays out of it.
+    cache: "no-store",
+    headers: known ? { ...Object.fromEntries(new Headers(options?.headers)), "If-None-Match": known } : options?.headers,
+  });
+  if (response.status === 304) return null;
+  if (!response.ok) throw await apiFailure(response, generation);
+  const body = await response.json() as T;
+  requireBrowserAuthGeneration(generation);
+  return { body, version: response.headers.get("ETag") };
 }
 
 export async function unauthenticatedApiFetch<T>(

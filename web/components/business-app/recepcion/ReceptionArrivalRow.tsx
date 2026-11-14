@@ -20,7 +20,7 @@ import { originPlace, receptionPlaces } from "./reception-grid";
 import ReceptionOriginal from "./ReceptionOriginal";
 import styles from "./reception.module.css";
 
-export default function ReceptionArrivalRow({ row, view, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck, onDelete }: { onDelete?: () => void; row: ReceptionRow; view: ReceptionView; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
+export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck, onDelete }: { onDelete?: () => void; row: ReceptionRow; rowKey: string; arrived: boolean; view: ReceptionView; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const word = (key: string) => t(`business.reception_preview.${key}`);
@@ -55,7 +55,7 @@ export default function ReceptionArrivalRow({ row, view, panel, openPanel, prefe
     status: <ReceptionStatus row={row} reasonOnly={view === "attention"} style={places.at("status")} />,
     arrival: <span className={styles.arrival} style={places.at("arrival")}>{arrival}</span>,
   };
-  return <li className={styles.row} data-selected={selected} data-checked={checkable && checked} data-unseen={unseen} aria-current={selected ? "true" : undefined} data-testid="reception-row" data-kind={row.kind} onClick={event => { if (!(event.target as HTMLElement).closest("button,input,label,a")) open(); }}>
+  return <li className={styles.row} data-list-row={rowKey} data-arrived={arrived} data-selected={selected} data-checked={checkable && checked} data-unseen={unseen} aria-current={selected ? "true" : undefined} data-testid="reception-row" data-kind={row.kind} onClick={event => { if (!(event.target as HTMLElement).closest("button,input,label,a")) open(); }}>
     {!selectable ? null : checkable ? <label className={styles.checkbox}><input type="checkbox" checked={checked} onChange={onCheck} aria-label={t("business.reception_preview.select_document", { name: title })} /></label> : <span className={styles.checkbox} />}
     {titleCut ? <Tooltip content={title} side="top">{identity}</Tooltip> : identity}
     {places.shown.map(key => <Fragment key={key}>{key === together ? origin : null}{cells[key]}</Fragment>)}
