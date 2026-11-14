@@ -16,8 +16,6 @@ import { PAYMENT_FIELDS, doubtfulFields, fiscalFactRows, recordFactRows, type Fa
 import type { AttentionItem } from "./dossier-attention";
 import { resolveLanguage } from "@/lib/language-features";
 
-const FISCAL = ["rnc", "ncf", "ecf"] as const;
-
 /** One label/value row; the document type control uses it too, so the form reads as one list. */
 export const FACT_ROW_CLASS = "grid grid-cols-[minmax(7.5rem,34%)_minmax(0,1fr)] items-start gap-x-4 border-t border-[#E8EBE6] py-1.5 first:border-t-0 max-tablet:[&:has([data-row-open])]:grid-cols-1 dark:border-white/[0.07]";
 export const FACT_LABEL_CLASS = "flex min-h-9 items-center gap-1.5 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70";
@@ -147,17 +145,22 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     </>;
   };
 
+  /** The NCF and the e-CF are one fiscal number: every view shows the one the receipt carries, in this one row. */
+  const fiscalNumberField = (content: (shown: { key: "ncf" | "ecf"; label: string; value: string; tag: ReactNode }) => ReactNode, note?: ReactNode) => {
+    const key = fiscal?.ecf.state === "known" ? "ecf" : "ncf";
+    const label = `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`;
+    const value = fiscal?.[key].value ?? (noFiscal ? t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "");
+    return field("fiscal_number", label, content({ key, label, value, tag: origin(key, fiscal?.[key]) }), fiscalRows.get(key), note, [value]);
+  };
+
   const reviewFiscalFields = (form: FactsReview) => {
     const rncLabel = t("business.dossier.field.rnc", "RNC");
     const rncMissing = ["missing", "invalid_length"].includes(rncStatus(fiscal?.rnc, flags));
     const rncAsked = dossier.sin_comprobante === true && rncMissing;
     const rncEdit = form.onEdit ? () => form.onEdit?.("rnc") : undefined;
-    const number = fiscal?.ecf.state === "known" ? "ecf" : "ncf";
-    const numberLabel = `${t("business.dossier.field.ncf", "NCF")} / ${t("business.dossier.field.ecf", "e-CF")}`;
-    const numberValue = fiscal?.[number].value ?? (noFiscal ? t("business.marks.no_fiscal_chip", "No fiscal receipt number") : "");
     return <>
       {field("rnc", rncLabel, form.row("rnc", rncAsked ? { label: rncLabel, value: "" } : { label: rncLabel, compound: true, pencil: !rncMissing, value: <><RncStatusBlock fact={fiscal?.rnc} flags={flags} onEditRnc={rncEdit} />{origin("rnc", fiscal?.rnc)}</> }), fiscalRows.get("rnc"), undefined, [fiscal?.rnc.value])}
-      {field("fiscal_number", numberLabel, form.row("fiscal_number", noFiscal ? { label: numberLabel, compound: true, value: noNumber(form) } : { label: numberLabel, value: numberValue ? <>{numberValue}{origin(number, fiscal?.[number])}</> : "" }), fiscalRows.get(number), form.noReceipt.note, [numberValue])}
+      {fiscalNumberField(({ label, value, tag }) => form.row("fiscal_number", noFiscal ? { label, compound: true, value: noNumber(form) } : { label, value: value ? <>{value}{tag}</> : "" }), form.noReceipt.note)}
     </>;
   };
 
@@ -192,11 +195,10 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
     );
   }
 
-  const fiscalFields = (fiscal || noFiscal ? FISCAL.filter((key) => !noFiscal || (key !== "ncf" && key !== "ecf")) : []).flatMap((key) => {
-    if (key === "rnc") return [field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} />, undefined, origin("rnc", fiscal?.rnc), [fiscal?.rnc.value])];
-    const shownValue = presentFiscalFact(key, dossier.facts, locale, labels);
-    return [field(key, t(`business.dossier.field.${key}`, key), shownValue, fiscalRows.get(key), origin(key, fiscal?.[key]), [shownValue, fiscal?.[key].value])];
-  });
+  const fiscalFields = fiscal || noFiscal ? <>
+    {field("rnc", t("business.dossier.field.rnc", "RNC"), <RncStatusBlock fact={fiscal?.rnc} flags={flags} />, undefined, origin("rnc", fiscal?.rnc), [fiscal?.rnc.value])}
+    {fiscalNumberField(({ key, value, tag }) => <>{value || presentFiscalFact(key, dossier.facts, locale, labels)}{tag}</>)}
+  </> : null;
   const paid = PAYMENT_FIELDS.filter((key) => dossier.facts[key]?.state === "known" || waits(key));
 
   return (
@@ -211,7 +213,6 @@ export default function ReceiptRecordFacts({ dossier, accounts, attention = [], 
       {section("fiscal", t("business.dossier.section.fiscal", "Fiscal"), <>
         {recordField("receipt_state")}
         {fiscalFields}
-        {noFiscal ? field("fiscal_number", `${t("business.dossier.field.ncf")} / ${t("business.dossier.field.ecf")}`, t("business.marks.no_fiscal_chip")) : null}
       </>)}
       {choicesSection}
       {paid.length ? section("payment", paymentTitle, paid.map(recordField)) : null}
