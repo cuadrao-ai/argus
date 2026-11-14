@@ -1,0 +1,163 @@
+import assert from "node:assert/strict";
+import { afterAll, afterEach, beforeAll, describe, mock, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
+
+// A link to a receipt (`/biz?receipt=<id>`) restores its panel from the address. A receipt the server no
+// longer has (404) closes that panel, returns to its list with the address cleared and says so once; any
+// other failure keeps the panel with the shared retry line, never a guess that the receipt was removed.
+let search = "";
+mock.module("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(search),
+  useRouter: () => ({ push: () => undefined, replace: () => undefined }),
+  usePathname: () => "/biz",
+}));
+
+type Source = ReturnType<typeof import("@/components/business-app/fixture-data").createFixtureBusinessDataSource>;
+type Viewport = { name: string; width: number };
+const DESKTOP: Viewport = { name: "desktop", width: 1440 };
+const PHONE: Viewport = { name: "phone", width: 390 };
+
+const cleanups: (() => Promise<void>)[] = [];
+beforeAll(() => {
+  GlobalRegistrator.register({ url: "http://localhost/biz", width: DESKTOP.width, height: 900 });
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+afterEach(async () => {
+  for (const cleanup of cleanups.splice(0)) await cleanup();
+  const { clearToasts } = await import("@/components/business-app/foundation/toasts");
+  clearToasts();
+  document.body.innerHTML = "";
+  window.history.replaceState(null, "", "/biz");
+});
+afterAll(async () => { await GlobalRegistrator.unregister(); });
+
+function failure(status: number, code: string) {
+  return Object.assign(new Error(code), { status, code, requestId: `req-${status}` });
+}
+
+async function mount(url: string, viewport: Viewport, receipt: (fixture: Source) => Source["receipt"]) {
+  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: viewport.width, height: 900 });
+  search = url.slice(url.indexOf("?"));
+  window.history.replaceState(null, "", url);
+  const { act, useEffect } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { default: BusinessPanel } = await import("@/components/business-app/BusinessPanel");
+  const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+  const { useToasts } = await import("@/components/business-app/foundation/toasts");
+  const { setChosenGrant } = await import("@/lib/business-grant");
+  setChosenGrant(null);
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
+  const asked: string[] = [];
+  const read = receipt(fixture);
+  const source: Source = { ...fixture, receipt: (id, signal) => { asked.push(id); return read(id, signal); } };
+  const isBelowTablet = viewport.width < 720;
+  const shell: ChatShellBridge = { currentView: "workspace", conversationId: null, isBelowTablet, sidebarCollapsed: false, greetingName: null, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined };
+  const toasts = new Map<number, string>();
+  let api: ReturnType<typeof useBusiness> | null = null;
+  function Shell() {
+    api = useBusiness();
+    const workspace = useChatWorkspace();
+    const onShellChange = workspace?.onShellChange;
+    useEffect(() => { onShellChange?.(shell); }, [onShellChange]);
+    for (const toast of useToasts()) toasts.set(toast.id, toast.text);
+    return null;
+  }
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source} userId="user-1">
+            <Shell />
+            <BusinessPanel />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
+      </I18nextProvider>,
+    );
+  });
+  cleanups.push(async () => { await act(async () => root.unmount()); host.remove(); });
+  const settle = async (done: () => boolean, label: string) => {
+    for (let i = 0; i < 80 && !done(); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+    assert.ok(done(), label);
+  };
+  const quiet = async () => { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 200)); }); };
+  return { host, settle, quiet, asked, toasts, api: () => api!, text: () => document.body.textContent ?? "" };
+}
+
+describe("a link to a receipt the server no longer has", () => {
+  for (const viewport of [DESKTOP, PHONE]) {
+    test(`${viewport.name}: returns to the Bandeja with the address cleared and one notice`, async () => {
+      const page = await mount("/biz?receipt=rcpt-gone", viewport, (fixture) => async (id, signal) => {
+        if (id === "rcpt-gone") throw failure(404, "receipt_not_found");
+        return fixture.receipt(id, signal);
+      });
+      await page.settle(() => page.api().panel.kind === "inbox", "the dead panel closed onto its list");
+      await page.settle(() => Boolean(page.host.querySelector('[data-testid="reception-preview"]')), "the Bandeja shows");
+      await page.quiet();
+      assert.equal(page.host.querySelector('[data-testid="receipt-load-error"]'), null, "no dead panel");
+      assert.equal(document.querySelector('[data-testid="side-drawer"]'), null, "no record tray");
+      assert.equal(new URLSearchParams(window.location.search).get("receipt"), null, window.location.search);
+      assert.deepEqual([...page.toasts.values()], ["Ese recibo ya no está"], "one notice");
+      assert.equal(document.querySelectorAll('[data-testid="toast-viewport"] > *').length, 1);
+      assert.deepEqual(page.asked, ["rcpt-gone"], "a gone receipt is asked for once");
+      assert.ok(!page.text().includes("quitado"));
+    });
+  }
+
+  test("a receipt opened from Registros returns to Registros", async () => {
+    const page = await mount("/biz?view=transactions", DESKTOP, (fixture) => async (id, signal) => {
+      if (id === "rcpt-gone") throw failure(404, "receipt_not_found");
+      return fixture.receipt(id, signal);
+    });
+    await page.settle(() => page.api().records.inbox !== null, "the workspace loaded");
+    const { act } = await import("react");
+    await act(async () => { page.api().openPanel({ kind: "receipt", receiptId: "rcpt-gone", list: "transactions" }); });
+    await page.settle(() => page.api().panel.kind === "transactions", "back on Registros");
+    assert.deepEqual([...page.toasts.values()], ["Ese recibo ya no está"]);
+    assert.equal(new URLSearchParams(window.location.search).get("receipt"), null);
+  });
+});
+
+describe("a receipt link that fails for any other reason", () => {
+  test("keeps the panel with the shared retry line, and Reintentar loads it", async () => {
+    let down = true;
+    const page = await mount("/biz?receipt=rcpt-ferreteria", DESKTOP, (fixture) => async (id, signal) => {
+      if (down) throw failure(500, "internal_error");
+      return fixture.receipt(id, signal);
+    });
+    await page.settle(() => Boolean(page.host.querySelector('[data-testid="receipt-load-error"]') ?? document.querySelector('[data-testid="receipt-load-error"]')), "the retry card shows");
+    const card = document.querySelector('[data-testid="receipt-load-error"]')!;
+    assert.ok(card.querySelector('[role="alert"]')?.textContent?.includes("No pudimos actualizar."), card.textContent ?? "");
+    assert.ok(card.querySelector('[data-testid="error-reference"]')?.textContent?.includes("Ref."));
+    assert.ok(!page.text().includes("quitado"));
+    assert.equal(page.api().panel.kind, "receipt");
+    assert.equal(new URLSearchParams(window.location.search).get("receipt"), "rcpt-ferreteria");
+    assert.equal(page.toasts.size, 0, "no notice");
+    down = false;
+    const { act } = await import("react");
+    const retry = [...card.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
+    await act(async () => { retry.click(); });
+    await page.settle(() => Boolean(document.querySelector('[data-testid="receipt-top-block"]')), "the receipt loads");
+  });
+});
+
+describe("a link to a receipt that exists", () => {
+  test("opens it", async () => {
+    const page = await mount("/biz?receipt=rcpt-ferreteria", DESKTOP, (fixture) => fixture.receipt);
+    await page.settle(() => Boolean(document.querySelector('[data-testid="receipt-top-block"]')), "the receipt opens");
+    assert.equal(page.api().panel.kind, "receipt");
+    assert.equal(new URLSearchParams(window.location.search).get("receipt"), "rcpt-ferreteria");
+    assert.equal(page.toasts.size, 0);
+  });
+});

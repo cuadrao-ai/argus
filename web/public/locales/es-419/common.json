@@ -4631,6 +4631,7 @@
       "error": "Este recibo no está disponible. Puede que lo hayan quitado.",
       "evidence": "Lo que dice el recibo",
       "evidence_note": "Tus correcciones no cambian lo que se leyó del recibo. Un recibo guarda un gasto por su total.",
+      "gone": "Ese recibo ya no está",
       "merchant": "Comercio",
       "prepare": "Preparar con IA",
       "prepare_failed": "No pudimos iniciar la preparación. Tu recibo está guardado. Reintenta.",

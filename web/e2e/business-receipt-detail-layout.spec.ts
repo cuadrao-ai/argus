@@ -154,7 +154,7 @@ for (const width of [1440, 390] as const) {
       await installReceiptBusiness(page, (parts, route) => {
         if (parts[0] === "receipts" && parts[1] === "rcpt-ferreteria" && parts.length === 2 && failures > 0) {
           failures -= 1;
-          return route.fulfill({ status: 404, json: { code: "not_found" } }).then(() => null);
+          return route.fulfill({ status: 500, json: { code: "internal_error" } }).then(() => null);
         }
         return undefined;
       });

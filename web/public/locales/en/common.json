@@ -4529,6 +4529,7 @@
       "source": "Original receipt",
       "download": "Download",
       "error": "This receipt isn't available. It may have been removed.",
+      "gone": "That receipt is no longer here",
       "retry": "Read again",
       "retry_consent": "Trying again sends this receipt to our AI provider.",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",

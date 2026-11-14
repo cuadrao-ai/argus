@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useState } from "react";
 import { AlertCircle, CircleAlert, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
-import { referenceCode } from "@/lib/failure-screen";
+import { referenceCode, refusedForGood } from "@/lib/failure-screen";
 import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import ReceiptReadingControl from "./ReceiptReadingControl";
@@ -18,6 +18,7 @@ import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { DeleteDocumentMenuItem, RestoreDocumentButton, receiptDeleteTarget, useDocumentDelete } from "./DocumentDeleteControls";
 import ReceiptReviewFooter, { ReceiptMoreMenu } from "./ReceiptReviewFooter";
 import { SURFACE_CARD } from "./foundation/surfaces";
+import { showToast } from "./foundation/toasts";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import { useReceiptStateWord } from "./receipt-state-word";
@@ -29,6 +30,11 @@ import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonClass, StatusPill, useTerminalRead } from "./business-ui";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
+
+/** The server no longer has this receipt; a refused Business is the workspace's to say. */
+function receiptGone(error: unknown): boolean {
+  return (error as { status?: unknown } | null)?.status === 404 && !refusedForGood(error);
+}
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
@@ -50,6 +56,16 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const canDelete = detail?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
   const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, stateWord(detail), t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
   const retainReceipt = useCallback(() => setUnprepared(true), []);
+  // A receipt that is gone closes onto its list, so a dead link never leaves a panel whose Reintentar cannot work.
+  const loadFailed = (error: unknown) => {
+    if (!receiptGone(error)) {
+      setFailure(referenceCode(error));
+      return;
+    }
+    openPanel({ kind: origin?.list ?? "inbox" });
+    showToast({ kind: "info", text: t("business.review.gone") });
+  };
+  const onLoadFailed = useEffectEvent(loadFailed);
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -60,7 +76,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
         setDetail(next);
         setFailure(null);
       })
-      .catch((error: unknown) => !cancelled && setFailure(referenceCode(error)));
+      .catch((error: unknown) => {
+        if (!cancelled) onLoadFailed(error);
+      });
     return () => {
       cancelled = true;
       controller.abort();
@@ -94,8 +112,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       <section className={SURFACE_CARD} data-testid="receipt-load-error">
         <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
           <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-          {t("business.review.error", "This receipt isn't available. It may have been removed.")}
+          {t("common.refresh_failed", "We couldn't update.")}
         </p>
+        <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={failure} /></div>
         <button type="button" className={`${secondaryButtonClass} mt-4`} onClick={retry}>
           {t("common.retry", "Retry")}
         </button>
@@ -186,7 +205,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       setDetail(await source.receipt(detail.id));
       setUnprepared(false);
     } catch (error) {
-      setFailure(referenceCode(error));
+      loadFailed(error);
     } finally {
       setBusy(null);
     }
