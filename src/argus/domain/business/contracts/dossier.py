@@ -14,7 +14,7 @@ from argus.domain.business.space_name import GivenName
 from .actions import ApprovalAction
 from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
-from .dgii import DgiiDeclaration, ExpenseType
+from .dgii import DgiiDeclaration, ExpenseType, PaymentForm
 from .facts import (
     HUMAN_AMOUNT_FIELDS,
     BusinessFacts,
@@ -179,6 +179,29 @@ class DuplicateCandidate(Contract):
     version: int = Field(ge=1)
 
 
+#: Where a suggested 606 answer came from: the last one a person gave for this
+#: RNC in this Business, or what the receipt shows. Nothing sends ``receipt`` yet.
+SuggestionSource = Literal["last_choice", "receipt"]
+
+
+class ExpenseTypeSuggestion(Contract):
+    value: ExpenseType
+    source: SuggestionSource
+
+
+class PaymentFormSuggestion(Contract):
+    value: PaymentForm
+    source: SuggestionSource
+
+
+class DeclarationSuggestions(Contract):
+    """One suggestion per 606 answer a person gives, under the declaration's
+    own field name. Null where the server has none or the draft has its own."""
+
+    category: ExpenseTypeSuggestion | None = None
+    payment_method: PaymentFormSuggestion | None = None
+
+
 class BusinessDossier(RecordContext):
     deleted: DeletedDocument | None = None
     delete_available: bool = False
@@ -244,10 +267,9 @@ class BusinessDossier(RecordContext):
     #: The caller may write the 606 declaration now: open or approved, and the
     #: caller holds prepare. A download changes nothing here.
     declaration_editable: bool = False
-    #: The tipo de gasto a person last chose for this RNC in this Business,
-    #: while this draft has no choice of its own and takes one. A suggestion:
-    #: it is stored only when a person writes it.
-    expense_type_suggestion: ExpenseType | None = None
+    #: What the server offers for each 606 answer this draft lacks, with where
+    #: it came from. A suggestion: it is stored only when a person writes it.
+    declaration_suggestions: DeclarationSuggestions = DeclarationSuggestions()
     #: The caller may write the 607 payment split now, on the same terms as
     #: declaration_editable, on a sale.
     payment_split_editable: bool = False
@@ -290,7 +312,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "due_on": True,
     "declaration_editable": True,
     "reopen_available": True,
-    "expense_type_suggestion": True,
+    "declaration_suggestions": True,
     "payment_split_editable": True,
     "approval_action": True,
     "fiscal_inclusion_available": True,
