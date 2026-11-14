@@ -169,7 +169,9 @@ def _current_columns(value: Any) -> Any:
         index = order.index("gross_amount") if "gross_amount" in order else len(order)
         order.insert(index, "net_amount")
     for key in TABLE_COLUMNS:
-        if key not in order:
+        if key in PINNED_COLUMNS and key not in order:
+            order.insert(PINNED_COLUMNS.index(key), key)
+        elif key not in order:
             order.append(key)
             if key not in hidden and key not in REQUIRED_COLUMNS:
                 hidden.append(key)
