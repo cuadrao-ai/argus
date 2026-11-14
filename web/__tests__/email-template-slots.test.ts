@@ -16,7 +16,7 @@ test("title and optional preheader escape HTML while plain text preserves copy",
 
 test("asset origins are configurable and reject paths, credentials and unsafe schemes", () => {
   const email = renderAccountEmail({title: 'Title', paragraphs: []}, {assetOrigin: 'https://assets.example.test'});
-  expect(email.html).toContain('https://assets.example.test/email/wordmark-light.png');
+  expect(email.html).toContain('https://assets.example.test/email/lockup-dark.png');
   expect(email.html).not.toContain('onrender.com');
   for (const assetOrigin of ['http://example.test', 'https://user@example.test', 'https://example.test/path', 'https://example.test/?x=1', 'https://example.test/\r\nx']) {
     expect(() => renderAccountEmail({title: 'Title', paragraphs: []}, {assetOrigin})).toThrow();

@@ -20,6 +20,32 @@ function syntheticRoute(path = "reports/query", method = "POST", body = JSON.str
 }
 
 describe("synthetic Business fallback", () => {
+  test.each([
+    { type: "rnc", value: "131245678" },
+    { type: "cedula", value: "00113938865" },
+  ])("answers the registry lookup for $type without inventing a registry record", async (taxId) => {
+    const route = syntheticRoute("fiscal-profile/registry", "POST", JSON.stringify({ tax_id: taxId }));
+    await fulfillSyntheticBusinessFallback(route);
+
+    expect(route.responses).toEqual([{
+      tax_id: taxId,
+      verification: "sin_verificar",
+      record: null,
+      checked_at: "2026-10-21T17:45:00Z",
+    }]);
+  });
+
+  test.each([
+    ["fiscal-profile/registry", "GET"],
+    ["fiscal-profile/registry", "PUT"],
+    ["fiscal-profile/registry", "DELETE"],
+    ["fiscal-profile/registry?source=test", "POST"],
+  ])("rejects unsupported registry request %s with %s", async (path, method) => {
+    const route = syntheticRoute(path, method, JSON.stringify({ tax_id: { type: "rnc", value: "131245678" } }));
+    await expect(fulfillSyntheticBusinessFallback(route)).rejects.toThrow("Synthetic fiscal-profile/registry requires POST without query parameters");
+    expect(route.responses).toEqual([]);
+  });
+
   test("fulfills the app's default report request with a complete empty report", async () => {
     const route = syntheticRoute();
     await fulfillSyntheticBusinessFallback(route);

@@ -36,7 +36,7 @@ def test_render_uses_the_approved_copy_and_the_app_sign_in_link(language: str) -
     assert copy["after_action"] in message["text"]
     assert f"{APP_ORIGIN}/?auth=login" in message["text"]
     assert f'href="{APP_ORIGIN}/?auth=login"' in message["html"]
-    assert f"{ASSET_ORIGIN}/email/wordmark-light.png" in message["html"]
+    assert f"{ASSET_ORIGIN}/email/lockup-dark.png" in message["html"]
     assert ".invalid" not in message["html"] + message["text"]
     assert "—" not in message["html"] + message["text"]
 

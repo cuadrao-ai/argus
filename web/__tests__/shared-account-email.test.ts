@@ -13,6 +13,12 @@ const luminance = (color: string) => {
 };
 
 describe("shared account email layout", () => {
+  test("the header shows one lockup image at 209 by 72", () => {
+    const { html } = renderAccountEmail({title: "Título", paragraphs: []}, {assetOrigin: "https://assets.example.test"});
+    const images = [...html.matchAll(/<img [^>]*>/g)].map(([tag]) => tag);
+    expect(images).toHaveLength(1);
+    expect(images[0]).toContain('src="https://assets.example.test/email/lockup-dark.png" alt="Cuadrao" width="209" height="72"');
+  });
   test("escapes copy and renders the same action in a button, grey fallback and plain text", () => {
     const result = renderAccountEmail({title: '<img src="x">', paragraphs: ["<script>&'"], action: {label: "Entrar", url: link}});
     expect(result.html).toContain("&lt;script&gt;&amp;&#39;");
