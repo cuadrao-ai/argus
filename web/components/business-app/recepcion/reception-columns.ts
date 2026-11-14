@@ -58,18 +58,23 @@ function parseReceptionPreferences(stored: string | null): ReceptionPreferences 
 
 const listeners = new Set<() => void>();
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
-let read: { stored: string | null; value: ReceptionPreferences } | null = null;
+/**
+ * The layout this tab draws, with the stored text it matches. A change lands here even when the device refuses to keep
+ * it, so storage only carries the layout to the next visit. Stored text that changes under it, from another tab, wins.
+ */
+let shown: { stored: string | null; value: ReceptionPreferences } | null = null;
 function snapshot(): ReceptionPreferences {
   const stored = readStored(STORAGE_KEY);
-  if (read?.stored !== stored) read = { stored, value: parseReceptionPreferences(stored) };
-  return read.value;
+  if (shown?.stored !== stored) shown = { stored, value: parseReceptionPreferences(stored) };
+  return shown.value;
 }
 const SERVER = defaultReceptionPreferences();
-/** Bandeja's layout and its setter. The device's storage is the one copy, so a reload and a change of Business keep it. */
+/** Bandeja's layout and its setter. A reload and a change of Business keep it when the device's storage allows. */
 export function useReceptionPreferences(): [ReceptionPreferences, (next: ReceptionPreferences) => void] {
   return [useSyncExternalStore(subscribe, snapshot, () => SERVER), saveReceptionPreferences];
 }
 function saveReceptionPreferences({ order, hidden, density }: ReceptionPreferences): void {
   writeStored(STORAGE_KEY, JSON.stringify({ order, hidden, density }));
+  shown = { stored: readStored(STORAGE_KEY), value: { order, hidden, density } };
   listeners.forEach(listener => listener());
 }

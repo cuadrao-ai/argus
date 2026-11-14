@@ -522,3 +522,25 @@ test("a layout kept before Contenido held its place loads with Contenido first a
   assert.match(cells(page)[0], /identity/);
   assert.ok(page.row("Recibo admitido")?.textContent?.includes("Recibo admitido"));
 });
+
+test("Bandeja keeps a hidden column, a reorder and the row height on screen when the device refuses to read or keep them", async () => {
+  const { getItem, setItem } = Storage.prototype;
+  const refuse = () => { throw new DOMException("blocked", "SecurityError"); };
+  Storage.prototype.getItem = refuse;
+  Storage.prototype.setItem = refuse;
+  try {
+    const page = await mount();
+    await settings(page);
+    await page.click(columnBox("file"));
+    assert.deepEqual(headings(page), ["document", "source", "status", "arrival"], "the hidden column leaves");
+    await page.click(setting("arrival")!.querySelector<HTMLButtonElement>("button"));
+    assert.deepEqual(headings(page), ["document", "source", "arrival", "status"], "the moved column moves");
+    await page.click([...document.querySelectorAll<HTMLElement>('[role="dialog"] button')].find(button => button.textContent === "Altura de filas"));
+    const height = (name: string) => [...document.querySelectorAll("label")].find(label => label.textContent === name)!.querySelector("input")!;
+    await page.click(height("Compacto"));
+    assert.equal(height("Compacto").checked, true, "the chosen row height holds");
+  } finally {
+    Storage.prototype.getItem = getItem;
+    Storage.prototype.setItem = setItem;
+  }
+});
