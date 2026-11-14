@@ -3388,10 +3388,12 @@
       "channel_web": "Uploaded",
       "pm": "PM",
       "read": "Read",
+      "reason": { "business_rnc_set": "Your business issued it" },
       "received": "Received",
       "rnc_verified": "RNC verified",
       "set": "{{field}}: {{after}}",
-      "title": "History"
+      "title": "History",
+      "via_cuadrao": "{{name}} via Cuadrao"
     },
     "reading": {
       "line": "Reading your receipt…",
@@ -4732,6 +4734,8 @@
       "profile_discard": "Discard changes",
       "profile_discard_detail": "Changes to this section have not been saved.",
       "profile_discard_title": "Discard changes?",
+      "profile_drafts_retyped_one": "1 draft moved to Sales: your business issued it",
+      "profile_drafts_retyped_other": "{{count}} drafts moved to Sales: your business issued them",
       "profile_email": "Business email",
       "profile_error_email": "Enter a valid email address.",
       "profile_error_length_one": "Use {{count}} character or fewer.",

@@ -3424,10 +3424,12 @@
       "channel_web": "Subido",
       "pm": "p.m.",
       "read": "Leído",
+      "reason": { "business_rnc_set": "Lo emitió tu negocio" },
       "received": "Recibido",
       "rnc_verified": "RNC verificado",
       "set": "{{field}}: {{after}}",
-      "title": "Historial"
+      "title": "Historial",
+      "via_cuadrao": "{{name}} vía Cuadrao"
     },
     "home": {
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",
@@ -4732,6 +4734,8 @@
       "profile_discard": "Descartar cambios",
       "profile_discard_detail": "Los cambios de esta sección no se han guardado.",
       "profile_discard_title": "¿Descartar los cambios?",
+      "profile_drafts_retyped_one": "1 borrador pasó a Ventas: lo emitió tu negocio",
+      "profile_drafts_retyped_other": "{{count}} borradores pasaron a Ventas: los emitió tu negocio",
       "profile_email": "Correo del negocio",
       "profile_error_email": "Escribe un correo electrónico válido.",
       "profile_error_length_one": "Usa {{count}} carácter o menos.",

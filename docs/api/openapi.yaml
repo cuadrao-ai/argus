@@ -4397,7 +4397,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FiscalProfile'
+                $ref: '#/components/schemas/FiscalProfileSaved'
         '422':
           description: Validation Error
           content:
@@ -20956,6 +20956,11 @@ components:
           - type: string
             format: date
           - type: 'null'
+        reason:
+          anyOf:
+          - type: string
+            const: business_rnc_set
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -22360,6 +22365,36 @@ components:
       - previous_name
       - tax_id
       - previous_tax_id
+    FiscalProfileSaved:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        tax_id:
+          anyOf:
+          - $ref: '#/components/schemas/TaxId'
+          - type: 'null'
+        legal_name:
+          anyOf:
+          - $ref: '#/components/schemas/LegalName'
+          - type: 'null'
+        can_edit:
+          type: boolean
+        retyped_drafts:
+          type: integer
+          minimum: 0.0
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - tax_id
+      - legal_name
+      - can_edit
+      - retyped_drafts
+      description: 'The profile after a save, and how many open drafts that save moved to
+
+        Ventas. Only the save that stores the first tax id moves any.'
     FiscalReportTotal:
       properties:
         currency:
