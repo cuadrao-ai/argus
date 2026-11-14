@@ -367,7 +367,10 @@ def test_payment_status_and_marks_after_a_reopen(world) -> None:  # noqa: ANN001
     reopened = _reopen(world, draft, marked.json()["version"]).json()
     assert reopened["personal"] is True
     sibling, _ = _reviewed(world, "expense", "B0100000036")
-    assert _dossier(world, sibling)["expense_type_suggestion"] == "04"
+    assert _dossier(world, sibling)["declaration_suggestions"]["category"] == {
+        "value": "04",
+        "source": "last_choice",
+    }
 
     unmarked = world.client.post(
         f"{API}/business/drafts/{draft}/personal",

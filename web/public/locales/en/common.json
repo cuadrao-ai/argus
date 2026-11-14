@@ -3242,6 +3242,9 @@
         "group_retentions": "Withholdings",
         "group_other": "Other",
         "section_choices": "For the 606",
+        "suggestion_source": {
+          "last_choice": "Last choice for this RNC"
+        },
         "use_suggestion": "Use",
         "mark_no_receipt": "Mark as no receipt"
       },
