@@ -207,19 +207,32 @@ function measuredRows(ROW: number) {
   return { state, restore: () => { HTMLElement.prototype.getBoundingClientRect = rect; window.scrollBy = scrollBy; } };
 }
 
-test("rows that land above what the person sees do not move it, scrolled down the list or at its start", async () => {
+test("scrolled down the list, rows that land above what the person sees do not move it", async () => {
   const ROW = 40;
   const page = await mount();
   await page.tick(["a", "b", "c", "d", "e"].map((id, index) => later(page, id, -index)));
   const rows = measuredRows(ROW);
   try {
     rows.state.scrolled = 2.5 * ROW;
+    const before = page.host.querySelectorAll<HTMLElement>("[data-list-row]")[2].textContent;
     await page.tick([...page.receipts(), later(page, "nuevo", 5)]);
     assert.deepEqual(rows.state.moves, [ROW], "the page scrolls by exactly the height that landed above");
-    rows.state.scrolled = 0; rows.state.moves.length = 0;
-    await page.tick([...page.receipts(), later(page, "otro", 6)]);
-    assert.deepEqual(rows.state.moves, [ROW], "at the start of the list the rows in view stay put too");
-    assert.match(page.titles()[0], /Recibo otro/, "and the new row still landed first");
+    assert.equal(page.host.querySelectorAll<HTMLElement>("[data-list-row]")[3].textContent, before, "the row that was in view is where it was");
+  } finally { rows.restore(); }
+});
+
+test("at the start of the list with nothing open, a new row shows at the top and the page does not scroll", async () => {
+  const ROW = 40;
+  const page = await mount();
+  await page.tick(["a", "b", "c"].map((id, index) => later(page, id, -index)));
+  const rows = measuredRows(ROW);
+  try {
+    for (const [index, id] of ["nuevo", "otro", "mas"].entries()) {
+      await page.tick([...page.receipts(), later(page, id, 5 + index)]);
+      assert.match(page.titles()[0], new RegExp(`Recibo ${id}`), "the new row is first, where the person sees it");
+    }
+    assert.deepEqual(rows.state.moves, [], "the page never scrolled, so the tabs and filters stay in place");
+    assert.equal(page.titles().length, 6);
   } finally { rows.restore(); }
 });
 

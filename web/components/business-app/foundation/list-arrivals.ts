@@ -21,20 +21,27 @@ function scrollerOf(node: HTMLElement): HTMLElement | null {
   return null;
 }
 
-/** The first row the person can see, and where it sits. */
-function firstVisibleRow(root: HTMLElement, attribute: string): Anchor | null {
-  const edge = scrollerOf(root)?.getBoundingClientRect().top ?? 0;
-  const row = [...root.querySelectorAll<HTMLElement>(`[${attribute}]`)].find(node => node.getBoundingClientRect().bottom > edge);
-  return row ? { key: row.getAttribute(attribute)!, top: row.getBoundingClientRect().top } : null;
+/**
+ * The row whose place the person would lose if rows landed above it, and where it sits: the open row while it is in
+ * view, else the first row in view. None at the start of the list with nothing open, so a new row shows at the top.
+ */
+function placeToHold(root: HTMLElement, attribute: string): Anchor | null {
+  const view = scrollerOf(root)?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight };
+  const inView = (row: HTMLElement) => { const box = row.getBoundingClientRect(); return box.bottom > view.top && box.top < view.bottom; };
+  const rows = [...root.querySelectorAll<HTMLElement>(`[${attribute}]`)];
+  const open = rows.find(row => row.matches('[aria-current="true"], [aria-selected="true"]'));
+  const row = open && inView(open) ? open : rows.find(inView);
+  if (!row || (!open && row === rows[0] && row.getBoundingClientRect().top >= view.top)) return null;
+  return { key: row.getAttribute(attribute)!, top: row.getBoundingClientRect().top };
 }
 
 const without = (keys: ReadonlySet<string>, gone: readonly string[]): ReadonlySet<string> => gone.some(key => keys.has(key)) ? new Set([...keys].filter(key => !gone.includes(key))) : keys;
 
 /**
  * One rule for a list that updates on its own. `hold` is called just before
- * new rows are applied; after they render, the first row the person was
- * looking at is put back where it was, so a row that lands above it moves
- * nothing in view. `arrived` names the new rows; each is marked for a short
+ * new rows are applied; after they render, the open row or the first row the
+ * person was looking at is put back where it was, so a row that lands above it
+ * moves nothing in view. `arrived` names the new rows; each is marked for a short
  * time that starts when the person can first see it, so a row that lands in
  * another view, on another page or off screen is still marked when reached.
  * Rows are known by their own key, never by position.
@@ -44,7 +51,7 @@ export function useListArrivals(root: RefObject<HTMLElement | null>, attribute: 
   const [fresh, setFresh] = useState(NONE);
   const anchor = useRef<Anchor | null>(null);
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
-  const hold = useCallback(() => { anchor.current = root.current ? firstVisibleRow(root.current, attribute) : null; }, [root, attribute]);
+  const hold = useCallback(() => { anchor.current = root.current ? placeToHold(root.current, attribute) : null; }, [root, attribute]);
   const arrived = useCallback((keys: readonly string[]) => { if (keys.length) setUnseen(current => new Set([...current, ...keys])); }, []);
   const seen = useCallback((keys: readonly string[]) => {
     root.current?.style.setProperty(HIGHLIGHT_TIME, `${ARRIVAL_HIGHLIGHT_MS}ms`);
