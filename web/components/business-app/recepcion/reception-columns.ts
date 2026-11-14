@@ -4,7 +4,7 @@ import { isLastShownColumn, recordsColumnSettings, type ColumnLayout, type Layou
 import { DENSITIES, type Density } from "../transacciones/table-density";
 import type { ReceptionView } from "./reception-model";
 
-const KEYS = ["document", "file", "source", "sender", "amount", "currency", "status", "arrival"] as const;
+const KEYS = ["file", "source", "sender", "amount", "currency", "status", "arrival"] as const;
 export type ReceptionColumnKey = typeof KEYS[number];
 type ReceptionColumn = LayoutColumn & { key: ReceptionColumnKey };
 /** The tabs that draw these columns. Eliminados has its own. Listos never draws Estado: every row there is the same. */
@@ -15,7 +15,8 @@ export const statusColumnWord = (view: ReceptionView) => view === "attention" ? 
 
 /**
  * The columns Bandeja offers. This list is the web's: Bandeja joins receipts, notes and emails on the screen, so no
- * server report names its columns. The row's box and its actions are not here: they hold the first and last place.
+ * server report names its columns. The row's box, Contenido and its actions are not here: Contenido is the row's
+ * identity, so the box and Contenido hold the first places and the actions the last, by position.
  */
 const receptionColumns = (view: ReceptionView): ReceptionColumn[] => KEYS.map(key => ({
   key,
@@ -42,7 +43,10 @@ function parseReceptionPreferences(stored: string | null): ReceptionPreferences 
   try {
     const kept: unknown = JSON.parse(stored ?? "null");
     if (!kept || typeof kept !== "object") return initial;
-    const { order, hidden, density } = kept as Record<string, unknown>;
+    // Contenido was a column of this layout before it held its place, so a kept layout may still name it.
+    const withoutContent = (value: unknown) => Array.isArray(value) ? value.filter(key => key !== "document") : value;
+    const { order: keptOrder, hidden: keptHidden, density } = kept as Record<string, unknown>;
+    const order = withoutContent(keptOrder), hidden = withoutContent(keptHidden);
     const known = (value: unknown): value is string[] => Array.isArray(value) && new Set(value).size === value.length && value.every(key => (KEYS as readonly unknown[]).includes(key));
     if (!known(order) || order.length !== KEYS.length || !known(hidden) || !DENSITIES.includes(density as Density)) return initial;
     const layout = receptionLayout({ order, hidden: [], density: density as Density }, "all");

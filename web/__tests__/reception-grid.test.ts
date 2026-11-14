@@ -25,14 +25,14 @@ test("Remitente on adds its own fixed track from the laptop width up", () => {
   assert.equal(tracks(grid(TODOS, true)["--compact-columns"]).length, tracks(grid(TODOS, false)["--compact-columns"]).length, "below 940px Canal and Remitente share one column");
 });
 
-test("the tracks follow the person's order: the box stays first and the action track last, by position", () => {
-  const moved = { ...defaultReceptionPreferences(), order: ["arrival", "status", "file", "document", "source", "sender", "amount", "currency"], hidden: ["sender", "amount", "currency"] };
+test("the tracks follow the person's order: the box and Contenido stay first and the action track last, by position", () => {
+  const moved = { ...defaultReceptionPreferences(), order: ["arrival", "status", "file", "source", "sender", "amount", "currency"], hidden: ["sender", "amount", "currency"] };
   const columns = (receptionGrid(moved, LISTOS, "120px", 80) as unknown as Variables)["--columns"];
-  assert.deepEqual(tracks(columns), [`${SELECT_COLUMN_PX}px`, "126px", "104px", "minmax(200px, 360px)", "150px", "minmax(140px, 1fr)"]);
+  assert.deepEqual(tracks(columns), [`${SELECT_COLUMN_PX}px`, "minmax(200px, 360px)", "126px", "104px", "150px", "minmax(140px, 1fr)"]);
 });
 
 test("below 940px Canal and Remitente share the place of whichever comes first", () => {
-  const moved = { ...defaultReceptionPreferences(), order: ["sender", "document", "file", "source", "amount", "currency", "status", "arrival"], hidden: ["amount", "currency"] };
+  const moved = { ...defaultReceptionPreferences(), order: ["status", "sender", "file", "source", "amount", "currency", "arrival"], hidden: ["amount", "currency"] };
   const columns = (receptionGrid(moved, TODOS, "120px", 80) as unknown as Variables)["--compact-columns"];
-  assert.deepEqual(tracks(columns), ["150px", "minmax(180px, 360px)", "76px", "minmax(160px, 240px)", "106px", "minmax(140px, 1fr)"]);
+  assert.deepEqual(tracks(columns), ["minmax(180px, 360px)", "minmax(160px, 240px)", "150px", "76px", "106px", "minmax(140px, 1fr)"]);
 });

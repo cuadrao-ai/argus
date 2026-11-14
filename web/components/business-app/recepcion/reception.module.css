@@ -19,7 +19,7 @@
 .list > .columns,.list > ul { min-width:var(--table-min-width); }
 .list ul { list-style:none; margin:0; padding:0; }
 .columns,.row { display:grid; grid-template-columns:var(--columns); align-items:center; column-gap:0; }
-/* Each cell stands where the person put its column: `--col` is its place. The box has none, so it stays first. */
+/* Each cell stands where the person put its column: `--col` is its place. The box and Contenido have none, so they stay first. */
 .columns > *,.row > *,.source > * { order:var(--col,0); }
 .columns { min-height:40px; padding:0; color:var(--muted); font-size:14px; font-weight:500; border-bottom:1px solid var(--line); }
 .columns > span { font-size:13px; }

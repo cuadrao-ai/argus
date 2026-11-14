@@ -17,8 +17,7 @@ export default function ReceptionSkeleton({ preferences, selectable, status }: {
   const places = receptionPlaces(preferences, { status });
   const has = places.has;
   const together = originPlace(places.shown);
-  const cells = (index: number): Record<ReceptionColumnKey, ReactNode> => ({
-    document: <span className={styles.identity} style={places.at("document")}><Bar width={index % 2 ? 170 : 220} height={15} /></span>,
+  const cells: Record<ReceptionColumnKey, ReactNode> = {
     file: <span className={styles.fileCell} style={places.at("file")} data-file="true"><Bar width={18} height={20} /></span>,
     source: null,
     sender: null,
@@ -26,7 +25,7 @@ export default function ReceptionSkeleton({ preferences, selectable, status }: {
     currency: <span className={styles.currencyCell} style={places.at("currency")}><Bar width={30} /></span>,
     status: <span className={styles.state} style={places.at("status")}><Bar width={112} height={21} pill /></span>,
     arrival: <span className={styles.arrival} style={places.at("arrival")}><Bar width={72} /></span>,
-  });
+  };
   const origin = (index: number) => <span className={styles.source} style={places.shared} data-info={has("source") || has("sender")}>
     {has("source") ? <span className={styles.channel} style={places.at("source")}><Bar width={76} /></span> : null}
     {has("sender") ? <span className={styles.sender} style={places.at("sender")} data-known="true"><Bar width={index % 2 ? 110 : 150} /></span> : null}
@@ -35,7 +34,8 @@ export default function ReceptionSkeleton({ preferences, selectable, status }: {
   return <ul role="status" aria-label={t("business.reception_preview.loading")} aria-busy="true" data-testid="reception-skeleton" style={{ visibility: visible ? "visible" : "hidden" }}>
     {[0, 1, 2, 3, 4].map(index => <li key={index} className={`${styles.row} ${styles.skeletonRow}`} aria-hidden="true">
       {selectable ? <span className={styles.checkbox}><Bar width={16} height={16} /></span> : null}
-      {places.shown.map(key => <Fragment key={key}>{key === together ? origin(index) : null}{cells(index)[key]}</Fragment>)}
+      <span className={styles.identity}><Bar width={index % 2 ? 170 : 220} height={15} /></span>
+      {places.shown.map(key => <Fragment key={key}>{key === together ? origin(index) : null}{cells[key]}</Fragment>)}
       <div className={styles.rowActions} style={places.last}><div className={styles.rowAction}><div><Bar width={56} height={28} pill /></div></div><span className={styles.trashSlot} /></div>
     </li>)}
   </ul>;

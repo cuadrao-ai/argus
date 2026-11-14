@@ -7,9 +7,9 @@ import { originPlace, receptionPlaces } from "./reception-grid";
 import type { ReceptionView } from "./reception-model";
 import styles from "./reception.module.css";
 
-const HEADING_CLASS: Partial<Record<ReceptionColumnKey, string>> = { document: styles.contentHeading, source: styles.channelHeading, sender: styles.senderHeading, amount: styles.amountHeading, currency: styles.currencyHeading };
+const HEADING_CLASS: Partial<Record<ReceptionColumnKey, string>> = { source: styles.channelHeading, sender: styles.senderHeading, amount: styles.amountHeading, currency: styles.currencyHeading };
 
-/** The column titles, in the person's order. `children` is the box column, which stays first; the action title stays last. */
+/** The column titles, in the person's order. `children` is the box column; it and Contenido stay first, the action title last. */
 export default function ReceptionColumnsHeading({ preferences, view, status, children }: { preferences: ReceptionPreferences; view: ReceptionView; status: boolean; children: ReactNode }) {
   const { t } = useTranslation();
   const word = (key: string) => t(`business.reception_preview.${key}`);
@@ -19,6 +19,7 @@ export default function ReceptionColumnsHeading({ preferences, view, status, chi
   const shared = places.has("source") && places.has("sender") ? "sender_source" : places.has("source") ? "source" : "sender";
   return <div className={styles.columns}>
     {children}
+    <span className={styles.contentHeading} data-column="document">{word("document")}</span>
     {places.shown.map(key => <Fragment key={key}>
       {key === together && key !== "arrival" ? <span className={styles.combinedHeading} style={places.shared}>{word(shared)}</span> : null}
       <span className={HEADING_CLASS[key]} style={places.at(key)} data-column={key}>{title(key)}</span>

@@ -463,49 +463,62 @@ const headings = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.quer
 const setting = (key: string) => document.querySelector<HTMLElement>(`[data-column-setting="${key}"]`);
 const columnBox = (key: string) => setting(key)?.querySelector<HTMLInputElement>('input[type="checkbox"]');
 
-test("Bandeja's column menu is the Registros menu: every column is a box, none is locked by name, and the action is no column", async () => {
+const cells = (page: Awaited<ReturnType<typeof mount>>) => [...page.row("Recibo admitido")!.children].map(cell => cell.className);
+const DEFAULT_HEADINGS = ["document", "file", "source", "status", "arrival"];
+
+test("Bandeja's column menu is the Registros menu: Contenido and the action hold their places and are no rows, every other column is a box", async () => {
   const page = await mount();
   await settings(page);
   const keys = [...document.querySelectorAll<HTMLElement>("[data-column-setting]")].map(row => row.dataset.columnSetting);
-  assert.deepEqual(keys, ["document", "file", "source", "sender", "amount", "currency", "status", "arrival"]);
+  assert.deepEqual(keys, ["file", "source", "sender", "amount", "currency", "status", "arrival"]);
   for (const key of keys) {
     assert.ok(columnBox(key!), `${key} is a box`);
     assert.equal(columnBox(key!)?.disabled, false, `${key} can hide`);
     assert.equal(setting(key!)?.querySelectorAll("button").length, 3, `${key} moves up, down and by its handle`);
   }
   assert.equal(document.querySelector('[role="dialog"] svg.lucide-lock-keyhole'), null);
-  assert.equal(document.querySelector('[role="dialog"]')?.textContent?.includes("Siguiente acción"), false);
-  assert.deepEqual(headings(page), ["document", "file", "source", "status", "arrival"]);
+  for (const fixed of ["Contenido", "Siguiente acción"]) assert.equal(document.querySelector('[role="dialog"]')?.textContent?.includes(fixed), false, `${fixed} is not in the menu`);
+  assert.deepEqual(headings(page), DEFAULT_HEADINGS);
+  assert.match(cells(page)[0], /identity/, "Contenido is the row's first cell");
 });
 
-test("Bandeja refuses to hide the last column a tab shows, and Estado does not count on Listos", async () => {
+test("Bandeja refuses to hide the last menu column a tab shows, Estado does not count on Listos, and Contenido stays drawn", async () => {
   const page = await mount();
   await settings(page);
-  for (const key of ["file", "source", "arrival"]) await page.click(columnBox(key));
-  assert.deepEqual(headings(page), ["document", "status"]);
-  assert.equal(columnBox("document")?.disabled, true, "Listos would have no column: Estado is not drawn there");
+  for (const key of ["file", "source"]) await page.click(columnBox(key));
+  assert.deepEqual(headings(page), ["document", "status", "arrival"]);
+  assert.equal(columnBox("arrival")?.disabled, true, "Listos would keep no menu column: Estado is not drawn there");
   assert.equal(columnBox("status")?.disabled, false);
-  await page.click(columnBox("document"));
-  assert.deepEqual(headings(page), ["document", "status"]);
+  await page.click(columnBox("arrival"));
+  assert.deepEqual(headings(page), ["document", "status", "arrival"]);
   await page.click(columnBox("status"));
-  assert.deepEqual(headings(page), ["document"]);
-  assert.equal(columnBox("document")?.disabled, true);
+  assert.deepEqual(headings(page), ["document", "arrival"]);
+  assert.equal(columnBox("arrival")?.disabled, true);
+  assert.match(cells(page)[0], /identity/);
 });
 
-test("Bandeja keeps a reorder and a hidden column across a remount, with the cells in the same order as the titles", async () => {
+test("Bandeja keeps a reorder and a hidden column across a remount, with Contenido first and the cells in the same order as the titles", async () => {
   const page = await mount();
   await settings(page);
   const up = () => setting("arrival")!.querySelector<HTMLButtonElement>("button");
   while (!up()!.disabled) await page.click(up());
   await page.click(columnBox("file"));
-  const expected = ["arrival", "document", "source", "status"];
+  const expected = ["document", "arrival", "source", "status"];
   assert.deepEqual(headings(page), expected);
-  const cells = () => [...page.row("Recibo admitido")!.children].map(cell => cell.className);
-  assert.match(cells()[0], /arrival/);
-  assert.match(cells().at(-1)!, /rowActions/, "the actions stay last");
+  assert.match(cells(page)[0], /identity/, "Contenido stays first");
+  assert.match(cells(page)[1], /arrival/);
+  assert.match(cells(page).at(-1)!, /rowActions/, "the actions stay last");
   await page.remount();
   assert.deepEqual(headings(page), expected);
   await settings(page);
   await page.click([...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button => button.textContent === "Restaurar valores iniciales"));
-  assert.deepEqual(headings(page), ["document", "file", "source", "status", "arrival"]);
+  assert.deepEqual(headings(page), DEFAULT_HEADINGS);
+});
+
+test("a layout kept before Contenido held its place loads with Contenido first and shown", async () => {
+  window.localStorage.setItem("cuadrao:bandeja_columns:v1", JSON.stringify({ order: ["arrival", "status", "document", "file", "source", "sender", "amount", "currency"], hidden: ["document", "sender", "amount", "currency"], density: "amplio" }));
+  const page = await mount();
+  assert.deepEqual(headings(page), ["document", "arrival", "status", "file", "source"], "the other choices are kept");
+  assert.match(cells(page)[0], /identity/);
+  assert.ok(page.row("Recibo admitido")?.textContent?.includes("Recibo admitido"));
 });

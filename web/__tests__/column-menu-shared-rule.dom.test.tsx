@@ -34,6 +34,14 @@ async function mountMenu(initial: ColumnLayout) {
   return { value: () => value, box, click: (key: string) => act(async () => box(key).click()) };
 }
 
+test("Bandeja: Contenido is the row's identity, so it holds the first place and is no menu row", async () => {
+  const layout = SCREENS.Bandeja();
+  assert.equal(layout.columns.some(column => column.key === "document"), false);
+  await mountMenu(layout);
+  assert.equal(document.querySelector('[data-column-setting="document"]'), null);
+  assert.equal(document.querySelector('[role="dialog"]')?.textContent?.includes("Contenido"), false);
+});
+
 for (const [screen, layout] of Object.entries(SCREENS)) {
   test(`${screen}: no column is locked by name, and hiding stops at the last column a tab shows`, async () => {
     const menu = await mountMenu(layout());
