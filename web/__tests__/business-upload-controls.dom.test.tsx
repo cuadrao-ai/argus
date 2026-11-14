@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import ReceptionArrivalRow from "@/components/business-app/recepcion/ReceptionArrivalRow";
-import { defaultReceptionPreferences } from "@/components/business-app/recepcion/ReceptionControls";
+import { defaultReceptionPreferences } from "@/components/business-app/recepcion/reception-columns";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import english from "@/public/locales/en/common.json";

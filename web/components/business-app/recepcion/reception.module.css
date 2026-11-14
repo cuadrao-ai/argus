@@ -19,6 +19,8 @@
 .list > .columns,.list > ul { min-width:var(--table-min-width); }
 .list ul { list-style:none; margin:0; padding:0; }
 .columns,.row { display:grid; grid-template-columns:var(--columns); align-items:center; column-gap:0; }
+/* Each cell stands where the person put its column: `--col` is its place. The box has none, so it stays first. */
+.columns > *,.row > *,.source > * { order:var(--col,0); }
 .columns { min-height:40px; padding:0; color:var(--muted); font-size:14px; font-weight:500; border-bottom:1px solid var(--line); }
 .columns > span { font-size:13px; }
 .columns > span,.sender,.channel,.state,.arrival,.rowAction,.amountCell,.currencyCell { padding-left:var(--cell-x); padding-right:var(--cell-x); }
@@ -267,4 +269,11 @@
   .purgeLead { display:inline; }
   .deletedActions { flex-basis:100%; justify-content:flex-start; margin:4px -8px 0; padding:0; }
   .deletedActions .trashAction { margin-left:auto; }
+}
+/* A phone's card has no column order: every piece keeps its place in the card. */
+@container reception (max-width:819px) {
+  .columns > *,.row > * { order:0; }
+  .row > .source { order:1; }
+  .row > .state { order:2; }
+  .row > :is(.rowAction,.rowActions) { order:3; }
 }

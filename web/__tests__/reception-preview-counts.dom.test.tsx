@@ -9,6 +9,7 @@ let cleanup = async () => {};
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 1000 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => {
   await cleanup(); cleanup = async () => {};
+  window.localStorage.clear();
   (await import("@/components/business-app/foundation/toasts")).clearToasts();
   (await import("@/components/layout/overlayStack")).resetOverlayStack();
   document.body.innerHTML = "";
@@ -255,7 +256,7 @@ test("the state column is Estado with the tag on Todos, Motivo with the plain re
   assert.equal(heading("Motivo"), true, "every row here needs attention, so the column names why");
   assert.equal(estado(), false);
   await page.click(page.host.querySelector<HTMLButtonElement>('button[aria-label="Opciones de vista"]'));
-  const columns = [...document.querySelectorAll('section[aria-label="Información visible"] li')].map(item => item.textContent);
+  const columns = [...document.querySelectorAll('section[aria-label="Columnas"] li')].map(item => item.textContent);
   assert.ok(columns.some(text => text?.startsWith("Motivo")), "the settings name the column as the header does");
   assert.ok(!columns.some(text => text?.startsWith("Estado")));
   assert.equal(row().querySelector('[data-testid="status-pill"]'), null, "no tag where the tab already says it");
@@ -456,4 +457,55 @@ test("the keyboard reaches the tabs by arrow and a Listos box by Tab order", asy
   await page.act(async () => { tabs.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })); });
   assert.equal(document.activeElement, page.tab("listos"));
   assert.ok(box(page, "Listo uno")?.tabIndex !== -1);
+});
+
+const headings = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>("#reception-list [data-column]")].sort((a, b) => Number(a.style.getPropertyValue("--col")) - Number(b.style.getPropertyValue("--col"))).map(cell => cell.dataset.column);
+const setting = (key: string) => document.querySelector<HTMLElement>(`[data-column-setting="${key}"]`);
+const columnBox = (key: string) => setting(key)?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+
+test("Bandeja's column menu is the Registros menu: every column is a box, none is locked by name, and the action is no column", async () => {
+  const page = await mount();
+  await settings(page);
+  const keys = [...document.querySelectorAll<HTMLElement>("[data-column-setting]")].map(row => row.dataset.columnSetting);
+  assert.deepEqual(keys, ["document", "file", "source", "sender", "amount", "currency", "status", "arrival"]);
+  for (const key of keys) {
+    assert.ok(columnBox(key!), `${key} is a box`);
+    assert.equal(columnBox(key!)?.disabled, false, `${key} can hide`);
+    assert.equal(setting(key!)?.querySelectorAll("button").length, 3, `${key} moves up, down and by its handle`);
+  }
+  assert.equal(document.querySelector('[role="dialog"] svg.lucide-lock-keyhole'), null);
+  assert.equal(document.querySelector('[role="dialog"]')?.textContent?.includes("Siguiente acción"), false);
+  assert.deepEqual(headings(page), ["document", "file", "source", "status", "arrival"]);
+});
+
+test("Bandeja refuses to hide the last column a tab shows, and Estado does not count on Listos", async () => {
+  const page = await mount();
+  await settings(page);
+  for (const key of ["file", "source", "arrival"]) await page.click(columnBox(key));
+  assert.deepEqual(headings(page), ["document", "status"]);
+  assert.equal(columnBox("document")?.disabled, true, "Listos would have no column: Estado is not drawn there");
+  assert.equal(columnBox("status")?.disabled, false);
+  await page.click(columnBox("document"));
+  assert.deepEqual(headings(page), ["document", "status"]);
+  await page.click(columnBox("status"));
+  assert.deepEqual(headings(page), ["document"]);
+  assert.equal(columnBox("document")?.disabled, true);
+});
+
+test("Bandeja keeps a reorder and a hidden column across a remount, with the cells in the same order as the titles", async () => {
+  const page = await mount();
+  await settings(page);
+  const up = () => setting("arrival")!.querySelector<HTMLButtonElement>("button");
+  while (!up()!.disabled) await page.click(up());
+  await page.click(columnBox("file"));
+  const expected = ["arrival", "document", "source", "status"];
+  assert.deepEqual(headings(page), expected);
+  const cells = () => [...page.row("Recibo admitido")!.children].map(cell => cell.className);
+  assert.match(cells()[0], /arrival/);
+  assert.match(cells().at(-1)!, /rowActions/, "the actions stay last");
+  await page.remount();
+  assert.deepEqual(headings(page), expected);
+  await settings(page);
+  await page.click([...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button => button.textContent === "Restaurar valores iniciales"));
+  assert.deepEqual(headings(page), ["document", "file", "source", "status", "arrival"]);
 });

@@ -35,7 +35,9 @@ import { useDeletedNotes } from "./useDeletedNotes";
 import { useDocumentDelete } from "../DocumentDeleteControls";
 import { useReceiptStateWord } from "../receipt-state-word";
 import ReceptionSkeleton from "./ReceptionSkeleton";
-import { ReceptionSearch, ReceptionSettings, defaultReceptionPreferences, statusColumnWord, type ReceptionPreferences } from "./ReceptionControls";
+import { ReceptionSearch, ReceptionSettings } from "./ReceptionControls";
+import ReceptionColumnsHeading from "./ReceptionColumnsHeading";
+import { shownReceptionColumns, useReceptionPreferences } from "./reception-columns";
 import { periodRange, type Period } from "../business-format";
 import RecordsDatePreview from "../transacciones/RecordsDatePreview";
 import RecordsPaginationControls from "../transacciones/RecordsPaginationControls";
@@ -52,7 +54,7 @@ const VIEW_WORD: Record<ReceptionView, string> = { all: "all", attention: "atten
 type ArrivalLoad = { scope: string; source: ReturnType<typeof useBusiness>["source"]; items: ReceiptSummary[]; failure: LoadFailure | null };
 
 
-type ReturnPosition = { scope: string; view: ReceptionView; filters: ReceptionFiltersValue; query: string; page: number; pageSize: PaginationState["pageSize"]; period: Period; admittedIds: string[] | null; selectedIds: string[]; preferences: ReceptionPreferences };
+type ReturnPosition = { scope: string; view: ReceptionView; filters: ReceptionFiltersValue; query: string; page: number; pageSize: PaginationState["pageSize"]; period: Period; admittedIds: string[] | null; selectedIds: string[] };
 // Only the immediate dossier return uses this in-memory snapshot. Reload never restores it.
 const dossierReturns = new WeakMap<object, ReturnPosition>();
 
@@ -98,7 +100,7 @@ function ReceptionWorkspace() {
   const chooseTab = (next: ReceptionView) => { setView(next); setSelectedIds([]); setPage(1); };
   const applyFilters = (next: ReceptionFiltersValue) => { setFilters(next); setSelectedIds([]); setPage(1); };
   const [query, setQuery] = useState(returnPosition?.query ?? "");
-  const [preferences, setPreferences] = useState(() => returnPosition?.preferences ?? defaultReceptionPreferences());
+  const [preferences, setPreferences] = useReceptionPreferences();
   // The poll hands over a new array every tick; re-read the full list only when what it carries changed.
   const inboxContent = useMemo(() => JSON.stringify(records.inbox), [records.inbox]);
   useEffect(() => {
@@ -156,7 +158,7 @@ function ReceptionWorkspace() {
   const selectable = view === "listos" && chosen?.capabilities.includes("approve") === true;
   const showStatus = view !== "listos";
   const navigateFrom = (next: Parameters<typeof openPanel>[0]) => {
-    dossierReturns.set(source, { scope, view, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds, preferences });
+    dossierReturns.set(source, { scope, view, filters, query, page: currentPage, pageSize, period, admittedIds, selectedIds });
     openPanel(next.kind === "receipt" || next.kind === "draft"
       ? { ...next, receiptIds: matched.flatMap(row => row.kind === "receipt" ? [row.id] : []) }
       : next);
@@ -200,7 +202,7 @@ function ReceptionWorkspace() {
   const guide = (key: string) => t(`business.guide_cards.bandeja_intro.${key}`);
   useLendListSearch("inbox", searchInBar ? { query, setQuery: searchQuery } : null);
   return <PullToRefresh onRefresh={refresh}>
-    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-source={preferences.source || preferences.sender} data-arrival={preferences.arrival} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width, RECORDS_PREVIEW_COLUMNS.find(column => column.key === "moneda")!.width!), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
+    <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-columns={shownReceptionColumns(preferences, { status: showStatus }).join(" ")} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width, RECORDS_PREVIEW_COLUMNS.find(column => column.key === "moneda")!.width!), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {inPanel ? <div className={styles.phoneHeading}><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       {source.mode === "live" && userId && chosen ? (
         <GuideCard cardId="bandeja-intro" userId={userId} title={guide("title")}
@@ -228,7 +230,7 @@ function ReceptionWorkspace() {
       {approval.failed.length ? <ReceptionApprovalFailure failed={approval.failed} attempted={approval.attempted} onRetry={approval.retry} onDismiss={approval.dismiss} /> : null}
       {failed ? <div className={styles.error} role="alert"><p>{refused ? t("auth.business_unavailable.title") : onlySourcesFailed ? t(`business.inbox.${sourcesLine}`) : word("error")}{refusedForGood ? <> {t("auth.business_unavailable.body", { supportEmail })}</> : null}{reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}</p>{canRetry ? <button className={quietButtonClass} onClick={retry}>{t("common.retry")}</button> : null}</div> : null}
       <div ref={list} id="reception-list" role="tabpanel" aria-labelledby={`reception-tab-${view}`} tabIndex={0} className={styles.list}>
-        {view === "eliminados" ? <DeletedColumns /> : <div className={styles.columns}>{!selectable ? null : pageListos.length ? <label className={styles.checkbox}><input type="checkbox" checked={allSelected} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageListos.map(row => row.rowId))} /></label> : <span className={styles.checkbox} />}<span className={styles.contentHeading}>{word("document")}</span><span>{word("file")}</span>{preferences.source ? <span className={styles.channelHeading}>{word("source")}</span> : null}{preferences.sender ? <span className={styles.senderHeading}>{word("sender")}</span> : null}{preferences.source || preferences.sender ? <span className={styles.combinedHeading}>{word(preferences.source && preferences.sender ? "sender_source" : preferences.source ? "source" : "sender")}</span> : null}{preferences.amount ? <span className={styles.amountHeading}>{word("amount")}</span> : null}{preferences.currency ? <span className={styles.currencyHeading}>{t("business.transactions.columns.moneda")}</span> : null}{showStatus ? <span>{word(statusColumnWord(view))}</span> : null}{preferences.arrival ? <span>{word("arrival")}</span> : null}<span className="sr-only">{word("next_action")}</span></div>}
+        {view === "eliminados" ? <DeletedColumns /> : <ReceptionColumnsHeading preferences={preferences} view={view} status={showStatus}>{!selectable ? null : pageListos.length ? <label className={styles.checkbox}><input type="checkbox" checked={allSelected} aria-label={word("select_page")} ref={node => { if (node) node.indeterminate = selected.length > 0 && !allSelected; }} onChange={() => setSelectedIds(allSelected ? [] : pageListos.map(row => row.rowId))} /></label> : <span className={styles.checkbox} />}</ReceptionColumnsHeading>}
         {pending && !failed ? <ReceptionSkeleton preferences={preferences} selectable={selectable} status={showStatus} /> : <ul aria-label={word("list_label")}>
           {shown.map(row => view === "eliminados" ? <ReceptionDeletedRow key={`${row.kind}-${row.id}`} row={row} title={titleOf(row)} openPanel={navigateFrom} /> : <ReceptionArrivalRow key={`${row.kind}-${row.id}`} row={row} view={view} onDelete={(row.kind === "receipt" ? row.receipt.bandeja_group?.group === "attention" && row.receipt.delete_available : row.kind === "note" && row.note.bandeja_group?.group === "attention" && row.note.delete_available) && chosen?.capabilities.includes("approve") && source.deleteDocument ? () => { setDeleting(row); deletion.ask(); } : undefined} panel={panel} openPanel={navigateFrom} preferences={preferences} selectable={selectable} checkable={selectable && listoItem(row) !== null} checked={selectedIds.includes(rowKey(row))} unseen={unseenIds.has(rowKey(row))} onCheck={() => setSelectedIds(current => current.includes(rowKey(row)) ? current.filter(id => id !== rowKey(row)) : [...current, rowKey(row)])} />)}
         </ul>}
