@@ -16,7 +16,7 @@ class BusinessCountry:
     code: str
     currency: str
     #: Registros columns no Business of this country is offered, by key from
-    #: `reporting_columns.COLUMNS`. A required column is never omitted.
+    #: `reporting_columns.COLUMNS`.
     omitted_columns: frozenset[str] = frozenset()
 
 

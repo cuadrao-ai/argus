@@ -161,7 +161,7 @@ test("each tab lists the server's group, and a row says only what the server sai
   } finally { await page.close(); }
 });
 
-test("each tab has its own empty state and a way to the rest of the list", async () => {
+test("each tab has its own empty state, with no Ver todo, and the Todos tab leads back to the list", async () => {
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const done = { ...(await fixture.receipt("rcpt-confirmed")) };
   const page = await mount({ receiptPage: async () => ({ items: [done], activity: none }) });
@@ -173,7 +173,8 @@ test("each tab has its own empty state and a way to the rest of the list", async
     assert.equal(empty()?.querySelector("h3")?.textContent, "No hay recibos listos");
     await page.act(async () => receptionTab(page.host, "attention")!.click());
     assert.equal(empty()?.querySelector("h3")?.textContent, "Nada necesita atención");
-    await page.act(async () => empty()!.querySelector("button")!.click());
+    assert.equal(empty()?.querySelector("button"), null);
+    await page.act(async () => receptionTab(page.host, "all")!.click());
     assert.equal(receptionTab(page.host, "all")?.getAttribute("aria-selected"), "true");
     assert.equal(empty(), null);
   } finally { await page.close(); }

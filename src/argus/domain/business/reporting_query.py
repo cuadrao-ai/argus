@@ -19,7 +19,12 @@ from argus.domain.business.reporting import (
     summarize,
     summarize_fiscal,
 )
-from argus.domain.business.reporting_columns import SPECS, TableColumn, offered_columns
+from argus.domain.business.reporting_columns import (
+    SPECS,
+    TableColumn,
+    offered_columns,
+    offering_families,
+)
 from argus.domain.business.reporting_preferences import (
     Contract,
     DocumentKind,
@@ -199,16 +204,15 @@ class ExcludedPersonal(Contract):
 
 
 class ReportColumn(Contract):
-    """One column the table offers, with the rules the web draws it by."""
+    """One column the table offers. The person can hide or move any of them."""
 
     key: TableColumn
     #: Locale path of its name; the web reads the words in the reader's language.
     label_key: str
-    #: Always shown.
-    required: bool
-    #: Fixed first.
-    pinned: bool
     shown: bool
+    #: The record families whose table offers it. A layout must leave every
+    #: family's table one shown column, so the web reads this before it hides one.
+    families: tuple[Family, ...]
 
 
 def report_columns(
@@ -221,9 +225,8 @@ def report_columns(
         ReportColumn(
             key=key,
             label_key=SPECS[key].label,
-            required=SPECS[key].required,
-            pinned=SPECS[key].pinned,
             shown=key not in presentation.hidden,
+            families=offering_families(key),
         )
         for key in presentation.order
         if key in offered

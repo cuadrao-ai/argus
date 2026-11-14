@@ -2826,7 +2826,6 @@
           "cancelled": "Orden de columnas restaurado.",
           "columns": "Columnas",
           "dropped": "Columna colocada.",
-          "fixed": "Siempre visible · fija al inicio",
           "grabbed": "Columna seleccionada. Usa las flechas para moverla.",
           "height": "Altura de filas",
           "instructions": "Arrastra para ordenar. Con teclado, enfoca el asa de seis puntos y pulsa Espacio, luego ↑ o ↓. Espacio confirma; Esc cancela.",
@@ -2835,7 +2834,6 @@
           "move_up": "Subir {{name}}",
           "position_one": "{{name}}, posición {{position}} de {{count}}",
           "position_other": "{{name}}, posición {{position}} de {{count}}",
-          "required": "Siempre visible",
           "restore": "Restaurar valores iniciales"
         },
         "type": "Tipo",
@@ -2953,7 +2951,7 @@
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
       "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
-      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "ncf": "NCF", "itbis": "ITBIS", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
+      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "ncf": "NCF", "itbis": "ITBIS", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "rnc_cedula": "RNC o Cédula", "comprobante": "Comprobante" },
       "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of_one": "de {{count}}", "of_other": "de {{count}}" },
       "sign": { "in": "Entrada de", "out": "Salida de" },
       "detail": {
@@ -3669,8 +3667,6 @@
       "group_earlier": "Antes",
       "no_problems": "Ningún recibo con problemas",
       "nothing_to_review": "Tus recibos están al día.",
-      "see_all_body": "Todos tus recibos están en Todo.",
-      "see_all": "Ver todo",
       "segment_review_short": "Revisar",
       "segment_problem_short": "Problemas",
       "email_row_title": "Correo de {{sender}}",

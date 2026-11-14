@@ -1,5 +1,6 @@
 "use client";
 
+import { Tooltip } from "@/components/ui/Tooltip";
 import { useBusiness } from "../BusinessWorkspace";
 import type { RecordRow } from "./transacciones-model";
 import { previewRecordMetadata, type PreviewWorkflow } from "./records-results-preview";
@@ -17,7 +18,7 @@ export default function RecordWorkflowBadge({ row }: { row: RecordRow }) {
   const metadata = row.report ? row.report.stage ? { workflow: WORKFLOW_OF_STAGE[row.report.stage], missing: row.report } : null : previewRecordMetadata(row, chosen?.space_id ?? null);
   if (!metadata) return <Unknown meaning={t("business.transactions.layout.workflow.unknown")} />;
   const label = metadata.workflow === "fiscal" ? t(missingKey(metadata.missing ?? {})) : t(`business.transactions.layout.workflow.${metadata.workflow}`);
-  return <span data-record-workflow={metadata.workflow} className={`${styles.workflow} ${TONE[metadata.workflow]}`}>{label}</span>;
+  return <Tooltip content={label} side="top"><span data-record-workflow={metadata.workflow} className={`${styles.workflow} ${styles.stage} ${TONE[metadata.workflow]}`}>{label}</span></Tooltip>;
 }
 
 const MISSING = new Set(["expense_type_missing", "rnc_missing", "rnc_invalid", "ncf_invalid", "ncf_missing", "date_missing", "payment_method_missing"]);
