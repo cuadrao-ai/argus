@@ -4278,15 +4278,15 @@
     "lifecycle": {
       "close": {
         "action": "Cerrar negocio",
-        "confirmation": "Escribe {{businessName}} para confirmar.",
+        "confirmation": "Escribe <strong>{{businessName}}</strong> para confirmar.",
         "continue": "Continuar",
         "continue_without": "Continuar sin descargar",
         "download": "Descargar copia",
         "title": "Cerrar este negocio",
-        "title_named": "Cerrar {{businessName}}",
+        "title_named": "Cerrar <strong>{{businessName}}</strong>",
         "warning": "Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borra y no se puede recuperar. Descarga una copia antes de continuar."
       },
-      "close_alert_title": "¿Cerrar {{businessName}}?",
+      "close_alert_title": "¿Cerrar <strong>{{businessName}}</strong>?",
       "close_preview": {
         "member_count_one": "1 miembro pierde acceso al cerrar.",
         "member_count_other": "{{count}} miembros pierden acceso al cerrar.",

@@ -20,11 +20,11 @@ const windows = [
   { key: "2026-01-01/2026-10-21", start: "2026-01-01", end: "2026-10-21", record_count: 1, status: "idle" },
 ] satisfies CloseDownload[];
 
-async function mount(first: CloseDownload[] = windows, members = 7) {
+async function mount(first: CloseDownload[] = windows, members = 7, lng: "es-419" | "en" = "es-419") {
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  await i18n.init({ lng, resources: { "es-419": { translation: spanish }, en: { translation: english } }, interpolation: { escapeValue: false } });
   const confirmed: string[] = [];
   const started: (string | undefined)[] = [];
   let cancelled = 0;
@@ -67,6 +67,32 @@ test("closing is one centered dialog, never the side dossier or a second overlay
     assert.equal(view.cancelled(), 1);
   } finally { await view.close(); }
 });
+
+for (const [lng, name, first, second, label] of [
+  ["es-419", "Taller Luna", "Cerrar Taller Luna", "¿Cerrar Taller Luna?", "Escribe Taller Luna para confirmar."],
+  ["en", "Taller Luna", "Close Taller Luna", "Close Taller Luna?", "Type Taller Luna to confirm."],
+  ["es-419", "Pérez & Hijos <SRL> 'Don' \"Tito\" / RD", "Cerrar Pérez & Hijos <SRL> 'Don' \"Tito\" / RD", "¿Cerrar Pérez & Hijos <SRL> 'Don' \"Tito\" / RD?", "Escribe Pérez & Hijos <SRL> 'Don' \"Tito\" / RD para confirmar."],
+] as const) {
+  test(`the Business name stands out in bold in both titles and the label (${lng}, ${name})`, async () => {
+    const view = await mount(windows, 7, lng);
+    try {
+      await view.render({ kind: "idle" }, name);
+      const strongIn = (selector: string) => [...document.querySelectorAll(`${selector} strong`)].map((node) => node.textContent);
+      assert.equal(document.querySelector("h2")?.textContent, first);
+      assert.deepEqual(strongIn("h2"), [name]);
+      await view.openConfirm();
+      assert.equal(document.querySelector("h2")?.textContent, second);
+      assert.deepEqual(strongIn("h2"), [name]);
+      assert.equal(document.querySelector("label")?.textContent, label);
+      assert.deepEqual(strongIn("label"), [name]);
+      await view.enter(name);
+      const close = view.button(businessCloseCopyEs.close);
+      assert.equal(close.disabled, false, "the exact name still matches");
+      await act(async () => close.click());
+      assert.deepEqual(view.confirmed, [name]);
+    } finally { await view.close(); }
+  });
+}
 
 test("each period reads as a range of months with the server's counts, never an ISO date", async () => {
   const view = await mount();
@@ -217,15 +243,15 @@ for (const [members, line] of [[0, null], [1, "1 miembro pierde acceso al cerrar
 
 test("the locked copy is in both locales and the retired keys are gone", () => {
   const locked = {
-    "close.title_named": ["Cerrar {{businessName}}", "Close {{businessName}}"],
+    "close.title_named": ["Cerrar <strong>{{businessName}}</strong>", "Close <strong>{{businessName}}</strong>"],
     "close.warning": ["Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borra y no se puede recuperar. Descarga una copia antes de continuar.", "After you close, you have 30 days to reopen this business. After that, it's deleted and can't be recovered. Download a copy before you continue."],
     "export.package": ["La copia incluye tus registros en Excel y CSV y, cuando es posible, el archivo de cada documento.", "The copy includes your records in Excel and CSV and, when possible, the file for each document."],
     "close.download": ["Descargar copia", "Download copy"],
     "close.continue_without": ["Continuar sin descargar", "Continue without downloading"],
-    "close_alert_title": ["¿Cerrar {{businessName}}?", "Close {{businessName}}?"],
+    "close_alert_title": ["¿Cerrar <strong>{{businessName}}</strong>?", "Close <strong>{{businessName}}</strong>?"],
     "close_preview.member_count_other": ["{{count}} miembros pierden acceso al cerrar.", "{{count}} members lose access when you close."],
     "close_preview.reopen_until": ["Podrás reabrirlo hasta el {{purgeDate}}.", "You can reopen it until {{purgeDate}}."],
-    "close.confirmation": ["Escribe {{businessName}} para confirmar.", "Type {{businessName}} to confirm."],
+    "close.confirmation": ["Escribe <strong>{{businessName}}</strong> para confirmar.", "Type <strong>{{businessName}}</strong> to confirm."],
     "close.action": ["Cerrar negocio", "Close business"],
   };
   const read = (root: unknown, path: string) => path.split(".").reduce<unknown>((node, key) => (node as Record<string, unknown> | undefined)?.[key], root);

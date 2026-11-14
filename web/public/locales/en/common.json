@@ -3945,15 +3945,15 @@
     "lifecycle": {
       "close": {
         "action": "Close business",
-        "confirmation": "Type {{businessName}} to confirm.",
+        "confirmation": "Type <strong>{{businessName}}</strong> to confirm.",
         "continue": "Continue",
         "continue_without": "Continue without downloading",
         "download": "Download copy",
         "title": "Close this business",
-        "title_named": "Close {{businessName}}",
+        "title_named": "Close <strong>{{businessName}}</strong>",
         "warning": "After you close, you have 30 days to reopen this business. After that, it's deleted and can't be recovered. Download a copy before you continue."
       },
-      "close_alert_title": "Close {{businessName}}?",
+      "close_alert_title": "Close <strong>{{businessName}}</strong>?",
       "close_preview": {
         "member_count_one": "1 member loses access when you close.",
         "member_count_other": "{{count}} members lose access when you close.",

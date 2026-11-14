@@ -6,7 +6,7 @@ import spanish from "@/public/locales/es-419/common.json";
 import { FormField } from "@/components/ui/FormField";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { businessDeadlineParts } from "@/lib/business-lifecycle-api";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import BottomSheet from "@/components/ui/BottomSheet";
 import CenteredDialog from "@/components/ui/CenteredDialog";
@@ -59,11 +59,16 @@ type CloseProps = {
 
 const mutedTextClass = "text-[#56635e] dark:text-white/70";
 
+// The name is escaped going into the copy and unescaped after its <strong> is parsed, so any name reads exactly as typed.
+function NamedCopy({ i18nKey, businessName }: { i18nKey: string; businessName: string }) {
+  return <Trans i18nKey={i18nKey} values={{ businessName }} components={{ strong: <strong className="font-bold" /> }} tOptions={{ interpolation: { escapeValue: true } }} shouldUnescape />;
+}
+
 /**
  * Closing a Business is one short task: a centered dialog on desktop and the
  * shared bottom sheet below the desktop stop, as Exportar registros.
  */
-export function BusinessCloseShell({ title, closeLabel, onClose, locked = false, footer, children }: { title: string; closeLabel: string; onClose: () => void; locked?: boolean; footer?: ReactNode; children: ReactNode }) {
+export function BusinessCloseShell({ title, closeLabel, onClose, locked = false, footer, children }: { title: ReactNode; closeLabel: string; onClose: () => void; locked?: boolean; footer?: ReactNode; children: ReactNode }) {
   const { isBelowDesktop } = useResponsiveLayout();
   if (isBelowDesktop) return <BottomSheet isOpen onClose={onClose} dismissible={!locked} title={title} closeLabel={closeLabel} snaps={["full"]} initialSnap="full" footer={footer}><div className="pb-5 pt-1">{children}</div></BottomSheet>;
   return <CenteredDialog title={title} closeLabel={closeLabel} onClose={onClose} dismissible={!locked} footer={footer} testId="business-close-dialog"><div className="px-6 pb-5 pt-1">{children}</div></CenteredDialog>;
@@ -127,13 +132,13 @@ export default function BusinessCloseDialog({ businessName, copy, state, preview
       </div>
     );
     return (
-      <BusinessCloseShell title={t("business.lifecycle.close_alert_title", { businessName })} closeLabel={copy.cancel} onClose={onCancel} locked={submitting} footer={footer}>
+      <BusinessCloseShell title={<NamedCopy i18nKey="business.lifecycle.close_alert_title" businessName={businessName} />} closeLabel={copy.cancel} onClose={onCancel} locked={submitting} footer={footer}>
         <div className="space-y-2 text-[14px] leading-relaxed text-black/75 dark:text-white/75" aria-busy={submitting || undefined}>
           {preview.member_count > 0 ? <p data-testid="business-close-members">{t("business.lifecycle.close_preview.member_count", { count: preview.member_count })}</p> : null}
           <p>{t("business.lifecycle.close_preview.reopen_until", { purgeDate: businessDeadlineParts(preview.reopen_until, locale).purgeDate })}</p>
         </div>
         <form className="mt-5" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-          <FormField ref={inputRef} id={inputId} label={t("business.lifecycle.close.confirmation", { businessName })} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={submitting} error={state.kind === "error" && state.field ? state.message : undefined} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+          <FormField ref={inputRef} id={inputId} label={<NamedCopy i18nKey="business.lifecycle.close.confirmation" businessName={businessName} />} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={submitting} error={state.kind === "error" && state.field ? state.message : undefined} autoComplete="off" autoCapitalize="off" spellCheck={false} />
         </form>
         {state.kind === "error" ? <div role="alert" className="mt-3 space-y-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">{!state.field ? <p>{state.message}</p> : null}{state.reference ? <ReferenceCode reference={state.reference} /> : null}</div> : null}
       </BusinessCloseShell>
@@ -155,7 +160,7 @@ export default function BusinessCloseDialog({ businessName, copy, state, preview
     </div>
   );
   return (
-    <BusinessCloseShell title={t("business.lifecycle.close.title_named", { businessName })} closeLabel={copy.cancel} onClose={onCancel} footer={footer}>
+    <BusinessCloseShell title={<NamedCopy i18nKey="business.lifecycle.close.title_named" businessName={businessName} />} closeLabel={copy.cancel} onClose={onCancel} footer={footer}>
       <p className={`mb-4 text-[14px] leading-relaxed ${mutedTextClass}`}>{copy.warning}</p>
       {items.length ? <>
         <ul className="space-y-2" aria-busy={busy || undefined}>

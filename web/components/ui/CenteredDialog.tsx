@@ -15,7 +15,7 @@ import styles from "./centered-dialog.module.css";
  */
 
 type CenteredDialogProps = {
-  title: string;
+  title: ReactNode;
   closeLabel: string;
   onClose: () => void;
   /** False while the task cannot be left, such as a request in flight: back, Escape, the scrim and close all wait. */
