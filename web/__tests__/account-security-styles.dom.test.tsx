@@ -3,11 +3,17 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import postcss from "postcss";
+import { compile } from "tailwindcss";
+import { Features, transform } from "lightningcss";
 
-const sheets = [
-  "../components/auth/account-security.module.css",
-  "../app/globals.css",
-];
+const globals = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+const sessions = readFileSync(new URL("../components/auth/account-security.module.css", import.meta.url), "utf8");
+const variants: string[] = [];
+postcss.parse(globals).walkAtRules("custom-variant", (rule) => { variants.push(`${rule.toString()};`); });
+const lookProperties = new Set([
+  "color", "background", "background-color", "border-color", "border-width", "border-style",
+  "opacity", "outline", "outline-style", "outline-width", "outline-color", "outline-offset", "text-decoration-line",
+]);
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/account/security" });
@@ -31,53 +37,55 @@ async function mount() {
       <AccountSecurity loadSession={async () => ({})} />
     </I18nextProvider>,
   ));
+  // Compile the rendered utilities so a red label or outline is observable as
+  // an applicable CSS declaration, rather than a class-name string assertion.
+  const classes = [...host.querySelectorAll("[class]")].flatMap((element) => [...element.classList]);
+  const utilities = (await compile(`${variants.join("\n")}\n@tailwind utilities;`)).build(classes);
+  const flattened = transform({ filename: "session-utilities.css", code: Buffer.from(utilities), include: Features.Nesting }).code.toString();
   return {
+    css: `${globals}\n${sessions}\n${flattened}`,
     button: (scope: string) => host.querySelector<HTMLButtonElement>(`[data-scope="${scope}"] button`)!,
     close: async () => { await act(async () => root.unmount()); host.remove(); },
   };
 }
 
-function sageRulesFor(button: HTMLButtonElement, source: string, states: string[]) {
-  // The DOM runner does not model pointer state. Substitute only the dynamic
-  // pseudo-classes; match the real ancestry, attributes and :disabled normally.
+function appliedLook(button: HTMLButtonElement, css: string, states: readonly string[]) {
+  // Pointer states are simulated; real ancestry, theme, attributes and disabled
+  // state are matched by the DOM. These checks model a hover-capable viewport.
   for (const state of ["hover", "focus-visible", "active"]) {
     button.toggleAttribute(`data-test-${state}`, states.includes(state));
   }
-  const matches: string[] = [];
-  postcss.parse(readFileSync(new URL(source, import.meta.url), "utf8")).walkRules((rule) => {
-    const paintsSage = rule.nodes.some((node) => node.type === "decl"
-      && ["background", "background-color"].includes(node.prop)
-      && node.value === "var(--auth-sage)");
-    if (!paintsSage) return;
+  button.disabled = states.includes("disabled");
+  const declarations: string[] = [];
+  postcss.parse(css).walkRules((rule) => {
+    if (rule.parent?.type === "atrule" && rule.parent.name.endsWith("keyframes")) return;
     const selector = rule.selector.replace(/:(hover|focus-visible|active)\b/g, "[data-test-$1]");
-    if (button.matches(selector)) matches.push(rule.selector);
+    if (!rule.nodes.some((node) => node.type === "decl" && lookProperties.has(node.prop)) || !button.matches(selector)) return;
+    rule.walkDecls((declaration) => {
+      if (lookProperties.has(declaration.prop)) declarations.push(`${declaration.prop}: ${declaration.value}${declaration.important ? " !important" : ""}`);
+    });
   });
-  return matches;
+  return declarations.sort();
 }
 
-describe("account security session action CSS", () => {
-  for (const source of sheets) {
+describe("account security quiet session actions", () => {
+  for (const theme of ["light", "dark"]) {
     test.each([
-      ["rest", []],
-      ["hover", ["hover"]],
-      ["keyboard focus", ["focus-visible"]],
+      ["rest", []], ["hover", ["hover"]], ["keyboard focus", ["focus-visible"]],
       ["hover with keyboard focus", ["hover", "focus-visible"]],
-      ["pressed", ["hover", "active"]],
-      ["disabled hover", ["hover", "disabled"]],
-    ] as const)(`${source}: destructive action excludes sage at %s`, async (_name, states) => {
+      ["pressed", ["hover", "active"]], ["disabled", ["disabled"]],
+    ] as const)(`${theme}: all sessions uses the same quiet look at %s`, async (_name, states) => {
+      document.documentElement.classList.toggle("dark", theme === "dark");
       const page = await mount();
       try {
-        const button = page.button("global");
-        button.disabled = states.some((state) => state === "disabled");
-        expect(sageRulesFor(button, source, [...states])).toEqual([]);
-      } finally { await page.close(); }
-    });
-
-    test.each(["local", "others"])(`${source}: %s action keeps sage hover`, async (scope) => {
-      const page = await mount();
-      try {
-        expect(sageRulesFor(page.button(scope), source, ["hover"]).length).toBeGreaterThan(0);
-      } finally { await page.close(); }
+        const expected = appliedLook(page.button("local"), page.css, states);
+        expect(expected.length).toBeGreaterThan(0);
+        expect(appliedLook(page.button("others"), page.css, states)).toEqual(expected);
+        expect(appliedLook(page.button("global"), page.css, states)).toEqual(expected);
+      } finally {
+        await page.close();
+        document.documentElement.classList.remove("dark");
+      }
     });
   }
 });

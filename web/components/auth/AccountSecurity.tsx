@@ -14,7 +14,6 @@ import { signedInHomePath } from "@/lib/landing-intent";
 import { useTranslation } from "react-i18next";
 
 import {
-  dangerButtonClass,
   primaryButtonClass,
   quietButtonClass,
 } from "@/components/business-app/business-ui";
@@ -23,7 +22,7 @@ import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
 import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PasswordField, useFieldChecks, type FieldRules } from "@/components/ui/FormField";
-import { fieldHintClass, fieldNoteTone } from "@/components/ui/form-field";
+import { fieldHintClass } from "@/components/ui/form-field";
 import {
   accountSecurityLoadFailureAction,
   getAuthSecurityActions,
@@ -346,7 +345,7 @@ export function AccountSecurity({ actions = getAuthSecurityActions, loadSession 
       line: t("account_security.sessions.all_line", "Includes this browser. Sign in again to continue."),
       action: t("account_security.sessions.all_action", "Sign out everywhere"),
       name: t("account_security.sessions.sign_out_all", "Sign out all sessions"),
-      look: `${dangerButtonClass} ${fieldNoteTone.error}`,
+      look: quietButtonClass,
       run: () => setConfirmation("global"),
     },
   ];
@@ -437,7 +436,6 @@ export function AccountSecurity({ actions = getAuthSecurityActions, loadSession 
                 </div>
                 <button
                   type="button"
-                  data-destructive={choice.scope === "global" || undefined}
                   disabled={disabled}
                   aria-label={choice.name}
                   aria-describedby={`session-${choice.scope}-line`}
