@@ -9,11 +9,13 @@ import { serverRequestReference } from "@/lib/failure-screen";
 import styles from "./guide-card.module.css";
 
 type GuidePoint = { label: string; body: string };
-type Props = {
+type GuideContent =
+  | { points: [GuidePoint, GuidePoint, GuidePoint]; body?: never }
+  | { body: string; points?: never };
+type Props = GuideContent & {
   cardId: BusinessGuideCardId;
   userId: string;
   title: string;
-  points: [GuidePoint, GuidePoint, GuidePoint];
 };
 
 type State =
@@ -24,7 +26,7 @@ export default function GuideCard(props: Props) {
   return <GuideCardForPerson key={JSON.stringify([props.userId, props.cardId])} {...props} />;
 }
 
-function GuideCardForPerson({ cardId, userId, title, points }: Props) {
+function GuideCardForPerson({ cardId, userId, title, points, body }: Props) {
   const { t } = useTranslation();
   const titleId = useId();
   const request = useRef<AbortController | null>(null);
@@ -81,14 +83,16 @@ function GuideCardForPerson({ cardId, userId, title, points }: Props) {
           <X size={18} aria-hidden="true" />
         </button>
       </header>
-      <ul className={styles.points}>
-        {points.map(({ label, body }) => (
-          <li key={label}>
-            <strong>{label}</strong>
-            <p>{body}</p>
-          </li>
-        ))}
-      </ul>
+      {points ? (
+        <ul className={styles.points}>
+          {points.map((point) => (
+            <li key={point.label}>
+              <strong>{point.label}</strong>
+              <p>{point.body}</p>
+            </li>
+          ))}
+        </ul>
+      ) : <p className={styles.body}>{body}</p>}
       {failure}
     </section>
   );

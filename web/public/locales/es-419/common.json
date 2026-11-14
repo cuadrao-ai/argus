@@ -3360,6 +3360,11 @@
       "account_unknown": "Desconocida"
     },
     "guide_cards": {
+      "actividad_intro": {
+        "body": "Sigue lo que tú o tu equipo hacen en el negocio: quién subió, aprobó, editó o eliminó documentos, y cuándo. Abre una fila para ir directo a ese documento o registro.",
+        "copy_review": "approved",
+        "title": "Quién hizo qué y cuándo"
+      },
       "bandeja_intro": {
         "copy_review": "approved",
         "pending": {

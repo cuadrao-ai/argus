@@ -14,6 +14,7 @@ import { CuadraoMark } from "@/components/CuadraoMark";
 import { invoicingShown, useBusiness } from "../BusinessWorkspace";
 import { formatRelativeDay, formatShortDay } from "../business-format";
 import { EmptyState } from "../foundation/EmptyState";
+import GuideCard from "../foundation/GuideCard";
 import { PageHeading } from "../foundation/PageHeading";
 import ActivitySkeleton from "./ActivitySkeleton";
 import { ACTIVITY_CARD, ACTIVITY_DAY, ACTIVITY_GRID, ACTIVITY_GRID_LIVE, ACTIVITY_HEADER_ROW, ACTIVITY_ROW } from "./activity-layout";
@@ -209,7 +210,7 @@ const fromFeed = (item: ActivityItem | (Omit<ActivityItem, "action"> & { action:
 
 export default function ActivityDraft() {
   const { t, i18n } = useTranslation();
-  const { openPanel, source, chosen, invoicing } = useBusiness();
+  const { openPanel, source, chosen, invoicing, userId } = useBusiness();
   const live = source.mode === "live";
   const feed = useActivityFeed(live, chosen?.space_id ?? null);
   const lang = (i18n.resolvedLanguage ?? resolveLanguage({})) === "en" ? "en" : "es";
@@ -388,6 +389,7 @@ export default function ActivityDraft() {
   return (
     <div data-testid="business-activity-draft">
       <PageHeading screen="activity" />
+      {live && userId && chosen ? <GuideCard cardId="actividad-intro" userId={userId} title={t("business.guide_cards.actividad_intro.title")} body={t("business.guide_cards.actividad_intro.body")} /> : null}
       {/* The controls stay while the history loads; empty and failed states have nothing to filter. */}
       {live || mode === "empty" || mode === "error" ? null : toolbar}
       {body}
