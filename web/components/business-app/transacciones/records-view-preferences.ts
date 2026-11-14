@@ -28,27 +28,31 @@ export function taxpayerIdText(digits: string): string {
 /** Bandeja sizes its Moneda column from this entry until it owns that width (#2081). */
 export const RECORDS_PREVIEW_COLUMNS: readonly { key: "moneda"; width: number | null }[] = [{ key: "moneda", width: 80 }];
 
+/** One column a list offers. `label_key` is a locale path; `families` are the tabs that draw it. */
+export type LayoutColumn = { key: string; label_key: string; families: readonly string[] };
+/** The columns a list offers and the person's layout of them. Registros and Bandeja both keep this shape, so one menu and one rule serve both. */
+export type ColumnLayout<C extends LayoutColumn = LayoutColumn> = { columns: readonly C[]; order: string[]; hidden: string[]; density: Density };
 /** The server's offered columns and the person's layout, in server keys. */
-export type RecordsViewPreferences = { columns: readonly ReportColumn[]; order: string[]; hidden: string[]; density: Density; sort: RecordsSort };
+export type RecordsViewPreferences = ColumnLayout<ReportColumn> & { sort: RecordsSort };
 export type RecordsTableColumn = ReportColumn & { width: number | null; align: "left" | "right"; pin?: "left" | "right" };
 
 /** The offered columns in the person's order, each shown unless the layout hides it. */
-export function recordsColumnSettings(value: RecordsViewPreferences): ReportColumn[] {
+export function recordsColumnSettings<C extends LayoutColumn>(value: ColumnLayout<C>): (C & { shown: boolean })[] {
   return value.order.flatMap((key) => value.columns.filter((column) => column.key === key).map((column) => ({ ...column, shown: !value.hidden.includes(key) })));
 }
-export function moveRecordsColumn(value: RecordsViewPreferences, key: string, target: number): RecordsViewPreferences {
+export function moveRecordsColumn<V extends ColumnLayout>(value: V, key: string, target: number): V {
   const order = value.order.filter((item) => item !== key);
   order.splice(Math.max(0, Math.min(order.length, target)), 0, key);
   return { ...value, order };
 }
-/** A shown column stays when hiding it would leave some family's table with none: the server refuses that layout. Each column's `families` is the server's. */
-export function isLastShownColumn(value: RecordsViewPreferences, key: string): boolean {
+/** A shown column stays when hiding it would leave some tab's table with none. No column is locked by name. For Registros the server refuses that layout too; each column's `families` is the server's. */
+export function isLastShownColumn(value: ColumnLayout, key: string): boolean {
   const columns = recordsColumnSettings(value);
   const kept = columns.filter((column) => column.shown && column.key !== key);
   return kept.length < columns.filter((column) => column.shown).length
     && columns.flatMap((column) => column.families).some((family) => !kept.some((column) => column.families.includes(family)));
 }
-export function toggleRecordsColumn(value: RecordsViewPreferences, key: string): RecordsViewPreferences {
+export function toggleRecordsColumn<V extends ColumnLayout>(value: V, key: string): V {
   if (isLastShownColumn(value, key)) return value;
   return { ...value, hidden: value.hidden.includes(key) ? value.hidden.filter((item) => item !== key) : [...value.hidden, key] };
 }
