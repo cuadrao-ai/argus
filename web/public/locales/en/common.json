@@ -2767,7 +2767,6 @@
           "cancelled": "Column order restored.",
           "columns": "Columns",
           "dropped": "Column placed.",
-          "fixed": "Always visible · fixed first",
           "grabbed": "Column picked up. Use the arrow keys to move it.",
           "height": "Row height",
           "instructions": "Drag to reorder. With a keyboard, focus the six-dot handle and press Space, then ↑ or ↓. Space places it; Esc cancels.",
@@ -2776,7 +2775,6 @@
           "move_up": "Move {{name}} up",
           "position_one": "{{name}}, position {{position}} of {{count}}",
           "position_other": "{{name}}, position {{position}} of {{count}}",
-          "required": "Always visible",
           "restore": "Restore defaults"
         },
         "type": "Type",
@@ -2894,7 +2892,7 @@
       "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
       "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
       "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
-      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
+      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "rnc_cedula": "RNC or ID", "comprobante": "Proof" },
       "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of_one": "of {{count}}", "of_other": "of {{count}}" },
       "sign": { "in": "Money in", "out": "Money out" },
       "detail": {
@@ -4255,8 +4253,6 @@
       "group_earlier": "Earlier",
       "no_problems": "No receipts with problems",
       "nothing_to_review": "Your receipts are up to date.",
-      "see_all_body": "Every receipt you have is under All.",
-      "see_all": "See all",
       "segment_review_short": "Review",
       "segment_problem_short": "Issues",
       "email_row_title": "Email from {{sender}}",

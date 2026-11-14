@@ -101,7 +101,7 @@ const failureOf = (page: { host: HTMLElement }) => page.host.querySelector<HTMLE
 const FAILED = "No pudimos cargar tus notas ni tus correos.";
 
 describe("the Bandeja views", () => {
-  test("the evidence selectors keep a confirmed receipt reachable after clearing an empty review view", async () => {
+  test("the evidence selectors keep a confirmed receipt reachable from Todos after an empty review view", async () => {
     const page = await mount({
       panel: { kind: "inbox" },
       overrides: (fixture) => ({
@@ -134,9 +134,8 @@ describe("the Bandeja views", () => {
     assert.equal(empty?.getAttribute("data-empty-kind"), "done");
     assert.equal(empty?.querySelector("h3")?.textContent, "No hay recibos listos");
     assert.equal(reception.querySelectorAll(receptionEvidence.row).length, 0);
-    const clear = [...(empty?.querySelectorAll("button") ?? [])].find(button => button.textContent === "Ver todo");
-    assert.ok(clear, "Ver todo returns to Todos");
-    await page.act(async () => clear.click());
+    assert.doesNotMatch(empty?.textContent ?? "", /Ver todo/, "the tabs and Todas las fechas already lead back");
+    await page.act(async () => tab("all")!.click());
     assert.equal(tab("all")?.getAttribute("aria-selected"), "true");
     assert.equal(reception.querySelectorAll(receptionEvidence.empty).length, 0);
     assert.equal(reception.querySelectorAll(receptionEvidence.row).length, 1);
@@ -159,7 +158,7 @@ describe("the Bandeja views", () => {
     assert.equal(page.names().length, 19, "every receipt, plus the three emails that are rows of their own");
   });
 
-  test("a tab with nothing in it says so and Ver todo returns to Todos", async () => {
+  test("a tab with nothing in it says so and offers no Ver todo", async () => {
     const page = await mount({
       panel: { kind: "inbox" },
       overrides: (fixture) => ({
@@ -175,11 +174,8 @@ describe("the Bandeja views", () => {
     const empty = page.host.querySelector('[data-testid="reception-empty"]');
     assert.equal(empty?.getAttribute("data-empty-kind"), "done");
     assert.equal(empty?.querySelector("h3")?.textContent, "No hay recibos listos");
-    const clear = [...(empty?.querySelectorAll("button") ?? [])].find((button) => button.textContent === "Ver todo");
-    assert.ok(clear, "Ver todo");
-    assert.ok(!clear.className.includes("bg-[var(--cuadrao-green)]"), "changing the view is a quiet action, not a second primary");
-    await page.act(async () => clear.click());
-    assert.equal(page.segment("all")?.getAttribute("aria-selected"), "true");
+    assert.doesNotMatch(empty?.textContent ?? "", /Ver todo/);
+    await page.choose("all");
     assert.ok(page.names().includes("Papelería Central"));
   });
 });

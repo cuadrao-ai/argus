@@ -10,16 +10,11 @@ test("activity dates show a year in the selected language and reject missing or 
   for (const invalid of [null, "", "2026-02-30", "2026-13-01", "2026-10-25T00:00:00Z"]) assert.equal(formatRecordActivityDate(invalid, "en"), "-");
 });
 
-test("counterparty and amount stay visible while optional columns follow defaults", () => {
-  const initial = sampleRecordsPreferences();
-  for (const key of ["counterparty", "gross_amount"] as const) assert.equal(toggleRecordsColumn(initial, key), initial);
-  const keys: string[] = visibleRecordsColumns(initial).map(({ key }) => key);
+test("the table shows only the server's columns: no Moneda or Detalle of the ledger", () => {
+  const keys: string[] = visibleRecordsColumns(sampleRecordsPreferences()).map(({ key }) => key);
   assert.equal(keys.includes("moneda"), false);
   assert.equal(keys.includes("detalle"), false);
-  assert.ok(keys.includes("note"));
-  const hiddenRequired = { ...initial, hidden: [...initial.hidden, "gross_amount", "counterparty"] };
-  assert.ok(visibleRecordsColumns(hiddenRequired).some(({ key }) => key === "gross_amount"));
-  assert.ok(visibleRecordsColumns(hiddenRequired).some(({ key }) => key === "counterparty"));
+  assert.ok(keys.includes("gross_amount"));
 });
 
 test("numeric column sizing uses the exact number without a currency symbol", () => {
@@ -53,27 +48,13 @@ test("visible columns move independently and rendered columns keep their chosen 
   }
 });
 
-test("column movement clamps after the server's pinned column and preserves required visibility", () => {
+test("column movement clamps to the ends and keeps every column once", () => {
   const initial = sampleRecordsPreferences();
-  assert.equal(moveRecordsColumn(initial, "counterparty", initial.order.length - 1), initial);
-  for (const key of ["gross_amount", "date", "note"] as const) {
-    const first = moveRecordsColumn(initial, key, -5);
-    assert.equal(first.order[0], "counterparty");
-    assert.equal(first.order[1], key);
+  for (const key of ["counterparty_id", "gross_amount", "date", "note"] as const) {
+    assert.equal(moveRecordsColumn(initial, key, -5).order[0], key);
     const last = moveRecordsColumn(initial, key, 999);
     assert.equal(last.order.at(-1), key);
     assert.equal(last.order.length, initial.order.length);
     assert.equal(new Set(last.order).size, initial.order.length);
   }
-});
-
-test("hide and move follow the rules the server sends, not the column names", () => {
-  const initial = sampleRecordsPreferences();
-  const ruled = { ...initial, order: ["date", ...initial.order.filter((key) => key !== "date")], columns: initial.columns.map((column) => ({ ...column, required: column.key === "note", pinned: column.key === "date" })) };
-  assert.equal(toggleRecordsColumn(ruled, "note"), ruled);
-  assert.notEqual(toggleRecordsColumn(ruled, "gross_amount"), ruled);
-  assert.equal(moveRecordsColumn(ruled, "date", 5), ruled);
-  assert.equal(moveRecordsColumn(ruled, "counterparty", 0).order[0], "date");
-  assert.equal(visibleRecordsColumns(ruled)[0].pin, "left");
-  assert.equal(visibleRecordsColumns(ruled)[0].key, "date");
 });

@@ -63,7 +63,7 @@ test("a connected last page uses full server count and original row order, with 
   const context = { chosen: { space_id: "fixture-space", role: "owner", capabilities: ["read", "prepare"] }, panel: { kind: "transactions" }, openPanel: () => undefined, records: { workspace: null } } as unknown as BusinessContextValue;
   const host = document.createElement("div"); document.body.appendChild(host); root = createRoot(host);
   await act(async () => root?.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>
-    <RecordsPagePreview records={items.map(businessReportRow)} density="normal" preferences={sampleRecordsPreferences()} onSortChange={() => { throw new Error("Connected rows cannot sort locally"); }} rowRef={() => undefined} resetKey="report" connected={{ answer, onPage: (page) => pages.push(page), onPageSize: (size) => sizes.push(size) }} />
+    <RecordsPagePreview records={items.map(businessReportRow)} density="normal" preferences={{ ...sampleRecordsPreferences(), hidden: [] }} onSortChange={() => { throw new Error("Connected rows cannot sort locally"); }} rowRef={() => undefined} resetKey="report" connected={{ answer, onPage: (page) => pages.push(page), onPageSize: (size) => sizes.push(size) }} />
   </BusinessContext.Provider></I18nextProvider>));
   assert.equal(document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page"), "5");
   assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /101.*102.*102/);
