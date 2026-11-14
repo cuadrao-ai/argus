@@ -2584,22 +2584,10 @@
     "export": {
       "start": "Desde",
       "end": "Hasta",
-      "access_error": "La exportación no está disponible con tu acceso actual.",
       "limit_error": "La exportación supera un límite del paquete. Elige un período más corto.",
-      "error": "No se pudo descargar la exportación. Revisa tu acceso e inténtalo de nuevo.",
-      "preview": "Las descargas están disponibles en la vista conectada del negocio.",
       "action": "Exportar",
-      "preparing": "Preparando tu archivo…",
-      "done": "Listo. Busca el ZIP en tus descargas.",
       "range": "{{from}} al {{to}}",
-      "range_invalid": "Elige entre 1 y 366 días.",
-      "other_dates": "Otras fechas",
       "pick_end": "Ahora elige el último día",
-      "includes": "Incluye",
-      "records": "Registros",
-      "records_detail": "Excel y CSV",
-      "originals": "Originales",
-      "originals_detail": "Fotos y PDF de cada recibo",
       "filename": {
         "dgii": "DGII",
         "mixed": "Compras y ventas",
@@ -2608,16 +2596,7 @@
         "sales": "Ventas",
         "to": "a"
       },
-      "fiscal": "606 y 607",
-      "fiscal_detail": "Para la DGII",
-      "included": "Incluido",
-      "fiscal_month_only": "Solo por mes completo",
-      "fiscal_checking": "Revisando…",
-      "fiscal_profile": "Nombre y RNC del 606",
-      "form_needs_review": "Por revisar",
-      "form_no_aplica": "No aplica",
-      "form_no_operations": "Sin operaciones",
-      "form_summary_only": "Solo resumen"
+      "form_no_aplica": "No aplica"
     },
     "terms": {
       "calculated_hint": "Calculado: Total − ITBIS",

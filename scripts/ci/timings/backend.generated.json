@@ -615,7 +615,6 @@
   "tests/test_business_expense_split_postgres.py": 0.006742,
   "tests/test_business_expenses_kind_postgres.py": 0.000234,
   "tests/test_business_export_lock_race_postgres.py": 0.000664,
-  "tests/test_business_export_not_final_postgres.py": 0.000673,
   "tests/test_business_export_postgres.py": 0.00649,
   "tests/test_business_fiscal_narrow_write_postgres.py": 0.004264,
   "tests/test_business_fiscal_postgres.py": 0.002178,

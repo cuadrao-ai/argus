@@ -22,7 +22,7 @@ from argus.domain.business.contracts.facts import (
     WholeBusinessShare,
 )
 from argus.domain.business.dgii_columns import SALES_COLUMNS
-from argus.domain.business.dgii_export import build_fiscal_packet
+from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_validation import FiscalRecord, credit_note
 from argus.domain.business.month_close import (
     IMPLICIT,
@@ -706,13 +706,8 @@ def _export_607_income(result) -> Decimal:
         index for index, (name, _label) in enumerate(SALES_COLUMNS) if name == "ncf"
     )
     income = Decimal(result.manifest["consumption_summary"]["base"])
-    lines = (
-        result.files["dgii/DGII_F_607_199990013_202609.TXT"]
-        .decode("ascii")
-        .splitlines()[1:]
-    )
-    for line in lines:
-        fields = line.split("|")
+    assert result.manifest["forms"]["607"]["status"] == "prepared_candidate"
+    for fields in result.rows["607"]:
         sign = -1 if credit_note(fields[ncf_at]) else 1
         income += sign * Decimal(fields[billed_at])
     return income
@@ -754,7 +749,7 @@ def test_an_ecf_sale_is_outside_607_income():
     electronic = _sale_record(
         4, ncf="E310000000001", billed="5000.00", itbis="900.00", gross="5900.00"
     )
-    result = build_fiscal_packet(
+    manifest, _rows = fiscal_manifest(
         (paper, electronic),
         rnc="199990013",
         business_name="Taller Ensayo",
@@ -762,9 +757,7 @@ def test_an_ecf_sale_is_outside_607_income():
         end=date(2026, 9, 30),
         captured_on=date(2026, 10, 18),
     )
-    assert any(
-        issue["code"] == "fiscal_607_ecf_excluded" for issue in result.manifest["issues"]
-    )
+    assert any(issue["code"] == "fiscal_607_ecf_excluded" for issue in manifest["issues"])
     documents = _project((paper, electronic))
     start, end = month_period("2026-09")
     income = formato_totals(documents, start, end)["DOP"].income_before_itbis

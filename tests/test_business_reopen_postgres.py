@@ -1,7 +1,7 @@
 """Reabrir over HTTP, on the real app, Auth and Postgres. An approved record
 returns to the Bandeja with everything it holds; the money row it recorded
 stops counting everywhere and stays as history; a second approval records it
-once more and nothing doubles, in the totals, the month close, the 606 TXT or
+once more and nothing doubles, in the totals, the month close, the 606 or
 Registros. Only the owner may, a replay changes nothing, a stale version is
 refused, and a record a bank match or a credit note points at stays as it is.
 All values are made up."""
@@ -116,17 +116,24 @@ def _reopen_receipts(space: str, draft: str) -> list[dict]:
         ]
 
 
-def _txt_lines(files: dict[str, str]) -> list[str]:
-    """The 606 TXT's rows after its header; none when no TXT shipped."""
+def _handover(world) -> tuple[list[str], list[dict]]:  # noqa: ANN001, F811
+    """The activities the downloaded DGII summary places on the 606, and the
+    records.csv rows."""
 
-    return files["606"].strip().split("\r\n")[1:] if "606" in files else []
+    export = _export(world)
+    on_606 = [
+        item["activity_id"]
+        for item in export[0]["dgii"]["reconciliation"]
+        if item["disposition"] == "606"
+    ]
+    return on_606, export[1]
 
 
 def test_approve_export_reopen_fix_reapprove_export_counts_once(world) -> None:  # noqa: ANN001, F811
     """The full cycle on one purchase whose supplier RNC was wrong: the first
-    TXT carries the wrong RNC, the reopened record leaves every read while it
-    is open, the fixed and reapproved record is the only one anywhere, and the
-    second TXT carries the right RNC on one line."""
+    download carries the wrong RNC, the reopened record leaves every read while
+    it is open, the fixed and reapproved record is the only one anywhere, and
+    the second download carries the right RNC on one 606 line."""
 
     _fiscal_profile(world)
     draft, dossier = _reviewed(world, "expense", "B0100000031")
@@ -136,8 +143,8 @@ def test_approve_export_reopen_fix_reapprove_export_counts_once(world) -> None: 
     assert approved["reopen_available"] is True
     assert _waiting(world) == waiting - 1, "the approved row left the Bandeja"
     approved = _declare(world, draft, category="02", payment_method="01")
-    _, _, files = _export(world)
-    assert len(_txt_lines(files)) == 1 and BUYER_OR_SUPPLIER in _txt_lines(files)[0]
+    on_606, [csv_row] = _handover(world)
+    assert on_606 == [first] and csv_row["RNC"] == BUYER_OR_SUPPLIER
     assert _block(_month(world))["expense_before_itbis_minor"] == 100000
 
     reopened = _reopen(world, draft, approved["version"]).json()
@@ -154,8 +161,7 @@ def test_approve_export_reopen_fix_reapprove_export_counts_once(world) -> None: 
     assert month["currencies"] == [] or _block(month)["expense_before_itbis_minor"] == 0
     assert _get(world, "/business/expenses", **SPAN).json()["items"] == []
     assert _get(world, "/business/overview", **SPAN).json()["totals"] == []
-    _, csv_rows, files = _export(world)
-    assert _txt_lines(files) == [] and csv_rows == []
+    assert _handover(world) == ([], [])
     assert _rows(world) == [], "a reopened record leaves Registros until approved again"
     assert _waiting(world) == waiting, "the reopened row is back in the Bandeja"
     [receipt] = _reopen_receipts(world.alice.space_id, draft)
@@ -193,20 +199,8 @@ def test_approve_export_reopen_fix_reapprove_export_counts_once(world) -> None: 
     assert expense["id"] == second
     [row] = _rows(world)
     assert (row["draft_id"], row["stage"]) == (draft, "ready_for_export")
-    _, csv_rows, files = _export(world)
-    [line] = _txt_lines(files)
-    assert CORRECTED_SUPPLIER in line and BUYER_OR_SUPPLIER not in line
-    assert len(csv_rows) == 1
-    with Connection.connect(shared.DSN) as db:
-        exported = db.execute(
-            "select activity_id::text from public.business_dgii_export_lines"
-            " where space_id=%s order by exported_at",
-            (world.alice.space_id,),
-        ).fetchall()
-    assert [row[0] for row in exported] == [
-        first,
-        second,
-    ], "both downloads stay on record"
+    on_606, [csv_row] = _handover(world)
+    assert on_606 == [second] and csv_row["RNC"] == CORRECTED_SUPPLIER
 
 
 def test_a_replay_changes_nothing_and_a_second_reopen_is_refused(world) -> None:  # noqa: ANN001, F811

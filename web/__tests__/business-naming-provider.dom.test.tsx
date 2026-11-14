@@ -10,9 +10,6 @@ import { BusinessContext, type BusinessContextValue } from "@/components/busines
 import BusinessNamingProvider, { useBusinessNaming } from "@/components/business-app/BusinessNamingProvider";
 import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
 import { ChatWorkspaceProvider, type ChatWorkspace } from "@/components/chat/ChatWorkspace";
-import ExportRecordsPanel from "@/components/business-app/ExportRecordsPanel";
-import type { MonthCloseSource } from "@/components/business-app/BusinessMonthClosePanel";
-import { createMockMonthCloseClient } from "@/lib/business-month-close";
 
 mock.module("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push() {} }), usePathname: () => "/biz" }));
 beforeAll(() => {
@@ -21,10 +18,9 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 const state = (id: string) => ({ id, name: "Mi negocio", name_required: true });
-const sampleMonthClose: MonthCloseSource = { client: createMockMonthCloseClient({ now: new Date(2026, 9, 18) }), scopeKey: "own" };
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
 
-async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?: boolean; profile?: boolean } = {}) {
+async function mount(fetcher: typeof fetch, options: { strict?: boolean; profile?: boolean } = {}) {
   const originalFetch = globalThis.fetch;
   const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
@@ -40,7 +36,7 @@ async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?
     const context = { chosen: { space_id: id, role, name: "Mi negocio", grant_id: `${id}-grant`, capabilities: ["read"], permissions: role === "owner" ? ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"] : ["read", "export"] }, source: { mode: "live" }, reload() {} } as unknown as BusinessContextValue;
     const ProfileMenu = options.profile ? (await import("@/components/sidebar/ProfileMenu")).default : null;
     const workspace = { conversationSurface: "business" } as ChatWorkspace;
-    const child = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessNamingProvider><Probe />{ProfileMenu ? <ChatWorkspaceProvider value={workspace}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: host }} /></ChatWorkspaceProvider> : null}{options.export ? <ExportRecordsPanel month="2026-10" monthClose={sampleMonthClose} onClose={() => {}} /> : null}</BusinessNamingProvider></BusinessContext.Provider></I18nextProvider>;
+    const child = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessNamingProvider><Probe />{ProfileMenu ? <ChatWorkspaceProvider value={workspace}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: host }} /></ChatWorkspaceProvider> : null}</BusinessNamingProvider></BusinessContext.Provider></I18nextProvider>;
     await act(async () => { root.render(options.strict ? <StrictMode>{child}</StrictMode> : child); });
   };
   return { render, naming: () => naming!, close: async () => { await act(async () => root.unmount()); host.remove(); globalThis.fetch = originalFetch; if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; } };
@@ -83,24 +79,6 @@ test("an old required-name read cannot open a dialog after switching Business", 
     await act(async () => read.resolve(Response.json(state("owner-space"))));
     assert.equal(await ready!, false);
     assert.equal(document.querySelector('[role="dialog"]'), null);
-  } finally { await view.close(); }
-});
-
-test("the export panel waits for the same required-name dialog", async () => {
-  let exports = 0;
-  const view = await mount(async (url) => {
-    if (String(url).includes("/exports")) { exports++; return new Response("PKfixture", { headers: { "Content-Type": "application/zip" } }); }
-    return Response.json(state("owner-space"));
-  }, { export: true });
-  try {
-    await view.render("owner-space");
-    await act(async () => { document.querySelector<HTMLButtonElement>('[data-testid="export-download"]')!.click(); });
-    assert.equal(exports, 0);
-    const dialog = [...document.querySelectorAll('[role="dialog"]')].find((item) => !item.contains(document.querySelector('[data-testid="export-records-panel"]')));
-    assert.match(dialog?.textContent ?? "", /Guardar y continuar/);
-    assert.equal(dialog?.querySelectorAll("button").length, 1);
-    await view.render("client-space", "accountant");
-    assert.equal(exports, 0);
   } finally { await view.close(); }
 });
 

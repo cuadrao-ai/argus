@@ -2748,9 +2748,7 @@
         "web/components/business-app/BusinessExpensesPanel.tsx",
         "web/components/business-app/ReceiptDossierReview.tsx",
         "web/lib/business-api.ts",
-        "web/__tests__/business-export-download.dom.test.tsx",
-        "web/__tests__/business-dossier.test.ts",
-        "docs/reports/evidence/business-export-download-20261017/**"
+        "web/__tests__/business-dossier.test.ts"
       ],
       "deny": [
         ".env",
@@ -3697,7 +3695,6 @@
         "tests/test_business_accountant_path_routes_postgres.py",
         "tests/test_business_dgii_postgres.py",
         "web/__tests__/business-dgii.dom.test.tsx",
-        "web/__tests__/business-export-download.dom.test.tsx",
         "web/components/business-app/BusinessFiscalProfile.tsx",
         "web/components/business-app/FiscalDeclarationEditor.tsx",
         "web/components/business-app/FiscalRevision.tsx",
