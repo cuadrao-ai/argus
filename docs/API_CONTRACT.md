@@ -8628,7 +8628,7 @@ for the signed-in person. `POST /api/v1/business/guide-cards/{card_id}/dismiss`
 takes no body. After a dismissal commits, it returns `{dismissed: true}`.
 Repeating the request keeps the first dismissal time.
 
-The card IDs are `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
+The card IDs are `actividad-intro`, `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
 follows the registered person across Businesses and sessions. The server takes
 the person ID from the session and ignores `X-Business-Grant` for these routes.
 Both responses use `Cache-Control: no-store`. If storage is unavailable, both
@@ -8870,13 +8870,20 @@ answers 422 `fiscal_direction_unsupported`), and the draft is open or
 approved. A downloaded DGII TXT changes nothing here. `payment_split_editable`
 is true on the same terms for a sale: a `venta`. The type alone decides which
 form a record takes; neither flag reads the kind or a saved declaration.
-`expense_type_suggestion` is the tipo de gasto (`01` to
-`11`) a person last chose for this draft's supplier RNC in this Business, on
-another open, accepting or accepted purchase, or null. It is read fresh and
-stored nowhere: it is null while `declaration_editable` is false or the draft
-has a choice of its own, a suggested type on a declaration is no choice, and it
-never reads another Business. It reaches the 606 only when a person writes it
-as `purchase.category`, so an approval leaves the type blank.
+`declaration_suggestions` holds one suggestion for each 606 answer a person
+gives one by one, under the declaration's field name: `category` (tipo de
+gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
+is `{value, source}` or null. `source` says where the value came from:
+`last_choice` is the answer a person last gave for this draft's supplier RNC
+in this Business, on another open, accepting or accepted purchase; `receipt`
+is reserved for a value read from the receipt, and nothing sends it yet. A
+suggestion is read fresh and stored nowhere: it is null while
+`declaration_editable` is false or the draft has that answer of its own, and
+it never reads another Business. A suggested type on a declaration
+(`category_suggested`) is no answer, on this draft or as a memory. A
+suggestion reaches the 606 only when a person writes it as
+`purchase.category` or `purchase.payment_method`, so an approval never takes
+one and neither field blocks approval.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
 enforces: a member holding `prepare` who is not the owner, on an `open` or
@@ -9287,13 +9294,8 @@ Spanish copy for these codes is `dgii_line.COPY`.
 
 ### Business activity feed
 
-Actividad sits behind one server switch, `CUADRAO_BUSINESS_ACTIVITY_ENABLED`
-(`argus.domain.business.config.business_activity_enabled`), off by default; staging
-sets it true and the production pilot false. `GET /api/v1/business/workspace` says
-the same as `activity_available`. While it is off, `GET /business/activity` is refused
-with `404` `business_activity_disabled` before authentication, and the web shows no
-Actividad entry, sends no request, and sends a direct link to Inicio. Actions keep
-recording their entries either way, so turning it on later shows the whole history.
+Actividad is always on. It has no server switch, and the workspace answer carries
+no field for it. The web always shows its entry.
 
 `GET /business/activity?limit=25|50|100&cursor=<opaque>` lists who changed what
 and when in the working Business (the chosen `X-Business-Grant`'s Business, else
@@ -10152,7 +10154,7 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  settlement_available, activity_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
   is final, the open items read and the settlement PATCH are refused with 404
@@ -10933,8 +10935,12 @@ accept path recorded.
   table offers (the registry in `reporting_columns.py` owns them), in the
   table's order, then `currency` after `gross_amount` in `table.all`. Each column
   is `{key, label_key, required, shown}`: `label_key` is the locale path of its
-  name, `required` says every file holds it (the fixed first column and Moneda),
-  and `shown` is the table's current visibility. The modal renders this list.
+  name, `required` says every file holds it (the name and Moneda), and `shown`
+  says the modal offers it checked. The registry gives each column a file rule.
+  `as_shown` follows the table's visibility. `always` is the name
+  (`counterparty`): the file holds it even while the table hides it. `default` is
+  Forma de pago on Compras: it is offered checked while the table hides it, and
+  then it is the last column. The modal renders this list.
   `dgii` counts by the tab and period only, whatever the other filters say:
   `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
   currency (`DOP`), `record_count` the records whose
@@ -11032,32 +11038,39 @@ accept path recorded.
   typed `presentation` in every answer, and the web keeps that one in place of
   its request's. Every answer also carries `columns`: each column the request's
   type offers in the Business's country, in the layout's order, as
-  `{key, label_key, required, pinned, shown}`. `label_key` is the locale path of
-  the column's name, so the web says it in the reader's language; `required`
-  columns cannot be hidden, `pinned` columns stay first and cannot move, and
-  `shown` follows `presentation.hidden`. A country can omit optional columns
+  `{key, label_key, shown, families}`. `label_key` is the locale path of
+  the column's name, so the web says it in the reader's language,
+  `shown` follows `presentation.hidden`, and `families` names the record
+  families (`sale`, `purchase`) whose table offers the column. No column is locked by name: the person
+  can hide or move any of them. A country can omit columns
   (`BusinessCountry.omitted_columns`). The web leaves omitted request
-  presentation absent and renders the answer; it defines no table defaults or
-  column rules.
+  presentation absent and renders the answer; it defines no table defaults.
   Before the answer, it shows pending UI without invented columns or options.
   Restore omits presentation and queries again. Saving a view records the effective
   layout, including when the original request omitted it. Explicit saved layouts
   keep their order, hidden columns and density. A column a saved or linked
-  layout does not name joins it at the end, hidden unless it is required. The
+  layout does not name joins it at the end, hidden. The
   net amount instead joins just before the total, shown.
 
-  `presentation.order` contains each supported table key once, with counterparty
-  first. The default visible order is counterparty, date, amount, stage, note,
-  attachment. Fiscal number follows counterparty and ITBIS follows amount, both
-  hidden by default; expense type, payment form and account are also hidden.
+  `presentation.order` contains each supported table key once, in any order.
+  The default visible order is `counterparty_id` (RNC o Cédula), date, expense
+  type, net amount, ITBIS, total, stage. The name, fiscal number, note,
+  attachment, payment form and account are hidden by default.
   Expense type and payment form are offered and rendered only on Compras.
   `family` and `currency` are removed from table order and hidden keys when reading
-  old saved presentations. `hidden` cannot hide counterparty or amount. A saved
+  old saved presentations. `hidden` can name any column, but every table keeps
+  one column shown: a layout is a 422 when it leaves a family's table, in any
+  country, with no shown column. Hiding every column does that, and so does
+  showing only expense type or payment form, which Ventas does not offer. The
+  web reads each column's `families` to keep the person from asking for such a
+  layout. The first shown
+  column is the one the web freezes on the left. `counterparty_id` is the
+  row's `counterparty_key`: the web draws it with the DGII's hyphens and the
+  file writes plain digits. A saved
   presentation
   from before the 606 columns is read as current: `category` becomes `expense_type`
   in place, and `payment_form` joins the order after it, hidden. `category` is no
-  longer a table column. Optional `fiscal_number` (NCF or e-CF) and
-  `itbis_amount` columns are hidden by default. ITBIS uses the row currency;
+  longer a table column. `fiscal_number` is the NCF or e-CF. ITBIS uses the row currency;
   missing amounts or currency remain unknown, and zero remains numeric.
   Density is 40/48/56, default 48. Reordering supports drag and up/down buttons.
   Amount uses heavier text; ITBIS uses regular text. Recipes no longer carry the

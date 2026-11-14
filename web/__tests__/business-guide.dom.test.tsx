@@ -6,7 +6,9 @@ import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
+import { readFileSync } from "node:fs";
 import GuideCard from "@/components/business-app/foundation/GuideCard";
+import { BUSINESS_GUIDE_CARD_IDS } from "@/lib/business-guide-api";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
@@ -140,4 +142,24 @@ test("an earlier person's read or save cannot change a new person's guide", asyn
     await page.finish(4, state(true));
     assert.equal(page.guide(), null);
   } finally { await page.close(); }
+});
+
+/** The `card_id` enum the checked OpenAPI artifact declares under one guide-card path. */
+function openApiCardIds(path: string): string[] {
+  const lines = readFileSync(new URL("../../docs/api/openapi.yaml", import.meta.url), "utf8").split("\n");
+  const start = lines.indexOf(`  ${path}:`);
+  assert.ok(start >= 0, path);
+  const values: string[] = [];
+  for (const line of lines.slice(lines.indexOf("          enum:", start) + 1)) {
+    const value = line.match(/^ {10}- ([a-z0-9-]+)$/);
+    if (!value) break;
+    values.push(value[1]);
+  }
+  return values;
+}
+
+test("the web knows exactly the guide card IDs the server declares", () => {
+  for (const path of ["/api/v1/business/guide-cards/{card_id}", "/api/v1/business/guide-cards/{card_id}/dismiss"]) {
+    assert.deepEqual([...BUSINESS_GUIDE_CARD_IDS].sort(), openApiCardIds(path).sort(), path);
+  }
 });

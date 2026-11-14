@@ -443,7 +443,10 @@ def test_a_record_with_no_comprobante_says_so_and_takes_no_606(  # noqa: ANN201
     assert _group(rig, receipt) == ("attention", "sin_comprobante")
     assert _counts(rig) == (0, 1)
     assert dossier["declaration_editable"] is False
-    assert dossier["expense_type_suggestion"] is None
+    assert dossier["declaration_suggestions"] == {
+        "category": None,
+        "payment_method": None,
+    }
     listed = _named(rig, receipt)
     assert _results(_approve_many(rig, [listed])) == [("refused", "not_listo")]
 

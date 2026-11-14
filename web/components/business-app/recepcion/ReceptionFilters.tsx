@@ -8,6 +8,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import RecordsPreviewPopover from "../transacciones/RecordsPreviewPopover";
 import RecordsFilterSelection from "../transacciones/RecordsFilterSelection";
 import styles from "../transacciones/records-filter-preview.module.css";
+import { useReceivingChannels } from "../business-context";
 import { CHANNEL_ICON, CHANNELS } from "../foundation/channel-icons";
 import { emptyReceptionFilters, type ReceptionFiltersValue, type SenderIdentity } from "./reception-filters";
 import receptionStyles from "./reception.module.css";
@@ -21,6 +22,8 @@ function FilterEditor({ senders, value, onChange, close, phone = false }: Props 
   const shared = (key: string) => t(`business.transactions.layout.filters.${key}`);
   const [draft, setDraft] = useState(value);
   const [query, setQuery] = useState("");
+  const receiving = useReceivingChannels();
+  const offered = CHANNELS.filter(channel => channel === "web" || channel === "note" || receiving[channel].available);
 
   const [group, setGroup] = useState<typeof GROUPS[number]>("source");
   const [choosing, setChoosing] = useState(phone);
@@ -45,7 +48,7 @@ function FilterEditor({ senders, value, onChange, close, phone = false }: Props 
     {!phone || !choosing ? <section className={styles.editor} role={phone ? undefined : "tabpanel"} aria-label={word(group)}>
       {phone ? <button ref={back} type="button" className={styles.clear} onClick={() => setChoosing(true)}><ArrowLeft size={18} aria-hidden="true" />{shared("back")}</button> : null}
       <div className="flex items-center justify-between gap-3"><h3 className={styles.heading}>{word(group)}</h3><button type="button" className={styles.clear} onClick={() => setDraft({ ...draft, [group === "source" ? "channels" : "senders"]: [] })}>{word("clear_group")}</button></div>
-      {group === "source" ? <RecordsFilterSelection options={CHANNELS.map((value) => { const Icon = CHANNEL_ICON[value]; return { value, label: word(`source_${value}`), icon: <Icon size={17} aria-hidden="true" /> }; })} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : <>
+      {group === "source" ? <RecordsFilterSelection options={offered.map((value) => { const Icon = CHANNEL_ICON[value]; return { value, label: word(`source_${value}`), icon: <Icon size={17} aria-hidden="true" /> }; })} selected={draft.channels} onChange={channels => setDraft({ ...draft, channels })} /> : <>
         <input type="search" className={`${styles.input} ${styles.search}`} aria-label={word("sender_search")} placeholder={word("sender_search")} value={query} onChange={event => setQuery(event.target.value)} />
         <RecordsFilterSelection options={senders.map(sender => ({ value: sender.id, label: sender.name || sender.address, description: sender.name ? sender.address : undefined }))} selected={draft.senders} query={query} keepSelectedVisible onChange={senders => setDraft({ ...draft, senders })} />
       </>}

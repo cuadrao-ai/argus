@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dgii import (
-    ExpenseType,
     FiscalReview,
     PurchaseDeclaration,
     printed_identifier,
@@ -61,30 +61,44 @@ def reviewed_fiscal_facts(
     return facts.model_copy(update={"fiscal": FiscalFacts.model_validate(values)})
 
 
-def remembered_expense_type(tx, draft_id) -> ExpenseType | None:
-    """The tipo de gasto a person last chose for this draft's RNC in this
-    Business. The only reader of that memory. Nothing stores it: it reaches the
-    606 only when a person writes it on the draft."""
+#: The 606 answers a person gives one by one, each remembered per supplier RNC.
+RememberedField = Literal["category", "payment_method"]
 
+
+def last_choice(tx, draft_id, field: RememberedField) -> str | None:
+    """The answer a person last gave for this draft's RNC in this Business.
+    The only reader of that memory. Nothing stores it: it reaches the 606 only
+    when a person writes it on the draft.
+
+    A tipo de gasto nobody confirmed is no answer.
+    """
+
+    value = f"other.resolution->'business'->'dgii'->>'{field}'"
+    confirmed = (
+        " and other.resolution->'business'->'dgii'->>'category_suggested'"
+        " is distinct from 'true'"
+        if field == "category"
+        else ""
+    )
     rows = tx.rows(
-        "select other.resolution->'business'->'dgii'->>'category' as category"
+        f"select {value} as value"
         " from public.financial_import_events me"
         " join public.financial_import_events other"
         " on other.owner_space_id=me.owner_space_id and other.business_rnc=me.business_rnc"
-        " join lateral ("
-        "   select max(r.created_at) as chosen_at from public.business_draft_revisions r"
+        " left join lateral ("
+        "   select r.created_at as chosen_at from public.business_draft_revisions r"
         "   where r.space_id=other.owner_space_id and r.draft_id=other.id"
-        "   and (r.after_dgii->>'category') is distinct from (r.before_dgii->>'category')"
+        f"   and (r.after_dgii->>'{field}') is distinct from (r.before_dgii->>'{field}')"
+        "   order by r.version desc limit 1"
         " ) choice on true"
         " where me.id=%s and me.owner_space_id=%s and other.id<>me.id"
         " and other.state in ('open','accepting','accepted')"
         " and other.resolution->'business'->'dgii'->>'form'='606'"
-        " and other.resolution->'business'->'dgii'->>'category' is not null"
-        " and other.resolution->'business'->'dgii'->>'category_suggested' is distinct from 'true'"
+        f" and {value} is not null{confirmed}"
         " order by choice.chosen_at desc nulls last,other.id limit 1",
         (draft_id, tx.context.actor.space_id),
     )
-    return rows[0]["category"] if rows else None
+    return rows[0]["value"] if rows else None
 
 
 # The database's copy of the rules below: one accepting or accepted sale per

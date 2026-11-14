@@ -120,8 +120,6 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
         value: "60"
-      - key: CUADRAO_BUSINESS_ACTIVITY_ENABLED
-        value: "false"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
@@ -248,8 +246,6 @@ services:
         value: "true"
       - key: CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED
         value: "false"
-      - key: CUADRAO_BUSINESS_ACTIVITY_ENABLED
-        value: "true"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED

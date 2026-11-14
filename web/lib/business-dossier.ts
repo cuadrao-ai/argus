@@ -113,6 +113,9 @@ export type BusinessApprovalAction = "record_expense" | "record_income" | "recor
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
 export type RefundCandidate = { id: string; merchant: string | null; occurred_on: string; amount: string; currency: string };
 
+/** A value the server suggests and where it came from: the last answer a person gave for this RNC, or what the receipt shows. */
+export type DeclarationSuggestion = { value: string; source: "last_choice" | "receipt" };
+
 export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
   inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on"; value: string | null; inherited: boolean }>;
@@ -125,8 +128,8 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   declaration_editable?: boolean;
   /** The caller may return this approved record to the Bandeja now: it holds approve and no bank match, credit note or refund is linked to it. */
   reopen_available?: boolean;
-  /** The tipo de gasto a person last chose for this supplier's RNC in this Business. A suggestion: it reaches the 606 only when a person writes it. */
-  expense_type_suggestion?: string | null;
+  /** What the server offers for each 606 answer this record lacks, under the declaration's field name. A suggestion: it reaches the 606 only when a person writes it. */
+  declaration_suggestions?: Partial<Record<"category" | "payment_method", DeclarationSuggestion | null>>;
   /** What the e-CF XML proved by itself; null for any other source. */
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */

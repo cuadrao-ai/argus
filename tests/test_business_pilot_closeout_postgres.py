@@ -272,6 +272,14 @@ def _purchase(  # noqa: ANN202
     return answer.json()
 
 
+def _suggested_type(dossier: dict) -> str | None:
+    """The tipo de gasto the dossier offers, which only a last choice gives."""
+
+    offered = dossier["declaration_suggestions"]["category"]
+    assert offered is None or offered["source"] == "last_choice"
+    return offered and offered["value"]
+
+
 def _chosen(world, ncf: str, category: str, rnc: str = BUYER_OR_SUPPLIER) -> dict:  # noqa: ANN001
     """A purchase approved with the type a person chose."""
 
@@ -282,17 +290,15 @@ def _chosen(world, ncf: str, category: str, rnc: str = BUYER_OR_SUPPLIER) -> dic
 
 
 def test_the_type_a_person_chose_for_an_rnc_comes_back_as_a_suggestion(world) -> None:  # noqa: ANN001
-    assert _purchase(world, world.alice, "B0100000051")["expense_type_suggestion"] is None
+    assert _suggested_type(_purchase(world, world.alice, "B0100000051")) is None
     _chosen(world, "B0100000052", "02")
 
     dashed = f"{BUYER_OR_SUPPLIER[:3]}-{BUYER_OR_SUPPLIER[3:8]}-{BUYER_OR_SUPPLIER[8:]}"
     fresh = _purchase(world, world.alice, "B0100000053", dashed)
-    assert fresh["expense_type_suggestion"] == "02"
+    assert _suggested_type(fresh) == "02"
     assert fresh["dgii"]["category"] is None
     assert (
-        _purchase(world, world.alice, "B0100000054", OTHER_SUPPLIER)[
-            "expense_type_suggestion"
-        ]
+        _suggested_type(_purchase(world, world.alice, "B0100000054", OTHER_SUPPLIER))
         is None
     )
 
@@ -302,13 +308,13 @@ def test_a_suggestion_is_stored_only_when_a_person_keeps_it(world) -> None:  # n
     earlier = _chosen(world, "B0100000061", "02")
     _declare(world, earlier["draft_id"], payment_method="01")
     dossier = _purchase(world, world.alice, "B0100000062", payment_method="01")
-    assert dossier["expense_type_suggestion"] == "02"
+    assert _suggested_type(dossier) == "02"
 
     answer = _approve(world, dossier["draft_id"], dossier["version"], "expense")
     assert answer.status_code == 200, answer.text
     recorded = answer.json()
     assert recorded["dgii"]["category"] is None
-    assert recorded["expense_type_suggestion"] == "02"
+    assert _suggested_type(recorded) == "02"
     rows = {row["NCF"]: row for row in _export(world)[1]}
     assert rows["B0100000062"]["Tipo de gasto"] == ""
     assert _month(world)["dgii_forms"]["606"] == "needs_review"
@@ -316,7 +322,7 @@ def test_a_suggestion_is_stored_only_when_a_person_keeps_it(world) -> None:  # n
     kept = _declare(world, dossier["draft_id"], category="02")
     assert kept["dgii"]["category"] == "02"
     assert kept["dgii"]["category_suggested"] is False
-    assert kept["expense_type_suggestion"] is None
+    assert _suggested_type(kept) is None
     assert _month(world)["dgii_forms"]["606"] == "prepared_candidate"
 
 
@@ -325,40 +331,38 @@ def test_a_type_nobody_confirmed_is_no_choice(world) -> None:  # noqa: ANN001
         world, world.alice, "B0100000071", category="02", category_suggested=True
     )
     assert _approve(world, dossier["draft_id"], dossier["version"], "expense").is_success
-    assert _purchase(world, world.alice, "B0100000072")["expense_type_suggestion"] is None
+    assert _suggested_type(_purchase(world, world.alice, "B0100000072")) is None
 
 
 def test_a_draft_with_its_own_choice_or_a_sale_shows_no_suggestion(world) -> None:  # noqa: ANN001
     _chosen(world, "B0100000081", "02")
 
     own = _purchase(world, world.alice, "B0100000082", category="03")
-    assert own["expense_type_suggestion"] is None
+    assert _suggested_type(own) is None
     _, sale = _reviewed(world, "income", "B0100000083")
-    assert sale["expense_type_suggestion"] is None
+    assert _suggested_type(sale) is None
 
 
 def test_the_last_choice_wins_and_an_unrelated_edit_moves_nothing(world) -> None:  # noqa: ANN001
     first = _chosen(world, "B0100000091", "02")
     _chosen(world, "B0100000092", "03")
-    assert _purchase(world, world.alice, "B0100000093")["expense_type_suggestion"] == "03"
+    assert _suggested_type(_purchase(world, world.alice, "B0100000093")) == "03"
 
     _declare(world, first["draft_id"], paid_on="2026-09-10")
-    assert _purchase(world, world.alice, "B0100000094")["expense_type_suggestion"] == "03"
+    assert _suggested_type(_purchase(world, world.alice, "B0100000094")) == "03"
     _declare(world, first["draft_id"], category="07")
-    assert _purchase(world, world.alice, "B0100000095")["expense_type_suggestion"] == "07"
+    assert _suggested_type(_purchase(world, world.alice, "B0100000095")) == "07"
 
 
 def test_a_suggestion_never_crosses_businesses(people) -> None:  # noqa: ANN001
     alice = people.alice
     dossier = _purchase(people, alice, "B0100000101", category="02")
     assert _approve(people, dossier["draft_id"], dossier["version"], "expense").is_success
-    assert _purchase(people, alice, "B0100000102")["expense_type_suggestion"] == "02"
+    assert _suggested_type(_purchase(people, alice, "B0100000102")) == "02"
 
-    assert _purchase(people, people.bob, "B0100000103")["expense_type_suggestion"] is None
+    assert _suggested_type(_purchase(people, people.bob, "B0100000103")) is None
     assert (
-        _purchase(people, people.bob, "B0100000104", grant=people.grant_c)[
-            "expense_type_suggestion"
-        ]
+        _suggested_type(_purchase(people, people.bob, "B0100000104", grant=people.grant_c))
         is None
     )
 
@@ -414,7 +418,7 @@ def test_a_split_written_after_approval_ships_the_607_and_stays_open_after_expor
     assert "|1180.00|" in files["607"]
     exported = _dossier(world, draft)
     assert exported["payment_split_editable"] is True
-    assert exported["expense_type_suggestion"] is None
+    assert _suggested_type(exported) is None
     edited = _split(world, draft, exported["version"], cash="1000.00", card="180.00")
     assert edited.status_code == 200, edited.text
     line = dict(
@@ -584,7 +588,7 @@ def test_the_model_reads_neither_the_suggestion_nor_the_split(actions) -> None: 
     dossier = service.dossier(context, note.draft_id)
     assert dossier.payment_split_editable is True
     view = dossier.model_facing()
-    assert not {"expense_type_suggestion", "payment_split_editable"} & set(view)
+    assert not {"declaration_suggestions", "payment_split_editable"} & set(view)
     assert all(
         "payment_split" not in source.get("text", "") for source in view["sources"]
     )

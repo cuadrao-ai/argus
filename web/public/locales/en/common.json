@@ -2767,7 +2767,6 @@
           "cancelled": "Column order restored.",
           "columns": "Columns",
           "dropped": "Column placed.",
-          "fixed": "Always visible · fixed first",
           "grabbed": "Column picked up. Use the arrow keys to move it.",
           "height": "Row height",
           "instructions": "Drag to reorder. With a keyboard, focus the six-dot handle and press Space, then ↑ or ↓. Space places it; Esc cancels.",
@@ -2776,7 +2775,6 @@
           "move_up": "Move {{name}} up",
           "position_one": "{{name}}, position {{position}} of {{count}}",
           "position_other": "{{name}}, position {{position}} of {{count}}",
-          "required": "Always visible",
           "restore": "Restore defaults"
         },
         "type": "Type",
@@ -2894,7 +2892,7 @@
       "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
       "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
       "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
-      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
+      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "rnc_cedula": "RNC or ID", "comprobante": "Proof" },
       "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of_one": "of {{count}}", "of_other": "of {{count}}" },
       "sign": { "in": "Money in", "out": "Money out" },
       "detail": {
@@ -2974,7 +2972,7 @@
         "actor": "Deleted by",
         "content": "Content",
         "previous": "Previously in",
-        "purge": "Deleted for good"
+        "purge": "Permanent deletion"
       },
       "delete": "Delete",
       "deleted_state": "Deleted",
@@ -3242,6 +3240,9 @@
         "group_retentions": "Withholdings",
         "group_other": "Other",
         "section_choices": "For the 606",
+        "suggestion_source": {
+          "last_choice": "Last choice for this RNC"
+        },
         "use_suggestion": "Use",
         "mark_no_receipt": "Mark as no receipt"
       },
@@ -3324,6 +3325,22 @@
       "account_unknown": "Unknown"
     },
     "guide_cards": {
+      "actividad_intro": {
+        "copy_review": "approved",
+        "deleted": {
+          "body": "Permanently deleted documents are still noted here, even though they can't be opened.",
+          "label": "Nothing slips by"
+        },
+        "follow": {
+          "body": "See who uploaded, approved, edited or deleted documents, and when.",
+          "label": "Follow the activity"
+        },
+        "open": {
+          "body": "Open a deleted document's row to see it in Deleted or restore it.",
+          "label": "Get it back"
+        },
+        "title": "What happens in your business, in one place"
+      },
       "bandeja_intro": {
         "copy_review": "pending_lucas",
         "pending": {
@@ -4236,8 +4253,6 @@
       "group_earlier": "Earlier",
       "no_problems": "No receipts with problems",
       "nothing_to_review": "Your receipts are up to date.",
-      "see_all_body": "Every receipt you have is under All.",
-      "see_all": "See all",
       "segment_review_short": "Review",
       "segment_problem_short": "Issues",
       "email_row_title": "Email from {{sender}}",
