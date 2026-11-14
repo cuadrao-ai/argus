@@ -37,6 +37,7 @@
 .sortNotice,.sortHelp { font-size:13px; line-height:1.5; color:color-mix(in srgb,var(--fg) 70%,transparent); }
 .sortNotice { margin:0 0 10px; }
 .sortHelp { padding:8px 12px; }
-/* A record that just arrived: marked for a moment, then it fades back. */
-.narrowRecord { transition:background-color 600ms ease; }
-.narrowRecord[data-arrived=true] { background:color-mix(in srgb,var(--cuadrao-green) 12%,transparent); }
+/* A record that just arrived: a wash that fades out by itself. The list sets how long. */
+.narrowRecord[data-arrived=true] { --arrival-wash:color-mix(in srgb,var(--cuadrao-green) 20%,transparent); animation:arrival var(--arrival-highlight) ease-out; }
+@keyframes arrival { from,70% { background-color:var(--arrival-wash); } }
+@media (prefers-reduced-motion:reduce) { .narrowRecord[data-arrived=true] { animation:none; background:var(--arrival-wash); } }

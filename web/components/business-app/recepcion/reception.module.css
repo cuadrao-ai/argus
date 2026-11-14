@@ -28,8 +28,9 @@
 .row:hover,.row:has(:focus-visible) { background:color-mix(in srgb,var(--fg) 3%,transparent); }
 .row[data-selected=true],.row[data-checked=true] { background:color-mix(in srgb,var(--cuadrao-green) 7%,transparent); }
 .row[data-selected=true] { box-shadow:inset 3px 0 var(--cuadrao-green); }
-/* A row that just arrived: marked for a moment, then it fades back. */
-.row[data-arrived=true] { background:color-mix(in srgb,var(--cuadrao-green) 12%,transparent); transition-duration:600ms; }
+/* A row that just arrived: a fuller wash than a selected row and without its bar, fading out by itself. The list sets how long. */
+.row[data-arrived=true] { --arrival-wash:color-mix(in srgb,var(--cuadrao-green) 20%,transparent); animation:arrival var(--arrival-highlight) ease-out; }
+@keyframes arrival { from,70% { background-color:var(--arrival-wash); } }
 .identity { display:flex; align-items:center; gap:10px; min-width:0; width:100%; min-height:44px; padding:6px 12px 6px 16px; text-align:left; border-radius:4px; }
 .documentIcon { position:relative; display:grid; place-items:center; width:22px; height:28px; flex-shrink:0; color:var(--muted); }
 .documentText { position:relative; min-width:0; }
@@ -102,7 +103,7 @@
   :is(.rowAction,.rowActions) { grid-column:3; justify-content:flex-end; min-height:44px; margin:-4px 0; }
 
 }
-@media (prefers-reduced-motion:reduce) { .row { transition:none; } }
+@media (prefers-reduced-motion:reduce) { .row { transition:none; } .row[data-arrived=true] { animation:none; background:var(--arrival-wash); } }
 
 /* The locked status pairs, softer than Registros' workflow tags. Readiness stays neutral. */
 .tagAttention { --workflow-ink:#9e2f39; background:#f6dfe0; }

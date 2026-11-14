@@ -28,6 +28,8 @@ button.noteButton { min-height:44px; line-height:44px; }
   .emptyActionIcon { visibility:visible; }
 }
 
-/* A record that just arrived: marked for a moment, then it fades back. The tint sits over each cell's own background. */
-.arrival > td { transition:box-shadow 600ms ease; }
-.arrival[data-arrived=true] > td { box-shadow:inset 0 0 0 999px color-mix(in srgb,var(--cuadrao-green) 12%,transparent); }
+/* A record that just arrived: a wash that fades out by itself. It sits over each cell's own background, and the list sets how long. */
+.arrival[data-arrived=true] > td { --arrival-wash:color-mix(in srgb,var(--cuadrao-green) 20%,transparent); animation:arrival var(--arrival-highlight) ease-out; }
+@keyframes arrival { from,70% { box-shadow:inset 0 0 0 999px var(--arrival-wash); } }
+.arrival[data-arrived=true]:focus-visible > td { animation:none; }
+@media (prefers-reduced-motion:reduce) { .arrival[data-arrived=true] > td { animation:none; box-shadow:inset 0 0 0 999px var(--arrival-wash); } }

@@ -11,14 +11,16 @@ import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import spanish from "@/public/locales/es-419/common.json";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 import { mountAnnotatedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
+import { installRowSight } from "./support/row-sight";
 
 await keepOwnListSearch();
 
 const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+let sight: ReturnType<typeof installRowSight>;
 const viewRowInOpenMenu = (name: string) => [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"][aria-label="Vistas"] button')].find((button) => button.textContent === name);
-beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
-afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
-afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
+beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; sight = installRowSight(); });
+afterEach(async () => { sight.show(); await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
+afterAll(async () => { sight.restore(); await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
 test("connected pages, full count, accent search and filtered overview use real transport", async () => {
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"] } }) });
   assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /63/);
@@ -269,6 +271,37 @@ test("Registros reads itself again when the change check brings something new: t
   assert.equal(document.activeElement, held, "the row that had focus keeps it");
   await page.rerender();
   assert.equal(queries() - asked, 1, "nothing asks again until the next change");
+});
+
+test("a new record lands where the sort puts it, not first, marked once it is in sight, and the rows in view stay where they were", async () => {
+  const ROW = 40;
+  const SLOT = 2;
+  let arrived = false;
+  const newcomer = fixtureId(9101);
+  const page = await mount({ queryAnswer: async (_request, answer) => arrived ? { ...answer, items: [...answer.items.slice(0, SLOT), { ...answer.items[SLOT], row_id: newcomer }, ...answer.items.slice(SLOT, -1)] } : answer });
+  const keys = () => [...document.querySelectorAll("tbody tr[data-record-key]")].map((row) => row.getAttribute("data-record-key"));
+  const before = keys();
+  let scrolled = 3.5 * ROW;
+  const moves: number[] = [];
+  const rect = HTMLElement.prototype.getBoundingClientRect;
+  const scrollBy = window.scrollBy;
+  HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+    const index = [...document.querySelectorAll("tbody tr[data-record-key]")].indexOf(this);
+    const top = index < 0 ? 0 : index * ROW - scrolled;
+    return { top, bottom: top + ROW, left: 0, right: 0, width: 0, height: ROW, x: 0, y: top, toJSON: () => ({}) };
+  };
+  window.scrollBy = ((_x: number, y: number) => { moves.push(y); scrolled += y; }) as typeof window.scrollBy;
+  try {
+    sight.hide((row) => row.getAttribute("data-record-key") === newcomer);
+    arrived = true;
+    await page.listChanged();
+    await page.settle(() => keys().includes(newcomer));
+    assert.deepEqual(keys(), [...before.slice(0, SLOT), newcomer, ...before.slice(SLOT, -1)], "the record sits at its sort position and no other row changed order");
+    assert.deepEqual(moves, [ROW], "the page scrolls by the height that landed above the rows in view");
+    assert.deepEqual(arrivedKeys(), [], "the record is above what the person sees, so its mark waits");
+    await act(async () => sight.show());
+    assert.deepEqual(arrivedKeys(), [newcomer]);
+  } finally { HTMLElement.prototype.getBoundingClientRect = rect; window.scrollBy = scrollBy; }
 });
 
 test("a change check that finds the same records leaves the table as it is", async () => {
