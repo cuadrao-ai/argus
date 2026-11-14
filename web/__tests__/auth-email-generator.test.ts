@@ -23,7 +23,7 @@ test("registry renders environment-neutral Auth slots with only the approved cop
       expect(record.html).not.toContain("<!-- Generated");
       expect(record.html).toContain('class="card"');
       expect(record.html).toContain('background:#ffffff;border-radius:12px');
-      expect(record.html).toContain('padding:24px 32px;background:#172b26;');
+      expect(record.html).toContain('padding:6px 14px;background:#172b26;');
     }
     const greeting = '<p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola,</p>';
     const signOff = '<p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p>';
