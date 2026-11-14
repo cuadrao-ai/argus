@@ -715,7 +715,6 @@ Captured before startup at the measured head. Secret-bearing keys record only pr
 | `NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN` | `present` |
 | `NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL` | `support@get-argus.com` |
 | `NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY` | `absent` |
-| `NEXT_PUBLIC_ENABLE_SPANISH` | `true` |
 | `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` | `true` |
 | `NEXT_PUBLIC_MOCK_AUTH` | `false` |
 | `NEXT_PUBLIC_OMNISEARCH_ENABLED` | `true` |

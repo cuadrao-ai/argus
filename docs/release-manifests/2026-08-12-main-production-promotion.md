@@ -208,7 +208,6 @@ All environment evidence below is tied to exact candidate
 | API | `ARGUS_TITLE_AUTOGEN_ENABLED` | `true` | Keep bounded conversation-title generation on. |
 | API | `ALPACA_PAPER_TRADING` | `true` | Keep provider access in paper mode with no real-money execution. |
 | Web | `NEXT_PUBLIC_MOCK_AUTH` | `false` | Render the real production auth flow. |
-| Web | `NEXT_PUBLIC_ENABLE_SPANISH` | `true` | Expose the supported Spanish UI. |
 | Web | `NEXT_PUBLIC_OMNISEARCH_ENABLED` | `true` | Expose Omnisearch. |
 | Web | `NEXT_PUBLIC_RESEARCH_RAIL_ENABLED` | `true` | Render research progress and evidence surfaces. |
 | Web | `NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED` | `false` | Hide public evidence-receipt controls. |

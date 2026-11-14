@@ -42,12 +42,11 @@ describe("the app's /terms and /privacy send readers to the published page in th
     assert.equal(await redirectedTo("privacy"), "https://cuadrao.ai/en/app/privacy");
   });
 
-  test("a device that last showed Spanish opens the Spanish pages when Spanish ships", async () => {
-    const { SPANISH_ENABLED } = await import("@/lib/language-features");
+  test("a device that last showed Spanish opens the Spanish pages", async () => {
     window.localStorage.setItem("i18nextLng", "es-419");
-    const prefix = SPANISH_ENABLED ? "https://cuadrao.ai/app" : "https://cuadrao.ai/en/app";
-    assert.equal(await redirectedTo("terms"), `${prefix}/${SPANISH_ENABLED ? "terminos" : "terms"}`);
-    assert.equal(await redirectedTo("privacy"), `${prefix}/${SPANISH_ENABLED ? "privacidad" : "privacy"}`);
+    const prefix = "https://cuadrao.ai/app";
+    assert.equal(await redirectedTo("terms"), `${prefix}/terminos`);
+    assert.equal(await redirectedTo("privacy"), `${prefix}/privacidad`);
   });
 
   test("a set URL wins over the published one in every language", async () => {

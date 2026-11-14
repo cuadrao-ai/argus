@@ -1045,17 +1045,6 @@
           }
         },
         {
-          "name": "NEXT_PUBLIC_ENABLE_SPANISH",
-          "kind": "plain",
-          "keep_current": true,
-          "production": {
-            "value": "true"
-          },
-          "local": {
-            "value": "true"
-          }
-        },
-        {
           "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
           "kind": "plain",
           "keep_current": true,

@@ -32,7 +32,6 @@ export default defineConfig({
     stderr: "pipe",
     env: {
       NEXT_PUBLIC_MOCK_AUTH: "true",
-      NEXT_PUBLIC_ENABLE_SPANISH: "true",
       NEXT_PUBLIC_CUADRAO_API_URL: "http://127.0.0.1:3999/api/v1",
     },
   },

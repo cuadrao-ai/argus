@@ -369,7 +369,7 @@ Exists: `web/public/locales/en/common.json`,
 `common`, `legal`, `feedback`, `chat`, `settings`, `sidebar`,
 `keyboard_shortcuts`, `recents_quick_peek`, `command_palette`, `auth`,
 `account_security`, `landing`, `guest`, `receipt`, `tools`), loaded by
-`web/lib/i18n.ts`; Spanish gated by `NEXT_PUBLIC_ENABLE_SPANISH`
+`web/lib/i18n.ts`; English and Spanish always available
 (`web/lib/language-features.ts`); tests in `web/__tests__/locales.test.ts`.
 PR #681 is the reference for adding a recovery string pair plus a no-em-dash
 test. Rules are in E7.
