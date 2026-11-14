@@ -1,6 +1,7 @@
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
 import * as api from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
+import { searchBusinessActivity, type BusinessActivityPage } from "@/lib/business-activity-api";
 import { getChosenGrant } from "@/lib/business-grant";
 import { getBusinessSetup } from "@/lib/business-setup-api";
 import * as searchApi from "@/lib/business-search-api";
@@ -83,6 +84,8 @@ export type BusinessDataSource = Readonly<{
   addSearchRecent?: (query: string) => Promise<void>;
   removeSearchRecent?: (id: string) => Promise<void>;
   clearSearchRecents?: () => Promise<void>;
+  /** Actividad's rows that hold the query, newest first; `cursor` continues the last answer. */
+  searchActivity?: (query: string, cursor?: string) => Promise<BusinessActivityPage>;
   /** A result was opened, so it ranks first next time. Best effort. */
   recordSearchOpen?: (kind: BusinessSearchKind, id: string) => Promise<void>;
   /** `grant` is the Business the note was written in; omitted, the call binds the chosen Business before it awaits. */
@@ -152,6 +155,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   addSearchRecent: searchApi.addBusinessSearchRecent,
   removeSearchRecent: searchApi.removeBusinessSearchRecent,
   clearSearchRecents: searchApi.clearBusinessSearchRecents,
+  searchActivity: searchBusinessActivity,
   recordSearchOpen: searchApi.recordBusinessSearchOpen,
   captureNote: api.captureBusinessNote,
   captures: api.listBusinessCaptures,
@@ -275,6 +279,7 @@ export function withBusinessSpace(
     addSearchRecent: source.addSearchRecent ? after(source.addSearchRecent) : undefined,
     removeSearchRecent: source.removeSearchRecent ? after(source.removeSearchRecent) : undefined,
     clearSearchRecents: source.clearSearchRecents ? after(source.clearSearchRecents) : undefined,
+    searchActivity: source.searchActivity ? after(source.searchActivity) : undefined,
     recordSearchOpen: source.recordSearchOpen ? after(source.recordSearchOpen) : undefined,
     captureNote: source.captureNote,
     captures: source.captures,

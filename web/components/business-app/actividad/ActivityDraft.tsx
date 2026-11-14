@@ -22,38 +22,8 @@ import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { secondaryButtonClass } from "../business-ui";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
 import ActivityFilters, { ActivityFilterChips, EMPTY_ACTIVITY_FILTERS, type ActivityFilterValue, type ActivityFilterWords } from "./ActivityFilters";
-import { dossierFixtureIds } from "../dossier-fixtures";
-
-/* ---------- Contract shape: GET /business/activity (PR #1407) ---------- */
-
-type ActorKind = "member" | "owner_via_agent" | "extractor";
-type LedgerAction =
-  | "delete_document" | "restore_document" | "purge_document" | "expire_document" | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "reopen_draft" | "capture_note" | "prepare_attachment"
-  | "rebind_attachment" | "settle_remainder" | "mark_personal" | "decide_606" | "resolve_duplicate" | "edit_current_note"
-  | "append_supporting_file" | "receipt_upload" | "receipt_review" | "receipt_confirm" | "business_ask"
-  | "set_business_rnc" | "set_business_legal_name" | "business_propose_activity" | "business_attach_source" | "business_propose_allocation"
-  | "owner_grant" | "grant_access" | "invite_access" | "accept_invite" | "revoke_grant" | "revoke_invite" | "change_role" | "other";
-type ActivityItem = {
-  id: string;
-  occurred_at: string;
-  actor: { display_name: string; kind: ActorKind };
-  action: LedgerAction;
-  object: { kind: "draft" | "receipt" | "grant" | "invite"; id: string; label?: string; purged?: boolean } | null;
-};
-
-/* ---------- MISSING from #1407: what this design needs on top ---------- */
-
-/** Events the design shows that the ledger feed does not carry yet. */
-/** ACT-2b brings these; no live rows until then. */
-type MissingAction = "invoice_draft_created" | "invoice_revision_saved" | "document_read" | "document_read_failed" | "receipt_reading_enabled" | "receipt_reading_disabled" | "ownership_transferred";
-type DraftItem = Omit<ActivityItem, "action" | "actor" | "object"> & {
-  action: LedgerAction | MissingAction;
-  /** null = an older event with no recorded actor (MISSING: nullable actor). MISSING: `membership`, so a member who left keeps their name. */
-  actor: (ActivityItem["actor"] & { membership?: "current" | "former" }) | null;
-  object: { kind: "draft" | "receipt" | "grant" | "invite" | "invoice"; id: string; label?: string; purged?: boolean } | null;
-  /** MISSING: a readable name for the affected record, and a short detail such as a role. */
-  missing?: { object_label?: string; detail?: string; personal?: boolean };
-};
+import { fixtureItems, toContract, type ActivityItem, type DraftItem, type LedgerAction } from "./activity-sample";
+import { activityActorName, activityPhrase, activityTarget } from "./activity-words";
 
 type Area = "documents" | "records" | "invoicing" | "business";
 type Group = "uploads" | "reading" | "reviews" | "approvals" | "edits" | "files" | "invoices" | "access" | "settings" | "other";
@@ -103,47 +73,6 @@ const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   other: { area: "business", group: "other" },
 };
 
-/* ---------- Fixtures, relative to now so the draft always reads fresh ---------- */
-
-const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-const DAY = 24 * 60;
-const LUCIA = { display_name: "Lucía Peña", kind: "member" as const };
-const CARLOS = { display_name: "Carlos Méndez", kind: "member" as const };
-const READER = { display_name: "Cuadrao", kind: "extractor" as const };
-const draft = (key: keyof typeof dossierFixtureIds) => ({ kind: "draft" as const, id: dossierFixtureIds[key] });
-
-function fixtureItems(): DraftItem[] {
-  // Newest first, as the feed returns them.
-  return ([] as DraftItem[]).concat([
-    { id: "a01", occurred_at: minutesAgo(12), actor: LUCIA, action: "approve_expense", object: draft("ready"), missing: { object_label: "Ferretería La Esquina" } },
-    { id: "a02", occurred_at: minutesAgo(26), actor: READER, action: "document_read", object: draft("ready"), missing: { object_label: "Ferretería La Esquina" } },
-    { id: "a03", occurred_at: minutesAgo(27), actor: CARLOS, action: "receipt_upload", object: draft("ready"), missing: { object_label: "Ferretería La Esquina" } },
-    { id: "a04", occurred_at: minutesAgo(95), actor: READER, action: "document_read_failed", object: draft("unknown"), missing: { object_label: "Foto de recibo, 10:51" } },
-    { id: "a05", occurred_at: minutesAgo(140), actor: { ...LUCIA, kind: "owner_via_agent" }, action: "capture_note", object: draft("unprepared"), missing: { object_label: "Almuerzo con cliente" } },
-    { id: "a06", occurred_at: minutesAgo(210), actor: CARLOS, action: "invoice_draft_created", object: { kind: "invoice", id: "inv-0042" }, missing: { object_label: "Factura a Hotel Costa Azul" } },
-    { id: "a07", occurred_at: minutesAgo(DAY + 60), actor: LUCIA, action: "change_role", object: { kind: "grant", id: "g-carlos" }, missing: { object_label: "Carlos Méndez", detail: "Editor" } },
-    { id: "a08", occurred_at: minutesAgo(DAY + 120), actor: CARLOS, action: "append_supporting_file", object: draft("income"), missing: { object_label: "Cliente Taller Rodríguez" } },
-    { id: "a09", occurred_at: minutesAgo(DAY + 185), actor: LUCIA, action: "approve_income", object: draft("income"), missing: { object_label: "Cliente Taller Rodríguez" } },
-    { id: "a10", occurred_at: minutesAgo(DAY + 300), actor: CARLOS, action: "resolve_duplicate", object: draft("fiscal"), missing: { object_label: "Estación Ruta 3" } },
-    { id: "a11", occurred_at: minutesAgo(2 * DAY + 90), actor: CARLOS, action: "accept_invite", object: { kind: "invite", id: "i-carlos" }, missing: { object_label: "Carlos Méndez" } },
-    { id: "a12", occurred_at: minutesAgo(3 * DAY + 30), actor: LUCIA, action: "invite_access", object: { kind: "invite", id: "i-carlos" }, missing: { object_label: "Carlos Méndez", detail: "Editor" } },
-    { id: "a13", occurred_at: minutesAgo(3 * DAY + 50), actor: LUCIA, action: "set_business_rnc", object: null },
-    { id: "a14", occurred_at: minutesAgo(3 * DAY + 400), actor: { display_name: "Ana Rosario", kind: "member", membership: "former" }, action: "edit_current_note", object: draft("fiscal"), missing: { object_label: "Estación Ruta 3" } },
-    { id: "a15", occurred_at: minutesAgo(5 * DAY + 20), actor: LUCIA, action: "mark_personal", object: draft("unknownKind"), missing: { object_label: "Supermercado Nacional", personal: true } },
-    { id: "a19", occurred_at: minutesAgo(4 * DAY + 10), actor: LUCIA, action: "receipt_reading_enabled", object: null },
-    { id: "a21", occurred_at: minutesAgo(7 * DAY + 15), actor: LUCIA, action: "ownership_transferred", object: null },
-    { id: "a22", occurred_at: minutesAgo(8 * DAY + 40), actor: LUCIA, action: "receipt_reading_disabled", object: null },
-    { id: "a20", occurred_at: minutesAgo(6 * DAY + 45), actor: { display_name: "Exmiembro", kind: "member", membership: "former" }, action: "receipt_upload", object: draft("stale"), missing: { object_label: "Colmado El Progreso" } },
-    { id: "a16", occurred_at: minutesAgo(5 * DAY + 70), actor: CARLOS, action: "invoice_revision_saved", object: { kind: "invoice", id: "inv-0041" }, missing: { object_label: "Factura a Colmado Peña" } },
-    { id: "a17", occurred_at: minutesAgo(9 * DAY), actor: null, action: "receipt_upload", object: draft("readOnly"), missing: { object_label: "Nube Hosting" } },
-    { id: "a18", occurred_at: minutesAgo(9 * DAY + 30), actor: LUCIA, action: "decide_606", object: draft("readOnly"), missing: { object_label: "Nube Hosting" } },
-  ]).sort((a, z) => z.occurred_at.localeCompare(a.occurred_at));
-}
-
-const MISSING_ACTIONS = new Set<string>(["invoice_draft_created", "invoice_revision_saved", "document_read", "document_read_failed", "receipt_reading_enabled", "receipt_reading_disabled", "ownership_transferred"]);
-/** `?activity=contract` shows only what #1407 returns today: no labels, no events it does not carry. */
-const toContract = (items: DraftItem[]) => items.filter((item) => !MISSING_ACTIONS.has(item.action) && item.actor).map((item) => ({ ...item, actor: item.actor?.membership === "former" ? { display_name: "Exmiembro", kind: item.actor.kind } : item.actor && { display_name: item.actor.display_name, kind: item.actor.kind }, missing: undefined }));
-
 /* ---------- Screen ---------- */
 
 type DateKey = "all" | "today" | "week" | "month";
@@ -154,7 +83,7 @@ const localDay = (iso: string) => { const d = new Date(iso); return `${d.getFull
 const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 
 /** A live row as the screen draws it; an action this screen does not know yet reads as "other". */
-const fromFeed = (item: ActivityItem | (Omit<ActivityItem, "action"> & { action: string })): DraftItem => ({ ...item, action: item.action in ACTION_META ? (item.action as LedgerAction) : "other" });
+const fromFeed = (item: Omit<ActivityItem, "action" | "actor"> & { action: string; actor: ActivityItem["actor"] | null }): DraftItem => ({ ...item, action: item.action in ACTION_META ? (item.action as LedgerAction) : "other" });
 
 export default function ActivityDraft() {
   const { t, i18n } = useTranslation();
@@ -186,7 +115,6 @@ export default function ActivityDraft() {
     goHome: t("business.activity_feed.go_home"),
     loadMoreFailed: t("business.activity_feed.load_more_failed"),
     retry: t("business.activity_feed.retry"),
-    extractorName: t("business.activity_feed.extractor_name"),
     recordPlaceholder: t("business.activity_feed.record_placeholder"),
   };
   const mode = live || typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("activity");
@@ -227,14 +155,9 @@ export default function ActivityDraft() {
   const time = (iso: string) => { const d = new Date(iso); const h = d.getHours(); return `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")} ${h < 12 ? c.am : c.pm}`; };
   // A purged document is "un documento" on every entry: no name and nothing to open.
   const open = (item: DraftItem) => {
-    if (item.object?.purged) return undefined;
-    if (item.action === "delete_document") return () => openPanel({ kind: "inbox", view: "eliminados" });
-    if (item.action === "restore_document" && item.object) {
-      const object = item.object;
-      if (object.kind === "receipt") return () => openPanel({ kind: "receipt", receiptId: object.id, list: "inbox" });
-      if (object.kind === "draft") return () => openPanel({ kind: "draft", draftId: object.id, list: "inbox" });
-    }
-    if (live) return undefined;
+    const target = activityTarget(item);
+    if (target) return () => openPanel(target);
+    if (live || item.object?.purged) return undefined;
     if (item.object?.kind === "draft") return () => openPanel({ kind: "draft", draftId: item.object!.id, list: "transactions" });
     // Grants, invites and invoices have no record screen to open yet (MISSING: link target); they stay plain, never a generic destination.
     return undefined;
@@ -270,18 +193,18 @@ export default function ActivityDraft() {
   );
 
   const actor = (item: DraftItem, size: 24 | 32) => {
-    if (!item.actor) return { mark: <Avatar name={null} size={size} />, name: <span className="text-[#56635e] dark:text-white/60">{c.noActor}</span> };
-    if (item.actor.kind === "extractor") return { mark: <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#e3ebe1] dark:bg-white/10 ${size === 24 ? "h-6 w-6" : "h-8 w-8"}`}><CuadraoMark size={size === 24 ? 14 : 18} /></span>, name: <span>{c.extractorName}</span> };
+    if (!item.actor) return { mark: <Avatar name={null} size={size} />, name: <span className="text-[#56635e] dark:text-white/60">{activityActorName(t, item.actor)}</span> };
+    if (item.actor.kind === "extractor") return { mark: <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#e3ebe1] dark:bg-white/10 ${size === 24 ? "h-6 w-6" : "h-8 w-8"}`}><CuadraoMark size={size === 24 ? 14 : 18} /></span>, name: <span>{activityActorName(t, item.actor)}</span> };
     // An erased account reaches us already renamed; a member who left keeps the name the ledger stored.
     const erased = item.actor.display_name === "Exmiembro";
     const former = item.actor.membership === "former" && !erased;
     return {
       mark: <Avatar name={erased ? null : item.actor.display_name} size={size} />,
-      name: <span className={erased ? "text-[#56635e] dark:text-white/60" : undefined}>{erased ? c.formerMember : item.actor.display_name}{former ? <span className="text-[#56635e] dark:text-white/60"> · {c.formerMember}</span> : null}</span>,
+      name: <span className={erased ? "text-[#56635e] dark:text-white/60" : undefined}>{activityActorName(t, item.actor)}{former ? <span className="text-[#56635e] dark:text-white/60"> · {c.formerMember}</span> : null}</span>,
     };
   };
   const what = (item: DraftItem, sentenceStart = false) => {
-    const phrase = item.action === "mark_personal" && item.missing?.personal === false ? c.unmarkPersonal : t(`business.activity_feed.actions.${item.action}`, { document: item.object?.purged ? t("business.document_delete.purged_document") : item.object?.label ?? t("business.document_delete.unnamed") });
+    const phrase = item.action === "mark_personal" && item.missing?.personal === false ? c.unmarkPersonal : activityPhrase(t, item);
     const words = sentenceStart ? capitalize(phrase) : phrase;
     const failed = item.action === "document_read_failed";
     return <span className={failed ? "text-[#9e2f39] dark:text-[#ec9aa0]" : undefined}>{failed ? <span aria-hidden="true" className="mr-1.5 inline-block h-1.5 w-1.5 -translate-y-0.5 rounded-full bg-current" /> : null}{words}{(item.action === "delete_document" || item.action === "restore_document") && open(item) ? <> <span className="underline underline-offset-2">{t(item.action === "delete_document" ? "business.document_delete.view_deleted" : "business.document_delete.open")}</span></> : null}</span>;

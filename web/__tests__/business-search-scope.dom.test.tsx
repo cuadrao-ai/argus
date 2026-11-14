@@ -11,6 +11,7 @@ import { createFixtureBusinessDataSource } from "@/components/business-app/fixtu
 import { useBusinessSearch } from "@/components/business-app/useBusinessSearch";
 import type { SearchableList } from "@/components/business-app/foundation/list-search";
 import type { BusinessActions } from "@/components/business-app/business-actions";
+import type { BusinessActivityPage } from "@/lib/business-activity-api";
 import type { BusinessSearchResult } from "@/lib/business-search-api";
 import spanish from "@/public/locales/es-419/common.json";
 
@@ -30,16 +31,23 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const actions: BusinessActions = { create: [], composer: [], starterEntries: [] };
 const NONE: BusinessSearchResult = { expenses: [], ventas: [], receipts: [], accounts: [], email_deliveries: [], email_senders: [], next_cursors: {} };
 
-async function mount(list: SearchableList | null, search: () => Promise<BusinessSearchResult>, chatPalette = false) {
+type ActivityServer = (query: string, cursor?: string) => Promise<BusinessActivityPage>;
+
+async function mount(list: SearchableList | null, search: () => Promise<BusinessSearchResult>, chatPalette = false, activity: ActivityServer = async () => ({ items: [], next_cursor: null })) {
   const queries: string[] = [];
   const applied: string[] = [];
-  const source = { ...createFixtureBusinessDataSource(), search: async (query: string) => { queries.push(query); return search(); } };
+  const activityReads: [string, string | undefined][] = [];
+  const source = {
+    ...createFixtureBusinessDataSource(),
+    search: async (query: string) => { queries.push(query); return search(); },
+    searchActivity: async (query: string, cursor?: string) => { activityReads.push([query, cursor]); return activity(query, cursor); },
+  };
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   function Harness() {
     const workspaceSearch = useBusinessSearch({ emailAvailable: true,
       source, accounts: [], openPanel: () => undefined, actions, canAdd: true, scope: "own", canExport: true, openExport: () => undefined,
-      listScope: list ? { list, apply: (query) => applied.push(query) } : null,
+      listScope: list ? { list, apply: list === "activity" ? undefined : (query) => applied.push(query) } : null,
     });
     const [open, setOpen] = useState(false);
     const workspace = { id: "business", conversationSurface: "business", chatAvailable: false, search: chatPalette ? null : workspaceSearch } as unknown as ChatWorkspace;
@@ -55,7 +63,7 @@ async function mount(list: SearchableList | null, search: () => Promise<Business
   const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}><Harness /></I18nextProvider>));
   await act(async () => document.querySelector<HTMLButtonElement>('[data-testid="opener"]')!.click());
-  return { queries, applied, unmount: () => act(async () => root.unmount()) };
+  return { queries, applied, activityReads, unmount: () => act(async () => root.unmount()) };
 }
 
 const wait = (ms: number) => act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)); });
@@ -162,5 +170,75 @@ test("the chat palette's X still only clears the text", async () => {
     assert.equal(document.querySelector("input")?.value, "", "the text is gone");
     assert.ok(document.querySelector("input"), "the window stays");
     assert.equal(headerButton("Borrar búsqueda"), undefined, "an empty box has no X");
+  } finally { await view.unmount(); }
+});
+
+const change = (id: string, who: string, action: string, label?: string) => ({ id, occurred_at: "2026-11-10T14:00:00Z", actor: { display_name: who, kind: "member" as const }, action, object: label ? { kind: "draft" as const, id: `draft-${id}`, label } : null });
+const ACCOUNT: BusinessSearchResult = { ...NONE, accounts: [{ id: "account-1", nickname: "Cuenta de Lucía", type: "checking", currency: "DOP" }] };
+const rows = () => [...document.querySelectorAll('[data-testid="workspace-search-results"] :is([data-testid="workspace-hit-static"], [data-workspace-hit]:not([data-row-action]))')].map((row) => row.textContent ?? "");
+const removeChip = () => act(async () => document.querySelector<HTMLButtonElement>('[data-testid="workspace-search-scope"] button')!.click());
+
+test("Actividad's window opens with its chip and lists the rows the server matched, with no list to filter", async () => {
+  const view = await mount("activity", async () => ACCOUNT, false, async () => ({ items: [change("a1", "Lucía Peña", "approve_expense", "Ferretería La Esquina")], next_cursor: null }));
+  try {
+    assert.equal(window_().chip?.trim(), "En Actividad");
+    await type("Lucía");
+    await wait(500);
+    assert.deepEqual(view.activityReads, [["Lucía", undefined]], "the server matches the query");
+    assert.equal(rows().length, 1, "only Actividad's rows");
+    assert.ok(rows()[0].includes("Lucía Peña aprobó un gasto"), rows()[0]);
+    assert.ok(rows()[0].includes("Ferretería La Esquina"), rows()[0]);
+    assert.equal(window_().filterRow, null, "Actividad has no filter to hand the query to");
+  } finally { await view.unmount(); }
+});
+
+test("removing the Actividad chip searches the whole Business, as removing a list's chip does", async () => {
+  for (const list of ["activity", "inbox"] as const) {
+    const view = await mount(list, async () => ACCOUNT, false, async () => ({ items: [change("a1", "Lucía Peña", "receipt_upload")], next_cursor: null }));
+    try {
+      await type("Lucía");
+      await wait(500);
+      assert.ok(rows().every((row) => !row.includes("Cuenta de Lucía")), `${list}: the account is outside the scope`);
+      await removeChip();
+      await wait(500);
+      assert.equal(window_().chip, null, list);
+      assert.ok(rows().some((row) => row.includes("Cuenta de Lucía")), `${list}: the whole Business is searched`);
+      assert.equal(rows().some((row) => row.includes("Lucía Peña subió un documento")), list === "activity", `${list}: Actividad's rows stay only on its screen`);
+    } finally { await view.unmount(); }
+  }
+});
+
+test("an Actividad search with no match says so in the search's own empty state", async () => {
+  const view = await mount("activity", async () => ACCOUNT);
+  try {
+    await type("Brisa");
+    await wait(500);
+    assert.deepEqual(view.activityReads, [["Brisa", undefined]]);
+    assert.ok(window_().noMatch?.includes("Brisa"));
+    assert.equal(window_().chip?.trim(), "En Actividad");
+  } finally { await view.unmount(); }
+});
+
+test("an Actividad search the server fails says the activity did not load", async () => {
+  const view = await mount("activity", async () => NONE, false, async () => { throw Object.assign(new Error("unavailable"), { status: 503 }); });
+  try {
+    await type("Brisa");
+    await wait(500);
+    assert.equal(document.querySelector('[data-testid="workspace-search-results"] [role="alert"]')?.textContent, "No pudimos cargar la actividad");
+    assert.equal(window_().noMatch, null);
+  } finally { await view.unmount(); }
+});
+
+test("Cargar más reads Actividad's next rows by the server's cursor", async () => {
+  const view = await mount("activity", async () => NONE, false, async (_query, cursor) => cursor
+    ? { items: [change("a2", "Lucía Peña", "review_draft")], next_cursor: null }
+    : { items: [change("a1", "Lucía Peña", "receipt_upload")], next_cursor: "next" });
+  try {
+    await type("Lucía");
+    await wait(500);
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="workspace-search-results"] button')].find((button) => button.textContent?.trim() === "Cargar más")!.click());
+    await wait(50);
+    assert.deepEqual(view.activityReads, [["Lucía", undefined], ["Lucía", "next"]]);
+    assert.deepEqual(rows().map((row) => row.includes("revisó un registro")), [false, true]);
   } finally { await view.unmount(); }
 });
