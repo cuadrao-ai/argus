@@ -1,5 +1,5 @@
 import { CircleAlert, CircleCheck, Clock } from "lucide-react";
-import type { ReceiptStatus } from "@/lib/business-api";
+import type { ReceptionTag } from "../recepcion/reception-status";
 
 export const BUSINESS_STATUS = {
   approved: { labelKey: "business.status.pill_approved", label: "Aprobado", icon: CircleCheck, ink: "#2f5a49", surface: "#e3ebe1" },
@@ -17,9 +17,9 @@ export const CONFIRM_ACTION = "#9e2f39";
 export const FOCUS_RING =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]";
 
-export function statusNameForReceipt(status: ReceiptStatus): BusinessStatusName {
-  if (status === "confirmed") return "approved";
-  if (status === "needs_attention") return "needs_attention";
+export function statusNameForTag(tag: ReceptionTag["tag"]): BusinessStatusName {
+  if (tag === "approved") return "approved";
+  if (tag === "attention") return "needs_attention";
   return "pending";
 }
 

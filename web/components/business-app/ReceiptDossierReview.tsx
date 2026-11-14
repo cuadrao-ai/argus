@@ -44,6 +44,7 @@ import ReceiptReviewFooter, { KEY_HINT_CLASS, ReceiptMoreMenu, usePrimaryKeys } 
 import { formatBusinessName, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { recordsCurrencySchema } from "@/lib/business-reports-api";
 import { useReceiptStateWord } from "./receipt-state-word";
+import { receiptTag } from "./recepcion/reception-status";
 import { bandejaReceipts, handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
 import { primaryButtonClass, secondaryButtonClass, StatusPill } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
@@ -451,7 +452,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     : busy || saveHolds || supportedKind && approvable || attention.length ? null
     : t("business.dossier.blocker_fallback", "This record needs further review before approval.");
   // The receipt's own status when there is one; a bare record maps only the review states a status pill can say.
-  const pillStatus = receipt?.status ?? (recorded || dossier.review_state === "accepted" ? "confirmed" : dossier.review_state === "open" ? "review_ready" : null);
+  const pillTag = receipt ? receiptTag(receipt).tag : recorded || dossier.review_state === "accepted" ? "approved" : dossier.review_state === "open" ? "listo" : null;
   const reviewNote = readReviewNote(dossier.review_note);
   const reasonId = `approve-reason-${dossier.draft_id}`;
   const approvalLabel = dossier.approval_action === "record_income" ? t("business.dgii.approve_income", "Approve income") : dossier.approval_action === "record_refund" ? t("business.dgii.approve_refund", "Approve refund") : t("business.dossier.approve_action", "Approve expense");
@@ -530,7 +531,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       business={formatBusinessName(dossier.space_name, t("business.overview.title", "My business"))}
       history={<ReceiptHistory documentType={dossier.document_type} history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
       // The list's own words for the status, so Bandeja and its dossier say the same thing.
-      badge={pillStatus ? <StatusPill status={pillStatus} label={(receipt ? stateWord(receipt) : pillStatus === "review_ready" ? t("business.inbox.row_ready", "Ready to review") : "") || undefined} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
+      badge={pillTag ? <StatusPill tag={pillTag} label={receipt ? stateWord(receipt) : pillTag === "listo" ? t("business.inbox.row_ready", "Ready to review") : undefined} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
       amount={amount !== null && currency !== null ? formatMoney(amount, currency, i18n.resolvedLanguage ?? resolveLanguage({})) : null}
       mark={dossier.bill_mark}
       origin={firstSource ? { channel: firstSource.channel, receivedAt: firstSource.received_at, message: firstSource.kind !== "attachment" } : null}
