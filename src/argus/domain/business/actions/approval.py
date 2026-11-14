@@ -17,7 +17,6 @@ from argus.domain.business import analytics as business_analytics
 from argus.domain.business.actions import dossier, mutations, plans
 from argus.domain.business.actions.facts import facts_of, validate_facts
 from argus.domain.business.actions.fiscal import (
-    APPROVAL_REVISION,
     PURCHASE_COMPROBANTE_INDEX,
     SALE_NCF_INDEX,
     colliding_purchase_record,
@@ -204,7 +203,8 @@ def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict
     still the draft's declaration: that approval's money write failed and
     its revision was never undone. None otherwise.
 
-    ``APPROVAL_REVISION`` finds it; a person's saved declaration is never there.
+    The approval writes its revision at the version its claim took (request
+    version + 1); a person's saved declaration is never there.
     """
 
     dgii = (event.resolution.get("business") or {}).get("dgii")
@@ -213,9 +213,9 @@ def _failed_approval_revision(tx: ActionTransaction, event: ImportEvent) -> dict
         return None
     built = tx.rows(
         "select r.before_dgii,r.after_dgii from public.business_action_receipts a"
-        f" join public.business_draft_revisions r on {APPROVAL_REVISION}"
-        " where r.draft_id=%s and a.space_id=%s and a.actor_id::text=%s"
-        " and a.idempotency_key=%s",
+        " join public.business_draft_revisions r on r.space_id=a.space_id"
+        " and r.draft_id=%s and r.version=(a.command->'request'->>'version')::integer+1"
+        " where a.space_id=%s and a.actor_id::text=%s and a.idempotency_key=%s",
         (event.id, tx.context.actor.space_id, pointer["actor_id"], pointer["key"]),
     )
     return built[0] if built and built[0]["after_dgii"] == dgii else None
