@@ -3545,15 +3545,49 @@ candidates in the same transaction without copying the marker onto them.
 Restore removes the marker and restores those states. A receipt with an
 approved or accepting candidate cannot be deleted. The command
 ledger retains who deleted or restored the document and when. Original bytes,
-source links, facts and revisions remain in place. There is no deletion expiry,
-purge job or change to financial records, totals or exports.
+source links, facts and revisions remain in place until the purge below.
+Deletion changes no financial records, totals or exports.
+
+### Business document purge
+
+Migration `20261113091746_business_document_purge.sql` adds `purge_document`
+to `business_action_receipts_unplanned_command` and to the person-only
+`business_document_delete_human_commands` check. It adds
+`argus_private.business_document_purge_marked(space)`. The evidence guard
+`business_immutable_evidence` now also accepts a delete of
+`business_sources` or `business_draft_revisions` while that transaction-local,
+Postgres-only mark names the row's Business. Updates stay refused.
+
+`argus_private.business_document_purges` holds one row per purged document:
+`space_id` (cascade with the Business), `document_ids` (the draft, candidate
+and upload ids the document answered to), `reason` (`owner` or `expiry`),
+`purged_at`, and `pending_objects` (stored paths and legacy upload prefixes
+still to erase). It holds no name, amount, file name or content. Row-level
+security is on with no policy, and API roles have no schema access. A Business
+purge copies every pending path and upload prefix into its own object plan in
+the transaction that removes the space, then erases them: a path when no live
+document or custody copy names it, a prefix with all objects under it.
+
+The 7-day window is `PURGE_AFTER` in the deletion contract; the marker `at`
+is its one stored fact. Partial indexes `financial_import_events_deleted_idx`
+and `financial_document_extractions_deleted_idx` cover only rows with a
+deletion marker, so the hourly expiry query reads deleted documents only.
+
+A purge runs in one transaction under the owner lock. It writes the purge row
+first, then deletes the drafts, the draft's own message sources and the upload
+connections. Cascades remove revisions, source links, questions,
+observations, reads and read states. It removes custody object rows that
+recorded finished copies of the same paths. The erase then removes each path no
+live document or custody copy still references, under the owner's stored-object
+lock, and takes it off `pending_objects`.
 
 ### Business record annotations and version-two preferences
 
 The additive `20261026095000_registros_preferences_annotations.sql` migration
 allows recipe schema versions 1 and 2 in the existing private saved-view table.
 Version 2 stores presentation order/hidden columns/density and page size; neither
-version stores result money or cached rows. Existing RLS, person/Business scope,
+version stores result money or cached rows. New writes no longer store the first
+table's `columns` list; a stored one stays in the row and is dropped when read. Existing RLS, person/Business scope,
 FKs, client privilege denial and deletion behavior remain unchanged.
 
 Current editable text is `financial_import_events.resolution.current_note`.
@@ -3752,8 +3786,19 @@ document type, and `document_type_detected` is true while the read's choice
 stands: the read compared the issuer RNC with the Business's own, or found no
 Business RNC to compare with and read a `recibo` the person may switch. A
 `recibo` the server fell back to with no issuer is a default and is not
-detected. The Business RNC is read when the draft is typed; setting it later
-types no existing draft again. The type is the one owner of purchase or sale:
+detected. The Business RNC is read when the draft is typed. The first RNC a
+Business saves types its open drafts once more: a `recibo` the read chose whose
+issuer is that RNC becomes a detected `venta` in one revision by the read. A
+named type, an approved record and a later change of RNC type nothing again.
+Migration `20261114103519_business_revision_reason.sql` adds the nullable
+`business_draft_revisions.reason` text column, checked against the reasons the
+server names (today only `business_rnc_set`). It owns why a revision that no
+person and no read made exists: the recheck writes it on each revision it makes,
+every other revision keeps null, and the dossier's `history[].reason` reads it.
+The save's `business_action_receipts` row (`set_business_rnc`) keeps the number
+of revisions that save wrote as `retyped_drafts` in its `applied` outcome, so a
+replayed key answers the same `retyped_drafts`. No existing row is changed.
+The type is the one owner of purchase or sale:
 Registros' family, the Bandeja's 606 and 607 editors, month close's invoice or
 receipt role and the export's form all read it, never the kind or the saved
 declaration. The upload's own choice lives on `financial_document_extractions.draft`
@@ -3816,7 +3861,7 @@ open items read the date from the resolution, not from the revision.
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
 | `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income`, `reopen_draft` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
-| `business_dgii_export_lines` | One row per 606 or 607 line per download of a DGII TXT, so a line downloaded twice has two rows: `space_id`, `activity_id`, `form`, `period` (`YYYYMM`), `actor_id`, `exported_at`. Written by the export in the same transaction that reads the declarations and builds the packet, under the Business's owner advisory lock (the one every review write takes), only for a form whose TXT shipped (`prepared_candidate`): a 606 write that runs alongside lands before the build and the TXT carries it, or waits and the next export carries it. A record of what each export contained, by record and form, not by value: Registros reads it to mark a record `exported`, and a row refuses no edit. Append-only, service role only. The key to spaces restricts and the purge deletes these rows with the other money rows; deleting the activity cascades them; the actor reference clears when that person is deleted. Migration `20261101010000_business_dgii_export_lines.sql`. |
+| `business_dgii_export_lines` | Read-only history. One row per 606 or 607 line per download of the retired DGII TXT: `space_id`, `activity_id`, `form`, `period` (`YYYYMM`), `actor_id`, `exported_at`. Nothing writes it now: the handover package (`GET /business/exports`) carries no DGII file and records no line. Registros still reads it to mark a record `exported`, so rows written before the TXT was retired keep that label, and a row refuses no edit. Append-only, service role only. The key to spaces restricts and the purge deletes these rows with the other money rows; deleting the activity cascades them; the actor reference clears when that person is deleted. Migration `20261101010000_business_dgii_export_lines.sql`. |
 | `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the activity cascades the row; deleting the space is refused while the row exists (`20261101000100`). Both owner keys are custody-deferred: account deletion moves `owner_id` to the record custodian with the Business, and the day-30 purge deletes the row itself before the space. |
 | `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
 
@@ -3850,6 +3895,16 @@ retain immutable typed declaration snapshots alongside the existing facts,
 actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
+
+Montos adds `facts.net_amount` and `facts.legal_tip` to the existing resolution
+and immutable revision JSON. These are provenance-bearing facts: read subtotal
+or human net edit, and read service charge with tip as an absence-only fallback.
+Gross `facts.amount` and recorded money are unchanged. The existing declaration
+JSON may carry a fiscal ITBIS override. `resolution.business.fiscal_overrides`
+records which fields no longer inherit from Montos; null denotes older records
+whose override state must be interpreted from their saved declaration. No table,
+column, migration, or backfill is added. The review action receipt records every
+edit and restore under the existing version, grant and idempotency checks.
 
 Migration `20261110000127_business_legal_name.sql` adds the Business's legal name
 (razón social) to the same `spaces` row: `business_legal_name` (1 to 250 characters,
@@ -3890,10 +3945,10 @@ before the approval; if it cannot, the next approval writes from that earlier
 declaration. The export reads the reviewed revision's facts and the declaration
 from the latest revision, then checks current money amount, date and currency.
 On an accepted record the same `ReviewCommand`, carrying only the 606 fields or
-only a sale's 607 payment split, appends one more revision, before or after a
-downloaded DGII TXT carries the record's line
-(`business_dgii_export_lines`, migration `20261101010000`), and the next export
-carries it; the recorded facts stay refused. The tipo de gasto suggested for an RNC has no column: the dossier
+only a sale's 607 payment split, appends one more revision, whether or not an
+earlier download recorded the record's line
+(`business_dgii_export_lines`, migration `20261101010000`, read-only history),
+and the next export carries it; the recorded facts stay refused. The tipo de gasto suggested for an RNC has no column: the dossier
 reads it from the declarations in this Business through
 `financial_import_events.business_rnc`, and a typed purchase is a draft with
 `receipt_state` `no_receipt` and no declaration. No second tax ledger or fiscal approval bypass is added. New human-only action receipt

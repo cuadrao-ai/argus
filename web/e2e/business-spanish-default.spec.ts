@@ -165,7 +165,7 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await page.getByRole("button", { name: /Ferretería La Esquina/ }).click();
+  await page.getByTestId("home-attention-rows").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   const review = page.getByTestId("side-drawer");
   await expect(review).toContainText("Contraparte");
@@ -205,7 +205,7 @@ test("an English account opens Business in English", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await page.getByRole("button", { name: /Ferretería La Esquina/ }).click();
+  await page.getByTestId("home-attention-rows").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   const review = page.getByTestId("side-drawer");
   await expect(review).toContainText(en("business.dossier.field.counterparty"));
   await expect(review).toContainText(en("business.dossier.field.occurred_on"));

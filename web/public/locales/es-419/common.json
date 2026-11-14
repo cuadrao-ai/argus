@@ -2245,6 +2245,8 @@
       "placeholder": "dd/mm/aaaa",
       "previous_month": "Mes anterior",
       "today": "Hoy",
+      "uploaded_in": "Subido en {{year}}",
+      "use_date": "Usar {{date}}",
       "weekdays": "lu ma mi ju vi sá do",
       "yesterday": "Ayer"
     },
@@ -2433,6 +2435,7 @@
         "document_read": "leyó un documento",
         "document_read_failed": "no pudo leer un documento",
         "edit_current_note": "editó una nota",
+        "expire_document": "borró definitivamente un documento después de 7 días en Eliminados.",
         "grant_access": "dio acceso",
         "invite_access": "envió una invitación",
         "invoice_draft_created": "creó un borrador de factura",
@@ -2442,6 +2445,7 @@
         "owner_grant": "dio acceso de dueño",
         "ownership_transferred": "aceptó la propiedad del negocio",
         "prepare_attachment": "preparó un adjunto",
+        "purge_document": "borró definitivamente un documento.",
         "rebind_attachment": "movió un adjunto a otro registro",
         "receipt_confirm": "confirmó un documento",
         "receipt_reading_disabled": "desactivó la lectura de documentos",
@@ -2457,7 +2461,66 @@
         "set_business_legal_name": "confirmó la razón social del negocio",
         "set_business_rnc": "actualizó el RNC del negocio",
         "settle_remainder": "saldó el resto de un registro"
-      }
+      },
+      "am": "a.m.",
+      "areas": {
+        "business": "Negocio",
+        "documents": "Documentos",
+        "invoicing": "Facturación",
+        "records": "Registros"
+      },
+      "cols": {
+        "area": "Área",
+        "record": "Registro",
+        "time": "Hora",
+        "what": "Qué pasó",
+        "who": "Quién"
+      },
+      "error_body": "Tus registros están bien. Inténtalo de nuevo en un momento.",
+      "error_title": "No pudimos cargar la actividad",
+      "extractor_name": "Cuadrao",
+      "filtered_body": "Hay actividad fuera de esta fecha o de estos filtros.",
+      "filtered_title": "Nada coincide con estos filtros",
+      "filters": {
+        "action": "Acción",
+        "all": "Todas las fechas",
+        "area": "Área",
+        "clear": "Limpiar filtros",
+        "clear_group": "Limpiar",
+        "date": "Fecha",
+        "month": "Últimos 30 días",
+        "person": "Persona",
+        "remove": "Quitar filtro:",
+        "title": "Filtros",
+        "today": "Hoy",
+        "week": "Últimos 7 días"
+      },
+      "first_run_body": "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
+      "first_run_title": "Todavía no hay actividad",
+      "former_member": "Exmiembro",
+      "go_home": "Ir a Inicio",
+      "groups": {
+        "access": "Accesos",
+        "approvals": "Aprobaciones",
+        "edits": "Cambios en registros",
+        "files": "Adjuntos",
+        "invoices": "Facturas",
+        "other": "Otros",
+        "reading": "Lecturas",
+        "reviews": "Revisiones",
+        "settings": "Datos del negocio",
+        "uploads": "Subidas"
+      },
+      "load_more": "Cargar más",
+      "load_more_failed": "No pudimos cargar más actividad.",
+      "managers_only": "Solo lo ven dueños y administradores",
+      "no_actor": "Actor no registrado",
+      "no_record": "sin dato",
+      "pm": "p.m.",
+      "record_placeholder": "-",
+      "retry": "Reintentar",
+      "unmark_personal": "devolvió un gasto al negocio",
+      "via_chat": "desde el chat"
     },
     "bank": {
       "empty": {
@@ -2521,22 +2584,10 @@
     "export": {
       "start": "Desde",
       "end": "Hasta",
-      "access_error": "La exportación no está disponible con tu acceso actual.",
       "limit_error": "La exportación supera un límite del paquete. Elige un período más corto.",
-      "error": "No se pudo descargar la exportación. Revisa tu acceso e inténtalo de nuevo.",
-      "preview": "Las descargas están disponibles en la vista conectada del negocio.",
       "action": "Exportar",
-      "preparing": "Preparando tu archivo…",
-      "done": "Listo. Busca el ZIP en tus descargas.",
       "range": "{{from}} al {{to}}",
-      "range_invalid": "Elige entre 1 y 366 días.",
-      "other_dates": "Otras fechas",
       "pick_end": "Ahora elige el último día",
-      "includes": "Incluye",
-      "records": "Registros",
-      "records_detail": "Excel y CSV",
-      "originals": "Originales",
-      "originals_detail": "Fotos y PDF de cada recibo",
       "filename": {
         "dgii": "DGII",
         "mixed": "Compras y ventas",
@@ -2545,16 +2596,26 @@
         "sales": "Ventas",
         "to": "a"
       },
-      "fiscal": "606 y 607",
-      "fiscal_detail": "Para la DGII",
-      "included": "Incluido",
-      "fiscal_month_only": "Solo por mes completo",
-      "fiscal_checking": "Revisando…",
-      "fiscal_profile": "Nombre y RNC del 606",
-      "form_needs_review": "Por revisar",
-      "form_no_aplica": "No aplica",
-      "form_no_operations": "Sin operaciones",
-      "form_summary_only": "Solo resumen"
+      "form_no_aplica": "No aplica"
+    },
+    "terms": {
+      "calculated_hint": "Calculado: Total − ITBIS",
+      "calculated_hint_with_tip": "Calculado: Total − ITBIS − propina",
+      "currency_choose": "Elegir",
+      "currency_fiscal_warning": "En {{currency}} este documento no entra al {{form}} (la DGII pide pesos).",
+      "currency_missing": "Falta la moneda",
+      "difference": "Diferencia {{amount}}",
+      "difference_unavailable": "Se revisa al guardar.",
+      "inherited_from": "Viene de {{field}}",
+      "itbis": "ITBIS",
+      "legal_tip": "Propina legal",
+      "montos_title": "Montos",
+      "net_amount": "Monto sin ITBIS",
+      "net_card_purchases": "Compras sin ITBIS",
+      "net_card_sales": "Ventas sin ITBIS",
+      "total": "Total",
+      "total_review": "Total (con ITBIS)",
+      "use_inherited": "Usar Montos ({{amount}})"
     },
     "transactions": {
       "layout": {
@@ -2744,7 +2805,6 @@
           "cancelled": "Orden de columnas restaurado.",
           "columns": "Columnas",
           "dropped": "Columna colocada.",
-          "fixed": "Siempre visible · fija al inicio",
           "grabbed": "Columna seleccionada. Usa las flechas para moverla.",
           "height": "Altura de filas",
           "instructions": "Arrastra para ordenar. Con teclado, enfoca el asa de seis puntos y pulsa Espacio, luego ↑ o ↓. Espacio confirma; Esc cancela.",
@@ -2753,7 +2813,6 @@
           "move_up": "Subir {{name}}",
           "position_one": "{{name}}, posición {{position}} de {{count}}",
           "position_other": "{{name}}, posición {{position}} de {{count}}",
-          "required": "Siempre visible",
           "restore": "Restaurar valores iniciales"
         },
         "type": "Tipo",
@@ -2857,7 +2916,6 @@
         },
         "pending_contract": "Esta función aún no está conectada.",
         "refresh": "Actualizar",
-        "refresh_records": "Actualizar registros",
         "reload": "Recargar",
         "retry": "Reintentar",
         "unavailable": "Esta función no está disponible ahora.",
@@ -2871,7 +2929,7 @@
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
       "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
-      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "ncf": "NCF", "itbis": "ITBIS", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
+      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "ncf": "NCF", "itbis": "ITBIS", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "rnc_cedula": "RNC o Cédula", "comprobante": "Comprobante" },
       "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of_one": "de {{count}}", "of_other": "de {{count}}" },
       "sign": { "in": "Entrada de", "out": "Salida de" },
       "detail": {
@@ -2951,12 +3009,12 @@
         "actor": "Eliminado por",
         "content": "Contenido",
         "previous": "Estaba en",
-        "when": "Cuándo"
+        "purge": "Borrado definitivo"
       },
       "delete": "Eliminar",
       "deleted_state": "Eliminado",
       "description": "Sale de la Bandeja y de los conteos. Puedes restaurarlo desde Eliminados.",
-      "empty_body": "Los documentos que elimines aparecerán aquí. Puedes restaurarlos cuando quieras.",
+      "empty_body": "Los documentos que elimines quedan aquí 7 días. Después se borran definitivamente.",
       "empty_title": "No hay documentos eliminados",
       "failed": "No se pudo eliminar el documento. Intenta de nuevo.",
       "fields": {
@@ -2967,13 +3025,24 @@
         "total": "Total"
       },
       "label": "Eliminar {{name}}",
-      "list_help": "No cuentan en ningún total. Restaurar los devuelve a la Bandeja como estaban.",
+      "list_help": "No cuentan en ningún total. Se borran definitivamente 7 días después.",
       "menu": "Eliminar documento",
       "open": "Abrir",
       "previous": {
         "attention": "Necesitan atención",
         "listo": "Listos"
       },
+      "purge": "Borrar definitivamente",
+      "purge_description": "No se puede deshacer. El archivo y sus datos se borran de Cuadrao.",
+      "purge_failed": "No se pudo borrar definitivamente el documento. Intenta de nuevo.",
+      "purge_in_one": "en {{count}} día",
+      "purge_in_other": "en {{count}} días",
+      "purge_label": "Borrar definitivamente {{name}}",
+      "purge_title": "¿Borrar definitivamente?",
+      "purge_today": "hoy",
+      "purged": "Documento borrado definitivamente",
+      "purged_already": "Este documento ya se borró definitivamente.",
+      "purged_document": "un documento",
       "restore": "Restaurar",
       "restore_all": "Restaurar todos",
       "restore_failed": "No se pudo restaurar el documento. Intenta de nuevo.",
@@ -3204,10 +3273,13 @@
         "total_mismatch": "Subtotal + ITBIS = {{sum}}, no {{total}}",
         "save_first": "Guarda o cancela {{fields}} para aprobar.",
         "group_identity": "Identificación",
-        "group_amounts": "Montos",
+        "group_amounts": "Montos facturados",
         "group_retentions": "Retenciones",
         "group_other": "Otros",
         "section_choices": "Para el 606",
+        "suggestion_source": {
+          "last_choice": "Última elección para este RNC"
+        },
         "use_suggestion": "Usar",
         "mark_no_receipt": "Marcar sin recibo"
       },
@@ -3326,6 +3398,22 @@
       "account_unknown": "Desconocida"
     },
     "guide_cards": {
+      "actividad_intro": {
+        "copy_review": "approved",
+        "deleted": {
+          "body": "Lo que se borra definitivamente también queda anotado, aunque ya no se pueda abrir.",
+          "label": "Nada se pierde de vista"
+        },
+        "follow": {
+          "body": "Ve quién subió, aprobó, editó o eliminó documentos, y cuándo.",
+          "label": "Sigue la actividad"
+        },
+        "open": {
+          "body": "Abre la fila de un documento eliminado para verlo en Eliminados o restaurarlo.",
+          "label": "Recupera lo eliminado"
+        },
+        "title": "Lo que pasa en tu negocio, en un solo lugar"
+      },
       "bandeja_intro": {
         "copy_review": "approved",
         "pending": {
@@ -3373,10 +3461,12 @@
       "channel_web": "Subido",
       "pm": "p.m.",
       "read": "Leído",
+      "reason": { "business_rnc_set": "Lo emitió tu negocio" },
       "received": "Recibido",
       "rnc_verified": "RNC verificado",
       "set": "{{field}}: {{after}}",
-      "title": "Historial"
+      "title": "Historial",
+      "via_cuadrao": "{{name}} vía Cuadrao"
     },
     "home": {
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",
@@ -3557,8 +3647,6 @@
       "group_earlier": "Antes",
       "no_problems": "Ningún recibo con problemas",
       "nothing_to_review": "Tus recibos están al día.",
-      "see_all_body": "Todos tus recibos están en Todo.",
-      "see_all": "Ver todo",
       "segment_review_short": "Revisar",
       "segment_problem_short": "Problemas",
       "email_row_title": "Correo de {{sender}}",
@@ -4458,8 +4546,6 @@
       "intake_pending": "Recepción en proceso",
       "list_label": "Contenido recibido",
       "loading": "Cargando contenido",
-      "new_arrivals_one": "Hay 1 elemento nuevo.",
-      "new_arrivals_other": "Hay {{count}} elementos nuevos.",
       "next_action": "Siguiente acción",
       "no_file": "Sin archivo adjunto",
       "open_file": "Abrir original: {{name}}",
@@ -4518,9 +4604,9 @@
       "source_web": "Carga manual",
       "source_whatsapp": "WhatsApp",
       "status": "Estado",
+      "status_reason": "Motivo",
       "text_intake": "Entrada de texto",
       "unseen": "No visto",
-      "update_list": "Actualizar lista",
       "views": "Vistas de Bandeja",
       "visible_information": "Información visible",
       "without_file": "Sin archivo"
@@ -4682,6 +4768,8 @@
       "profile_discard": "Descartar cambios",
       "profile_discard_detail": "Los cambios de esta sección no se han guardado.",
       "profile_discard_title": "¿Descartar los cambios?",
+      "profile_drafts_retyped_one": "1 borrador pasó a Ventas: lo emitió tu negocio",
+      "profile_drafts_retyped_other": "{{count}} borradores pasaron a Ventas: los emitió tu negocio",
       "profile_email": "Correo del negocio",
       "profile_error_email": "Escribe un correo electrónico válido.",
       "profile_error_length_one": "Usa {{count}} carácter o menos.",

@@ -320,7 +320,19 @@ jobs:
             e2e/menu-settings-auth-regression.spec.ts \
             e2e/receipt-navigation-scope.spec.ts \
             e2e/records-export-notices.spec.ts
-          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ENABLE_SPANISH=true PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
+          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
+
+      - name: Verify auth button labels stay readable in every state
+        run: cd web && PLAYWRIGHT_PORT=3103 bunx playwright test e2e/auth-button-contrast.spec.ts
+
+      # The language spec builds its own production server, because a development
+      # server with mock auth previews a language choice without saving it.
+      - name: Verify Inicio, Bandeja and the Business language in a browser
+        run: |
+          cd web
+          bunx playwright test --config e2e/business-month-close.playwright.config.ts
+          bunx playwright test --config e2e/business-clutter.playwright.config.ts
+          bunx playwright test --config e2e/business-spanish-default.playwright.config.ts
 
       - name: Retain receipt upload browser evidence
         if: always()

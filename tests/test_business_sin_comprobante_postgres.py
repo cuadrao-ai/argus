@@ -129,7 +129,7 @@ def _close(world, month: str) -> dict:  # noqa: ANN001
 def _packet(world, start: str, end: str) -> dict:  # noqa: ANN001
     answer = _get(world, "/business/exports", start=start, end=end)
     with zipfile.ZipFile(io.BytesIO(answer.content)) as archive:
-        return json.loads(archive.read("dgii/summary.json"))
+        return json.loads(archive.read("manifest.json"))["dgii"]
 
 
 def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
@@ -359,11 +359,11 @@ def test_a_record_with_a_comprobante_and_no_number_still_holds_the_month_open(
     ("receipt", "marked", "expense", "itbis_paid"),
     [
         # 4676.47 ITBIS without a comprobante cannot be credited: the whole
-        # 33254.91 is cost. With the e-CF it is creditable ITBIS paid.
+        # 33254.91 is cost. With the e-CF, net excludes ITBIS and the 2598.04 tip.
         # The e-CF case uses an RNC whose check digit passes, so approve
         # needs no review-flag confirmation.
         ({"rnc": None, "ecf": None}, True, 3325491, 0),
-        ({"rnc": "131111221"}, False, 2857844, 467647),
+        ({"rnc": "131111221"}, False, 2598040, 467647),
     ],
     ids=["read-without-a-fiscal-number", "read-with-an-e-cf"],
 )

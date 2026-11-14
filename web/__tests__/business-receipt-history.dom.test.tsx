@@ -72,7 +72,7 @@ describe("Historial", () => {
     assert.deepEqual(lines(), [
       ["Moneda cambiada de DOP a USD", "Ana Peña · 11/10, 8:00 a.m."],
       ["Aprobado", "Lucía Mateo · 11/10, 12:05 a.m."],
-      ["Monto cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña · 10/10, 1:05 p.m."],
+      ["Total (con ITBIS) cambiado de RD$ 1,200.00 a RD$ 1,250.00", "Ana Peña · 10/10, 1:05 p.m."],
       ["Leído", "Cuadrao · 10/10, 9:25 a.m."],
       ["Recibido · WhatsApp", "10/10, 9:20 a.m."],
     ]);
@@ -120,7 +120,7 @@ describe("Historial", () => {
   test("events of one revision keep their field order", async () => {
     const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
     const page = await render(<ReceiptHistory history={[revision(2, at(10, 9, 0), actor("Ana Peña"), facts("100.00"), facts("200.00", "USD"))]} accounts={[]} />);
-    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Monto cambiado de RD$ 100.00 a US$ 200.00", "Moneda cambiada de DOP a USD"]);
+    assert.deepEqual([...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent), ["Total (con ITBIS) cambiado de RD$ 100.00 a US$ 200.00", "Moneda cambiada de DOP a USD"]);
     await page.close();
   });
 
@@ -138,7 +138,7 @@ describe("Historial", () => {
     const created = { ...facts("500.00"), kind: unknown, occurred_on: unknown, counterparty: unknown } as unknown as BusinessFacts;
     const page = await render(<ReceiptHistory history={[revision(1, at(10, 9, 0), actor("Ana Peña"), null, created)]} accounts={[]} />);
     const text = [...page.host.querySelectorAll("li > p:first-of-type")].map((line) => line.textContent);
-    assert.deepEqual(text.sort(), ["Moneda: DOP", "Monto: RD$ 500.00"]);
+    assert.deepEqual(text.sort(), ["Moneda: DOP", "Total (con ITBIS): RD$ 500.00"]);
     await page.close();
   });
 });
@@ -186,5 +186,25 @@ test("a purchase retyped as a sale hides its earlier 606 answer", async () => {
   const history = [revision(2, at(10, 9, 0), actor("Lía"), before, answered), revision(3, at(10, 10, 0), actor("Lía"), answered, sale)];
   const page = await render(<ReceiptHistory history={history} accounts={[]} documentType="venta" />);
   assert.equal(page.host.querySelector('[data-testid="history-606"]'), null);
+  await page.close();
+});
+
+test("a draft the first Business RNC moved reads as a change through Cuadrao with its reason, not a second read", async () => {
+  const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+  const sale = { ...facts("1200.00"), kind: known("income") } as unknown as BusinessFacts;
+  const history = [
+    revision(1, at(10, 9, 25), actor("Ana Peña", "extractor"), null, facts("1200.00")),
+    { ...revision(2, at(11, 8, 0), actor("Ana Peña", "extractor"), facts("1200.00"), sale), reason: "business_rnc_set" as const },
+  ];
+  const page = await render(<ReceiptHistory history={history} accounts={[]} documentType="venta" />);
+  const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
+  assert.deepEqual(lines, [
+    ["Actividad cambiada de Gasto a Ingreso", "Lo emitió tu negocio", "Ana Peña vía Cuadrao · 11/10, 8:00 a.m."],
+    ["Leído", "Ana Peña · 10/10, 9:25 a.m."],
+  ]);
+  const chips = page.host.querySelector('[data-testid="history-diff"]')!;
+  assert.deepEqual([chips.querySelector("del")?.textContent, chips.querySelector("ins")?.textContent], ["Gasto", "Ingreso"]);
+  assert.equal(page.host.querySelector('[data-testid="history-note"]')?.textContent, "Lo emitió tu negocio");
+  assert.ok(!(page.host.textContent ?? "").includes("Venta"));
   await page.close();
 });

@@ -15,7 +15,11 @@ from argus.domain.ingestion.documents.jobs import (
     SweepReport,
     run_attempt,
 )
-from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.documents.service import (
+    DocumentServiceError,
+    DocumentsService,
+)
+from argus.domain.owner_scope import PERSONAL
 
 
 def take(service: DocumentsService, user_id: str, connection_id: str) -> str | None:
@@ -61,6 +65,33 @@ async def read_queued(service: DocumentsService, user_id: str, connection_id: st
         PreparationJobs(service).start, user_id=user_id, connection_id=connection_id
     )
     await read_receipt(service, user_id, connection_id)
+
+
+async def refused_while_another_records(
+    service: DocumentsService, user_id: str, connection_id: str
+) -> None:
+    """Two dispatches of one queued Personal receipt, interleaved: the refused
+    one reads what it needs to release it, the authorized one records its
+    attempt, then the refused one writes its release."""
+    from argus.api.documents import dispatch_preparation
+
+    authorized = PreparationJobs(service).start
+    writes = service.store.update
+
+    def refused(*_: Any, **__: Any) -> None:
+        raise DocumentServiceError("business_preparation_binding_conflict")
+
+    with pytest.MonkeyPatch.context() as patch:
+
+        def authorized_records_then_write(**kwargs: Any) -> bool:
+            patch.setattr(service.store, "update", writes)
+            authorized(user_id=user_id, connection_id=connection_id)
+            return writes(**kwargs)
+
+        patch.setattr(PreparationJobs, "start", refused)
+        patch.setattr(service.store, "update", authorized_records_then_write)
+        with pytest.raises(DocumentServiceError, match="binding_conflict"):
+            await dispatch_preparation(service, user_id, connection_id, scope=PERSONAL)
 
 
 class TakenAtOnce(PreparationJobs):

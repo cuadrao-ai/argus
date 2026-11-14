@@ -29,7 +29,7 @@ export default function ReceptionOriginal({ receipt }: { receipt: ReceiptSummary
   const Icon = receipt.media_type.startsWith("image/") ? ImageIcon : FileText;
   const close = () => setOpen(false);
   return <>
-    <Tooltip content={name} side="top"><button ref={trigger} type="button" className={styles.icon} data-testid="reception-original" title={name} aria-label={t("business.reception_preview.open_file", { name })} aria-haspopup="dialog" onClick={() => setOpen(true)}><Icon size={18} aria-hidden="true" /></button></Tooltip>
+    <Tooltip content={name} side="top"><button ref={trigger} type="button" className={styles.icon} data-testid="reception-original" aria-label={t("business.reception_preview.open_file", { name })} aria-haspopup="dialog" onClick={() => setOpen(true)}><Icon size={18} aria-hidden="true" /></button></Tooltip>
     {open ? phone ? <BottomSheet isOpen onClose={close} title={name} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen><OriginalContent receipt={receipt} close={close} /></BottomSheet> : <DesktopOriginal receipt={receipt} close={close} returnFocusRef={trigger} /> : null}
   </>;
 }

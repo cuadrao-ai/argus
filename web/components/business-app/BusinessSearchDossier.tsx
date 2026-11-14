@@ -12,9 +12,9 @@ import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
 import { cardClass } from "./business-ui";
 import { DgiiAnswer } from "./transacciones/RecordDgiiCell";
-import { recordsColumnLabelKey } from "./transacciones/records-view-preferences";
 import { StatusPill } from "./foundation/StatusPill";
 import { useReceiptStateWord } from "./receipt-state-word";
+import { receiptTag } from "./recepcion/reception-status";
 import { Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -55,10 +55,10 @@ export default function BusinessSearchDossier({ record, source, accounts }: { re
   const receiptId = record.kind === "receipt" ? record.receipt.id : record.expense.receipt_id;
   return <section aria-label={t("business.search.region", "Business records")} className="space-y-5">
     <h2 className="font-display text-2xl font-medium">{summary.merchant ?? (record.kind === "receipt" ? record.receipt.filename : null) ?? t(record.kind === "receipt" ? "business.receipt.untitled" : "business.expenses.no_merchant", record.kind === "receipt" ? "Receipt" : "Expense")}</h2>
-    {record.kind === "receipt" ? <StatusPill status={record.receipt.status} label={stateWord(record.receipt)} /> : null}
+    {record.kind === "receipt" ? <StatusPill tag={receiptTag(record.receipt).tag} label={stateWord(record.receipt)} /> : null}
     {summary.amount ? <p className="text-3xl font-medium tabular-nums">{formatMoney(summary.amount, summary.currency, locale)}</p> : null}
     <Field label={t("business.review.date", "Date")}>{summary.occurred_on ? formatDay(summary.occurred_on, locale) : t("business.dossier.unknown", "Unknown")}</Field>
-    {record.kind === "expense" || record.receipt.expense_id ? <Field label={t(recordsColumnLabelKey("tipo_gasto"))}><DgiiAnswer purchase={summary.dgii_606} field="expense_type" /></Field> : null}
+    {record.kind === "expense" || record.receipt.expense_id ? <Field label={t("business.dossier.placeholder.expense_type")}><DgiiAnswer purchase={summary.dgii_606} field="expense_type" /></Field> : null}
     {receiptId ? <ReceiptPreview receiptId={receiptId} source={source} /> : <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</p>}
   </section>;
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessFactPatch, BusinessMontosReview } from "@/lib/business-dossier";
 import type { DgiiDeclaration, DgiiFields, DgiiReview, PurchaseChoice } from "@/lib/business-dgii";
 import { referenceCode } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
@@ -12,6 +12,7 @@ export type SaveRow = ReviewRow | keyof PurchaseChoice;
 
 /** One edit, by the write that owns its fact. */
 export type ReviewChange =
+  | { write: "montos"; montos: BusinessMontosReview }
   | { write: "facts"; facts: BusinessFactPatch }
   | { write: "fiscal"; fiscal: Partial<DgiiReview["fiscal"]> }
   | { write: "purchase"; purchase: PurchaseChoice }
@@ -49,7 +50,7 @@ function keptDeclaration(dossier: BusinessDossier, fields: DgiiFields | null): D
 export function changesRecord(dossier: BusinessDossier, change: ReviewChange): boolean {
   if (change.write === "facts") return Object.entries(change.facts).some(([name, next]) => {
     const fact = dossier.facts[name as keyof BusinessFactPatch];
-    return fact.state !== next.state || JSON.stringify(fact.value) !== JSON.stringify(next.value);
+    return fact?.state !== next.state || JSON.stringify(fact.value) !== JSON.stringify(next.value);
   });
   if (change.write === "fiscal") {
     const current = currentFiscal(dossier);
@@ -61,6 +62,10 @@ export function changesRecord(dossier: BusinessDossier, change: ReviewChange): b
 
 function send(source: BusinessDataSource, dossier: BusinessDossier, change: ReviewChange, fields: DgiiFields | null, key: string): Promise<BusinessDossier> {
   const { draft_id: id, version } = dossier;
+  if (change.write === "montos") {
+    if (!source.reviewMontos) throw Object.assign(new Error("amount review unavailable"), { code: "fields_unavailable" });
+    return source.reviewMontos(id, version, change.montos, key);
+  }
   if (change.write === "facts") return source.reviewDraft(id, version, change.facts, key);
   if (change.write === "purchase") return source.reviewPurchase(id, version, change.purchase, key);
   if (change.write === "type") return source.setDocumentType(id, version, change.documentType, key);
@@ -159,7 +164,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
 
 /** What a row holds as it opens: a receipt with no currency starts on the only one the picker offers, for the check to confirm. */
 function startingEdit(row: ReviewRow, dossier: BusinessDossier | null, currencies: readonly string[]): RowEdit | null {
-  if (row !== "amount" || !dossier || dossier.facts.currency.state === "known" || currencies.length !== 1) return null;
+  if (row !== "currency" || !dossier || dossier.facts.currency.state === "known" || currencies.length !== 1) return null;
   return { change: { write: "facts", facts: { currency: { state: "known", value: currencies[0] } } }, invalid: false };
 }
 

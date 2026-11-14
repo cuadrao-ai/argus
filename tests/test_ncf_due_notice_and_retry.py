@@ -68,7 +68,7 @@ class TestNcfDueNoticeAndRetry:
         ("kind", "attention", "preparable"),
         [
             ("incomplete", "interrupted", True),
-            ("no_total", "not_a_receipt", False),
+            ("no_total", "check_details", False),
             ("unreadable", "unreadable", False),
             ("no_receipt", "not_a_receipt", False),
             ("ncf_bill", "interrupted", True),

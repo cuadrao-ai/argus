@@ -21,9 +21,12 @@ from pydantic import ValidationError
 
 from tests.dgii.test_packet import packet, practice_records
 
-FORM = "dgii/DGII_F_606_199990013_202609.TXT"
 VALID = "138888002"
 INVALID = "138888003"
+
+
+def form_prepared(result):
+    return result.manifest["forms"]["606"]["status"] == "prepared_candidate"
 
 
 class MapRegistry:
@@ -103,7 +106,7 @@ class TestHardRejects:
         assert matched["reason"] == reason("fiscal_identity_length")
         assert matched["reason_en"] == reason("fiscal_identity_length", "en")
         assert matched["activity_id"] == record.activity_id
-        assert FORM not in result.files
+        assert not form_prepared(result)
 
     def test_a_bad_rnc_check_digit_blocks_the_606_when_the_registry_misses(self):
         record = supplier(purchase(), INVALID)
@@ -114,7 +117,7 @@ class TestHardRejects:
                 item["code"] == "fiscal_identity_check_digit"
                 for item in result.manifest["warnings"]
             ),
-            FORM in result.files,
+            form_prepared(result),
         )
         assert disposition == (True, False, False)
         matched = next(
@@ -132,12 +135,12 @@ class TestHardRejects:
         result = one(supplier(purchase(), VALID, "2"))
         assert "fiscal_identity_type_mismatch" in codes(result)
         assert "fiscal_identity_length" not in codes(result)
-        assert FORM not in result.files
+        assert not form_prepared(result)
 
     def test_malformed_ncf_refuses_the_file(self):
         result = one(with_ncf(purchase(), "NOT-AN-NCF"))
         assert "fiscal_ncf_malformed" in codes(result)
-        assert FORM not in result.files
+        assert not form_prepared(result)
 
     def test_withholding_without_a_payment_date_refuses_the_file(self):
         record = replace(
@@ -156,12 +159,12 @@ class TestHardRejects:
         assert (
             matched["reason"] == "Agrega la fecha de pago para registrar una retención."
         )
-        assert FORM not in result.files
+        assert not form_prepared(result)
 
     def test_b01_without_an_rnc_refuses_the_file(self):
         result = one(supplier(purchase(), None))
         assert "fiscal_b01_rnc_required" in codes(result)
-        assert FORM not in result.files
+        assert not form_prepared(result)
 
 
 class TestRncWarnings:
@@ -177,7 +180,7 @@ class TestRncWarnings:
         assert warning["reason_en"] == "We have not verified it with the DGII yet."
         assert result.manifest["rnc_checks"][0]["status"] == "sin_verificar"
         assert result.manifest["issues"] == []
-        assert FORM in result.files
+        assert form_prepared(result)
 
     def test_verified_keeps_the_registered_name_and_does_not_block(self):
         registry = MapRegistry({VALID: listed(VALID)})
@@ -190,7 +193,7 @@ class TestRncWarnings:
             for item in result.manifest["warnings"]
         )
         assert result.manifest["issues"] == []
-        assert FORM in result.files
+        assert form_prepared(result)
 
     def test_inactive_is_warn_only_and_exposes_the_raw_estado(self):
         registry = MapRegistry({VALID: listed(VALID, "no_activo", "SUSPENDIDO")})
@@ -205,7 +208,7 @@ class TestRncWarnings:
         assert "17/10/2026" in warning["reason"]
         assert "SUSPENDIDO" in warning["reason_en"]
         assert result.manifest["issues"] == []
-        assert FORM in result.files
+        assert form_prepared(result)
 
     def test_missing_from_the_dgii_file_stays_unverified(self):
         registry = registry_from_config("dgii", lambda number: None)
@@ -215,14 +218,14 @@ class TestRncWarnings:
             item["code"] == "rnc_unverified" for item in result.manifest["warnings"]
         )
         assert result.manifest["issues"] == []
-        assert FORM in result.files
+        assert form_prepared(result)
 
 
 class TestChecksumByRegistry:
     def test_valid_and_found_prepares_the_file(self):
         result = one(supplier(purchase(), VALID), MapRegistry({VALID: listed(VALID)}))
         assert "fiscal_identity_check_digit" not in codes(result)
-        assert FORM in result.files
+        assert form_prepared(result)
 
     def test_valid_and_not_found_prepares_the_file(self):
         result = one(supplier(purchase(), VALID), MapRegistry({}))
@@ -230,7 +233,7 @@ class TestChecksumByRegistry:
         assert any(
             item["code"] == "rnc_unverified" for item in result.manifest["warnings"]
         )
-        assert FORM in result.files
+        assert form_prepared(result)
 
     def test_invalid_and_not_found_blocks_the_file(self):
         result = one(supplier(purchase(), INVALID), MapRegistry({}))
@@ -239,7 +242,7 @@ class TestChecksumByRegistry:
             item["code"] == "fiscal_identity_check_digit"
             for item in result.manifest["warnings"]
         )
-        assert FORM not in result.files
+        assert not form_prepared(result)
 
     def test_invalid_and_found_stays_in_the_file(self):
         result = one(
@@ -252,7 +255,7 @@ class TestChecksumByRegistry:
             for item in result.manifest["warnings"]
         )
         assert result.manifest["issues"] == []
-        assert FORM in result.files
+        assert form_prepared(result)
 
     def test_both_lengths_block_a_miss_and_trust_a_listed_bad_digit(self):
         cases = (
@@ -272,22 +275,20 @@ class TestChecksumByRegistry:
                 supplier(purchase(), invalid, id_type),
                 MapRegistry({invalid: listed(invalid)}),
             )
-            assert FORM in prepared.files
+            assert form_prepared(prepared)
             assert "fiscal_identity_check_digit" not in codes(prepared)
             assert "fiscal_identity_check_digit" in codes(missed)
             assert not any(
                 item["code"] == "fiscal_identity_check_digit"
                 for item in missed.manifest["warnings"]
             )
-            assert FORM not in missed.files
             assert missed.manifest["forms"]["606"]["status"] == "needs_review"
             assert "fiscal_identity_check_digit" not in codes(listed_bad)
             assert listed_bad.manifest["issues"] == []
-            assert FORM in listed_bad.files
+            assert form_prepared(listed_bad)
 
     def test_a_missing_rnc_blocks_the_606_without_a_check_digit_warning(self):
         result = one(supplier(purchase(), None))
-        assert FORM not in result.files
         assert result.manifest["forms"]["606"]["status"] == "needs_review"
         assert "fiscal_identity_check_digit" not in codes(result)
         assert not any(
@@ -313,7 +314,7 @@ class TestReviewChecklist:
         assert warning["reason_en"] == "Expense type is missing"
         assert warning["line"] == record.activity_id
         assert "fiscal_fact_required" in codes(result)
-        assert FORM not in result.files
+        assert not form_prepared(result)
 
     def test_missing_payment_method_uses_the_approved_copy(self):
         record = replace(
@@ -330,7 +331,7 @@ class TestReviewChecklist:
         )
         assert warning["reason"] == "Falta la forma de pago"
         assert warning["reason_en"] == "Payment method is missing"
-        assert FORM not in result.files
+        assert not form_prepared(result)
 
     def test_suggested_expense_type_stays_out_of_the_export_column(self):
         record = replace(
@@ -344,7 +345,7 @@ class TestReviewChecklist:
             item["reason"] == "Falta el tipo de gasto"
             for item in result.manifest["warnings"]
         )
-        assert FORM not in result.files
+        assert not form_prepared(result)
 
     def test_confirmed_expense_type_is_written_in_the_606_column(self):
         record = replace(
@@ -353,7 +354,7 @@ class TestReviewChecklist:
                 update={"category": "11", "category_suggested": False}
             ),
         )
-        detail = one(record).files[FORM].decode("ascii").split("\r\n")[1].split("|")
+        [detail] = one(record).rows["606"]
         assert detail[2] == "11"
 
     def test_purchase_review_rides_the_review_body_and_stays_off_the_model_schema(self):
@@ -521,7 +522,6 @@ def test_the_archive_keeps_the_606_for_a_listed_bad_check_digit():
         item["code"] for item in manifest["issues"]
     }
     assert manifest["forms"]["606"]["status"] == "prepared_candidate"
-    assert FORM in files
 
 
 class TestRncRegistry:
@@ -561,4 +561,6 @@ def test_check_digit_export_reason_is_not_the_length_rule():
     assert spanish == "No se puede exportar hasta corregir el RNC."
     assert spanish != reason("fiscal_identity_length", "es")
     assert "9 dígitos" not in spanish
-    assert reason("fiscal_identity_check_digit", "en") == "The check digit does not match."
+    assert (
+        reason("fiscal_identity_check_digit", "en") == "The check digit does not match."
+    )

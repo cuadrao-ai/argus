@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,10 +52,19 @@ VALID_BLOCK = """\
 - Rollback: revert the commit
 - Eval tier: Light
 """
+PILOT_FLOW_HINT = (
+    "<one or more, comma-separated: upload, email, WhatsApp, review, "
+    "month close, 606/607; or none (reason)>"
+)
+VALID_BODY = VALID_BLOCK + "\n## TL;DR\n\nCloses #1599\nPilot flow: review\n"
 
 
-def _event(tmp_path: Path, body: str | None, login: str = "dev") -> Path:
-    payload = {"pull_request": {"body": body, "user": {"login": login}}}
+def _event(
+    tmp_path: Path, body: str | None, login: str = "dev", user_type: str = "User"
+) -> Path:
+    payload = {
+        "pull_request": {"body": body, "user": {"login": login, "type": user_type}}
+    }
     path = tmp_path / "event.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
     return path
@@ -124,7 +135,7 @@ def test_bad_door_fails(tmp_path: Path) -> None:
 
 
 def test_valid_block_passes(tmp_path: Path) -> None:
-    result = _run(_event(tmp_path, VALID_BLOCK))
+    result = _run(_event(tmp_path, VALID_BODY))
 
     assert result.returncode == 0, result.stderr
 
@@ -134,6 +145,132 @@ def test_dependabot_is_exempt(tmp_path: Path) -> None:
 
     assert result.returncode == 0, result.stderr
     assert "dependabot[bot]" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "",
+        "Closes #0",
+        "Fixes #abc",
+        "Related #1599",
+        "Closes #<issue>",
+        "Closes #n",
+        "Resolves #12",
+        "Closes #12abc",
+        "Prefixes #1599",
+    ],
+)
+def test_missing_or_invalid_issue_reference_fails(tmp_path: Path, reference: str) -> None:
+    body = VALID_BODY.replace("Closes #1599", reference)
+    result = _run(_event(tmp_path, body))
+
+    assert result.returncode != 0
+    assert "issue reference" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "Closes #1599",
+        "Fixes #1599",
+        "Refs #1599",
+        "Closes #1599.",
+        "- Closes #1599",
+        "* Fixes #1599",
+        "closes #1599",
+        "Closes #1599. Refs #1598.",
+        "Closes #1599 (item 1 only; the rest stays open)",
+        "Fixes #1599 on integration",
+        "See Closes #1599",
+        "The table gains Forma de pago at the end. Closes #2044.",
+    ],
+)
+def test_issue_reference_lines_pass(tmp_path: Path, reference: str) -> None:
+    result = _run(_event(tmp_path, VALID_BODY.replace("Closes #1599", reference)))
+
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    "flow",
+    [
+        "",
+        "Pilot flow:",
+        "Pilot flow: unknown",
+        "Pilot flow: none",
+        "Pilot flow: none ()",
+        "Pilot flow: none (   )",
+        "Pilot flow: none (<reason>)",
+        "Pilot flow: none (reason)",
+        "Pilot flow: upload | email",
+        "Pilot flow: upload, unknown",
+        "Pilot flow: upload,",
+        "Pilot flow: upload, none (CI metadata only)",
+        "See Pilot flow: review",
+    ],
+)
+def test_missing_or_invalid_pilot_flow_fails(tmp_path: Path, flow: str) -> None:
+    result = _run(_event(tmp_path, VALID_BODY.replace("Pilot flow: review", flow)))
+
+    assert result.returncode != 0
+    assert "Pilot flow" in result.stderr
+    assert "upload, email, WhatsApp, review, month close, 606/607" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "flow",
+    [
+        "upload",
+        "email",
+        "WhatsApp",
+        "review",
+        "month close",
+        "606/607",
+        "none (CI metadata only)",
+        "upload, review",
+        "upload,review,606/607",
+    ],
+)
+def test_allowed_pilot_flow_passes(tmp_path: Path, flow: str) -> None:
+    body = VALID_BODY.replace("Pilot flow: review", f"Pilot flow: {flow}")
+    result = _run(_event(tmp_path, body))
+
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("bullet", ["-", "*"])
+def test_bulleted_pilot_flow_passes(tmp_path: Path, bullet: str) -> None:
+    body = VALID_BODY.replace("Pilot flow: review", f"{bullet} Pilot flow: upload")
+    result = _run(_event(tmp_path, body))
+
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    "login,user_type",
+    [("automation[bot]", "Bot"), ("automation", "Bot"), ("automation[bot]", "User")],
+)
+def test_bot_authors_are_exempt(tmp_path: Path, login: str, user_type: str) -> None:
+    result = _run(_event(tmp_path, None, login=login, user_type=user_type))
+
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("login", ["robot", "automation-bot", "dependabot"])
+def test_human_authors_are_not_exempt(tmp_path: Path, login: str) -> None:
+    result = _run(_event(tmp_path, "", login=login))
+
+    assert result.returncode != 0
+
+
+def test_bot_sender_does_not_exempt_human_author(tmp_path: Path) -> None:
+    event = _event(tmp_path, "")
+    payload = json.loads(event.read_text(encoding="utf-8"))
+    payload["sender"] = {"login": "automation[bot]", "type": "Bot"}
+    event.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert _run(event).returncode != 0
 
 
 def test_template_opens_with_merge_danger_and_states_eval_tiers() -> None:
@@ -158,12 +295,34 @@ def test_template_passes_once_filled(tmp_path: Path) -> None:
         )
         .replace("<steps>", "revert the commit", 1)
         .replace("<No Eval, Light, or Full>", "Light", 1)
+        .replace("#<issue>", "#1599", 1)
+        .replace(PILOT_FLOW_HINT, "review", 1)
     )
 
     assert filled != raw
     result = _run(_event(tmp_path, filled))
 
     assert result.returncode == 0, result.stderr
+
+
+def test_template_pilot_flow_hint_lists_every_checker_flow(tmp_path: Path) -> None:
+    spec = importlib.util.spec_from_file_location("check_pr_body", CHECKER)
+    assert spec is not None and spec.loader is not None
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    lines = [
+        line
+        for line in TEMPLATE.read_text(encoding="utf-8").splitlines()
+        if line.startswith("Pilot flow:")
+    ]
+
+    assert lines == [f"Pilot flow: {PILOT_FLOW_HINT}"]
+    hint = lines[0].removeprefix("Pilot flow: <one or more, comma-separated: ")
+    listed, _, no_flow = hint.partition("; or ")
+    assert tuple(flow.strip() for flow in listed.split(",")) == checker.PILOT_FLOWS
+    assert no_flow == "none (reason)>"
+    untouched = VALID_BODY.replace("Pilot flow: review", lines[0])
+    assert _run(_event(tmp_path, untouched)).returncode != 0
 
 
 def test_pr_body_workflow_runs_on_edit_without_a_path_filter() -> None:

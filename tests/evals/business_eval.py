@@ -8,7 +8,11 @@ from typing import Any
 
 import yaml
 from argus.agent_runtime.business.interpretation import BUSINESS_MODEL_CANDIDATES
-from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.contracts.facts import (
+    HUMAN_AMOUNT_FIELDS,
+    BusinessFacts,
+    Known,
+)
 from argus.llm.openrouter import invoke_openrouter_json_schema
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -72,10 +76,10 @@ def _initial_facts() -> tuple[dict[str, Any], dict[str, list[str]]]:
                 **({"origin": fact["origin"]} if fact["origin"] else {}),
             }
             for field, fact in facts.items()
-            if field != "fiscal"
+            if field != "fiscal" and field not in HUMAN_AMOUNT_FIELDS
         }
         | {"fiscal": None},
-        {field: [] for field in facts if field != "fiscal"},
+        {field: [] for field in facts if field != "fiscal" and field not in HUMAN_AMOUNT_FIELDS},
     )
 
 
@@ -116,7 +120,7 @@ def _complete_expected_case(case: dict[str, Any]) -> None:
             source_patch = expected.get("fact_sources", {}).get(alias, {})
             for field, value in patch.items():
                 updated = deepcopy(value)
-                if field != "fiscal":
+                if field != "fiscal" and field not in HUMAN_AMOUNT_FIELDS:
                     updated.setdefault("verified", False)
                 if field not in facts:
                     raise ValueError(f"unknown Business fact field: {field}")

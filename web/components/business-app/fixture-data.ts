@@ -499,8 +499,6 @@ export function createFixtureBusinessDataSource(
         invoicing_available: false,
         // The server's default: Por cobrar and Por pagar are off.
         settlement_available: false,
-        // The design fixture shows Actividad's sample; a real server decides.
-        activity_available: true,
         receiving_channels: { email: { available: true }, whatsapp: { available: true } },
         receipt_limits: {
           max_bytes: 10 * 1024 * 1024,
@@ -718,7 +716,7 @@ export function createFixtureBusinessDataSource(
     saveFiscalProfile: async (input) => {
       await delay();
       fiscalProfile = { ...fiscalProfile, name: input.name || fiscalProfile.name, tax_id: input.tax_id };
-      return structuredClone(fiscalProfile);
+      return { ...structuredClone(fiscalProfile), retyped_drafts: 0 };
     },
     createEmailAddress: async () => {
       await delay();

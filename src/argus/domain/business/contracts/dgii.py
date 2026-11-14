@@ -61,6 +61,7 @@ class Declaration(BaseModel):
     selective_tax: Money | None
     other_taxes: Money | None
     legal_tip: Money | None
+    itbis: Money | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 ExpenseType = Literal["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"]
@@ -103,6 +104,7 @@ class PurchaseReview(BaseModel):
     selective_tax: Money | None = None
     other_taxes: Money | None = None
     legal_tip: Money | None = None
+    itbis: Money | None = None
     category: ExpenseType | None = None
     category_suggested: bool = False
     paid_on: date | None = None
@@ -195,6 +197,13 @@ class FiscalProfile(BaseModel):
     tax_id: TaxId | None
     legal_name: LegalName | None
     can_edit: bool
+
+
+class FiscalProfileSaved(FiscalProfile):
+    """The profile after a save, and how many open drafts that save moved to
+    Ventas. Only the save that stores the first tax id moves any."""
+
+    retyped_drafts: int = Field(ge=0)
 
 
 class RegistryRecord(BaseModel):

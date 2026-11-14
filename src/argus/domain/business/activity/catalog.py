@@ -77,6 +77,8 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "restore_document": ActionSpec(
             "documents", "files", object=("receipt", (("command", "document_id"),))
         ),
+        # A purged document names nothing: no label and no link.
+        "purge_document": ActionSpec("documents", "files"),
         "reopen_draft": ActionSpec("records", "approvals", object=_DRAFT),
         "capture_note": ActionSpec("records", "edits", object=_DRAFT),
         "prepare_attachment": ActionSpec("documents", "reading", object=_DRAFT),
@@ -118,6 +120,7 @@ DERIVED: Mapping[str, ActionSpec] = MappingProxyType(
     {
         "ownership_transferred": ActionSpec("business", "access", "manager"),
         "receipt_reading_enabled": ActionSpec("business", "settings", "manager"),
+        "expire_document": ActionSpec("documents", "files"),
     }
 )
 ACTIONS: Mapping[str, ActionSpec] = MappingProxyType({**CATALOG, **DERIVED})
@@ -196,7 +199,7 @@ def project(row: EventRow) -> ActivityItem:
 def with_labels(
     item: ActivityItem, labels: Mapping[tuple[ObjectKind, UUID], str]
 ) -> ActivityItem:
-    if item.object is None:
+    if item.object is None or item.object.purged:
         return item
     label = labels.get((item.object.kind, item.object.id))
     if label is None:

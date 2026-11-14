@@ -1,6 +1,5 @@
 """Two edges of the WhatsApp read: the read binds only to the owner who
-received the receipt, and a release that fails after a read that could not
-start keeps the original error as the one raised."""
+received the receipt, and a read refused before it is dispatched waits saved."""
 
 from __future__ import annotations
 
@@ -53,28 +52,27 @@ def test_the_read_binds_only_to_the_owner_who_received_the_receipt(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_a_failed_release_keeps_the_original_error_and_chains_the_release(
-    monkeypatch,
-):  # noqa: ANN001
-    owner = str(uuid4())
+async def test_a_read_refused_before_dispatch_waits_saved(monkeypatch):  # noqa: ANN001
+    owner, connection = str(uuid4()), str(uuid4())
+    scope = SimpleNamespace(space_id=uuid4())
     documents = Mock()
     documents.get = Mock(return_value=SimpleNamespace(status="queued"))
-    documents.release_queued = Mock(side_effect=RuntimeError("release broke"))
     destination = module.DocumentsDestination(documents, Mock())
     monkeypatch.setattr(
         module,
         "resolve_business_scope",
-        lambda spaces, owner_id: SimpleNamespace(owner=SimpleNamespace(space_id=uuid4())),
+        lambda spaces, owner_id: SimpleNamespace(owner=scope),
     )
-    monkeypatch.setattr(module, "_as_owner", lambda documents, owner_id, scope: documents)
 
-    async def failing_dispatch(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-        raise ValueError("read could not start")
+    def refused(documents, owner_id, scope):  # noqa: ANN001, ANN202
+        raise CaptureFailed("business_permission_denied")
 
-    monkeypatch.setattr("argus.api.documents.dispatch_preparation", failing_dispatch)
-    with pytest.raises(ValueError) as raised:
-        await destination.read(owner_id=owner, connection_id=str(uuid4()))
-    assert str(raised.value) == "read could not start"
-    assert isinstance(raised.value.__cause__, RuntimeError)
-    assert str(raised.value.__cause__) == "release broke"
-    documents.release_queued.assert_called_once()
+    monkeypatch.setattr(module, "_as_owner", refused)
+    with pytest.raises(CaptureFailed, match="business_permission_denied"):
+        await destination.read(owner_id=owner, connection_id=connection)
+    documents.release_queued.assert_called_once_with(
+        user_id=owner,
+        connection_id=connection,
+        scope=scope,
+        code="business_permission_denied",
+    )

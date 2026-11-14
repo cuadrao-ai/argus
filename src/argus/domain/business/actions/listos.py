@@ -124,7 +124,7 @@ def draft_standings(
             ecf_failed=_ecf_failed(resolution),
             repeated=draft_id in repeated,
             blockers=tuple(blocker.code for blocker in blocked),
-            flags=review_flags(facts, registry),
+            flags=review_flags(facts, registry, declaration=resolution.dgii),
         )
         if listo_reason(standing) is None:
             standing = replace(

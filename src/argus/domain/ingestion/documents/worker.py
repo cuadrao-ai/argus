@@ -10,6 +10,7 @@ leases for the next boot's sweep.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 
 from loguru import logger
 
@@ -30,13 +31,20 @@ POLL_SECONDS = 1.0
 
 
 class DocumentWorker:
-    def __init__(self, service: DocumentsService, settings: DocumentJobSettings) -> None:
-        self.service, self.settings = service, settings
+    def __init__(
+        self,
+        service: DocumentsService,
+        settings: DocumentJobSettings,
+        upkeep: Callable[[], object] | None = None,
+    ) -> None:
+        self.service, self.settings, self.upkeep = service, settings, upkeep
         self.reads: set[asyncio.Task[str]] = set()
 
     async def run(self, stop: asyncio.Event) -> None:
         jobs = PreparationJobs(self.service)
-        sweeper = asyncio.create_task(sweep_forever(jobs, self.settings.sweep_seconds))
+        sweeper = asyncio.create_task(
+            sweep_forever(jobs, self.settings.sweep_seconds, self.upkeep)
+        )
         logger.info("Document worker started max_reads={}", self.settings.max_reads)
         delay = POLL_SECONDS
         try:

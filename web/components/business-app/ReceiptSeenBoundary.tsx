@@ -32,7 +32,8 @@ export default function ReceiptSeenBoundary({ receipt, hydrated }: { receipt: Re
     let intersects = false;
     const visible = () => { if (intersects && document.visibilityState !== "hidden" && document.hasFocus()) void mark(); };
     const observer = new IntersectionObserver((entries) => { intersects = entries.some((entry) => entry.isIntersecting); visible(); });
-    observer.observe(sentinel.current);
+    // The boundary closes its record, so any of the record in view counts, not only its last line below the fold.
+    observer.observe(sentinel.current.parentElement ?? sentinel.current);
     window.addEventListener("focus", visible);
     document.addEventListener("visibilitychange", visible);
     return () => { observer.disconnect(); window.removeEventListener("focus", visible); document.removeEventListener("visibilitychange", visible); };

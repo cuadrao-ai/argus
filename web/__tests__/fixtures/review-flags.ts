@@ -6,6 +6,7 @@ import { createDossierFixtures, dossierFixtureIds } from "@/components/business-
 export const REVIEW_FLAGS = {
   rnc_check_digit: { code: "rnc_check_digit", field: "rnc", confirm: true },
   ncf_malformed: { code: "ncf_malformed", field: "ncf", confirm: true },
+  amounts_mismatch: { code: "amounts_mismatch", field: "amount", confirm: false, difference: "1.00" },
   itbis_high: { code: "itbis_high", field: "itbis", confirm: false },
 } satisfies { [Code in ReviewFlagCode]: ReviewFlag & { code: Code } };
 

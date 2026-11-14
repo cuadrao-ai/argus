@@ -7,11 +7,6 @@ import type { AttentionItem } from "./dossier-attention";
 
 type AttentionField = NonNullable<AttentionItem["field"]>;
 
-/** The currency has no row of its own: it is edited on Monto. */
-function rowOf(field: AttentionField): AttentionField {
-  return field === "currency" ? "amount" : field;
-}
-
 /**
  * Opens the field's row for someone who can edit it, scrolls to it and puts
  * focus on what is missing. A row that stays closed takes focus on its control,
@@ -19,10 +14,10 @@ function rowOf(field: AttentionField): AttentionField {
  */
 function goToField(from: HTMLElement | null, field: AttentionField, onOpen?: (row: AttentionField) => void) {
   const scope = from?.closest('[data-testid="business-record-review"]') ?? document;
-  const row = scope.querySelector<HTMLElement>(`[data-fact="${rowOf(field)}"]`);
+  const row = scope.querySelector<HTMLElement>(`[data-fact="${field}"]`);
   if (!row) return;
   // The field has to be on the page before focus can land on it.
-  if (onOpen) flushSync(() => onOpen(rowOf(field)));
+  if (onOpen) flushSync(() => onOpen(field));
   row.scrollIntoView?.({ block: "center", behavior: "smooth" });
   const control = row.querySelector<HTMLElement>(field === "currency" ? "select:not(:disabled)" : "input:not(:disabled), select:not(:disabled)") ?? row.querySelector<HTMLElement>("button:not(:disabled), a[href]");
   if (control) control.focus({ preventScroll: true });

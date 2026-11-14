@@ -71,7 +71,7 @@ export function factRows<K extends BusinessFactField | BusinessFiscalField>(
 
 /** The RNC row's standing is its status block's alone; the row's pencil, or Reabrir, is its one action. */
 const RNC_STATUS_ROW = "rnc";
-const FLAG_SHOWN_AS: Record<ReviewFlagCode, "own_line" | "doubt_mark"> = { rnc_check_digit: "own_line", ncf_malformed: "doubt_mark", itbis_high: "own_line" };
+const FLAG_SHOWN_AS: Record<ReviewFlagCode, "own_line" | "doubt_mark"> = { rnc_check_digit: "own_line", ncf_malformed: "doubt_mark", itbis_high: "own_line", amounts_mismatch: "own_line" };
 
 /** The read values the server doubts: a review flag names them, or the e-CF file says otherwise. */
 export function doubtfulFields(dossier: Pick<BusinessDossier, "review_flags" | "ecf_checks">): Set<string> {

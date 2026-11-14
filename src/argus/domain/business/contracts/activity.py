@@ -22,6 +22,7 @@ ActivityAction = Literal[
     "reopen_draft",
     "delete_document",
     "restore_document",
+    "purge_document",
     "capture_note",
     "prepare_attachment",
     "rebind_attachment",
@@ -49,6 +50,7 @@ ActivityAction = Literal[
     "change_role",
     "ownership_transferred",
     "receipt_reading_enabled",
+    "expire_document",
     "other",
 ]
 ObjectKind = Literal["draft", "receipt", "grant", "invite"]
@@ -89,6 +91,8 @@ class ActivityObject(Contract):
     kind: ObjectKind
     id: UUID
     label: str | None = None
+    #: The document is purged: it has no label, and nothing opens it.
+    purged: bool = False
 
 
 class ActivityItem(Contract):

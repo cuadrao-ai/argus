@@ -26,6 +26,9 @@ async function mount(width = 1440, readOnly = false) {
   const { RecordsAnnotationsPreview, useRecordPreviewSearch } = await import("@/components/business-app/transacciones/RecordsAnnotationsPreview");
   const { RecordsTable, RecordsNarrowList } = await import("@/components/business-app/transacciones/TransaccionesRecords");
   const { sampleRecordsPreferences } = await import("@/components/business-app/transacciones/sample-records-preferences");
+  // Notas and Adjunto are hidden by default; these tests work in a table that shows them.
+  const defaults = sampleRecordsPreferences();
+  const withAnnotations = { ...defaults, hidden: defaults.hidden.filter((key) => key !== "note" && key !== "attachment") };
   const calls = { opens: 0, network: 0, urls: 0, revoked: [] as string[] };
   const originalFetch = globalThis.fetch;
   const originalCreate = URL.createObjectURL;
@@ -45,7 +48,7 @@ async function mount(width = 1440, readOnly = false) {
     const [narrow, setNarrow] = useState(width < 1024);
     const value = { chosen: { space_id: scope, capabilities: read ? prepare ? ["read", "prepare"] : ["read"] : [] }, records: { workspace: { receipt_limits: { max_bytes: 100, media_types: ["application/pdf", "image/png"] } } }, panel: { kind: "transactions" }, openPanel: () => { calls.opens++; } } as unknown as BusinessContextValue;
     const records = filtered ? [record("venta")] : [record("gasto"), record("venta"), record("gasto", "unknown", null), record("gasto", "original", true), { ...record("gasto", "unavailable", true), opens: null }];
-    return <BusinessContext.Provider value={value}><RecordsAnnotationsPreview><SearchProbe /><button onClick={() => setScope(scope === "fixture-space" ? "other" : "fixture-space")}>Business</button><button onClick={() => setPrepare(!prepare)}>Permission</button><button onClick={() => setRead(!read)}>Read</button><button onClick={() => setFiltered(!filtered)}>Filter</button><button onClick={() => setNarrow(!narrow)}>Viewport</button>{narrow ? <RecordsNarrowList records={records} rowRef={() => {}} /> : <RecordsTable records={records} preferences={sampleRecordsPreferences()} density="normal" rowRef={() => {}} />}</RecordsAnnotationsPreview></BusinessContext.Provider>;
+    return <BusinessContext.Provider value={value}><RecordsAnnotationsPreview><SearchProbe /><button onClick={() => setScope(scope === "fixture-space" ? "other" : "fixture-space")}>Business</button><button onClick={() => setPrepare(!prepare)}>Permission</button><button onClick={() => setRead(!read)}>Read</button><button onClick={() => setFiltered(!filtered)}>Filter</button><button onClick={() => setNarrow(!narrow)}>Viewport</button>{narrow ? <RecordsNarrowList records={records} rowRef={() => {}} /> : <RecordsTable records={records} preferences={withAnnotations} density="normal" rowRef={() => {}} />}</RecordsAnnotationsPreview></BusinessContext.Provider>;
   }
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}><Harness /></I18nextProvider>));
@@ -146,9 +149,9 @@ test("note and attachment keyboard actions do not open the dossier, dates/money/
   await page.key(page.attachment(), "Enter"); assert.equal(page.calls.opens, 0);
   await page.click(page.note()); await page.type("Keep"); await page.click(page.button("Guardar"));
   const row = page.host.querySelector('[data-record-key="gasto:exp-gas"]')!;
-  assert.equal(row.querySelector('[data-col="fecha"]')!.textContent, "25 oct 2026");
-  assert.equal(row.querySelector('[data-col="monto"]')!.textContent, "9,007,199,254,740,993.01");
-  assert.ok(row.querySelector('[data-col="monto"] .cuadrao-amount'));
+  assert.equal(row.querySelector('[data-col="date"]')!.textContent, "25 oct 2026");
+  assert.equal(row.querySelector('[data-col="gross_amount"]')!.textContent, "9,007,199,254,740,993.01");
+  assert.ok(row.querySelector('[data-col="gross_amount"] .cuadrao-amount'));
   assert.equal(row.querySelector('[data-col="moneda"]'), null);
   assert.equal(row.querySelector('[data-record-workflow]')!.textContent, "Falta el tipo de gasto");
   assert.equal(page.host.querySelector('[data-record-key="gasto:unknown"] [data-record-attachment]'), null);
@@ -254,7 +257,7 @@ test("phone attachment sheet starts full and keeps several selected files locall
 
 test("unknown attachment presence is not treated as missing and revoked read hides local evidence", async () => {
   const page = await mount();
-  const unknown = page.host.querySelector('[data-record-key="gasto:unknown"] [data-col="comprobante"]')!;
+  const unknown = page.host.querySelector('[data-record-key="gasto:unknown"] [data-col="attachment"]')!;
   assert.ok(unknown);
   assert.equal(unknown.querySelector("button"), null);
   assert.doesNotMatch(unknown.textContent!, /Sin adjuntos vinculados/);

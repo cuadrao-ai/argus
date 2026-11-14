@@ -28,14 +28,17 @@ def test_v1_remains_strict_and_v2_hides_purchase_fields_and_funding_by_default()
     with pytest.raises(ValidationError):
         ReportRequest(presentation={"density": 40})
     request = ReportRequestV2(sort="name_asc", presentation={"density": 56})
-    assert request.presentation.order[0] == "counterparty"
+    assert request.presentation.order[0] == "counterparty_id"
     assert request.presentation.hidden == (
-        "funding",
-        "payment_form",
-        "expense_type",
+        "counterparty",
         "fiscal_number",
-        "itbis_amount",
+        "note",
+        "attachment",
+        "payment_form",
+        "funding",
     )
+    assert "net_amount" not in request.presentation.hidden
+    assert "itbis_amount" not in request.presentation.hidden
     assert request.page_size == 25
     with pytest.raises(ValidationError):
         ReportRequestV2(presentation={"hidden": ["currency"]})

@@ -74,13 +74,13 @@ test("the form holds the rest of the 606: the facts with their own row are not f
   try {
     assert.equal(view.host.querySelector("details")?.open, false, "closed by default");
     assert.equal(view.host.querySelector("summary")?.textContent, "Más datos fiscales");
-    assert.deepEqual([...view.host.querySelectorAll("label")].map((node) => node.firstChild?.textContent).slice(0, 1), ["ITBIS llevado al Costo"]);
+    assert.deepEqual([...view.host.querySelectorAll("label")].map((node) => node.firstChild?.textContent).slice(0, 1), ["ITBIS"]);
     await view.input("ITBIS llevado al Costo", "12.00");
     assert.equal(view.dirty.at(-1), true);
     await view.save();
     const request = view.writes[0];
     assert.ok(request.key);
-    assert.deepEqual(request.input, { version: view.dossier.version, dgii: { fiscal: { rnc: "131999888", ncf: "B0100000099", itbis: "526.27" }, declaration: { form: "606", category: null, itbis_cost: "12.00", payment_method: null, actual_refund: false, purchase_activity_id: null } } });
+    assert.deepEqual(request.input, { version: view.dossier.version, dgii: { fiscal: { rnc: "131999888", ncf: "B0100000099", itbis: "526.27" }, declaration: { form: "606", category: null, itbis: null, itbis_cost: "12.00", payment_method: null, actual_refund: false, purchase_activity_id: null } } });
     assert.equal(view.changes.length, 1);
     assert.equal(view.dirty.at(-1), false);
   } finally { await view.dispose(); }
@@ -100,7 +100,7 @@ const groupsOf = (host: Element) => [...host.querySelectorAll<HTMLElement>("[dat
 test("the fields read in five groups, every field the server sends stays, and no date is a native input", async () => {
   const view = await mountEditor({ fields: fullForm });
   try {
-    assert.deepEqual(groupsOf(view.host), [["identity", "Identificación"], ["amounts", "Montos"], ["itbis", "ITBIS"], ["retentions", "Retenciones"], ["other", "Otros"]]);
+    assert.deepEqual(groupsOf(view.host), [["identity", "Identificación"], ["amounts", "Montos facturados"], ["itbis", "ITBIS"], ["retentions", "Retenciones"], ["other", "Otros"]]);
     const other = view.host.querySelector('[data-group="other"]');
     assert.ok(other?.textContent?.includes("a_new_server_column"), "an unknown field keeps its code instead of backend Spanish");
     assert.equal(view.host.querySelectorAll('input[type="date"]').length, 0);
@@ -342,5 +342,35 @@ for (const form of ["606", "607"] as const) {
         }
       }
     } finally { await view.dispose(); }
+  });
+}
+
+for (const [moved, es, en] of [
+  [0, null, null],
+  [1, "1 borrador pasó a Ventas: lo emitió tu negocio", "1 draft moved to Sales: your business issued it"],
+  [2, "2 borradores pasaron a Ventas: los emitió tu negocio", "2 drafts moved to Sales: your business issued them"],
+] as const) {
+  test(`saving the Business RNC says the server moved ${moved} drafts to Ventas`, async () => {
+    for (const [lng, translation, words] of [["es-419", spanish, es], ["en", english, en]] as const) {
+      const release = registerDom();
+      globalThis.fetch = async (_url, init) => init?.body
+        ? Response.json({ name: "Taller Norte", tax_id: { type: "rnc", value: "199990013" }, legal_name: null, can_edit: true, retyped_drafts: moved })
+        : Response.json({ name: "Taller Norte", tax_id: null, legal_name: null, can_edit: true });
+      const i18n = i18next.createInstance(); await i18n.init({ lng, resources: { [lng]: { translation } } });
+      const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+      try {
+        await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessFiscalProfile /></I18nextProvider>));
+        const value = host.querySelector<HTMLInputElement>('input[name="tax-id-value"]');
+        assert.ok(value);
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(value, "199990013");
+          value.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        await act(async () => host.querySelector("button")?.click());
+        const status = host.querySelector('[role="status"]');
+        assert.match(status?.textContent ?? "", lng === "en" ? /^Details saved\./ : /^Datos guardados\./);
+        assert.equal(host.querySelector('[data-testid="profile-drafts-retyped"]')?.textContent?.trim() ?? null, words);
+      } finally { await act(async () => root.unmount()); host.remove(); await release(); }
+    }
   });
 }

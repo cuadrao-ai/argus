@@ -168,7 +168,7 @@ def summarize(
 class FiscalAmount:
     currency: str | None
     kind: str
-    basis: Literal["itbis", "goods", "services"]
+    basis: Literal["itbis", "goods", "services", "net_amount"]
     amount_minor: int | None
     populated: bool
     effect: Literal["known", "unknown", "unsupported"]
@@ -179,7 +179,7 @@ class FiscalAmount:
 class FiscalTotal:
     currency: str | None
     kind: str
-    basis: Literal["itbis", "goods", "services"]
+    basis: Literal["itbis", "goods", "services", "net_amount"]
     applicable_count: int
     populated_count: int
     known_amount_minor: int

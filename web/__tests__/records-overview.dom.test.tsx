@@ -15,8 +15,8 @@ afterEach(async () => { await cleanup(); document.body.innerHTML = ""; });
 afterAll(() => GlobalRegistrator.unregister());
 const fiscal = (patch: Partial<ReportFiscalTotal>): ReportFiscalTotal => ({ basis: "goods", currency: "DOP", kind: "expense", applicable_count: 25, populated_count: 12, known_amount_minor: 500, unknown_count: 13, unsupported_count: 0, complete: false, amount_minor: null, amount: null, known_amount: "5.00", ...patch });
 const answer = { matching_count: 1828, totals: [
-  { basis: "document_family_amount", currency: "DOP", kind: "expense", matching_count: 500, known_amount_minor: 11111, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 11111, amount: "111.11", known_amount: "111.11" },
-  { basis: "document_family_amount", currency: "DOP", kind: "income", matching_count: 400, known_amount_minor: 22222, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 22222, amount: "222.22", known_amount: "222.22" },
+  { basis: "document_net_family_amount", currency: "DOP", kind: "expense", matching_count: 500, known_amount_minor: 11111, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 11111, amount: "111.11", known_amount: "111.11" },
+  { basis: "document_net_family_amount", currency: "DOP", kind: "income", matching_count: 400, known_amount_minor: 22222, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 22222, amount: "222.22", known_amount: "222.22" },
   { basis: "recorded_activity_amount", currency: "DOP", kind: "expense", matching_count: 900, known_amount_minor: 99999, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 99999, amount: "999.99", known_amount: "999.99" },
 ], fiscal_totals: [fiscal({ basis: "itbis", amount: "18.18", complete: true, unknown_count: 0 }), fiscal({ basis: "itbis", kind: "income", amount: "36.36", complete: true, unknown_count: 0 }), fiscal({}), fiscal({ basis: "services", populated_count: 7, known_amount: "9.00", unsupported_count: 2 })] } satisfies Pick<ReportAnswer, "totals" | "fiscal_totals" | "matching_count">;
 async function mount(props: Partial<Parameters<typeof RecordsOverviewPreview>[0]> = {}, language = "es-419") {
@@ -30,7 +30,7 @@ const card = (key: string) => document.querySelector<HTMLElement>(`[data-overvie
 test("six cards use purchase server totals and only Fiscal has a card action", async () => {
   const page = await mount();
   assert.deepEqual([...document.querySelectorAll("[data-overview-card]")].map((el) => el.getAttribute("data-overview-card")), ["total", "itbis", "quantity", "goods", "services", "fiscal"]);
-  assert.match(card("total").textContent!, /111\.11.*Compras/);
+  assert.match(card("total").textContent!, /Compras sin ITBIS.*111\.11/);
   assert.doesNotMatch(card("total").textContent!, /Ventas|222\.22|999\.99|333\.33/);
   assert.equal(card("itbis").querySelector('[data-family="purchase"] .sr-only')?.textContent, "DOP 18.18");
   assert.equal(card("itbis").querySelector('[data-family="sale"]'), null);

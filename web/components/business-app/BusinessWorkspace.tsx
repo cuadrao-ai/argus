@@ -25,7 +25,6 @@ import {
   businessChatAvailable,
   businessReceivingChannels,
   type ReceivingChannels,
-  businessActivityAvailable,
   businessInvoicingAvailable,
   type BusinessCapture,
   type BusinessOverview,
@@ -62,15 +61,13 @@ import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
 import { intakeWork } from "./intake-work";
 import { TypedNoteQueue } from "./typed-note-queue";
-import ExportRecordsPanel from "./ExportRecordsPanel";
 import { openRecordsExport } from "./transacciones/records-export-request";
 import { HandHeart } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AmountsToggle } from "./foundation/AmountsToggle";
 import BusinessNotifications from "./foundation/BusinessNotifications";
 import BusinessHeader from "./foundation/BusinessHeader";
-import { useMonthCloseSource } from "./BusinessMonthClosePanel";
-import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
+import { afterListCheck, useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
 import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
@@ -112,6 +109,12 @@ type Records = {
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
   receiptActivity?: ReceiptActivityCounts | null;
+  /** The version of the Business's lists that `inbox` and `receiptActivity` came with; the change check sends it back. Null until the server names one. */
+  listVersion?: string | null;
+  /** Counts the times the change check brought something new; a list that follows it reads itself again. */
+  listChanges?: number;
+  /** Counts every answered change check, also the ones that brought nothing; a list whose own read failed asks again on it. */
+  listChecks?: number;
   /** Saved notes, newest first; null until loaded or after a failed load. A notes outage never hides receipts, and never reads as no notes. */
   notes: BusinessCapture[] | null;
   notesFailure?: LoadFailure | null;
@@ -143,22 +146,12 @@ export function invoicingShown(state: InvoicingState | undefined): boolean {
   return state === "available" || state === "sample";
 }
 
-/** What Actividad is here. The server's workspace answer decides; `null` until it answers, when no entry point shows. */
-export type ActivityState = "available" | "unavailable" | null;
-
-/** Whether any Actividad entry point shows: the screen, its sidebar item and the phone menu's row. */
-export function activityShown(state: ActivityState | undefined): boolean {
-  return state === "available";
-}
-
 export type BusinessContextValue = Readonly<{
   userId?: string|null;
   source: BusinessDataSource;
   records: Records;
   /** Absent means the server has not answered, so nothing shows. */
   invoicing?: InvoicingState;
-  /** Absent means the server has not answered, so nothing shows. */
-  activity?: ActivityState;
   receivingChannels?: ReceivingChannels;
   directoryStatus?: BusinessDirectoryStatus;
   /** Every Business the person may enter, the server's list; null until read. */
@@ -189,8 +182,6 @@ export type BusinessContextValue = Readonly<{
   bridge: ChatShellBridge | null;
   attachedReceipt: ReceiptSummary | null;
   clearAttachedReceipt: () => void;
-  /** Opens the period ZIP export; only the sample and bank-matching Registros screen uses it. */
-  openExport: () => void;
   /** Asks the server for the emails again; the Negocio history shows it working. */
   emailRefresh: Readonly<{ refresh: () => void; refreshing: boolean; stalled: boolean }>;
   /** Asks again for only the lists named; the rest stay as they are. */
@@ -244,6 +235,7 @@ const EMPTY_RECORDS: Records = {
   overview: null,
   inbox: null,
   receiptActivity: null,
+  listVersion: null,
   notes: null,
   notesFailure: null,
   notesTruncated: false,
@@ -540,7 +532,7 @@ function BusinessWorkspaceContent({
     ]))
       .then(([workspace, overview, page]) => {
         if (cancelled) return;
-        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, overview, inbox: page.items, receiptActivity: page.activity, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
+        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, overview, inbox: page.items, receiptActivity: page.activity, listVersion: "version" in page ? page.version : null, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
         reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {
@@ -595,12 +587,15 @@ function BusinessWorkspaceContent({
 
   useReceiptInboxRefresh({
     source,
-    active: !onRecord && panel.kind === "inbox" && bridge?.currentView !== "chat",
+    // Both lists follow one check, also behind a record opened from them.
+    active: !onRecord && (panel.kind === "inbox" || panel.kind === "transactions" || ((panel.kind === "receipt" || panel.kind === "draft") && panel.list !== undefined)) && bridge?.currentView !== "chat",
     reading: !onRecord && (records.receiptActivity?.reading_count ?? 0) > 0,
     businessKey: chosenGrant,
+    known: records.listVersion ?? null,
+    epoch: revision,
     onRefresh: (page) => {
       if (onRecord) return;
-      setRecords((value) => ({ ...value, inbox: page.items, receiptActivity: page.activity }));
+      setRecords((value) => afterListCheck(value, page));
       // A long read outlasts the email poll; each receipt refresh asks again while an email is still moving.
       if (emailDeliveries.items && !emailDeliveries.refreshing && emailDeliveriesNeedRefresh(emailDeliveries.items)) emailDeliveries.refresh();
     },
@@ -656,15 +651,8 @@ function BusinessWorkspaceContent({
   );
 
   const invoicing: InvoicingState = sampleInvoicing ? "sample" : records.workspace ? (businessInvoicingAvailable(records.workspace) ? "available" : "unavailable") : null;
-  const activity: ActivityState = records.workspace ? (businessActivityAvailable(records.workspace) ? "available" : "unavailable") : null;
-  // The top bar's heading follows the screen, except Facturación's and Actividad's wait for the server's answer like their screens do.
-  const headerScreen = (panel.kind === "invoicing" && !invoicingShown(invoicing)) || (panel.kind === "activity" && !activityShown(activity)) ? undefined : panel.kind;
-  // A deep link to Actividad the server does not offer lands on Inicio, never on a refusal.
-  useEffect(() => {
-    if (panel.kind !== "activity" || activity !== "unavailable") return;
-    setPanel({ kind: "overview" });
-    writePanelToUrl("workspace", { kind: "overview" });
-  }, [activity, panel.kind]);
+  // The top bar's heading follows the screen, except Facturación's waits for the server's answer like its screen does.
+  const headerScreen = panel.kind === "invoicing" && !invoicingShown(invoicing) ? undefined : panel.kind;
   // A deep link to Facturación the server does not offer lands on Inicio, never on a refusal.
   useEffect(() => {
     if (panel.kind !== "invoicing" || invoicing !== "unavailable") return;
@@ -679,8 +667,6 @@ function BusinessWorkspaceContent({
     openPanel,
   });
 
-  const [exportOpen, setExportOpen] = useState(false);
-  const openExport = useCallback(() => setExportOpen(true), []);
   // Exportar registros from search opens Registros and its own export dialog.
   const exportRegistros = useCallback(() => openRecordsExport(openPanel), [openPanel]);
 
@@ -690,7 +676,6 @@ function BusinessWorkspaceContent({
       source,
       records: workspaceRecords,
       invoicing,
-      activity,
       receivingChannels,
       spaces,
       closedSpaces,
@@ -713,11 +698,10 @@ function BusinessWorkspaceContent({
       bridge,
       attachedReceipt,
       clearAttachedReceipt: () => setAttachedReceipt(null),
-      openExport,
       emailRefresh,
       retrySources,
     }),
-    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, activity, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, invitationsAvailable, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, guardPanel, invoicing, receivingChannels, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, invitationsAvailable, lostAccess, markAccessSeen, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
@@ -760,7 +744,7 @@ function BusinessWorkspaceContent({
       sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
       sidebarMark: () => <BusinessMark businessId={chosen?.space_id} name={businessTitle} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={activityShown(activity) ? () => openPanel({ kind: "activity" }) : undefined} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onOpenActivity={() => openPanel({ kind: "activity" })} onInvite={canInvite ? openInvitation : undefined} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
         {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
@@ -798,7 +782,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [activity, notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
+  }, [notificationsAvailable, receivingChannels.email.available, keyboardShortcuts, actions.starterEntries, chatAvailable, headerScreen, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, businessTitle, chooseBusiness, openPanel, localPreview,reload,source.mode,userId,canInvite,openInvitation]);
 
   return (
     <BusinessContext.Provider value={directoryValue}>
@@ -819,7 +803,6 @@ function BusinessWorkspaceContent({
             openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id } : { kind: "inbox" });
           }}
         />
-        {exportOpen ? <WorkspaceExport onClose={() => setExportOpen(false)} /> : null}
         <ToastViewport />
       </ChatWorkspaceProvider>
     </BusinessContext.Provider>
@@ -830,8 +813,3 @@ export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; c
   return <BusinessReviewShortcutsProvider><BusinessWorkspaceContent {...props} /></BusinessReviewShortcutsProvider>;
 }
 
-/** The period ZIP export, opened from the sample and bank-matching Registros screen. */
-function WorkspaceExport({ onClose }: { onClose: () => void }) {
-  const monthClose = useMonthCloseSource();
-  return <ExportRecordsPanel monthClose={monthClose} onClose={onClose} />;
-}

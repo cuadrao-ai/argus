@@ -46,8 +46,8 @@ function AmountValue({ line }: { line: AmountLine | undefined }) {
 
 function MoneyCard({ metric, icon, answer, loading, family }: { family: "sale" | "purchase"; metric: MoneyMetric; icon: LucideIcon; answer: ShelfAnswer | undefined; loading: boolean }) {
   const { t } = useTransaccionesWords();
-  const title = t(`${PREFIX}${metric}.title`);
-  const lines = metric === "total" ? answer?.totals.filter((line) => line.basis === "document_family_amount") ?? [] : answer?.fiscal_totals?.filter((line) => line.basis === metric) ?? [];
+  const title = t(metric === "total" ? `business.terms.net_card_${family === "purchase" ? "purchases" : "sales"}` : `${PREFIX}${metric}.title`);
+  const lines = metric === "total" ? answer?.totals.filter((line) => line.basis === "document_net_family_amount") ?? [] : answer?.fiscal_totals?.filter((line) => line.basis === metric) ?? [];
   const line = lines.find((line) => line.kind === (family === "sale" ? "income" : "expense"));
   const showSkeleton = useDelayedPending(loading);
   const familyMetric = metric === "total" || metric === "itbis";

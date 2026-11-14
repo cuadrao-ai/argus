@@ -1,0 +1,15 @@
+{
+  "id": "production-apply-2026-11-14-batch",
+  "project_ref": "lgdhvepyrzbnscqssgqq",
+  "hosts": [
+    "db.lgdhvepyrzbnscqssgqq.supabase.co",
+    "aws-1-us-east-2.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "b82a38dc7c5e5dc4a68748ce9d20be833924e33e",
+  "versions_sha256": "79429861a0d39e8cd10eef1833e2a9b057d51989aef31683ffc73cb20e47c656",
+  "issued_at": "2026-11-14T09:03:27Z",
+  "expires_at": "2026-11-16T09:03:27Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas approved on 2026-11-14 (\"Approve, apply now\") applying the delete actions migration (20261112221308, PR 2024) and the purge migration (20261113091746, PR 2061) to production lgdhvepyrzbnscqssgqq only, after production deployed main a8542961fb6ff96edcce614d2c12adcfb6b14abc (promotion PR 2111) without them. Candidate b82a38dc7c5e5dc4a68748ce9d20be833924e33e is the integration commit main promoted; its tree equals main's apart from evidence files. Dry run first."
+}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
@@ -14,7 +14,7 @@ import { BusinessConsentTestProvider } from "@/components/business-app/business-
 import ReceiptDossierReview from "@/components/business-app/ReceiptDossierReview";
 import { dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import ReceiptSeenBoundary from "@/components/business-app/ReceiptSeenBoundary";
-import { useReceiptInboxRefresh } from "@/components/business-app/useReceiptInboxRefresh";
+import { afterListCheck, useReceiptInboxRefresh } from "@/components/business-app/useReceiptInboxRefresh";
 import type { ReceiptActivityCounts, ReceiptDetail, ReceiptReading } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import english from "@/public/locales/en/common.json";
@@ -22,6 +22,7 @@ import english from "@/public/locales/en/common.json";
 let hidden = false;
 let focused = true;
 const intersections = new Set<IntersectionObserverCallback>();
+const observed = new Set<Element>();
 let observerInstance: IntersectionObserver;
 const i18n = i18next.createInstance();
 
@@ -33,7 +34,7 @@ beforeAll(async () => {
   const Original = globalThis.IntersectionObserver;
   globalThis.IntersectionObserver = class extends Original {
     constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) { super(callback, options); intersections.add((entries, observer) => callback(entries, observer)); }
-    observe(target: Element) { observerInstance = new Original(() => {}); super.observe(target); }
+    observe(target: Element) { observerInstance = new Original(() => {}); observed.add(target); super.observe(target); }
     disconnect() { intersections.clear(); super.disconnect(); }
   };
   await i18n.init({ lng: "en", resources: { en: { translation: english } } });
@@ -43,7 +44,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 function clock() {
   let due: (() => void) | null = null;
   let delay = 0;
-  return { schedule: (fn: () => void, ms: number) => { due = fn; delay = ms; return () => { due = null; }; }, delay: () => due ? delay : null,
+  return { schedule: (fn: () => void, ms: number) => { due = fn; delay = ms; return () => { if (due === fn) due = null; }; }, delay: () => due ? delay : null,
     tick: async () => { const fn = due; due = null; await act(async () => { fn?.(); await Promise.resolve(); await Promise.resolve(); }); } };
 }
 
@@ -176,6 +177,191 @@ test("switching Business aborts discovery and ignores the old response", async (
   await act(async () => page.root.unmount());
 });
 
+test.each([
+  { reading: true, normal: 5000, delays: [10000, 20000, 40000, 60000, 60000] },
+  { reading: false, normal: 15000, delays: [30000, 60000, 60000, 60000, 60000] },
+].flatMap((state) => [true, false].map((paged) => ({ ...state, paged }))))(
+  "failed refreshes back off and recovery resets with reading=$reading paged=$paged",
+  async ({ reading, normal, delays, paged }) => {
+    const timer = clock();
+    const items = [await receipt()];
+    let failing = false;
+    let asked = 0;
+    let refreshed = 0;
+    let displayed: unknown;
+    const receipts = async () => {
+      asked++;
+      if (failing) throw new Error("offline");
+      return items;
+    };
+    const source: BusinessDataSource = {
+      ...createFixtureBusinessDataSource(), mode: "live", receipts,
+      receiptPage: paged ? async () => ({ items: await receipts(), activity: counts }) : undefined,
+    };
+    function Harness() {
+      useReceiptInboxRefresh({ source, active: true, reading, businessKey: "A", clock: timer.schedule,
+        onRefresh: (page) => { refreshed++; displayed = page; } });
+      return null;
+    }
+    const page = await host();
+    try {
+      await act(async () => page.root.render(<Harness />));
+      assert.equal(timer.delay(), normal);
+      await timer.tick();
+      assert.deepEqual(displayed, { items, activity: paged ? counts : null });
+      const lastGood = displayed;
+      failing = true;
+      for (const delay of delays) {
+        await timer.tick();
+        assert.equal(timer.delay(), delay);
+        assert.equal(refreshed, 1);
+        assert.equal(displayed, lastGood);
+      }
+      assert.equal(asked, 6);
+      failing = false;
+      await timer.tick();
+      assert.equal(refreshed, 2);
+      assert.equal(timer.delay(), normal);
+      failing = true;
+      await timer.tick();
+      assert.equal(timer.delay(), delays[0]);
+    } finally {
+      await act(async () => page.root.unmount());
+      page.element.remove();
+    }
+  },
+);
+
+test.each(["focus", "visibilitychange"])("%s refresh bypasses the delay but only success resets failures", async (event) => {
+  const timer = clock();
+  let asked = 0;
+  let failing = true;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async () => {
+    asked++;
+    if (failing) throw new Error("offline");
+    return { items: [], activity: counts };
+  } };
+  function Harness() { useReceiptInboxRefresh({ source, active: true, reading: true, businessKey: "A", clock: timer.schedule, onRefresh: () => {} }); return null; }
+  const page = await host();
+  try {
+    await act(async () => page.root.render(<Harness />));
+    await timer.tick();
+    await timer.tick();
+    assert.equal(asked, 2);
+    await act(async () => (event === "focus" ? window : document).dispatchEvent(new Event(event)));
+    assert.equal(asked, 3);
+    assert.equal(timer.delay(), 40000);
+    failing = false;
+    await act(async () => (event === "focus" ? window : document).dispatchEvent(new Event(event)));
+    assert.equal(asked, 4);
+    assert.equal(timer.delay(), 5000);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+  }
+});
+
+test("same-Business rerenders and timing changes retain failures", async () => {
+  const timer = clock();
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async () => { throw new Error("offline"); } };
+  function Harness({ active = true, reading = true }: { active?: boolean; reading?: boolean }) {
+    useReceiptInboxRefresh({ source, active, reading, businessKey: "A", clock: timer.schedule, onRefresh: () => {} });
+    return null;
+  }
+  const page = await host();
+  try {
+    await act(async () => page.root.render(<Harness />));
+    await timer.tick();
+    await act(async () => page.root.render(<Harness />));
+    assert.equal(timer.delay(), 10000);
+    await act(async () => page.root.render(<Harness reading={false} />));
+    assert.equal(timer.delay(), 30000);
+    await act(async () => page.root.render(<Harness active={false} reading={false} />));
+    assert.equal(timer.delay(), null);
+    await act(async () => page.root.render(<Harness />));
+    assert.equal(timer.delay(), 10000);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+  }
+});
+
+test.each(["success", "failure"])("hidden tabs cancel back-off and ignore an aborted request's late %s", async (outcome) => {
+  const timer = clock();
+  let asked = 0;
+  let refreshed = 0;
+  let signal: AbortSignal | undefined;
+  let finish!: () => void;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async (_view, requestSignal) => {
+    asked++;
+    if (asked !== 2) throw new Error("offline");
+    signal = requestSignal;
+    return new Promise((resolve, reject) => { finish = () => outcome === "success" ? resolve({ items: [], activity: counts }) : reject(new Error("aborted")); });
+  } };
+  function Harness() { useReceiptInboxRefresh({ source, active: true, reading: true, businessKey: "A", clock: timer.schedule, onRefresh: () => { refreshed++; } }); return null; }
+  const page = await host();
+  try {
+    await act(async () => page.root.render(<Harness />));
+    await timer.tick();
+    hidden = true;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    assert.equal(timer.delay(), null);
+    await timer.tick();
+    assert.equal(asked, 1);
+    hidden = false;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    assert.equal(asked, 2);
+    hidden = true;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    assert.equal(signal?.aborted, true);
+    await act(async () => finish());
+    assert.equal(timer.delay(), null);
+    assert.equal(refreshed, 0);
+    hidden = false;
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    assert.equal(asked, 3);
+    assert.equal(timer.delay(), 20000);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+    hidden = false;
+  }
+});
+
+test.each(["success", "failure"])("Business switches reset back-off and ignore a previous Business's late %s", async (outcome) => {
+  const timer = clock();
+  let asked = 0;
+  let refreshed = 0;
+  let signal: AbortSignal | undefined;
+  let finish!: () => void;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async (_view, requestSignal) => {
+    asked++;
+    if (asked !== 3) throw new Error("offline");
+    signal = requestSignal;
+    return new Promise((resolve, reject) => { finish = () => outcome === "success" ? resolve({ items: [], activity: counts }) : reject(new Error("offline")); });
+  } };
+  function Harness({ business }: { business: string }) { useReceiptInboxRefresh({ source, active: true, reading: true, businessKey: business, clock: timer.schedule, onRefresh: () => { refreshed++; } }); return null; }
+  const page = await host();
+  try {
+    await act(async () => page.root.render(<Harness business="A" />));
+    await timer.tick();
+    await timer.tick();
+    await timer.tick();
+    await act(async () => page.root.render(<Harness business="B" />));
+    assert.equal(signal?.aborted, true);
+    assert.equal(timer.delay(), 5000);
+    await timer.tick();
+    assert.equal(timer.delay(), 10000);
+    await act(async () => finish());
+    assert.equal(refreshed, 0);
+    await timer.tick();
+    assert.equal(timer.delay(), 20000);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+  }
+});
+
 test("the badge uses the server count and an unknown count is never 0", () => {
   assert.equal(inboxCount({ receiptActivity: null }), null);
   assert.equal(inboxCount({ receiptActivity: { ...counts, pending_review_count: 1 } }), 1);
@@ -205,6 +391,19 @@ test("opening or old hydration does not mark seen; focused visible hydrated cont
   await act(async () => page.root.unmount());
 });
 
+
+test("the record in view acknowledges it, not only its last line", async () => {
+  const detail = await receipt();
+  let marked = 0;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), markReceiptRead: async (_id, cursor) => { marked++; return { state: "ready", unread: false, completion_cursor: cursor }; } };
+  const page = await host();
+  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><section data-testid="record"><p>Facts</p><ReceiptSeenBoundary receipt={detail} hydrated /></section></BusinessContext.Provider></I18nextProvider>));
+  const record = page.element.querySelector('[data-testid="record"]')!;
+  assert.ok(observed.has(record), "the boundary watches the record it closes, so a record taller than the screen is seen on open");
+  await act(async () => intersect(record));
+  assert.equal(marked, 1);
+  await act(async () => page.root.unmount());
+});
 
 test("an unpaid NCF due notice shows Factura por pagar on the dossier", async () => {
   const fixture = createFixtureBusinessDataSource();
@@ -271,4 +470,126 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   assert.ok(!document.body.textContent?.includes("Business A disclosure"));
   assert.equal(document.querySelector('[data-testid="receipt-reading-switch"]')?.getAttribute("aria-checked"), "false");
   await act(async () => page.root.unmount());
+});
+
+type Check = { known: string | null; answer: (page: { items: []; activity: ReceiptActivityCounts; version: string } | null) => void; fail: () => void; signal?: AbortSignal };
+/** A live source whose change checks the test answers by hand, in any order. */
+function checkedSource() {
+  const checks: Check[] = [];
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live",
+    receiptChanges: (known, signal) => new Promise((resolve, reject) => { checks.push({ known, answer: resolve, fail: () => reject(new Error("offline")), signal }); }) };
+  const page = (version: string) => ({ items: [] as [], activity: counts, version });
+  const settle = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  return { checks, source, page, settle };
+}
+
+test("each check names the version on screen; no change hands over nothing and the rhythm goes on", async () => {
+  const timer = clock();
+  const { checks, source, page, settle } = checkedSource();
+  const seen: (string | null)[] = [];
+  function Harness({ known }: { known: string | null }) {
+    useReceiptInboxRefresh({ source, active: true, reading: false, businessKey: "A", known, clock: timer.schedule, onRefresh: (answer) => { seen.push(answer ? answer.version ?? null : null); } });
+    return null;
+  }
+  const view = await host();
+  try {
+    await act(async () => view.root.render(<Harness known={'"v1"'} />));
+    await timer.tick();
+    assert.equal(checks[0].known, '"v1"');
+    checks[0].answer(null);
+    await settle();
+    assert.deepEqual(seen, [null], "no change: no list to apply");
+    assert.equal(timer.delay(), 15000);
+    await timer.tick();
+    checks[1].answer(page('"v2"'));
+    await settle();
+    assert.deepEqual(seen, [null, '"v2"']);
+    await act(async () => view.root.render(<Harness known={'"v2"'} />));
+    await timer.tick();
+    assert.equal(checks[2].known, '"v2"', "the next check names what the last one brought");
+  } finally { await act(async () => view.root.unmount()); view.element.remove(); }
+});
+
+test("a slow check that lands after a reload started is dropped: the newer answer wins (#2116)", async () => {
+  const timer = clock();
+  const { checks, source, page, settle } = checkedSource();
+  const applied: (string | null)[] = [];
+  function Harness({ epoch }: { epoch: number }) {
+    useReceiptInboxRefresh({ source, active: true, reading: false, businessKey: "A", known: '"v1"', epoch, clock: timer.schedule, onRefresh: (answer) => { if (answer) applied.push(answer.version ?? null); } });
+    return null;
+  }
+  const view = await host();
+  try {
+    await act(async () => view.root.render(<Harness epoch={0} />));
+    await timer.tick();
+    assert.equal(checks.length, 1, "the check is in flight");
+    // An action reloads: its answer is newer than anything the check can bring.
+    await act(async () => view.root.render(<Harness epoch={1} />));
+    assert.equal(checks[0].signal?.aborted, true, "the reload cancels the check in flight");
+    checks[0].answer(page('"stale"'));
+    await settle();
+    assert.deepEqual(applied, [], "the older answer never reaches the screen");
+    assert.equal(timer.delay(), 15000, "and the rhythm starts again from the reload");
+    await timer.tick();
+    checks[1].answer(page('"v3"'));
+    await settle();
+    assert.deepEqual(applied, ['"v3"']);
+  } finally { await act(async () => view.root.unmount()); view.element.remove(); }
+});
+
+test("with change checks a hidden tab asks nothing and a failed check still backs off", async () => {
+  const timer = clock();
+  const { checks, source, settle } = checkedSource();
+  function Harness() { useReceiptInboxRefresh({ source, active: true, reading: false, businessKey: "A", known: '"v1"', clock: timer.schedule, onRefresh: () => {} }); return null; }
+  const view = await host();
+  try {
+    await act(async () => view.root.render(<Harness />));
+    await timer.tick();
+    checks[0].fail();
+    await settle();
+    assert.equal(timer.delay(), 30000, "one failure doubles the wait");
+    hidden = true;
+    await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    assert.equal(timer.delay(), null, "hidden: nothing is scheduled");
+    await timer.tick();
+    assert.equal(checks.length, 1, "hidden: nothing is asked");
+    hidden = false;
+    await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    assert.equal(checks.length, 2, "one check when the tab comes back");
+    checks[1].answer(null);
+    await settle();
+    assert.equal(timer.delay(), 15000, "an answer, even no change, clears the back-off");
+  } finally { hidden = false; await act(async () => view.root.unmount()); view.element.remove(); }
+});
+
+test("every answered check is counted, also one with nothing new, and only one that brings lists changes them", async () => {
+  const timer = clock();
+  const { checks, source, page, settle } = checkedSource();
+  type Held = Parameters<typeof afterListCheck>[0];
+  const first: Held = { inbox: [], receiptActivity: counts, listVersion: '"v1"' };
+  let held = first;
+  function Harness() {
+    const [lists, setLists] = useState(first);
+    held = lists;
+    useReceiptInboxRefresh({ source, active: true, reading: false, businessKey: "A", known: lists.listVersion, clock: timer.schedule, onRefresh: (answer) => setLists((value) => afterListCheck(value, answer)) });
+    return null;
+  }
+  const view = await host();
+  try {
+    await act(async () => view.root.render(<Harness />));
+    await timer.tick();
+    checks[0].answer(null);
+    await settle();
+    assert.equal(held.listChecks, 1, "a list whose own read failed hears of the check and can ask again");
+    assert.equal(held.listChanges, undefined, "nothing new: a healthy list reads nothing");
+    assert.equal(held.inbox, first.inbox);
+    await timer.tick();
+    checks[1].fail();
+    await settle();
+    assert.equal(held.listChecks, 1, "a check that got no answer is not counted");
+    await timer.tick();
+    checks[2].answer(page('"v2"'));
+    await settle();
+    assert.deepEqual([held.listChecks, held.listChanges, held.listVersion], [2, 1, '"v2"']);
+  } finally { await act(async () => view.root.unmount()); view.element.remove(); }
 });

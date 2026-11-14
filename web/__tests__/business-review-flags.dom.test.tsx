@@ -70,6 +70,7 @@ async function render(dossier: BusinessDossier, language: Language = "es-419") {
     source: liveBusinessDataSource,
     reload: () => undefined,
     records: { inbox: [], notes: [], notesError: false, notesTruncated: false, error: false, workspace: null },
+    guardPanel: () => () => undefined,
     openPanel: (panel: BusinessPanelState) => { opened.push(panel); },
     actions: { create: [] },
     panel: { kind: "draft", draftId: dossier.draft_id },
@@ -290,7 +291,7 @@ test("a high ITBIS shows on the ITBIS row and approval goes straight through", a
   const approvals = serve(dossier);
   const page = await render(dossier);
   try {
-    assert.equal(page.host.querySelector('[data-fact="itbis"] [data-testid="itbis-high"]')?.textContent, flagCopy.itbis_high.text);
+    assert.equal(page.host.querySelector('[data-fact="itbis"] [data-testid="itbis-high"]'), null);
     await page.approve();
     assert.equal(page.step(), null, "a warning flag asks for nothing");
     assert.deepEqual(approvals.map((item) => item.body), [{ version: dossier.version, action: dossier.approval_action }]);
@@ -341,7 +342,7 @@ test("in English, one step lists every confirm flag and the export line once", a
   const page = await render(dossier, "en");
   try {
     const copy = en.business.dossier.review_flag;
-    assert.equal(page.host.querySelector('[data-testid="itbis-high"]')?.textContent, copy.itbis_high.text);
+    assert.equal(page.host.querySelector('[data-testid="itbis-high"]'), null);
     await page.approve();
     const step = page.step();
     assert.ok(step);
@@ -353,3 +354,38 @@ test("in English, one step lists every confirm flag and the export line once", a
     await page.close();
   }
 });
+
+for (const field of ["net_amount", "legal_tip"] as const) {
+  test(`${field} uses the Montos write, with its own row save and server version`, async () => {
+    const dossier = await flaggedReceipt([], accounts);
+    dossier.net_amount = { amount: "1000.00", source: "calculated" };
+    dossier.facts.legal_tip = { state: "known", value: "100.00", origin: "extracted", verified: false, source_ids: [] };
+    serve(dossier);
+    const previous = globalThis.fetch;
+    const writes: Record<string, unknown>[] = [];
+    globalThis.fetch = async (url, init) => {
+      if (new URL(String(url)).pathname.endsWith("/review") && init?.method === "PATCH") {
+        writes.push(JSON.parse(String(init.body)));
+        return Response.json({ ...dossier, version: dossier.version + 1, net_amount: { amount: "900.00", source: "edited" } });
+      }
+      return previous(url, init);
+    };
+    const page = await render(dossier);
+    try {
+      const open = page.host.querySelector<HTMLButtonElement>(`[data-fact="${field}"] button`)!;
+      await page.act(async () => open.click());
+      const input = page.host.querySelector<HTMLInputElement>(`input[data-testid="dossier-review-${field}"]`)!;
+      assert.ok(input);
+      if (field === "net_amount") assert.match(input.value, /1,000\.00/);
+      await page.act(async () => {
+        input.setSelectionRange(0, input.value.length);
+        input.dispatchEvent(new InputEvent("beforeinput", { inputType: "insertText", data: "900.00", bubbles: true, cancelable: true }));
+      });
+      const save = page.host.querySelector<HTMLButtonElement>(`[data-fact="${field}"] button[aria-label^="Guardar"]`)!;
+      await page.act(async () => save.click());
+      await page.settle();
+      assert.deepEqual(writes, [{ version: dossier.version, montos: { [field]: { state: "known", value: "900.00" } } }]);
+      assert.equal(page.host.querySelector(`[data-fact="${field}"] [data-row-open]`), null);
+    } finally { await page.close(); }
+  });
+}

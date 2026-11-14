@@ -109,8 +109,11 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
         record_expense(service, context)
     assert len(query(http, filters=PURCHASES)["items"]) == 25
     summary = preview(http)
-    assert summary["table"]["current"] == {"record_count": 26, "currencies": ["DOP"]}
+    current = summary["table"]["current"]
+    assert (current["record_count"], current["currencies"]) == (26, ["DOP"])
+    assert "currency" not in [column["key"] for column in current["columns"]]
     assert summary["table"]["all"]["record_count"] == 26
+    assert "currency" in [column["key"] for column in summary["table"]["all"]["columns"]]
     response = export(http)
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
     written = lines(response)
@@ -122,7 +125,7 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
         unquote(encoded),
     )
     assert fallback == f'attachment; filename="{unquote(encoded)}"'
-    assert written[0] == ["Contraparte", "Fecha", "Monto", "Moneda"]
+    assert written[0] == ["Contraparte", "Fecha", "Total", "Moneda"]
     assert len(written) == 27
     assert {line[3] for line in written[1:]} == {"DOP"}
     excel = export(http, format="xlsx")
@@ -136,22 +139,21 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
 def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     client, actions
 ):
-    from zipfile import ZipFile
-
-    from argus.domain.business.export import export_package
     from argus.domain.business.fiscal_profile import set_profile
-    from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 
     from tests.test_business_declaration_after_approval_postgres import (
         FILER,
         PERIOD,
-        TXT_606,
         account_funding,
         approved,
         captured,
         declared,
     )
-    from tests.test_business_dgii_postgres import PRACTICE_NAME, filer_change
+    from tests.test_business_dgii_postgres import (
+        PRACTICE_NAME,
+        filer_change,
+        handover_dgii,
+    )
 
     http, _ = client
     service, context, _ = actions
@@ -163,10 +165,9 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     assert declared(service, context, complete, view.version, category="02").outcome == (
         "applied"
     )
-    # With nothing pending the month ships its TXT; the file holds the same line.
-    package = export_package(service.authority, context, PERIOD, InMemorySourceObjects())
-    with ZipFile(io.BytesIO(package)) as archive:
-        txt = archive.read(TXT_606).decode().split("\r\n")[1:]
+    # With nothing pending the month prepares its 606; the file holds the same line.
+    prepared, rows = handover_dgii(service, context, PERIOD)
+    assert prepared["forms"]["606"]["status"] == "prepared_candidate"
     pending, version = captured(service, context, "B0100000032", funding)
     approved(service, context, pending, version)
     month = {**PURCHASES, "period": SEPTEMBER}
@@ -208,10 +209,14 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
         :-1
     ].replace("PRACTICA Jose", PRACTICE_NAME)
     assert written[0][:2] == ["RNC o Cédula", "Tipo Id"]
-    (official,) = [line.split("|") for line in txt if line]
-    assert (official[2], official[11], official[17], official[22]) == ("02", "", "", "01")
+    (official,) = [list(row) for row in rows["606"]]
+    assert (official[2], official[11], official[17], official[22]) == (
+        "02",
+        "0.00",
+        "0.00",
+        "01",
+    )
     official[2] = "02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS "
-    official[11] = official[17] = "0"
     official[22] = "01 - EFECTIVO"
     official[5:7] = [official[5][:6], official[5][6:], official[6][:6], official[6][6:]]
     assert written[1:] == [official]

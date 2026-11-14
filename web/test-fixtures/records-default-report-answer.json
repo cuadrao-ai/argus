@@ -1,27 +1,147 @@
 {
   "presentation": {
     "order": [
+      "counterparty_id",
       "counterparty",
-      "fiscal_number",
       "date",
-      "gross_amount",
+      "expense_type",
+      "net_amount",
       "itbis_amount",
+      "gross_amount",
       "stage",
+      "fiscal_number",
       "note",
       "attachment",
-      "expense_type",
       "payment_form",
       "funding"
     ],
     "hidden": [
-      "funding",
-      "payment_form",
-      "expense_type",
+      "counterparty",
       "fiscal_number",
-      "itbis_amount"
+      "note",
+      "attachment",
+      "payment_form",
+      "funding"
     ],
     "density": 48
   },
+  "columns": [
+    {
+      "key": "counterparty_id",
+      "label_key": "business.transactions.columns.rnc_cedula",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "counterparty",
+      "label_key": "business.transactions.columns.contraparte",
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "date",
+      "label_key": "business.transactions.columns.fecha",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "expense_type",
+      "label_key": "business.dossier.placeholder.expense_type",
+      "shown": true,
+      "families": [
+        "purchase"
+      ]
+    },
+    {
+      "key": "net_amount",
+      "label_key": "business.terms.net_amount",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "itbis_amount",
+      "label_key": "business.terms.itbis",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "gross_amount",
+      "label_key": "business.terms.total",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "stage",
+      "label_key": "business.transactions.layout.column_state",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "fiscal_number",
+      "label_key": "business.transactions.columns.ncf",
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "note",
+      "label_key": "business.transactions.columns.notas",
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "attachment",
+      "label_key": "business.transactions.layout.column_attachment",
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "payment_form",
+      "label_key": "business.dossier.placeholder.payment_form",
+      "shown": false,
+      "families": [
+        "purchase"
+      ]
+    },
+    {
+      "key": "funding",
+      "label_key": "business.transactions.columns.cuenta",
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    }
+  ],
   "items": [],
   "overview": {
     "needs_review": 0,

@@ -171,6 +171,14 @@ class DocumentJobSettings(BaseSettings):
         le=300,
         validation_alias=setting_aliases("DOCUMENT_JOBS_DRAIN_SECONDS"),
     )
+    # How often the sweep loop also purges documents past their days in
+    # Eliminados and finishes erases left over. 0 turns the expiry off.
+    purge_every_seconds: float = Field(
+        default=3600.0,
+        ge=0,
+        le=86400,
+        validation_alias=setting_aliases("DOCUMENT_PURGE_EVERY_SECONDS"),
+    )
 
 
 def load_document_job_settings() -> DocumentJobSettings:

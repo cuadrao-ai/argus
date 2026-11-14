@@ -17,6 +17,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from argus.domain.ingestion.documents.models import ExtractionBatch
+from argus.llm.openrouter_key_policy import resolve_openrouter_api_key
 from argus.llm.openrouter_retention import openrouter_provider_policy
 from argus.llm.openrouter_tasks import OPENROUTER_PROFILES
 
@@ -462,7 +463,7 @@ def _check_count(fixture: Fixture) -> int:
 def require_api_key() -> None:
     if os.getenv("APP_ENV", "").strip().lower() in HOSTED_ENVS:
         raise MeasurementError("hosted_environment")
-    if not os.environ.get("OPENROUTER_API_KEY", "").strip():
+    if not resolve_openrouter_api_key():
         raise MeasurementError("missing_api_key")
 
 
@@ -684,7 +685,7 @@ def _provider_code(value: object) -> str | int | None:
 
 
 def _redact_api_key(value: str) -> str:
-    secret = os.environ.get("OPENROUTER_API_KEY")
+    secret = resolve_openrouter_api_key()
     if secret:
         return value.replace(secret, "")
     return value

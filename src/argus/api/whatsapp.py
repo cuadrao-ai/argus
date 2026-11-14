@@ -176,7 +176,7 @@ class DocumentsDestination:
         draft's status then, still ``queued`` or ``preparing`` when one read's
         time passed first, else ``None``."""
 
-        from argus.api.documents import dispatch_preparation
+        from argus.api.documents import dispatch_preparation, release_unstarted
 
         scope = resolve_business_scope(self.spaces, owner_id)
         if scope is None:
@@ -187,27 +187,12 @@ class DocumentsDestination:
         if current.status != "queued":
             return None
         try:
-            await dispatch_preparation(
-                _as_owner(self.documents, owner_id, scope.owner),
-                owner_id,
-                connection_id,
-                scope=scope.owner,
-            )
+            owned = _as_owner(self.documents, owner_id, scope.owner)
         except Exception as error:
-            # A read that could not start is not "reading": the receipt waits
-            # saved, with the reason recorded, for the owner to prepare. If the
-            # release fails too, the original error is the one raised, with the
-            # release failure chained behind it.
-            try:
-                self.documents.release_queued(
-                    user_id=owner_id,
-                    connection_id=connection_id,
-                    scope=scope.owner,
-                    code=getattr(error, "code", type(error).__name__),
-                )
-            except Exception as release_error:  # noqa: BLE001
-                raise error from release_error
-            raise
+            release_unstarted(
+                self.documents, owner_id, connection_id, scope=scope.owner, error=error
+            )
+        await dispatch_preparation(owned, owner_id, connection_id, scope=scope.owner)
         settled = await self._settled(owner_id, connection_id, scope.owner)
         return settled.status, self._found(owner_id, connection_id)
 

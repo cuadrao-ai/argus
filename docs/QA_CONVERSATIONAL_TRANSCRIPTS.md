@@ -29,7 +29,7 @@ Recommended local settings:
 
 - `NEXT_PUBLIC_MOCK_AUTH=true`
 - `NEXT_PUBLIC_ARGUS_API_URL=http://127.0.0.1:8000/api/v1`
-- `OPENROUTER_API_KEY` set in backend `.env`
+- `CUADRAO_OPENROUTER_API_KEY_DEV` (local; `OPENROUTER_API_KEY` is the legacy fallback) set in backend `.env`
 - Alpaca credentials set in backend `.env`
 - Supabase variables set when testing persistence.
 

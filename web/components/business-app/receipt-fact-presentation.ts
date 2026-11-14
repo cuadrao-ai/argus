@@ -16,6 +16,7 @@ export function presentBusinessFact(
   labels: { unknown: string; ownerUnknown: string; ownerFunds: string; businessAccount: string; noCurrency?: string; value?: (key: BusinessFactField, value: string) => string },
 ): string {
   const fact = facts[key];
+  if (!fact) return labels.unknown;
   if (fact.state !== "known") return fact.state === "owner_does_not_know" ? labels.ownerUnknown : labels.unknown;
   if (key === "funding") {
     const funding = facts.funding;
@@ -29,7 +30,7 @@ export function presentBusinessFact(
     if (share.state !== "known") return labels.unknown;
     return share.value.kind === "partial" ? moneyOrUnknown(share.value.amount, facts, locale, labels.noCurrency) : labels.value?.(key, share.value.kind) ?? share.value.kind;
   }
-  if (key === "amount") return moneyOrUnknown(String(fact.value), facts, locale, labels.noCurrency);
+  if (key === "amount" || key === "net_amount" || key === "legal_tip") return moneyOrUnknown(String(fact.value), facts, locale, labels.noCurrency);
   if (key === "occurred_on") return formatDay(String(fact.value), locale);
   return labels.value?.(key, String(fact.value)) ?? String(fact.value);
 }

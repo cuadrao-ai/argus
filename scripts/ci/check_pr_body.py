@@ -1,6 +1,4 @@
-"""dependabot[bot] is exempt because .github/dependabot.yml opens those
-pull requests, and this template does not fill them.
-"""
+"""Validate required pull request metadata; bot-authored requests are exempt."""
 
 from __future__ import annotations
 
@@ -13,7 +11,11 @@ from pathlib import Path
 HEADING = "## Merge Danger"
 REQUIRED_FIELDS = ("Door", "Blast radius", "Rollback")
 DOORS = frozenset({"one-way", "two-way"})
-EXEMPT_AUTHORS = frozenset({"dependabot[bot]"})
+ISSUE_REFERENCE = re.compile(r"\b(?:closes|fixes|refs)\s+#[1-9][0-9]*\b", re.IGNORECASE)
+PILOT_FLOWS = ("upload", "email", "WhatsApp", "review", "month close", "606/607")
+PILOT_FLOW = re.compile(r"(?:[-*]\s+)?Pilot flow:[ \t]*(?P<value>.*)")
+NO_PILOT_FLOW = re.compile(r"none \((?P<reason>.+)\)")
+TEMPLATE_REASON_HINT = "reason"
 FIELD_LINE = re.compile(
     r"^(?:[-*]\s+)?(?P<name>Door|Blast radius|Rollback|Eval tier):\s*(?P<value>.*)$"
 )
@@ -67,7 +69,33 @@ def body_problems(body: str) -> list[str]:
             continue
         if name == "Door" and value not in DOORS:
             problems.append("Door must be one-way or two-way")
+    lines = [line.strip() for line in body.splitlines()]
+    if not any(ISSUE_REFERENCE.search(line) for line in lines):
+        problems.append(
+            "missing issue reference: write Closes, Fixes or Refs and the issue number, as in Closes #12"
+        )
+    if not any(valid_pilot_flow(line) for line in lines):
+        problems.append(
+            "missing or invalid Pilot flow line; use one or more of "
+            f"{', '.join(PILOT_FLOWS)} (comma-separated), or none (<written reason>)"
+        )
     return problems
+
+
+def valid_pilot_flow(line: str) -> bool:
+    match = PILOT_FLOW.fullmatch(line)
+    if match is None:
+        return False
+    value = match.group("value").strip()
+    no_flow = NO_PILOT_FLOW.fullmatch(value)
+    if no_flow is not None:
+        reason = no_flow.group("reason").strip()
+        return (
+            bool(reason)
+            and not PLACEHOLDER.fullmatch(reason)
+            and reason.lower() != TEMPLATE_REASON_HINT
+        )
+    return all(flow.strip() in PILOT_FLOWS for flow in value.split(","))
 
 
 def pull_request(payload: object) -> dict | None:
@@ -85,6 +113,13 @@ def author_login(request: dict) -> str:
         return ""
     login = user.get("login")
     return login if isinstance(login, str) else ""
+
+
+def is_bot_author(request: dict) -> bool:
+    user = request.get("user")
+    return author_login(request).endswith("[bot]") or (
+        isinstance(user, dict) and user.get("type") == "Bot"
+    )
 
 
 def request_body(request: dict) -> str:
@@ -107,7 +142,7 @@ def main() -> int:
         print("The event has no pull request.", file=sys.stderr)
         return 1
     login = author_login(request)
-    if login in EXEMPT_AUTHORS:
+    if is_bot_author(request):
         print(f"exempt author {login}")
         return 0
     problems = body_problems(request_body(request))

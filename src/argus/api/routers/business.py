@@ -131,10 +131,7 @@ from argus.api.whatsapp import whatsapp_receiving_available
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
-from argus.domain.business.config import (
-    business_activity_enabled,
-    business_settlement_enabled,
-)
+from argus.domain.business.config import business_settlement_enabled
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
@@ -834,7 +831,6 @@ def get_workspace(
         "invoicing_available": invoicing_available(request),
         "notifications_available": notifications_available(),
         "settlement_available": business_settlement_enabled(),
-        "activity_available": business_activity_enabled(),
         "receiving_channels": {
             "email": {"available": email_receiving_available()},
             "whatsapp": {"available": whatsapp_receiving_available(context.scope)},
@@ -1004,13 +1000,6 @@ async def set_receipt_reading(
                         scope=context.scope.owner,
                     )
                 except DocumentServiceError as error:
-                    await run_in_threadpool(
-                        context.service.documents.release_queued,
-                        user_id=context.scope.person_id,
-                        connection_id=receipt_id,
-                        scope=context.scope.owner,
-                        code=error.code,
-                    )
                     if error.retryable:
                         failure = error
             if failure is not None:
@@ -1049,21 +1038,48 @@ def mark_receipt_read(
         raise _problem(request, error) from None
 
 
-@router.get("/receipts", response_model=ReceiptPage)
+@router.get(
+    "/receipts",
+    response_model=ReceiptPage,
+    responses={
+        304: {
+            "description": "The Business's lists have not changed since the "
+            "version named in `If-None-Match`. No body."
+        }
+    },
+)
 def list_receipts(
     request: Request,
+    response: Response,
     view: Literal["inbox", "all"] = "inbox",
+    if_none_match: Annotated[
+        str | None,
+        Header(
+            description="The `ETag` of an earlier answer. When the Business's "
+            "lists still have that version the answer is 304 with no body."
+        ),
+    ] = None,
     context: BusinessContext = Depends(require_business),  # noqa: B008
-) -> dict[str, Any]:
+) -> Any:
     try:
+        from argus.api import business_list_version as versions
         from argus.api.business_receipt_activity import counts
         from argus.domain.business.receipts import CLOSED
 
+        version = versions.stored_version(context)
+        if version and versions.unchanged(if_none_match, version):
+            return versions.not_modified(version)
         items = receipt_summaries(context, "all")
         activity = counts(context, items)
         if view == "inbox":
             items = [item for item in items if item["status"] not in CLOSED]
-        return {"items": items, "activity": activity}
+        answer = {"items": items, "activity": activity}
+        if version is None:
+            version = versions.answer_version(context, answer)
+            if versions.unchanged(if_none_match, version):
+                return versions.not_modified(version)
+        response.headers["ETag"] = versions.etag(version)
+        return answer
     except Exception as error:
         raise _problem(request, error) from None
 

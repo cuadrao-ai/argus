@@ -63,7 +63,7 @@ async function mount(target: { kind: "receipt"; id: string }, overrides: (fixtur
 const optionTexts = (select: Element | null | undefined) => [...(select?.querySelectorAll("option") ?? [])].map((option) => option.textContent ?? "");
 
 describe("the currency picker on a receipt", () => {
-  test("offers the same options when editing the currency of a prepared record", async () => {
+  test("offers DOP, USD and EUR from the Montos header on a prepared record", async () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     const view = await mount({ kind: "receipt", id: "rcpt-ferreteria" }, (fixture) => ({
       receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), draft_id: dossierFixtureIds.fiscal }),
@@ -74,13 +74,13 @@ describe("the currency picker on a receipt", () => {
       },
     }));
     try {
-      await view.settle(() => Boolean(view.host.querySelector('[data-fact="amount"] button')));
-      const edit = view.host.querySelector<HTMLButtonElement>('[data-fact="amount"] button');
+      await view.settle(() => Boolean(view.host.querySelector('[data-fact="currency"] button')));
+      const edit = view.host.querySelector<HTMLButtonElement>('[data-fact="currency"] button');
       assert.ok(edit);
       await view.idle();
       await view.act(async () => edit.click());
-      const picker = view.host.querySelector('[data-testid="edit-amount"] select');
-      assert.deepEqual(optionTexts(picker).filter(Boolean).filter((text) => text !== "Elegir"), ["DOP", "CAD", "EUR"]);
+      const picker = view.host.querySelector('[data-testid="edit-currency"] select');
+      assert.deepEqual(optionTexts(picker).filter(Boolean).filter((text) => text !== "Elegir"), ["DOP", "USD", "EUR"]);
     } finally { await view.close(); }
   });
 });

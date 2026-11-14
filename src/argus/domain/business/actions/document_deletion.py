@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
@@ -22,9 +23,12 @@ from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.documents.models import DocumentDraft
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
+from argus.domain.ingestion.reconcile.store import ImportTx
 
 if TYPE_CHECKING:
     from argus.domain.business.actions.service import BusinessActions
+
+Rows = Callable[[str, tuple[Any, ...]], list[dict[str, Any]]]
 
 
 def change_document(
@@ -40,7 +44,11 @@ def change_document(
             plans.start_receipt(tx, key, command)
             try:
                 with tx.connection.transaction():
-                    result = _change(tx, command, key)
+                    result = (
+                        _purge(tx, command)
+                        if command.action == "purge_document"
+                        else _change(tx, command, key)
+                    )
             except ActionError as error:
                 result = error.result
             return plans.finish_receipt(tx, key, result)
@@ -48,31 +56,34 @@ def change_document(
         return error.result
 
 
-def _target(
-    tx: ActionTransaction, document_id: UUID
+def target(
+    rows: Rows, imports: ImportTx, space_id: UUID, owner_id: str, document_id: UUID
 ) -> tuple[ImportEvent | None, list[dict], tuple[ImportEvent, ...]]:
+    """The draft (or generic candidates) and the uploads one document id names,
+    the uploads locked. Either id of a document reaches the same rows."""
+
     candidates = ()
     try:
-        event = tx.imports.event(str(document_id))
+        event = imports.event(str(document_id))
     except EventNotFound:
         event = None
     if event is None:
-        rows = tx.rows(
+        linked = rows(
             "select distinct e.id from public.financial_import_events e"
             " left join public.business_draft_sources l on l.draft_id=e.id and l.space_id=e.owner_space_id"
             " left join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
             " left join public.financial_import_observations o on o.event_id=e.id and o.user_id=e.user_id"
             " where e.owner_space_id=%s and e.user_id=%s"
             " and (s.connection_id=%s or o.connection_id=%s) order by e.id",
-            (tx.context.actor.space_id, tx.context.owner_id, document_id, document_id),
+            (space_id, owner_id, document_id, document_id),
         )
-        if len(rows) > 1:
-            candidates = tuple(tx.imports.event(str(row["id"])) for row in rows)
+        if len(linked) > 1:
+            candidates = tuple(imports.event(str(row["id"])) for row in linked)
             if any("business" in candidate.resolution for candidate in candidates):
                 raise ActionError("invalid_input", "business_document_ambiguous")
-        elif rows:
-            event = tx.imports.event(str(rows[0]["id"]))
-    attachments = tx.rows(
+        elif linked:
+            event = imports.event(str(linked[0]["id"]))
+    attachments = rows(
         "select d.connection_id,d.draft,c.lease_until from public.financial_document_extractions d"
         " join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id"
         " where c.owner_space_id=%s and c.user_id=%s and c.status<>'disconnected'"
@@ -83,19 +94,19 @@ def _target(
         " union select o.connection_id from public.financial_import_observations o"
         " where o.event_id=%s and o.user_id=%s)) for update of c,d",
         (
-            tx.context.actor.space_id,
-            tx.context.owner_id,
+            space_id,
+            owner_id,
             document_id,
             event.id if event else None,
-            tx.context.actor.space_id,
+            space_id,
             event.id if event else None,
-            tx.context.owner_id,
+            owner_id,
         ),
     )
     if (
         event is not None
         and attachments
-        and tx.rows(
+        and rows(
             "select 1 from public.business_draft_sources l"
             " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
             " where l.space_id=%s and s.connection_id=any(%s) and l.draft_id<>%s"
@@ -103,11 +114,11 @@ def _target(
             " join public.financial_import_events e on e.id=o.event_id and e.user_id=o.user_id"
             " where e.owner_space_id=%s and e.user_id=%s and o.connection_id=any(%s) and e.id<>%s limit 1",
             (
-                tx.context.actor.space_id,
+                space_id,
                 [row["connection_id"] for row in attachments],
                 event.id,
-                tx.context.actor.space_id,
-                tx.context.owner_id,
+                space_id,
+                owner_id,
                 [row["connection_id"] for row in attachments],
                 event.id,
             ),
@@ -136,8 +147,35 @@ def is_reading(tx: ActionTransaction, attachments: list[dict]) -> bool:
     )
 
 
+def _purge(tx: ActionTransaction, command: DocumentCommand) -> Applied:
+    from argus.domain.business.actions.document_purge import purge
+
+    purged = purge(
+        tx.connection,
+        tx.imports,
+        space_id=tx.context.actor.space_id,
+        owner_id=tx.context.owner_id,
+        document_id=command.document_id,
+        reason="owner",
+        now=datetime.now(timezone.utc),
+    )
+    # A second purge, or one that lost the race to the expiry, ends in the
+    # same state and lists no second Activity entry.
+    return Applied(outcome="applied" if purged else "replayed")
+
+
 def _change(tx: ActionTransaction, command: DocumentCommand, key: str) -> Applied:
-    event, attachments, candidates = _target(tx, command.document_id)
+    from argus.domain.business.actions.document_purge import was_purged
+
+    if was_purged(tx.connection, tx.context.actor.space_id, command.document_id):
+        raise ActionError("not_found", "business_document_purged")
+    event, attachments, candidates = target(
+        tx.rows,
+        tx.imports,
+        tx.context.actor.space_id,
+        tx.context.owner_id,
+        command.document_id,
+    )
     document = attachments[0]["draft"] if attachments else None
     state = event.state if event else document["status"]
     resolution = dict(event.resolution if event else document.get("resolution", {}))
@@ -174,7 +212,7 @@ def _change(tx: ActionTransaction, command: DocumentCommand, key: str) -> Applie
                 events={candidate.id: candidate.state for candidate in candidates},
             ),
         )
-        resolution["deleted"] = marker.model_dump(mode="json")
+        resolution["deleted"] = marker.stored()
         state = "dismissed"
     elif not deleting:
         if marker is None:

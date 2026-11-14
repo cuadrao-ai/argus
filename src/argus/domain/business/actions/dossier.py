@@ -8,10 +8,15 @@ from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.fiscal import remembered_expense_type
+from argus.domain.business.actions.fiscal import RememberedField, last_choice
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
+from argus.domain.business.amount_inheritance import (
+    draft_is_paid,
+    inherit_amounts,
+    inheritance_state,
+)
 from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.approved_facts import approved_revision_sql
 from argus.domain.business.authority import ActionError
@@ -24,6 +29,7 @@ from argus.domain.business.contracts.dossier import (
     ApprovalResult,
     Blocker,
     BusinessDossier,
+    DeclarationSuggestions,
     DraftRevision,
     DuplicateCandidate,
     RecordContext,
@@ -37,6 +43,7 @@ from argus.domain.business.document_type import kind_disagrees
 from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.fact_blockers import blockers
 from argus.domain.business.purchase_review import (
+    net_amount,
     takes_payment_split,
     takes_purchase_declaration,
 )
@@ -204,11 +211,28 @@ def shown_bill_mark(resolution: BusinessResolution) -> str | None:
     return resolution.bill_mark if business_settlement_enabled() else None
 
 
-def _chose_expense_type(declaration: DgiiDeclaration | None) -> bool:
-    return (
-        isinstance(declaration, PurchaseDeclaration)
-        and declaration.category is not None
-        and not declaration.category_suggested
+def _suggestions(
+    tx: ActionTransaction, draft_id: UUID, declaration: DgiiDeclaration | None
+) -> DeclarationSuggestions:
+    """The last choice for this RNC, for each answer the draft has not got. A
+    tipo de gasto nobody confirmed is not the draft's own."""
+
+    purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
+    own: dict[RememberedField, bool] = {
+        "category": bool(
+            purchase and purchase.category and not purchase.category_suggested
+        ),
+        "payment_method": bool(purchase and purchase.payment_method),
+    }
+    remembered = {
+        field: last_choice(tx, draft_id, field) for field in own if not own[field]
+    }
+    return DeclarationSuggestions.model_validate(
+        {
+            field: {"value": value, "source": "last_choice"}
+            for field, value in remembered.items()
+            if value
+        }
     )
 
 
@@ -229,7 +253,7 @@ def dossier(
     questions = review_questions(tx, [draft_id]).get(str(draft_id), ())
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,reason"
         " from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
@@ -292,6 +316,8 @@ def dossier(
         approved_revision,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
+    paid = draft_is_paid(tx, event.activity_id, resolution.bill_mark)
+    declaration = inherit_amounts(facts, resolution.dgii, resolution.fiscal_overrides, paid=paid)
     approvable = not blocked and "approve" in tx.authorization.capabilities
     can_prepare = "prepare" in tx.authorization.capabilities
     can_annotate = annotation_available(tx.authorization, event)
@@ -326,11 +352,13 @@ def dossier(
         version=event.version,
         review_state=event.state,
         facts=facts,
+        net_amount=net_amount(facts, declaration),
+        inheritance=inheritance_state(facts, declaration, resolution.fiscal_overrides, paid=paid),
         sources=tuple(evidence),
         questions=questions,
         history=revisions,
         blockers=tuple(blocked),
-        review_flags=review_flags(facts, rnc_registry(tx)),
+        review_flags=review_flags(facts, rnc_registry(tx), declaration=resolution.dgii),
         approval_available=approvable,
         duplicate_candidates=duplicate_candidates(tx, event, duplicate_ids),
         approval_action=APPROVAL_ACTION[facts.kind.value] if approvable else None,
@@ -345,14 +373,14 @@ def dossier(
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
         bill_mark=shown_bill_mark(resolution),
-        dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
+        dgii=declaration.model_dump(mode="json") if declaration else None,
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open" and can_prepare,
         declaration_editable=declaration_editable,
-        expense_type_suggestion=remembered_expense_type(tx, draft_id)
-        if declaration_editable and not _chose_expense_type(resolution.dgii)
-        else None,
+        declaration_suggestions=_suggestions(tx, draft_id, resolution.dgii)
+        if declaration_editable
+        else DeclarationSuggestions(),
         payment_split_editable=fiscal_writable
         and takes_payment_split(resolution.document_type),
         reopen_available=reopen_available,

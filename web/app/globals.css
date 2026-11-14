@@ -904,6 +904,11 @@ body[data-workspace-bounded] [data-workspace-canvas] {
   color: var(--auth-pine);
 }
 
+/* A hover fade on top of the pine label drops it below 4.5:1 on cream. */
+[data-auth-brand="cuadrao"] button[type="button"]:hover:not(:disabled) {
+  opacity: 1;
+}
+
 [data-auth-brand="cuadrao"] button[aria-label]:hover {
   background-color: var(--auth-sage);
 }
@@ -914,23 +919,22 @@ body[data-workspace-bounded] [data-workspace-canvas] {
   outline-offset: 3px;
 }
 
-/* A primary link or button that is not the form's submit, such as "Volver a iniciar sesión" after a recovery. */
-[data-auth-brand="cuadrao"] :is(a, button).auth-primary {
+/*
+ * The primary action: the form's submit, or a link or button marked auth-primary such as "Enviar otro enlace".
+ * Every state sets its background and label together. These rules follow the text-button rules above, so they win a tie.
+ */
+[data-auth-brand="cuadrao"] :is(button[type="submit"], .auth-primary) {
   background-color: var(--auth-pine);
   color: var(--auth-on-pine);
 }
 
-[data-auth-brand="cuadrao"] button[type="submit"] {
-  background-color: var(--auth-pine);
-  color: var(--auth-on-pine);
-}
-
-[data-auth-brand="cuadrao"] button[type="submit"]:hover:not(:disabled) {
+[data-auth-brand="cuadrao"] :is(button[type="submit"], .auth-primary):hover:not(:disabled) {
   background-color: var(--auth-pine-hover);
+  color: var(--auth-on-pine);
   opacity: 1;
 }
 
-[data-auth-brand="cuadrao"] button[type="submit"]:disabled {
+[data-auth-brand="cuadrao"] :is(button[type="submit"], .auth-primary):disabled {
   background-color: var(--auth-sage);
   color: var(--auth-muted);
   opacity: 1;

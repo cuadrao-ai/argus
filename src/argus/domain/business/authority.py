@@ -13,6 +13,7 @@ from argus.domain.business.contracts.authority import (
     Capability,
     TrustedActor,
 )
+from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole, Permission
 from argus.domain.owner_scope import BusinessSpace
 
@@ -43,6 +44,8 @@ class ActionContext:
     space_name: str
     current_owner_id: str
     business_role: BusinessRole = BusinessRole.OWNER
+    #: The Business's country, as its spaces row says.
+    country: str = DEFAULT_COUNTRY
 
     @property
     def is_current_owner(self) -> bool:
@@ -80,7 +83,7 @@ def authorize(
     with connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute(
             """select g.id, g.issuer_id, g.capabilities, g.business_role,
-                s.created_by::text as owner_id, s.current_owner_id::text, s.name,
+                s.created_by::text as owner_id, s.current_owner_id::text, s.name, s.country,
                 p.display_name as actor_name, p.username as actor_username,
                 i.display_name as issuer_name, i.username as issuer_username
             from public.business_client_grants g
@@ -117,7 +120,13 @@ def authorize(
         capabilities &= {"read", "prepare"}
     return Authorization(
         context=ActionContext(
-            actor, row["id"], row["owner_id"], row["name"], row["current_owner_id"], role
+            actor,
+            row["id"],
+            row["owner_id"],
+            row["name"],
+            row["current_owner_id"],
+            role,
+            row["country"],
         ),
         provenance=ActorProvenance(
             actor_id=actor.actor_id,

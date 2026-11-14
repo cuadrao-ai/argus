@@ -196,6 +196,36 @@ describe("a record in the desktop tray", () => {
     assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Registros"), true);
   });
 
+  test("an approved Bandeja row opens beside the Bandeja, and closing returns to the Bandeja with focus on its row", async () => {
+    const page = await mount();
+    await openInbox(page);
+    await page.settle(() => page.row("Nube Hosting") !== null, "the approved row");
+    await openRow(page, "Nube Hosting");
+    const panel = page.panel();
+    assert.ok(panel.kind === "receipt");
+    assert.deepEqual({ receiptId: panel.receiptId, list: panel.list }, { receiptId: "rcpt-confirmed", list: "inbox" });
+    assert.ok(page.host.querySelector('[data-testid="reception-preview"]'), "the Bandeja list is still on the page");
+    assert.equal(page.host.querySelector("[data-record-id]"), null, "Registros is not drawn under the tray");
+    assert.equal(page.row("Nube Hosting")?.getAttribute("aria-current"), "true");
+    assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Bandeja"), true, "the sidebar marks the Bandeja");
+    await page.click(page.tray()!.querySelector<HTMLElement>('button[aria-label="Cerrar"]'));
+    await page.settle(() => page.tray() === null, "the tray to close");
+    assert.deepEqual(page.panel(), { kind: "inbox" });
+    assert.equal(document.activeElement, page.row("Nube Hosting")?.querySelector("button"), "focus is back on the row");
+    assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Bandeja"), true);
+  });
+
+  test("a link to a saved expense opens its receipt beside Transacciones, and closing returns to Transacciones", async () => {
+    const page = await mount();
+    await page.open({ kind: "expense", expenseId: "exp-hosting" });
+    await page.settle(() => page.recordTitle() === "Nube Hosting" && page.host.querySelector('[data-record-id="exp-hosting"]') !== null, "the receipt beside Registros");
+    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" });
+    assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Registros"), true);
+    await page.click(page.tray()!.querySelector<HTMLElement>('button[aria-label="Cerrar"]'));
+    await page.settle(() => page.tray() === null, "the tray to close");
+    assert.deepEqual(page.panel(), { kind: "transactions" });
+  });
+
   test("a link to a recorded receipt opens it beside Transacciones once it has loaded", async () => {
     const page = await mount();
     await page.open({ kind: "receipt", receiptId: "rcpt-confirmed" });

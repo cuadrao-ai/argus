@@ -66,6 +66,12 @@ class _KeySettings(BaseSettings):
         return value
 
 
+MODEL_CREDENTIAL_ENV_NAMES = tuple(
+    field.validation_alias
+    for field in _KeySettings.model_fields.values()
+    if field.annotation is SecretStr
+)
+
 _current_traffic_class: ContextVar[OpenRouterTrafficClass | None] = ContextVar(
     "argus_openrouter_traffic_class",
     default=None,

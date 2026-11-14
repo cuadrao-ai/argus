@@ -63,17 +63,17 @@ test("a connected last page uses full server count and original row order, with 
   const context = { chosen: { space_id: "fixture-space", role: "owner", capabilities: ["read", "prepare"] }, panel: { kind: "transactions" }, openPanel: () => undefined, records: { workspace: null } } as unknown as BusinessContextValue;
   const host = document.createElement("div"); document.body.appendChild(host); root = createRoot(host);
   await act(async () => root?.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>
-    <RecordsPagePreview records={items.map(businessReportRow)} density="normal" preferences={sampleRecordsPreferences()} onSortChange={() => { throw new Error("Connected rows cannot sort locally"); }} rowRef={() => undefined} resetKey="report" connected={{ answer, onPage: (page) => pages.push(page), onPageSize: (size) => sizes.push(size) }} />
+    <RecordsPagePreview records={items.map(businessReportRow)} density="normal" preferences={{ ...sampleRecordsPreferences(), hidden: [] }} onSortChange={() => { throw new Error("Connected rows cannot sort locally"); }} rowRef={() => undefined} resetKey="report" connected={{ answer, onPage: (page) => pages.push(page), onPageSize: (size) => sizes.push(size) }} />
   </BusinessContext.Provider></I18nextProvider>));
   assert.equal(document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page"), "5");
   assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /101.*102.*102/);
   const rows = [...document.querySelectorAll('tbody tr[data-record-id]')];
   assert.deepEqual(rows.map((item) => item.getAttribute("data-record-id")), ["zeta", "alfa"]);
-  assert.match(rows[0].querySelector('[data-col="monto"]')!.textContent!, /-/);
-  assert.equal(rows[0].querySelector('[data-col="notas"]')!.textContent, "Nota actual");
-  assert.equal(rows[0].querySelector('[data-col="notas"] button'), null);
+  assert.match(rows[0].querySelector('[data-col="gross_amount"]')!.textContent!, /-/);
+  assert.equal(rows[0].querySelector('[data-col="note"]')!.textContent, "Nota actual");
+  assert.equal(rows[0].querySelector('[data-col="note"] button'), null);
   assert.equal(document.querySelector('[data-record-workflow="ready"]'), null);
-  await act(async () => (document.querySelector('th[data-col="fecha"] button') as HTMLElement).click());
+  await act(async () => (document.querySelector('th[data-col="date"] button') as HTMLElement).click());
   await act(async () => (document.querySelector('button[aria-label="Primera página"]') as HTMLElement).click());
   assert.deepEqual(pages, [1]);
   const picker = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("25 por página"));

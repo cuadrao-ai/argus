@@ -236,6 +236,19 @@ def load_env_file(path: Path) -> dict[str, str]:
     return values
 
 
+def configure_model_key_file(path: Path) -> None:
+    from argus.llm.openrouter_key_policy import (
+        MODEL_CREDENTIAL_ENV_NAMES,
+        resolve_openrouter_api_key,
+    )
+
+    values = load_env_file(path)
+    os.environ.update({name: values.get(name, "") for name in MODEL_CREDENTIAL_ENV_NAMES})
+    key = resolve_openrouter_api_key()
+    if not key or key == "local-qa-disabled":
+        raise SystemExit("no usable model credential in --openrouter-key-file")
+
+
 def require_loopback(url: str, what: str) -> None:
     if urlsplit(url.replace("postgresql://", "http://", 1)).hostname not in LOOPBACK:
         raise SystemExit(f"refusing: {what} is not a loopback address")
@@ -339,10 +352,7 @@ def serve_api(args: argparse.Namespace) -> None:
     if args.extractor == "real":
         if not args.openrouter_key_file:
             raise SystemExit("--extractor real needs --openrouter-key-file")
-        key = load_env_file(args.openrouter_key_file).get("OPENROUTER_API_KEY", "")
-        if not key or key == "local-qa-disabled":
-            raise SystemExit("no OPENROUTER_API_KEY in --openrouter-key-file")
-        os.environ["OPENROUTER_API_KEY"] = key
+        configure_model_key_file(args.openrouter_key_file)
     if args.extractor == "stub":
         import argus.api.documents as documents_api
         from argus.domain.ingestion.documents.models import DocumentExtractionError
@@ -1926,12 +1936,12 @@ class Rehearsal:
         with rec.step(
             "5",
             "606-not-filing-ready",
-            "submitted false, official validation NOT RUN, no DGII_F_606 TXT",
+            "submitted false, official validation NOT RUN, no DGII file in the ZIP",
         ) as obs:
             need(state, "zip")
-            summary = json.loads(z.get("dgii/summary.json", b"{}"))
-            text = json.dumps(manifest) + json.dumps(summary)
-            txt = [n for n in z if n.startswith("dgii/DGII_F_606")]
+            summary = manifest.get("dgii", {})
+            text = json.dumps(manifest)
+            txt = [n for n in z if n.startswith("dgii/")]
             obs.update(
                 txt=txt,
                 submitted=re.findall(r'"submitted": (\w+)', text),
@@ -1942,7 +1952,7 @@ class Rehearsal:
                     if k.startswith("606") or k == "forms"
                 },
             )
-            expect(not txt, "a 606 TXT was produced")
+            expect(not txt, "the ZIP carries a DGII file")
             expect(
                 obs["submitted"] and set(obs["submitted"]) == {"false"},
                 "submitted is not false everywhere",
@@ -1950,12 +1960,12 @@ class Rehearsal:
         with rec.step(
             "5",
             "personal-out-of-606",
-            "the personal purchase is excluded from the DGII packet",
+            "the personal purchase is excluded from the DGII summary",
             fix=FIX_1417 + " (gap 3c)",
-            hop="GET /api/v1/business/exports dgii/summary.json reconciliation",
+            hop="GET /api/v1/business/exports manifest.json dgii reconciliation",
         ) as obs:
             need(state, "zip", "c3_activity")
-            summary = json.loads(z.get("dgii/summary.json", b"{}"))
+            summary = manifest.get("dgii", {})
             hits = [
                 r
                 for r in summary.get("reconciliation", [])
@@ -3589,7 +3599,7 @@ def main() -> None:
             or REPO / ".git"
         ).parent
         / ".env",
-        help="real: env file whose OPENROUTER_API_KEY is read inside this process"
+        help="real: env file whose model credential (selected by openrouter_key_policy) is read inside this process"
         " (default: the main checkout .env)",
     )
     serve.set_defaults(handler=serve_api)

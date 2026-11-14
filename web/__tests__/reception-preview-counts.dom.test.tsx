@@ -18,7 +18,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const OWNER_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "approve", "manage", "assign_owner", "download", "export"];
 const EDITOR_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "download", "export"];
 
-async function mount({ width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead, bar = false, approveListos }: { approveListos?: BusinessDataSource["approveListos"]; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity>; bar?: boolean } = {}) {
+async function mount({ width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead, bar = false, approveListos, receiptsOnly = false }: { approveListos?: BusinessDataSource["approveListos"]; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity>; bar?: boolean; receiptsOnly?: boolean } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 1000 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -37,35 +37,34 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
     { ...seed, id: "problem-receipt", merchant: "Recibo con problema", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
     ...["uno", "dos", "tres"].map((name, index) => ({ ...seed, id: `listo-${name}`, merchant: `Listo ${name}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo" as const, reason: null, draft_id: `draft-${name}`, version: index + 1 } })),
   ]);
-  const notes: BusinessCapture[] = [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open" }];
-  const emails = (await source.emailDeliveries()).filter(email => email.id === "email-boletin" || email.id === "email-estacion");
-  assert.equal(emails.length, 2);
+  const notes: BusinessCapture[] = receiptsOnly ? [] : [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open" }];
+  const emails = receiptsOnly ? [] : (await source.emailDeliveries()).filter(email => email.id === "email-boletin" || email.id === "email-estacion");
+  assert.equal(emails.length, receiptsOnly ? 0 : 2);
   const globalActivity = { reading_count: 92, unread_count: 94, presentation: "unread" as const, pending_review_count: 95, needs_attention_count: 93, ready_to_review_count: 91, bandeja_attention_count: 96, bandeja_listo_count: 97 };
   const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: !prepare ? ["read"] : role === "owner" ? ["read", "prepare", "approve"] : ["read", "prepare"], permissions: permissions ?? (role === "owner" ? OWNER_PERMISSIONS : EDITOR_PERMISSIONS), access_seen: true };
   let uploads = 0;
   let reloads = 0;
-  let exports = 0;
   const opened: BusinessPanelState[] = [];
   let context: BusinessContextValue = { receivingChannels: { email: { available: true }, whatsapp: { available: true } },
-    userId: "count-person", source: { ...source, receiptPage: async () => ({ items: receipts, activity: globalActivity }), ...(markRead ? { markReceiptRead: markRead } : {}), ...(approveListos ? { approveListos } : {}) },
+    userId: "count-person", source: { ...source, receiptPage: async () => ({ items: receipts, activity: globalActivity }), ...(receiptsOnly ? { captures: async () => ({ items: [], has_more: false }) } : {}), ...(markRead ? { markReceiptRead: markRead } : {}), ...(approveListos ? { approveListos } : {}) },
     records: { workspace: await source.workspace(), overview: null, inbox: receipts, notes, notesTruncated: false, emails, error: false, receiptActivity: globalActivity },
     spaces: [chosen], chosen, chooseBusiness: () => {}, markAccessSeen: async () => {}, lostAccess: false, clearLostAccess: () => {}, revision: 0, reload: () => { reloads++; }, refresh: async () => "updated",
     period: { key: "all", from: "", to: null }, setPeriod: () => {}, panel: { kind: "inbox" }, openPanel: next => opened.push(next),
     actions: { create: role === "owner" && prepare ? [{ id: "upload_receipt", label: "Agregar", icon: Plus, run: () => { uploads++; } }] : [], composer: [], starterEntries: [] },
-    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, openExport: () => { exports++; }, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
+    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
   };
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   const render = () => act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>{bar ? <header data-testid="top-bar"><BusinessHeader home={false} name={null} title="Bandeja" screen="inbox" /></header> : null}<Inbox /></BusinessContext.Provider></I18nextProvider>); });
   cleanup = async () => { await act(async () => root.unmount()); host.remove(); };
   await render();
   const settle = async (ready: () => boolean) => { for (let i = 0; i < 50; i++) { await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); }); if (ready()) return; } throw new Error(`Missing expected state: ${host.textContent}`); };
-  await settle(() => host.querySelector('[data-testid="reception-row"]') !== null);
+  await settle(() => host.querySelector('[data-testid="reception-row"], [data-testid="reception-empty"]') !== null);
   const click = async (node: HTMLElement | null | undefined) => { assert.ok(node); await act(async () => node.click()); };
   const tab = (key: string) => host.querySelector<HTMLButtonElement>(`#reception-tab-${key}`);
   const badge = (key: string) => tab(key)?.querySelector("span")?.textContent;
   const row = (name: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')].find(element => element.textContent?.includes(name));
   const remount = async () => { await act(async () => root.unmount()); const again = createRoot(host); await act(async () => { again.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Inbox /></BusinessContext.Provider></I18nextProvider>); }); cleanup = async () => { await act(async () => again.unmount()); host.remove(); }; await settle(() => host.querySelector('[data-testid="reception-row"]') !== null); };
-  return { host, context, opened, remount, uploads: () => uploads, exports: () => exports, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await settle(() => host.textContent?.includes("Actualizar lista") === true); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
+  return { host, context, opened, remount, uploads: () => uploads, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); }); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
 }
 
 const rows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')];
@@ -126,6 +125,22 @@ test("the Bandeja opens on Todos with its four tabs, and nothing else from the o
   assert.deepEqual([...page.host.querySelectorAll("#reception-list > div:first-child > span:not(.sr-only)")].map(cell => cell.textContent).filter(Boolean), ["Contenido", "Adjunto", "Canal", "Canal", "Estado", "Llegada"], "Monto, Moneda and Remitente stay off; the second Canal is the heading the width swaps in");
 });
 
+const EMPTY_TITLE = { attention: "Nada necesita atención", listos: "No hay recibos listos", eliminados: "No hay documentos eliminados" } as const;
+const BUSINESSES: Record<string, Record<keyof typeof EMPTY_TITLE, (receipts: ReceiptSummary[]) => ReceiptSummary[]>> = {
+  "no documents": { attention: () => [], listos: () => [], eliminados: () => [] },
+  "documents in Todo": { attention: receipts => receipts.filter(receipt => receipt.bandeja_group?.group === "listo"), listos: receipts => receipts.filter(receipt => receipt.bandeja_group?.group !== "listo"), eliminados: receipts => receipts },
+};
+
+for (const [business, tweaks] of Object.entries(BUSINESSES)) for (const view of ["attention", "listos", "eliminados"] as const) test(`on a Business with ${business}, an empty ${view} tab shows its own title and offers no Ver todo`, async () => {
+  const page = await mount({ tweak: tweaks[view], receiptsOnly: true });
+  assert.equal(rows(page).length > 0, business === "documents in Todo");
+  await page.click(page.tab(view));
+  await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
+  const empty = page.host.querySelector('[data-testid="reception-empty"]');
+  assert.equal(empty?.querySelector("h3")?.textContent, EMPTY_TITLE[view]);
+  assert.doesNotMatch(empty?.textContent ?? "", /Ver todo/, "Todas las fechas already widens the list; the empty tab adds no second way back");
+});
+
 test("the tab numbers are the server's, not a count of the rows loaded", async () => {
   const page = await mount();
   assert.deepEqual([page.badge("attention"), page.badge("listos")], ["96", "97"]);
@@ -141,6 +156,24 @@ test("a receipt is unseen only when the server says its activity is unread, and 
   assert.match(dotted()[0] ?? "", /Recibo admitido/);
   await page.click(rows(page).find(row => row.textContent?.includes("Nota admitida"))!.querySelector<HTMLElement>("button"));
   assert.equal(dotted().length, 1, "opening a note marks nothing locally");
+});
+
+test("an open row keeps the server's unseen dot until the server says it was seen", async () => {
+  const page = await mount({ tweak: receipts => receipts.map(receipt => ({ ...receipt, activity: { state: "ready" as const, unread: receipt.id === "review-receipt", completion_cursor: "c1" } })) });
+  page.context.panel = { kind: "receipt", receiptId: "review-receipt", list: "inbox" };
+  page.context.revision++;
+  await page.remount();
+  const open = page.row("Recibo admitido")!;
+  assert.equal(open.getAttribute("aria-current"), "true");
+  assert.equal(open.getAttribute("data-unseen"), "true", "opening alone is not the server's acknowledgement");
+  assert.ok(open.querySelector('[class*="unseenDot"]'));
+  page.context.records = { ...page.context.records, inbox: page.context.records.inbox!.map(receipt => ({ ...receipt, activity: { state: "ready" as const, unread: false, completion_cursor: "c1" } })) };
+  page.context.source = { ...page.context.source, receiptPage: async () => ({ items: page.context.records.inbox!, activity: page.context.records.receiptActivity! }) };
+  page.context.revision++;
+  await page.remount();
+  await page.settle(() => page.row("Recibo admitido")?.getAttribute("data-unseen") === "false");
+  assert.equal(page.row("Recibo admitido")!.getAttribute("aria-current"), "true");
+  assert.equal(page.row("Recibo admitido")!.querySelector('[class*="unseenDot"]'), null);
 });
 
 test("a receipt still being read never carries the dot, and each channel keeps its own word", async () => {
@@ -209,22 +242,44 @@ test("the tabs own status: Filtros adds nothing for a tab and the four tabs stay
   assert.equal(page.host.querySelectorAll('[role="tab"][id^="reception-tab-"]').length, 4);
 });
 
-test("Estado is the tag on Todos, the plain reason on Necesitan atención, and gone on Listos", async () => {
+test("the state column is Estado with the tag on Todos, Motivo with the plain reason on Necesitan atención, and gone on Listos", async () => {
   const page = await mount();
-  const estado = () => [...page.host.querySelectorAll("#reception-list > div:first-child > span")].some(cell => cell.textContent === "Estado");
+  const heading = (word: string) => [...page.host.querySelectorAll("#reception-list > div:first-child > span")].some(cell => cell.textContent === word);
+  const estado = () => heading("Estado");
   const row = () => page.row("Recibo con problema")!;
   assert.equal(estado(), true);
   assert.equal(row().querySelector('[data-testid="status-pill"]')?.textContent, "Necesita atención");
   assert.equal(row().querySelector('[data-testid="reception-reason"]'), null, "the tag alone on Todos");
+  assert.equal(heading("Motivo"), false);
   await page.click(page.tab("attention"));
-  assert.equal(estado(), true);
+  assert.equal(heading("Motivo"), true, "every row here needs attention, so the column names why");
+  assert.equal(estado(), false);
+  await page.click(page.host.querySelector<HTMLButtonElement>('button[aria-label="Opciones de vista"]'));
+  const columns = [...document.querySelectorAll('section[aria-label="Información visible"] li')].map(item => item.textContent);
+  assert.ok(columns.some(text => text?.startsWith("Motivo")), "the settings name the column as the header does");
+  assert.ok(!columns.some(text => text?.startsWith("Estado")));
   assert.equal(row().querySelector('[data-testid="status-pill"]'), null, "no tag where the tab already says it");
   assert.equal(row().querySelector('[data-testid="reception-reason"]')?.textContent, "No se pudo leer");
   assert.equal(page.row("Recibo en lectura"), undefined, "a read still running shows only on Todos");
   await page.click(page.tab("listos"));
   assert.equal(estado(), false);
+  assert.equal(heading("Motivo"), false);
   assert.equal(page.row("Listo uno")?.querySelector('[data-testid="status-pill"]'), null);
   assert.equal(page.row("Listo uno")?.querySelector('[data-testid="reception-reason"]'), null);
+});
+
+test("the file button names the file in one tooltip and keeps its label", async () => {
+  const page = await mount();
+  const { TOOLTIP_DELAY_MS } = await import("@/components/ui/Tooltip");
+  const file = page.row("Recibo con problema")!.querySelector<HTMLButtonElement>('[data-testid="reception-original"]')!;
+  const name = (page.context.records.inbox.find(receipt => receipt.id === "problem-receipt")!.filename)!;
+  assert.ok(name);
+  assert.equal(file.hasAttribute("title"), false, "a native title would show a second tooltip");
+  assert.equal(file.getAttribute("aria-label"), `Abrir original: ${name}`);
+  await page.act(async () => { file.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); });
+  await page.act(async () => { await new Promise(resolve => setTimeout(resolve, TOOLTIP_DELAY_MS + 30)); });
+  assert.equal(document.querySelectorAll('[role="tooltip"]').length, 1);
+  assert.equal(document.querySelector('[role="tooltip"]')?.textContent, name);
 });
 
 test("the boxes live only on Listos, for the owner", async () => {
@@ -342,10 +397,9 @@ test("a new receipt or a poll leaves the selection alone, and a row that stops b
   await page.click(box(page, "Listo uno"));
   await page.click(box(page, "Listo dos"));
   await page.changeArrivals();
-  await page.settle(() => [...page.host.querySelectorAll("button")].some(button => button.textContent === "Actualizar lista"));
   assert.equal(box(page, "Listo uno")?.checked, true);
-  await page.click([...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Actualizar lista"));
-  assert.equal(box(page, "Listo dos")?.checked, true, "bringing the new row in keeps it too");
+  assert.equal(box(page, "Listo dos")?.checked, true, "the row that came in on its own leaves both checked");
+  assert.equal([...page.host.querySelectorAll("button")].some(button => button.textContent === "Actualizar lista"), false);
   await page.demote("listo-dos");
   await page.settle(() => !page.row("Listo dos"));
   assert.match(page.host.querySelector('[role="region"]')?.textContent ?? "", /1 seleccionado/);

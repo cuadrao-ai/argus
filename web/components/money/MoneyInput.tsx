@@ -40,6 +40,7 @@ type MoneyInputProps = {
   testId?: string;
   /** No room kept above it, for a field its parent already spaces. */
   flush?: boolean;
+  numberOnly?: boolean;
 };
 
 const INSERTS = new Set(["insertText", "insertReplacementText", "insertFromPaste", "insertFromDrop", "insertFromYank"]);
@@ -63,6 +64,7 @@ export default function MoneyInput({
   description = null,
   testId,
   flush = false,
+  numberOnly = false,
 }: MoneyInputProps) {
   const { t } = useTranslation();
   const id = useId();
@@ -193,7 +195,7 @@ export default function MoneyInput({
             : "border-[#7d8a84] focus-within:ring-black/10"
         } ${disabled ? "bg-black/[0.03] dark:bg-white/[0.03]" : ""}`}
       >
-        {symbol ? (
+        {symbol && !numberOnly ? (
           <span aria-hidden="true" className="shrink-0 text-[16px] tabular-nums text-[#56635e] dark:text-white/60">
             {symbol}
           </span>
@@ -204,7 +206,7 @@ export default function MoneyInput({
           inputMode="decimal"
           autoComplete="off"
           spellCheck={false}
-          className="min-w-0 flex-1 bg-transparent py-2 text-[16px] tabular-nums text-black outline-none placeholder:text-black/30 disabled:text-black/50 dark:text-white dark:placeholder:text-white/30"
+          className={`min-w-0 flex-1 bg-transparent py-2 text-[16px] tabular-nums text-black outline-none placeholder:text-black/30 disabled:text-black/50 dark:text-white dark:placeholder:text-white/30 ${numberOnly ? "text-right" : ""}`}
           value={text}
           placeholder={moneyPlaceholder(currency)}
           onChange={onChange}

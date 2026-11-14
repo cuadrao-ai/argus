@@ -7,15 +7,37 @@ import type { BusinessDataSource } from "./business-data";
 
 export const RECEIPT_DISCOVERY_MS = 15000;
 export const RECEIPT_READING_MS = 5000;
+const MAX_REFRESH_DELAY_MS = 60000;
 const realClock: PollClock = (fn, ms) => { const timer = setTimeout(fn, ms); return () => clearTimeout(timer); };
-type Page = { items: ReceiptSummary[]; activity: ReceiptActivityCounts | null };
+type Page = { items: ReceiptSummary[]; activity: ReceiptActivityCounts | null; version?: string | null };
+type Lists = { inbox: ReceiptSummary[] | null; receiptActivity?: ReceiptActivityCounts | null; listVersion?: string | null; listChanges?: number; listChecks?: number };
 
-export function useReceiptInboxRefresh({ source, active, reading, businessKey, onRefresh, clock = realClock }: {
+/**
+ * What an answered check leaves behind. The items, the counts and their version change together, so the next check
+ * names what the screen shows. Every answer is counted, also "nothing changed": a list that reads on its own and
+ * failed has no other signal to ask again.
+ */
+export function afterListCheck<Held extends Lists>(held: Held, page: Page | null): Held {
+  const checked = { ...held, listChecks: (held.listChecks ?? 0) + 1 };
+  return page ? { ...checked, inbox: page.items, receiptActivity: page.activity, listVersion: page.version ?? null, listChanges: (held.listChanges ?? 0) + 1 } : checked;
+}
+
+/**
+ * The one change check for the Business's lists. Each check names the version
+ * the screen holds (`known`) and `onRefresh` gets the page, or null when the
+ * server says nothing changed. A reload (`epoch`) drops a check in flight: the
+ * reload asked later, so its answer is the one to show.
+ */
+export function useReceiptInboxRefresh({ source, active, reading, businessKey, known = null, epoch = 0, onRefresh, clock = realClock }: {
   source: BusinessDataSource; active: boolean; reading: boolean; businessKey: string | null;
-  onRefresh: (page: Page) => void; clock?: PollClock;
+  known?: string | null; epoch?: number;
+  onRefresh: (page: Page | null) => void; clock?: PollClock;
 }) {
   const latest = useRef(onRefresh);
-  useEffect(() => { latest.current = onRefresh; });
+  const held = useRef(known);
+  const failures = useRef(0);
+  useEffect(() => { latest.current = onRefresh; held.current = known; });
+  useEffect(() => { failures.current = 0; }, [businessKey]);
   useEffect(() => {
     if (source.mode !== "live") return;
     let current = true;
@@ -25,16 +47,24 @@ export function useReceiptInboxRefresh({ source, active, reading, businessKey, o
     const visible = () => document.visibilityState !== "hidden";
     const schedule = () => {
       cancel();
-      if (current && visible() && eligible) cancel = clock(() => void refresh(), reading ? RECEIPT_READING_MS : RECEIPT_DISCOVERY_MS);
+      const interval = reading ? RECEIPT_READING_MS : RECEIPT_DISCOVERY_MS;
+      if (current && visible() && eligible) cancel = clock(() => void refresh(), Math.min(interval * 2 ** failures.current, MAX_REFRESH_DELAY_MS));
     };
     const refresh = async () => {
       if (!current || !visible() || request) return;
       const controller = new AbortController();
       request = controller;
       try {
-        const page = source.receiptPage ? await source.receiptPage("inbox", controller.signal) : { items: await source.receipts("inbox"), activity: null };
-        if (current && !controller.signal.aborted) latest.current(page);
-      } catch { /* Keep the last server projection until the next refresh. */ }
+        const page = source.receiptChanges ? await source.receiptChanges(held.current, controller.signal)
+          : source.receiptPage ? await source.receiptPage("inbox", controller.signal) : { items: await source.receipts("inbox"), activity: null };
+        if (current && !controller.signal.aborted) {
+          failures.current = 0;
+          latest.current(page);
+        }
+      } catch {
+        // Keep the last server projection; cancellation is not a failed refresh.
+        if (current && !controller.signal.aborted) failures.current++;
+      }
       finally { if (request === controller) request = null; schedule(); }
     };
     const wake = () => {
@@ -52,5 +82,5 @@ export function useReceiptInboxRefresh({ source, active, reading, businessKey, o
       window.removeEventListener("focus", wake);
       document.removeEventListener("visibilitychange", wake);
     };
-  }, [source, active, reading, businessKey, clock]);
+  }, [source, active, reading, businessKey, epoch, clock]);
 }

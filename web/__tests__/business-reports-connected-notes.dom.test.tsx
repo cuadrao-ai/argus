@@ -4,7 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { fixtureId } from "./fixtures/business-report-http-fixture";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
-import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
+import { mountAnnotatedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
 
 // Registros notes and the Adjunto panel on the connected report: the note editor, its limit and its refusals.
 await keepOwnListSearch();

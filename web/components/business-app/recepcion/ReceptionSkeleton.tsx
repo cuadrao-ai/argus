@@ -26,7 +26,7 @@ export default function ReceptionSkeleton({ preferences, selectable, status }: {
       {preferences.currency ? <span className={styles.currencyCell}><Bar width={30} /></span> : null}
       {status ? <span className={styles.state}><Bar width={112} height={21} pill /></span> : null}
       {preferences.arrival ? <span className={styles.arrival}><Bar width={72} /></span> : null}
-      <div className={styles.rowAction}><div><Bar width={56} height={28} pill /></div></div>
+      <div className={styles.rowActions}><div className={styles.rowAction}><div><Bar width={56} height={28} pill /></div></div><span className={styles.trashSlot} /></div>
     </li>)}
   </ul>;
 }

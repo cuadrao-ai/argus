@@ -567,3 +567,41 @@ def test_a_logo_without_picture_storage_holds_the_purge(custody, logos, monkeypa
             space_id=w["space"]
         )
     assert graph._snapshot(w) == before
+
+
+@pytest.mark.parametrize("owner_deleted", [False, True])
+def test_a_pending_document_erase_goes_with_the_business(
+    custody, monkeypatch, owner_deleted
+):
+    w = custody
+    remover(w, monkeypatch)
+    path = f"sealed/{uuid4()}/{'a' * 64}"
+    prefix = f"{w['old']}/{uuid4()}/"
+    w["objects"].rows[path] = b"left by a document purge"
+    w["objects"].rows[f"{prefix}original.pdf"] = b"left by a legacy upload"
+    with w["pool"].connection() as db:
+        db.execute(
+            "insert into argus_private.business_document_purges(space_id,document_ids,reason,pending_objects)"
+            " values(%s,array[gen_random_uuid()],'expiry',%s)",
+            (w["space"], [path, prefix]),
+        )
+    deletion.close(w)
+    if owner_deleted:
+        assert deletion.command(w).delete_account(user_id=w["old"]).status == "done"
+    expiry(w)
+    delete = w["objects"].delete
+    monkeypatch.setattr(
+        w["objects"],
+        "delete",
+        lambda prefix: (_ for _ in ()).throw(RuntimeError("storage unavailable")),
+    )
+    assert deletion.command(w).resume_pending(idle_seconds=0)["pending"] == 1
+    monkeypatch.setattr(w["objects"], "delete", delete)
+    assert deletion.command(w).resume_pending(idle_seconds=0)["done"] == 1
+    assert path not in w["objects"].rows
+    assert f"{prefix}original.pdf" not in w["objects"].rows
+    with w["pool"].connection() as db:
+        assert db.execute(
+            "select count(*) from argus_private.business_document_purges where space_id=%s",
+            (w["space"],),
+        ).fetchone()[0] == 0

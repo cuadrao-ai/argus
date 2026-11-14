@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -16,13 +16,18 @@ export function dayText(iso: string): string {
   return iso ? iso.split("-").reverse().join("/") : "";
 }
 
-/** A typed dd/mm/aaaa (or ddmmaaaa, from a phone number pad) day as ISO, or null when it is not a real calendar day. */
+/**
+ * A typed day as ISO, or null when it is not a real calendar day. Takes d/m/aa
+ * and d/m/aaaa, or ddmmaa and ddmmaaaa from a phone number pad. A 2-digit year
+ * is 20aa. Digits without slashes in any other count could mean two days.
+ */
 export function parseDayText(text: string): string | null {
-  const parts = /^(\d{2})\/?(\d{2})\/?(\d{4})$/.exec(text.trim());
-  if (!parts || Number(parts[3]) < 1900) return null;
-  const iso = `${parts[3]}-${parts[2]}-${parts[1]}`;
-  const parsed = new Date(`${iso}T12:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : null;
+  const parts = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(text.trim()) ?? /^(\d{2})(\d{2})(\d{2}|\d{4})$/.exec(text.trim());
+  if (!parts) return null;
+  const [day, month, year] = [Number(parts[1]), Number(parts[2]), parts[3].length === 2 ? 2000 + Number(parts[3]) : Number(parts[3])];
+  if (year < 1900) return null;
+  const iso = isoOf(year, month - 1, day);
+  return iso === `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` ? iso : null;
 }
 
 export function monthOf(iso: string): Month {
@@ -32,6 +37,17 @@ export function monthOf(iso: string): Month {
 
 export function isoOf(year: number, month: number, day: number): string {
   return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+}
+
+/** The same day of the month in another month, or that month's last day when it is shorter: 29 feb 2024 in 2026 is 28 feb. */
+export function dayIn(iso: string, year: number, month: number): string {
+  return isoOf(year, month, Math.min(Number(iso.slice(8)), new Date(Date.UTC(year, month + 1, 0)).getUTCDate()));
+}
+
+/** The day moved into the year the document was uploaded, or null when it is already there. */
+export function inUploadYear(day: string, uploadYear: number): string | null {
+  const { year, month } = monthOf(day);
+  return year === uploadYear ? null : dayIn(day, uploadYear, month);
 }
 
 export function shiftDay(iso: string, days: number): string {
@@ -48,16 +64,27 @@ export function weeks({ year, month }: Month): (string | null)[][] {
   return Array.from({ length: cells.length / 7 }, (_, row) => cells.slice(row * 7, row * 7 + 7));
 }
 
+/**
+ * What the field holds decides the month's shortcuts. A past day offers Hoy and
+ * Ayer, a due day offers days ahead, and a document's own date offers none: it
+ * offers the upload year instead, from the time the server received the document.
+ */
+export type DateFieldContext = { kind: "past" } | { kind: "due" } | { kind: "document"; uploadedAt: string | null };
+type CalendarView = "days" | "months" | "years";
+const RECENT_YEARS = 12;
+
 const KEY_STEP: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]";
 const iconButton = `inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#172b26] disabled:opacity-40 dark:text-white ${focusRing}`;
+const headerButton = `inline-flex min-h-11 items-center gap-1 rounded-item px-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${focusRing}`;
+const choiceButton = (chosen: boolean) => `min-h-11 rounded-item px-2 text-[15px] tabular-nums ${focusRing} ${chosen ? "bg-[#2f5a49] font-medium text-[#FFFEFA]" : "text-[#172b26] hover:bg-black/[0.04] dark:text-white dark:hover:bg-white/[0.06]"}`;
 
 /**
  * The one single-date field: shows the day as "14 oct 2026", takes a typed
- * dd/mm/aaaa, and opens one Monday-first month with Hoy and Ayer. On a
- * phone the month opens as a bottom sheet. Values are ISO days.
+ * d/m/aa, and opens one Monday-first month. Its header jumps to a month and a
+ * year. On a phone the month opens as a bottom sheet. Values are ISO days.
  */
-export function DatePicker({ id, label, value, onChange, disabled, invalid, describedBy, shortcuts = "past" }: {
+export function DatePicker({ id, label, value, onChange, disabled, invalid, describedBy, context = { kind: "past" } }: {
   id?: string;
   /** The field's name, which also names the phone sheet. */
   label: string;
@@ -66,7 +93,7 @@ export function DatePicker({ id, label, value, onChange, disabled, invalid, desc
   disabled?: boolean;
   invalid?: boolean;
   describedBy?: string;
-  shortcuts?: "past" | "due";
+  context?: DateFieldContext;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -79,6 +106,7 @@ export function DatePicker({ id, label, value, onChange, disabled, invalid, desc
   const [focused, setFocused] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(() => value || todayIso());
+  const [view, setView] = useState<CalendarView>("days");
   const { isBelowTablet } = useResponsiveLayout();
   const root = useRef<HTMLDivElement>(null);
   const activeDay = useRef<HTMLButtonElement>(null);
@@ -109,13 +137,19 @@ export function DatePicker({ id, label, value, onChange, disabled, invalid, desc
     if (!open || !focusDay.current) return;
     focusDay.current = false;
     activeDay.current?.focus();
-  }, [open, active]);
+  }, [open, active, view]);
 
 
   const show = () => {
     setActive(typed ?? todayIso());
+    setView("days");
     focusDay.current = true;
     setOpen(true);
+  };
+  const look = (next: CalendarView, day = active) => {
+    setActive(day);
+    setView(next);
+    focusDay.current = true;
   };
   const close = () => {
     setOpen(false);
@@ -144,27 +178,80 @@ export function DatePicker({ id, label, value, onChange, disabled, invalid, desc
     setActive((current) => shiftDay(current, step));
   };
 
-  const view = monthOf(active);
+  const shownMonth = monthOf(active);
   const today = todayIso();
   const yesterday = shiftDay(today, -1);
   const [year, monthNumber, day] = today.split("-").map(Number);
   const nextMonth = isoOf(year, monthNumber, Math.min(day, new Date(Date.UTC(year, monthNumber + 1, 0)).getUTCDate()));
-  const quickDates = shortcuts === "due"
-    ? [{ key: "today", date: today }, { key: "in_7_days", date: shiftDay(today, 7) }, { key: "in_15_days", date: shiftDay(today, 15) }, { key: "in_one_month", date: nextMonth }]
-    : [{ key: "today", date: today }, { key: "yesterday", date: yesterday }];
-  const monthTitle = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(view.year, view.month, 1)));
+  const quickDates = {
+    past: [{ key: "today", date: today }, { key: "yesterday", date: yesterday }],
+    due: [{ key: "today", date: today }, { key: "in_7_days", date: shiftDay(today, 7) }, { key: "in_15_days", date: shiftDay(today, 15) }, { key: "in_one_month", date: nextMonth }],
+    document: [],
+  }[context.kind];
+  const uploadYear = context.kind === "document" && context.uploadedAt ? new Date(context.uploadedAt).getFullYear() : null;
+  const uploadFix = typed && uploadYear && !Number.isNaN(uploadYear) ? inUploadYear(typed, uploadYear) : null;
+  const monthName = (month: number, style: "long" | "short") => new Intl.DateTimeFormat(locale, style === "long" ? { month: "long", year: "numeric", timeZone: "UTC" } : { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(shownMonth.year, month, 1)));
+  const monthTitle = monthName(shownMonth.month, "long");
+  const newestYear = Math.max(year, uploadYear ?? year);
+  const years = Array.from({ length: RECENT_YEARS }, (_, index) => newestYear - index);
   const weekdays = t("business.date_picker.weekdays", "lu ma mi ju vi sá do").split(" ");
 
-  const month = (
-    <div data-testid="date-picker-month" className="business-foundation">
-      <div className="flex flex-wrap gap-1">
-        {quickDates.map(preset => <button key={preset.key} type="button" className={`${quietButtonClass} px-2 text-sm`} onClick={() => choose(preset.date)}>{t(`business.date_picker.${preset.key}`)}</button>)}
+  const heading = (text: string, next?: CalendarView) => (
+    <h2 id={headingId} aria-live="polite" className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">
+      {next ? <button type="button" className={headerButton} onClick={() => look(next)}>{text}<ChevronDown className="h-4 w-4" aria-hidden="true" /></button> : text}
+    </h2>
+  );
+  const uploadNote = uploadFix ? (
+    <div data-testid="date-picker-upload-year" role="note" className="mb-2 flex flex-wrap items-center gap-x-2 rounded-item bg-[#f2e8c9] pl-3 text-[14px] text-[#735c14] dark:bg-[#f6e7c1]/15 dark:text-[#f6e7c1]">
+      <span>{t("business.date_picker.uploaded_in", { year: String(uploadYear) })}</span>
+      <button type="button" className={`min-h-11 rounded-item px-2 font-medium underline underline-offset-2 ${focusRing}`} onClick={() => choose(uploadFix)}>{t("business.date_picker.use_date", { date: formatDay(uploadFix, locale) })}</button>
+    </div>
+  ) : null;
+  const months = (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" className={iconButton} aria-label={String(shownMonth.year - 1)} onClick={() => look("months", dayIn(active, shownMonth.year - 1, shownMonth.month))}>
+          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+        </button>
+        {heading(String(shownMonth.year), "years")}
+        <button type="button" className={iconButton} aria-label={String(shownMonth.year + 1)} onClick={() => look("months", dayIn(active, shownMonth.year + 1, shownMonth.month))}>
+          <ChevronRight className="h-5 w-5" aria-hidden="true" />
+        </button>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div data-testid="date-picker-months" role="group" aria-labelledby={headingId} className="mt-2 grid w-[308px] grid-cols-3 gap-1">
+        {Array.from({ length: 12 }, (_, month) => (
+          <button key={month} type="button" ref={month === shownMonth.month ? activeDay : undefined} aria-label={monthName(month, "long")} className={choiceButton(typed?.slice(0, 7) === isoOf(shownMonth.year, month, 1).slice(0, 7))} onClick={() => look("days", dayIn(active, shownMonth.year, month))}>
+            {monthName(month, "short")}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+  const yearList = (
+    <>
+      <div className="flex min-h-11 items-center justify-center">{heading(String(shownMonth.year))}</div>
+      <div data-testid="date-picker-years" role="group" aria-labelledby={headingId} className="mt-2 grid w-[308px] grid-cols-3 gap-1">
+        {years.map((choice) => (
+          <button key={choice} type="button" data-year={choice} ref={choice === shownMonth.year ? activeDay : undefined} className={`${choiceButton(choice === Number(typed?.slice(0, 4)))} flex flex-col items-center justify-center`} onClick={() => look("days", dayIn(active, choice, shownMonth.month))}>
+            {choice}
+            {choice === uploadYear ? <span data-upload-year className="text-[11px] leading-3 text-[#735c14] dark:text-[#f6e7c1]">{t("business.date_picker.uploaded_in", { year: String(uploadYear) })}</span> : null}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+  const days = (
+    <>
+      {quickDates.length ? (
+        <div className="mb-2 flex flex-wrap gap-1">
+          {quickDates.map(preset => <button key={preset.key} type="button" className={`${quietButtonClass} px-2 text-sm`} onClick={() => choose(preset.date)}>{t(`business.date_picker.${preset.key}`)}</button>)}
+        </div>
+      ) : null}
+      <div className="flex items-center justify-between gap-2">
         <button type="button" className={iconButton} aria-label={t("business.date_picker.previous_month", "Previous month")} onClick={() => turn(-1)}>
           <ChevronLeft className="h-5 w-5" aria-hidden="true" />
         </button>
-        <h2 id={headingId} aria-live="polite" className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{monthTitle}</h2>
+        {heading(monthTitle, "months")}
         <button type="button" className={iconButton} aria-label={t("business.date_picker.next_month", "Next month")} onClick={() => turn(1)}>
           <ChevronRight className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -174,7 +261,7 @@ export function DatePicker({ id, label, value, onChange, disabled, invalid, desc
           <tr>{weekdays.map((day) => <th key={day} scope="col" className="h-8 w-11 text-[12px] font-medium text-[#56635e] dark:text-white/70">{day}</th>)}</tr>
         </thead>
         <tbody>
-          {weeks(view).map((week, row) => (
+          {weeks(shownMonth).map((week, row) => (
             <tr key={row}>
               {week.map((day, column) => (
                 <td key={day ?? `empty-${column}`} role={day ? "gridcell" : undefined} aria-selected={day ? day === typed : undefined} className="p-0">
@@ -198,6 +285,12 @@ export function DatePicker({ id, label, value, onChange, disabled, invalid, desc
           ))}
         </tbody>
       </table>
+    </>
+  );
+  const month = (
+    <div data-testid="date-picker-month" className="business-foundation">
+      {uploadNote}
+      {{ days, months, years: yearList }[view]}
     </div>
   );
 

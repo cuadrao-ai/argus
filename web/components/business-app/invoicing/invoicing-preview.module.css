@@ -19,7 +19,7 @@
 .table td:nth-child(2) { max-width:200px; overflow:hidden; text-overflow:ellipsis; }
 .table th button { display:flex; align-items:center; gap:5px; min-height:32px; }
 .table th:first-child,.table td:first-child { position:sticky; left:0; background:var(--cuadrao-menu-surface); }
-.table tr:hover td,.table tr:focus-within td,.table tr[data-selected="true"] td { background:color-mix(in srgb,var(--cuadrao-menu-surface) 93%,var(--fg)); }
+.table tr:hover td,.table tr:has(:focus-visible) td,.table tr[data-selected="true"] td { background:color-mix(in srgb,var(--cuadrao-menu-surface) 93%,var(--fg)); }
 .table td { cursor:pointer; }
 .table .numeric { text-align:right; font-variant-numeric:tabular-nums; }
 .rowLink { font-weight:500; min-height:32px; }

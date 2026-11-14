@@ -27,7 +27,7 @@ from argus.domain.business.authority import ActionContext, ActionError, Business
 from argus.domain.business.dgii_codes import TOOL_LABELS
 from argus.domain.business.dgii_columns import COLUMNS
 from argus.domain.business.dgii_export import line_values
-from argus.domain.business.dgii_line import line_review
+from argus.domain.business.dgii_line import REQUIRED_ZERO_606, line_review
 from argus.domain.business.dgii_validation import (
     DECLARABLE_CURRENCY,
     declarable,
@@ -35,8 +35,12 @@ from argus.domain.business.dgii_validation import (
 )
 from argus.domain.business.export import spreadsheet_cell
 from argus.domain.business.fiscal_identity import identity_digits
+from argus.domain.business.reporting_columns import (
+    CURRENCY_LABEL,
+    SPECS,
+    FileColumn,
+)
 from argus.domain.business.reporting_preferences import (
-    PURCHASE_ONLY_COLUMNS,
     Contract,
     Family,
     Presentation,
@@ -44,12 +48,12 @@ from argus.domain.business.reporting_preferences import (
     ReportInput,
     ReportRequest,
     ReportRequestV2,
-    TableColumn,
 )
 from argus.domain.business.reporting_query import (
     CALENDAR,
     ReportRecord,
     matching_records,
+    report_columns,
     resolve_period,
 )
 from argus.domain.business.reporting_store import (
@@ -63,21 +67,6 @@ _WORDS = json.loads(
     Path(__file__).with_name("records_file_words.generated.json").read_text("utf-8")
 )
 FileLocale = Literal["en", "es-419"]
-FileColumn = TableColumn | Literal["currency"]
-_HEADER_PATHS: dict[FileColumn, str] = {
-    "counterparty": "business.transactions.columns.contraparte",
-    "fiscal_number": "business.transactions.columns.ncf",
-    "date": "business.transactions.columns.fecha",
-    "gross_amount": "business.transactions.columns.monto",
-    "currency": "business.transactions.columns.moneda",
-    "itbis_amount": "business.transactions.columns.itbis",
-    "stage": "business.transactions.layout.column_state",
-    "note": "business.transactions.columns.notas",
-    "attachment": "business.transactions.layout.column_attachment",
-    "expense_type": "business.dossier.placeholder.expense_type",
-    "payment_form": "business.dossier.placeholder.payment_form",
-    "funding": "business.transactions.columns.cuenta",
-}
 _STAGE_PATHS = {
     "needs_review": "business.transactions.layout.workflow.review",
     "ready_for_export": "business.transactions.layout.workflow.ready",
@@ -93,7 +82,6 @@ _DGII_TEXT = frozenset(
         "income_withholding_type",
     }
 )
-_REQUIRED_ZERO = frozenset({"itbis_withheld", "income_withheld"})
 _DGII_DATES = frozenset({"occurred_on", "paid_on", "withheld_on"})
 _SPLIT_DATES = frozenset({"occurred_on", "paid_on"})
 _PURCHASE_HEADERS = tuple(
@@ -112,8 +100,8 @@ class ExportPreviewRequest(Contract):
 class RecordsExport(Contract):
     report: ReportInput
     mode: Literal["table", "dgii"]
-    #: Table mode: the table columns to include. Counterparty is always in.
-    columns: tuple[TableColumn, ...] = ()
+    #: Table mode: the preview's columns to include. Required ones are always in.
+    columns: tuple[FileColumn, ...] = ()
     currencies: Literal["all", "current"] = "all"
     format: Literal["xlsx", "csv"] = "xlsx"
 
@@ -128,17 +116,22 @@ class RecordsExport(Contract):
 
 
 class ExportColumn(Contract):
-    key: TableColumn
+    key: FileColumn
+    #: Locale path of its name; the web reads the words in the reader's language.
+    label_key: str
+    #: Always in the file.
+    required: bool
     shown: bool
 
 
 class CurrencySelection(Contract):
     record_count: int
     currencies: tuple[str, ...]
+    #: The file's columns for this choice, in file order.
+    columns: tuple[ExportColumn, ...]
 
 
 class TableExport(Contract):
-    columns: tuple[ExportColumn, ...]
     current: CurrencySelection
     #: None while an amount range ties the selection to the screen's currency.
     all: CurrencySelection | None
@@ -198,13 +191,33 @@ def _presentation(request: ReportRequest | ReportRequestV2) -> Presentation:
     )
 
 
-def _available(request: ReportRequest | ReportRequestV2) -> tuple[TableColumn, ...]:
-    sale = _family(request) == "sale"
-    return tuple(
-        key
-        for key in _presentation(request).order
-        if not (sale and key in PURCHASE_ONLY_COLUMNS)
-    )
+def _file_columns(
+    request: ReportRequest | ReportRequestV2, country: str, all_: bool
+) -> tuple[ExportColumn, ...]:
+    """The table's offered columns in its order, with Moneda after the gross
+    amount when the file holds every currency. The registry says which column
+    the file always holds and which it offers checked while the table hides it;
+    that one goes last."""
+
+    columns: list[ExportColumn] = []
+    last: list[ExportColumn] = []
+    for column in report_columns(_presentation(request), (_family(request),), country):
+        rule = SPECS[column.key].file
+        (last if rule == "default" and not column.shown else columns).append(
+            ExportColumn(
+                key=column.key,
+                label_key=column.label_key,
+                required=rule == "always",
+                shown=column.shown or rule != "as_shown",
+            )
+        )
+        if column.key == "gross_amount" and all_:
+            columns.append(
+                ExportColumn(
+                    key="currency", label_key=CURRENCY_LABEL, required=True, shown=True
+                )
+            )
+    return (*columns, *last)
 
 
 def _with_currencies(
@@ -286,10 +299,6 @@ def _dgii_selection(
     )
 
 
-def _selection(rows: Sequence[ReportRecord]) -> CurrencySelection:
-    return CurrencySelection(record_count=len(rows), currencies=_currencies(rows))
-
-
 def _currencies(rows: Sequence[ReportRecord]) -> tuple[str, ...]:
     return tuple(sorted({row.currency for row in rows if row.currency}))
 
@@ -297,20 +306,22 @@ def _currencies(rows: Sequence[ReportRecord]) -> tuple[str, ...]:
 def summarize_export(
     source: ExportSource, request: ReportRequest | ReportRequestV2
 ) -> ExportPreview:
-    def selection(selected: ReportRequest | ReportRequestV2) -> CurrencySelection:
-        return _selection(matching_records(source.records, selected, source.observed_at))
+    def selection(
+        selected: ReportRequest | ReportRequestV2, all_: bool
+    ) -> CurrencySelection:
+        rows = matching_records(source.records, selected, source.observed_at)
+        return CurrencySelection(
+            record_count=len(rows),
+            currencies=_currencies(rows),
+            columns=_file_columns(request, source.country, all_),
+        )
 
-    hidden = set(_presentation(request).hidden)
     every = _with_currencies(request, "all")
     dgii = _dgii_selection(source, request)
     return ExportPreview(
         table=TableExport(
-            columns=tuple(
-                ExportColumn(key=key, shown=key not in hidden)
-                for key in _available(request)
-            ),
-            current=selection(request),
-            all=None if every is None else selection(every),
+            current=selection(request, False),
+            all=None if every is None else selection(every, True),
         ),
         dgii=DgiiExport(
             form="607" if _family(request) == "sale" else "606",
@@ -361,10 +372,14 @@ def _amount(text: str | None) -> Decimal | None:
 def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
     if key == "counterparty":
         return row.counterparty
+    if key == "counterparty_id":
+        return row.counterparty_key
     if key == "fiscal_number":
         return row.fiscal_number
     if key == "date":
         return row.report_date
+    if key == "net_amount":
+        return _amount(row.net_amount) if row.currency else None
     if key == "gross_amount":
         return _amount(row.gross_amount) if row.currency else None
     if key == "currency":
@@ -380,21 +395,6 @@ def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
     if key in ("expense_type", "payment_form"):
         return _dgii_word(row, key, locale)
     return row.funding_label
-
-
-def _file_columns(
-    request: ReportRequest | ReportRequestV2, chosen: tuple[TableColumn, ...], all_: bool
-) -> tuple[FileColumn, ...]:
-    available = _available(request)
-    if not set(chosen) <= set(available):
-        raise ActionError("invalid_input", "business_export_column_unavailable")
-    order: list[FileColumn] = []
-    for key in available:
-        if key == "counterparty" or key in chosen:
-            order.append(key)
-        if key == "gross_amount" and all_:
-            order.append("currency")
-    return tuple(order)
 
 
 def _period_name(start: date | None, end: date | None, separator: str) -> str:
@@ -517,7 +517,7 @@ def _xlsx(
 
 def _dgii_cell(name: str, value: str) -> Cell:
     if value == "":
-        return Decimal(0) if name in _REQUIRED_ZERO else None
+        return Decimal(0) if name in REQUIRED_ZERO_606 else None
     if name in TOOL_LABELS:
         return TOOL_LABELS[name][value]
     if name in _DGII_TEXT or name in _DGII_DATES:
@@ -565,10 +565,19 @@ def build_file(
         selected = _with_currencies(request, choice.currencies)
         if selected is None:
             raise ActionError("invalid_input", "business_export_currency_required")
-        keys = _file_columns(request, choice.columns, choice.currencies == "all")
+        columns = _file_columns(request, source.country, choice.currencies == "all")
+        if not set(choice.columns) <= {column.key for column in columns}:
+            raise ActionError("invalid_input", "business_export_column_unavailable")
+        chosen = [
+            column
+            for column in columns
+            if column.required or column.key in choice.columns
+        ]
+        keys = [column.key for column in chosen]
         words = _WORDS[locale]
         headers = [
-            words[_HEADER_PATHS[key]].replace("{{currency}}", "").strip() for key in keys
+            words[column.label_key].replace("{{currency}}", "").strip()
+            for column in chosen
         ]
         matching = matching_records(source.records, selected, source.observed_at)
         rows = [[_table_cell(row, key, locale) for key in keys] for row in matching]

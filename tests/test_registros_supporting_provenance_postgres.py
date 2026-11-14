@@ -174,7 +174,7 @@ def test_supporting_file_preserves_manual_financial_basis(client, actions, timin
     assert exported.status_code == 200, exported.text
     [exported_row] = list(csv.DictReader(StringIO(exported.content.decode("utf-8-sig"))))
     assert exported_row["Fecha"] == "15/10/2026"
-    assert exported_row["Monto"] == "25.00"
+    assert exported_row["Total"] == "25.00"
 
 
 @pytest.mark.parametrize(

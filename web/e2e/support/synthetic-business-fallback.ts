@@ -1,6 +1,7 @@
 import type { Request } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../../components/business-app/fixture-data";
 import { BUSINESS_GUIDE_CARD_IDS } from "../../lib/business-guide-api";
+import type { RegistryAnswer } from "../../lib/business-dgii";
 import { reportAnswerSchema, reportRequestSchema } from "../../lib/business-reports-api";
 import { monthCloseWire } from "./month-close-wire";
 import recordedAnswer from "../../test-fixtures/records-default-report-answer.json";
@@ -29,6 +30,17 @@ export async function fulfillSyntheticBusinessFallback(
   const path = url.pathname.startsWith("/api/v1/business/") ? url.pathname.slice("/api/v1/business/".length) : null;
   const method = request.method();
 
+  if (path === "fiscal-profile/registry") {
+    if (method !== "POST" || url.search) throw new Error("Synthetic fiscal-profile/registry requires POST without query parameters");
+    const { tax_id } = request.postDataJSON() as Pick<RegistryAnswer, "tax_id">;
+    return route.fulfill({ json: {
+      tax_id,
+      verification: "sin_verificar",
+      record: null,
+      checked_at: "2026-10-21T17:45:00Z",
+    } satisfies RegistryAnswer });
+  }
+
   const guide = path?.match(/^guide-cards\/([^/]+)(\/dismiss)?$/);
   if (guide && BUSINESS_GUIDE_CARD_IDS.some(id => id === guide[1])) {
     const verb = guide[2] ? "POST" : "GET";
@@ -41,6 +53,7 @@ export async function fulfillSyntheticBusinessFallback(
     if (report.filters.period.kind !== "all" || report.sort !== "date_desc") throw new Error("Synthetic reports/query supports only all periods and date_desc");
     return route.fulfill({ json: reportAnswerSchema.parse({
       presentation: report.schema_version === 2 ? report.presentation ?? recordedAnswer.presentation : recordedAnswer.presentation,
+      columns: recordedAnswer.columns,
       items: [],
       overview: { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 },
       effective_sort: "date_desc",

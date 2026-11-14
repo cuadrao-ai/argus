@@ -100,8 +100,7 @@ FormStatus = Literal[
 class DgiiForms(_Wire):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    # The export packet's own status word per form, from the same summary
-    # that decides whether the TXT file is written.
+    # The DGII summary's own status word per form.
     form_606: FormStatus = Field(alias="606")
     form_607: FormStatus = Field(alias="607")
 

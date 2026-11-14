@@ -69,7 +69,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - When changing the remaining runtime, use the hermetic chat sweep.
   If it takes minutes rather than seconds, stop and check for a leaked live path:
-  `OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
+  `OPENROUTER_API_KEY= CUADRAO_OPENROUTER_API_KEY_DEV= CUADRAO_OPENROUTER_API_KEY_STG= CUADRAO_OPENROUTER_API_KEY_PROD= CUADRAO_PROD_OPENROUTER_API_KEY= CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
 - Postgres tests need `ARGUS_DISPOSABLE_DATABASE_URL` on a throwaway local DB, never staging/prod.
 - Evals: read the Test Tiers in `tests/evals/README.md`. Use the mocked harness for
   runtime changes. Docs-only PRs use No Eval under `.github/pull_request_template.md`.
@@ -133,6 +133,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 - Every pull request description opens with the Merge Danger block in `.github/pull_request_template.md`.
   Its `Door:` value is exactly `one-way` or `two-way`. Put no other lines between its fields: the
   checker (`scripts/ci/check_pr_body.py`) reads any extra line as part of the field above.
+- The body also carries an issue reference (`Closes|Fixes|Refs #N`, anywhere on a line) and a `Pilot flow:` line, checked by `scripts/ci/check_pr_body.py`. Bot authors are exempt.
 - Hotspot files need the lead's `landing-next` label, and a pull request over about 800 non-test lines needs `size-approved`.
 - Merge `codex/private-alpha-next` in before the last push. Never rebase a published branch.
 - Attach visual evidence on the pull request, or upload it with actions/upload-artifact. Do not commit it. Capture it at the exact head.

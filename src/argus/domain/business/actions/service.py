@@ -45,6 +45,7 @@ from argus.domain.business.contracts.actions import (
     TurnPlan,
     canonical_input_hash,
 )
+from argus.domain.business.contracts.amounts import AmountsPreview, AmountsPreviewRequest
 from argus.domain.business.contracts.authority import ActorProvenance, TrustedActor
 from argus.domain.business.contracts.dossier import (
     BusinessDossier,
@@ -53,6 +54,7 @@ from argus.domain.business.contracts.dossier import (
     WebActionSource,
     web_action_text,
 )
+from argus.domain.business.contracts.facts import HUMAN_AMOUNT_FIELDS
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
@@ -249,6 +251,19 @@ class BusinessActions:
                 tx, draft_id, ledger=lambda: self._activities(context, tx.connection)
             )
 
+    def preview_amounts(self, context: ActionContext, draft_id: UUID, request: AmountsPreviewRequest) -> AmountsPreview:
+        from argus.domain.business.actions.amounts_preview import preview_amounts
+        from argus.domain.business.amount_inheritance import draft_is_paid
+        from argus.domain.business.contracts.facts import BusinessResolution
+
+        with transaction(self.authority, context, "prepare") as tx:
+            if context.actor.actor_kind != "member":
+                raise ActionError("permission_denied", "business_human_command_required")
+            event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=request.version))
+            mutations.facts_of(event)
+            resolution = BusinessResolution.model_validate(event.resolution.get("business"))
+            return preview_amounts(resolution, request, paid=draft_is_paid(tx, event.activity_id, resolution.bill_mark))
+
     def _activities(self, context: ActionContext, connection: Connection) -> list[dict]:
         """The Business's current money activities, as the Resumen reads them."""
 
@@ -273,10 +288,10 @@ class BusinessActions:
     def read_context(self, context: ActionContext) -> dict:
         with transaction(self.authority, context) as tx:
             drafts = tx.rows(
-                "select id,version,resolution->'business'->'facts' as facts"
+                "select id,version,(resolution->'business'->'facts') - %s::text[] as facts"
                 " from public.financial_import_events where owner_space_id=%s and user_id=%s"
                 " and state='open' and resolution ? 'business' order by updated_at desc,id limit 20",
-                (context.actor.space_id, context.owner_id),
+                (list(HUMAN_AMOUNT_FIELDS), context.actor.space_id, context.owner_id),
             )
             questions = tx.rows(
                 "select id,draft_id,field,asked_of,channel,state,prompt,allowed_answers,"
@@ -359,6 +374,7 @@ class BusinessActions:
                             payment_split=request.payment_split,
                             document_type=request.document_type,
                             due_on=request.due_on,
+                            montos=request.montos,
                         )
                 except ActionError as error:
                     result = error.result

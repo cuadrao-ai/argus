@@ -196,3 +196,31 @@ def test_capture_dsn_must_be_explicit_loopback(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setenv("PGSERVICE", "remote")
     with pytest.raises(ValueError, match="redirects"):
         _local_dsn(dsn)
+
+
+def test_human_amount_facts_do_not_weaken_runtime_assertions():
+    from copy import deepcopy
+
+    from tests.evals.business_eval import check_case
+    from tests.evals.business_runtime_capture import _fact_sources, _facts
+
+    case = load_cases()[0]
+    expected = case["steps"][0]["expect"]
+    facts = deepcopy(expected["draft_facts"]["draft_a"])
+    sources = expected["fact_sources"]["draft_a"]
+    aliases = {source: source for values in sources.values() for source in values}
+    for name, fact in facts.items():
+        if name != "fiscal":
+            fact["source_ids"] = sources[name]
+    facts["net_amount"] = {"state": "known", "value": "10.00", "origin": "member_set", "source_ids": ["human"]}
+    facts["legal_tip"] = {"state": "unknown", "value": None, "origin": "matched", "source_ids": ["human"]}
+    assert _facts(facts, {}) == expected["draft_facts"]["draft_a"]
+    assert _fact_sources(facts, aliases) == sources
+    observed = [deepcopy(step["expect"]) for step in case["steps"]]
+    observed[0]["draft_facts"]["draft_a"]["amount"]["value"] = "999"
+    observed[0]["fact_sources"]["draft_a"]["amount"] = []
+    observed[0]["revision_transitions"] = []
+    failures = check_case(case, observed)
+    assert "step_0.draft_facts.draft_a.amount" in failures
+    assert "step_0.fact_sources.draft_a.amount" in failures
+    assert "step_0.revision_transitions" in failures

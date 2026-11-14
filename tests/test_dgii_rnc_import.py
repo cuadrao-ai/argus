@@ -919,7 +919,24 @@ def test_copy_stream_writes_header_rows_and_terminator(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.parametrize("platform", ["darwin", "win32"])
+def test_registry_memory_proof_skips_without_proc_on_non_linux(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: str
+) -> None:
+    def unexpected_child(*args: object, **kwargs: object) -> None:
+        pytest.fail("non-Linux memory proof must not start the /proc child")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(sys, "platform", platform)
+        patch.setattr(subprocess, "run", unexpected_child)
+        with pytest.raises(pytest.skip.Exception, match="/proc/self/status.*Linux"):
+            test_parse_of_a_large_registry_stays_under_80_mib(tmp_path)
+
+
 def test_parse_of_a_large_registry_stays_under_80_mib(tmp_path: Path) -> None:
+    if sys.platform != "linux":
+        pytest.skip("/proc/self/status peak RSS proof requires Linux")
+
     path = tmp_path / "rnc.zip"
     count = 150_000
     records = [

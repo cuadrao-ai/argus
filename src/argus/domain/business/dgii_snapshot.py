@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import TypeAdapter
 
+from argus.domain.business.amount_inheritance import document_is_paid, inherit_amounts
 from argus.domain.business.approved_facts import approved_revision_sql, evidence
 from argus.domain.business.contracts.dgii import DgiiDeclaration
 from argus.domain.business.contracts.facts import (
@@ -30,8 +31,10 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
     # after approval. The Personal mark and the 606 answer come from the
     # draft as it stands now.
     cursor.execute(
-        "select e.id,e.activity_id,e.resolution,v.version,v.after_facts,d.after_dgii"
+        "select e.id,e.activity_id,e.resolution,v.version,v.after_facts,d.after_dgii,s.status as settlement_status"
         " from public.financial_import_events e"
+        " left join public.business_document_settlements s on s.space_id=e.owner_space_id"
+        " and s.owner_id=e.user_id and s.activity_id=e.activity_id"
         " join public.business_action_receipts a on a.space_id=e.owner_space_id"
         " and a.actor_id::text=e.resolution->'approval_receipt'->>'actor_id'"
         " and a.idempotency_key=e.resolution->'approval_receipt'->>'key'"
@@ -72,6 +75,12 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
         facts = (
             BusinessFacts.model_validate(row["after_facts"]) if row else BusinessFacts()
         )
+        paid = document_is_paid(
+            row["settlement_status"] if row else None,
+            resolution.bill_mark if resolution else None,
+        )
+        declaration = TypeAdapter(DgiiDeclaration).validate_python(row["after_dgii"]) if row and row["after_dgii"] else None
+        declaration = inherit_amounts(facts, declaration, resolution.fiscal_overrides if resolution else None, paid=paid)
         records.append(
             FiscalRecord(
                 activity_id=identifier,
@@ -86,11 +95,9 @@ def fiscal_snapshot(cursor, context, activities, *, only_these=False):
                 if resolution
                 else money_document_type(activity["kind"]),
                 facts=facts,
-                declaration=TypeAdapter(DgiiDeclaration).validate_python(
-                    row["after_dgii"]
-                )
-                if row and row["after_dgii"]
-                else None,
+                fiscal_overrides=resolution.fiscal_overrides if resolution else None,
+                declaration=declaration,
+                paid=paid,
                 source_ids=evidence(facts),
                 no_account=no_account(activity),
                 personal=is_personal(current),

@@ -2,8 +2,7 @@
 
 // Actividad: the live history reads GET /business/activity (#1407) and shows only what that feed returns. The local
 // preview (sample data, `?activity=contract|empty|loading|error`) also shows the fields #1410 and ACT-2a add.
-// The action labels live in the locale files (`business.activity_feed`); the rest of the copy still lives here,
-// draft, until the copy pass moves it.
+// UI copy lives in the locale files (`business.activity_feed`).
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,6 +13,7 @@ import { CuadraoMark } from "@/components/CuadraoMark";
 import { invoicingShown, useBusiness } from "../BusinessWorkspace";
 import { formatRelativeDay, formatShortDay } from "../business-format";
 import { EmptyState } from "../foundation/EmptyState";
+import GuideCard from "../foundation/GuideCard";
 import { PageHeading } from "../foundation/PageHeading";
 import ActivitySkeleton from "./ActivitySkeleton";
 import { ACTIVITY_CARD, ACTIVITY_DAY, ACTIVITY_GRID, ACTIVITY_GRID_LIVE, ACTIVITY_HEADER_ROW, ACTIVITY_ROW } from "./activity-layout";
@@ -28,7 +28,7 @@ import { dossierFixtureIds } from "../dossier-fixtures";
 
 type ActorKind = "member" | "owner_via_agent" | "extractor";
 type LedgerAction =
-  | "delete_document" | "restore_document" | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "reopen_draft" | "capture_note" | "prepare_attachment"
+  | "delete_document" | "restore_document" | "purge_document" | "expire_document" | "review_draft" | "approve_expense" | "approve_income" | "approve_refund" | "reopen_draft" | "capture_note" | "prepare_attachment"
   | "rebind_attachment" | "settle_remainder" | "mark_personal" | "decide_606" | "resolve_duplicate" | "edit_current_note"
   | "append_supporting_file" | "receipt_upload" | "receipt_review" | "receipt_confirm" | "business_ask"
   | "set_business_rnc" | "set_business_legal_name" | "business_propose_activity" | "business_attach_source" | "business_propose_allocation"
@@ -38,7 +38,7 @@ type ActivityItem = {
   occurred_at: string;
   actor: { display_name: string; kind: ActorKind };
   action: LedgerAction;
-  object: { kind: "draft" | "receipt" | "grant" | "invite"; id: string; label?: string } | null;
+  object: { kind: "draft" | "receipt" | "grant" | "invite"; id: string; label?: string; purged?: boolean } | null;
 };
 
 /* ---------- MISSING from #1407: what this design needs on top ---------- */
@@ -50,7 +50,7 @@ type DraftItem = Omit<ActivityItem, "action" | "actor" | "object"> & {
   action: LedgerAction | MissingAction;
   /** null = an older event with no recorded actor (MISSING: nullable actor). MISSING: `membership`, so a member who left keeps their name. */
   actor: (ActivityItem["actor"] & { membership?: "current" | "former" }) | null;
-  object: { kind: "draft" | "receipt" | "grant" | "invite" | "invoice"; id: string; label?: string } | null;
+  object: { kind: "draft" | "receipt" | "grant" | "invite" | "invoice"; id: string; label?: string; purged?: boolean } | null;
   /** MISSING: a readable name for the affected record, and a short detail such as a role. */
   missing?: { object_label?: string; detail?: string; personal?: boolean };
 };
@@ -61,6 +61,8 @@ type Group = "uploads" | "reading" | "reviews" | "approvals" | "edits" | "files"
 const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   delete_document: { area: "documents", group: "edits" },
   restore_document: { area: "documents", group: "edits" },
+  purge_document: { area: "documents", group: "edits" },
+  expire_document: { area: "documents", group: "edits" },
   receipt_upload: { area: "documents", group: "uploads" },
   document_read: { area: "documents", group: "reading" },
   document_read_failed: { area: "documents", group: "reading" },
@@ -100,57 +102,6 @@ const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   change_role: { area: "business", group: "access" },
   other: { area: "business", group: "other" },
 };
-
-/* ---------- Draft copy (es-419 first) ---------- */
-
-const COPY = {
-  es: {
-    cols: { who: "Quién", what: "Qué pasó", record: "Registro", area: "Área", time: "Hora" },
-    filters: { title: "Filtros", date: "Fecha", person: "Persona", area: "Área", action: "Acción", clear: "Limpiar filtros", clearGroup: "Limpiar", remove: "Quitar filtro:", all: "Todas las fechas", today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días" },
-    areas: { documents: "Documentos", records: "Registros", invoicing: "Facturación", business: "Negocio" },
-    groups: { uploads: "Subidas", reading: "Lecturas", reviews: "Revisiones", approvals: "Aprobaciones", edits: "Cambios en registros", files: "Adjuntos", invoices: "Facturas", access: "Accesos", settings: "Datos del negocio", other: "Otros" },
-    viaChat: "desde el chat",
-    formerMember: "Exmiembro",
-    unmarkPersonal: "devolvió un gasto al negocio",
-    managersOnly: "Solo lo ven dueños y administradores",
-    noActor: "Actor no registrado",
-    noRecord: "sin dato",
-    loadMore: "Cargar más",
-    am: "a.m.", pm: "p.m.",
-    firstRunTitle: "Todavía no hay actividad",
-    firstRunBody: "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
-    filteredTitle: "Nada coincide con estos filtros",
-    filteredBody: "Hay actividad fuera de esta fecha o de estos filtros.",
-    errorTitle: "No pudimos cargar la actividad",
-    errorBody: "Tus registros están bien. Inténtalo de nuevo en un momento.",
-    goHome: "Ir a Inicio",
-    loadMoreFailed: "No pudimos cargar más actividad.",
-    retry: "Reintentar",
-  },
-  en: {
-    cols: { who: "Who", what: "What happened", record: "Record", area: "Area", time: "Time" },
-    filters: { title: "Filters", date: "Date", person: "Person", area: "Area", action: "Action", clear: "Clear filters", clearGroup: "Clear", remove: "Remove filter:", all: "All dates", today: "Today", week: "Last 7 days", month: "Last 30 days" },
-    areas: { documents: "Documents", records: "Records", invoicing: "Invoicing", business: "Business" },
-    groups: { uploads: "Uploads", reading: "Reading", reviews: "Reviews", approvals: "Approvals", edits: "Record changes", files: "Attachments", invoices: "Invoices", access: "Access", settings: "Business details", other: "Other" },
-    viaChat: "from chat",
-    formerMember: "Former member",
-    unmarkPersonal: "moved an expense back to the business",
-    managersOnly: "Only owners and admins see this",
-    noActor: "Actor not recorded",
-    noRecord: "no data",
-    loadMore: "Load more",
-    am: "a.m.", pm: "p.m.",
-    firstRunTitle: "No activity yet",
-    firstRunBody: "When someone uploads, reviews or approves something in this business, you will see it here.",
-    filteredTitle: "Nothing matches these filters",
-    filteredBody: "There is activity outside this date or these filters.",
-    errorTitle: "We could not load the activity",
-    errorBody: "Your records are fine. Try again in a moment.",
-    goHome: "Go to Home",
-    loadMoreFailed: "We couldn't load more activity.",
-    retry: "Try again",
-  },
-} as const;
 
 /* ---------- Fixtures, relative to now so the draft always reads fresh ---------- */
 
@@ -207,12 +158,37 @@ const fromFeed = (item: ActivityItem | (Omit<ActivityItem, "action"> & { action:
 
 export default function ActivityDraft() {
   const { t, i18n } = useTranslation();
-  const { openPanel, source, chosen, invoicing } = useBusiness();
+  const { openPanel, source, chosen, invoicing, userId } = useBusiness();
   const live = source.mode === "live";
   const feed = useActivityFeed(live, chosen?.space_id ?? null);
   const lang = (i18n.resolvedLanguage ?? resolveLanguage({})) === "en" ? "en" : "es";
   const locale = lang === "en" ? "en-US" : "es-419";
-  const c = COPY[lang];
+  const c = {
+    cols: { who: t("business.activity_feed.cols.who"), what: t("business.activity_feed.cols.what"), record: t("business.activity_feed.cols.record"), area: t("business.activity_feed.cols.area"), time: t("business.activity_feed.cols.time") },
+    filters: { title: t("business.activity_feed.filters.title"), date: t("business.activity_feed.filters.date"), person: t("business.activity_feed.filters.person"), area: t("business.activity_feed.filters.area"), action: t("business.activity_feed.filters.action"), clear: t("business.activity_feed.filters.clear"), clearGroup: t("business.activity_feed.filters.clear_group"), remove: t("business.activity_feed.filters.remove"), all: t("business.activity_feed.filters.all"), today: t("business.activity_feed.filters.today"), week: t("business.activity_feed.filters.week"), month: t("business.activity_feed.filters.month") },
+    areas: { documents: t("business.activity_feed.areas.documents"), records: t("business.activity_feed.areas.records"), invoicing: t("business.activity_feed.areas.invoicing"), business: t("business.activity_feed.areas.business") },
+    groups: { uploads: t("business.activity_feed.groups.uploads"), reading: t("business.activity_feed.groups.reading"), reviews: t("business.activity_feed.groups.reviews"), approvals: t("business.activity_feed.groups.approvals"), edits: t("business.activity_feed.groups.edits"), files: t("business.activity_feed.groups.files"), invoices: t("business.activity_feed.groups.invoices"), access: t("business.activity_feed.groups.access"), settings: t("business.activity_feed.groups.settings"), other: t("business.activity_feed.groups.other") },
+    viaChat: t("business.activity_feed.via_chat"),
+    formerMember: t("business.activity_feed.former_member"),
+    unmarkPersonal: t("business.activity_feed.unmark_personal"),
+    managersOnly: t("business.activity_feed.managers_only"),
+    noActor: t("business.activity_feed.no_actor"),
+    noRecord: t("business.activity_feed.no_record"),
+    loadMore: t("business.activity_feed.load_more"),
+    am: t("business.activity_feed.am"),
+    pm: t("business.activity_feed.pm"),
+    firstRunTitle: t("business.activity_feed.first_run_title"),
+    firstRunBody: t("business.activity_feed.first_run_body"),
+    filteredTitle: t("business.activity_feed.filtered_title"),
+    filteredBody: t("business.activity_feed.filtered_body"),
+    errorTitle: t("business.activity_feed.error_title"),
+    errorBody: t("business.activity_feed.error_body"),
+    goHome: t("business.activity_feed.go_home"),
+    loadMoreFailed: t("business.activity_feed.load_more_failed"),
+    retry: t("business.activity_feed.retry"),
+    extractorName: t("business.activity_feed.extractor_name"),
+    recordPlaceholder: t("business.activity_feed.record_placeholder"),
+  };
   const mode = live || typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("activity");
   const [filters, setFilters] = useState<ActivityFilterValue>(EMPTY_ACTIVITY_FILTERS);
   const [shown, setShown] = useState(PAGE);
@@ -249,7 +225,9 @@ export default function ActivityDraft() {
     return relative === capitalize(short) ? relative : `${relative} · ${short}`;
   };
   const time = (iso: string) => { const d = new Date(iso); const h = d.getHours(); return `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")} ${h < 12 ? c.am : c.pm}`; };
+  // A purged document is "un documento" on every entry: no name and nothing to open.
   const open = (item: DraftItem) => {
+    if (item.object?.purged) return undefined;
     if (item.action === "delete_document") return () => openPanel({ kind: "inbox", view: "eliminados" });
     if (item.action === "restore_document" && item.object) {
       const object = item.object;
@@ -293,7 +271,7 @@ export default function ActivityDraft() {
 
   const actor = (item: DraftItem, size: 24 | 32) => {
     if (!item.actor) return { mark: <Avatar name={null} size={size} />, name: <span className="text-[#56635e] dark:text-white/60">{c.noActor}</span> };
-    if (item.actor.kind === "extractor") return { mark: <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#e3ebe1] dark:bg-white/10 ${size === 24 ? "h-6 w-6" : "h-8 w-8"}`}><CuadraoMark size={size === 24 ? 14 : 18} /></span>, name: <span>Cuadrao</span> };
+    if (item.actor.kind === "extractor") return { mark: <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#e3ebe1] dark:bg-white/10 ${size === 24 ? "h-6 w-6" : "h-8 w-8"}`}><CuadraoMark size={size === 24 ? 14 : 18} /></span>, name: <span>{c.extractorName}</span> };
     // An erased account reaches us already renamed; a member who left keeps the name the ledger stored.
     const erased = item.actor.display_name === "Exmiembro";
     const former = item.actor.membership === "former" && !erased;
@@ -303,17 +281,17 @@ export default function ActivityDraft() {
     };
   };
   const what = (item: DraftItem, sentenceStart = false) => {
-    const phrase = item.action === "mark_personal" && item.missing?.personal === false ? c.unmarkPersonal : t(`business.activity_feed.actions.${item.action}`, { document: item.object?.label ?? t("business.document_delete.unnamed") });
+    const phrase = item.action === "mark_personal" && item.missing?.personal === false ? c.unmarkPersonal : t(`business.activity_feed.actions.${item.action}`, { document: item.object?.purged ? t("business.document_delete.purged_document") : item.object?.label ?? t("business.document_delete.unnamed") });
     const words = sentenceStart ? capitalize(phrase) : phrase;
     const failed = item.action === "document_read_failed";
-    return <span className={failed ? "text-[#9e2f39] dark:text-[#ec9aa0]" : undefined}>{failed ? <span aria-hidden="true" className="mr-1.5 inline-block h-1.5 w-1.5 -translate-y-0.5 rounded-full bg-current" /> : null}{words}{item.action === "delete_document" || item.action === "restore_document" ? <> <span className="underline underline-offset-2">{t(item.action === "delete_document" ? "business.document_delete.view_deleted" : "business.document_delete.open")}</span></> : null}</span>;
+    return <span className={failed ? "text-[#9e2f39] dark:text-[#ec9aa0]" : undefined}>{failed ? <span aria-hidden="true" className="mr-1.5 inline-block h-1.5 w-1.5 -translate-y-0.5 rounded-full bg-current" /> : null}{words}{(item.action === "delete_document" || item.action === "restore_document") && open(item) ? <> <span className="underline underline-offset-2">{t(item.action === "delete_document" ? "business.document_delete.view_deleted" : "business.document_delete.open")}</span></> : null}</span>;
   };
   const channel = (item: DraftItem) => item.actor?.kind === "owner_via_agent" ? c.viaChat : null;
   // Access and Business-setting rows reach owners and admins only; the server filters them, this only says so.
   const restricted = (item: DraftItem) => ACTION_META[item.action].group === "access" || ACTION_META[item.action].group === "settings";
   const record = (item: DraftItem) => item.missing?.object_label
     ? <>{item.missing.object_label}{item.missing.detail ? <span className="text-[#56635e] dark:text-white/60"> · {item.missing.detail}</span> : null}</>
-    : <span aria-label={c.noRecord} className="text-[#56635e] dark:text-white/60">-</span>;
+    : <span aria-label={c.noRecord} className="text-[#56635e] dark:text-white/60">{c.recordPlaceholder}</span>;
 
   const columns = live ? [c.cols.who, c.cols.what, c.cols.area, c.cols.time] : [c.cols.who, c.cols.what, c.cols.record, c.cols.area, c.cols.time];
   let body: React.ReactNode;
@@ -384,6 +362,13 @@ export default function ActivityDraft() {
   return (
     <div data-testid="business-activity-draft">
       <PageHeading screen="activity" />
+      {live && userId && chosen ? (
+        <GuideCard cardId="actividad-intro" userId={userId} title={t("business.guide_cards.actividad_intro.title")} points={[
+          { label: t("business.guide_cards.actividad_intro.follow.label"), body: t("business.guide_cards.actividad_intro.follow.body") },
+          { label: t("business.guide_cards.actividad_intro.open.label"), body: t("business.guide_cards.actividad_intro.open.body") },
+          { label: t("business.guide_cards.actividad_intro.deleted.label"), body: t("business.guide_cards.actividad_intro.deleted.body") },
+        ]} />
+      ) : null}
       {/* The controls stay while the history loads; empty and failed states have nothing to filter. */}
       {live || mode === "empty" || mode === "error" ? null : toolbar}
       {body}

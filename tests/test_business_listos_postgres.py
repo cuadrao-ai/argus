@@ -101,6 +101,7 @@ def _set_read(rig, index: int, read: dict) -> None:  # noqa: ANN001
     details = {
         **DETAILS,
         "merchant": f"FERRETERIA {index}",
+        "subtotal": None,
         "total": amount,
         "rnc": SUPPLIER,
         "ncf": f"B01{index:08d}",
@@ -277,6 +278,7 @@ def _state(item: dict) -> tuple:
         pytest.param({"itbis": None}, "missing_itbis", id="no ITBIS"),
         pytest.param({"currency": "USD"}, "foreign_currency", id="USD"),
         pytest.param({"itbis": "900.00"}, "review_flag", id="ITBIS above the rate"),
+        pytest.param({"subtotal": "900.00"}, "review_flag", id="amounts do not add up"),
         pytest.param({"ncf": "B0400000002"}, "credit_note", id="a credit note"),
     ],
 )
@@ -441,7 +443,10 @@ def test_a_record_with_no_comprobante_says_so_and_takes_no_606(  # noqa: ANN201
     assert _group(rig, receipt) == ("attention", "sin_comprobante")
     assert _counts(rig) == (0, 1)
     assert dossier["declaration_editable"] is False
-    assert dossier["expense_type_suggestion"] is None
+    assert dossier["declaration_suggestions"] == {
+        "category": None,
+        "payment_method": None,
+    }
     listed = _named(rig, receipt)
     assert _results(_approve_many(rig, [listed])) == [("refused", "not_listo")]
 

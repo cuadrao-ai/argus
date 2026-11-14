@@ -120,8 +120,6 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
         value: "60"
-      - key: CUADRAO_BUSINESS_ACTIVITY_ENABLED
-        value: "false"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
@@ -190,6 +188,8 @@ services:
         value: "5"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
+      - key: CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS
+        value: "3600"
       - key: POSTHOG_PROJECT_TOKEN
         sync: false
       - key: POSTHOG_REGION
@@ -246,8 +246,6 @@ services:
         value: "true"
       - key: CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED
         value: "false"
-      - key: CUADRAO_BUSINESS_ACTIVITY_ENABLED
-        value: "true"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
@@ -395,8 +393,6 @@ services:
         value: https://cuadrao-api-staging.onrender.com/api/v1
       - key: NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY
         sync: false
-      - key: NEXT_PUBLIC_ENABLE_SPANISH
-        value: "true"
 
   - type: worker
     name: cuadrao-documents-worker-staging
@@ -417,6 +413,8 @@ services:
         value: "60"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
+      - key: CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS
+        value: "3600"
       - key: POSTHOG_PROJECT_TOKEN
         sync: false
       - key: POSTHOG_REGION

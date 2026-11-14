@@ -10,7 +10,7 @@ a customer entered.
 from __future__ import annotations
 
 import hashlib
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, ClassVar, Literal, get_args
 
 from pydantic import Field, StringConstraints
 
@@ -44,7 +44,8 @@ ReadResult = Literal["read", "failed", "unsure"]
 #: A recorded field a person can correct: every ``BusinessFacts`` field and
 #: every ``FiscalFacts`` field.
 FiscalField = Literal["rnc", "ncf", "ecf", "itbis", "include_606"]
-RecordField = Literal[FactField, FiscalField]
+RecordField = Literal[FactField, FiscalField, "net_amount", "legal_tip"]
+MAX_RECORD_FIELDS = len(get_args(RecordField))
 Direction = Literal["compra", "venta"]
 ExportFormat = Literal["excel", "csv"]
 ExportScope = Literal["lo_que_ves", "dgii"]
@@ -95,12 +96,12 @@ class BusinessDocumentNeedsReview(BusinessEvent):
 class BusinessRecordApproved(BusinessEvent):
     event_name: ClassVar[str] = "business_record_approved"
 
-    filled_fields: Annotated[tuple[RecordField, ...], Field(max_length=14)] | None = None
-    filled_count: Annotated[int, Field(ge=0, le=14)] | None = None
-    corrected_fields: Annotated[tuple[RecordField, ...], Field(max_length=14)] | None = (
+    filled_fields: Annotated[tuple[RecordField, ...], Field(max_length=MAX_RECORD_FIELDS)] | None = None
+    filled_count: Annotated[int, Field(ge=0, le=MAX_RECORD_FIELDS)] | None = None
+    corrected_fields: Annotated[tuple[RecordField, ...], Field(max_length=MAX_RECORD_FIELDS)] | None = (
         None
     )
-    corrected_count: Annotated[int, Field(ge=0, le=14)] | None = None
+    corrected_count: Annotated[int, Field(ge=0, le=MAX_RECORD_FIELDS)] | None = None
     seconds_to_approve: Annotated[int, Field(ge=0, le=MAX_SECONDS_TO_APPROVE)] | None = (
         None
     )

@@ -659,3 +659,41 @@ def test_personal_purchase_is_handed_over_apart_with_its_original(actions):
     }
     assert disposition[personal] == ("excluded", "personal")
     assert disposition[str(business.activity_id)] != ("excluded", "personal")
+
+
+@pytest.mark.owner_acts
+def test_a_download_writes_no_dgii_line_and_the_purchase_stays_ready(actions):
+    from argus.domain.business.fiscal_profile import set_profile
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    from tests import test_business_dgii_postgres as dgii
+
+    service, context, _ = actions
+    PostgresSpaceStore(service.authority.pool).rename(
+        context.owner_id, dgii.PRACTICE_NAME
+    )
+    set_profile(service.authority, context, dgii.filer_change("199990013"), "rnc")
+    account = dgii.cash_account(service, context)
+    draft = dgii.reviewed(service, context, account)
+    assert dgii.approve(service, context, draft).outcome == "applied"
+    files = unpack(
+        export_package(
+            service.authority,
+            context,
+            ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
+            InMemorySourceObjects(),
+        )
+    )
+    assert json.loads(files["manifest.json"])["dgii"]["forms"]["606"]["status"] == (
+        "prepared_candidate"
+    )
+    assert [name for name in files if name.startswith("dgii/")] == []
+    with service.authority.pool.connection() as db:
+        assert db.execute(
+            "select count(*) from public.business_dgii_export_lines where space_id=%s",
+            (context.actor.space_id,),
+        ).fetchone() == (0,)
+    [row] = read_report(service.authority, context, ReportRequest()).items
+    assert (row.draft_id, row.stage) == (str(draft[0]), "ready_for_export")

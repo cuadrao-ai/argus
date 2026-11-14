@@ -8556,7 +8556,8 @@ reading. It refuses an approved or otherwise closed draft with 422
 `business_permission_denied`. An approved document must use the existing
 reopen flow first. Restore requires the deletion marker and otherwise returns
 422 `business_document_not_deleted`. Sources, revisions and financial records
-are retained. Deleted documents have no expiry or purge schedule.
+are retained until the purge below. A deleted or restored purged document
+returns 404 `business_document_purged`.
 
 Receipt summary, detail and dossier responses expose `deleted`,
 `delete_available` and `restore_available`. The deletion metadata contains
@@ -8585,6 +8586,41 @@ nor restores the existing one. Activity records `delete_document` and
 `restore_document` through the action ledger. Their links open Eliminados and
 the restored document respectively.
 
+### Business document purge
+
+A deleted document stays in Eliminados for 7 calendar days, then the server
+purges it for good. The deletion metadata adds a read-only `purge_at`, which
+is the deletion `at` plus 7 days; the stored marker does not hold it.
+
+`POST /business/drafts/{draft_id}/purge` purges one deleted document at once.
+It requires `Idempotency-Key`, the owner-only `approve` permission and a person
+actor, takes no body, and returns `{document_id, deleted: true}` with
+`Cache-Control: no-store`. The identifier rules match delete and restore. A
+document outside Eliminados returns 422 `business_document_not_deleted`;
+shared attachments return 422 `business_document_ambiguous`; a Business whose
+owner account is being deleted or whose files are being moved returns 422
+`business_document_purge_busy`. A repeat with the same key returns the saved
+outcome. A purge of an already purged document returns 200 and changes
+nothing, so the button and the expiry can race safely.
+
+A purge removes the stored file, the read, the draft with its revisions,
+questions and source links, and the draft's own message sources. A message
+source that another draft also uses stays. The Activity entries stay. A purge
+by the owner adds `purge_document` and the expiry adds `expire_document` with
+the Cuadrao actor; neither names the document or links to it. Older entries
+of the purged document keep their `object` with `purged: true` and `label:
+null`, so the client says "un documento" and opens nothing. After the purge every
+document route answers its usual not-found error, and delete and restore
+answer 404 `business_document_purged`.
+
+The database part runs in one transaction and records the purge with the
+stored objects still to erase. The objects are then erased; when Storage fails,
+the record keeps them and the next expiry run finishes the erase. The expiry
+is a step of the documents worker's sweep loop. It runs at most once every
+`CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS` (default 3600; 0 turns it off) with
+extraction on or off. Each run finishes left-over erases, then purges deleted
+documents older than 7 days in batches of 25, at most 500 per run.
+
 ### Business guide cards
 
 `GET /api/v1/business/guide-cards/{card_id}` returns `{dismissed: boolean}`
@@ -8592,7 +8628,7 @@ for the signed-in person. `POST /api/v1/business/guide-cards/{card_id}/dismiss`
 takes no body. After a dismissal commits, it returns `{dismissed: true}`.
 Repeating the request keeps the first dismissal time.
 
-The card IDs are `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
+The card IDs are `actividad-intro`, `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
 follows the registered person across Businesses and sessions. The server takes
 the person ID from the session and ignores `X-Business-Grant` for these routes.
 Both responses use `Cache-Control: no-store`. If storage is unavailable, both
@@ -8779,8 +8815,8 @@ first), and a credit note or refund that names it as the purchase it returns,
 recorded or still a draft, 422 `business_refund_linked`. The dossier's
 `reopen_available` is computed by the same rule, so a client shows Reabrir only
 when the server would accept it. A payment mark stays on the reversed row as
-history and the reapproved record starts `pendiente`; a TXT line a download
-carried stays on record and the next export builds from the live rows.
+history and the reapproved record starts `pendiente`; a line an earlier
+download recorded in `business_dgii_export_lines` stays on record.
 
 The seven Business tool action names remain `business_read_context`,
 `business_propose_activity`, `business_attach_source`,
@@ -8831,16 +8867,23 @@ declaration: the caller holds `prepare`, the record takes a 606 (its
 `document_type` is `recibo`; a `venta`, whether it holds a 607 or nothing, and
 a record with `sin_comprobante` true read false, and a 606 write on either
 answers 422 `fiscal_direction_unsupported`), and the draft is open or
-approved. A downloaded DGII TXT changes nothing here. `payment_split_editable`
+approved. A download changes nothing here. `payment_split_editable`
 is true on the same terms for a sale: a `venta`. The type alone decides which
 form a record takes; neither flag reads the kind or a saved declaration.
-`expense_type_suggestion` is the tipo de gasto (`01` to
-`11`) a person last chose for this draft's supplier RNC in this Business, on
-another open, accepting or accepted purchase, or null. It is read fresh and
-stored nowhere: it is null while `declaration_editable` is false or the draft
-has a choice of its own, a suggested type on a declaration is no choice, and it
-never reads another Business. It reaches the 606 only when a person writes it
-as `purchase.category`, so an approval leaves the type blank.
+`declaration_suggestions` holds one suggestion for each 606 answer a person
+gives one by one, under the declaration's field name: `category` (tipo de
+gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
+is `{value, source}` or null. `source` says where the value came from:
+`last_choice` is the answer a person last gave for this draft's supplier RNC
+in this Business, on another open, accepting or accepted purchase; `receipt`
+is reserved for a value read from the receipt, and nothing sends it yet. A
+suggestion is read fresh and stored nowhere: it is null while
+`declaration_editable` is false or the draft has that answer of its own, and
+it never reads another Business. A suggested type on a declaration
+(`category_suggested`) is no answer, on this draft or as a memory. A
+suggestion reaches the 606 only when a person writes it as
+`purchase.category` or `purchase.payment_method`, so an approval never takes
+one and neither field blocks approval.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
 enforces: a member holding `prepare` who is not the owner, on an `open` or
@@ -8954,12 +8997,13 @@ review that carries only `purchase` or only `payment_split`: it writes the decla
 revision with the same web source and action receipt, the recorded facts
 unchanged. An export is not final: this route, `POST /business/drafts/{id}/personal`
 and `POST /business/drafts/{id}/fiscal-inclusion` stay open on a record a
-downloaded DGII TXT carries, the next export carries the change, and the app
-and a TXT already filed can differ. The export reads the declarations, builds
-the TXT and records the lines it carries under the Business's owner lock, the
-lock every review write takes, so a 606 write that runs at the same time either
-lands before the build, and the TXT carries it, or waits for the build, lands
-after it, and the next export carries it. The declaration is `prepare`'s to write,
+download already carried, the next export carries the change, and the app
+and a file already handed over can differ. The handover package
+(`GET /business/exports`) reads the declarations and builds its records sheet
+under the Business's owner lock, the lock every review write takes, so a 606
+write that runs at the same time either lands before the build, and the sheet
+carries it, or waits for the build, lands after it, and the next download
+carries it. The declaration is `prepare`'s to write,
 before and after approval: an accountant holding `prepare` adds 606 data on the
 owner's approved record, and the revision names the accountant; `approve`
 stays the owner's and is not needed for the declaration; a read-only grant is
@@ -9024,10 +9068,10 @@ documents: both reads answer 200 with the full shape and nothing in it
 `earliest_month` null, both `dgii_forms` `no_operations`), once the caller's
 Business exists; the settlement write stays 404 `business_unavailable`. Month close adds `earliest_month`
 (`YYYY-MM` or `null`), `payment_methods` (the PATCH's accepted methods, in
-order) and `dgii_forms` (`{"606": status, "607": status}`, the export packet's
+order) and `dgii_forms` (`{"606": status, "607": status}`, the DGII summary's
 own status words for that calendar month: `no_aplica`, `needs_review`,
 `summary_only`, `no_operations` or `prepared_candidate`; only the last means
-the ZIP carries the TXT) and `missing_payment_form` (the document lines of the
+every line of the form is ready) and `missing_payment_form` (the document lines of the
 purchases the 606 holds until a person sets Forma de Pago, marked paid or not,
 each with `payment_form` null; it adds no `reasons` code and does not read into
 `closed`) and `missing_fiscal_data` (every document the 606 or 607 holds this
@@ -9072,7 +9116,7 @@ holds back for a rate. A declared line counts once, on its declared form; a
 line with no form declaration counts on both forms. Transfers and other money
 movements never count. A form whose status is `no_aplica` (no RNC) counts 0.
 `reason` is `"Moneda extranjera: pendiente de tasa"`
-when the count is above 0, else null. The exported `dgii/summary.json` carries
+when the count is above 0, else null. The handover package's `manifest.json` `dgii` carries
 the same per-form `foreign_currency_pending_rate_count` and, when above 0,
 `foreign_currency_note`; each held-back reconciliation line keeps
 `reason: "fiscal_conversion_required"` and adds `note` with the same words.
@@ -9112,21 +9156,20 @@ approval with the activity ID named by the applied or replayed action result.
 Replaying an old approval after reopening or approving again returns
 409 `stale_version` if that recorded activity is absent or different.
 
-`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, `Pago`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. `Pago` is the stored settlement status of a recorded income or expense (`pendiente`, `pagado` or `cobrado`, the same words month close and bank matching write): `pendiente` until a settlement or a confirmed bank match stores one, and empty for a transfer. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows. A record that carries the owner's Personal mark (`business_share` none, stated by a person) is not a business row: it leaves `records.csv` and the first sheet and is listed in `personal.csv` and the fourth sheet `Personal` with the columns `Registro`, `Fecha`, `Total`, `Moneda`, `Originales` (the `originals/` paths of its included sources). Its originals stay under `originals/`, its canonical row stays in the second sheet and in `manifest.json` `records` with `personal` `yes`, and `manifest.json` `files` hashes `personal.csv`. In the DGII packet such a record has disposition `excluded` with reason `personal` unless it is a purchase the accountant answered `include_606` yes, the same rule month close applies; that answer also puts the purchase back among the business rows of `records.csv` and the first sheet, while a personal sale stays out whatever the answer. The mark and the 606 answer are read from the draft as it stands when the package is built, not from the approved revision: both change after approval, and month close, Registros and this package read them from the same place, so one mark moves the record on every surface at once.
+`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, `Pago`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. `Pago` is the stored settlement status of a recorded income or expense (`pendiente`, `pagado` or `cobrado`, the same words month close and bank matching write): `pendiente` until a settlement or a confirmed bank match stores one, and empty for a transfer. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows. A record that carries the owner's Personal mark (`business_share` none, stated by a person) is not a business row: it leaves `records.csv` and the first sheet and is listed in `personal.csv` and the fourth sheet `Personal` with the columns `Registro`, `Fecha`, `Total`, `Moneda`, `Originales` (the `originals/` paths of its included sources). Its originals stay under `originals/`, its canonical row stays in the second sheet and in `manifest.json` `records` with `personal` `yes`, and `manifest.json` `files` hashes `personal.csv`. In the DGII summary such a record has disposition `excluded` with reason `personal` unless it is a purchase the accountant answered `include_606` yes, the same rule month close applies; that answer also puts the purchase back among the business rows of `records.csv` and the first sheet, while a personal sale stays out whatever the answer. The mark and the 606 answer are read from the draft as it stands when the package is built, not from the approved revision: both change after approval, and month close, Registros and this package read them from the same place, so one mark moves the record on every surface at once.
 
-**DGII period export.** The same authorized ZIP additionally contains
-`dgii/606-607.xlsx` and `dgii/summary.json`. TXT names are
-`dgii/DGII_F_606_<filer>_<AAAAMM>.TXT` and the corresponding `607` name.
-The filer may be a nine-digit RNC or eleven-digit cédula, preserved as text.
-Disabled perception fields remain empty in both formats. A Business without a configured RNC
-has `No aplica` for both formats and receives no empty TXT files. Applicable
-TXT candidates require one complete, closed calendar month and complete reviewed
-fiscal facts. Other date ranges retain the general export and report fiscal
-validation issues. Prepared candidates use `606|RNC|AAAAMM|count` or
-`607|RNC|AAAAMM|count`, followed by 23 pipe-delimited fields in NG 07-2018 order,
-as amended by NG 05-2019 and the current DGII templates. The review workbook
-uses the same detail column order. All candidates explicitly state that official
-prevalidation is `NOT RUN` and no tax return has been submitted.
+**DGII summary in the package.** The ZIP carries no DGII file: no 606 or 607
+TXT, no DGII workbook and no `dgii/` entry. The one DGII output is the Registros
+"Formato DGII" file (`POST /business/reports/export`, `mode: "dgii"`).
+`manifest.json` `dgii` keeps the DGII summary the records sheet's `Estado`
+column reads: per-form status, the reconciliation line of each record, issues
+and totals. The filer may be a nine-digit RNC or eleven-digit cédula, preserved
+as text. A Business without a configured RNC has `No aplica` for both forms. A
+form is a `prepared_candidate` only for one complete, closed calendar month
+with complete reviewed fiscal facts; other date ranges report fiscal validation
+issues. The summary states that official prevalidation is `NOT RUN` and no tax
+return has been submitted. The download writes nothing: it no longer records
+lines in `business_dgii_export_lines`.
 A record's fiscal facts are those of its approved revision (the one
 `approved_revision` names), and its evidence (`source_ids` in the manifest
 `reconciliation` and the `Conciliación` sheet) is every source those facts
@@ -9173,7 +9216,66 @@ sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
+Montos uses `purchase_review.net_amount` for the dossier, fiscal defaults,
+Registros, month close and exports. `BusinessFacts.amount` remains the gross
+amount paid. The dossier adds `net_amount: {amount, source}`. `amount` is an
+exact decimal string or null. `source` is `read`, `calculated`, `edited`, or
+null when the total is unknown. A known `facts.net_amount` retains the read
+subtotal or a person's edit. Otherwise the function subtracts the components
+in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes. The read's `service`
+is the legal tip; `tip` is used only when `service` is absent. Both values live
+in existing fact JSON and revision history. No database migration is required.
+
+`POST /business/drafts/{id}/amounts-preview` takes `version` and optional
+`amount`, `itbis`, `net_amount`, and `legal_tip` fact inputs. It requires the
+same selected Business, human actor, prepare permission, open draft and current
+version as amount review. The response contains `net_amount` and `mismatch`
+(the existing `amounts_mismatch` review flag, or null). It uses the review's
+fact mutations, inheritance, net owner and shared parts check without saving
+facts, sources, revisions or action receipts. Responses are `no-store`.
+The web discards a preview when its draft, version or typed values change.
+
+Human review also accepts top-level `montos`, with optional `net_amount` and
+`legal_tip` fact inputs and `override_inherited` or `restore_inherited` field
+names. These inputs do not enter the interpreter's fact patch. Changing a
+main amount requires an open draft. Restoring or overriding fiscal inheritance
+uses the existing fiscal edit permission and version checks.
+
+The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
+Each entry holds `{field, value, inherited}`; `value` is the current source
+value to restore, not a copy calculated by the browser. The single mapping is
+`amount_inheritance.INHERITANCE`:
+
+| Fiscal field | Main source |
+| --- | --- |
+| `billed_amount` (607) | `net_amount` |
+| `goods_amount` (606), by confirmed expense type | `net_amount` |
+| `itbis` (606 and 607) | `fiscal.itbis` |
+| `legal_tip` (606 and 607) | `legal_tip` |
+| `paid_on` (606), when paid | `occurred_on` |
+| `services_amount` (606), by confirmed expense type | `net_amount` |
+
+An explicit override stops inheritance even when the typed value equals the
+source. Goods and services share override ownership; restoring either restores
+both sides from the confirmed expense type. Their sum must equal the net
+amount before export. `modified_ncf` never inherits. The fiscal declaration's
+optional ITBIS override does not rewrite the main ITBIS fact. Main amount
+updates refresh inherited fields on every revision. Payment-date inheritance
+uses the stored document settlement or the existing paid-bill mark, never the
+selected account. Reads and exports refresh inherited values when settlement
+changes. An explicit fiscal date remains an override. The existing monthly
+sin-comprobante purchase cost remains the gross amount because its ITBIS is
+not creditable; all other monthly net calculations use the same net owner.
+
+`amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
+false` and `difference`. The signed exact decimal difference is gross minus
+net minus the same `AMOUNT_PARTS` components. It appears only when the absolute
+difference exceeds 0.01 and is recomputed for every read and revision. The
+existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
+overrides are excluded from the model-facing dossier and source text.
+
 The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
+objects, with `difference` on `amounts_mismatch`
 computed on every read from the stored facts; nothing is written. `rnc_check_digit`
 (field `rnc`) is a 9-digit RNC or 11-digit cédula whose check digit does not
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
@@ -9192,13 +9294,8 @@ Spanish copy for these codes is `dgii_line.COPY`.
 
 ### Business activity feed
 
-Actividad sits behind one server switch, `CUADRAO_BUSINESS_ACTIVITY_ENABLED`
-(`argus.domain.business.config.business_activity_enabled`), off by default; staging
-sets it true and the production pilot false. `GET /api/v1/business/workspace` says
-the same as `activity_available`. While it is off, `GET /business/activity` is refused
-with `404` `business_activity_disabled` before authentication, and the web shows no
-Actividad entry, sends no request, and sends a direct link to Inicio. Actions keep
-recording their entries either way, so turning it on later shows the whole history.
+Actividad is always on. It has no server switch, and the workspace answer carries
+no field for it. The web always shows its entry.
 
 `GET /business/activity?limit=25|50|100&cursor=<opaque>` lists who changed what
 and when in the working Business (the chosen `X-Business-Grant`'s Business, else
@@ -9255,11 +9352,13 @@ and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
 changes, the two derived events and `other`), so the client can mark it.
 
-`object` is `{kind: draft|grant|invite, id, label}` when the action names one
+`object` is `{kind: draft|grant|invite, id, label, purged}` when the action names one
 and the server knows its id, else `null`. `label` is a human name for the
 object from a record the reader may read, else `null`: a draft's counterparty
 when it is known, a grant's person by their current profile label. An invite
-names only an email, so its label is always `null`. No amount, email or other
+names only an email, so its label is always `null`. `purged` is `true` when a
+document purge removed the draft or upload, read from the purge record; its
+`label` is then always `null`. It is `false` otherwise. No amount, email or other
 field of the command leaves the ledger.
 
 Three actions carry one typed field of the stored command, `null` elsewhere:
@@ -9481,7 +9580,17 @@ Validation failures are 422 and the problem `code` says what to fix.
 A member who is not the owner and holds approve receives 403 `business_owner_required`.
 A member without approve receives 403 `business_permission_denied`. Each accepted change
 is an immutable action receipt with the actor and the time. Replaying the same key returns
-the saved profile and does not write again. A change of tax id types no existing draft
+the saved profile and does not write again. The first tax id a Business saves
+(none stored before) types its open drafts once more by the read's rule: a `recibo`
+the read chose whose issuer RNC is that tax id becomes a `venta` with
+`document_type_detected` true, in one revision. A type a person named, an approved
+record and a draft with another issuer stay as they are. The answer is the profile plus
+`retyped_drafts`, the number of drafts that save moved to `venta`: zero for every save
+but that first one, and the same number when the key is replayed. Each moved draft's
+`history` entry carries `reason: "business_rnc_set"`; every other entry carries
+`reason: null`. The server stores the reason on the revision and the count on the
+save's action receipt, so the web shows the note and the count and never infers
+them from the actor or the facts. A change from one tax id to another types no existing draft
 again: only documents read after it are compared with it. A change of tax id, or clearing it,
 clears the stored legal name; a change of name alone keeps it.
 
@@ -9517,7 +9626,7 @@ code table (`argus.domain.business.dgii_codes`): the 606 `category` (Tipo de
 Bienes y Servicios Comprados, 01 to 11) and `payment_method` (Forma de Pago,
 01 to 07). Every other field's `labels` is empty. Codes are unchanged.
 
-The summary keeps positive TXT credit-note magnitudes separate from signed
+The summary keeps positive credit-note magnitudes separate from signed
 economic reductions. B02 purchases stay in recorded money and are excluded from
 606. Small B02 sales go to a separate consumption summary; reportable B02 detail
 also stays in that summary. Tax allocations, exact Decimal totals, exclusions,
@@ -10055,7 +10164,7 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  settlement_available, activity_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
   is final, the open items read and the settlement PATCH are refused with 404
@@ -10121,8 +10230,9 @@ accept path recorded.
   purchase, so the draft is a `recibo` marked as the read's choice and the
   person may switch it. With no issuer RNC on the document and a Business tax
   id, `recibo` is a default, not the read's choice. The tax id is the one on
-  the profile when the draft is read; setting it later types no existing
-  draft again. A typed note follows the same rule and prints no issuer, so an
+  the profile when the draft is read; the first tax id saved later types
+  open drafts once more, as `PATCH /business/fiscal-profile` states. A typed
+  note follows the same rule and prints no issuer, so an
   unnamed note is a default `recibo` with a Business tax id and the read's
   choice without one; a typed `purchase` names a `recibo`.
   `ReceiptSummary.document_type` reports the current
@@ -10381,20 +10491,27 @@ accept path recorded.
   for a person; a source that names no currency never fires it. The batch
   metadata records `document_currency`.
 - A read that was saved but never became a record (the hosted hand-off refused
-  or failed after the extractor answered) is `needs_attention` with attention
-  `interrupted`, `preparable: true` and the real cause in `error_code`, except
-  two terminal refusals derived from the saved batch. An unreadable read
-  (`readable` false, or issue `unreadable_document`) is attention `unreadable`
-  and `preparable: false`. A notice or statement with no purchase, and any
-  read that has no receipt object, is attention `not_a_receipt` and
-  `preparable: false`. A readable fiscal bill (an NCF and a plain total on
-  `batch.receipt`) that was refused stays `interrupted` and `preparable: true`.
+  or failed after the extractor answered) is `needs_attention` and shows what
+  the hand-off does with that saved read now, with the real cause in
+  `error_code`. One rule decides both. When the hand-off makes a draft from
+  it, the attention is `interrupted` and `preparable: true`. When the
+  hand-off refuses it, the attention names that refusal and `preparable` is
+  false, because another read replays the same saved read: `unreadable` for an
+  unreadable read (`readable` false), `not_a_receipt` for a read with no
+  receipt object and no purchase amount, or a complete receipt whose only rows
+  are notices or statement periods, and `check_details` for an incomplete
+  receipt with no amount (`receipt_requires_review`). A readable read with an
+  amount a person can review is never refused: a fiscal bill (an NCF and a
+  plain total on `batch.receipt`), a positive priced amount, or a positive
+  receipt total or purchase row that names no currency. It becomes a review
+  draft: a fiscal receipt that names no currency takes DOP by default, any
+  other keeps the currency unknown. A read amount is parsed where it enters
+  the draft: a leading zero is dropped, and zero, a negative, or text the
+  facts cannot hold leaves the amount unknown for a person (the server logs
+  `business_post_read_rule ... rule=read_amount_unknown`).
   "Try again with AI" replays the saved read without a new provider call and
   runs the hand-off again. A saved read is never replaced, so a replay never
-  asks the provider for a new read. A readable receipt with a positive total
-  and no named currency becomes a review draft: a fiscal receipt takes DOP by
-  default, any other keeps the currency unknown. An incomplete receipt with no
-  total is refused again as `receipt_requires_review`. On a replay a fiscal bill becomes one expense
+  asks the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
   statement period. An NCF due notice is that one expense, marked
   `Factura por pagar` on the dossier as `bill_mark` (null while settlement is
@@ -10517,6 +10634,27 @@ accept path recorded.
   brings the same bytes later. `email_delivery_ids` lists the deliveries
   earliest first. The same rule marks a dossier's attachment sources:
   `channel: "email"` and their `email_delivery_ids`.
+  Every 200 answer carries an `ETag`: the version of the Business's lists
+  (Bandeja and Registros) for this person. A request that sends it back in
+  `If-None-Match` gets `304` with no body while nothing changed, and the page
+  with a new `ETag` once something did. The version is opaque. One owner
+  derives it (`argus.domain.business.list_version`) in one statement over the
+  records' own change marks (count, newest change time and version sum per
+  table), so no writer keeps a counter. It reads
+  `financial_source_connections`, `financial_document_extractions`,
+  `financial_import_events`, `business_action_receipts`,
+  `business_email_deliveries`, `business_email_address_events`, the caller's
+  `business_receipt_read_states`, `business_receipt_reading_consents`,
+  `business_document_settlements`, `business_dgii_export_lines` and
+  `business_document_purges`, all for the one Business. It also names the
+  person and their capabilities, and a five-minute window, so a state that
+  moves with the clock is never held longer than that. The version is read
+  before the page is built: a write that lands in between shows as a change on
+  the next check. The web checks every 15 s (5 s while a receipt is being
+  read), never from a hidden tab, and backs off after failures; Bandeja and
+  Registros both follow that one check. The in-memory app keeps no change
+  marks and derives the version from the answer itself. `ETag` is in the CORS
+  exposed headers.
 - GET `/api/v1/business/receipts/{id}` returns a `ReceiptDetail`. `version` is
   the import event's version, and `0` while there is no purchase to review.
   `evidence` is what the receipt says, and corrections never change it.
@@ -10543,8 +10681,9 @@ accept path recorded.
   `outcome_unknown` (an attempt may have reached the provider; only the
   owner's consented retry starts another), `no_purchase_found`,
   `not_a_receipt` (a statement, a payment notice, or a file with no receipt
-  object), `several_purchases` (several or ambiguous purchases), `source_unavailable`,
-  `check_details` (a purchase is ready but the read was incomplete),
+  object and no purchase amount), `several_purchases` (several or ambiguous purchases), `source_unavailable`,
+  `check_details` (a purchase is ready but the read was incomplete, or an
+  incomplete receipt has no amount),
   `read_budget_day` or `read_budget_month` (the Business's read budget for
   the day or the month was spent before this read could start; `error_code`
   is `business_read_budget_day` or `business_read_budget_month`, the receipt
@@ -10640,8 +10779,9 @@ accept path recorded.
   fact revision; current workflow blockers may still require review. Sources,
   account legs, approval receipts and payment annotations are not extra rows.
 
-  The strict body is `{schema_version:1, filters, columns, sort:"date_desc",
-  page:1, page_size:25}`. Pages are positive integers; sizes are 25, 50 or 100.
+  The strict body is `{schema_version:1, filters, sort:"date_desc",
+  page:1, page_size:25}`. A `columns` list from the first table, in an old
+  link or saved view, is accepted and dropped; nothing reads it. Pages are positive integers; sizes are 25, 50 or 100.
   `matching_count`, `page_count` and totals cover all matches before slicing.
   A page above the last is empty with unchanged counts. Sorting is report date
   descending, then stable row ID ascending, with unknown dates last. No query
@@ -10744,8 +10884,10 @@ accept path recorded.
   must pass the existing fiscal source validation. It does not mean paid,
   fiscally valid or government accepted. `needs_fiscal_data` is a recorded row
   whose month's 606 or 607 names something missing (`export_missing`).
-  `exported` is a recorded row whose 606 or 607 line a downloaded TXT already
-  froze; it carries `export_line` true.
+  `exported` is a recorded row with a line in `business_dgii_export_lines`; it
+  carries `export_line` true. No download writes that table now, so the stage
+  is history: rows marked before the DGII TXT was retired keep it, and no new
+  row reaches it.
   Processing, unsettled approval or unavailable evidence uses a separate
   `technical_state` and null stage; failed evidence never becomes empty readiness.
   Missing tax identity or generic document subtype alone creates no human task.
@@ -10767,6 +10909,14 @@ accept path recorded.
   amounts. `coverage_notes` explicitly includes absent legal-cancellation coverage,
   unknown source subtype and evidence separation.
 
+  Montos adds `document_net_amount`, `document_net_credit_adjustment` and
+  `document_net_family_amount` totals with the same admission, credit sign,
+  currency grouping and completeness rules. The overview's purchase and sale
+  cards use `document_net_family_amount`. Each row adds `net_amount`,
+  `net_amount_source`, `amounts_difference` and `inheritance`. The default
+  table and its “Lo que ves” export place net amount, ITBIS and gross Total
+  together. Gross fields and recorded money retain their previous meaning.
+
   `fiscal_totals` is separate from those existing gross/activity totals. It is
   reduced on the server over the same full filtered records, before pagination,
   with the same Personal admission rule. Entries partition by nullable `currency`,
@@ -10774,9 +10924,9 @@ accept path recorded.
   `itbis`, `goods`, or `services`. No currency conversion or cross-currency sum
   occurs, and gross is never reconciled to the three fiscal amounts.
 
-  ITBIS has one source: the known `facts.fiscal.itbis` read through `fact_value`,
-  as in both 606 and 607 export. Neither declaration has another billed-ITBIS
-  field. Goods and services read the populated `goods_amount` and
+  Registros ITBIS reads the main `facts.fiscal.itbis`. The fiscal declaration
+  inherits this value unless a person overrides it; 606 and 607 exports read
+  that declaration value when present. Goods and services read the populated `goods_amount` and
   `services_amount` of the existing confirmed purchase declaration, including
   hand-entered values. No new split or fiscal mapping is computed. Each row
   carries nullable decimal `itbis_amount`, `goods_amount`, and `services_amount`.
@@ -10789,7 +10939,7 @@ accept path recorded.
   explicitly sin comprobante, even if its declaration or amount is missing.
   Sales have no goods/services fields and contribute to neither denominator.
   A metric with no applicable records has no entry; an empty result has no
-  fiscal totals. Currency eligibility for a filed TXT does not remove foreign
+  fiscal totals. Currency eligibility for a DGII line does not remove foreign
   purchases from their own currency's coverage.
 
   `known_amount_minor` is the exact signed sum of known effects, with decimal
@@ -10812,12 +10962,19 @@ accept path recorded.
   Registros sends for its table, and returns what the export modal shows before
   any file is built. Both routes need the live `export` capability and the
   report's one selected type (`business_export_family_required` otherwise).
-  `table.columns` lists the table columns the selected tab offers
-  (`reporting_preferences.py` owns them), in the table's order, each with `shown`
-  for the table's current visibility; expense type and payment form are offered
-  on Compras only. `table.current` counts the records the table's request
-  matches, with their currencies; `table.all` counts the same request in every
-  currency, and is null while an amount range ties the request to one currency.
+  `table.current` counts the records the table's request matches, with their
+  currencies; `table.all` counts the same request in every currency, and is
+  null while an amount range ties the request to one currency. Each carries
+  `columns`, the file's columns for that choice in file order: the columns the
+  table offers (the registry in `reporting_columns.py` owns them), in the
+  table's order, then `currency` after `gross_amount` in `table.all`. Each column
+  is `{key, label_key, required, shown}`: `label_key` is the locale path of its
+  name, `required` says every file holds it (the name and Moneda), and `shown`
+  says the modal offers it checked. The registry gives each column a file rule.
+  `as_shown` follows the table's visibility. `always` is the name
+  (`counterparty`): the file holds it even while the table hides it. `default` is
+  Forma de pago on Compras: it is offered checked while the table hides it, and
+  then it is the last column. The modal renders this list.
   `dgii` counts by the tab and period only, whatever the other filters say:
   `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
   currency (`DOP`), `record_count` the records whose
@@ -10854,11 +11011,12 @@ accept path recorded.
   `format` is `xlsx` (default, one sheet, frozen header row) or `csv`
   (UTF-8 with a BOM). There is no ZIP, manifest, totals row or original.
   `mode: "table"` writes what the table shows: the report's every filter, the
-  chosen `columns` in the table's order with Contraparte always first, and
-  `currencies` `current` (the screen's currency) or `all` (the same request in
+  chosen `columns` in the preview's order with its `required` columns always in,
+  and `currencies` `current` (the screen's currency) or `all` (the same request in
   every currency, with a Moneda column after Monto; refused with
   `business_export_currency_required` while an amount range is set). A column
-  the tab does not offer is refused with `business_export_column_unavailable`.
+  the preview for that choice does not list is refused with
+  `business_export_column_unavailable`.
   Table headers and values use the web locales through
   `records_file_words.generated.json`, generated by
   `scripts/generate_records_file_words.py`. Expense type and payment method
@@ -10875,9 +11033,8 @@ accept path recorded.
   with both payment cells blank when unpaid. The 607 retains its `AAAAMMDD`
   date columns. For the 606 file, expense type and payment method
   use the exact choices from the official workbook. Empty or zero ITBIS and
-  income withholding amounts are numeric zero. The period ZIP
-  (`GET /business/exports`) still writes the official TXT codes and amount
-  fields through `dgii_export.line_values`.
+  income withholding amounts are numeric zero. The codes and amount fields
+  come from `dgii_export.line_values`.
   A cell that starts with `=`, `+`, `-` or `@` is text in both formats
   (a quote prefix in Excel, a leading `'` in CSV). The grant is checked again
   after the file is built and before it is released.
@@ -10906,35 +11063,52 @@ accept path recorded.
   precision; historical version-1 bounds and exact response strings remain valid.
 
   Version-2 recipes also save `page_size` (25/50/100) and optional
-  `presentation`. The backend `Presentation` in
-  `src/argus/domain/business/reporting_preferences.py` owns the default table
-  layout. Every answer's `presentation` is the explicitly requested layout when
-  supplied, or that backend default when omitted. Version 1 still rejects
-  `presentation` in its request. Both versions return the effective typed
-  `presentation` in every answer. The web leaves omitted
-  request presentation absent and renders the answer; it defines no table defaults.
+  `presentation`. The column registry in
+  `src/argus/domain/business/reporting_columns.py` owns every column fact and the
+  default table layout. Every answer's `presentation` is the explicitly requested
+  layout after the upgrade below, or the backend default when omitted. Version 1
+  still rejects `presentation` in its request. Both versions return the effective
+  typed `presentation` in every answer, and the web keeps that one in place of
+  its request's. Every answer also carries `columns`: each column the request's
+  type offers in the Business's country, in the layout's order, as
+  `{key, label_key, shown, families}`. `label_key` is the locale path of
+  the column's name, so the web says it in the reader's language,
+  `shown` follows `presentation.hidden`, and `families` names the record
+  families (`sale`, `purchase`) whose table offers the column. No column is locked by name: the person
+  can hide or move any of them. A country can omit columns
+  (`BusinessCountry.omitted_columns`). The web leaves omitted request
+  presentation absent and renders the answer; it defines no table defaults.
   Before the answer, it shows pending UI without invented columns or options.
   Restore omits presentation and queries again. Saving a view records the effective
   layout, including when the original request omitted it. Explicit saved layouts
-  keep their order, hidden columns and density. Missing `fiscal_number` and
-  `itbis_amount` columns append to saved orders hidden.
+  keep their order, hidden columns and density. A column a saved or linked
+  layout does not name joins it at the end, hidden. The
+  net amount instead joins just before the total, shown.
 
-  `presentation.order` contains each supported table key once, with counterparty
-  first. The default visible order is counterparty, date, amount, stage, note,
-  attachment. Fiscal number follows counterparty and ITBIS follows amount, both
-  hidden by default; expense type, payment form and account are also hidden.
+  `presentation.order` contains each supported table key once, in any order.
+  The default visible order is `counterparty_id` (RNC o Cédula), date, expense
+  type, net amount, ITBIS, total, stage. The name, fiscal number, note,
+  attachment, payment form and account are hidden by default.
   Expense type and payment form are offered and rendered only on Compras.
   `family` and `currency` are removed from table order and hidden keys when reading
-  old saved presentations. `hidden` cannot hide counterparty or amount. A saved
+  old saved presentations. `hidden` can name any column, but every table keeps
+  one column shown: a layout is a 422 when it leaves a family's table, in any
+  country, with no shown column. Hiding every column does that, and so does
+  showing only expense type or payment form, which Ventas does not offer. The
+  web reads each column's `families` to keep the person from asking for such a
+  layout. The first shown
+  column is the one the web freezes on the left. `counterparty_id` is the
+  row's `counterparty_key`: the web draws it with the DGII's hyphens and the
+  file writes plain digits. A saved
   presentation
   from before the 606 columns is read as current: `category` becomes `expense_type`
   in place, and `payment_form` joins the order after it, hidden. `category` is no
-  longer a table column. Optional `fiscal_number` (NCF or e-CF) and
-  `itbis_amount` columns are hidden by default. ITBIS uses the row currency;
+  longer a table column. `fiscal_number` is the NCF or e-CF. ITBIS uses the row currency;
   missing amounts or currency remain unknown, and zero remains numeric.
   Density is 40/48/56, default 48. Reordering supports drag and up/down buttons.
-  Amount uses heavier text; ITBIS uses regular text. `columns` is a retained
-  recipe field; the Registros export reads its own `columns` choice instead. No summary or widget preference is accepted. Page, page size, columns and presentation do
+  Amount uses heavier text; ITBIS uses regular text. Recipes no longer carry the
+  first table's `columns`; a stored one is dropped on read. No summary or widget
+  preference is accepted. Page, page size and presentation do
   not alter the result fingerprint. The preview reads the recorded empty answer
   `web/test-fixtures/records-default-report-answer.json`; it is not a live fallback.
   `test_query_returns_backend_default_presentation`,
@@ -11290,8 +11464,9 @@ still answers `409 business_transfer_target_invalid` and creates no transfer.
 `export_windows` is a list of `{start, end}` dates. Downloaded in order through
 the unchanged `GET /business/exports` (at most 366 days each), the windows cover
 every day the export can select, from the earliest recorded or drafted day
-through today. A Business with no record has none. The export itself is
-unchanged: each record keeps its own currency and exact amount, and a closed
+through today. A Business with no record has none. This handover is the
+export's one caller in the app. Each record keeps its own currency and exact
+amount, and a closed
 Business still cannot be exported.
 
 `GET /business/spaces` adds `closed_spaces: [{space_id, name, grant_id, role,

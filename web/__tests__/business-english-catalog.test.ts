@@ -6,6 +6,7 @@ import spanish from "@/public/locales/es-419/common.json";
 
 /** Words that read the same in both languages: DGII names, document names, and plain words English shares. */
 const SHARED_CONTEXTS = new Map([
+  ["business.activity_feed.extractor_name", "Cuadrao"],
   ["business.invoicing_preview.email_cc_short", "Cc"],
   ["business.invoicing_preview.document_customer_ced", "CED: {{id}}"],
   ["business.invoicing_preview.document_customer_rnc", "RNC: {{id}}"],
@@ -17,7 +18,8 @@ const SHARED_CONTEXTS = new Map([
   ["business.dossier.tab_original", "Original"],
   ["business.dgii.option.id_type.1", "1 - RNC"],
   ["business.dgii.option.id_type.2", "2 - Cédula"],
-  // A review marker, not copy: both languages wait on the same review.
+  // A review marker, not copy: both languages wait on, or passed, the same review.
+  ["business.guide_cards.actividad_intro.copy_review", "approved"],
   ["business.home_setup.copy_review", "pending_lucas"],
   ["business.inicio.copy_review", "pending_lucas"],
   ["business.intake.write_type.copy_review", "pending_lucas"],

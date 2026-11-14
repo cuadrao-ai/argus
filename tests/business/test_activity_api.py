@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import date
 
 import pytest
@@ -11,8 +12,6 @@ from fastapi.testclient import TestClient
 from tests.business.test_activity_projection import NONE, row
 from tests.business.test_business_api import BASE, Owner, started
 from tests.ingestion.conftest import ALICE
-
-pytestmark = pytest.mark.usefixtures("activity_on")
 
 
 @pytest.fixture
@@ -31,6 +30,19 @@ def test_the_feed_is_empty_without_a_store(alice: Owner):
         {"items": [], "next_cursor": None, "actors": []},
     )
     assert page.headers["cache-control"] == "no-store"
+
+
+def test_the_feed_answers_with_no_activity_setting_in_the_environment(
+    alice: Owner, monkeypatch: pytest.MonkeyPatch
+):
+    for name in [name for name in os.environ if "ACTIVITY" in name.upper()]:
+        monkeypatch.delenv(name)
+    assert not [key for key in alice.get("/workspace").json() if key.startswith("activity")]
+    page = alice.get("/activity")
+    assert (page.status_code, page.json()) == (
+        200,
+        {"items": [], "next_cursor": None, "actors": []},
+    )
 
 
 def test_only_the_three_page_sizes_are_accepted(alice: Owner):

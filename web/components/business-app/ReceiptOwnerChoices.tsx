@@ -11,11 +11,12 @@ import ReceiptRowSave from "./ReceiptRowSave";
 import type { RowSave, SaveRow } from "./receipt-review-save";
 
 type Choice = keyof PurchaseChoice;
+const SUGGESTION_TEST_ID: Record<Choice, string> = { category: "expense-type-suggestion", payment_method: "payment-form-suggestion" };
 
 /**
  * Tipo de gasto and forma de pago, from the server's codes and the locale's text. Neither
- * blocks approval. A suggested tipo de gasto stays a suggestion until a person
- * takes it, because only a person's write reaches the 606.
+ * blocks approval. A suggestion comes from the server with its source and stays a
+ * suggestion until a person takes it, because only a person's write reaches the 606.
  */
 export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled, readOnly = false, saves, onChoose, onRetry, onCancel, onReload }: {
   dossier: BusinessDossier;
@@ -36,7 +37,7 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
     const field: DgiiField | undefined = fields?.["606"].find((item) => item.name === choice);
     const value = String(dossier.dgii?.[choice] ?? "");
     const name = (code: string) => t(`business.dgii.option.${choice}.${code}`, { defaultValue: code }) || code;
-    const suggestion = choice === "category" && !value ? dossier.expense_type_suggestion : null;
+    const suggestion = value ? null : dossier.declaration_suggestions?.[choice] ?? null;
     if (readOnly) return (
       <div key={choice} data-fact={choice} className={FACT_ROW_CLASS}>
         <dt className={FACT_LABEL_CLASS}>{label}</dt>
@@ -53,7 +54,7 @@ export default function ReceiptOwnerChoices({ dossier, fields, failed, disabled,
               {field.options.map((code) => <option key={code} value={code}>{name(code)}</option>)}
             </ReviewSelect>
           </label> : null}
-          {suggestion && field ? <p data-testid="expense-type-suggestion" className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t("business.dgii.suggested", "Suggested")}: {name(suggestion)}{disabled ? null : <button type="button" className={quietButtonClass} onClick={() => onChoose(choice, suggestion)}>{t("business.dossier.placeholder.use_suggestion", "Use")}</button>}</p> : null}
+          {suggestion && field ? <p data-testid={SUGGESTION_TEST_ID[choice]} className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70"><span>{t("business.dgii.suggested", "Suggested")}: {name(suggestion.value)}</span><span data-suggestion-source={suggestion.source}>{t(`business.dossier.placeholder.suggestion_source.${suggestion.source}`, { defaultValue: "" })}</span>{disabled ? null : <button type="button" className={quietButtonClass} onClick={() => onChoose(choice, suggestion.value)}>{t("business.dossier.placeholder.use_suggestion", "Use")}</button>}</p> : null}
           <ReceiptRowSave save={saves[choice]} onRetry={() => onRetry(choice)} onCancel={() => onCancel(choice)} />
         </dd>
       </div>

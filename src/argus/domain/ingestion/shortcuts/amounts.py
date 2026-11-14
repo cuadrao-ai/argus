@@ -119,12 +119,18 @@ def _split(raw: str) -> tuple[str, str | None, bool]:
     return marker, core, signed
 
 
+def marker_currency(marker: str) -> str | None:
+    """The one ISO code a printed marker names ("RD$" is DOP), else None."""
+
+    return _UNAMBIGUOUS.get("".join(marker.split()).upper())
+
+
 def _currency(marker: str, explicit: str | None) -> tuple[str | None, bool]:
     compact = "".join(marker.split()).upper()
     if not compact:
         # Nothing on the amount: an explicit code is the only statement.
         return explicit, False
-    named = _UNAMBIGUOUS.get(compact)
+    named = marker_currency(compact)
     if named is None and compact in _ISO_MARKERS:
         named = compact
     if named is not None:

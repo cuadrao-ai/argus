@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
+from argus.domain.business.contracts.facts import HUMAN_AMOUNT_FIELDS
 from argus.llm.openrouter import (
     begin_openrouter_route_receipt_capture,
     end_openrouter_route_receipt_capture,
@@ -149,6 +150,7 @@ def _facts(facts: dict[str, Any], bindings: dict[str, str]) -> dict[str, Any]:
     return {
         field: _fact(fact, bindings) if field != "fiscal" else fact
         for field, fact in facts.items()
+        if field not in HUMAN_AMOUNT_FIELDS
     }
 
 
@@ -156,7 +158,7 @@ def _fact_sources(facts: dict[str, Any], aliases: dict[str, str]) -> dict:
     return {
         field: [aliases[source_id] for source_id in fact["source_ids"]]
         for field, fact in facts.items()
-        if field != "fiscal"
+        if field != "fiscal" and field not in HUMAN_AMOUNT_FIELDS
     }
 
 

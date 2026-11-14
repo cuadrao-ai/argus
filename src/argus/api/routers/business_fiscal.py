@@ -12,6 +12,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dgii import (
     FiscalField,
     FiscalProfile,
+    FiscalProfileSaved,
     RegistryAnswer,
 )
 from argus.domain.business.dgii_form import input_fields
@@ -60,7 +61,7 @@ def fiscal_profile(
         raise action_problem(request, error.result) from None
 
 
-@router.patch("", response_model=FiscalProfile)
+@router.patch("", response_model=FiscalProfileSaved)
 def change_fiscal_profile(
     request: Request,
     response: Response,

@@ -10,7 +10,7 @@ const TODOS = { select: false, status: true };
 const LISTOS = { select: true, status: false };
 
 for (const sender of [false, true]) for (const width of ["--columns", "--laptop-columns", "--compact-columns"] as const) {
-  test(`${width}, Remitente ${sender ? "on" : "off"}: moving to Listos changes only Contenido's share`, () => {
+  test(`${width}, Remitente ${sender ? "on" : "off"}: moving to Listos drops Estado and leaves Contenido and every other track as they were`, () => {
     const [content, ...todos] = tracks(grid(TODOS, sender)[width]);
     const [box, sameContent, ...listos] = tracks(grid(LISTOS, sender)[width]);
     assert.equal(box, `${SELECT_COLUMN_PX}px`);

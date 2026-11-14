@@ -21,6 +21,7 @@ from argus.domain.business.authority import (
     BusinessAuthority,
     authorize,
 )
+from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.dgii_snapshot import fiscal_snapshot
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
@@ -349,6 +350,7 @@ def _projected(
             tuple(source.source_id for source in sources),
             personal=is_personal(facts),
             include_606=fiscal_inclusion(facts),
+            fiscal_overrides=resolution.fiscal_overrides,
         )
         dependency = hashlib.sha256(
             _json(
@@ -539,6 +541,7 @@ class ExportSource:
     approved: dict[str, FiscalRecord]
     observed_at: datetime
     rnc_registry: RncRegistrySnapshot = field(default_factory=RncRegistrySnapshot)
+    country: str = DEFAULT_COUNTRY
 
 
 def read_export_source(
@@ -554,6 +557,7 @@ def read_export_source(
         {record.approved.activity_id: record.approved for record in snapshot.records},
         snapshot.observed_at,
         rnc_registry,
+        context.country,
     )
 
 
@@ -577,7 +581,13 @@ def read_report_snapshot(
         connection.execute("set transaction isolation level repeatable read")
         authorize(connection, context.actor, context.grant_id).require(capability)
         snapshot, records, _ = _projected(authority, context, connection)
-        result = run_query(snapshot.identity(""), records, request, snapshot.observed_at)
+        result = run_query(
+            snapshot.identity(""),
+            records,
+            request,
+            snapshot.observed_at,
+            country=context.country,
+        )
         authorize(connection, context.actor, context.grant_id).require(capability)
         return result, matching_records(records, request, snapshot.observed_at)
 

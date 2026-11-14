@@ -10,7 +10,8 @@ export type BusinessActivityItem = {
   occurred_at: string;
   actor: BusinessActivityActor;
   action: string;
-  object: { kind: "draft" | "receipt" | "grant" | "invite"; id: string; label?: string } | null;
+  /** `purged`: the document is gone for good, so it has no label and nothing opens it. */
+  object: { kind: "draft" | "receipt" | "grant" | "invite"; id: string; label?: string; purged?: boolean } | null;
 };
 export type BusinessActivityPage = { items: BusinessActivityItem[]; next_cursor: string | null };
 
