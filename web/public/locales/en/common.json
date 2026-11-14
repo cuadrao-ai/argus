@@ -3335,8 +3335,8 @@
           "label": "Follow the activity"
         },
         "open": {
-          "body": "Open a row to go to that document or record.",
-          "label": "Go straight to it"
+          "body": "Open a deleted document's row to see it in Deleted or restore it.",
+          "label": "Get it back"
         },
         "title": "What happens in your business, in one place"
       },

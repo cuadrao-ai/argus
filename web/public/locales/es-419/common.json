@@ -3371,8 +3371,8 @@
           "label": "Sigue la actividad"
         },
         "open": {
-          "body": "Abre una fila para ir a ese documento o registro.",
-          "label": "Ve directo al documento"
+          "body": "Abre la fila de un documento eliminado para verlo en Eliminados o restaurarlo.",
+          "label": "Recupera lo eliminado"
         },
         "title": "Lo que pasa en tu negocio, en un solo lugar"
       },
