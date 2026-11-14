@@ -44,6 +44,8 @@ const without = (keys: ReadonlySet<string>, gone: readonly string[]): ReadonlySe
  * moves nothing in view. `arrived` names the new rows; each is marked for a short
  * time that starts when the person can first see it, so a row that lands in
  * another view, on another page or off screen is still marked when reached.
+ * The caller can only name rows it holds: a list the server pages names the
+ * rows that land on the page shown, and no others.
  * Rows are known by their own key, never by position.
  */
 export function useListArrivals(root: RefObject<HTMLElement | null>, attribute: string = LIST_ROW) {

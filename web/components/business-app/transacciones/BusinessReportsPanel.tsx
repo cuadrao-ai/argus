@@ -154,16 +154,20 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   // The Business's one change check says when something changed; the table reads itself again without leaving the screen.
   const arrivals = useListArrivals(screen, "data-record-key");
   const { hold, arrived } = arrivals;
-  const quiet = useRef(false);
-  useEffect(() => { const stop = controller.subscribe(() => { if (quiet.current) hold(); }); return () => { stop(); }; }, [controller, hold]);
+  // The table owes a read until one lands for the latest change. A read that did not land is asked again on the next answered check.
   const listChanges = records.listChanges ?? 0;
-  const seenChanges = useRef(listChanges);
+  const delivered = useRef(listChanges);
+  const asked = useRef<number | null>(null);
+  useEffect(() => { const stop = controller.subscribe(() => { if (asked.current !== null) hold(); }); return () => { stop(); }; }, [controller, hold]);
   useEffect(() => {
-    if (seenChanges.current === listChanges) return;
-    seenChanges.current = listChanges;
-    quiet.current = true;
-    void controller.refreshQuietly().then(arrived).finally(() => { quiet.current = false; });
-  }, [listChanges, controller, arrived]);
+    if (delivered.current === listChanges || asked.current === listChanges) return;
+    asked.current = listChanges;
+    void controller.refreshQuietly().then((landed) => {
+      if (!landed) return;
+      delivered.current = listChanges;
+      arrived(landed);
+    }).finally(() => { if (asked.current === listChanges) asked.current = null; });
+  }, [listChanges, records.listChecks, controller, arrived]);
   useEffect(() => {
     if (state.load.kind === "ready" && state.request.schema_version === 1 && state.load.answer.overview && state.load.answer.effective_sort) {
       void controller.load(reportRequestSchema.parse({ ...state.request, schema_version: 2 }));

@@ -10,6 +10,17 @@ export const RECEIPT_READING_MS = 5000;
 const MAX_REFRESH_DELAY_MS = 60000;
 const realClock: PollClock = (fn, ms) => { const timer = setTimeout(fn, ms); return () => clearTimeout(timer); };
 type Page = { items: ReceiptSummary[]; activity: ReceiptActivityCounts | null; version?: string | null };
+type Lists = { inbox: ReceiptSummary[] | null; receiptActivity?: ReceiptActivityCounts | null; listVersion?: string | null; listChanges?: number; listChecks?: number };
+
+/**
+ * What an answered check leaves behind. The items, the counts and their version change together, so the next check
+ * names what the screen shows. Every answer is counted, also "nothing changed": a list that reads on its own and
+ * failed has no other signal to ask again.
+ */
+export function afterListCheck<Held extends Lists>(held: Held, page: Page | null): Held {
+  const checked = { ...held, listChecks: (held.listChecks ?? 0) + 1 };
+  return page ? { ...checked, inbox: page.items, receiptActivity: page.activity, listVersion: page.version ?? null, listChanges: (held.listChanges ?? 0) + 1 } : checked;
+}
 
 /**
  * The one change check for the Business's lists. Each check names the version

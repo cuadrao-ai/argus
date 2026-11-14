@@ -1674,7 +1674,9 @@ Bandeja and Registros update on their own, by one rule. In Bandeja a new row
 lands at the top; in Registros it lands where the sort puts it. The row carries a
 short highlight that fades by itself. The highlight starts when the person can
 first see the row, so a row that lands in another view, on another page or off
-screen is still marked when reached. It is a fuller green wash than a selected
+screen is still marked when reached. Registros is paged by the server, so there
+only a row that lands on the page shown is marked; the count and the pages still
+update. It is a fuller green wash than a selected
 row and has no bar. There is no "new items" bar and no refresh control on either
 screen. Nothing the person is doing moves: the first row in view stays where it
 is, also at the start of the list and behind an open record, rows already shown

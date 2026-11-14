@@ -65,6 +65,11 @@ async function mount(language: "es-419" | "en" = "es-419", panel: BusinessContex
       context = { ...context, records: { ...context.records, inbox: receipts.map(item => ({ ...item })) } };
       await render(); await wait();
     },
+    /** A check the server answered with nothing new: the lists stay the same objects and only the count of checks moves. */
+    unchanged: async () => {
+      context = { ...context, records: { ...context.records, listChecks: (context.records.listChecks ?? 0) + 1 } };
+      await render(); await wait();
+    },
     receipt,
     receipts: () => receipts,
   };
@@ -100,6 +105,24 @@ test("after a failed full read, the next poll tick asks again even when the cont
   assert.equal(page.allReads(), failedReads + 1);
   await page.tick();
   assert.equal(page.allReads(), failedReads + 1, "healthy again, so unchanged ticks stop re-reading");
+});
+
+test("after a failed full read, a check that finds nothing new still asks again, until the list is back", async () => {
+  const page = await mount();
+  page.breakRead(offlineError());
+  await page.start();
+  assert.ok(page.alert(), "the failure is said");
+  const failedReads = page.allReads();
+  await page.unchanged();
+  assert.equal(page.allReads(), failedReads + 1, "still down: the check asked again");
+  assert.ok(page.alert());
+  page.healRead();
+  await page.unchanged();
+  assert.equal(page.alert(), null, "the check with nothing new recovered the list");
+  assert.equal(page.titles().length, 1);
+  assert.equal(page.allReads(), failedReads + 2);
+  await page.unchanged();
+  assert.equal(page.allReads(), failedReads + 2, "healthy again, so checks with nothing new stop re-reading");
 });
 
 test("after a failed full read, the connection returning asks again without waiting for a tick", async () => {

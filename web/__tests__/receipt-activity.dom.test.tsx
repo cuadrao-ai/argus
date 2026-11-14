@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
@@ -14,7 +14,7 @@ import { BusinessConsentTestProvider } from "@/components/business-app/business-
 import ReceiptDossierReview from "@/components/business-app/ReceiptDossierReview";
 import { dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import ReceiptSeenBoundary from "@/components/business-app/ReceiptSeenBoundary";
-import { useReceiptInboxRefresh } from "@/components/business-app/useReceiptInboxRefresh";
+import { afterListCheck, useReceiptInboxRefresh } from "@/components/business-app/useReceiptInboxRefresh";
 import type { ReceiptActivityCounts, ReceiptDetail, ReceiptReading } from "@/lib/business-api";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 import english from "@/public/locales/en/common.json";
@@ -560,4 +560,36 @@ test("with change checks a hidden tab asks nothing and a failed check still back
     await settle();
     assert.equal(timer.delay(), 15000, "an answer, even no change, clears the back-off");
   } finally { hidden = false; await act(async () => view.root.unmount()); view.element.remove(); }
+});
+
+test("every answered check is counted, also one with nothing new, and only one that brings lists changes them", async () => {
+  const timer = clock();
+  const { checks, source, page, settle } = checkedSource();
+  type Held = Parameters<typeof afterListCheck>[0];
+  const first: Held = { inbox: [], receiptActivity: counts, listVersion: '"v1"' };
+  let held = first;
+  function Harness() {
+    const [lists, setLists] = useState(first);
+    held = lists;
+    useReceiptInboxRefresh({ source, active: true, reading: false, businessKey: "A", known: lists.listVersion, clock: timer.schedule, onRefresh: (answer) => setLists((value) => afterListCheck(value, answer)) });
+    return null;
+  }
+  const view = await host();
+  try {
+    await act(async () => view.root.render(<Harness />));
+    await timer.tick();
+    checks[0].answer(null);
+    await settle();
+    assert.equal(held.listChecks, 1, "a list whose own read failed hears of the check and can ask again");
+    assert.equal(held.listChanges, undefined, "nothing new: a healthy list reads nothing");
+    assert.equal(held.inbox, first.inbox);
+    await timer.tick();
+    checks[1].fail();
+    await settle();
+    assert.equal(held.listChecks, 1, "a check that got no answer is not counted");
+    await timer.tick();
+    checks[2].answer(page('"v2"'));
+    await settle();
+    assert.deepEqual([held.listChecks, held.listChanges, held.listVersion], [2, 1, '"v2"']);
+  } finally { await act(async () => view.root.unmount()); view.element.remove(); }
 });

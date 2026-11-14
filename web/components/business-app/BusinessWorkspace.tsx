@@ -67,7 +67,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { AmountsToggle } from "./foundation/AmountsToggle";
 import BusinessNotifications from "./foundation/BusinessNotifications";
 import BusinessHeader from "./foundation/BusinessHeader";
-import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
+import { afterListCheck, useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
 import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
@@ -113,6 +113,8 @@ type Records = {
   listVersion?: string | null;
   /** Counts the times the change check brought something new; a list that follows it reads itself again. */
   listChanges?: number;
+  /** Counts every answered change check, also the ones that brought nothing; a list whose own read failed asks again on it. */
+  listChecks?: number;
   /** Saved notes, newest first; null until loaded or after a failed load. A notes outage never hides receipts, and never reads as no notes. */
   notes: BusinessCapture[] | null;
   notesFailure?: LoadFailure | null;
@@ -593,8 +595,7 @@ function BusinessWorkspaceContent({
     epoch: revision,
     onRefresh: (page) => {
       if (onRecord) return;
-      // The items, the counts and their version change together, so the next check names what the screen shows.
-      if (page) setRecords((value) => ({ ...value, inbox: page.items, receiptActivity: page.activity, listVersion: page.version ?? null, listChanges: (value.listChanges ?? 0) + 1 }));
+      setRecords((value) => afterListCheck(value, page));
       // A long read outlasts the email poll; each receipt refresh asks again while an email is still moving.
       if (emailDeliveries.items && !emailDeliveries.refreshing && emailDeliveriesNeedRefresh(emailDeliveries.items)) emailDeliveries.refresh();
     },

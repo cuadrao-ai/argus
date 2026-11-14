@@ -182,11 +182,11 @@ export function createBusinessReportController(scope: ReportScope, initial = def
     },
     refresh: () => controller.load(),
     /**
-     * Reads the same request again while the table stays drawn, and answers the rows that were not there before.
-     * A failed read keeps the rows shown: the next change check asks again.
+     * Reads the same request again while the table stays drawn. Answers the rows of this page that were not on it
+     * before, or null when no answer landed: the rows shown stay, and the caller still owes the read.
      */
-    async refreshQuietly(): Promise<readonly string[]> {
-      if (state.load.kind !== "ready") return [];
+    async refreshQuietly(): Promise<readonly string[] | null> {
+      if (state.load.kind !== "ready") return null;
       const shown = state.load.answer;
       const report = state.request;
       queryAbort?.abort();
@@ -197,17 +197,17 @@ export function createBusinessReportController(scope: ReportScope, initial = def
       const superseded = () => abort.signal.aborted || version !== queryVersion || currentGeneration !== generation || state.request !== report;
       try {
         const answer = await transport.query(scope, report, abort.signal);
-        if (superseded() || answer.page !== report.page || answer.page_size !== report.page_size || answer.items.length > report.page_size) return [];
+        if (superseded() || answer.page !== report.page || answer.page_size !== report.page_size || answer.items.length > report.page_size) return null;
         // A page the records no longer have opens the last one that exists.
-        if (report.page > Math.max(1, answer.page_count)) { await controller.load({ ...report, page: Math.max(1, answer.page_count) }); return []; }
+        if (report.page > Math.max(1, answer.page_count)) { await controller.load({ ...report, page: Math.max(1, answer.page_count) }); return state.load.kind === "ready" ? [] : null; }
         publish({ load: { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
         const before = new Set(shown.items.map((row) => row.row_id));
         return answer.items.filter((row) => !before.has(row.row_id)).map((row) => row.row_id);
       } catch (error) {
-        if (superseded()) return [];
+        if (superseded()) return null;
         const problem = reportFailure(error);
         if (problem.kind === "access") revoke(problem);
-        return [];
+        return null;
       }
     },
     rememberAnchor: (rowId: string | null) => publish({ anchor: rowId, missingAnchor: false }),

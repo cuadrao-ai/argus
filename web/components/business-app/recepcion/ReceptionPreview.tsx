@@ -116,8 +116,8 @@ function ReceptionWorkspace() {
   const sourcesDown = (["notes", "emails"] as const).filter(key => { const failure = key === "notes" ? records.notesFailure : records.emailsFailure; return failure && !failure.refused; });
   const askAgain = useEffectEvent(() => { if (arrivalsDown) setAttempt(value => value + 1); if (sourcesDown.length) retrySources(sourcesDown); });
   const askArrivalsAgain = useEffectEvent(() => { if (arrivalsDown) setAttempt(value => value + 1); });
-  // A healthy list re-reads only when its content changed; a failed one asks again on the next poll tick and when the connection returns.
-  useEffect(() => { askArrivalsAgain(); }, [records.inbox]);
+  // A healthy list re-reads only when its content changed; a failed one asks again on every answered check, also one that brought nothing, and when the connection returns.
+  useEffect(() => { askArrivalsAgain(); }, [records.inbox, records.listChecks]);
   useEffect(() => {
     window.addEventListener("online", askAgain);
     return () => window.removeEventListener("online", askAgain);
