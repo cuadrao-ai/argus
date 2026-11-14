@@ -75,15 +75,17 @@ async function open(receipt: Partial<ReceiptDetail>, prepared: boolean) {
   }
 }
 
-/** The server's group decides the word. `status` and `attention` are set against it to prove nothing else is read. */
+/** The server's group decides the status. `status` and `attention` are set against it to prove nothing else is read. */
 const CASES: readonly { name: string; receipt: Partial<ReceiptDetail>; word: string; tone: string }[] = [
-  { name: "a receipt with no NCF, grouped as attention", receipt: { status: "review_ready", attention: null, bandeja_group: group("attention", "missing_ncf") }, word: "Falta el NCF", tone: "needs_attention" },
+  { name: "an attention receipt shows the status, not its reason", receipt: { status: "review_ready", attention: null, bandeja_group: group("attention", "missing_ncf") }, word: "Necesita atención", tone: "needs_attention" },
   { name: "an attention receipt with no reason", receipt: { status: "review_ready", attention: null, bandeja_group: group("attention", null) }, word: "Necesita atención", tone: "needs_attention" },
+  { name: "a receipt being read", receipt: { status: "preparing", attention: null, bandeja_group: group("attention", "reading") }, word: "Leyendo…", tone: "pending" },
   { name: "a Listos receipt", receipt: { status: "review_ready", attention: null, bandeja_group: group("listo", null) }, word: "Listo para revisar", tone: "pending" },
   { name: "a Listos receipt whose status disagrees", receipt: { status: "needs_attention", attention: "check_details", bandeja_group: group("listo", null) }, word: "Listo para revisar", tone: "pending" },
+  { name: "an approved receipt", receipt: { status: "confirmed", attention: null, bandeja_group: null }, word: "Aprobado", tone: "approved" },
 ];
 
-describe("the receipt's state word is the server's Bandeja group", () => {
+describe("the receipt's status is the server's Bandeja group, never its reason", () => {
   for (const prepared of [true, false]) {
     for (const { name, receipt, word, tone } of CASES) {
       test(`${name}, ${prepared ? "with" : "without"} a prepared record`, async () => {
