@@ -209,6 +209,7 @@ describe("Business hits open the panel that holds them", () => {
       size_bytes: 1,
       received_at: "2026-10-07T14:00:00Z",
       status: "review_ready" as const,
+      bandeja_group: { group: "listo" as const, reason: null, draft_id: null, version: null },
       error_code: null,
       expense_id: null,
       merchant: null,

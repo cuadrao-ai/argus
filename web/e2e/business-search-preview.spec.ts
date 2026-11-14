@@ -69,7 +69,7 @@ test.describe("Business search in the omnisearch", () => {
     await expect(receipts.getByRole("button")).toContainText("Papelería Central");
     await input.fill("ferreteria");
     await expect(receipts.getByRole("button")).toContainText("Ferretería La Esquina");
-    await expect(receipts.getByRole("button")).toContainText("Listo para revisar");
+    await expect(receipts.getByRole("button")).toContainText("Sin comprobante");
     await receipts.getByRole("button").click();
     await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
 
