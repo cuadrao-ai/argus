@@ -8870,13 +8870,22 @@ answers 422 `fiscal_direction_unsupported`), and the draft is open or
 approved. A downloaded DGII TXT changes nothing here. `payment_split_editable`
 is true on the same terms for a sale: a `venta`. The type alone decides which
 form a record takes; neither flag reads the kind or a saved declaration.
-`expense_type_suggestion` is the tipo de gasto (`01` to
-`11`) a person last chose for this draft's supplier RNC in this Business, on
-another open, accepting or accepted purchase, or null. It is read fresh and
-stored nowhere: it is null while `declaration_editable` is false or the draft
-has a choice of its own, a suggested type on a declaration is no choice, and it
-never reads another Business. It reaches the 606 only when a person writes it
-as `purchase.category`, so an approval leaves the type blank.
+`declaration_suggestions` holds one suggestion for each 606 answer a person
+gives one by one, under the declaration's field name: `category` (tipo de
+gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
+is `{value, source}` or null. `source` says where the value came from:
+`last_choice` is the answer a person last gave for this draft's supplier RNC
+in this Business, on another open, accepting or accepted purchase; `receipt`
+is reserved for a value read from the receipt, and nothing sends it yet. A
+suggestion is read fresh and stored nowhere: it is null while
+`declaration_editable` is false or the draft has that answer of its own, and
+it never reads another Business. A suggested type on a declaration
+(`category_suggested`) is no answer, on this draft or as a memory. A forma de
+pago an approval filled from the account that paid is no answer either: the
+last revision that changed the field must be a person's, not an approval's
+own. A suggestion reaches the 606 only when a person writes it as
+`purchase.category` or `purchase.payment_method`, so an approval never takes
+one and neither field blocks approval.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
 enforces: a member holding `prepare` who is not the owner, on an `open` or

@@ -3242,6 +3242,9 @@
         "group_retentions": "Retenciones",
         "group_other": "Otros",
         "section_choices": "Para el 606",
+        "suggestion_source": {
+          "last_choice": "Última elección para este RNC"
+        },
         "use_suggestion": "Usar",
         "mark_no_receipt": "Marcar sin recibo"
       },
