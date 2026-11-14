@@ -41,7 +41,7 @@ test("every row opens its own record, whatever state it is in", async () => {
   assert.deepEqual(receptionTarget(email), { kind: "email", emailId: email.id });
   const recorded = rows.find(row => row.kind === "receipt" && row.receipt.expense_id);
   assert.ok(recorded?.kind === "receipt");
-  assert.deepEqual(receptionTarget(recorded), { kind: "expense", expenseId: recorded.receipt.expense_id });
+  assert.deepEqual(receptionTarget(recorded), { kind: "receipt", receiptId: recorded.id, list: "inbox" });
 });
 
 test("an arrival keeps source identity searchable without making its amount primary", async () => {
