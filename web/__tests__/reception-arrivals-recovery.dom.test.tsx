@@ -12,6 +12,7 @@ beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz", widt
 afterEach(async () => {
   await cleanup(); cleanup = async () => {};
   sight.show();
+  window.localStorage.clear();
   document.body.innerHTML = "";
   if (originalEnvironment.node === undefined) Reflect.deleteProperty(process.env, "NODE_ENV"); else Reflect.set(process.env, "NODE_ENV", originalEnvironment.node);
   if (originalEnvironment.mock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalEnvironment.mock;
@@ -271,5 +272,28 @@ test("the list behind an open record does not jump when a row lands, and the row
     assert.match(page.titles()[0], /Recibo nuevo/, "rows keep arriving while a record is open");
     assert.match(open().textContent ?? "", /Recibo uno/);
     assert.equal(open().getBoundingClientRect().top, before, "the open record's row is where it was");
+  } finally { rows.restore(); }
+});
+
+test("with the columns reordered and some hidden, a new row still lands at the top, marked, and the view holds", async () => {
+  window.localStorage.setItem("cuadrao:bandeja_columns:v1", JSON.stringify({ order: ["arrival", "amount", "status", "file", "source", "sender", "currency"], hidden: ["file", "source", "sender", "currency"], density: "amplio" }));
+  const ROW = 40;
+  const page = await mount();
+  await page.tick(["a", "b", "c", "d"].map((id, index) => later(page, id, -index)));
+  const first = () => page.host.querySelector<HTMLElement>('[data-testid="reception-row"]')!;
+  const cells = (row: HTMLElement) => [...row.children].map(cell => cell.querySelector("time") || cell.matches("time") ? "arrival" : cell.getAttribute("data-testid") ?? cell.className);
+  assert.equal(first().querySelector('[data-testid="reception-channel"]'), null, "Canal is hidden");
+  assert.ok(cells(first()).indexOf("arrival") < cells(first()).indexOf("reception-amount"), "Llegada comes before Monto, as the layout says");
+  await page.tick([...page.receipts(), later(page, "nuevo", 5)]);
+  assert.match(page.titles()[0], /Recibo nuevo/, "the new row is first");
+  assert.match(arrivedTitles(page).join("|"), /Recibo nuevo/, "and marked");
+  assert.ok(cells(first()).indexOf("arrival") < cells(first()).indexOf("reception-amount"), "the new row draws the same layout");
+  const rows = measuredRows(ROW);
+  try {
+    rows.state.scrolled = 2.5 * ROW;
+    const before = page.host.querySelectorAll<HTMLElement>("[data-list-row]")[2].textContent;
+    await page.tick([...page.receipts(), later(page, "otro", 6)]);
+    assert.deepEqual(rows.state.moves, [ROW], "the page scrolls by exactly the height that landed above");
+    assert.equal(page.host.querySelectorAll<HTMLElement>("[data-list-row]")[3].textContent, before, "the row that was in view is where it was");
   } finally { rows.restore(); }
 });
