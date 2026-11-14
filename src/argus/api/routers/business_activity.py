@@ -20,7 +20,6 @@ from argus.domain.business.activity.queries import (
     read_activity,
 )
 from argus.domain.business.authority import ActionError
-from argus.domain.business.config import business_activity_enabled
 from argus.domain.business.contracts.activity import (
     ActionGroup,
     ActivityFilters,
@@ -35,37 +34,11 @@ _GRANT_REFUSALS = {
         "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
     }
 }
-_ACTIVITY_REFUSAL = {
-    404: {
-        "description": "`business_activity_disabled`: Actividad is off on this server (`CUADRAO_BUSINESS_ACTIVITY_ENABLED`).",
-        "content": {
-            "application/json": {"schema": {"$ref": "#/components/schemas/Error"}}
-        },
-    }
-}
-
-
-def require_activity(request: Request) -> None:
-    """The one refusal every Actividad route answers while it is off, before
-    authentication; the workspace read says the same as ``activity_available``."""
-
-    if business_activity_enabled():
-        return
-    raise problem(
-        request,
-        status_code=404,
-        code="business_activity_disabled",
-        title="Not Found",
-        detail="Activity is not available.",
-        headers=NO_STORE,
-    )
-
 
 router = APIRouter(
     prefix="/business/activity",
     tags=["business"],
-    responses={**_GRANT_REFUSALS, **_ACTIVITY_REFUSAL},
-    dependencies=[Depends(require_activity)],
+    responses=_GRANT_REFUSALS,
 )
 
 
