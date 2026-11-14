@@ -3790,10 +3790,14 @@ detected. The Business RNC is read when the draft is typed. The first RNC a
 Business saves types its open drafts once more: a `recibo` the read chose whose
 issuer is that RNC becomes a detected `venta` in one revision by the read. A
 named type, an approved record and a later change of RNC type nothing again.
-No column stores why that revision exists. The save's
-`business_action_receipts` row (`set_business_rnc`) owns it: the revision and
-the receipt are written in one transaction and share its `created_at`, and the
-dossier's `history[].reason` and the save's `retyped_drafts` both read that link.
+Migration `20261114103519_business_revision_reason.sql` adds the nullable
+`business_draft_revisions.reason` text column, checked against the reasons the
+server names (today only `business_rnc_set`). It owns why a revision that no
+person and no read made exists: the recheck writes it on each revision it makes,
+every other revision keeps null, and the dossier's `history[].reason` reads it.
+The save's `business_action_receipts` row (`set_business_rnc`) keeps the number
+of revisions that save wrote as `retyped_drafts` in its `applied` outcome, so a
+replayed key answers the same `retyped_drafts`. No existing row is changed.
 The type is the one owner of purchase or sale:
 Registros' family, the Bandeja's 606 and 607 editors, month close's invoice or
 receipt role and the export's form all read it, never the kind or the saved

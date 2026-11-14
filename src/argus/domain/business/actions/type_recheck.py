@@ -16,39 +16,16 @@ from argus.domain.business.contracts.facts import BusinessResolution, Known
 from argus.domain.business.document_type import issuer_tax_id, resolved_document_type
 from argus.domain.business.transactions import ActionTransaction
 
-# The save's receipt owns why: a revision is the recheck's when the save that
-# stored the first tax id wrote it. Both rows carry their transaction's time.
-_SAVE_WROTE = (
-    " a.space_id=r.space_id and a.created_at=r.created_at"
-    " and a.command->>'action'='set_business_rnc'"
-)
-REVISION_REASON = (
-    "case when exists (select 1 from public.business_action_receipts a where"
-    + _SAVE_WROTE
-    + ") then 'business_rnc_set' end"
-)
 
-
-def retyped_drafts(tx: ActionTransaction, key: str) -> int:
-    """How many drafts the save with this key moved to Ventas, the same on a
-    replay as on the first answer."""
-
-    return tx.rows(
-        "select count(*) as moved from public.business_action_receipts a"
-        " join public.business_draft_revisions r on"
-        + _SAVE_WROTE
-        + " where a.space_id=%s and a.actor_id=%s and a.idempotency_key=%s",
-        (tx.context.actor.space_id, tx.context.actor.actor_id, key),
-    )[0]["moved"]
-
-
-def recheck_open_drafts(tx: ActionTransaction) -> None:
+def recheck_open_drafts(tx: ActionTransaction) -> int:
     """Makes a Venta of each open receipt the read chose whose issuer is the
     Business's own number, still marked as the read's choice. A type a person
     named and an approved record stay. A draft the change refuses stays a
-    receipt the person may switch, so it never blocks saving the number."""
+    receipt the person may switch, so it never blocks saving the number.
+    Each revision stores why it exists; the answer is how many were written."""
 
     own = mutations.business_tax_id(tx)
+    moved = 0
     actor = tx.authorization.provenance.model_copy(update={"actor_kind": "extractor"})
     for event in tx.imports.events(("open",)):
         saved = event.resolution.get("business")
@@ -86,6 +63,7 @@ def recheck_open_drafts(tx: ActionTransaction) -> None:
                     actor,
                     document_type=document_type,
                     document_type_detected=detected,
+                    reason="business_rnc_set",
                 )
         except ActionError as error:
             logger.warning(
@@ -94,8 +72,10 @@ def recheck_open_drafts(tx: ActionTransaction) -> None:
                 error.code,
             )
             continue
+        moved += 1
         logger.info(
             "business_document_type_rechecked draft_id={} type={}",
             event.id,
             document_type,
         )
+    return moved

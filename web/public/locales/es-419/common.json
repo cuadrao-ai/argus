@@ -3424,11 +3424,12 @@
       "channel_web": "Subido",
       "pm": "p.m.",
       "read": "Leído",
-      "reason": { "business_rnc_set": "Pasó a Venta: lo emitió tu negocio" },
+      "reason": { "business_rnc_set": "Lo emitió tu negocio" },
       "received": "Recibido",
       "rnc_verified": "RNC verificado",
       "set": "{{field}}: {{after}}",
-      "title": "Historial"
+      "title": "Historial",
+      "via_cuadrao": "{{name}} vía Cuadrao"
     },
     "home": {
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",

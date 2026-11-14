@@ -11,6 +11,7 @@ import io
 import json
 import os
 from types import SimpleNamespace
+from typing import get_args
 from unittest.mock import patch
 from uuid import uuid4
 from zipfile import ZipFile
@@ -20,8 +21,10 @@ from argus.api import state as api_state
 from argus.api.documents import documents_service
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
+from argus.domain.business.contracts.dossier import RevisionReason
 from fastapi.testclient import TestClient
 from psycopg import Connection
+from psycopg.errors import CheckViolation
 
 from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import DETAILS, PURCHASE, ReceiptStub
@@ -902,6 +905,33 @@ def test_the_first_business_rnc_answers_with_how_many_drafts_it_moved(
     assert _own_rnc(web, headers=headers)["retyped_drafts"] == 2
     assert _own_rnc(web, headers=headers)["retyped_drafts"] == 2
     assert _own_rnc(web, CLIENT_RNC, OWN_RNC)["retyped_drafts"] == 0
+
+
+def test_a_revision_stores_only_a_reason_the_contract_names(web) -> None:  # noqa: ANN001
+    """The reason is a stored column: the move's revision holds it, the read's
+    holds none, and the table takes each reason the contract names and no other."""
+
+    draft = _upload(web, OWN_RNC)["draft_id"]
+    _own_rnc(web)
+    copy = (
+        "insert into public.business_draft_revisions"
+        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,reason)"
+        " select space_id,draft_id,version+1,actor,before_facts,after_facts,source_ids,%s"
+        " from public.business_draft_revisions where draft_id=%s"
+        " order by version desc limit 1"
+    )
+    with Connection.connect(shared.DSN) as db:
+        stored = db.execute(
+            "select reason from public.business_draft_revisions"
+            " where draft_id=%s order by version",
+            (draft,),
+        ).fetchall()
+        assert [row[0] for row in stored] == [None, "business_rnc_set"]
+        for reason in get_args(RevisionReason):
+            db.execute(copy, (reason, draft))
+        with pytest.raises(CheckViolation):
+            db.execute(copy, ("another_reason", draft))
+        db.rollback()
 
 
 def test_a_first_business_rnc_with_no_draft_of_its_own_moves_none(web) -> None:  # noqa: ANN001

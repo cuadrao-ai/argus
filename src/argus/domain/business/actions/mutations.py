@@ -42,6 +42,7 @@ from argus.domain.business.contracts.dgii import (
     PurchaseReview,
     SalePaymentSplit,
 )
+from argus.domain.business.contracts.dossier import RevisionReason
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
@@ -142,6 +143,7 @@ def save_revision(
     document_type: DocumentType | None = None,
     document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
+    reason: RevisionReason | None = None,
 ) -> Applied:
     if before is None and isinstance(after.legal_tip, Unknown) and after.legal_tip.origin is None:
         after = after.model_copy(update={"legal_tip": Unknown(origin="matched", source_ids=source_ids)})
@@ -215,8 +217,8 @@ def save_revision(
     tx.rows(
         "insert into public.business_draft_revisions"
         " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,"
-        "before_dgii,after_dgii,before_due_on,after_due_on)"
-        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "before_dgii,after_dgii,before_due_on,after_due_on,reason)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -232,6 +234,7 @@ def save_revision(
             else None,
             before_due_on,
             after_due_on,
+            reason,
         ),
     )
     return Applied(outcome="applied", draft_id=event.id, version=event.version)
@@ -253,6 +256,7 @@ def revise(
     document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
     montos: MontosReview | None = None,
+    reason: RevisionReason | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     named_type = document_type is not None
@@ -391,6 +395,7 @@ def revise(
         document_type=document_type,
         document_type_detected=document_type_detected,
         due_on=due_on,
+        reason=reason,
     )
 
 

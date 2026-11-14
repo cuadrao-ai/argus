@@ -3388,11 +3388,12 @@
       "channel_web": "Uploaded",
       "pm": "PM",
       "read": "Read",
-      "reason": { "business_rnc_set": "Moved to Sale: your business issued it" },
+      "reason": { "business_rnc_set": "Your business issued it" },
       "received": "Received",
       "rnc_verified": "RNC verified",
       "set": "{{field}}: {{after}}",
-      "title": "History"
+      "title": "History",
+      "via_cuadrao": "{{name}} via Cuadrao"
     },
     "reading": {
       "line": "Reading your receipt…",

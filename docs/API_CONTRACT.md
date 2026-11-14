@@ -9588,8 +9588,9 @@ record and a draft with another issuer stay as they are. The answer is the profi
 `retyped_drafts`, the number of drafts that save moved to `venta`: zero for every save
 but that first one, and the same number when the key is replayed. Each moved draft's
 `history` entry carries `reason: "business_rnc_set"`; every other entry carries
-`reason: null`. The server derives both from the save's action receipt, so the web
-shows the line and the count and never infers them from the actor or the facts. A change from one tax id to another types no existing draft
+`reason: null`. The server stores the reason on the revision and the count on the
+save's action receipt, so the web shows the note and the count and never infers
+them from the actor or the facts. A change from one tax id to another types no existing draft
 again: only documents read after it are compared with it. A change of tax id, or clearing it,
 clears the stored legal name; a change of name alone keeps it.
 
