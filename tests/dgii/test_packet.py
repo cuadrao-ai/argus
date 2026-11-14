@@ -192,7 +192,7 @@ def test_zero_optional_amount_prints_empty_and_required_itbis_stays_numeric():
     )
     assert row[7] == ""
     assert row[10] == "180.00"
-    assert row[11] == ""
+    assert row[11] == "0.00"
 
 
 def test_missing_itbis_blocks_the_annex_file():
@@ -428,7 +428,7 @@ def test_seeded_month_annex_matches_reference_bytes():
     purchase = result.files[f"dgii/DGII_F_606_{filer}_202609.TXT"].decode().splitlines()
     for number in ("B0100009876", "B0400000310"):
         fields = next(line.split("|") for line in purchase if f"|{number}|" in line)
-        assert (fields[6], fields[11], fields[17]) == ("", "", "")
+        assert (fields[6], fields[11], fields[17]) == ("", "0.00", "0.00")
 
 
 @pytest.mark.parametrize(

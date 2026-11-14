@@ -13,6 +13,9 @@ from argus.domain.business.fiscal_identity import (
 )
 from argus.domain.business.rnc_registry import RncRecord, RncRegistry
 
+# Missing values in these 606 fields are valid and export as zero.
+REQUIRED_ZERO_606 = frozenset({"itbis_withheld", "income_withheld"})
+
 COPY = {
     "fiscal_identity_length": {
         "es": "El RNC debe tener 9 dígitos (empresa) u 11 (cédula).",
