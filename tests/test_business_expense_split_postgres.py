@@ -135,7 +135,7 @@ def closed(draft: Draft) -> tuple[dict | None, list[tuple[str, str]]]:
 
     view = draft.view
     records.approved(draft.service, draft.context, draft.id, view.version)
-    manifest, rows = records.txt_606_rows(draft.service, draft.context)
+    manifest, rows = records.rows_606(draft.service, draft.context)
     return (
         rows[0] if rows else None,
         sorted((issue["code"], issue["field"]) for issue in manifest["issues"]),
@@ -295,7 +295,7 @@ def test_an_edit_on_an_approved_record_is_refused_and_the_line_stays(actions):  
 
     assert refused.code == "recorded_correction_unsupported"
     assert len(draft.view.history) == len(view.history)
-    manifest, [row] = records.txt_606_rows(service, context)
+    manifest, [row] = records.rows_606(service, context)
     assert manifest["issues"] == []
     assert (row["goods_amount"], row["itbis"]) == ("300.00", "0.00")
 
@@ -310,7 +310,7 @@ def test_a_606_write_on_an_approved_record_still_moves_the_amount(actions):  # n
     draft.settled(selective_tax="30.00")
 
     assert draft.split == ("270.00", None)
-    manifest, [row] = records.txt_606_rows(service, context)
+    manifest, [row] = records.rows_606(service, context)
     assert manifest["issues"] == []
     assert (row["services_amount"], row["selective_tax"]) == ("270.00", "30.00")
 

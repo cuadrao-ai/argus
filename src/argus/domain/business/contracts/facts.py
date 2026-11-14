@@ -490,7 +490,7 @@ def personal_mark_admits(
     """Whether a record counts for the Business: not marked Personal, or a
     personal purchase the accountant answered "¿Incluir en 606?" yes. The
     606 is the purchases report, so the answer never admits a personal sale.
-    Month close, the DGII packet, Registros totals and the export handoff all
+    Month close, the DGII summary, Registros totals and the export handoff all
     decide here."""
 
     return not personal or (not sale and include_606 is True)

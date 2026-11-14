@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { createHttpMonthCloseClient, type MonthCloseClient, type MonthCloseFigures, type MonthCloseSnapshot } from "../lib/business-month-close";
-import type { BusinessContextValue } from "../components/business-app/BusinessWorkspace";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -307,92 +306,3 @@ describe("a mark sends the server's day and a method the server lists", () => {
     }
   });
 });
-
-describe("Exportar shows each form's own status from the packet", () => {
-  const own = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner" as const, capabilities: ["read", "prepare", "approve"] as const, permissions: ["read", "prepare", "approve", "download", "export"] as const, access_seen: true };
-  const original = { fetch: globalThis.fetch, auth: process.env.NEXT_PUBLIC_MOCK_AUTH };
-  // Far from any real clock, so only the server's day can put these months on the control.
-  const FAR_TODAY = "2031-03-15";
-  const FORMS: Record<string, Record<string, string>> = {
-    "2031-03": { "606": "needs_review", "607": "needs_review" },
-    "2031-02": { "606": "prepared_candidate", "607": "no_operations" },
-  };
-
-  beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; });
-  afterAll(() => {
-    globalThis.fetch = original.fetch;
-    if (original.auth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
-    else process.env.NEXT_PUBLIC_MOCK_AUTH = original.auth;
-  });
-
-  async function renderExport(forms: (month: string) => unknown) {
-    const { act } = await import("react");
-    const { createRoot } = await import("react-dom/client");
-    const i18next = (await import("i18next")).default;
-    const { I18nextProvider } = await import("react-i18next");
-    const spanish = (await import("../public/locales/es-419/common.json")).default;
-    const { BusinessContext } = await import("../components/business-app/BusinessWorkspace");
-    const { setChosenGrant } = await import("../lib/business-grant");
-    const ExportRecordsPanel = (await import("../components/business-app/ExportRecordsPanel")).default;
-    const { useMonthCloseSource } = await import("../components/business-app/BusinessMonthClosePanel");
-    function Panel() {
-      return <ExportRecordsPanel monthClose={useMonthCloseSource()} onClose={() => undefined} />;
-    }
-    setChosenGrant(null);
-    const i18n = i18next.createInstance();
-    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
-    globalThis.fetch = async (input) => {
-      const url = new URL(String(input), "http://localhost");
-      if (url.pathname.endsWith("/business/fiscal-profile")) return Response.json({ name: "Taller Luna", tax_id: null, can_edit: false });
-      const month = url.searchParams.get("month")!;
-      const shape = forms(month);
-      return Response.json({ month, today: FAR_TODAY, from: `${month}-01`, to: lastDay(month), closed: true, reasons: [], earliest_month: "2030-01", payment_methods: METHODS, ...(shape === undefined ? {} : { dgii_forms: shape }), currencies: [], missing_rnc: [], missing_ncf: [], missing_fiscal_rows: [], cuentas_por_cobrar: [], cuentas_por_pagar: [] });
-    };
-    const value = { source: { mode: "live" }, chosen: own } as unknown as BusinessContextValue;
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    const root = createRoot(host);
-    await act(async () => {
-      root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><Panel /></BusinessContext.Provider></I18nextProvider>);
-    });
-    const settle = async () => { for (let i = 0; i < 30; i += 1) await act(async () => { await Promise.resolve(); }); };
-    await settle();
-    const segment = (key: string) => document.querySelector<HTMLButtonElement>(`[data-testid="export-period"] [data-segment="${key}"]`);
-    const form = (code: string) => document.querySelector<HTMLElement>(`[data-testid="export-form-${code}"]`);
-    const fiscal = () => document.querySelector('[data-testid="export-fiscal"]')?.textContent ?? "";
-    const unmount = async () => { await act(async () => root.unmount()); host.remove(); };
-    return { act, segment, form, fiscal, settle, unmount };
-  }
-
-  test("the periods are the server's months, and a closed month still says what the packet says per form", async () => {
-    const view = await renderExport((month) => FORMS[month]);
-    try {
-      assert.equal(view.segment("this_month")?.textContent, "Marzo");
-      assert.equal(view.segment("last_month")?.textContent, "Febrero");
-      assert.equal(view.segment("year")?.textContent, "2031");
-      assert.equal(view.form("606")?.dataset.status, "needs_review");
-      assert.equal(view.form("607")?.dataset.status, "needs_review");
-      assert.doesNotMatch(view.fiscal(), /Incluido/, "closed is not the packet's word");
-      assert.match(view.fiscal(), /606\s*Por revisar/);
-      await view.act(async () => { view.segment("last_month")!.click(); });
-      await view.settle();
-      assert.equal(view.form("606")?.dataset.status, "prepared_candidate");
-      assert.match(view.fiscal(), /606\s*Incluido/);
-      assert.match(view.fiscal(), /607\s*Sin operaciones/);
-    } finally {
-      await view.unmount();
-    }
-  });
-
-  test("an older server without dgii_forms shows the forms as unknown", async () => {
-    const view = await renderExport(() => undefined);
-    try {
-      assert.equal(view.form("606"), null);
-      assert.match(view.fiscal(), /606 y 607.*-$/);
-      assert.doesNotMatch(view.fiscal(), /Incluido|Falta cerrar/);
-    } finally {
-      await view.unmount();
-    }
-  });
-});
-

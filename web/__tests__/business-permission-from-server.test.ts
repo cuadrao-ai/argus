@@ -59,9 +59,6 @@ const ALLOWED: Record<string, Record<string, string>> = {
     'if (!chosen || chosen.role === "owner") return;': "the owner holds no grant whose access notice to mark seen",
     'spaces.find(space => space.role === "owner") ? null': "return to the person's own Business",
   },
-  "components/business-app/ExportRecordsPanel.tsx": {
-    'chosen.role === "owner" && getChosenGrant() === null': "the own Business is addressed without a grant header",
-  },
   "components/business-app/ReceiptMarksCard.tsx": {
     'const owner = !chosen || chosen.role === "owner"': "the owner reads who answered; the answer itself is gated on the dossier's capabilities",
   },

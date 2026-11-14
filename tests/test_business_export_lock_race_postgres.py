@@ -1,12 +1,13 @@
-"""Over HTTP on the real app and Postgres: the export builds its TXT and
-records the lines it carries under the Business's one owner lock, so a 606
-write that runs at the same time either lands before the build, and the TXT
-carries it, or waits for the build, lands after it, and the next TXT carries
-it. Each interleaving is forced with a pause at a seam, the same pause a slow
-export or a slow write gives. All values are made up."""
+"""Over HTTP on the real app and Postgres: the handover download builds its
+records sheet under the Business's one owner lock, so a 606 write that runs at
+the same time either lands before the build, and the sheet carries it, or
+waits for the build, lands after it, and the next download carries it. Each
+interleaving is forced with a pause at a seam, the same pause a slow export or
+a slow write gives. All values are made up."""
 
 from __future__ import annotations
 
+import csv
 import io
 import threading
 from unittest.mock import patch
@@ -17,9 +18,7 @@ from argus.domain.business import export as export_module
 from argus.domain.business.actions import mutations
 from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.ingestion.documents import store_postgres
-from psycopg import Connection
 
-from tests import test_financial_accounts_postgres as shared
 from tests.test_business_fiscal_routes_postgres import (  # noqa: F401
     API,
     _known,
@@ -35,13 +34,11 @@ from tests.test_business_scope_switch_routes_postgres import (
 pytestmark = _local_supabase
 FILER = "199990013"
 SUPPLIER = "199990021"
-TXT_606 = f"dgii/DGII_F_606_{FILER}_202609.TXT"
 
 
 def recorded(world, ncf):  # noqa: ANN001, ANN201, F811
     """One approved purchase of September 2026 with its 606 data complete and
-    Forma de Pago 01, on a Business whose RNC is set, so the next download
-    ships a 606 TXT with this one line."""
+    Forma de Pago 01, on a Business whose RNC is set."""
 
     alice = world.alice
     profile = world.client.patch(
@@ -128,20 +125,13 @@ def download(world):  # noqa: ANN001, ANN201, F811
 
 
 def shipped_payment_form(response) -> str:  # noqa: ANN001
-    """The Forma de Pago column of the one line the downloaded 606 TXT carries."""
+    """The Forma de pago of the one row the downloaded records sheet carries."""
 
     assert response.status_code == 200, response.text
     with ZipFile(io.BytesIO(response.content)) as archive:
-        line = archive.read(TXT_606).split(b"\r\n")[1].decode()
-    return line.split("|")[-1]
-
-
-def export_rows(world) -> int:  # noqa: ANN001, F811
-    with Connection.connect(shared.DSN) as db:
-        return db.execute(
-            "select count(*) from public.business_dgii_export_lines where space_id=%s",
-            (world.alice.space_id,),
-        ).fetchone()[0]
+        text = archive.read("records.csv").decode("utf-8-sig")
+    [row] = csv.DictReader(io.StringIO(text))
+    return row["Forma de pago"]
 
 
 def paused(target, reached, resume):  # noqa: ANN001, ANN201
@@ -161,9 +151,9 @@ def in_thread(outcome, name, call):  # noqa: ANN001, ANN201
     return thread
 
 
-def test_a_write_between_the_snapshot_and_the_build_is_in_the_txt(world):  # noqa: ANN001, F811
+def test_a_write_between_the_snapshot_and_the_build_is_in_the_sheet(world):  # noqa: ANN001, F811
     """The export has read the period and is rebuilding images when a person
-    saves Forma de Pago 03. The TXT ships 03."""
+    saves Forma de Pago 03. The sheet ships 03."""
 
     draft, version = recorded(world, "B0100001001")
     reached, resume = threading.Event(), threading.Event()
@@ -182,12 +172,11 @@ def test_a_write_between_the_snapshot_and_the_build_is_in_the_txt(world):  # noq
     assert shipped_payment_form(outcome["export"]) == "03"
     view = dossier(world, draft)
     assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
-    assert export_rows(world) == 1
 
 
 def test_a_write_holding_the_owner_lock_lands_before_the_build(world):  # noqa: ANN001, F811
     """The write is saving its revision when the export starts. The export
-    builds after that write commits: the TXT ships 03."""
+    builds after that write commits: the sheet ships 03."""
 
     draft, version = recorded(world, "B0100001002")
     reached, resume = threading.Event(), threading.Event()
@@ -206,19 +195,20 @@ def test_a_write_holding_the_owner_lock_lands_before_the_build(world):  # noqa: 
     assert shipped_payment_form(outcome["export"]) == "03"
     view = dossier(world, draft)
     assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
-    assert export_rows(world) == 1
 
 
 def test_a_write_arriving_during_the_build_lands_after_it(world):  # noqa: ANN001, F811
-    """The export is building its TXT when a person saves Forma de Pago 03. The
-    write waits for the export and lands: the TXT ships 01, the record holds
-    03, and the next TXT ships 03."""
+    """The export is building its archive when a person saves Forma de Pago 03.
+    The write waits for the export and lands: the sheet ships 01, the record
+    holds 03, and the next download ships 03."""
 
     draft, version = recorded(world, "B0100001003")
     reached, resume = threading.Event(), threading.Event()
     outcome = {}
     with patch.object(
-        export_module, "build_export", paused(export_module.build_export, reached, resume)
+        export_module,
+        "build_archive",
+        paused(export_module.build_archive, reached, resume),
     ):
         exporter = in_thread(outcome, "export", lambda: download(world))
         assert reached.wait(20)
@@ -231,6 +221,4 @@ def test_a_write_arriving_during_the_build_lands_after_it(world):  # noqa: ANN00
     assert shipped_payment_form(outcome["export"]) == "01"
     view = dossier(world, draft)
     assert (view["dgii"]["payment_method"], view["declaration_editable"]) == ("03", True)
-    assert export_rows(world) == 1
     assert shipped_payment_form(download(world)) == "03"
-    assert export_rows(world) == 2

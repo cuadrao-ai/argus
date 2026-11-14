@@ -10,7 +10,7 @@ import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { joinCurrencyList } from "@/lib/business-month-close";
 import { reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
 import type { ExportPreview, RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
-import { saveBlobDownload } from "../ExportRecordsPanel";
+import { saveBlobDownload } from "@/lib/save-blob-download";
 import DgiiRegistryTag from "../DgiiRegistryTag";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { showToast } from "../foundation/toasts";

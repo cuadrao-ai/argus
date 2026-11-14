@@ -1,9 +1,6 @@
-import io
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
-from xml.etree import ElementTree
-from zipfile import ZipFile
 
 import pytest
 from argus.domain.business.dgii_columns import COLUMNS, PAYMENT_BUCKETS
@@ -39,7 +36,7 @@ def changed(record, *, ncf=None, amount=None, tax=None, **declaration):
 @pytest.mark.parametrize(
     ("kind", "filer"), [("rnc", "199990013"), ("cedula", "00100000001")]
 )
-def test_filer_identity_preserves_rnc_or_cedula_in_header_and_filename(kind, filer):
+def test_filer_identity_keeps_rnc_or_cedula_in_the_summary(kind, filer):
     saved = FiscalProfileChange(
         name="Taller Norte",
         previous_name="Taller Norte",
@@ -48,12 +45,13 @@ def test_filer_identity_preserves_rnc_or_cedula_in_header_and_filename(kind, fil
     )
     assert saved.tax_id is not None and saved.tax_id.value == filer
     result = packet(rnc=filer)
+    assert (result.manifest["reporter_rnc"], result.manifest["period"]) == (
+        filer,
+        "202609",
+    )
     for form, count in [("606", 3), ("607", 1)]:
-        name = f"dgii/DGII_F_{form}_{filer}_202609.TXT"
-        assert (
-            result.files[name].decode().splitlines()[0]
-            == f"{form}|{filer}|202609|{count}"
-        )
+        assert result.manifest["forms"][form]["record_count"] == count
+        assert len(result.rows[form]) == count
         assert result.manifest["forms"][form]["status"] == "prepared_candidate"
 
 
@@ -87,17 +85,14 @@ def test_additional_purchase_document_types_are_exportable(code):
         (changed(practice_records()[0], ncf=number, **declaration),), rnc=filer
     )
     assert result.manifest["issues"] == []
-    assert number in result.files[f"dgii/DGII_F_606_{filer}_202609.TXT"].decode()
+    assert result.rows["606"][0][3] == number
 
 
 @pytest.mark.parametrize("code", ["14", "15", "16"])
 def test_additional_sales_document_types_are_exportable(code):
     result = packet((changed(practice_records()[4], ncf=f"B{code}00000001"),))
     assert result.manifest["issues"] == []
-    assert (
-        f"B{code}00000001"
-        in result.files["dgii/DGII_F_607_199990013_202609.TXT"].decode()
-    )
+    assert result.rows["607"][0][2] == f"B{code}00000001"
 
 
 def test_an_e34_purchase_credit_subtracts_on_the_606():
@@ -108,15 +103,10 @@ def test_an_e34_purchase_credit_subtracts_on_the_606():
         if getattr(record.facts.fiscal.ncf, "value", None) == "B0400000001"
     )
     electronic = changed(note, ncf="E340000000001")
-    result = packet(
-        tuple(electronic if record is note else record for record in records)
-    )
+    result = packet(tuple(electronic if record is note else record for record in records))
     assert result.manifest["issues"] == []
     assert result.manifest["totals_dop"]["606_net_base"] == "1400.00"
-    assert (
-        "E340000000001"
-        in result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode()
-    )
+    assert any(row[3] == "E340000000001" for row in result.rows["606"])
 
 
 def test_sales_credit_note_has_modified_reference_and_signed_tax_bridge():
@@ -145,10 +135,9 @@ def test_sales_credit_note_has_modified_reference_and_signed_tax_bridge():
     )
     result = packet((original, note))
     assert result.manifest["issues"] == []
-    rows = result.files["dgii/DGII_F_607_199990013_202609.TXT"].decode().splitlines()
-    row = next(row.split("|") for row in rows[1:] if "B0400000099" in row)
-    assert row[3] == "B0100000001" and row[7:9] == ["100.00", "18.00"]
-    assert row[16:] == [""] * 7
+    row = next(row for row in result.rows["607"] if row[2] == "B0400000099")
+    assert row[3] == "B0100000001" and row[7:9] == ("100.00", "18.00")
+    assert row[16:] == ("",) * 7
     assert result.manifest["totals_dop"]["itbis_facturado"] == "342.00"
     assert result.manifest["totals_dop"]["607_detail_gross"] == "2242.00"
     missing = packet((original, changed(note, modified_ncf=None)))
@@ -162,13 +151,7 @@ def test_disabled_perception_fields_remain_empty(index, columns, value):
         practice_records()[index], itbis_perceived=value, income_perceived=value
     )
     result = packet((record,))
-    form = record.declaration.form
-    row = (
-        result.files[f"dgii/DGII_F_{form}_199990013_202609.TXT"]
-        .decode()
-        .splitlines()[1]
-        .split("|")
-    )
+    [row] = result.rows[record.declaration.form]
     assert [row[column] for column in columns] == ["", ""]
 
 
@@ -218,8 +201,7 @@ def test_purchase_payment_date_does_not_pass_export_period_end(paid_on, valid):
     )
 
 
-def test_workbook_uses_exact_official_column_titles():
-    result = packet()
+def test_dgii_columns_use_exact_official_titles():
     expected = {
         "606": [
             "RNC o Cédula",
@@ -272,22 +254,8 @@ def test_workbook_uses_exact_official_column_titles():
             "Otras Formas de Ventas",
         ],
     }
-    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-    with ZipFile(io.BytesIO(result.files["dgii/606-607.xlsx"])) as book:
-        strings = [
-            "".join(x.itertext())
-            for x in ElementTree.fromstring(book.read("xl/sharedStrings.xml")).findall(
-                "m:si", ns
-            )
-        ]
-        for number, form in [(2, "606"), (3, "607")]:
-            row = ElementTree.fromstring(
-                book.read(f"xl/worksheets/sheet{number}.xml")
-            ).findall("m:sheetData/m:row", ns)[0]
-            assert [strings[int(cell.find("m:v", ns).text)] for cell in row] == expected[
-                form
-            ]
-            assert [label for _, label in COLUMNS[form]] == expected[form]
+    for form in ("606", "607"):
+        assert [label for _, label in COLUMNS[form]] == expected[form]
 
 
 @pytest.mark.parametrize(
@@ -378,8 +346,8 @@ def test_credit_note_for_small_consumption_sale_keeps_anonymous_identity():
     )
     result = packet((original, note))
     assert result.manifest["issues"] == []
-    rows = result.files["dgii/DGII_F_607_199990013_202609.TXT"].decode().splitlines()
-    assert len(rows) == 2 and rows[1].split("|")[:2] == ["", ""]
+    [row] = result.rows["607"]
+    assert row[:2] == ("", "")
     assert result.manifest["totals_dop"]["itbis_facturado"] == "72.00"
 
 
@@ -440,15 +408,7 @@ def test_self_billed_purchase_identity_must_match_filer_without_rewriting_facts(
         is not matching
     )
     if matching:
-        assert (
-            result.files[f"dgii/DGII_F_606_{filer}_202609.TXT"]
-            .decode()
-            .splitlines()[1]
-            .split("|")[0]
-            == filer
-        )
-    else:
-        assert not any(name.endswith(".TXT") for name in result.files)
+        assert result.rows["606"][0][0] == filer
 
 
 @pytest.mark.parametrize("note", ["B0300000001", "E330000000001"])
