@@ -12,7 +12,6 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:3198",
     locale: "en-US",
     viewport: { width: 1280, height: 900 },
-    screenshot: "on",
   },
   webServer: {
     // Production mode exercises account saves instead of the development-only language preview.
