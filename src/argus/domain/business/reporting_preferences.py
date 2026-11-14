@@ -20,6 +20,7 @@ from argus.domain.business.reporting_columns import (
     TABLE_COLUMNS,
     Family,
     TableColumn,
+    every_table_shows_one,
 )
 from argus.domain.recording.currency import normalize_currency, parse_minor_units
 from argus.domain.recording.errors import RecordingInputError
@@ -188,10 +189,10 @@ class Presentation(Contract):
     def canonical_columns(self) -> Presentation:
         if len(self.order) != len(TABLE_COLUMNS) or set(self.order) != set(TABLE_COLUMNS):
             raise ValueError("all table columns occur once")
-        if len(set(self.hidden)) != len(self.hidden) or len(self.hidden) >= len(
-            self.order
-        ):
-            raise ValueError("hidden columns are unique; one column stays shown")
+        if len(set(self.hidden)) != len(self.hidden):
+            raise ValueError("hidden columns are unique")
+        if not every_table_shows_one(set(self.order) - set(self.hidden)):
+            raise ValueError("every table keeps one column shown")
         return self
 
 

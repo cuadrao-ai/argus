@@ -32,7 +32,7 @@ export const reportPresentationSchema = z.strictObject({
   density: z.union([z.literal(40), z.literal(48), z.literal(56)]),
 });
 /** One column the table offers. `label_key` is a locale path. */
-export const reportColumnSchema = z.object({ key: z.enum(REPORT_PRESENTATION_KEYS), label_key: z.string(), shown: z.boolean() });
+export const reportColumnSchema = z.object({ key: z.enum(REPORT_PRESENTATION_KEYS), label_key: z.string(), shown: z.boolean(), families: z.array(family) });
 const pageSize = z.union([z.literal(25), z.literal(50), z.literal(100)]);
 export const reportPeriodSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("custom"), from_date: day, to_date: day }).refine((value) => value.from_date <= value.to_date),

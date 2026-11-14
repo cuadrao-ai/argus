@@ -8,8 +8,8 @@ import spanish from "@/public/locales/es-419/common.json";
 
 const cells = readFileSync(resolve(import.meta.dir, "../components/business-app/transacciones/transacciones-cells.module.css"), "utf8");
 const rule = (name: string) => cells.match(new RegExp(`(?:^|\\n)\\.${name} \\{([^}]*)\\}`))?.[1] ?? "";
-// Measured in the browser at Estado's 164px (#2044): the pill's text has 140px, and the longest reasons need more ("Falta la forma de pago" 144px, "Payment method is missing" 165px).
-const ESTADO_TEXT_PX = 140;
+// Measured in the browser (#2044): Estado's pill gives its text the column's width less 24px. At 168px every Spanish reason fits ("Falta la forma de pago" 144px); the longest English ones still cut ("Payment method is missing" 165px).
+const ESTADO_TEXT_PX = 144;
 const CHARACTER_PX = 6.4;
 const CHIP_PADDING_PX = 16;
 const labels = (words: unknown): string[] => typeof words === "string" ? [words] : Object.values(words as object).flatMap(labels);

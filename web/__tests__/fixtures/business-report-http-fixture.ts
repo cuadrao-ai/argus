@@ -32,9 +32,9 @@ function serverLayout(presentation: ReportPresentation): ReportPresentation {
   for (const { key } of recordedReportAnswer.columns) if (!order.includes(key)) { order.push(key); if (!hidden.includes(key)) hidden.push(key); }
   return { ...presentation, order, hidden };
 }
-/** The columns the server answers: the recorded specs in the layout's order, Compras-only ones dropped on Ventas. */
+/** The columns the server answers: the recorded specs in the layout's order, for the tab's family. */
 function serverColumns(presentation: ReportPresentation, sale: boolean): ReportColumn[] {
-  return presentation.order.flatMap((key) => recordedReportAnswer.columns.filter((column) => column.key === key && !(sale && (key === "expense_type" || key === "payment_form"))).map((column) => ({ ...column, shown: !presentation.hidden.includes(key) })));
+  return presentation.order.flatMap((key) => recordedReportAnswer.columns.filter((column) => column.key === key && column.families.includes(sale ? "sale" : "purchase")).map((column) => ({ ...column, shown: !presentation.hidden.includes(key) })));
 }
 function latestMonth(rows: readonly ReportRecord[]) {
   const newest = rows.flatMap((row) => row.report_date ?? []).sort().at(-1) ?? "2026-10-26";

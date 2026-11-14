@@ -19,7 +19,12 @@ from argus.domain.business.reporting import (
     summarize,
     summarize_fiscal,
 )
-from argus.domain.business.reporting_columns import SPECS, TableColumn, offered_columns
+from argus.domain.business.reporting_columns import (
+    SPECS,
+    TableColumn,
+    offered_columns,
+    offering_families,
+)
 from argus.domain.business.reporting_preferences import (
     Contract,
     DocumentKind,
@@ -205,6 +210,9 @@ class ReportColumn(Contract):
     #: Locale path of its name; the web reads the words in the reader's language.
     label_key: str
     shown: bool
+    #: The record families whose table offers it. A layout must leave every
+    #: family's table one shown column, so the web reads this before it hides one.
+    families: tuple[Family, ...]
 
 
 def report_columns(
@@ -218,6 +226,7 @@ def report_columns(
             key=key,
             label_key=SPECS[key].label,
             shown=key not in presentation.hidden,
+            families=offering_families(key),
         )
         for key in presentation.order
         if key in offered

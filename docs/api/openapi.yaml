@@ -30209,12 +30209,20 @@ components:
           type: string
         shown:
           type: boolean
+        families:
+          items:
+            type: string
+            enum:
+            - sale
+            - purchase
+          type: array
       additionalProperties: false
       type: object
       required:
       - key
       - label_key
       - shown
+      - families
       description: One column the table offers. The person can hide or move any of them.
     ReportFilters:
       properties:

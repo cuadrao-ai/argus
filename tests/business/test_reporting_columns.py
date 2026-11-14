@@ -16,6 +16,7 @@ from argus.domain.business.reporting_columns import (
     HIDDEN_COLUMNS,
     SPECS,
     TABLE_COLUMNS,
+    Family,
     TableColumn,
 )
 from argus.domain.business.reporting_preferences import (
@@ -125,21 +126,72 @@ def test_the_default_table_starts_with_the_taxpayer_id(family, shown, menu):
 
 def test_the_answer_names_no_column_the_person_cannot_hide_or_move():
     columns = answer(ReportRequestV2()).columns
-    assert set(columns[0].model_dump()) == {"key", "label_key", "shown"}
+    assert set(columns[0].model_dump()) == {"key", "label_key", "shown", "families"}
+
+
+def test_the_answer_says_which_tables_offer_each_column():
+    for column in answer(ReportRequestV2()).columns:
+        assert set(column.families) == SPECS[column.key].families
 
 
 @pytest.mark.parametrize("key", TABLE_COLUMNS)
 def test_any_column_can_be_hidden_and_any_column_can_lead(key):
     order = [key, *(other for other in TABLE_COLUMNS if other != key)]
-    hidden = [other for other in TABLE_COLUMNS if other != key]
-    alone = Presentation.model_validate({"order": order, "hidden": hidden})
-    assert alone.order[0] == key and key not in alone.hidden
+    first = Presentation.model_validate({"order": order, "hidden": []})
+    assert first.order[0] == key
     assert key in Presentation.model_validate({"hidden": [key]}).hidden
 
 
 def test_a_layout_keeps_one_column_shown():
     with pytest.raises(ValidationError):
         Presentation.model_validate({"hidden": list(TABLE_COLUMNS)})
+
+
+def shown_per_table(layout: Presentation, code: str = "DO") -> list[int]:
+    return [
+        sum(
+            column.shown
+            for column in answer(
+                ReportRequestV2(
+                    presentation=layout, filters={"record_families": [family]}
+                ),
+                country=code,
+            ).columns
+        )
+        for family in get_args(Family)
+    ]
+
+
+@pytest.mark.parametrize("key", TABLE_COLUMNS)
+def test_an_accepted_layout_shows_a_column_in_every_table(key):
+    alone = {"hidden": [other for other in TABLE_COLUMNS if other != key]}
+    if SPECS[key].families == set(get_args(Family)):
+        assert shown_per_table(Presentation.model_validate(alone)) == [1, 1]
+    else:
+        with pytest.raises(ValidationError):
+            Presentation.model_validate(alone)
+
+
+def test_columns_one_table_lacks_cannot_be_the_only_ones_shown():
+    partial = [spec.key for spec in COLUMNS if spec.families != set(get_args(Family))]
+    assert partial, "the registry has columns only some tables offer"
+    hidden = [key for key in TABLE_COLUMNS if key not in partial]
+    with pytest.raises(ValidationError):
+        Presentation.model_validate({"hidden": hidden})
+    kept = Presentation.model_validate({"hidden": hidden[1:]})
+    assert min(shown_per_table(kept)) == 1
+
+
+def test_a_column_one_country_omits_cannot_be_the_only_one_shown(monkeypatch):
+    monkeypatch.setitem(
+        country.COUNTRIES,
+        "US",
+        country.BusinessCountry("US", "USD", frozenset({"date"})),
+    )
+    with pytest.raises(ValidationError):
+        Presentation.model_validate(
+            {"hidden": [key for key in TABLE_COLUMNS if key != "date"]}
+        )
 
 
 def test_a_layout_from_before_the_taxpayer_id_still_loads():

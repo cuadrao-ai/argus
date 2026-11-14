@@ -29,67 +29,117 @@
     {
       "key": "counterparty_id",
       "label_key": "business.transactions.columns.rnc_cedula",
-      "shown": true
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "counterparty",
       "label_key": "business.transactions.columns.contraparte",
-      "shown": false
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "date",
       "label_key": "business.transactions.columns.fecha",
-      "shown": true
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "expense_type",
       "label_key": "business.dossier.placeholder.expense_type",
-      "shown": true
+      "shown": true,
+      "families": [
+        "purchase"
+      ]
     },
     {
       "key": "net_amount",
       "label_key": "business.terms.net_amount",
-      "shown": true
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "itbis_amount",
       "label_key": "business.terms.itbis",
-      "shown": true
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "gross_amount",
       "label_key": "business.terms.total",
-      "shown": true
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "stage",
       "label_key": "business.transactions.layout.column_state",
-      "shown": true
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "fiscal_number",
       "label_key": "business.transactions.columns.ncf",
-      "shown": false
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "note",
       "label_key": "business.transactions.columns.notas",
-      "shown": false
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "attachment",
       "label_key": "business.transactions.layout.column_attachment",
-      "shown": false
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     },
     {
       "key": "payment_form",
       "label_key": "business.dossier.placeholder.payment_form",
-      "shown": false
+      "shown": false,
+      "families": [
+        "purchase"
+      ]
     },
     {
       "key": "funding",
       "label_key": "business.transactions.columns.cuenta",
-      "shown": false
+      "shown": false,
+      "families": [
+        "sale",
+        "purchase"
+      ]
     }
   ],
   "items": [],

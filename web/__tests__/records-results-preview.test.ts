@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
-import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
-import { toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
+import { sampleRecordsColumns, sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
+import { isLastShownColumn, toggleRecordsColumn, visibleRecordsColumns } from "@/components/business-app/transacciones/records-view-preferences";
 import { previewRecordMetadata, summarizePreviewRecords } from "@/components/business-app/transacciones/records-results-preview";
 import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
 import es from "@/public/locales/es-419/common.json";
@@ -19,6 +19,23 @@ test("preview defaults are the server's: RNC first, with the name, notes and acc
   assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "funding")).length, 8);
   assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(prefs, "counterparty")).map(({ key }) => key).slice(0, 2), ["counterparty_id", "counterparty"], "the name shows beside the RNC once chosen");
   assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "stage")).some(({ key }) => key === "stage"), false);
+});
+
+test("a column some table lacks cannot be left as the only one shown: the server's families decide", () => {
+  const prefs = sampleRecordsPreferences();
+  const everyTable = new Set(prefs.columns.flatMap((column) => column.families)).size;
+  const partial = prefs.columns.filter((column) => column.families.length < everyTable).map(({ key }) => key);
+  assert.ok(partial.length > 0, "the server offers columns only some tables have");
+  const compras = { ...prefs, hidden: prefs.order.filter((key) => key !== "date" && !partial.includes(key)) };
+  assert.deepEqual(visibleRecordsColumns(compras).map(({ key }) => key).sort(), ["date", ...partial].sort());
+  assert.equal(isLastShownColumn(compras, "date"), true, "hiding Fecha would leave another table with no column");
+  assert.equal(toggleRecordsColumn(compras, "date"), compras);
+  for (const key of partial) assert.equal(isLastShownColumn(compras, key), false);
+  assert.equal(isLastShownColumn(compras, "note"), false, "a hidden column can always be shown");
+  assert.equal(isLastShownColumn(toggleRecordsColumn(compras, "note"), "date"), false);
+  const ventas = { ...compras, columns: sampleRecordsColumns("sale") };
+  assert.deepEqual(visibleRecordsColumns(ventas).map(({ key }) => key), ["date"]);
+  assert.equal(isLastShownColumn(ventas, "date"), true);
 });
 
 test("summary keeps workflow and financial eligibility separate and never mixes currencies", () => {

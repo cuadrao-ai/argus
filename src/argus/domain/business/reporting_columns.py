@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
-from argus.domain.business.country import business_country
+from argus.domain.business.country import COUNTRIES, business_country
 
 Family = Literal["sale", "purchase"]
 TableColumn = Literal[
@@ -39,7 +39,7 @@ FileColumn = Literal[TableColumn, "currency"]
 #: Moneda's name. It follows the gross amount in a file of every currency.
 CURRENCY_LABEL = "business.transactions.columns.moneda"
 
-_EVERY_FAMILY: frozenset[Family] = frozenset({"sale", "purchase"})
+_EVERY_FAMILY: frozenset[Family] = frozenset(get_args(Family))
 _PURCHASE: frozenset[Family] = frozenset({"purchase"})
 
 
@@ -99,4 +99,22 @@ def offered_columns(families: Iterable[Family], country: str) -> frozenset[Table
     omitted = business_country(country).omitted_columns
     return frozenset(
         spec.key for spec in COLUMNS if spec.families & wanted and spec.key not in omitted
+    )
+
+
+def offering_families(key: TableColumn) -> tuple[Family, ...]:
+    """The families whose table offers this column, in `Family`'s order."""
+
+    return tuple(family for family in get_args(Family) if family in SPECS[key].families)
+
+
+def every_table_shows_one(shown: Iterable[TableColumn]) -> bool:
+    """Whether each family's table, in each country, offers one of these
+    columns. A layout that fails this draws some table with no column."""
+
+    kept = frozenset(shown)
+    return all(
+        kept & offered_columns((family,), code)
+        for family in _EVERY_FAMILY
+        for code in COUNTRIES
     )

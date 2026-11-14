@@ -11038,9 +11038,10 @@ accept path recorded.
   typed `presentation` in every answer, and the web keeps that one in place of
   its request's. Every answer also carries `columns`: each column the request's
   type offers in the Business's country, in the layout's order, as
-  `{key, label_key, shown}`. `label_key` is the locale path of
-  the column's name, so the web says it in the reader's language, and
-  `shown` follows `presentation.hidden`. No column is locked by name: the person
+  `{key, label_key, shown, families}`. `label_key` is the locale path of
+  the column's name, so the web says it in the reader's language,
+  `shown` follows `presentation.hidden`, and `families` names the record
+  families (`sale`, `purchase`) whose table offers the column. No column is locked by name: the person
   can hide or move any of them. A country can omit columns
   (`BusinessCountry.omitted_columns`). The web leaves omitted request
   presentation absent and renders the answer; it defines no table defaults.
@@ -11057,8 +11058,12 @@ accept path recorded.
   attachment, payment form and account are hidden by default.
   Expense type and payment form are offered and rendered only on Compras.
   `family` and `currency` are removed from table order and hidden keys when reading
-  old saved presentations. `hidden` can name any column but not every column:
-  one stays shown, and a layout that hides them all is a 422. The first shown
+  old saved presentations. `hidden` can name any column, but every table keeps
+  one column shown: a layout is a 422 when it leaves a family's table, in any
+  country, with no shown column. Hiding every column does that, and so does
+  showing only expense type or payment form, which Ventas does not offer. The
+  web reads each column's `families` to keep the person from asking for such a
+  layout. The first shown
   column is the one the web freezes on the left. `counterparty_id` is the
   row's `counterparty_key`: the web draws it with the DGII's hyphens and the
   file writes plain digits. A saved

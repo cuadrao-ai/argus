@@ -12,7 +12,7 @@ export const RECORDS_COLUMN_LAYOUT: Record<ReportColumnKey, Layout> = {
   net_amount: { width: 136, align: "right" },
   itbis_amount: { width: 124, align: "right" },
   gross_amount: { width: 104, align: "right" },
-  stage: { width: 164, align: "left" },
+  stage: { width: 168, align: "left" },
   fiscal_number: { width: 136, align: "left" },
   note: { width: 120, align: "left" },
   attachment: { width: 80, align: "right", endPin: true },
@@ -41,10 +41,12 @@ export function moveRecordsColumn(value: RecordsViewPreferences, key: string, ta
   order.splice(Math.max(0, Math.min(order.length, target)), 0, key);
   return { ...value, order };
 }
-/** The last column shown stays: the server refuses a layout that shows none. */
+/** A shown column stays when hiding it would leave some family's table with none: the server refuses that layout. Each column's `families` is the server's. */
 export function isLastShownColumn(value: RecordsViewPreferences, key: string): boolean {
-  const shown = recordsColumnSettings(value).filter((column) => column.shown);
-  return shown.length === 1 && shown[0].key === key;
+  const columns = recordsColumnSettings(value);
+  const kept = columns.filter((column) => column.shown && column.key !== key);
+  return kept.length < columns.filter((column) => column.shown).length
+    && columns.flatMap((column) => column.families).some((family) => !kept.some((column) => column.families.includes(family)));
 }
 export function toggleRecordsColumn(value: RecordsViewPreferences, key: string): RecordsViewPreferences {
   if (isLastShownColumn(value, key)) return value;
