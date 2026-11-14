@@ -60,6 +60,8 @@ export const STORAGE_REGISTRY = {
   "cuadrao:business_creation:v1": "temporary",
   "cuadrao:invoice_commands:v1": "temporary",
   "cuadrao:receipt_rotations:v1": "layout",
+  // Which Bandeja columns show, their order and the row height.
+  "cuadrao:bandeja_columns:v1": "layout",
 } as const satisfies Record<string, StorageConcept>;
 
 export type StorageKey = keyof typeof STORAGE_REGISTRY;
