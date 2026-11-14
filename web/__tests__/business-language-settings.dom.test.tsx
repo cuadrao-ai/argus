@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { createInstance } from "i18next";
@@ -7,12 +6,6 @@ import { I18nextProvider } from "react-i18next";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 
-/**
- * The Spanish flag is read once when the test preload imports the API transport,
- * so the DOM test runs in a child `bun test` that starts with the flag on. In
- * that child the spawner is skipped and the DOM test runs; here it is the reverse.
- */
-const spanishShipped = process.env.NEXT_PUBLIC_ENABLE_SPANISH === "true";
 const originalFetch = globalThis.fetch;
 const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
 const cleanups: (() => Promise<void>)[] = [];
@@ -49,21 +42,7 @@ afterAll(async () => {
 const button = (text: string) => [...document.body.querySelectorAll("button")].find((item) => item.textContent?.trim() === text);
 const settle = (act: (callback: () => Promise<void>) => Promise<void>) => act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
 
-test.skipIf(spanishShipped)("the settings switch is proven in a child run with Spanish shipped", () => {
-  const result = Bun.spawnSync({
-    cmd: ["bun", "test", import.meta.path],
-    cwd: join(import.meta.dir, ".."),
-    env: { ...process.env, NEXT_PUBLIC_ENABLE_SPANISH: "true", NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true" },
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const output = result.stdout.toString() + result.stderr.toString();
-  assert.equal(result.exitCode, 0, output);
-  assert.match(output, / 1 pass/, output);
-  assert.match(output, / 0 fail/, output);
-});
-
-test.skipIf(!spanishShipped)("Ajustes > Idioma offers English, saves it on the account and shows it at once without a reload", async () => {
+test("Ajustes > Idioma offers English, saves it on the account and shows it at once without a reload", async () => {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { ChatWorkspaceProvider } = await import("@/components/chat/ChatWorkspace");

@@ -9,13 +9,11 @@ import spanish from "@/public/locales/es-419/common.json";
 
 const originalFetch = globalThis.fetch;
 const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
-const originalSpanish = process.env.NEXT_PUBLIC_ENABLE_SPANISH;
 const cleanups: (() => Promise<void>)[] = [];
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
-  process.env.NEXT_PUBLIC_ENABLE_SPANISH = "true";
   delete process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL;
   delete process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL;
   globalThis.fetch = (async () => Response.json({ user: { id: "settings-owner", display_name: "Test owner", email: "owner@example.test", language: "es-419" }, account_kind: "registered", available: false })) as typeof fetch;
@@ -29,8 +27,6 @@ afterAll(async () => {
   globalThis.fetch = originalFetch;
   if (originalMockAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
   else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMockAuth;
-  if (originalSpanish === undefined) delete process.env.NEXT_PUBLIC_ENABLE_SPANISH;
-  else process.env.NEXT_PUBLIC_ENABLE_SPANISH = originalSpanish;
   await GlobalRegistrator.unregister();
 });
 
