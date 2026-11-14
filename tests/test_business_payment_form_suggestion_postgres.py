@@ -4,7 +4,7 @@ comes back as a suggestion with its source."""
 from uuid import uuid4
 
 import pytest
-from argus.domain.business.contracts.actions import ReviewDraft
+from argus.domain.business.contracts.actions import ReopenDraft, ReviewDraft
 from argus.domain.business.contracts.dgii import PurchaseReview
 
 from tests import test_business_approval_fiscal_postgres as fiscal
@@ -113,6 +113,24 @@ def test_a_form_changed_after_the_approval_is_a_choice(actions):
     _choose(service, context, draft, payment_method="04")
 
     assert _suggested(service, context, 2) == {"value": "04", "source": LAST_CHOICE}
+
+
+def test_a_form_chosen_on_a_reopened_record_is_remembered(actions):
+    service, context = actions
+    draft, version = _receipt(service, context, 1)
+    _approved(service, context, draft, version)
+    current = service.dossier(context, draft).version
+    reopened = service.reopen(
+        context, draft, ReopenDraft(version=current), str(uuid4())
+    )
+    assert reopened.outcome == "applied", reopened
+    assert _suggested(service, context, 2) is None
+
+    _approved(
+        service, context, draft, _choose(service, context, draft, payment_method="01")
+    )
+
+    assert _suggested(service, context, 3) == {"value": "01", "source": LAST_CHOICE}
 
 
 @pytest.mark.parametrize("field", ["category", "payment_method"])
