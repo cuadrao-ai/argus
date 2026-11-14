@@ -9386,6 +9386,15 @@ AND'ed. An unknown value is 422 `validation_error`. An `area` or
 `action_group` filter matches catalog actions only, so `other` never matches
 a filter, for any reader.
 
+`q` (optional, at most 512 characters; blank is no query) keeps the rows whose
+actor `display_name` or object `label` holds the query, read as the Business
+search reads a record: every word, accents and case aside. It reads only what
+the row shows this reader, never an action name, an id or a stored command, and
+it is AND'ed with the other filters. One answer scans a bounded stretch of the
+history, so with `q` a page may hold fewer than `limit` items, or none, and
+still carry a `next_cursor`; the client follows it until it is `null`. `q` does
+not narrow `actors`.
+
 `actors` lists, on the first page only (`null` on a cursor page), every actor
 with at least one row the reader may see under the `from`, `to`, `area` and
 `action_group` filters (the `actor` filter does not narrow it), as
@@ -9415,7 +9424,7 @@ within this one and reveals nothing of the other.
 The order is `occurred_at` descending with a stable tie-break, so a page does
 not move when a newer row lands: a cursor taken before new activity continues
 from the same row. A cursor is bound to the filter set that issued it: sent
-with any other `from`, `to`, `actor`, `area` or `action_group`, or one the feed
+with any other `from`, `to`, `actor`, `area`, `action_group` or `q`, or one the feed
 did not issue, it is 422 `invalid_cursor`. The in-memory app keeps no ledger:
 the read answers 200 with `items` empty, `next_cursor` null and `actors` empty
 once the caller's Business exists. A missing, foreign, revoked or expired

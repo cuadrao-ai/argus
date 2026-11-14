@@ -5,6 +5,7 @@ from datetime import date
 from uuid import uuid4
 
 import pytest
+from argus.domain.business.activity import queries
 from argus.domain.business.activity.queries import decode_cursor
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.activity import ActivityFilters
@@ -686,3 +687,98 @@ def test_a_grant_label_names_only_a_grant_of_this_business(people, business, aut
     }
     assert labels == {mine: "Ana Editora", foreign: None}
     assert "Vecino Ajeno" not in page.model_dump_json()
+
+
+def _upload(db: Connection, space_id: str, person: str, who: str, seconds_ago: int):
+    receipt(
+        db,
+        space_id,
+        person,
+        {"action": "receipt_upload", "subjects": []},
+        seconds_ago=seconds_ago,
+        display_name=who,
+    )
+
+
+def test_a_query_finds_rows_by_who_and_by_the_named_object(people, business, authority):
+    with Connection.connect(shared.DSN) as db:
+        named = draft(
+            db,
+            business,
+            people["owner"],
+            {"state": "known", "value": "Ferretería La Esquina"},
+        )
+        receipt(
+            db,
+            business,
+            people["editor"],
+            {"action": "review_draft", "draft_id": named},
+            seconds_ago=40,
+            display_name="Ana Editora",
+        )
+        _upload(db, business, people["owner"], "Lucía Peña", 30)
+        receipt(
+            db,
+            business,
+            people["owner"],
+            {
+                "action": "change_role",
+                "grant_id": str(uuid4()),
+                "business_role": "editor",
+            },
+            seconds_ago=20,
+            display_name="Lucía Peña",
+        )
+        _upload(db, business, people["admin"], "Carlos", 10)
+        db.commit()
+
+    def found(person: str, q: str) -> list[str]:
+        return _actions(_seen(authority, people[person], business, ActivityFilters(q=q)))
+
+    assert found("owner", "lucia pena") == ["change_role", "receipt_upload"]
+    assert found("viewer", "LUCÍA") == ["receipt_upload"]
+    assert found("viewer", "ferreteria") == ["review_draft"]
+    assert found("viewer", "ana ferretería") == ["review_draft"]
+    assert found("owner", "nadie") == []
+    assert found("owner", "receipt_upload") == []
+    both = ActivityFilters(q="lucia", areas=("documents",))
+    assert _actions(_seen(authority, people["owner"], business, both)) == [
+        "receipt_upload"
+    ]
+    first = _seen(authority, people["viewer"], business, ActivityFilters(q="carlos"))
+    assert _facet(first) == _facet(_seen(authority, people["viewer"], business))
+
+
+def test_a_query_pages_through_the_whole_history_in_bounded_reads(
+    people, business, authority, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(queries, "_SCAN_ROWS", 3)
+    monkeypatch.setattr(queries, "_SCAN_READS", 2)
+    with Connection.connect(shared.DSN) as db:
+        for age in range(30):
+            _upload(
+                db, business, people["owner"], "Ana" if age % 10 == 9 else "Dueño", age
+            )
+        db.commit()
+
+    filters = ActivityFilters(q="ana")
+    ages: list[int] = []
+    reads, cursor = 0, None
+    while True:
+        before = decode_cursor(cursor, filters) if cursor else None
+        page = _seen(authority, people["viewer"], business, filters, before=before)
+        assert all(item.actor.display_name == "Ana" for item in page.items)
+        ages += [
+            round((activity.NOW - item.occurred_at).total_seconds())
+            for item in page.items
+        ]
+        reads += 1
+        cursor = page.next_cursor
+        if cursor is None:
+            break
+    assert ages == [9, 19, 29]
+    assert reads == 5
+
+    monkeypatch.setattr(queries, "_SCAN_ROWS", 500)
+    whole = _seen(authority, people["viewer"], business, filters)
+    assert (len(whole.items), whole.next_cursor) == (3, None)
