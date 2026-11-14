@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { businessLifecycleErrorKey, closeBusinessSpace, getOwnedBusinessSpaces, type OwnedBusiness } from "@/lib/business-lifecycle-api";
@@ -11,9 +11,9 @@ import { serverRequestReference } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
-import BusinessCloseDialog, { useBusinessCloseCopy, type BusinessCloseState } from "./BusinessCloseDialog";
+import BusinessCloseDialog, { BusinessCloseShell, useBusinessCloseCopy, type BusinessCloseState } from "./BusinessCloseDialog";
 import BusinessTransferDialog, { useBusinessTransferCopy } from "./BusinessTransferDialog";
-import BusinessCloseExport, { type BusinessCloseExportJournal } from "./BusinessCloseExport";
+import { useBusinessCloseDownloads } from "./useBusinessCloseDownloads";
 import { secondaryButtonClass } from "./business-ui";
 import { formatBusinessName } from "./business-format";
 
@@ -28,7 +28,6 @@ export default function BusinessLifecycleEntry({ spaceId, action }: { spaceId: s
   const [state, setState] = useState<BusinessCloseState>({ kind: "idle" });
   const journal = useRef<{ input: string; key: string } | null>(null);
   const busy = useRef(false);
-  const [exportJournal, setExportJournal] = useState<BusinessCloseExportJournal>({ nextWindow: 0, state: "idle" });
   const dismiss = () => window.location.assign("/biz");
   useEffect(() => {
     const controller = new AbortController();
@@ -53,10 +52,14 @@ export default function BusinessLifecycleEntry({ spaceId, action }: { spaceId: s
     });
     return () => controller.abort();
   }, [spaceId, action, attempt]);
-  if (entry.kind !== "ready") return <AdaptivePanel title={action === "close" ? closeCopy.title : transferCopy.title} closeLabel={closeCopy.cancel} onClose={dismiss} width="md"><div className="space-y-3 p-5 text-[14px]">
-    <p role={entry.kind === "loading" ? "status" : "alert"}>{entry.kind === "loading" ? t("common.loading") : t(entry.kind === "failed" ? "business.lifecycle.errors.discovery" : "business.lifecycle.errors.business_unavailable")}</p>
-    {entry.kind === "failed" ? <>{entry.reference ? <ReferenceCode reference={entry.reference} /> : null}<button type="button" className={secondaryButtonClass} onClick={() => setAttempt(value => value + 1)}>{t("common.retry")}</button></> : null}
-  </div></AdaptivePanel>;
+  if (entry.kind !== "ready") {
+    const status = <div className="space-y-3 text-[14px]">
+      <p role={entry.kind === "loading" ? "status" : "alert"}>{entry.kind === "loading" ? t("common.loading") : t(entry.kind === "failed" ? "business.lifecycle.errors.discovery" : "business.lifecycle.errors.business_unavailable")}</p>
+      {entry.kind === "failed" ? <>{entry.reference ? <ReferenceCode reference={entry.reference} /> : null}<button type="button" className={secondaryButtonClass} onClick={() => setAttempt(value => value + 1)}>{t("common.retry")}</button></> : null}
+    </div>;
+    if (action === "close") return <BusinessCloseShell title={closeCopy.title} closeLabel={closeCopy.cancel} onClose={dismiss}>{status}</BusinessCloseShell>;
+    return <AdaptivePanel title={transferCopy.title} closeLabel={closeCopy.cancel} onClose={dismiss} width="md"><div className="p-5">{status}</div></AdaptivePanel>;
+  }
   const { business } = entry;
   const execute = async (confirmation: string, targetGrantId?: string) => {
     if (busy.current) return;
@@ -86,5 +89,11 @@ export default function BusinessLifecycleEntry({ spaceId, action }: { spaceId: s
     }
   };
   if (action === "transfer") return <BusinessTransferDialog businessName={formatBusinessName(business.name, t("business.overview.title", "My business"))} copy={transferCopy} view={{ kind: "request", members: business.members, onRequest: (grant, confirmation) => { void execute(confirmation, grant); } }} state={state} onDismiss={dismiss} />;
-  return <BusinessCloseDialog businessName={formatBusinessName(business.name, t("business.overview.title", "My business"))} preview={business} copy={closeCopy} state={state} onConfirm={confirmation => { void execute(confirmation); }} onCancel={dismiss} exportControl={<BusinessCloseExport key={business.space_id} business={business} label={closeCopy.download} journal={exportJournal} setJournal={setExportJournal} />} />;
+  return <BusinessCloseFlow key={business.space_id} business={business} businessName={formatBusinessName(business.name, t("business.overview.title", "My business"))} copy={closeCopy} state={state} onConfirm={confirmation => { void execute(confirmation); }} onCancel={dismiss} />;
+}
+
+/** The close dialog with this Business's own handover downloads. */
+function BusinessCloseFlow({ business, ...dialog }: { business: OwnedBusiness } & Omit<ComponentProps<typeof BusinessCloseDialog>, "preview" | "downloads">) {
+  const downloads = useBusinessCloseDownloads(business);
+  return <BusinessCloseDialog {...dialog} preview={business} downloads={downloads} />;
 }

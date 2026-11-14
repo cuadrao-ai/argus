@@ -15,8 +15,8 @@ import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 const originalFetch = globalThis.fetch;
 const originalAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
 const businesses = [
-  { space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", name: "Colmado Rosa", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true, member_count: 1, reopen_until: "2026-11-20T17:45:00Z", export_windows: [{ start: "2025-01-01", end: "2025-12-31" }, { start: "2026-01-01", end: "2026-10-21" }], members: [{ grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa", eligible: true, reason: null }] },
-  { space_id: "49767c9c-9f8a-4af7-82e3-bcc065e09a19", name: "Taller Sol", grant_id: "b3acd38c-2e99-49aa-888f-4ee3a6268066", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true, member_count: 0, reopen_until: "2026-11-20T17:45:00Z", export_windows: [{ start: "2024-01-01", end: "2024-12-31" }, { start: "2025-01-01", end: "2025-12-31" }], members: [] },
+  { space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", name: "Colmado Rosa", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true, member_count: 1, reopen_until: "2026-11-20T17:45:00Z", export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 40, original_count: 31 }, { start: "2026-01-01", end: "2026-10-21", record_count: 12, original_count: 9 }], members: [{ grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa", eligible: true, reason: null }] },
+  { space_id: "49767c9c-9f8a-4af7-82e3-bcc065e09a19", name: "Taller Sol", grant_id: "b3acd38c-2e99-49aa-888f-4ee3a6268066", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true, member_count: 0, reopen_until: "2026-11-20T17:45:00Z", export_windows: [{ start: "2024-01-01", end: "2024-12-31", record_count: 3, original_count: 2 }, { start: "2025-01-01", end: "2025-12-31", record_count: 5, original_count: 5 }], members: [] },
 ];
 beforeAll(() => { GlobalRegistrator.register({ url: "https://app.example.test/biz" }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; });
 afterAll(async () => { globalThis.fetch = originalFetch; setChosenGrant(null); if (originalAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalAuth; await GlobalRegistrator.unregister(); });
@@ -80,7 +80,9 @@ test("close entry binds server export windows and stable retry key without neste
     assert.equal(getChosenGrant(), businesses[0].grant_id);
     assert.equal(document.querySelectorAll("form form").length, 0);
     assert.equal(document.querySelectorAll('input[type="date"]').length, 0);
-    await act(async () => button("Cerrar negocio").click());
+    assert.ok(document.querySelector('[data-testid="business-close-dialog"]'), "closing opens the centered dialog");
+    assert.ok(document.body.textContent?.includes("40 registros · 31 originales"), "the counts are the server's");
+    await act(async () => button("Continuar sin descargar").click());
     assert.equal(button("Cerrar negocio").disabled, true);
     await enter(businesses[0].name);
     await act(async () => { button("Cerrar negocio").click(); button("Cerrar negocio").click(); });
@@ -129,10 +131,12 @@ test("close export uses only server windows for the selected Business and resume
     assert.deepEqual(exported.map(call => call.query), ["?start=2024-01-01&end=2024-12-31", "?start=2025-01-01&end=2025-12-31", "?start=2025-01-01&end=2025-12-31"]);
     assert.ok(exported.every(call => call.grant === businesses[1].grant_id && call.method === "GET"));
     assert.deepEqual(saved, ["business-export-2024-01-01-2024-12-31.zip", "business-export-2025-01-01-2025-12-31.zip"]);
-    assert.equal(button("Descargar comprobantes").disabled, true);
-    await act(async () => button("Cerrar negocio").click());
+    const downloaded = () => [...document.querySelectorAll('[data-testid="business-close-period"]')].map(row => row.getAttribute("data-status"));
+    assert.deepEqual(downloaded(), ["downloaded", "downloaded"]);
+    await act(async () => button("Continuar").click());
     await act(async () => button("Cancelar").click());
-    assert.equal(button("Descargar comprobantes").disabled, true, "returning from confirmation must keep initiated export windows");
+    assert.deepEqual(downloaded(), ["downloaded", "downloaded"], "returning from confirmation must keep initiated export windows");
+    assert.equal([...document.querySelectorAll("button")].some(item => item.textContent === "Descargar comprobantes"), false);
     assert.equal(view.calls.some(call => call.method === "POST"), false);
   } finally { await view.close(); save.mockRestore(); URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; }
 });
@@ -146,8 +150,8 @@ test("empty export history stays empty and never invents an export request", asy
     assert.ok(document.body.textContent?.includes("No hay registros ni comprobantes para descargar."));
     assert.equal([...document.querySelectorAll("button")].some(item => item.textContent === "Descargar comprobantes"), false);
     assert.equal(view.calls.some(call => call.path.endsWith("/business/exports")), false);
-    await act(async () => button("Cerrar negocio").click());
-    assert.ok(document.querySelector('[role="alertdialog"]'));
+    await act(async () => button("Continuar").click());
+    assert.ok(document.body.textContent?.includes("Escribe el nombre del negocio para confirmar."));
   } finally { await view.close(); businesses[1].export_windows = windows; }
 });
 

@@ -518,7 +518,13 @@ def test_export_windows_download_the_whole_history_with_exact_money(actions):  #
             InMemorySourceObjects(),
         )
         with ZipFile(io.BytesIO(package)) as archive:
-            rows += json.loads(archive.read("manifest.json"))["records"]
+            manifest = json.loads(archive.read("manifest.json"))
+        # The preview counts what this window's download lists.
+        assert window["record_count"] == len(manifest["records"])
+        assert window["original_count"] == len(manifest["sources"])
+        rows += manifest["records"]
+    assert [window["record_count"] for window in windows].count(1) == 2
+    assert sum(window["original_count"] for window in windows) > 0
     assert sorted((r["occurred_on"], r["amount"], r["currency"]) for r in rows) == [
         ("2024-02-29", "850.00", "DOP"),
         ("2026-10-01", "12.34", "USD"),

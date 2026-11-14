@@ -21759,10 +21759,16 @@ components:
         end:
           type: string
           format: date
+        record_count:
+          type: integer
+        original_count:
+          type: integer
       type: object
       required:
       - start
       - end
+      - record_count
+      - original_count
       description: 'One period for ``GET /business/exports``; in order, the windows cover
 
         the Business''s whole recorded history through today.'

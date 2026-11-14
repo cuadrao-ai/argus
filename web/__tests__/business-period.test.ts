@@ -6,7 +6,7 @@ import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
 import english from "@/public/locales/en/common.json";
-import { ALL_FROM, customPeriod, namedPeriod, periodRange, wholePeriod, wholePeriodKeyOf } from "@/components/business-app/business-format";
+import { ALL_FROM, customPeriod, formatDaySpan, namedPeriod, periodRange, wholePeriod, wholePeriodKeyOf } from "@/components/business-app/business-format";
 import OutsidePeriodNote from "@/components/business-app/OutsidePeriodNote";
 
 test("the period presets include everything and a typed range must be two days in order", () => {
@@ -66,4 +66,15 @@ test("a range that is exactly a whole period is named by it, anything else is cu
   assert.equal(wholePeriodKeyOf({ from: "2026-11-01", to: "2026-11-03" }, today), null);
   assert.deepEqual(namedPeriod({ from: "2026-11-01", to: "2026-11-30" }, today), { key: "this_month", from: "2026-11-01", to: "2026-11-30" });
   assert.deepEqual(namedPeriod({ from: "2026-11-01", to: "2026-11-03" }, today), { key: "custom", from: "2026-11-01", to: "2026-11-03" });
+});
+
+test("a span of days reads as months where it covers them whole, with the year once", () => {
+  const span = (from: string, to: string, locale = "es-419") => formatDaySpan(from, to, locale);
+  assert.deepEqual(span("2025-01-01", "2025-12-31"), { from: "ene", to: "dic 2025" });
+  assert.deepEqual(span("2026-01-01", "2026-10-21"), { from: "ene", to: "21 oct 2026" });
+  assert.deepEqual(span("2024-02-29", "2025-02-28"), { from: "29 feb 2024", to: "feb 2025" });
+  assert.deepEqual(span("2025-03-01", "2025-03-31"), { from: "mar 2025", to: null });
+  assert.deepEqual(span("2026-10-21", "2026-10-21"), { from: "21 oct 2026", to: null });
+  assert.deepEqual(span("2025-01-01", "2025-12-31", "en"), { from: "Jan", to: "Dec 2025" });
+  assert.deepEqual(span("not-a-day", "2025-12-31"), { from: "not-a-day", to: "2025-12-31" });
 });

@@ -128,6 +128,62 @@ class ExportSnapshot:
     settlements: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class WindowSelection:
+    """What one period's export holds, before any original is read."""
+
+    activity_ids: frozenset[UUID]
+    #: Drafts whose linked sources the archive lists.
+    draft_ids: frozenset[UUID]
+    unresolved: tuple[dict[str, Any], ...]
+
+
+def select_window(
+    activities: Sequence[Mapping[str, Any]],
+    drafts: Sequence[Mapping[str, Any]],
+    period: ExportPeriod,
+) -> WindowSelection:
+    """The records dated in the period, and the drafts whose sources go with
+    them: each selected record's own, every open draft dated in the period and
+    every open draft with no known date."""
+    from argus.domain.business.contracts.facts import BusinessResolution, Known
+
+    activity_ids = frozenset(
+        UUID(str(a["activity_id"]))
+        for a in activities
+        if period.start <= occurred_on(a) <= period.end
+    )
+    unresolved = []
+    selected_drafts = set()
+    for draft in drafts:
+        if draft["activity_id"] in activity_ids:
+            selected_drafts.add(draft["id"])
+        if draft["activity_id"] or draft["state"] not in {"open", "accepting"}:
+            continue
+        typed = (draft["resolution"] or {}).get("business")
+        facts = BusinessResolution.model_validate(typed).facts if typed else None
+        day = (
+            facts.occurred_on.value
+            if facts and isinstance(facts.occurred_on, Known)
+            else None
+        )
+        if day is not None and not period.start <= day <= period.end:
+            continue
+        selected_drafts.add(draft["id"])
+        unresolved.append(
+            {
+                "draft_id": str(draft["id"]),
+                "version": draft["version"],
+                "review_state": draft["state"],
+                "occurred_on": _text(day) or None,
+                "reason": "draft_not_prepared"
+                if facts is None
+                else ("date_unknown" if day is None else "not_recorded"),
+            }
+        )
+    return WindowSelection(activity_ids, frozenset(selected_drafts), tuple(unresolved))
+
+
 def _text(value: Any) -> str:
     if value is None:
         return ""
@@ -546,7 +602,6 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
     from psycopg.rows import dict_row
 
     from argus.domain.business.authority import ActionError, authorize
-    from argus.domain.business.contracts.facts import BusinessResolution, Known
     from argus.domain.business.dgii_snapshot import fiscal_snapshot
     from argus.domain.business.month_close_store import read_settlements
     from argus.domain.business.transactions import lock_owner
@@ -600,11 +655,6 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
             )
             if len(activities) > MAX_ROWS:
                 raise ExportLimit("export_record_limit")
-            activity_ids = {
-                UUID(a["activity_id"])
-                for a in activities
-                if period.start <= occurred_on(a) <= period.end
-            }
             cursor.execute(
                 "select id,version,state,activity_id,resolution from public.financial_import_events"
                 " where user_id=%s and owner_space_id=%s order by created_at,id limit %s",
@@ -613,34 +663,8 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
             drafts = cursor.fetchall()
             if len(drafts) > MAX_ROWS:
                 raise ExportLimit("export_draft_limit")
-            unresolved = []
-            selected_drafts = set()
-            for draft in drafts:
-                if draft["activity_id"] in activity_ids:
-                    selected_drafts.add(draft["id"])
-                if draft["activity_id"] or draft["state"] not in {"open", "accepting"}:
-                    continue
-                typed = draft["resolution"].get("business")
-                facts = BusinessResolution.model_validate(typed).facts if typed else None
-                day = (
-                    facts.occurred_on.value
-                    if facts and isinstance(facts.occurred_on, Known)
-                    else None
-                )
-                if day is not None and not period.start <= day <= period.end:
-                    continue
-                selected_drafts.add(draft["id"])
-                unresolved.append(
-                    {
-                        "draft_id": str(draft["id"]),
-                        "version": draft["version"],
-                        "review_state": draft["state"],
-                        "occurred_on": _text(day) or None,
-                        "reason": "draft_not_prepared"
-                        if facts is None
-                        else ("date_unknown" if day is None else "not_recorded"),
-                    }
-                )
+            chosen = select_window(activities, drafts, period)
+            unresolved, selected_drafts = chosen.unresolved, chosen.draft_ids
             cursor.execute(
                 "select s.id,s.kind,s.text_content,s.connection_id,d.draft,d.source_sha256,"
                 " array_agg(distinct l.draft_id) as draft_ids,"

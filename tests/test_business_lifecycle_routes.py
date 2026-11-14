@@ -46,7 +46,14 @@ class Service:
                 "grant_id": str(uuid4()),
                 "member_count": 1,
                 "reopen_until": CLOSED,
-                "export_windows": [],
+                "export_windows": [
+                    {
+                        "start": "2025-01-01",
+                        "end": "2025-12-31",
+                        "record_count": 12,
+                        "original_count": 9,
+                    }
+                ],
                 "members": [
                     {
                         "grant_id": str(uuid4()),
@@ -235,7 +242,14 @@ def test_preview_carries_member_count_reopen_deadline_and_eligibility(client):
     [owned] = browser.get("/api/v1/business/owned-spaces").json()["spaces"]
     assert owned["member_count"] == 1
     assert owned["reopen_until"] == "2026-10-18T00:00:00Z"
-    assert owned["export_windows"] == []
+    assert owned["export_windows"] == [
+        {
+            "start": "2025-01-01",
+            "end": "2025-12-31",
+            "record_count": 12,
+            "original_count": 9,
+        }
+    ]
     assert owned["members"][0]["eligible"] is False
     assert owned["members"][0]["reason"] == "not_editor"
 
@@ -284,3 +298,40 @@ def test_a_grant_header_on_a_closed_business_reads_closed_not_removed(
             (member.id,),
         )
     assert refusal() == (403, "business_grant_not_live")
+
+
+def test_export_window_counts_follow_the_exports_own_selection():
+    from argus.domain.business.lifecycle import export_windows
+
+    activity, recorded, undated = uuid4(), uuid4(), uuid4()
+    activities = [
+        {
+            "activity_id": str(activity),
+            "occurred_at": "2020-03-05T12:00:00+00:00",
+            "time_zone": "America/Santo_Domingo",
+        }
+    ]
+    drafts = [
+        {
+            "id": recorded,
+            "version": 2,
+            "state": "accepted",
+            "activity_id": activity,
+            "resolution": {},
+        },
+        {
+            "id": undated,
+            "version": 1,
+            "state": "open",
+            "activity_id": None,
+            "resolution": None,
+        },
+    ]
+    links = [(recorded, uuid4()), (recorded, uuid4()), (undated, uuid4())]
+    first, *later = export_windows(activities, drafts, links)
+    assert first["start"].isoformat() == "2020-03-05"
+    assert (first["record_count"], first["original_count"]) == (1, 3)
+    # An open draft with no known date goes in every window's download.
+    assert later
+    assert {(w["record_count"], w["original_count"]) for w in later} == {(0, 1)}
+    assert export_windows([], [], links) == []
