@@ -49,7 +49,7 @@ async function mount(screen: Screen, list: (parts: { act: typeof import("react")
     spaces: [chosen], chosen, chooseBusiness: () => {}, markAccessSeen: async () => {}, lostAccess: false, clearLostAccess: () => {}, revision: 0, reload: () => {}, refresh: async () => "updated",
     period: { key: "all", from: "", to: null }, setPeriod: () => {}, panel: { kind: screen }, openPanel: () => {},
     actions: { create: [], composer: [], starterEntries: [] },
-    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, openExport: () => {}, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
+    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
   };
   const content = await list({ act });
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);

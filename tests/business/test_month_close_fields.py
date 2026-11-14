@@ -1,6 +1,6 @@
 """The month-close and open-items fields the server owns: today, overdue,
 ITBIS cobrado, the per-currency final mark, the payment methods, the earliest
-month, the form statuses, and the peso gate on the DGII files only."""
+month, the form statuses, and the peso gate on the DGII forms only."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 import pytest
 from argus.api.business_month_close_schemas import MonthClose, OpenItems
-from argus.domain.business.dgii_export import build_fiscal_packet, fiscal_manifest
+from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_validation import declarable
 from argus.domain.business.month_close import (
     PAYMENT_METHODS,
@@ -202,24 +202,17 @@ def test_a_mixed_month_counts_a_dollar_document_in_its_own_block_and_on_no_form(
     assert manifest["forms"][dollar[0].declaration.form]["status"] == "needs_review"
 
 
-def test_the_packet_writes_files_from_the_same_summary_month_close_reads():
-    records = practice_records()
-    kwargs = dict(
+def test_month_close_takes_each_form_status_from_the_summary():
+    manifest, _rows = fiscal_manifest(
+        practice_records(),
         rnc="131000001",
         business_name="Práctica",
         start=date(2026, 9, 1),
         end=date(2026, 9, 30),
         captured_on=DAY,
     )
-    manifest, rows = fiscal_manifest(records, **kwargs)
-    packet = build_fiscal_packet(records, **kwargs)
-    assert packet.manifest == manifest
     statuses = {form: shape["status"] for form, shape in manifest["forms"].items()}
-    written = {name[12:15] for name in packet.files if name.endswith(".TXT")}
-    assert written == {
-        form for form, status in statuses.items() if status == "prepared_candidate"
-    }
-    assert set(packet.files) >= {"dgii/summary.json", "dgii/606-607.xlsx"}
+    assert statuses == {"606": "prepared_candidate", "607": "prepared_candidate"}
     MonthClose.model_validate(
         {
             "month": "2026-09",

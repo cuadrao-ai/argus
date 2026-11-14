@@ -19,12 +19,14 @@ from argus.domain.business.contracts.actions import (
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.dgii import FiscalReview, PurchaseReview
 from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.dgii_export import line_values
 from argus.domain.business.export import ExportPeriod, export_package
 from argus.domain.business.fiscal_profile import (
     FiscalProfileChange,
     read_profile,
     set_profile,
 )
+from argus.domain.business.reporting_store import read_export_source
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.recording.repository import NewAccount
 from psycopg.rows import dict_row
@@ -144,6 +146,24 @@ def reviewed(service, context, account, index=0, purchase=None, override=None):
     return result.draft_id, result.version, kind
 
 
+def handover_dgii(service, context, period):
+    """The DGII summary the handover ZIP carries for ``period`` and, per form,
+    the line values of each approved record the summary places on it."""
+
+    blob = export_package(service.authority, context, period, InMemorySourceObjects())
+    with ZipFile(io.BytesIO(blob)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+    approved = read_export_source(service.authority, context).approved
+    return manifest, {
+        form: [
+            line_values(approved[item["activity_id"]])
+            for item in manifest["reconciliation"]
+            if item["disposition"] == form
+        ]
+        for form in manifest["forms"]
+    }
+
+
 def approve(service, context, draft):
     identifier, version, kind = draft
     request = {
@@ -181,33 +201,25 @@ def test_practice_human_capture_revision_approval_and_actual_export(actions):
         if index == 0:
             first = outcome.activity_id
         drafts.append(draft)
-    blob = export_package(
-        service.authority,
-        context,
-        ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
-        InMemorySourceObjects(),
-    )
+    period = ExportPeriod(date(2026, 9, 1), date(2026, 9, 30))
+    blob = export_package(service.authority, context, period, InMemorySourceObjects())
     with ZipFile(io.BytesIO(blob)) as archive:
         manifest = json.loads(archive.read("manifest.json"))
-        assert manifest["dgii"]["issues"] == []
-        assert manifest["dgii"]["totals_dop"]["itbis_por_adelantar"] == "252.00"
-        assert manifest["dgii"]["totals_dop"]["itbis_facturado"] == "450.00"
-        assert len(manifest["records"]) == 6
-        reference = packet()
-        for form in ("606", "607"):
-            name = f"dgii/DGII_F_{form}_199990013_202609.TXT"
-            actual = archive.read(name).split(b"\r\n")
-            expected = reference.files[name].split(b"\r\n")
-            assert actual[0] == expected[0]
-            assert sorted(actual[1:]) == sorted(expected[1:])
-        output = os.getenv("CUADRAO_DGII_FIXTURE_OUTPUT")
-        if output:
-            root = Path(output)
-            root.mkdir(parents=True, exist_ok=True)
-            (root / "taller-ensayo-local-export.zip").write_bytes(blob)
-            for name in archive.namelist():
-                if name.startswith("dgii/"):
-                    (root / Path(name).name).write_bytes(archive.read(name))
+    assert manifest["dgii"]["issues"] == []
+    assert manifest["dgii"]["totals_dop"]["itbis_por_adelantar"] == "252.00"
+    assert manifest["dgii"]["totals_dop"]["itbis_facturado"] == "450.00"
+    assert len(manifest["records"]) == 6
+    reference = packet()
+    summary, rows = handover_dgii(service, context, period)
+    assert summary["forms"] == reference.manifest["forms"]
+    assert summary["totals_dop"] == reference.manifest["totals_dop"]
+    for form in ("606", "607"):
+        assert sorted(rows[form]) == sorted(reference.rows[form])
+    output = os.getenv("CUADRAO_DGII_FIXTURE_OUTPUT")
+    if output:
+        root = Path(output)
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "taller-ensayo-local-export.zip").write_bytes(blob)
     for draft, _, _ in drafts:
         dossier = service.dossier(context, draft)
         assert dossier.dgii is not None
@@ -306,7 +318,6 @@ def test_accountant_cannot_change_rnc_or_approve_refund_but_reads_same_fiscal_pa
         ZipFile(io.BytesIO(owner_blob)) as owner,
         ZipFile(io.BytesIO(accountant_blob)) as other,
     ):
-        assert owner.read("dgii/606-607.xlsx") == other.read("dgii/606-607.xlsx")
         assert (
             json.loads(owner.read("manifest.json"))["dgii"]
             == json.loads(other.read("manifest.json"))["dgii"]
@@ -511,12 +522,10 @@ def test_cedula_filer_persists_and_exports_both_formats(actions):
         )
     ) as archive:
         manifest = json.loads(archive.read("manifest.json"))["dgii"]
-        for form in ("606", "607"):
-            assert manifest["forms"][form]["status"] == "prepared_candidate"
-            assert (
-                archive.read(f"dgii/DGII_F_{form}_{filer}_202609.TXT").split(b"\r\n")[0]
-                == f"{form}|{filer}|202609|1".encode()
-            )
+    assert (manifest["reporter_rnc"], manifest["period"]) == (filer, "202609")
+    for form in ("606", "607"):
+        assert manifest["forms"][form]["status"] == "prepared_candidate"
+        assert manifest["forms"][form]["record_count"] == 1
 
 
 def _blank_purchase():
@@ -639,8 +648,6 @@ def test_a_listed_bad_check_digit_stays_in_the_606(actions):
             connection.execute("delete from public.dgii_rnc where rnc=%s", (listed_rnc,))
     with ZipFile(io.BytesIO(blob)) as archive:
         manifest = json.loads(archive.read("manifest.json"))["dgii"]
-        names = archive.namelist()
-    assert "dgii/DGII_F_606_199990013_202609.TXT" in names
     assert manifest["forms"]["606"]["status"] == "prepared_candidate"
     assert not any(
         item["code"] == "fiscal_identity_check_digit" for item in manifest["issues"]
@@ -805,12 +812,8 @@ def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(
         )
     ) as archive:
         manifest = json.loads(archive.read("manifest.json"))["dgii"]
-        assert manifest["business_name"] == "Taller Norte"
-        assert manifest["reporter_rnc"] == "00100000001"
-        for form in ("606", "607"):
-            assert (
-                archive.read(f"dgii/DGII_F_{form}_00100000001_202609.TXT").split(b"\r\n")[
-                    0
-                ]
-                == f"{form}|00100000001|202609|1".encode()
-            )
+    assert manifest["business_name"] == "Taller Norte"
+    assert (manifest["reporter_rnc"], manifest["period"]) == ("00100000001", "202609")
+    for form in ("606", "607"):
+        assert manifest["forms"][form]["status"] == "prepared_candidate"
+        assert manifest["forms"][form]["record_count"] == 1

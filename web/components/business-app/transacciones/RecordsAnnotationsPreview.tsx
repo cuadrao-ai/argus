@@ -6,7 +6,7 @@ import Image from "next/image";
 import { appendBusinessReportSupportingFile, downloadBusinessReportAttachment, getBusinessReportAnnotationDossier, setBusinessReportCurrentNote, type CurrentNoteCommand, type ReportScope, type SupportingFileCommand } from "@/lib/business-reports-api";
 import { NOTES_ENTRY_ENABLED } from "@/lib/business-notes-entry";
 import { reportFailure, type ReportFailure } from "@/lib/business-reporting-wire";
-import { saveBlobDownload } from "../ExportRecordsPanel";
+import { saveBlobDownload } from "@/lib/save-blob-download";
 import type { ReceiptLimits } from "@/lib/business-api";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";

@@ -129,7 +129,7 @@ def _close(world, month: str) -> dict:  # noqa: ANN001
 def _packet(world, start: str, end: str) -> dict:  # noqa: ANN001
     answer = _get(world, "/business/exports", start=start, end=end)
     with zipfile.ZipFile(io.BytesIO(answer.content)) as archive:
-        return json.loads(archive.read("dgii/summary.json"))
+        return json.loads(archive.read("manifest.json"))["dgii"]
 
 
 def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(

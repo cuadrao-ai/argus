@@ -1,7 +1,5 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
@@ -10,9 +8,9 @@ import spanish from "@/public/locales/es-419/common.json";
 import { approvalLine, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
 import DossierAttentionStrip from "@/components/business-app/DossierAttentionStrip";
 import { dossierAttention } from "@/components/business-app/dossier-attention";
-import { finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest } from "@/components/business-app/ExportRecordsPanel";
+import { saveBlobDownload } from "@/lib/save-blob-download";
 import { factsRevision, type BusinessDossier } from "@/lib/business-dossier";
-import { businessExportPeriodValid, fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
+import { fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { withBusinessSpace } from "@/components/business-app/business-data";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
@@ -170,14 +168,7 @@ test("owner-funded expense projection preserves its null account and funding kin
 });
 
 
-test("export periods match inclusive calendar limits without timezone or invalid-date coercion", () => {
-  assert.equal(businessExportPeriodValid("2024-01-01", "2024-12-31"), true);
-  assert.equal(businessExportPeriodValid("2024-01-01", "2025-01-01"), false);
-  assert.equal(businessExportPeriodValid("2026-10-10", "2026-10-10"), true);
-  for (const [start, end] of [["2026-02-29", "2026-03-01"], ["2026-10-11", "2026-10-10"], ["2026-1-01", "2026-01-31"], ["0000-01-01", "0000-01-02"], ["", "2026-01-01"]]) assert.equal(businessExportPeriodValid(start, end), false);
-});
-
-test("export transport reads only the explicit draft client and preserves the server ZIP bytes", async () => {
+test("export transport asks for the period and preserves the server ZIP bytes", async () => {
   const originalFetch = globalThis.fetch;
   const originalAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
@@ -188,26 +179,26 @@ test("export transport reads only the explicit draft client and preserves the se
     return new Response(bytes, { headers: { "Content-Type": "application/zip" } });
   };
   try {
-    const blob = await fetchBusinessExport(dossierFixtureIds.readOnly, "2026-10-01", "2026-10-31");
+    const blob = await fetchBusinessExport("2026-10-01", "2026-10-31");
     assert.deepEqual(new Uint8Array(await blob.arrayBuffer()), bytes);
     assert.equal(blob.type, "application/zip");
     assert.equal(calls.length, 1);
     assert.ok(calls[0].url.pathname.endsWith("/business/exports"));
-    assert.deepEqual([...calls[0].url.searchParams], [["start", "2026-10-01"], ["end", "2026-10-31"], ["draft_id", dossierFixtureIds.readOnly]]);
+    assert.deepEqual([...calls[0].url.searchParams], [["start", "2026-10-01"], ["end", "2026-10-31"]]);
     assert.equal(calls[0].init?.method ?? "GET", "GET");
     assert.equal(calls[0].init?.body, undefined);
     assert.equal(calls[0].init?.cache, "no-store");
     for (const [status, code] of [[403, "business_permission_denied"], [404, "business_record_not_found"], [413, "export_record_limit"], [503, "business_export_unavailable"]] as const) {
       globalThis.fetch = async () => new Response(JSON.stringify({ detail: { code, status } }), { status, headers: { "Content-Type": "application/json" } });
-      await assert.rejects(fetchBusinessExport(dossierFixtureIds.readOnly, "2026-10-01", "2026-10-31"), { status, code });
+      await assert.rejects(fetchBusinessExport("2026-10-01", "2026-10-31"), { status, code });
     }
     globalThis.fetch = async () => new Response("unexpected document", { headers: { "Content-Type": "text/html" } });
-    await assert.rejects(fetchBusinessExport(dossierFixtureIds.readOnly, "2026-10-01", "2026-10-31"), /Invalid Business export response/);
+    await assert.rejects(fetchBusinessExport("2026-10-01", "2026-10-31"), /Invalid Business export response/);
     let dispatched = false;
     globalThis.fetch = async () => { dispatched = true; return new Response(bytes); };
     const controller = new AbortController();
     controller.abort();
-    await assert.rejects(fetchBusinessExport(dossierFixtureIds.readOnly, "2026-10-01", "2026-10-31", controller.signal));
+    await assert.rejects(fetchBusinessExport("2026-10-01", "2026-10-31", controller.signal));
     assert.equal(dispatched, false);
   } finally {
     globalThis.fetch = originalFetch;
@@ -240,28 +231,6 @@ test("export download clicks a named link and revokes its object URL only after 
     URL.createObjectURL = original.create;
     URL.revokeObjectURL = original.revoke;
   }
-});
-
-test("revoked export releases busy immediately and late settlement cannot unlock a restored request", () => {
-  const request: { current: AbortController | null } = { current: null };
-  let busy = false;
-  const changes: boolean[] = [];
-  const setBusy = (value: boolean) => { busy = value; changes.push(value); };
-  const revoked = startPeriodExportRequest(request, setBusy)!;
-  assert.equal(busy, true);
-  assert.equal(startPeriodExportRequest(request, setBusy), null);
-  revoked.abort();
-  assert.equal(busy, false);
-  assert.equal(request.current, null);
-  const restored = startPeriodExportRequest(request, setBusy)!;
-  assert.equal(busy, true);
-  finishPeriodExportRequest(request, revoked, setBusy);
-  assert.equal(busy, true);
-  assert.equal(request.current, restored);
-  finishPeriodExportRequest(request, restored, setBusy);
-  assert.equal(busy, false);
-  assert.equal(request.current, null);
-  assert.deepEqual(changes, [true, false, true, false]);
 });
 
 test("read purchases say what the record covers of the receipt total until the rest is settled", async () => {
@@ -307,10 +276,3 @@ test("the line under approve never tells a person who can approve that someone e
   assert.equal(approvalLine(false, false), null);
 });
 
-test("the record page mounts no export panel: exports belong to a period surface", () => {
-  const source = readFileSync(join(import.meta.dir, "..", "components", "business-app", "ReceiptDossierReview.tsx"), "utf-8");
-  const start = source.indexOf("export default function ReceiptDossierReview");
-  assert.ok(start >= 0, "the page component is where the test looks for it");
-  const page = source.slice(start);
-  assert.ok(!page.includes("<ExportRecordsPanel"));
-});

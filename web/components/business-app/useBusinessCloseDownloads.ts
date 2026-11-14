@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchBusinessExport } from "@/lib/business-api";
 import type { OwnedBusiness } from "@/lib/business-lifecycle-api";
-import { saveBlobDownload } from "./ExportRecordsPanel";
+import { saveBlobDownload } from "@/lib/save-blob-download";
 
 export type CloseDownloadStatus = "idle" | "loading" | "downloaded" | "failed";
 /** One server export period and how far its download got in this visit. */

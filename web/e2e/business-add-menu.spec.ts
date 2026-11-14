@@ -104,19 +104,3 @@ test("email availability restores only the copy item", async ({ page }) => {
   await expect(page.getByRole("menuitem")).toHaveCount(1);
   await expect(page.getByRole("menuitem")).toHaveText("Copiar dirección de reenvío");
 });
-
-for (const language of ["es-419", "en"] as const) {
-  test(`legacy phone Registros export ${language}`, async ({ page }) => {
-    test.skip(baseline);
-    await page.setViewportSize({ width: 390, height: 900 });
-    await setup(page, language);
-    await page.goto("/dev/business-preview?view=transactions");
-    await expect(page.getByTestId("transacciones-records")).toBeVisible();
-    const button = page.getByTestId("records-export");
-    await expect(button).toBeVisible();
-    await page.addStyleTag({ content: FREEZE_CSS });
-    if (evidence) await page.screenshot({ path: `${evidence}/after-legacy-transactions-${language}-390.png`, fullPage: true });
-    await button.click();
-    await expect(page.getByTestId("export-records-panel")).toBeVisible();
-  });
-}
