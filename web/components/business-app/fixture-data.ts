@@ -499,8 +499,6 @@ export function createFixtureBusinessDataSource(
         invoicing_available: false,
         // The server's default: Por cobrar and Por pagar are off.
         settlement_available: false,
-        // The design fixture shows Actividad's sample; a real server decides.
-        activity_available: true,
         receiving_channels: { email: { available: true }, whatsapp: { available: true } },
         receipt_limits: {
           max_bytes: 10 * 1024 * 1024,
