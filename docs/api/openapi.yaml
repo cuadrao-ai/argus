@@ -21693,16 +21693,17 @@ components:
         key:
           type: string
           enum:
+          - counterparty_id
           - counterparty
-          - fiscal_number
           - date
+          - expense_type
           - net_amount
           - itbis_amount
           - gross_amount
           - stage
+          - fiscal_number
           - note
           - attachment
-          - expense_type
           - payment_form
           - funding
           - currency
@@ -28116,16 +28117,17 @@ components:
           items:
             type: string
             enum:
+            - counterparty_id
             - counterparty
-            - fiscal_number
             - date
+            - expense_type
             - net_amount
             - itbis_amount
             - gross_amount
             - stage
+            - fiscal_number
             - note
             - attachment
-            - expense_type
             - payment_form
             - funding
           type: array
@@ -28133,16 +28135,17 @@ components:
           items:
             type: string
             enum:
+            - counterparty_id
             - counterparty
-            - fiscal_number
             - date
+            - expense_type
             - net_amount
             - itbis_amount
             - gross_amount
             - stage
+            - fiscal_number
             - note
             - attachment
-            - expense_type
             - payment_form
             - funding
           type: array
@@ -29829,16 +29832,17 @@ components:
           items:
             type: string
             enum:
+            - counterparty_id
             - counterparty
-            - fiscal_number
             - date
+            - expense_type
             - net_amount
             - itbis_amount
             - gross_amount
             - stage
+            - fiscal_number
             - note
             - attachment
-            - expense_type
             - payment_form
             - funding
             - currency
@@ -30188,35 +30192,38 @@ components:
         key:
           type: string
           enum:
+          - counterparty_id
           - counterparty
-          - fiscal_number
           - date
+          - expense_type
           - net_amount
           - itbis_amount
           - gross_amount
           - stage
+          - fiscal_number
           - note
           - attachment
-          - expense_type
           - payment_form
           - funding
         label_key:
           type: string
-        required:
-          type: boolean
-        pinned:
-          type: boolean
         shown:
           type: boolean
+        families:
+          items:
+            type: string
+            enum:
+            - sale
+            - purchase
+          type: array
       additionalProperties: false
       type: object
       required:
       - key
       - label_key
-      - required
-      - pinned
       - shown
-      description: One column the table offers, with the rules the web draws it by.
+      - families
+      description: One column the table offers. The person can hide or move any of them.
     ReportFilters:
       properties:
         q:

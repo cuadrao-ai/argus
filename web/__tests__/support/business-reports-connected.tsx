@@ -8,11 +8,14 @@ import { createFixtureBusinessDataSource } from "@/components/business-app/fixtu
 import { setChosenGrant } from "@/lib/business-grant";
 import { reportAnswerSchema, reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest, type RecordsCurrency } from "@/lib/business-reports-api";
 import { createBusinessReportHttpFixture, fixtureId } from "../fixtures/business-report-http-fixture";
-import type { recordedReportAnswer } from "../fixtures/recorded-report-answer";
+import { recordedReportAnswer } from "../fixtures/recorded-report-answer";
 import { translate, type TestLanguage } from "./i18n-instance";
 
 let cleanup = async () => {};
 export const unmountConnectedReport = () => cleanup();
+
+/** The default table hides the name, Notas and Adjunto. Tests that work on those cells mount a table whose server layout shows them. */
+export const mountAnnotatedReport: typeof mountConnectedReport = (options = {}) => mountConnectedReport({ presentation: { ...recordedReportAnswer.presentation, hidden: recordedReportAnswer.presentation.hidden.filter((key) => key !== "counterparty" && key !== "note" && key !== "attachment") }, ...options });
 
 export async function mountConnectedReport(options: { onAdd?: () => void; defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: TestLanguage; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null; dismissedGuides?: string[]; guideDismissGate?: Promise<void>; viewWriteGate?: () => Promise<void> | undefined } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
