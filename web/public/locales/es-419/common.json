@@ -3608,8 +3608,6 @@
       "group_earlier": "Antes",
       "no_problems": "Ningún recibo con problemas",
       "nothing_to_review": "Tus recibos están al día.",
-      "see_all_body": "Todos tus recibos están en Todo.",
-      "see_all": "Ver todo",
       "segment_review_short": "Revisar",
       "segment_problem_short": "Problemas",
       "email_row_title": "Correo de {{sender}}",

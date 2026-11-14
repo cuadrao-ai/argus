@@ -4253,8 +4253,6 @@
       "group_earlier": "Earlier",
       "no_problems": "No receipts with problems",
       "nothing_to_review": "Your receipts are up to date.",
-      "see_all_body": "Every receipt you have is under All.",
-      "see_all": "See all",
       "segment_review_short": "Review",
       "segment_problem_short": "Issues",
       "email_row_title": "Email from {{sender}}",
