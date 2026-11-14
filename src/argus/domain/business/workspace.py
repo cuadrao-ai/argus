@@ -7,6 +7,7 @@ from typing import Annotated
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic_core import PydanticCustomError
 
 from argus.domain.business.workspace_images import Appearance, DefaultAppearance
 
@@ -18,6 +19,8 @@ class WorkspaceError(ValueError):
 
 
 class BusinessDetails(BaseModel):
+    """The saved details. A row saved before a rule existed may not pass it."""
+
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
     address: str = Field(default="", max_length=200)
@@ -33,12 +36,42 @@ class BusinessDetails(BaseModel):
     def clear_null(cls, value: object) -> object:
         return "" if value is None else value
 
+
+DOMINICAN_AREA_CODES = frozenset({"809", "829", "849"})
+
+
+def _refused(code: str) -> PydanticCustomError:
+    return PydanticCustomError(code, code)
+
+
+class BusinessDetailsInput(BusinessDetails):
+    """Details a person typed. The only owner of the email, website and phone rules."""
+
     @field_validator("email")
     @classmethod
     def email_format(cls, value: str) -> str:
         if value and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
-            raise ValueError("invalid_business_email")
+            raise _refused("invalid_business_email")
         return value
+
+    @field_validator("phone")
+    @classmethod
+    def phone_format(cls, value: str) -> str:
+        """A Dominican number is saved as 809-555-0142, a foreign one as + and its digits."""
+        if not value:
+            return value
+        if not re.fullmatch(r"\+?[\d ()-]+", value):
+            raise _refused("invalid_business_phone")
+        digits = re.sub(r"\D", "", value)
+        local = digits[1:] if len(digits) == 11 and digits[0] == "1" else digits
+        if len(local) == 10 and local[:3] in DOMINICAN_AREA_CODES:
+            return f"{local[:3]}-{local[3:6]}-{local[6:]}"
+        foreign = value[0] == "+" and (
+            len(digits) == 11 if digits[:1] == "1" else 8 <= len(digits) <= 15
+        )
+        if not foreign or digits[0] == "0":
+            raise _refused("invalid_business_phone")
+        return "+" + digits
 
     @field_validator("website", mode="before")
     @classmethod
@@ -62,7 +95,7 @@ class BusinessDetails(BaseModel):
         except ValueError:
             valid = False
         if not valid:
-            raise ValueError("invalid_business_website")
+            raise _refused("invalid_business_website")
         return value
 
 
@@ -76,7 +109,7 @@ class SaveWorkspace(BaseModel):
         ]
         | None
     ) = None
-    details: BusinessDetails | None = None
+    details: BusinessDetailsInput | None = None
     appearance: Appearance | None = None
 
     @field_validator("name", mode="before")

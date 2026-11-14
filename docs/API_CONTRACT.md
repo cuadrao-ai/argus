@@ -9831,7 +9831,25 @@ person starts their space, every route below except POST `/space` answers 404
   Empty values read as `""`. Address does not require province/municipality.
   Optional email must have a basic email shape. Websites without a scheme gain
   `https://`; only HTTP(S), a dotted hostname, no whitespace and no userinfo are
-  accepted. Saving does not verify these facts or activate invoicing.
+  accepted. A phone is a Dominican number (area code 809, 829 or 849 plus seven
+  digits, with an optional `+1` or `1` in front) or a foreign number that starts
+  with `+` and its country code (8 to 15 digits; exactly 11 when the country code
+  is 1). Spaces, hyphens and parentheses are accepted and dropped. A Dominican
+  number is saved and returned as `809-555-0142`, a foreign one as `+` and its
+  digits. Saving does not verify these facts or activate invoicing.
+- The server is the only owner of the email, website and phone rules; clients
+  hold no copy. A PATCH whose only failures are detail fields returns
+  `422 invalid_business_details` with `context.field_errors`, a map from each
+  refused detail field to one code: `invalid_business_email`,
+  `invalid_business_phone`, `invalid_business_website` or `string_too_long`.
+  Nothing is saved. Any other body failure keeps the general `422 validation_error`.
+  A detail saved before a rule existed is still returned by GET as saved, and it
+  does not block a PATCH that leaves that field out.
+- POST `/api/v1/business/profile-details/check` applies the same rules to the
+  detail keys in its body and saves nothing. It takes any subset of the seven
+  detail keys and needs a signed-in Business person. It returns 200 with those
+  keys in their saved form, or the same `422 invalid_business_details` answer.
+  The web calls it when a field is left. Responses are no-store.
 - Appearance is `{kind: "default"}`, `{kind: "avatar", token, mark}`, or
   `{kind: "image", asset_id, crop}`. Avatar tokens are `ocean`, `ember`, `gold`,
   `slate`, `teal`, `indigo`, `plum`; mark is `initials` or `icon`. Crop is

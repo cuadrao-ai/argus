@@ -24,7 +24,8 @@ import { formatBusinessName } from "@/components/business-app/business-format";
 import BusinessProfileDetails from "./BusinessProfileDetails";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
 import { useBusinessProfile } from "@/components/business-app/useBusinessProfile";
-import { businessAppearanceState,businessSettingsRequest,subscribeBusinessAppearance } from "@/lib/business-profile-api";
+import { businessAppearanceState,businessSettingsRequest,checkBusinessDetails,subscribeBusinessAppearance } from "@/lib/business-profile-api";
+import { showToast } from "@/components/business-app/foundation/toasts";
 import type { FiscalProfile, FiscalProfileSaved } from "@/lib/business-dgii";
 import {referenceCode} from "@/lib/failure-screen";
 import {ReferenceCode} from "@/components/status/ReferenceCode";
@@ -157,6 +158,7 @@ function BusinessProfileContent() {
     if(dirty)setPending(next);else applySelection(next);
   };
   const close = ()=>select({section:null});
+  const closeSaved = ()=>{applySelection({section:null});showToast({kind:"success",text:t("business.settings.profile_details_saved")});};
   const hasEditableForm = canEdit && (selected === "identity" || selected === "contact" || selected === "presence");
   const businessContext = selected !== "invoicing" ? <>{t("workspace_setup_preview.for_business")} <strong className="font-semibold text-[#152d26] dark:text-white">{title}</strong></> : undefined;
   const selectedTitle = selected === "appearance" ? t("identity.change_image") : sections.find(section=>section.key === selected)?.title ?? "";
@@ -184,12 +186,12 @@ function BusinessProfileContent() {
   const optionalHeading = t("business.settings.profile_checklist_optional_placeholder");
   const dossier = <div key={`${businessId}:${selected}`} data-profile-dossier-content className="min-w-0">
     {selected === "appearance" ? <IdentityEditor saved={appearance} name={title} business onSave={async next=>{if(live)await server.saveAppearance(next);else{saveAppearance(storage(),`business:${businessId}`,next);window.dispatchEvent(new Event(IDENTITY_EVENT));}applySelection({section:null});}}/> : selected === "identity" ? <>
-      <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile footerTarget={footerTarget} initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
+      <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile onSaved={closeSaved} footerTarget={footerTarget} initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
       <dl className="mt-5 space-y-5 text-[16px]">
         {live && canEdit ? null : <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.legal_name")}</dt><dd>{profile.legalName || t("business.settings.profile_unverified")}</dd></div>}
         {countryLabel ? <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.operating_country")}</dt><dd>{countryLabel}</dd></div> : null}
       </dl>
-    </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails footerTarget={footerTarget} initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={async next=>{if(live){const fields=selected==="presence"?["website","description"] as const:["address","province","municipality","email","phone"] as const;const saved=await server.save({details:Object.fromEntries(fields.map(field=>[field,next[field]]))});return saved.details;}const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" && !live ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
+    </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails onSaved={closeSaved} onCheck={live?checkBusinessDetails:undefined} footerTarget={footerTarget} initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={async next=>{if(live){const fields=selected==="presence"?["website","description"] as const:["address","province","municipality","email","phone"] as const;const saved=await server.save({details:Object.fromEntries(fields.map(field=>[field,next[field]]))});return saved.details;}const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" && !live ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
   </div>;
   if(live && (server.refused || !server.profile || !fiscal))return <div className={SURFACE_CARD}>{server.failed||fiscalFailed?<><p role="alert">{t(server.refused?"business.lifecycle.errors.business_unavailable":"business.empty.overview_error")} {failureReference?<ReferenceCode reference={failureReference}/>:null}</p>{!server.refused?<button type="button" className={quietButtonClass} onClick={()=>{server.retry();setFiscalFailed(false);void fetchFiscal().catch(()=>{});}}>{t("common.retry")}</button>:null}</>:<div aria-busy="true" className="h-40 animate-pulse rounded-item bg-black/5"/>}</div>;
   return <>

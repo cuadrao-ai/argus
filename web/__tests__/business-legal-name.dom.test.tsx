@@ -65,12 +65,12 @@ async function mount(locale:"es-419"|"en"="es-419"){
   await act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Profile/></BusinessContext.Provider></I18nextProvider>));
   await flush();
   const button=(text:string)=>[...document.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent?.includes(text))!;
-  await act(async()=>button(locale==="en"?"Identity and tax details":"Identidad y datos fiscales").click());
-  await flush();
+  const open=async()=>{await act(async()=>button(locale==="en"?"Identity and tax details":"Identidad y datos fiscales").click());await flush();};
+  await open();
   const block=()=>document.querySelector<HTMLElement>('[data-testid="legal-name"]');
   const type=async(value:string)=>{await act(async()=>{const field=document.querySelector<HTMLInputElement>('[name="tax-id-value"]')!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(field,value);field.dispatchEvent(new Event("input",{bubbles:true}));});await flush();};
   const save=async()=>{await act(async()=>{document.querySelector<HTMLFormElement>('[data-testid="business-fiscal-profile"] form')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));});await flush();};
-  return {block,type,save,button,close:()=>act(async()=>root.unmount())};
+  return {block,type,save,button,reopen:open,close:()=>act(async()=>root.unmount())};
 }
 
 const empty:FiscalProfile={name:"La Palma",tax_id:null,legal_name:null,can_edit:true};
@@ -90,6 +90,8 @@ test("Por confirmar shows the registry name, says who it confirms, and saving co
     await page.save();
     expect(writes(calls)).toEqual(["PATCH /business/fiscal-profile","PUT /business/fiscal-profile/legal-name"]);
     expect(calls.find(call=>call.method==="PUT")?.body).toEqual({legal_name:LONG_NAME,previous_legal_name:null,tax_id:{type:"rnc",value:"131000014"},confirmed:true});
+    expect(page.block()).toBeNull();
+    await page.reopen();
     expect(page.block()?.dataset.legalNameStatus).toBe("verified");
     expect(page.block()?.textContent).toContain("Verificado");expect(page.block()?.querySelector("svg")).not.toBeNull();
     expect(document.querySelector('[data-testid="legal-name-confirm"]')).toBeNull();
@@ -167,6 +169,8 @@ test("No activo names the registry status and saving still confirms it",async()=
     expect(document.querySelector('[data-testid="legal-name-confirm"]')).not.toBeNull();
     await page.save();
     expect(writes(calls)).toEqual(["PATCH /business/fiscal-profile","PUT /business/fiscal-profile/legal-name"]);
+    expect(page.block()).toBeNull();
+    await page.reopen();
     expect(page.block()?.dataset.legalNameStatus).toBe("inactive");
     expect(page.block()?.textContent).toContain("No activo");expect(page.block()?.textContent).not.toContain("Verificado");
     expect(document.querySelector('[data-testid="legal-name-confirm"]')).toBeNull();
@@ -194,7 +198,7 @@ test("the confirm line names an unnamed Business with an empty name field Mi neg
   }finally{await page.close();}
 });
 
-test("a failed lookup shows Ref. and Reintentar, the number still saves, and Reintentar checks again",async()=>{
+test("a failed lookup shows Ref. and Reintentar, the number still saves and closes, and opening it again checks again",async()=>{
   let fail=true;
   const calls=server(empty,value=>fail?failure():Response.json(answer(value,"verificado")));
   const page=await mount();
@@ -203,10 +207,12 @@ test("a failed lookup shows Ref. and Reintentar, the number still saves, and Rei
     const block=page.block()!;
     expect(block.dataset.legalNameStatus).toBe("failed");
     expect(block.querySelector('[role="alert"]')?.textContent).toContain("ref-legal-0001".slice(0,4));
+    expect(page.button("Reintentar")).toBeDefined();
     await page.save();
     expect(writes(calls)).toEqual(["PATCH /business/fiscal-profile"]);
+    expect(page.block()).toBeNull();
     fail=false;
-    await act(async()=>page.button("Reintentar").click());await flush();
+    await page.reopen();
     expect(page.block()?.dataset.legalNameStatus).toBe("pending");
   }finally{await page.close();}
 });
@@ -227,7 +233,7 @@ test("a failed confirmation keeps the saved number, shows Ref., and its retry re
     expect(writes(calls)).toEqual(["PATCH /business/fiscal-profile","PUT /business/fiscal-profile/legal-name","PUT /business/fiscal-profile/legal-name"]);
     const keys=calls.filter(call=>call.method==="PUT").map(call=>call.key);
     expect(keys[0]).toBeTruthy();expect(keys[1]).toBe(keys[0]);
-    expect(page.block()?.dataset.legalNameStatus).toBe("verified");
+    expect(page.block()).toBeNull();
   }finally{await page.close();}
 });
 

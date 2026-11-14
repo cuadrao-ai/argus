@@ -9,8 +9,19 @@ import type {BusinessDataSource} from "../components/business-app/business-data"
 import type {BusinessContextValue} from "../components/business-app/BusinessWorkspace";
 
 beforeAll(()=>{GlobalRegistrator.register({url:"http://localhost/biz",settings:{navigation:{disableChildFrameNavigation:true}}});(globalThis as {IS_REACT_ACT_ENVIRONMENT?:boolean}).IS_REACT_ACT_ENVIRONMENT=true;});
-afterEach(()=>{document.body.innerHTML="";window.localStorage.clear();});
+afterEach(async()=>{(await import("../components/business-app/foundation/toasts")).clearToasts();document.body.innerHTML="";window.localStorage.clear();});
 afterAll(async()=>{await GlobalRegistrator.unregister();});
+
+/** What the toast presenter would show right now. */
+async function shownToasts(){
+  const {useToasts}=await import("../components/business-app/foundation/toasts");
+  const host=document.createElement("div"),root=createRoot(host);
+  function Probe(){return <>{useToasts().map(toast=><p key={toast.id}>{toast.text}</p>)}</>;}
+  await act(async()=>root.render(<Probe/>));
+  const texts=[...host.querySelectorAll("p")].map(node=>node.textContent);
+  await act(async()=>root.unmount());
+  return texts;
+}
 
 async function mount(locale="es-419",live=false,sourceOverrides:Partial<BusinessDataSource>={}) {
   const {default:Profile}=await import("../app/design-workspace/BusinessProfilePreview");
@@ -79,19 +90,23 @@ test("identity edits protect closing and invoicing reuses the same single right 
   }finally{await page.close();}
 });
 
-test("identity marks its required field, validates on submit and confirms a successful save",async()=>{
+test("identity marks its required field, never errors on an emptied name, and a successful save closes the panel",async()=>{
   const page=await mount();try{
-    await page.click(page.button("Identidad y datos fiscales"));
+    const opener=page.button("Identidad y datos fiscales");
+    await page.click(opener);
     const name=document.querySelector<HTMLInputElement>('[name="business-name"]')!;
     const number=document.querySelector<HTMLInputElement>('[name="tax-id-value"]')!;
+    const save=()=>document.querySelector<HTMLButtonElement>('button[type="submit"]')!;
     expect(name.required).toBe(true);expect(name.getAttribute("aria-required")).toBe("true");expect(name.placeholder).toContain("Ej.");expect(number.required).toBe(false);expect(number.inputMode).toBe("numeric");expect(number.type).toBe("text");expect(number.placeholder).toBe("Ej. 131-23456-7");
-    await page.type("business-name","");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
-    expect(name.getAttribute("aria-invalid")).toBe("true");expect(document.querySelector('[data-testid="form-error-summary"]')).not.toBeNull();
-    await page.type("business-name","La Palma actualizada");expect(name.getAttribute("aria-invalid")).toBeNull();
-    await page.type("tax-id-value","123");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);expect(number.getAttribute("aria-invalid")).toBe("true");
-    await page.type("tax-id-value","");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
-    expect(document.querySelector('[data-footer-slot] [role="status"]')?.textContent).toBe("Datos guardados.");
-    await page.type("business-name","Another draft");expect(document.querySelector('[data-footer-slot] [role="status"]')?.textContent).toBe("");
+    await page.type("business-name","");
+    expect(save().disabled).toBe(true);expect(name.getAttribute("aria-invalid")).toBeNull();expect(document.getElementById(`${name.id}-note`)?.textContent).toBe("El negocio necesita un nombre");expect(document.querySelector('[data-testid="form-error-summary"]')).toBeNull();
+    await page.type("business-name","La Palma actualizada");expect(save().disabled).toBe(false);expect(document.getElementById(`${name.id}-note`)?.textContent).toBe("");
+    await page.type("tax-id-value","123");await page.click(save());expect(number.getAttribute("aria-invalid")).toBe("true");expect(document.querySelector('[name="business-name"]')).not.toBeNull();
+    expect(await shownToasts()).toEqual([]);
+    await page.type("tax-id-value","");await page.click(save());
+    expect(document.querySelector('[name="business-name"]')).toBeNull();expect(document.querySelector('[data-testid="side-drawer"]')).toBeNull();
+    expect(await shownToasts()).toEqual(["Datos guardados."]);
+    await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));expect(document.activeElement).toBe(opener);
   }finally{await page.close();}
 });
 
@@ -111,6 +126,7 @@ test.each([["es-419","Ubicación y contacto","Agrega dirección, correo o teléf
 test("a row shows the saved value, never the draft discarded after it",async()=>{
   const page=await mount();try{
     await page.click(page.button("Ubicación y contacto"));await page.type("profile-email","saved@example.com");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+    expect(document.querySelector('[name="profile-email"]')).toBeNull();await page.click(page.button("Ubicación y contacto"));
     await page.type("profile-email","draft@example.com");await page.click(page.button("Presencia del negocio"));expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
     await page.click(document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!);
     const row=page.button("Ubicación y contacto");expect(row.textContent).toContain("saved@example.com");expect(row.textContent).not.toContain("draft@example.com");expect(row.textContent).not.toContain("Agrega dirección");
@@ -125,18 +141,21 @@ test("a finished checklist item is checked and muted with no strikethrough",asyn
   }finally{await page.close();}
 });
 
-test.each([["es-419","Ubicación y contacto","Guardar cambios"],["en","Location and contact","Save changes"]])("%s pinned footer submits its associated form without losing invalid drafts",async(locale,section,saveLabel)=>{
-  const page=await mount(locale);try{
+test.each([["es-419","Ubicación y contacto","Guardar cambios"],["en","Location and contact","Save changes"]])("%s pinned footer submits its associated form, a refused save keeps the panel and drafts, a saved one closes it",async(locale,section,saveLabel)=>{
+  const page=await savedProfilePage({locale,refuse:{"invalid-email":"invalid_business_email"}});try{
     await page.click(page.button(section));
     const footer=document.querySelector('[data-footer-slot]')!;
     const save=footer.querySelector<HTMLButtonElement>('button[type="submit"]')!;
     const email=document.querySelector<HTMLInputElement>('[name="profile-email"]')!;
-    const live=footer.querySelector('[role="status"]');
     expect(save.textContent).toBe(saveLabel);expect(save.form).toBe(email.form);expect(email.form?.contains(save)).toBe(false);expect(save.disabled).toBe(true);
-    await page.type("profile-email","invalid-email");expect(save.disabled).toBe(false);await page.click(save);
-    expect(email.value).toBe("invalid-email");expect(email.getAttribute("aria-invalid")).toBe("true");expect(document.querySelector('[data-testid="form-error-summary"]')).not.toBeNull();
-    await page.type("profile-email","team@example.com");await page.click(save);
-    expect(page.button(section).textContent).toContain("team@example.com");expect(footer.querySelector('[role="status"]')).toBe(live);expect(live?.textContent).not.toBe("");expect(save.disabled).toBe(true);
+    await page.type("profile-email","invalid-email");expect(save.disabled).toBe(false);await page.click(save);await page.saved();
+    expect(await shownToasts()).toEqual([]);
+    expect(document.querySelector<HTMLInputElement>('[name="profile-email"]')).toBe(email);expect(email.value).toBe("invalid-email");expect(email.getAttribute("aria-invalid")).toBe("true");expect(document.querySelector('[data-testid="form-error-summary"]')).not.toBeNull();await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));expect(document.activeElement).toBe(email);
+    expect(page.button(section).textContent).not.toContain("invalid-email");
+    await page.type("profile-email","team@example.com");await act(async()=>new Promise(resolve=>setTimeout(resolve,340)));await page.click(save);await page.saved();
+    expect(document.querySelector('[name="profile-email"]')).toBeNull();expect(document.querySelector('[data-testid="side-drawer"]')).toBeNull();expect(page.button(section).textContent).toContain("team@example.com");
+    expect(await shownToasts()).toEqual([locale==="en"?"Details saved.":"Datos guardados."]);
+    await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));expect(document.activeElement).toBe(page.button(section));
   }finally{await page.close();}
 });
 
@@ -163,7 +182,7 @@ test("live Datos shows the server's confirmed legal name and its checklist item,
  }finally{await confirmed.close();globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;}
 });
 
-async function savedProfilePage({address = "", optional = false, registry, locale = "es-419"}: {address?: string; optional?: boolean; registry?: "missing" | "listed" | "failed" | "recover"; locale?: string} = {}) {
+async function savedProfilePage({address = "", optional = false, registry, locale = "es-419", refuse = {}}: {address?: string; optional?: boolean; registry?: "missing" | "listed" | "failed" | "recover"; locale?: string; refuse?: Record<string,string>} = {}) {
   const previousFetch = globalThis.fetch;
   const previousAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
@@ -172,11 +191,19 @@ async function savedProfilePage({address = "", optional = false, registry, local
   let finishLookup: (() => void) | undefined;
   const registryRequests: unknown[] = [];
   const profile = () => ({space_id:"55555555-5555-4555-8555-555555555555",name:"La Palma",country:"DO",currency:"DOP",revision:1,details,appearance:{kind:"default"},image:null});
+  // The server's answer for typed details: the code for each value the test says it refuses.
+  const refused = (typed: Record<string,string>) => {
+    const fields = Object.fromEntries(Object.entries(typed).filter(([,value]) => refuse[value]).map(([field,value]) => [field,refuse[value]]));
+    return Object.keys(fields).length ? Response.json({code:"invalid_business_details",context:{field_errors:fields}},{status:422}) : null;
+  };
   globalThis.fetch = async (url, init) => {
+    if(String(url).endsWith("/business/profile-details/check")) return refused(JSON.parse(String(init?.body))) ?? Response.json({});
     if(String(url).endsWith("/profile")) {
       if(init?.method === "PATCH") {
         const patch = JSON.parse(String(init.body));
-        await new Promise<void>(resolve => {finishSave = () => {details = {...details, ...patch.details}; resolve();};});
+        let answer: Response | null = null;
+        await new Promise<void>(resolve => {finishSave = () => {answer = refused(patch.details); if(!answer) details = {...details, ...patch.details}; resolve();};});
+        if(answer) return answer;
       }
       return Response.json(profile());
     }
@@ -236,7 +263,7 @@ test("the last basic fact shows the done moment only after its save, once for th
     await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
     expect(page.host.textContent).not.toContain("Tu perfil está listo");
     await page.saved();
-    await page.click(document.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!);
+    expect(document.querySelector('[data-testid="side-drawer"]')).toBeNull();
     expect(page.host.querySelector("#profile-next-title")?.textContent).toBe("Tu perfil está listo");
     expect(page.host.textContent).toContain("Revisa los datos guardados de tu negocio.");
     const announcement = [...page.host.querySelectorAll('[role="status"]')].find(node => node.textContent === "Tu perfil está listo");
@@ -250,7 +277,6 @@ test("the last basic fact shows the done moment only after its save, once for th
       await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
       await page.saved();
       expect(announcement?.textContent).toBe("Tu perfil está listo");
-      await page.click(document.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!);
     }
   } finally {await page.close();}
   const reload = await savedProfilePage({address:"Calle Sol 10"});
@@ -314,7 +340,6 @@ test.each(["missing", "listed", "failed"] as const)("registry %s controls whethe
     await page.type("profile-address", "Calle Sol 10");
     await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
     await page.saved();
-    await page.click(document.querySelector<HTMLButtonElement>('[aria-label="Cerrar"]')!);
     expect(page.host.querySelector("#profile-next-title")?.textContent).toBe(registry === "missing" ? "Tu perfil está listo" : "Completa tu perfil");
   } finally {await page.close();}
 });

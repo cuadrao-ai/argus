@@ -27,7 +27,7 @@ afterAll(async () => {
 
 const rnc = () => `1${Array.from({ length: 8 }, () => Math.floor(Math.random() * 10)).join("")}`;
 
-async function mount(start: { name: string; tax_id: { type: "rnc" | "cedula"; value: string } | null }, failWrites = false) {
+async function mount(start: { name: string; tax_id: { type: "rnc" | "cedula"; value: string } | null; legal_name?: { value: string; confirmed_at: string } }, failWrites = false) {
   const writes: unknown[] = [];
   globalThis.fetch = (async (_url: string, init?: RequestInit) => {
     if (!init?.body) return Response.json({ ...start, can_edit: true });
@@ -110,15 +110,45 @@ describe("Negocio, Datos", () => {
     }
   });
 
-  test("saving without a name lists it in the summary and sends nothing", async () => {
+  test("an emptied name turns Save off with a quiet line, never an error, and sends nothing", async () => {
     const form = await mount({ name: "Ferretería Luna", tax_id: null });
     try {
       await form.type("business-name", "");
+      const save = form.host.querySelector<HTMLButtonElement>('button[type="submit"]');
+      assert.equal(save?.disabled, true);
       await form.save();
-      const summary = form.host.querySelector('[data-testid="form-error-summary"]');
-      assert.deepEqual([...(summary?.querySelectorAll("a") ?? [])].map((link) => link.textContent), ["Nombre del negocio"]);
-      assert.equal(form.note("business-name"), "Escribe el nombre del negocio.");
+      assert.equal(form.host.querySelector('[data-testid="form-error-summary"]'), null);
+      assert.equal(form.field("business-name").getAttribute("aria-invalid"), null);
+      assert.equal(form.note("business-name"), "El negocio necesita un nombre");
       assert.deepEqual(form.writes, []);
+      await form.type("business-name", "Ferretería Sol");
+      assert.equal(save?.disabled, false);
+      assert.equal(form.note("business-name"), "");
+    } finally {
+      await form.close();
+    }
+  });
+
+  test("a confirmed razón social is offered as the name in one action and stays editable", async () => {
+    const form = await mount({ name: "Ferretería Luna", tax_id: { type: "rnc", value: rnc() }, legal_name: { value: "Ferretería Luna de Ejemplo SRL", confirmed_at: "2026-11-09T12:00:00Z" } });
+    try {
+      const offer = form.host.querySelector<HTMLButtonElement>('[data-testid="use-legal-name"]');
+      assert.equal(offer?.textContent, "Usar «Ferretería Luna de Ejemplo SRL» como nombre");
+      await act(async () => offer?.click());
+      assert.equal(form.field("business-name").value, "Ferretería Luna de Ejemplo SRL");
+      assert.equal(form.host.querySelector('[data-testid="use-legal-name"]'), null);
+      await form.type("business-name", "Ferretería Luna Ejemplo");
+      assert.equal(form.field("business-name").value, "Ferretería Luna Ejemplo");
+      assert.deepEqual(form.writes, []);
+    } finally {
+      await form.close();
+    }
+  });
+
+  test("with no confirmed razón social there is no name offer", async () => {
+    const form = await mount({ name: "Ferretería Luna", tax_id: null });
+    try {
+      assert.equal(form.host.querySelector('[data-testid="use-legal-name"]'), null);
     } finally {
       await form.close();
     }

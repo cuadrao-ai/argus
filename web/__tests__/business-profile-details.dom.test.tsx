@@ -5,34 +5,78 @@ import {createRoot} from "react-dom/client";
 import i18next from "i18next";
 import {I18nextProvider} from "react-i18next";
 import {normalizeBusinessProvidedDetails,type BusinessProvidedDetails} from "../app/design-workspace/businessProfilePreviewState";
+import spanish from "../public/locales/es-419/common.json";
+import english from "../public/locales/en/common.json";
+
+const i18nText=(locale:string,key:string)=>((locale==="en"?english:spanish).business.settings as Record<string,string>)[key];
 
 beforeAll(()=>{GlobalRegistrator.register({url:"http://localhost/biz"});(globalThis as {IS_REACT_ACT_ENVIRONMENT?:boolean}).IS_REACT_ACT_ENVIRONMENT=true;});
 afterEach(()=>{document.body.innerHTML="";});
 afterAll(async()=>{await GlobalRegistrator.unregister();});
-async function mount(fails=false,locale="es-419"){
+type Refused=Partial<Record<keyof BusinessProvidedDetails,string>>;
+/** A stand-in for the server: the test names which values it refuses, and with which code. */
+const serverRefusing=(refusals:Record<string,string>)=>{
+ const asked:Partial<BusinessProvidedDetails>[]=[];
+ const refusedOf=(typed:Partial<BusinessProvidedDetails>):Refused=>Object.fromEntries(Object.entries(typed).filter(([,value])=>refusals[value]).map(([field,value])=>[field,refusals[value]]));
+ return {asked,refusedOf,check:async(typed:Partial<BusinessProvidedDetails>)=>{asked.push(typed);return refusedOf(typed);}};
+};
+const settle=(ms=5)=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,ms));});
+async function mount({locale="es-419",refusals,fails=false,closes=false}:{locale?:string;refusals?:Record<string,string>;fails?:boolean;closes?:boolean}={}){
  const {default:BusinessProfileDetails}=await import("../app/design-workspace/BusinessProfileDetails");
  const messages=locale==="en" ? (await import("../public/locales/en/common.json")).default : (await import("../public/locales/es-419/common.json")).default;
  const i18n=i18next.createInstance();await i18n.init({lng:locale,resources:{[locale]:{translation:messages}}});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);const writes:BusinessProvidedDetails[]=[];
- const render=(saved=normalizeBusinessProvidedDetails({}))=>act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessProfileDetails saved={saved} canEdit onSave={details=>{if(fails)throw new Error("quota");const next=normalizeBusinessProvidedDetails(details);writes.push(next);return next;}}/></I18nextProvider>));
+ const server=refusals?serverRefusing(refusals):null;let closed=0;
+ const onSave=(details:BusinessProvidedDetails)=>{
+  if(fails)throw new Error("quota");
+  const refused=server?.refusedOf(details)??{};
+  if(Object.keys(refused).length)throw Object.assign(new Error("refused"),{status:422,code:"invalid_business_details",fieldErrors:refused});
+  const next=normalizeBusinessProvidedDetails(details);writes.push(next);return next;
+ };
+ const render=(saved=normalizeBusinessProvidedDetails({}))=>act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessProfileDetails saved={saved} canEdit onCheck={server?.check} onSaved={closes?()=>{closed+=1;}:undefined} onSave={onSave}/></I18nextProvider>));
  await render();
  const field=(name:string)=>host.querySelector<HTMLInputElement>(`[name="profile-${name}"]`)!;
+ const note=(name:string)=>document.getElementById(`${field(name).id}-note`)?.textContent;
  const type=(name:string,value:string)=>act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(field(name),value);field(name).dispatchEvent(new Event("input",{bubbles:true}));});
- const blur=(name:string)=>act(async()=>{field(name).focus();field(name).blur();});
+ const blur=async(name:string)=>{await act(async()=>{field(name).focus();field(name).blur();});await settle();};
  const save=()=>act(async()=>host.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
- return {host,writes,field,type,blur,save,render,close:()=>act(async()=>root.unmount())};
+ return {host,writes,server,field,note,type,blur,save,render,closed:()=>closed,close:()=>act(async()=>root.unmount())};
 }
-test("optional invalid fields show blur errors and linked submit summary, then normalize valid website",async()=>{
+test("the form holds no email, website or phone rule: without a server answer it refuses nothing",async()=>{
  const form=await mount();try{
-  await form.type("email","invalid");expect(form.field("email").getAttribute("aria-invalid")).toBeNull();await form.blur("email");expect(form.field("email").getAttribute("aria-invalid")).toBe("true");
-  await form.type("website","javascript:alert(1)");await form.save();expect(form.writes).toHaveLength(0);
-  const summary=form.host.querySelector('[data-testid="form-error-summary"]')!;expect(summary.querySelectorAll("a")).toHaveLength(2);
-  await act(async()=>summary.querySelector<HTMLAnchorElement>("a")!.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true})));expect(document.activeElement).toBe(form.field("email"));
-  await form.type("email","");await form.type("website","lapalma.do");await form.save();expect(form.writes).toHaveLength(1);expect(form.writes[0].website).toBe("https://lapalma.do");expect(form.field("website").value).toBe("https://lapalma.do");expect(form.host.textContent).toContain("Datos guardados.");
+  await form.type("email","invalid");await form.blur("email");await form.type("website","javascript:alert(1)");await form.blur("website");await form.type("phone","abc 12");await form.blur("phone");
+  for(const name of ["email","website","phone"])expect(form.field(name).getAttribute("aria-invalid")).toBeNull();
+  await form.save();expect(form.host.querySelector('[data-testid="form-error-summary"]')).toBeNull();
+  expect(form.writes).toEqual([normalizeBusinessProvidedDetails({email:"invalid",website:"javascript:alert(1)",phone:"abc 12"})]);
  }finally{await form.close();}
 });
-test("a failed save keeps the draft and announces failure without success",async()=>{
- const form=await mount(true,"en");try{await form.type("address","Calle Sol 10");await form.save();expect(form.field("address").value).toBe("Calle Sol 10");expect(form.host.textContent).toContain("We couldn't save these details.");expect(form.host.textContent).not.toContain("Details saved.");expect(form.writes).toHaveLength(0);}finally{await form.close();}
+test("a field that is left shows the server's answer, then is asked again while it is being fixed",async()=>{
+ const form=await mount({refusals:{"abc 12":"invalid_business_phone","abc 123":"invalid_business_phone"}});try{
+  await form.type("phone","abc 12");expect(form.server!.asked).toEqual([]);expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();
+  await form.blur("phone");expect(form.server!.asked).toEqual([{phone:"abc 12"}]);
+  expect(form.field("phone").getAttribute("aria-invalid")).toBe("true");expect(form.note("phone")).toBe(i18nText("es-419","profile_error_phone_placeholder"));
+  await form.type("phone","abc 123");await settle(340);expect(form.field("phone").getAttribute("aria-invalid")).toBe("true");
+  await form.type("phone","809-555-0142");await settle(340);
+  expect(form.server!.asked.at(-1)).toEqual({phone:"809-555-0142"});expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();expect(form.note("phone")).toBe(i18nText("es-419","profile_format_phone_placeholder"));
+ }finally{await form.close();}
+});
+test("a refused save shows the server's error under each field, lists them, focuses the first and stays open",async()=>{
+ const form=await mount({closes:true,refusals:{"a@host":"invalid_business_email","abc 12":"invalid_business_phone"}});try{
+  await form.type("address","Calle Sol 10");await form.type("email","a@host");await form.type("phone","abc 12");await form.save();
+  expect(form.writes).toHaveLength(0);expect(form.closed()).toBe(0);
+  expect(form.note("email")).toBe("Escribe un correo electrónico válido.");expect(form.note("phone")).toBe(i18nText("es-419","profile_error_phone_placeholder"));
+  const summary=form.host.querySelector('[data-testid="form-error-summary"]')!;expect([...summary.querySelectorAll("a")].map(link=>link.textContent)).toEqual(["Correo del negocio","Teléfono o WhatsApp"]);
+  await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));expect(document.activeElement).toBe(form.field("email"));expect(form.field("address").value).toBe("Calle Sol 10");
+  await form.type("email","hola@ejemplo.com");await form.type("phone","809-555-0142");await settle(340);await form.save();
+  expect(form.writes).toHaveLength(1);expect(form.closed()).toBe(1);
+ }finally{await form.close();}
+});
+test("a successful save closes through its owner and shows no inline confirmation; alone it confirms inline",async()=>{
+ const closing=await mount({closes:true});try{await closing.type("address","Calle Sol 10");await closing.save();expect(closing.closed()).toBe(1);expect(closing.host.textContent).not.toContain("Datos guardados.");}finally{await closing.close();}
+ const alone=await mount();try{await alone.type("address","Calle Sol 10");await alone.save();expect(alone.host.textContent).toContain("Datos guardados.");}finally{await alone.close();}
+});
+test("a failed save keeps the draft, stays open and announces failure without success",async()=>{
+ const form=await mount({fails:true,closes:true,locale:"en"});try{await form.type("address","Calle Sol 10");await form.save();expect(form.field("address").value).toBe("Calle Sol 10");expect(form.host.textContent).toContain("We couldn't save these details.");expect(form.host.textContent).not.toContain("Details saved.");expect(form.writes).toHaveLength(0);expect(form.closed()).toBe(0);}finally{await form.close();}
 });
 test("an asynchronous server refusal keeps attempted edits and never confirms a save",async()=>{
  const {default:BusinessProfileDetails}=await import("../app/design-workspace/BusinessProfileDetails");
@@ -54,17 +98,21 @@ test("unrelated saved-state updates do not discard a contact draft",async()=>{
  const form=await mount();try{await form.type("address","Unfinished address");await form.render(normalizeBusinessProvidedDetails({phone:"809 555 0100"}));expect(form.field("address").value).toBe("Unfinished address");expect(form.field("phone").value).toBe("");}finally{await form.close();}
 });
 
+test("unrelated saved-state updates do not discard a contact draft",async()=>{
+ const form=await mount();try{await form.type("address","Unfinished address");await form.render(normalizeBusinessProvidedDetails({phone:"809 555 0100"}));expect(form.field("address").value).toBe("Unfinished address");expect(form.field("phone").value).toBe("");}finally{await form.close();}
+});
+
 test.each([
  ["es-419","Formato de correo válido.","Formato de sitio web válido."],
  ["en","Valid email format.","Valid website format."],
-])("%s optional fields use examples and only show format success after a check",async(locale,emailMessage,websiteMessage)=>{
- const form=await mount(false,locale);try{
+])("%s optional fields use examples and only show format success after the server accepts the value",async(locale,emailMessage,websiteMessage)=>{
+ const form=await mount({locale,refusals:{}});try{
   for(const field of ["address","province","municipality","email","phone","website","description"]){expect(form.field(field).placeholder.length).toBeGreaterThan(0);expect(form.field(field).required).toBe(false);}
-  const note=(name:string)=>document.getElementById(`${form.field(name).id}-note`);
-  await form.type("email","hello@example.com");expect(note("email")?.textContent).toBe("");await form.blur("email");expect(note("email")?.textContent).toBe(emailMessage);expect(form.field("email").getAttribute("aria-describedby")).toBe(note("email")?.id ?? null);
-  await form.type("email","next@example.com");expect(note("email")?.textContent).toBe("");await form.blur("email");expect(note("email")?.textContent).toBe(emailMessage);
-  await form.type("website","example.com");expect(note("website")?.textContent).toBe("");await form.blur("website");expect(note("website")?.textContent).toBe(websiteMessage);
-  await form.type("website","");expect(note("website")?.textContent).toBe("");expect(form.field("website").getAttribute("aria-invalid")).toBeNull();
-  await form.type("address","Calle Sol 10");await form.blur("address");expect(note("address")).toBeNull();
+  await form.type("email","hello@example.com");expect(form.note("email")).toBe("");await form.blur("email");expect(form.note("email")).toBe(emailMessage);expect(form.field("email").getAttribute("aria-describedby")).toBe(`${form.field("email").id}-note`);
+  await form.type("email","next@example.com");expect(form.note("email")).toBe("");await form.blur("email");expect(form.note("email")).toBe(emailMessage);
+  await form.type("website","example.com");expect(form.note("website")).toBe("");await form.blur("website");expect(form.note("website")).toBe(websiteMessage);
+  await form.type("phone","809 555 0142");await form.blur("phone");expect(form.note("phone")).toBe(i18nText(locale,"profile_format_phone_placeholder"));
+  await form.type("website","");expect(form.note("website")).toBe("");expect(form.field("website").getAttribute("aria-invalid")).toBeNull();
+  await form.type("address","Calle Sol 10");await form.blur("address");expect(document.getElementById(`${form.field("address").id}-note`)).toBeNull();
  }finally{await form.close();}
 });

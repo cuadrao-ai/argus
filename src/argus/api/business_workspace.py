@@ -1,9 +1,12 @@
 """Explicit creation and selected-Business profile transport."""
 
-from typing import Annotated
+from collections.abc import Callable, Coroutine
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict
 
 from argus.api.business import BusinessPerson, chosen_scope, require_business_person
@@ -22,13 +25,73 @@ from argus.domain.business.country import CountryCode
 from argus.domain.business.lifecycle import BusinessLifecycleError
 from argus.domain.business.memberships import MembershipError
 from argus.domain.business.workspace import (
+    BusinessDetails,
+    BusinessDetailsInput,
     SaveWorkspace,
     WorkspaceError,
 )
 from argus.domain.profile_images.images import InvalidImage
 from argus.domain.profile_images.objects import ProfileImageStorageUnavailable
 
-router = APIRouter()
+DETAIL_CODES = {
+    "invalid_business_email",
+    "invalid_business_phone",
+    "invalid_business_website",
+    "string_too_long",
+}
+
+
+def _detail_errors(errors: Any) -> dict[str, str]:
+    """The refused detail fields and their codes, or nothing when another part failed."""
+    fields: dict[str, str] = {}
+    for error in errors:
+        *where, field = error["loc"]
+        if (
+            where not in (["body"], ["body", "details"])
+            or field not in BusinessDetails.model_fields
+            or error["type"] not in DETAIL_CODES
+        ):
+            return {}
+        fields[field] = error["type"]
+    return fields
+
+
+class DetailsRoute(APIRoute):
+    """Answers refused details with one code per field, the shape the forms show."""
+
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        original = super().get_route_handler()
+
+        async def handler(request: Request) -> Response:
+            try:
+                return await original(request)
+            except RequestValidationError as error:
+                fields = _detail_errors(error.errors())
+                if not fields:
+                    raise
+                raise problem(
+                    request,
+                    status_code=422,
+                    code="invalid_business_details",
+                    title="Business details refused",
+                    detail="One or more Business details are not valid.",
+                    headers=NO_STORE,
+                    context={"field_errors": fields},
+                ) from None
+
+        return handler
+
+
+router = APIRouter(route_class=DetailsRoute)
+
+DETAILS_REFUSED = {
+    422: {
+        "description": "`invalid_business_details` when only detail fields failed: "
+        "`context.field_errors` maps each refused field to `invalid_business_email`, "
+        "`invalid_business_phone`, `invalid_business_website` or `string_too_long`. "
+        "`validation_error` for any other body failure."
+    }
+}
 
 
 class CreateAdditionalBusiness(BaseModel):
@@ -102,6 +165,21 @@ def create_additional_business(
     return space_payload(space)
 
 
+@router.post(
+    "/profile-details/check",
+    response_model=BusinessDetailsInput,
+    response_model_exclude_unset=True,
+    responses=DETAILS_REFUSED,
+    dependencies=[Depends(require_business_person)],
+)
+def check_business_details(
+    response: Response, body: BusinessDetailsInput
+) -> BusinessDetailsInput:
+    """Answers with the save rules for the fields sent. Saves nothing."""
+    response.headers.update(NO_STORE)
+    return body
+
+
 @router.get("/spaces/{space_id}/profile", response_model=BusinessProfile)
 def read_business_profile(
     request: Request,
@@ -124,7 +202,11 @@ def read_business_profile(
         raise _failure(request, error) from None
 
 
-@router.patch("/spaces/{space_id}/profile", response_model=BusinessProfile)
+@router.patch(
+    "/spaces/{space_id}/profile",
+    response_model=BusinessProfile,
+    responses=DETAILS_REFUSED,
+)
 def save_business_profile(
     request: Request,
     space_id: UUID,

@@ -27,6 +27,7 @@ function digitsOf(raw: string): string {
 }
 
 type Field = "name" | "number";
+const NAME_LIMIT = 80;
 export type FiscalProfileDraft = {name:string;kind:TaxIdType;value:string};
 /** A refusal the server explains; retrying the same values cannot help. */
 type Problem = { text: string; retry: boolean; reference?: string };
@@ -45,7 +46,7 @@ function legalNameState(profile: FiscalProfile, kind: TaxIdType, digits: string,
   return stored ? { status: "verified", name: stored } : { status: "pending", name: registry.name };
 }
 
-export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onDirtyChange, initialDraft, onDraftChange, footerTarget }: { draftId?: string; footerTarget?: HTMLElement | null; initialDraft?: FiscalProfileDraft | null; onDraftChange?: (draft:FiscalProfileDraft) => void; onDirtyChange?: (dirty: boolean) => void; renderTaxIdControl?: (props: {value: TaxIdType; label: string; disabled: boolean; onChange: (value: TaxIdType) => void}) => ReactNode }) {
+export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onDirtyChange, initialDraft, onDraftChange, onSaved, footerTarget }: { draftId?: string; onSaved?: () => void; footerTarget?: HTMLElement | null; initialDraft?: FiscalProfileDraft | null; onDraftChange?: (draft:FiscalProfileDraft) => void; onDirtyChange?: (dirty: boolean) => void; renderTaxIdControl?: (props: {value: TaxIdType; label: string; disabled: boolean; onChange: (value: TaxIdType) => void}) => ReactNode }) {
   const { t, i18n } = useTranslation();
   const workspace = useContext(BusinessContext);
   const base = useId();
@@ -88,9 +89,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   }, [draftId, read, attempt]);
 
   // The same rules the server applies to a tax id: digits once spaces and hyphens go, the exact length, not all zeros.
-  const rules: FieldRules<Field> = {
-    name: (values) =>
-      values.name.trim() ? null : t("business.dgii.business_name_required", "Enter the business name."),
+  const rules: FieldRules<"number"> = {
     number: (values) => {
       if (!values.number.trim()) return null;
       const digits = digitsOf(values.number);
@@ -103,9 +102,13 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
       return /^0+$/.test(digits) ? t("business.dgii.error.tax_id_all_zero", "It can't be all zeros.") : null;
     },
   };
-  const checks = useFieldChecks(rules, { name, number: value });
+  const checks = useFieldChecks(rules, { number: value });
+  // The name is required and already saved. An emptied field is never an error; Save waits for a name.
+  const nameMissing = !name.trim();
+  const nameNeeded = t("business.settings.profile_name_needed_placeholder");
+  const legalNameAsName = profile?.legal_name?.value.slice(0, NAME_LIMIT) ?? null;
   const digits = digitsOf(value);
-  const numberValid = Boolean(value.trim()) && rules.number({ name, number: value }) === null;
+  const numberValid = Boolean(value.trim()) && rules.number({ number: value }) === null;
   const lookupKey = `${kind}:${digits}`;
   // Only a source with the registry (the live one) answers; the local preview and the sample show no Razón social block.
   const { lookup, retry: retryLookup } = useRegistryLookup(profile?.can_edit && writeLegalName && numberValid ? { type: kind, value: digits } : null);
@@ -114,7 +117,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!profile || busy || !checks.submit()) return;
+    if (!profile || busy || nameMissing || !checks.submit()) return;
     setBusy(true);
     setSaved(false);
     setRetyped(0);
@@ -152,6 +155,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
       }
       checks.reset();
       setSaved(true);
+      onSaved?.();
     } catch (error) {
       const code = (error as { code?: string }).code;
       const known = Boolean(code) && i18n.exists(`business.dgii.error.${code}`);
@@ -181,7 +185,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const changeKind = (next:TaxIdType)=>{setKind(next);setSaved(false);};
   const numberHint = t(kind === "rnc" ? "business.dgii.tax_id_hint_rnc" : "business.dgii.tax_id_hint_cedula");
   const taxIdTitle = profile?.tax_id?.type === "cedula" ? t("business.dgii.tax_id_cedula", "Cédula") : t("business.dgii.tax_id_rnc", "RNC");
-  const saveButton = <button type="submit" form={`${base}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full rounded-item`} disabled={busy || (unchanged && !confirming)}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
+  const saveButton = <button type="submit" form={`${base}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full rounded-item`} disabled={busy || nameMissing || (unchanged && !confirming)}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
   const status = <p role="status" className={`${saved ? "" : "sr-only"} text-[14px] text-[#56635e] dark:text-white/70`}>{saved ? t("business.settings.profile_details_saved") : ""}{saved && retyped > 0 ? <span data-testid="profile-drafts-retyped"> {t("business.settings.profile_drafts_retyped", { count: retyped })}</span> : null}</p>;
   const confirmLine = confirming ? <p data-testid="legal-name-confirm" className="text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t(`business.dgii.legal_name.confirm_on_save_${kind}`, { business: businessName })}</p> : null;
   const actions = footerTarget === undefined ? <div className="flex flex-col gap-2 pt-2">{confirmLine}<div className="flex min-h-11 flex-wrap items-center gap-3">{saveButton}{status}</div></div> : <div className="flex flex-col gap-2">{status}{confirmLine}{saveButton}</div>;
@@ -208,15 +212,19 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
             required
             aria-required="true"
             placeholder={t("workspace_setup_preview.business_name_example")}
-            reserveMessages={[t("business.dgii.business_name_required")]}
-            error={checks.errorOf("name")}
+            reserveMessages={[nameNeeded]}
+            hint={nameMissing ? nameNeeded : undefined}
             autoComplete="organization"
-            maxLength={80}
+            maxLength={NAME_LIMIT}
             value={name}
             disabled={busy}
-            onBlur={() => checks.blur("name")}
             onChange={(event) => {setName(event.target.value);setSaved(false);}}
           />
+          {legalNameAsName && legalNameAsName !== name.trim() ? (
+            <button type="button" data-testid="use-legal-name" disabled={busy} className={`${quietButtonClass} -ml-1`} onClick={() => {setName(legalNameAsName);setSaved(false);}}>
+              {t("business.settings.profile_use_legal_name_placeholder", { name: legalNameAsName })}
+            </button>
+          ) : null}
           <div className="grid gap-x-[13px] gap-y-[13px] tablet:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]">
             {renderTaxIdControl ? renderTaxIdControl({value:kind,label:t("business.dgii.tax_id_type", "Tax id"),disabled:busy,onChange:changeKind}) : <SelectField
               id={`${base}-kind`}

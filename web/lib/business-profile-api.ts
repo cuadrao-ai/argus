@@ -28,9 +28,17 @@ export async function businessSettingsRequest<T>(path: string, options: RequestI
   const body = text ? JSON.parse(text) : undefined;
   check();
   if (!response.ok) {
-    throw Object.assign(new Error("Business settings unavailable"), { status: response.status, code: body.code ?? "unknown", requestId: serverRequestId(response, body) });
+    throw Object.assign(new Error("Business settings unavailable"), { status: response.status, code: body.code ?? "unknown", requestId: serverRequestId(response, body), fieldErrors: body.context?.field_errors });
   }
   return body;
+}
+const fieldErrors = z.record(z.string(), z.string()).catch({});
+/** The server's code for each field it refused, or nothing when the failure was about something else. */
+export const refusedFields = (error: unknown): Record<string, string> => fieldErrors.parse(error && typeof error === "object" && "fieldErrors" in error ? error.fieldErrors : undefined);
+/** Asks the server's save rules about typed details without saving them. */
+export async function checkBusinessDetails(typed: Partial<BusinessProfile["details"]>, signal?: AbortSignal): Promise<Record<string, string>> {
+  try { await businessSettingsRequest("/business/profile-details/check", { method: "POST", body: JSON.stringify(typed), signal }); return {}; }
+  catch (error) { const refused = refusedFields(error); if (Object.keys(refused).length === 0) throw error; return refused; }
 }
 const profilePath = (id: string) => `/business/spaces/${encodeURIComponent(id)}/profile`;
 function selectedProfile(value:unknown,id:string){

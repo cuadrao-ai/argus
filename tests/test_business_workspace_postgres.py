@@ -131,6 +131,39 @@ def test_profile_survives_fresh_store_and_partial_patch_preserves_details(pool, 
     assert cleared.details.address == "Calle Sol"
 
 
+def test_phone_is_saved_in_one_form_and_a_row_from_before_the_rule_still_works(
+    pool, users
+):
+    store = PostgresSpaceStore(pool)
+    actor = users["owner"]
+    first, _ = store.create(actor, "Zulu")
+    saved = store.save_workspace(
+        actor,
+        first.id,
+        SaveWorkspace(expected_revision=0, details={"phone": "+1 (829) 555-0142"}),
+        "phone",
+    )
+    assert saved.details.phone == "829-555-0142"
+    with psycopg.connect(shared.DSN) as db:
+        db.execute(
+            "update public.spaces set business_provided_details="
+            "business_provided_details || %s::jsonb where id=%s",
+            ('{"phone": "abc 12"}', first.id),
+        )
+    legacy = store.read_workspace(actor, first.id)
+    assert legacy.details.phone == "abc 12"
+    updated = store.save_workspace(
+        actor,
+        first.id,
+        SaveWorkspace(
+            expected_revision=legacy.revision, details={"website": "shop.example"}
+        ),
+        "website",
+    )
+    assert updated.details.phone == "abc 12"
+    assert updated.details.website == "https://shop.example"
+
+
 def test_concurrent_save_has_one_winner_and_replay_is_once(pool, users):
     store = PostgresSpaceStore(pool)
     actor = users["owner"]
