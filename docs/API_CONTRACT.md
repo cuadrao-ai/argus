@@ -10634,6 +10634,27 @@ accept path recorded.
   brings the same bytes later. `email_delivery_ids` lists the deliveries
   earliest first. The same rule marks a dossier's attachment sources:
   `channel: "email"` and their `email_delivery_ids`.
+  Every 200 answer carries an `ETag`: the version of the Business's lists
+  (Bandeja and Registros) for this person. A request that sends it back in
+  `If-None-Match` gets `304` with no body while nothing changed, and the page
+  with a new `ETag` once something did. The version is opaque. One owner
+  derives it (`argus.domain.business.list_version`) in one statement over the
+  records' own change marks (count, newest change time and version sum per
+  table), so no writer keeps a counter. It reads
+  `financial_source_connections`, `financial_document_extractions`,
+  `financial_import_events`, `business_action_receipts`,
+  `business_email_deliveries`, `business_email_address_events`, the caller's
+  `business_receipt_read_states`, `business_receipt_reading_consents`,
+  `business_document_settlements`, `business_dgii_export_lines` and
+  `business_document_purges`, all for the one Business. It also names the
+  person and their capabilities, and a five-minute window, so a state that
+  moves with the clock is never held longer than that. The version is read
+  before the page is built: a write that lands in between shows as a change on
+  the next check. The web checks every 15 s (5 s while a receipt is being
+  read), never from a hidden tab, and backs off after failures; Bandeja and
+  Registros both follow that one check. The in-memory app keeps no change
+  marks and derives the version from the answer itself. `ETag` is in the CORS
+  exposed headers.
 - GET `/api/v1/business/receipts/{id}` returns a `ReceiptDetail`. `version` is
   the import event's version, and `0` while there is no purchase to review.
   `evidence` is what the receipt says, and corrections never change it.

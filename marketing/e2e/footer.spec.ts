@@ -54,12 +54,12 @@ for (const path of ["/", "/contacto", "/privacidad", "/terminos", "/eliminar-dat
     }
     await expect.poll(() => reveal.evaluate((node) => node.getBoundingClientRect().width)).toBe(0);
     const before = (await copyright.boundingBox())!;
-    const right = (await credits.boundingBox())!;
+    const rest = (await credits.boundingBox())!;
     await footer.screenshot({ path: info.outputPath("footer-rest.png") });
     await credits.hover();
     await expect.poll(() => local.evaluate((node) => getComputedStyle(node).clipPath)).toBe("inset(0px)");
-    await expect.poll(async () => (await copyright.boundingBox())!.x).toBeLessThan(before.x - 100);
-    expect(Math.abs((await credits.boundingBox())!.x + (await credits.boundingBox())!.width - right.x - right.width)).toBeLessThan(1);
+    await expect.poll(async () => (await credits.boundingBox())!.width).toBeGreaterThan(rest.width + 100);
+    expect(Math.abs((await copyright.boundingBox())!.x - before.x)).toBeLessThan(1);
     expect(await local.evaluate((node) => getComputedStyle(node).color)).toBe(await copyright.evaluate((node) => getComputedStyle(node).color));
     await expect(reveal).toHaveCSS("transition-duration", "0.7s");
     await expect(local).toHaveCSS("transition-duration", "0.5s");
@@ -97,6 +97,27 @@ for (const path of ["/", "/en"]) {
       nodes.flatMap((node) => (node.getBoundingClientRect().height > 44 ? [node.textContent] : [])),
     );
     expect(wrapped).toEqual([]);
+  });
+}
+
+for (const path of ["/", "/en"]) {
+  test(`${path} footer keeps social icons under the brand and back to top beside the copyright`, async ({ page }) => {
+    await page.goto(path);
+    const footer = page.locator("footer");
+    const tagline = footer.locator('[class*="footerIdentity"] > p');
+    const social = footer.locator('[class*="footerIdentity"]').getByRole("group", { name: path === "/" ? "Redes sociales" : "Social media" });
+    await social.scrollIntoViewIfNeeded();
+    await expect(social.getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://www.instagram.com/cuadraoai/");
+    const grid = (await footer.locator('[class*="businessFooterGrid"]').boundingBox())!;
+    const brand = (await tagline.boundingBox())!;
+    const icons = (await social.boundingBox())!;
+    expect(icons.y).toBeGreaterThanOrEqual(brand.y + brand.height);
+    expect(Math.abs(icons.x - brand.x)).toBeLessThan(1);
+    const copyright = (await footer.getByText("© Cuadrao LLC 2026", { exact: true }).boundingBox())!;
+    const top = (await footer.locator('a[href="#top"]').boundingBox())!;
+    expect(Math.abs(copyright.x - grid.x)).toBeLessThan(1);
+    expect(Math.abs(top.x + top.width - (grid.x + grid.width))).toBeLessThan(1);
+    expect(Math.abs(copyright.y + copyright.height / 2 - (top.y + top.height / 2))).toBeLessThan(2);
   });
 }
 

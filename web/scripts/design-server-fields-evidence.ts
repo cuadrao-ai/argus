@@ -134,7 +134,8 @@ try {
         await expect(empty.getByRole("heading")).toHaveText("No hay recibos listos");
         await expect(empty).toContainText("Cuando un recibo tenga todo confirmado, aparece aquí para aprobarlo.");
         await expect(rows).toHaveCount(0);
-        await empty.getByRole("button", { name: "Ver todo", exact: true }).click();
+        await expect(empty.getByRole("button", { name: "Ver todo", exact: true })).toHaveCount(0);
+        await all.click();
         await expect(all).toHaveAttribute("aria-selected", "true");
         await expect(empty).toHaveCount(0);
         await expect(rows).toHaveCount(1);

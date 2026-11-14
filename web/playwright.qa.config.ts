@@ -31,7 +31,6 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       NEXT_PUBLIC_MOCK_AUTH: "false",
-      NEXT_PUBLIC_ENABLE_SPANISH: "true",
     },
   },
   projects: [
