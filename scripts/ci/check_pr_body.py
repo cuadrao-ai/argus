@@ -11,11 +11,9 @@ from pathlib import Path
 HEADING = "## Merge Danger"
 REQUIRED_FIELDS = ("Door", "Blast radius", "Rollback")
 DOORS = frozenset({"one-way", "two-way"})
-ISSUE_REFERENCE = re.compile(
-    r"(?:[-*]\s+)?(?:closes|fixes|refs)\s+#[1-9][0-9]*\b", re.IGNORECASE
-)
+ISSUE_REFERENCE = re.compile(r"\b(?:closes|fixes|refs)\s+#[1-9][0-9]*\b", re.IGNORECASE)
 PILOT_FLOWS = ("upload", "email", "WhatsApp", "review", "month close", "606/607")
-PILOT_FLOW = re.compile(r"Pilot flow:[ \t]*(?P<value>.*)")
+PILOT_FLOW = re.compile(r"(?:[-*]\s+)?Pilot flow:[ \t]*(?P<value>.*)")
 NO_PILOT_FLOW = re.compile(r"none \((?P<reason>.+)\)")
 TEMPLATE_REASON_HINT = "reason"
 FIELD_LINE = re.compile(
@@ -72,9 +70,9 @@ def body_problems(body: str) -> list[str]:
         if name == "Door" and value not in DOORS:
             problems.append("Door must be one-way or two-way")
     lines = [line.strip() for line in body.splitlines()]
-    if not any(ISSUE_REFERENCE.match(line) for line in lines):
+    if not any(ISSUE_REFERENCE.search(line) for line in lines):
         problems.append(
-            "missing issue reference: start a line with Closes #n, Fixes #n or Refs #n"
+            "missing issue reference: write Closes, Fixes or Refs and the issue number, as in Closes #12"
         )
     if not any(valid_pilot_flow(line) for line in lines):
         problems.append(
