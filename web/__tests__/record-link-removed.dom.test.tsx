@@ -36,7 +36,7 @@ function failure(status: number, code: string) {
   return Object.assign(new Error(code), { status, code, requestId: `req-${status}` });
 }
 
-async function mount(url: string, viewport: Viewport, override: (fixture: Source) => Partial<Pick<Source, "receipt" | "expense" | "dossier" | "emailDelivery" | "emailDeliveries">>) {
+async function mount(url: string, viewport: Viewport, override: (fixture: Source) => Partial<Pick<Source, "receipt" | "expense" | "dossier" | "emailDelivery" | "emailDeliveries" | "retryEmailDelivery">>) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: viewport.width, height: 900 });
   search = url.slice(url.indexOf("?"));
   window.history.replaceState(null, "", url);
@@ -309,5 +309,96 @@ describe("an email link the loaded list does not carry", () => {
     const retry = [...card.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
     await act(async () => { retry.click(); });
     await page.settle(() => Boolean(document.querySelector('[data-testid="email-detail"]')), "the email loads");
+  });
+});
+
+// A check of the current record that answers after the person moved on belongs to a panel that is gone:
+// even a 404 must not pull them off the place they went to, nor say a record they left is gone.
+const DESTINATIONS = [
+  { name: "a list", panel: { kind: "transactions" } },
+  { name: "another receipt", panel: { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" } },
+] as const;
+
+function held() {
+  let reject: (error: unknown) => void = () => undefined;
+  const promise = new Promise<never>((_, fail) => { reject = fail; });
+  return { promise, reject };
+}
+
+function button(label: string) {
+  const found = [...document.querySelectorAll("button")].find((item) => item.textContent === label);
+  assert.ok(found, `a ${label} button shows`);
+  return found;
+}
+
+describe("a receipt check that answers after the person left", () => {
+  for (const destination of DESTINATIONS) {
+    test(`after moving to ${destination.name}, a late 404 neither moves them nor shows a notice`, async () => {
+      let late: ReturnType<typeof held> | null = null;
+      const page = await mount("/biz?receipt=rcpt-ferreteria", DESKTOP, (fixture) => ({ receipt: async (id, signal) => {
+        if (id === "rcpt-ferreteria" && late) return late.promise;
+        const detail = await fixture.receipt(id, signal);
+        return id === "rcpt-ferreteria" ? { ...detail, draft_id: null, enterable: false } : detail;
+      } }));
+      await page.settle(() => [...document.querySelectorAll("button")].some((item) => item.textContent === "Consultar registro actual"), "the check shows");
+      const check = button("Consultar registro actual");
+      late = held();
+      const { act } = await import("react");
+      await act(async () => { check.click(); });
+      await act(async () => { page.api().openPanel(destination.panel); });
+      await act(async () => { late!.reject(failure(404, "receipt_not_found")); });
+      await page.quiet();
+      assert.equal(page.api().panel.kind, destination.panel.kind, "the person stays where they went");
+      if (destination.panel.kind === "receipt") assert.equal((page.api().panel as { receiptId?: string }).receiptId, "rcpt-confirmed");
+      assert.equal(page.toasts.size, 0, "no notice about the receipt they left");
+    });
+  }
+});
+
+describe("a draft check that answers after the person left", () => {
+  for (const destination of DESTINATIONS) {
+    test(`after moving to ${destination.name}, a late 404 neither moves them nor shows a notice`, async () => {
+      const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+      let late: ReturnType<typeof held> | null = null;
+      const page = await mount(`/biz?draft=${dossierFixtureIds.ready}`, DESKTOP, (fixture) => ({ dossier: async (id) => {
+        if (id !== dossierFixtureIds.ready) return fixture.dossier(id);
+        if (late) return late.promise;
+        throw failure(500, "internal_error");
+      } }));
+      await page.settle(() => Boolean(document.querySelector('[data-testid="receipt-load-error"]')), "the retry card shows");
+      const retry = button("Reintentar");
+      late = held();
+      const { act } = await import("react");
+      await act(async () => { retry.click(); });
+      await act(async () => { page.api().openPanel(destination.panel); });
+      await act(async () => { late!.reject(failure(404, "business_record_not_found")); });
+      await page.quiet();
+      assert.equal(page.api().panel.kind, destination.panel.kind, "the person stays where they went");
+      if (destination.panel.kind === "receipt") assert.equal((page.api().panel as { receiptId?: string }).receiptId, "rcpt-confirmed");
+      assert.equal(page.toasts.size, 0, "no notice about the draft they left");
+    });
+  }
+});
+
+describe("retrying an email the loaded list does not carry", () => {
+  test("asks the server for it again, so its new state shows", async () => {
+    let retried = false;
+    const page = await mount("/biz?email=email-ferreteria", DESKTOP, (fixture) => ({
+      emailDeliveries: async () => (await fixture.emailDeliveries()).filter((item) => item.id !== "email-ferreteria"),
+      emailDelivery: async (id) => {
+        const delivery = await fixture.emailDelivery(id);
+        if (retried) return delivery;
+        return { ...delivery, state: "partial", retryable: true, parts: delivery.parts.map((part) => ({ ...part, state: "pending", document_id: null })) };
+      },
+      retryEmailDelivery: async (id) => { retried = true; return { id }; },
+    }));
+    const attachment = () => document.querySelector('[data-testid="email-detail"] li')?.textContent ?? "";
+    await page.settle(() => attachment().includes("En espera"), "the email opens with its attachment waiting");
+    const detail = document.querySelector('[data-testid="email-detail"]')!;
+    const retry = [...detail.querySelectorAll("button")].find((item) => item.textContent === "Reintentar")!;
+    const { act } = await import("react");
+    await act(async () => { retry.click(); });
+    await page.settle(() => attachment().includes("Guardado"), "the attachment shows as saved");
+    assert.equal(page.api().panel.kind, "email");
   });
 });

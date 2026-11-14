@@ -7,11 +7,12 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake, BusinessEmailPart } from "@/lib/business-email";
-import { businessReceivingAddress } from "@/lib/business-email";
+import { businessReceivingAddress, emailDeliveriesNeedRefresh } from "@/lib/business-email";
 import { recordGone, referenceCode } from "@/lib/failure-screen";
 import { useReceivingChannels } from "./business-context";
 import { useBusiness } from "./BusinessWorkspace";
 import { useRecordTray } from "./record-tray";
+import { POLL_MS, POLLS } from "./useEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatBusinessName, formatRelativeTime } from "./business-format";
 import { Settle } from "./business-skeletons";
@@ -291,12 +292,20 @@ export function EmailRecord({ emailId }: { emailId: string }) {
     openPanel({ kind: "inbox" });
     showToast({ kind: "info", text: t("business.email.not_found", "We couldn't find this email.") });
   });
+  // An email still moving is asked for again a few times, as the list does; a retry asks afresh with the panel kept.
   useEffect(() => {
     if (!unlisted) return undefined;
     let current = true;
-    setAsked({ status: "loading" });
-    source.emailDelivery(emailId).then((data) => { if (current) setAsked({ status: "ready", data }); }).catch((error: unknown) => { if (current) onLookupFailed(error); });
-    return () => { current = false; };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let polls = 0;
+    setAsked((value) => value.status === "ready" ? value : { status: "loading" });
+    const ask = () => source.emailDelivery(emailId).then((data) => {
+      if (!current) return;
+      setAsked({ status: "ready", data });
+      if (emailDeliveriesNeedRefresh([data]) && polls++ < POLLS) timer = setTimeout(() => void ask(), POLL_MS);
+    }).catch((error: unknown) => { if (current) onLookupFailed(error); });
+    void ask();
+    return () => { current = false; clearTimeout(timer); };
   }, [emailId, source, unlisted, attempt]);
   const delivery = listed ?? (unlisted && asked.status === "ready" ? asked.data : null);
   return (
@@ -317,7 +326,7 @@ export function EmailRecord({ emailId }: { emailId: string }) {
             delivery={delivery}
             inbox={records.inbox}
             loadDetail={source.emailDelivery}
-            retryDelivery={async (id) => { await source.retryEmailDelivery(id); emailRefresh.refresh(); }}
+            retryDelivery={async (id) => { await source.retryEmailDelivery(id); emailRefresh.refresh(); if (unlisted) setAttempt((value) => value + 1); }}
             openReceipt={(id) => openPanel({ kind: "receipt", receiptId: id, list: "inbox" })}
           />
         </>

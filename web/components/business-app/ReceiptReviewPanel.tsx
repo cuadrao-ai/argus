@@ -22,6 +22,7 @@ import { showToast } from "./foundation/toasts";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import { useReceiptStateWord } from "./receipt-state-word";
+import { useShownRecord } from "./useShownRecord";
 import { receiptTag } from "./recepcion/reception-status";
 import type { ReceiptDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
@@ -51,6 +52,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const canDelete = detail?.delete_available === true && chosen?.capabilities.includes("approve") === true && !!source.deleteDocument;
   const deletion = useDocumentDelete(canDelete && detail ? receiptDeleteTarget(detail, stateWord(detail), t("business.document_delete.unnamed")) : null, { initialPreview: origin?.confirmDelete === true });
   const retainReceipt = useCallback(() => setUnprepared(true), []);
+  const shown = useShownRecord(receiptId);
   // A receipt that is gone closes onto its list, so a dead link never leaves a panel whose Reintentar cannot work.
   const loadFailed = (error: unknown) => {
     if (!recordGone(error)) {
@@ -195,12 +197,15 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   };
 
   const refresh = async () => {
+    const asked = receiptId;
     setBusy("refresh");
     try {
-      setDetail(await source.receipt(detail.id));
+      const next = await source.receipt(detail.id);
+      if (!shown(asked)) return;
+      setDetail(next);
       setUnprepared(false);
     } catch (error) {
-      loadFailed(error);
+      if (shown(asked)) loadFailed(error);
     } finally {
       setBusy(null);
     }

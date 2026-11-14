@@ -49,6 +49,7 @@ import { bandejaReceipts, handTitleFocus, nextBandejaReceipt } from "./bandeja-o
 import { primaryButtonClass, secondaryButtonClass, StatusPill } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { showToast } from "./foundation/toasts";
+import { useShownRecord } from "./useShownRecord";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -224,6 +225,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
     setDossier(null);
   };
   const onLoadFailed = useEffectEvent(loadFailed);
+  const shown = useShownRecord(draftId);
   useEffect(() => {
     let cancelled = false;
     source.dossier(draftId).then((next) => { if (!cancelled) setDossier(next); }).catch((error: unknown) => {
@@ -320,15 +322,17 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   };
 
   const refresh = async () => {
+    const asked = draftId;
     setChecking(true);
     try {
       const next = await source.dossier(draftId);
+      if (!shown(asked)) return;
       setDossier(next);
       setUnavailable(false);
       if (operation.kind !== "uncertain") { setProblem(null); setDuplicate(null); rows.clear(); }
       else if (next.approval_result?.status === "recorded" || next.approval_result?.status === "failed") { setOperation({ kind: "idle" }); rows.clear(); setProblem(null); }
     } catch (error) {
-      loadFailed(error);
+      if (shown(asked)) loadFailed(error);
     } finally { setChecking(false); }
   };
 
