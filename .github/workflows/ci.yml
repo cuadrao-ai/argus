@@ -328,6 +328,14 @@ jobs:
             web/temp/consent-results/**/channels-*.png
           if-no-files-found: warn
 
+      - name: Retain language browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: language-browser-evidence
+          path: web/temp/business-es419-results/**/*.png
+          if-no-files-found: warn
+
   marketing-checks:
     runs-on: ubuntu-24.04
     needs: docs-change-gate
