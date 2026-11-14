@@ -65,9 +65,8 @@ const mutedTextClass = "text-[#56635e] dark:text-white/70";
  */
 export function BusinessCloseShell({ title, closeLabel, onClose, locked = false, footer, children }: { title: string; closeLabel: string; onClose: () => void; locked?: boolean; footer?: ReactNode; children: ReactNode }) {
   const { isBelowDesktop } = useResponsiveLayout();
-  const close = () => { if (!locked) onClose(); };
-  if (isBelowDesktop) return <BottomSheet isOpen onClose={close} dismissible={!locked} title={title} closeLabel={closeLabel} snaps={["full"]} initialSnap="full" footer={footer}><div className="pb-5 pt-1">{children}</div></BottomSheet>;
-  return <CenteredDialog title={title} closeLabel={closeLabel} onClose={close} footer={footer} testId="business-close-dialog"><div className="px-6 pb-5 pt-1">{children}</div></CenteredDialog>;
+  if (isBelowDesktop) return <BottomSheet isOpen onClose={onClose} dismissible={!locked} title={title} closeLabel={closeLabel} snaps={["full"]} initialSnap="full" footer={footer}><div className="pb-5 pt-1">{children}</div></BottomSheet>;
+  return <CenteredDialog title={title} closeLabel={closeLabel} onClose={onClose} dismissible={!locked} footer={footer} testId="business-close-dialog"><div className="px-6 pb-5 pt-1">{children}</div></CenteredDialog>;
 }
 
 function PeriodRow({ item, busy, onStart }: { item: CloseDownload; busy: boolean; onStart: () => void }) {

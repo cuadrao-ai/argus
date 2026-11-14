@@ -148,6 +148,23 @@ test("submitting blocks repeated close and cancellation while errors preserve th
   } finally { await view.close(); }
 });
 
+test("browser back while the close is pending keeps the dialog, its result, and back for after", async () => {
+  const view = await mount();
+  const back = () => act(async () => { window.dispatchEvent(new PopStateEvent("popstate")); });
+  try {
+    await view.openConfirm();
+    await view.enter("Taller Luna");
+    await view.render({ kind: "submitting" });
+    await back();
+    assert.equal(view.cancelled(), 0, "back is refused while the request runs");
+    assert.ok(document.querySelector('[data-testid="business-close-dialog"]'));
+    await view.render({ kind: "error", message: "fixture error" });
+    assert.equal(document.querySelector('[role="alert"]')?.textContent, "fixture error", "the result shows in the dialog");
+    await back();
+    assert.equal(view.cancelled(), 1, "back still closes the dialog once the request settles");
+  } finally { await view.close(); }
+});
+
 
 test("close uses readable destructive colors in light and dark modes", async () => {
   const view = await mount();
