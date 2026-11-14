@@ -4,7 +4,7 @@ import { useCallback, useEffect, useEffectEvent, useState } from "react";
 import { AlertCircle, CircleAlert, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
-import { referenceCode, refusedForGood } from "@/lib/failure-screen";
+import { recordGone, referenceCode } from "@/lib/failure-screen";
 import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import ReceiptReadingControl from "./ReceiptReadingControl";
@@ -31,11 +31,6 @@ import { canAddRecords, primaryButtonClass, quietButtonClass, secondaryButtonCla
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
-/** The server no longer has this receipt; a refused Business is the workspace's to say. */
-function receiptGone(error: unknown): boolean {
-  return (error as { status?: unknown } | null)?.status === 404 && !refusedForGood(error);
-}
-
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
@@ -58,7 +53,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const retainReceipt = useCallback(() => setUnprepared(true), []);
   // A receipt that is gone closes onto its list, so a dead link never leaves a panel whose Reintentar cannot work.
   const loadFailed = (error: unknown) => {
-    if (!receiptGone(error)) {
+    if (!recordGone(error)) {
       setFailure(referenceCode(error));
       return;
     }

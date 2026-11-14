@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import type { BusinessAccount, BusinessCapture, ReceiptDetail } from "@/lib/business-api";
 import { factsRevision, type BusinessDossier } from "@/lib/business-dossier";
+import { recordGone, referenceCode } from "@/lib/failure-screen";
 import type { BusinessSearchEmail, BusinessSearchExpense, BusinessSearchReceipt, BusinessSearchSender } from "@/lib/business-search-api";
 import type { BusinessDataSource } from "./business-data";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
-import { cardClass } from "./business-ui";
+import { cardClass, secondaryButtonClass } from "./business-ui";
 import { DgiiAnswer } from "./transacciones/RecordDgiiCell";
 import { StatusPill } from "./foundation/StatusPill";
 import { useReceiptStateWord } from "./receipt-state-word";
@@ -70,15 +73,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ReceiptPreview({ receiptId, source }: { receiptId: string; source: BusinessDataSource }) {
   const { t, i18n } = useTranslation();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<"gone" | { reference: string } | null>(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
     setDetail(null);
-    setFailed(false);
-    source.receipt(receiptId).then((value) => active && setDetail(value)).catch(() => active && setFailed(true));
+    setFailure(null);
+    source.receipt(receiptId).then((value) => active && setDetail(value)).catch((error: unknown) => active && setFailure(recordGone(error) ? "gone" : { reference: referenceCode(error) }));
     return () => { active = false; };
-  }, [receiptId, source]);
-  if (failed) return <p role="alert" className="text-sm">{t("business.review.error", "This receipt isn't available. It may have been removed.")}</p>;
+  }, [receiptId, source, attempt]);
+  if (failure === "gone") return <p className="text-sm text-black/55 dark:text-white/55">{t("business.review.gone")}</p>;
+  if (failure) return <div>
+    <p role="alert" className="flex items-start gap-2 text-sm text-[#9e2f39] dark:text-[#ec9aa0]">
+      <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      {t("common.refresh_failed", "We couldn't update.")}
+    </p>
+    <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={failure.reference} /></div>
+    <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => setAttempt((value) => value + 1)}>{t("common.retry", "Retry")}</button>
+  </div>;
   if (!detail) return <Settle pending layout="rows" rows={3} />;
   return <>
     <Field label={t("business.review.source", "Original receipt")}><span className="break-all">{detail.filename ?? detail.media_type}</span></Field>

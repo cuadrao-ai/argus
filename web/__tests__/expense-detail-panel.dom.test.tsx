@@ -164,7 +164,7 @@ describe("the expense detail panel", () => {
   test("while loading, the labelled element already exists with the panel's title; a failed load offers Reintentar, which fetches again", async () => {
     let calls = 0;
     const page = await mountWorkspace({ detail: async () => { calls += 1; if (calls === 1) throw new Error("boom"); return expense({}); } });
-    assert.ok(page.host.textContent?.includes("No pudimos abrir este gasto"));
+    assert.ok(page.host.querySelector('[data-testid="expense-load-error"] [role="alert"]')?.textContent?.includes("No pudimos actualizar."));
     assert.equal(page.host.querySelector("#expense-detail-title")?.textContent, "Gasto guardado");
     const retry = page.host.querySelector('[data-testid="expense-detail-retry"]') as HTMLButtonElement;
     assert.equal(retry.textContent, "Reintentar");
