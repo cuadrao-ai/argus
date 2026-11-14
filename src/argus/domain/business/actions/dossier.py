@@ -12,6 +12,7 @@ from argus.domain.business.actions.fiscal import RememberedField, last_choice
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
+from argus.domain.business.actions.type_recheck import REVISION_REASON
 from argus.domain.business.amount_inheritance import (
     draft_is_paid,
     inherit_amounts,
@@ -253,8 +254,9 @@ def dossier(
     questions = review_questions(tx, [draft_id]).get(str(draft_id), ())
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note"
-        " from public.business_draft_revisions"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,"
+        + REVISION_REASON
+        + " as reason from public.business_draft_revisions r"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
     )

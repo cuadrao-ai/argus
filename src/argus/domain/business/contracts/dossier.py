@@ -110,6 +110,8 @@ class DraftRevision(Contract):
     after_current_note: str | None = None
     before_due_on: date | None = None
     after_due_on: date | None = None
+    # Why a revision no person and no read made exists; null for the rest.
+    reason: Literal["business_rnc_set"] | None = None
 
 
 class Blocker(Contract):

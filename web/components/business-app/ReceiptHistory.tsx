@@ -95,6 +95,10 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   for (const revision of history) {
     const at = revision.created_at;
     const who = revision.actor.display_name;
+    if (revision.reason) {
+      events.push({ id: `reason-${revision.version}`, at, line: t(`business.history.reason.${revision.reason}`), who, testId: "history-reason" });
+      continue;
+    }
     if (revision.actor.actor_kind === "extractor") {
       events.push({ id: `read-${revision.version}`, at, line: t("business.history.read", "Read"), who });
       continue;

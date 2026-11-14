@@ -9584,7 +9584,12 @@ the saved profile and does not write again. The first tax id a Business saves
 (none stored before) types its open drafts once more by the read's rule: a `recibo`
 the read chose whose issuer RNC is that tax id becomes a `venta` with
 `document_type_detected` true, in one revision. A type a person named, an approved
-record and a draft with another issuer stay as they are. A change from one tax id to another types no existing draft
+record and a draft with another issuer stay as they are. The answer is the profile plus
+`retyped_drafts`, the number of drafts that save moved to `venta`: zero for every save
+but that first one, and the same number when the key is replayed. Each moved draft's
+`history` entry carries `reason: "business_rnc_set"`; every other entry carries
+`reason: null`. The server derives both from the save's action receipt, so the web
+shows the line and the count and never infers them from the actor or the facts. A change from one tax id to another types no existing draft
 again: only documents read after it are compared with it. A change of tax id, or clearing it,
 clears the stored legal name; a change of name alone keeps it.
 

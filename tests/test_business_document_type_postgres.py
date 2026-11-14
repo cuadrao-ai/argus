@@ -115,7 +115,12 @@ def _headers(world) -> dict:  # noqa: ANN001
     return {**world.alice.headers, "Idempotency-Key": str(uuid4())}
 
 
-def _own_rnc(world, value: str = OWN_RNC, previous: str | None = None) -> None:  # noqa: ANN001
+def _own_rnc(  # noqa: ANN201
+    world,  # noqa: ANN001
+    value: str = OWN_RNC,
+    previous: str | None = None,
+    headers: dict | None = None,
+):
     saved = world.client.patch(
         f"{API}/business/fiscal-profile",
         json={
@@ -124,9 +129,10 @@ def _own_rnc(world, value: str = OWN_RNC, previous: str | None = None) -> None: 
             "tax_id": {"type": "rnc", "value": value},
             "previous_tax_id": previous and {"type": "rnc", "value": previous},
         },
-        headers=_headers(world),
+        headers=headers or _headers(world),
     )
     assert saved.status_code == 200, saved.text
+    return saved.json()
 
 
 def _upload(
@@ -873,6 +879,34 @@ def test_the_first_business_rnc_makes_its_own_open_draft_a_detected_venta(
     )
     listed = _receipt(web, after["sources"][0]["connection_id"])
     assert _typed(listed) == ("venta", True, True)
+    # The history says why this revision exists; the read before it gives none.
+    assert [item["reason"] for item in after["history"]] == [
+        *[None] * (len(after["history"]) - 1),
+        "business_rnc_set",
+    ]
+    assert revision["actor"]["actor_id"] == web.alice.id
+
+
+def test_the_first_business_rnc_answers_with_how_many_drafts_it_moved(
+    web,  # noqa: ANN001
+) -> None:
+    """The save's answer counts the drafts it moved to Ventas: its own two, not
+    the supplier's. The same key answers the same count again, and a save that
+    moves none answers zero."""
+
+    for _ in range(2):
+        _upload(web, OWN_RNC)
+    _upload(web, SUPPLIER_RNC)
+    headers = _headers(web)
+
+    assert _own_rnc(web, headers=headers)["retyped_drafts"] == 2
+    assert _own_rnc(web, headers=headers)["retyped_drafts"] == 2
+    assert _own_rnc(web, CLIENT_RNC, OWN_RNC)["retyped_drafts"] == 0
+
+
+def test_a_first_business_rnc_with_no_draft_of_its_own_moves_none(web) -> None:  # noqa: ANN001
+    _upload(web, SUPPLIER_RNC)
+    assert _own_rnc(web)["retyped_drafts"] == 0
 
 
 def test_the_first_business_rnc_leaves_a_named_type_as_named(web) -> None:  # noqa: ANN001

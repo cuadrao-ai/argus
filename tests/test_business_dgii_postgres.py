@@ -717,6 +717,7 @@ def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(
         "tax_id": {"type": "rnc", "value": "199990013"},
         "legal_name": None,
         "can_edit": True,
+        "retyped_drafts": 0,
     }
     cedula = set_profile(
         service.authority,
