@@ -12,9 +12,8 @@ import os
 import re
 from dataclasses import dataclass
 
-# Supabase platform schemas. Their references to auth.users (sessions,
-# identities, storage object owners) are Supabase's, not Argus's, and differ
-# between a local Supabase stack and a vanilla Postgres with an auth stub.
+# Platform schemas: internal keys are classified separately. Every edge that
+# crosses the application boundary remains in the census, in either direction.
 PLATFORM_SCHEMAS = (
     "auth",
     "storage",
@@ -92,11 +91,13 @@ class ForeignKey:
         return "initially deferred" if self.initially_deferred else "deferrable"
 
     @property
-    def key(self) -> tuple[str, str, str, str, str, str]:
+    def key(self) -> tuple[str, ...]:
         return (
             self.table,
             ",".join(self.columns),
             self.referenced,
+            ",".join(self.referenced_columns),
+            "FULL" if self.match_full else "SIMPLE",
             self.on_delete,
             self.on_update,
             self.deferral,
@@ -171,11 +172,13 @@ with recursive
 fk as (
   select c.oid, c.conname, c.conrelid, c.confrelid, c.conkey, c.confkey,
          c.confdeltype, c.confupdtype, c.confmatchtype, c.condeferrable,
-         c.condeferred
+         c.condeferred, n.nspname as source_schema, rn.nspname as target_schema
     from pg_constraint c
     join pg_class r on r.oid = c.conrelid
     join pg_namespace n on n.oid = r.relnamespace
-   where c.contype = 'f' and n.nspname <> all({_EXCLUDED})
+    join pg_class rr on rr.oid = c.confrelid
+    join pg_namespace rn on rn.oid = rr.relnamespace
+   where c.contype = 'f'
 ),
 reach(rel, hops) as (
   select 'auth.users'::regclass::oid, 0
@@ -199,8 +202,10 @@ select fk.conname,
        fk.confmatchtype = 'f',
        fk.condeferrable,
        fk.condeferred,
-       d.hops + 1
-  from fk join depth d on d.rel = fk.confrelid
+       coalesce(d.hops + 1, 0)
+  from fk left join depth d on d.rel = fk.confrelid
+ where d.rel is not null or fk.source_schema = any({_EXCLUDED})
+       or fk.target_schema = any({_EXCLUDED})
  order by 2, 3, 4
 """
 
@@ -219,8 +224,8 @@ def _qualified(name: str) -> str:
     return name if "." in name else "public." + name
 
 
-def sweep(connection) -> list[ForeignKey]:  # noqa: ANN001
-    """Every FK into auth.users or into a table that auth.users reaches."""
+def catalog_keys(connection) -> list[ForeignKey]:  # noqa: ANN001
+    """Auth-reachable keys plus every system-schema key, even outside that graph."""
     rows = connection.execute(_SWEEP).fetchall()
     return [
         ForeignKey(
@@ -252,6 +257,55 @@ def sweep(connection) -> list[ForeignKey]:  # noqa: ANN001
     ]
 
 
+def sweep(connection) -> list[ForeignKey]:  # noqa: ANN001
+    """Traverse every schema; exclude only edges internal to platform schemas."""
+    return [k for k in catalog_keys(connection) if not platform_internal(k)]
+
+
+def platform_internal(key: ForeignKey) -> bool:
+    return all(t.split(".")[0] in PLATFORM_SCHEMAS for t in (key.table, key.referenced))
+
+
+# These carriers cannot be inferred from a uuid type or a column name. Their
+# physical columns and types are still checked against the database catalog.
+KNOWN_CARRIERS = (
+    ("public.visitor_usage_counters", "visitor_key", "user:<id>"),
+    ("public.argus_memory_vectors", "payload", "user_id"),
+    ("public.financial_plan_links", "attribution", "destination_owner_id"),
+)
+
+
+def known_carriers(connection) -> list[tuple[str, str, str, str]]:  # noqa: ANN001
+    result = []
+    for table, column, selector in KNOWN_CARRIERS:
+        row = connection.execute(
+            "select format_type(atttypid, atttypmod) from pg_attribute "
+            "where attrelid=to_regclass(%s) and attname=%s and not attisdropped",
+            (table, column),
+        ).fetchone()
+        if row:
+            result.append((table, column, row[0], selector))
+    return result
+
+
+def schema_snapshot(connection) -> tuple:  # noqa: ANN001
+    """Definitions and enabled state, including checks, triggers and nullability."""
+    constraints = connection.execute(
+        "select conrelid::regclass::text, conname, contype, "
+        "pg_get_constraintdef(oid, false), convalidated "
+        "from pg_constraint order by 1, 2, 3"
+    ).fetchall()
+    triggers = connection.execute(
+        "select tgrelid::regclass::text, tgname, pg_get_triggerdef(oid, false), "
+        "tgenabled, pg_get_functiondef(tgfoid) from pg_trigger order by 1, 2"
+    ).fetchall()
+    columns = connection.execute(
+        "select attrelid::regclass::text, attname, attnotnull "
+        "from pg_attribute where attnum > 0 and not attisdropped order by 1, 2"
+    ).fetchall()
+    return tuple(constraints), tuple(triggers), tuple(columns)
+
+
 def user_columns(connection, keys: list[ForeignKey]) -> list[UserColumn]:  # noqa: ANN001
     """Every uuid column named for a person or membership, or keyed to auth.users."""
     direct = {
@@ -274,7 +328,8 @@ def markdown_rows(keys: list[ForeignKey], nullable: set[tuple[str, str]]) -> lis
     """Census rows for the document; the probe and Lane 6 cells are left TODO."""
     return [
         f"| `{k.table.removeprefix('public.')}` | `{', '.join(k.columns)}` "
-        f"| `{k.referenced.removeprefix('public.')}` | {k.on_delete} | {k.on_update} "
+        f"| `{k.referenced.removeprefix('public.')}` | `{', '.join(k.referenced_columns)}` "
+        f"| {'FULL' if k.match_full else 'SIMPLE'} | {k.on_delete} | {k.on_update} "
         f"| {k.deferral} | {k.rekey(nullable)} | TODO | TODO |"
         for k in keys
     ]
@@ -284,11 +339,22 @@ def nullable_columns(columns: list[UserColumn]) -> set[tuple[str, str]]:
     return {(c.table, c.column) for c in columns if c.nullable}
 
 
+def markdown_system_rows(keys: list[ForeignKey]) -> list[str]:
+    """List each system-schema key, including explicitly excluded internal edges."""
+    return [
+        f"| `{k.table}` | `{k.name}` | `{k.referenced}` | "
+        f"{'out of scope: platform internal' if platform_internal(k) else 'swept'} |"
+        for k in keys
+        if any(t.split(".")[0] in PLATFORM_SCHEMAS for t in (k.table, k.referenced))
+    ]
+
+
 if __name__ == "__main__":  # pragma: no cover - maintenance helper
     import psycopg
 
     with psycopg.connect(os.environ["ARGUS_DISPOSABLE_DATABASE_URL"]) as conn:
         found = sweep(conn)
+        print("\n".join(markdown_system_rows(catalog_keys(conn))))
         print(
             "\n".join(markdown_rows(found, nullable_columns(user_columns(conn, found))))
         )

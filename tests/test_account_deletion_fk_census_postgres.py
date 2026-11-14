@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 
 import psycopg
@@ -27,7 +29,18 @@ from argus.domain.recording.assets import AssetService
 from argus.domain.recording.service import FinancialAccountService
 from psycopg_pool import ConnectionPool
 
-from tests.account_deletion_census import PROTECTED_HISTORY, sweep, user_columns
+from tests.account_deletion_census import (
+    PLATFORM_SCHEMAS,
+    PROTECTED_HISTORY,
+    ForeignKey,
+    catalog_keys,
+    known_carriers,
+    markdown_system_rows,
+    platform_internal,
+    schema_snapshot,
+    sweep,
+    user_columns,
+)
 from tests.financial_accounts.test_assets import create as create_asset
 from tests.household.conftest import TEST_CODE_SECRET
 from tests.household.financial_fixtures import DSN, NOW, account, key, share
@@ -41,7 +54,7 @@ from tests.memory.test_postgres_reconciliation_deletion import (
 )
 from tests.test_guest_cleanup_postgres import _seed_complete_expired_guest_graph
 
-pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required")
+requires_postgres = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required")
 
 
 @pytest.fixture(autouse=True)
@@ -431,6 +444,7 @@ def probe(conn, victim, keys):  # noqa: ANN001
     }
     by_name = {(k.table, k.name): k for k in keys}
     blockers, plain_error = [], None
+    original_schema = schema_snapshot(conn)
     with conn.transaction(force_rollback=True):
         # Deferred keys would otherwise only fire at COMMIT, which never comes.
         conn.execute("set constraints all immediate")
@@ -494,6 +508,7 @@ def probe(conn, victim, keys):  # noqa: ANN001
                 plain_error = plain_error or str(error).splitlines()[0]
                 _lift_trigger(conn, error, blockers)
         after = _snapshot(conn, tables)
+    assert schema_snapshot(conn) == original_schema, "probe changed the schema"
     return plain_error, blockers, before, after
 
 
@@ -649,37 +664,113 @@ def _report(plain_error, blockers, per_key, per_table) -> str:
 # --------------------------------------------------------------------------- #
 
 
+def _section_rows(heading):
+    text = CENSUS_DOC.read_text(encoding="utf-8")
+    section = text.split(f"## {heading}\n", 1)[1].split("\n## ", 1)[0]
+    return [
+        [c.strip() for c in line.strip().strip("|").split("|")]
+        for line in section.splitlines()
+        if line.startswith("| `")
+    ]
+
+
+def _qualified(name):
+    name = name.strip("`")
+    return name if "." in name else "public." + name
+
+
 def _documented_rows():
-    rows = set()
+    rows = Counter()
     for line in CENSUS_DOC.read_text(encoding="utf-8").splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) >= 6 and cells[0].startswith("`") and cells[1].startswith("`"):
-            table = cells[0].strip("`")
-            referenced = cells[2].strip("`")
-            rows.add(
+        if len(cells) == 11 and cells[0].startswith("`") and cells[1].startswith("`"):
+            assert cells[-1] and "TODO" not in cells[-1], "every key needs an action"
+            rows[
                 (
-                    table if "." in table else "public." + table,
+                    _qualified(cells[0]),
                     cells[1].strip("`").replace(" ", ""),
-                    referenced if "." in referenced else "public." + referenced,
-                    cells[3],
+                    _qualified(cells[2]),
+                    cells[3].strip("`").replace(" ", ""),
                     cells[4],
                     cells[5],
+                    cells[6],
+                    cells[7],
                 )
-            )
+            ] += 1
     return rows
 
 
+def _explicit_action(action):
+    assert action.startswith(
+        ("Explicit cleanup: ", "Assert absent: ", "Scoped retention: ")
+    ), action
+    assert action.partition(": ")[2].strip() and "TODO" not in action, action
+
+
+def _assert_documented_columns(columns):
+    documented = Counter()
+    unkeyed = Counter()
+    for cells in _section_rows("Direct user-id columns"):
+        assert len(cells) == 3, cells
+        name, nullable, keys = cells
+        table, column = name.strip("`").rsplit(".", 1)
+        assert nullable in {"yes", "no"}, cells
+        if keys == "**none**":
+            covering = ()
+            unkeyed[(_qualified(table), column)] += 1
+        else:
+            covering = []
+            for part in keys.split("; "):
+                match = re.fullmatch(
+                    r"`([^`]+)` (CASCADE|RESTRICT|NO ACTION|SET NULL|SET DEFAULT)", part
+                )
+                assert match, cells
+                covering.append(f"{_qualified(match[1])} {match[2]}")
+            covering = tuple(sorted(covering))
+        documented[(_qualified(table), column, nullable == "yes", covering)] += 1
+    actions = Counter()
+    for name, action in _section_rows("Unkeyed user-id actions"):
+        _explicit_action(action)
+        table, column = name.strip("`").rsplit(".", 1)
+        actions[(_qualified(table), column)] += 1
+    assert (
+        actions == unkeyed
+    ), "Unkeyed columns need exactly one action in their own section"
+    found = Counter(
+        (c.table, c.column, c.nullable, tuple(sorted(c.covered_by))) for c in columns
+    )
+    assert (
+        documented == found
+    ), f"Direct user-id columns drift: missing={found - documented}; stale={documented - found}"
+
+
+def _assert_documented_carriers(carriers):
+    documented = Counter()
+    for table, column, kind, selector, action in _section_rows(
+        "Known non-uuid user-id carriers"
+    ):
+        _explicit_action(action)
+        documented[(_qualified(table), column.strip("`"), kind, selector.strip("`"))] += 1
+    assert documented == Counter(carriers), "Known non-uuid user-id carriers drift"
+
+
+@requires_postgres
 def test_sweep_names_every_user_reference_and_the_census_document_matches_it():
     with psycopg.connect(DSN) as conn:
         keys = sweep(conn)
         columns = user_columns(conn, keys)
+        _assert_documented_carriers(known_carriers(conn))
+        reachable = catalog_keys(conn)
+        assert Counter(reachable) == Counter(keys) + Counter(
+            k for k in reachable if platform_internal(k)
+        )
     assert keys, "the sweep found no foreign keys; are the migrations applied?"
     found = {(c.table, c.column): c for c in columns}
     missing = REQUIRED_COLUMNS - set(found)
     assert not missing, f"required user columns missing from the sweep: {missing}"
     for required in REQUIRED_COLUMNS:
         assert found[required].covered_by, f"{required} has no foreign key"
-    in_db = {k.key for k in keys}
+    in_db = Counter(k.key for k in keys)
     documented = _documented_rows()
     stale = documented - in_db
     new = in_db - documented
@@ -689,26 +780,22 @@ def test_sweep_names_every_user_reference_and_the_census_document_matches_it():
         "database and add or fix these rows, with a Lane 6 action for each.\n"
         f"Not in the schema any more: {sorted(stale)}\nNot in the census yet: {sorted(new)}"
     )
-    unkeyed = {(c.table, c.column) for c in columns if not c.covered_by}
-    documented_text = CENSUS_DOC.read_text(encoding="utf-8")
-    for table, column in unkeyed:
-        assert (
-            f"`{table.removeprefix('public.')}.{column}`" in documented_text
-        ), f"{table}.{column} holds a user id with no foreign key and is not in the census"
+    _assert_documented_columns(columns)
 
 
-def test_deleting_a_sharing_user_reports_every_blocker_and_cascade(lane):  # noqa: F811
+@requires_postgres
+def test_deleting_a_sharing_user_reports_every_blocker_and_cascade(census_lane):
     with ConnectionPool(DSN, min_size=1, max_size=4, open=True) as pool:
-        world = build_world(lane, pool)
+        world = build_world(census_lane, pool)
     try:
         with psycopg.connect(DSN) as conn:
             keys = sweep(conn)
+            system_rows = markdown_system_rows(catalog_keys(conn))
             plain_error, blockers, before, after = probe(conn, world["a"], keys)
             # The transaction was rolled back: A and the schema are intact.
             assert conn.execute(
                 "select 1 from auth.users where id=%s", (world["a"],)
             ).fetchone()
-            assert {k.name for k in sweep(conn)} == {k.name for k in keys}
         per_key, per_table = outcomes(
             keys, before, after, world["b_markers"], world["a"], world["own"]
         )
@@ -724,6 +811,11 @@ def test_deleting_a_sharing_user_reports_every_blocker_and_cascade(lane):  # noq
         beta_digests = digest_keys[("beta_invitation_id",)]
         assert beta_digests["pinned"] == beta_digests["referencing"] == 0
         report = _report(plain_error, blockers, per_key, per_table)
+        report += (
+            "\n## System-schema key dispositions\n\n| Table | Key | References | Scope |\n|---|---|---|---|\n"
+            + "\n".join(system_rows)
+            + "\n"
+        )
         REPORT.parent.mkdir(exist_ok=True)
         REPORT.write_text(report, encoding="utf-8")
         print(report)
@@ -776,6 +868,7 @@ def test_deleting_a_sharing_user_reports_every_blocker_and_cascade(lane):  # noq
             )
 
 
+@requires_postgres
 def test_deleting_a_guest_with_a_full_chat_and_research_graph():
     """Guests use the same command. Their tree includes same-owner RESTRICT keys."""
     with psycopg.connect(DSN, autocommit=True) as conn:
@@ -822,3 +915,291 @@ def test_deleting_a_guest_with_a_full_chat_and_research_graph():
             conn.execute("delete from public.route_receipts where user_id=%s", (guest,))
             conn.execute("delete from public.feedback where user_id=%s", (guest,))
             conn.execute("delete from auth.users where id=%s", (guest,))
+
+
+def _example_key():
+    return ForeignKey(
+        "owner_fk",
+        "public.child",
+        ("owner_id",),
+        "auth.users",
+        ("id",),
+        "CASCADE",
+        "NO ACTION",
+        False,
+        False,
+        False,
+        1,
+    )
+
+
+@pytest.mark.parametrize(
+    "change", [{"referenced_columns": ("alternate_id",)}, {"match_full": True}]
+)
+def test_census_identity_detects_reference_and_match_drift(change):
+    original = _example_key()
+    assert original.key != replace(original, **change).key
+
+
+def test_documented_census_preserves_duplicate_keys(tmp_path, monkeypatch):
+    row = "| `child` | `owner_id` | `auth.users` | `id` | SIMPLE | CASCADE | NO ACTION | no | rekey | probe | remove |"
+    doc = tmp_path / "census.md"
+    doc.write_text("## Full census\n\n" + row + "\n" + row + "\n")
+    monkeypatch.setattr(__import__(__name__, fromlist=["CENSUS_DOC"]), "CENSUS_DOC", doc)
+    rows = _documented_rows()
+    assert sum(rows.values()) == 2
+
+
+@pytest.mark.parametrize(
+    "mutation", ["empty", "wrong_section", "wrong_action", "duplicate"]
+)
+def test_direct_column_gate_rejects_missing_misplaced_or_invalid_rows(
+    tmp_path, monkeypatch, mutation
+):
+    from tests.account_deletion_census import UserColumn
+
+    row = "| `child.owner_id` | no | **none** |"
+    action = "| `child.owner_id` | Explicit cleanup: remove the identity. |"
+    body = (
+        "## Direct user-id columns\n"
+        + row
+        + "\n## Unkeyed user-id actions\n"
+        + action
+        + "\n## Full census\n"
+    )
+    if mutation == "empty":
+        body = body.replace(row, "")
+    elif mutation == "wrong_section":
+        body = body.replace(action, "") + action + "\n"
+    elif mutation == "wrong_action":
+        body = body.replace("Explicit cleanup: remove the identity.", "CASCADE")
+    else:
+        body = body.replace(row, row + "\n" + row)
+    doc = tmp_path / "census.md"
+    doc.write_text(body)
+    monkeypatch.setattr(__import__(__name__, fromlist=["CENSUS_DOC"]), "CENSUS_DOC", doc)
+    with pytest.raises(AssertionError):
+        _assert_documented_columns([UserColumn("public.child", "owner_id", False, ())])
+
+
+@requires_postgres
+@pytest.mark.parametrize("schema", ["auth", "storage", "realtime"])
+def test_platform_keys_crossing_application_boundary_are_swept(schema):
+    from psycopg import sql
+
+    with psycopg.connect(DSN) as conn, conn.transaction(force_rollback=True):
+        conn.execute(
+            sql.SQL("create schema if not exists {}").format(sql.Identifier(schema))
+        )
+        conn.execute(
+            "create table public.census_parent (id uuid primary key references auth.users(id))"
+        )
+        conn.execute(
+            sql.SQL(
+                "create table {}.census_bridge (id uuid primary key references public.census_parent(id))"
+            ).format(sql.Identifier(schema))
+        )
+        conn.execute(
+            sql.SQL(
+                "create table public.census_child (id uuid references {}.census_bridge(id))"
+            ).format(sql.Identifier(schema))
+        )
+        conn.execute(
+            sql.SQL("create table {}.census_unrelated (id uuid primary key)").format(
+                sql.Identifier(schema)
+            )
+        )
+        conn.execute(
+            sql.SQL(
+                "create table public.census_outbound (id uuid references {}.census_unrelated(id))"
+            ).format(sql.Identifier(schema))
+        )
+        conn.execute("create table public.census_unrelated (id uuid primary key)")
+        conn.execute(
+            sql.SQL(
+                "create table {}.census_inbound (id uuid references public.census_unrelated(id))"
+            ).format(sql.Identifier(schema))
+        )
+        found = {(k.table, k.referenced) for k in sweep(conn)}
+        assert ("public.census_outbound", f"{schema}.census_unrelated") in found
+        assert (f"{schema}.census_inbound", "public.census_unrelated") in found
+        assert (f"{schema}.census_bridge", "public.census_parent") in found
+        assert ("public.census_child", f"{schema}.census_bridge") in found
+
+
+@requires_postgres
+@pytest.mark.parametrize(
+    "change",
+    [
+        "alter table public.census_definition drop constraint owner_fk, add constraint owner_fk foreign key (owner_id) references auth.users(id) on delete cascade",
+        "alter table public.census_definition alter constraint owner_fk deferrable",
+        "alter table public.census_definition drop constraint positive, add constraint positive check (amount > 1)",
+        "alter table public.census_definition disable trigger census_trigger",
+        "alter table public.census_definition alter column amount set not null",
+    ],
+)
+def test_schema_snapshot_detects_same_name_definition_changes(change):
+    from tests import account_deletion_census as census
+
+    with psycopg.connect(DSN) as conn, conn.transaction(force_rollback=True):
+        conn.execute(
+            "create table public.census_definition (owner_id uuid constraint owner_fk references auth.users(id), amount int constraint positive check (amount > 0))"
+        )
+        conn.execute(
+            "create function public.census_trigger_fn() returns trigger language plpgsql as $$ begin return new; end $$"
+        )
+        conn.execute(
+            "create trigger census_trigger before update on public.census_definition for each row execute function public.census_trigger_fn()"
+        )
+        before = census.schema_snapshot(conn)
+        conn.execute(change)
+        assert census.schema_snapshot(conn) != before
+
+
+def _cleanup_referrals(conn, households):
+    conn.execute(
+        "delete from public.invite_referrals where household_invitation_id in "
+        "(select id from public.household_invitations where household_id=any(%s::uuid[]))",
+        (households,),
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation", ["removed", "duplicate", "wrong_type", "wrong_selector"]
+)
+def test_known_carriers_gate_compares_each_row(tmp_path, monkeypatch, mutation):
+    rows = [("public.example", "payload", "jsonb", "user_id")]
+    row = "| `example` | `payload` | jsonb | `user_id` | Explicit cleanup: delete matching rows. |"
+    body = "## Known non-uuid user-id carriers\n" + row + "\n"
+    if mutation == "removed":
+        body = body.replace(row, "")
+    elif mutation == "duplicate":
+        body += row + "\n"
+    elif mutation == "wrong_type":
+        body = body.replace("jsonb", "text")
+    else:
+        body = body.replace("`user_id`", "`other_id`")
+    doc = tmp_path / "census.md"
+    doc.write_text(body)
+    monkeypatch.setattr(__import__(__name__, fromlist=["CENSUS_DOC"]), "CENSUS_DOC", doc)
+    with pytest.raises(AssertionError):
+        _assert_documented_carriers(rows)
+
+
+@pytest.fixture
+def census_lane(lane):  # noqa: F811
+    # Runs before the underlying lane removes invitations, including failed setup.
+    try:
+        yield lane
+    finally:
+        with psycopg.connect(DSN) as conn:
+            households = [
+                r[0]
+                for r in conn.execute(
+                    "select id from public.households where created_by=any(%s::uuid[])",
+                    (lane[2],),
+                ).fetchall()
+            ]
+            _cleanup_referrals(conn, households)
+            assert not conn.execute(
+                "select 1 from public.invite_referrals r join public.household_invitations i "
+                "on i.id=r.household_invitation_id where i.household_id=any(%s::uuid[])",
+                (households,),
+            ).fetchone()
+
+
+@pytest.mark.parametrize("schema", PLATFORM_SCHEMAS)
+def test_every_platform_edge_has_an_explicit_scope(schema):
+    original = _example_key()
+    assert not platform_internal(
+        replace(original, table=f"{schema}.child", referenced="public.parent")
+    )
+    assert not platform_internal(replace(original, referenced=f"{schema}.parent"))
+    internal = replace(original, table=f"{schema}.child")
+    assert platform_internal(internal)
+    assert markdown_system_rows([original, internal]) == [
+        "| `public.child` | `owner_fk` | `auth.users` | swept |",
+        f"| `{schema}.child` | `owner_fk` | `auth.users` | out of scope: platform internal |",
+    ]
+
+
+@requires_postgres
+def test_referral_cleanup_removes_only_this_world():
+    with psycopg.connect(DSN) as conn, conn.transaction(force_rollback=True):
+        user = key()
+        conn.execute(
+            "insert into auth.users(id,email) values (%s,%s)",
+            (user, f"census-{user}@example.test"),
+        )
+        households, referrals = [], []
+        for _ in range(2):
+            household = conn.execute(
+                "insert into public.households(name,admin_user_id) values ('Census',%s) returning id",
+                (user,),
+            ).fetchone()[0]
+            households.append(household)
+            invite = conn.execute(
+                "insert into public.household_invitations(household_id,token_hash,created_by,expires_at) "
+                "values (%s,%s,%s,now()+interval '1 day') returning id",
+                (household, key(), user),
+            ).fetchone()[0]
+            referrals.append(
+                conn.execute(
+                    "insert into public.invite_referrals(kind,household_invitation_id,sender_user_id) "
+                    "values ('household',%s,%s) returning id",
+                    (invite, user),
+                ).fetchone()[0]
+            )
+        _cleanup_referrals(conn, households[:1])
+        remaining = conn.execute(
+            "select id from public.invite_referrals where id=any(%s::uuid[])",
+            (referrals,),
+        ).fetchall()
+        assert remaining == [(referrals[1],)]
+        _cleanup_referrals(conn, households[1:])
+        assert not conn.execute(
+            "select 1 from public.invite_referrals where id=any(%s::uuid[])", (referrals,)
+        ).fetchone()
+
+
+@requires_postgres
+def test_catalog_duplicate_key_cannot_collapse_into_existing_census():
+    with psycopg.connect(DSN) as conn, conn.transaction(force_rollback=True):
+        conn.execute(
+            "create table public.census_duplicate (owner_id uuid references auth.users(id))"
+        )
+        before = Counter(k.key for k in sweep(conn))
+        conn.execute(
+            "alter table public.census_duplicate add constraint another_owner_fk foreign key(owner_id) references auth.users(id)"
+        )
+        after = Counter(k.key for k in sweep(conn))
+        assert sum((after - before).values()) == 1
+        assert after != before
+
+
+def test_column_and_carrier_gates_accept_exact_documented_rows(tmp_path, monkeypatch):
+    from tests.account_deletion_census import UserColumn
+
+    doc = tmp_path / "census.md"
+    doc.write_text(
+        "## Direct user-id columns\n"
+        "| `child.owner_id` | no | **none** |\n"
+        "| `child.actor_id` | yes | `auth.users` SET NULL; `profiles` CASCADE |\n"
+        "## Unkeyed user-id actions\n"
+        "| `child.owner_id` | Explicit cleanup: remove the identity. |\n"
+        "## Known non-uuid user-id carriers\n"
+        "| `example` | `payload` | jsonb | `user_id` | Explicit cleanup: remove matching rows. |\n"
+    )
+    monkeypatch.setattr(__import__(__name__, fromlist=["CENSUS_DOC"]), "CENSUS_DOC", doc)
+    _assert_documented_columns(
+        [
+            UserColumn("public.child", "owner_id", False, ()),
+            UserColumn(
+                "public.child",
+                "actor_id",
+                True,
+                ("public.profiles CASCADE", "auth.users SET NULL"),
+            ),
+        ]
+    )
+    _assert_documented_carriers([("public.example", "payload", "jsonb", "user_id")])
