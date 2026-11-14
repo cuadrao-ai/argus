@@ -309,7 +309,6 @@ def test_render_blueprint_uses_current_env_contract_names_only() -> None:
         "CUADRAO_CHECKPOINTER_MODE",
         "CUADRAO_MOCK_AUTH",
         "CUADRAO_CORS_ALLOW_ORIGINS",
-        "NEXT_PUBLIC_ENABLE_SPANISH",
         "NEXT_PUBLIC_MOCK_AUTH",
     ):
         assert key in contract

@@ -8,19 +8,17 @@ import { ALL_LANGUAGES, accountLanguage, commitShellLanguage, defaultLanguage, d
 const root = join(import.meta.dir, "..");
 
 describe("the one precedence that picks the shown language", () => {
-  test("Spanish is the default on a Business build that ships it; English elsewhere", () => {
-    expect(defaultLanguage(true, true)).toBe("es-419");
-    expect(defaultLanguage(true, false)).toBe("en");
-    expect(defaultLanguage(false, true)).toBe("en");
-    expect(defaultLanguage(false, false)).toBe("en");
-    expect(resolveLanguage({}, true, true)).toBe("es-419");
-    expect(resolveLanguage({}, false, true)).toBe("en");
+  test("Spanish is the default on a Business build; English elsewhere", () => {
+    expect(defaultLanguage(true)).toBe("es-419");
+    expect(defaultLanguage(false)).toBe("en");
+    expect(resolveLanguage({}, true)).toBe("es-419");
+    expect(resolveLanguage({}, false)).toBe("en");
   });
 
   test("the account wins over the device choice and the browser, on both builds", () => {
     for (const businessBuild of [true, false]) {
-      expect(resolveLanguage({ account: "en", device: "es-419", browser: "es-MX" }, businessBuild, true)).toBe("en");
-      expect(resolveLanguage({ account: "es-419", device: "en", browser: "en-US" }, businessBuild, true)).toBe("es-419");
+      expect(resolveLanguage({ account: "en", device: "es-419", browser: "es-MX" }, businessBuild)).toBe("en");
+      expect(resolveLanguage({ account: "es-419", device: "en", browser: "en-US" }, businessBuild)).toBe("es-419");
     }
   });
 
@@ -32,22 +30,22 @@ describe("the one precedence that picks the shown language", () => {
     expect(accountLanguage({ language: "en" }, true)).toBeNull();
     expect(accountLanguage(unchosen, false)).toBe("en");
     expect(accountLanguage(null, true)).toBeNull();
-    expect(resolveLanguage({ account: accountLanguage(unchosen, true), browser: "en-US" }, true, true)).toBe("es-419");
-    expect(resolveLanguage({ account: accountLanguage(chosen, true), device: "es-419" }, true, true)).toBe("en");
+    expect(resolveLanguage({ account: accountLanguage(unchosen, true), browser: "en-US" }, true)).toBe("es-419");
+    expect(resolveLanguage({ account: accountLanguage(chosen, true), device: "es-419" }, true)).toBe("en");
   });
 
   test("before sign-in the device choice wins, whatever the browser says", () => {
     for (const businessBuild of [true, false]) {
-      expect(resolveLanguage({ device: "en", browser: "es-MX" }, businessBuild, true)).toBe("en");
-      expect(resolveLanguage({ device: "es-419", browser: "en-US" }, businessBuild, true)).toBe("es-419");
+      expect(resolveLanguage({ device: "en", browser: "es-MX" }, businessBuild)).toBe("en");
+      expect(resolveLanguage({ device: "es-419", browser: "en-US" }, businessBuild)).toBe("es-419");
     }
   });
 
   test("an English browser stays Spanish on Business; only a consumer build lets the browser decide", () => {
-    expect(resolveLanguage({ browser: "en-US" }, true, true)).toBe("es-419");
-    expect(resolveLanguage({ browser: "en-US" }, false, true)).toBe("en");
-    expect(resolveLanguage({ browser: "es-MX" }, false, true)).toBe("es-419");
-    expect(resolveLanguage({ browser: "fr-FR" }, false, true)).toBe("en");
+    expect(resolveLanguage({ browser: "en-US" }, true)).toBe("es-419");
+    expect(resolveLanguage({ browser: "en-US" }, false)).toBe("en");
+    expect(resolveLanguage({ browser: "es-MX" }, false)).toBe("es-419");
+    expect(resolveLanguage({ browser: "fr-FR" }, false)).toBe("en");
   });
 
   test("a consumer browser that lists Spanish after an unsupported language still gets Spanish", async () => {
@@ -57,10 +55,10 @@ describe("the one precedence that picks the shown language", () => {
       Object.defineProperty(window.navigator, "language", { configurable: true, value: "fr-FR" });
       Object.defineProperty(window.navigator, "languages", { configurable: true, value: ["fr-FR", "es-ES"] });
       const { browserLanguageSources } = await import("../lib/language-features");
-      expect(resolveLanguage(browserLanguageSources(), false, true)).toBe("es-419");
-      expect(resolveLanguage(browserLanguageSources(), true, true)).toBe("es-419");
+      expect(resolveLanguage(browserLanguageSources(), false)).toBe("es-419");
+      expect(resolveLanguage(browserLanguageSources(), true)).toBe("es-419");
       Object.defineProperty(window.navigator, "languages", { configurable: true, value: ["fr-FR", "de-DE"] });
-      expect(resolveLanguage(browserLanguageSources(), false, true)).toBe("en");
+      expect(resolveLanguage(browserLanguageSources(), false)).toBe("en");
     } finally {
       await GlobalRegistrator.unregister();
     }
@@ -81,18 +79,18 @@ describe("the one precedence that picks the shown language", () => {
     };
     for (const businessBuild of [true, false]) {
       const toEnglish = shellAt("es-419");
-      await commitShellLanguage(toEnglish.shell, businessBuild, "en", true);
+      await commitShellLanguage(toEnglish.shell, businessBuild, "en");
       expect(toEnglish.calls).toEqual(["en"]);
       const toSpanish = shellAt("en");
-      await commitShellLanguage(toSpanish.shell, businessBuild, "es-419", true);
+      await commitShellLanguage(toSpanish.shell, businessBuild, "es-419");
       expect(toSpanish.calls).toEqual(["es-419"]);
       const noAccount = shellAt("es-419");
-      await commitShellLanguage(noAccount.shell, businessBuild, null, true);
-      await commitShellLanguage(noAccount.shell, businessBuild, undefined, true);
-      await commitShellLanguage(noAccount.shell, businessBuild, "", true);
+      await commitShellLanguage(noAccount.shell, businessBuild, null);
+      await commitShellLanguage(noAccount.shell, businessBuild, undefined);
+      await commitShellLanguage(noAccount.shell, businessBuild, "");
       expect(noAccount.calls).toEqual([]);
       const same = shellAt("en");
-      await commitShellLanguage(same.shell, businessBuild, "en", true);
+      await commitShellLanguage(same.shell, businessBuild, "en");
       expect(same.calls).toEqual([]);
     }
   });

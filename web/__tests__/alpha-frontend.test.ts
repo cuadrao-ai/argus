@@ -1328,7 +1328,7 @@ describe("Argus Alpha frontend contract", () => {
     );
   });
 
-  test("spanish remains registered behind a feature flag", () => {
+  test("Spanish is always registered with the enabled languages", () => {
     const languages = readFileSync(
       join(root, "lib/language-features.ts"),
       "utf-8",
@@ -1336,7 +1336,6 @@ describe("Argus Alpha frontend contract", () => {
     const i18n = readFileSync(join(root, "lib/i18n.ts"), "utf-8");
 
     expect(languages).toContain('code: "es-419"');
-    expect(languages).toContain("NEXT_PUBLIC_ENABLE_SPANISH");
     expect(i18n).toContain("ENABLED_LANGUAGE_CODES");
   });
 
