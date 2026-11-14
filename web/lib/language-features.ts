@@ -17,12 +17,7 @@ export const ALL_LANGUAGES: ArgusLanguageOption[] = [
   { code: "es-419", name: "Español", translation: "Spanish" },
 ];
 
-export const SPANISH_ENABLED =
-  process.env.NEXT_PUBLIC_ENABLE_SPANISH === "true";
-
-export const ENABLED_LANGUAGES = ALL_LANGUAGES.filter(
-  (language) => language.code === "en" || SPANISH_ENABLED,
-);
+export const ENABLED_LANGUAGES = ALL_LANGUAGES;
 
 export const ENABLED_LANGUAGE_CODES = ENABLED_LANGUAGES.map(
   (language) => language.code,
@@ -36,9 +31,9 @@ export function landingLanguageChoices(
   return languages.filter((language) => language.code !== shown);
 }
 
-/** The language shown when nothing is saved: Spanish on a Business build that ships it, English otherwise. */
-export function defaultLanguage(spanishEnabled: boolean, businessBuild: boolean): ArgusLanguage {
-  return spanishEnabled && businessBuild ? "es-419" : "en";
+/** The language shown when nothing is saved: Spanish on a Business build, English otherwise. */
+export function defaultLanguage(businessBuild: boolean): ArgusLanguage {
+  return businessBuild ? "es-419" : "en";
 }
 
 /** What a reader knows when it picks the language. The server knows none of these. */
@@ -55,10 +50,9 @@ export type LanguageSources = {
 export function resolveLanguage(
   sources: LanguageSources,
   businessBuild: boolean = businessPilotEnabled,
-  spanishEnabled: boolean = SPANISH_ENABLED,
 ): ArgusLanguage {
   const chosen = sources.account || sources.device || (businessBuild ? null : sources.browser);
-  return chosen ? normalizeEnabledLanguage(chosen, spanishEnabled) : defaultLanguage(spanishEnabled, businessBuild);
+  return chosen ? normalizeEnabledLanguage(chosen) : defaultLanguage(businessBuild);
 }
 
 /** The account language that may decide. Business counts it only once the person saved one; a consumer account's counts as it is. */
@@ -91,10 +85,10 @@ export function fallbackChain(shown: string | undefined, defaultLanguage: ArgusL
   return defaultLanguage === "en" ? ["en"] : [defaultLanguage, "en"];
 }
 
-export const DEFAULT_LANGUAGE = defaultLanguage(SPANISH_ENABLED, businessPilotEnabled);
+export const DEFAULT_LANGUAGE = defaultLanguage(businessPilotEnabled);
 
-export function normalizeEnabledLanguage(language?: string | null, spanishEnabled: boolean = SPANISH_ENABLED): ArgusLanguage {
-  if (spanishEnabled && language?.toLowerCase().startsWith("es")) {
+export function normalizeEnabledLanguage(language?: string | null): ArgusLanguage {
+  if (language?.toLowerCase().startsWith("es")) {
     return "es-419";
   }
   return "en";
@@ -105,10 +99,9 @@ export async function commitShellLanguage(
   i18n: { language?: string; changeLanguage: (language: string) => Promise<unknown> },
   businessBuild: boolean,
   accountLanguage: string | null | undefined,
-  spanishEnabled: boolean = SPANISH_ENABLED,
 ): Promise<void> {
   const previewLanguage = businessBuild && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? readStored(BUSINESS_PREVIEW_LANGUAGE_KEY) : null;
-  const next = resolveLanguage({ account: previewLanguage === "en" || previewLanguage === "es-419" ? previewLanguage : accountLanguage, device: i18n.language }, businessBuild, spanishEnabled);
+  const next = resolveLanguage({ account: previewLanguage === "en" || previewLanguage === "es-419" ? previewLanguage : accountLanguage, device: i18n.language }, businessBuild);
   if (next === i18n.language) return;
   await i18n.changeLanguage(next);
 }
