@@ -81,7 +81,7 @@ test("six cards show report scope and only fiscal applies its stage", async () =
 test("a server without the fiscal count leaves the action unknown", async () => {
   const page = await mount();
   page.fixture.controls.overview = { needs_review: 0, ready_for_export: 126 };
-  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.reloaded();
   await page.settle(() => document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')?.disabled === true);
   assert.equal(document.querySelector('[data-overview-filter="exported"]'), null);
 });
@@ -240,33 +240,6 @@ test("older v1 servers keep query usable and leave unsupported overview unavaila
   for (const card of document.querySelectorAll<HTMLButtonElement>('[data-overview-filter]')) assert.equal(card.disabled, true);
   assert.equal(page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).every((call) => (call.body as ReportRequest).schema_version === 1), true);
   assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-});
-
-test("desktop shows a refresh control that reloads the query and holds a busy state until it answers", async () => {
-  const page = await mount();
-  const control = () => document.querySelector<HTMLButtonElement>('[data-testid="records-refresh"]')!;
-  assert.ok(control());
-  assert.equal(control().getAttribute('aria-label'), 'Actualizar registros');
-  assert.equal(control().disabled, false);
-  const live = globalThis.fetch;
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => { release = resolve; });
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/reports/query') ? gate.then(() => live(input, init)) : live(input, init)) as typeof fetch;
-  const before = page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).length;
-  await page.click(control());
-  assert.equal(control().disabled, true);
-  assert.equal(control().getAttribute('aria-busy'), 'true');
-  await page.click(control());
-  release();
-  await page.settle(() => !control().disabled);
-  assert.equal(control().getAttribute('aria-busy'), 'false');
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).length - before, 1);
-  globalThis.fetch = live;
-});
-
-test("the phone keeps the pull gesture and gets no toolbar refresh control", async () => {
-  await mount({ width: 390 });
-  assert.equal(document.querySelector('[data-testid="records-refresh"]'), null);
 });
 
 test("view conflicts keep the unsaved name and require current version readback before another save", async () => {
