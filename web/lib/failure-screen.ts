@@ -66,6 +66,11 @@ export function refusedForGood(error: unknown): boolean {
   return false;
 }
 
+/** The server no longer has this record; a refused Business is the workspace's to say. */
+export function recordGone(error: unknown): boolean {
+  return statusOf(error) === 404 && !refusedForGood(error);
+}
+
 /**
  * What a failed read can offer. Offline is the connection banner's to say;
  * a refusal for good offers no Reintentar and never blames the connection;

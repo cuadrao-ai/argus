@@ -3355,10 +3355,9 @@
       "title": "Expenses",
       "no_merchant": "Expense",
       "detail_title": "Saved expense",
+      "gone": "That expense is no longer here",
       "no_receipt": "No receipt attached",
       "recorded_on": "Recorded on {{when}}",
-      "detail_error": "We couldn't open this expense. Try again.",
-      "retry": "Try again",
       "account_unknown": "Unknown"
     },
     "guide_cards": {
@@ -4523,7 +4522,7 @@
       "email_original": "This is the email itself. Its attachment is the receipt to review.",
       "source": "Original receipt",
       "download": "Download",
-      "error": "This receipt isn't available. It may have been removed.",
+      "gone": "That receipt is no longer here",
       "retry": "Read again",
       "retry_consent": "Trying again sends this receipt to our AI provider.",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",

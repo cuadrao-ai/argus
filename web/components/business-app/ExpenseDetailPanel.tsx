@@ -1,9 +1,11 @@
 "use client";
 
-import { ChevronLeft } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, CircleAlert } from "lucide-react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import type { BusinessExpenseDetail } from "@/lib/business-api";
+import { recordGone, referenceCode } from "@/lib/failure-screen";
 import { useBusiness } from "./BusinessWorkspace";
 import type { RecordRow } from "./transacciones/transacciones-model";
 import RecordWorkflowBadge from "./transacciones/RecordWorkflowBadge";
@@ -15,6 +17,7 @@ import { expensePanel } from "./business-expense-target";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
 import { cardClass, secondaryButtonClass, RecordMarks, recordFiscalMark } from "./business-ui";
 import { Settle } from "./business-skeletons";
+import { showToast } from "./foundation/toasts";
 import { useRecordTray } from "./record-tray";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -59,7 +62,7 @@ function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
   const { t, i18n } = useTranslation();
   const { source, records, openPanel } = useBusiness();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
-  const [state, setState] = useState<{ status: "loading" } | { status: "ready"; expense: BusinessExpenseDetail } | { status: "failed" }>({ status: "loading" });
+  const [state, setState] = useState<{ status: "loading" } | { status: "ready"; expense: BusinessExpenseDetail } | { status: "failed"; reference: string }>({ status: "loading" });
   const panel = useRef<HTMLElement>(null);
   const inTray = useRecordTray() !== null;
   const [attempt, setAttempt] = useState(0);
@@ -72,6 +75,15 @@ function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
   useEffect(() => {
     if (!inTray) panel.current?.focus();
   }, [inTray]);
+  // An expense that is gone closes onto Registros, so a dead link never leaves a panel whose Reintentar cannot work.
+  const onLoadFailed = useEffectEvent((error: unknown) => {
+    if (!recordGone(error)) {
+      setState({ status: "failed", reference: referenceCode(error) });
+      return;
+    }
+    openPanel({ kind: "transactions" });
+    showToast({ kind: "info", text: t("business.expenses.gone") });
+  });
   useEffect(() => {
     let active = true;
     setState({ status: "loading" });
@@ -82,7 +94,9 @@ function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
         if (target.kind === "expense") setState({ status: "ready", expense });
         else open.current(target);
       },
-      () => active && setState({ status: "failed" }),
+      (error: unknown) => {
+        if (active) onLoadFailed(error);
+      },
     );
     return () => {
       active = false;
@@ -99,10 +113,14 @@ function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
       {state.status !== "ready" ? <h2 id="expense-detail-title" className="sr-only">{title}</h2> : null}
       {state.status === "loading" ? <Settle pending layout="rows" /> : null}
       {state.status === "failed" ? (
-        <div role="alert" className="space-y-3">
-          <p className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.expenses.detail_error", "We couldn't open this expense. Try again.")}</p>
-          <button type="button" data-testid="expense-detail-retry" className={secondaryButtonClass} onClick={() => setAttempt((value) => value + 1)}>{t("business.expenses.retry", "Try again")}</button>
-        </div>
+        <section className={cardClass} data-testid="expense-load-error">
+          <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
+            <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+            {t("common.refresh_failed", "We couldn't update.")}
+          </p>
+          <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={state.reference} /></div>
+          <button type="button" data-testid="expense-detail-retry" className={`${secondaryButtonClass} mt-4`} onClick={() => setAttempt((value) => value + 1)}>{t("common.retry", "Retry")}</button>
+        </section>
       ) : null}
       {state.status === "ready" ? (
         <>
