@@ -9,15 +9,23 @@ export const RECEIPT_DISCOVERY_MS = 15000;
 export const RECEIPT_READING_MS = 5000;
 const MAX_REFRESH_DELAY_MS = 60000;
 const realClock: PollClock = (fn, ms) => { const timer = setTimeout(fn, ms); return () => clearTimeout(timer); };
-type Page = { items: ReceiptSummary[]; activity: ReceiptActivityCounts | null };
+type Page = { items: ReceiptSummary[]; activity: ReceiptActivityCounts | null; version?: string | null };
 
-export function useReceiptInboxRefresh({ source, active, reading, businessKey, onRefresh, clock = realClock }: {
+/**
+ * The one change check for the Business's lists. Each check names the version
+ * the screen holds (`known`) and `onRefresh` gets the page, or null when the
+ * server says nothing changed. A reload (`epoch`) drops a check in flight: the
+ * reload asked later, so its answer is the one to show.
+ */
+export function useReceiptInboxRefresh({ source, active, reading, businessKey, known = null, epoch = 0, onRefresh, clock = realClock }: {
   source: BusinessDataSource; active: boolean; reading: boolean; businessKey: string | null;
-  onRefresh: (page: Page) => void; clock?: PollClock;
+  known?: string | null; epoch?: number;
+  onRefresh: (page: Page | null) => void; clock?: PollClock;
 }) {
   const latest = useRef(onRefresh);
+  const held = useRef(known);
   const failures = useRef(0);
-  useEffect(() => { latest.current = onRefresh; });
+  useEffect(() => { latest.current = onRefresh; held.current = known; });
   useEffect(() => { failures.current = 0; }, [businessKey]);
   useEffect(() => {
     if (source.mode !== "live") return;
@@ -36,7 +44,8 @@ export function useReceiptInboxRefresh({ source, active, reading, businessKey, o
       const controller = new AbortController();
       request = controller;
       try {
-        const page = source.receiptPage ? await source.receiptPage("inbox", controller.signal) : { items: await source.receipts("inbox"), activity: null };
+        const page = source.receiptChanges ? await source.receiptChanges(held.current, controller.signal)
+          : source.receiptPage ? await source.receiptPage("inbox", controller.signal) : { items: await source.receipts("inbox"), activity: null };
         if (current && !controller.signal.aborted) {
           failures.current = 0;
           latest.current(page);
@@ -62,5 +71,5 @@ export function useReceiptInboxRefresh({ source, active, reading, businessKey, o
       window.removeEventListener("focus", wake);
       document.removeEventListener("visibilitychange", wake);
     };
-  }, [source, active, reading, businessKey, clock]);
+  }, [source, active, reading, businessKey, epoch, clock]);
 }

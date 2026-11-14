@@ -3,7 +3,7 @@ import type { Purchase606, RecordsCurrency } from "./business-reports-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
-import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
+import { apiFetch, apiFetchIfChanged, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
 import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
@@ -620,8 +620,18 @@ export function approveBusinessListos(items: readonly ListoItem[], idempotencyKe
   return apiFetch("/business/drafts/approve-listos", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ items }) });
 }
 
-export function getBusinessReceiptPage(view: "inbox" | "all", signal?: AbortSignal): Promise<{ items: ReceiptSummary[]; activity: ReceiptActivityCounts }> {
-  return apiFetch(`/business/receipts?view=${view}`, { signal });
+/** `version` names the Business's lists as this answer saw them; null when the server sent none. */
+export type ReceiptPage = { items: ReceiptSummary[]; activity: ReceiptActivityCounts; version?: string | null };
+
+export async function getBusinessReceiptPage(view: "inbox" | "all", signal?: AbortSignal): Promise<ReceiptPage> {
+  const answer = await apiFetchIfChanged<ReceiptPage>(`/business/receipts?view=${view}`, null, { signal });
+  return { ...answer!.body, version: answer!.version };
+}
+
+/** The Bandeja page when the Business's lists changed since `known`; null when they did not. */
+export async function getBusinessReceiptChanges(known: string | null, signal?: AbortSignal): Promise<ReceiptPage | null> {
+  const answer = await apiFetchIfChanged<ReceiptPage>("/business/receipts?view=inbox", known, { signal });
+  return answer && { ...answer.body, version: answer.version };
 }
 
 export async function listBusinessReceipts(

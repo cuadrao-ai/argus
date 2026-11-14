@@ -471,3 +471,93 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   assert.equal(document.querySelector('[data-testid="receipt-reading-switch"]')?.getAttribute("aria-checked"), "false");
   await act(async () => page.root.unmount());
 });
+
+type Check = { known: string | null; answer: (page: { items: []; activity: ReceiptActivityCounts; version: string } | null) => void; fail: () => void; signal?: AbortSignal };
+/** A live source whose change checks the test answers by hand, in any order. */
+function checkedSource() {
+  const checks: Check[] = [];
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live",
+    receiptChanges: (known, signal) => new Promise((resolve, reject) => { checks.push({ known, answer: resolve, fail: () => reject(new Error("offline")), signal }); }) };
+  const page = (version: string) => ({ items: [] as [], activity: counts, version });
+  const settle = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  return { checks, source, page, settle };
+}
+
+test("each check names the version on screen; no change hands over nothing and the rhythm goes on", async () => {
+  const timer = clock();
+  const { checks, source, page, settle } = checkedSource();
+  const seen: (string | null)[] = [];
+  function Harness({ known }: { known: string | null }) {
+    useReceiptInboxRefresh({ source, active: true, reading: false, businessKey: "A", known, clock: timer.schedule, onRefresh: (answer) => { seen.push(answer ? answer.version ?? null : null); } });
+    return null;
+  }
+  const view = await host();
+  try {
+    await act(async () => view.root.render(<Harness known={'"v1"'} />));
+    await timer.tick();
+    assert.equal(checks[0].known, '"v1"');
+    checks[0].answer(null);
+    await settle();
+    assert.deepEqual(seen, [null], "no change: no list to apply");
+    assert.equal(timer.delay(), 15000);
+    await timer.tick();
+    checks[1].answer(page('"v2"'));
+    await settle();
+    assert.deepEqual(seen, [null, '"v2"']);
+    await act(async () => view.root.render(<Harness known={'"v2"'} />));
+    await timer.tick();
+    assert.equal(checks[2].known, '"v2"', "the next check names what the last one brought");
+  } finally { await act(async () => view.root.unmount()); view.element.remove(); }
+});
+
+test("a slow check that lands after a reload started is dropped: the newer answer wins (#2116)", async () => {
+  const timer = clock();
+  const { checks, source, page, settle } = checkedSource();
+  const applied: (string | null)[] = [];
+  function Harness({ epoch }: { epoch: number }) {
+    useReceiptInboxRefresh({ source, active: true, reading: false, businessKey: "A", known: '"v1"', epoch, clock: timer.schedule, onRefresh: (answer) => { if (answer) applied.push(answer.version ?? null); } });
+    return null;
+  }
+  const view = await host();
+  try {
+    await act(async () => view.root.render(<Harness epoch={0} />));
+    await timer.tick();
+    assert.equal(checks.length, 1, "the check is in flight");
+    // An action reloads: its answer is newer than anything the check can bring.
+    await act(async () => view.root.render(<Harness epoch={1} />));
+    assert.equal(checks[0].signal?.aborted, true, "the reload cancels the check in flight");
+    checks[0].answer(page('"stale"'));
+    await settle();
+    assert.deepEqual(applied, [], "the older answer never reaches the screen");
+    assert.equal(timer.delay(), 15000, "and the rhythm starts again from the reload");
+    await timer.tick();
+    checks[1].answer(page('"v3"'));
+    await settle();
+    assert.deepEqual(applied, ['"v3"']);
+  } finally { await act(async () => view.root.unmount()); view.element.remove(); }
+});
+
+test("with change checks a hidden tab asks nothing and a failed check still backs off", async () => {
+  const timer = clock();
+  const { checks, source, settle } = checkedSource();
+  function Harness() { useReceiptInboxRefresh({ source, active: true, reading: false, businessKey: "A", known: '"v1"', clock: timer.schedule, onRefresh: () => {} }); return null; }
+  const view = await host();
+  try {
+    await act(async () => view.root.render(<Harness />));
+    await timer.tick();
+    checks[0].fail();
+    await settle();
+    assert.equal(timer.delay(), 30000, "one failure doubles the wait");
+    hidden = true;
+    await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    assert.equal(timer.delay(), null, "hidden: nothing is scheduled");
+    await timer.tick();
+    assert.equal(checks.length, 1, "hidden: nothing is asked");
+    hidden = false;
+    await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    assert.equal(checks.length, 2, "one check when the tab comes back");
+    checks[1].answer(null);
+    await settle();
+    assert.equal(timer.delay(), 15000, "an answer, even no change, clears the back-off");
+  } finally { hidden = false; await act(async () => view.root.unmount()); view.element.remove(); }
+});

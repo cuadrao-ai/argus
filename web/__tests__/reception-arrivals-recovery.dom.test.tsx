@@ -3,22 +3,25 @@ import { afterAll, afterEach, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { GrantedSpace, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
+import { installRowSight } from "./support/row-sight";
 
 const originalEnvironment = { node: process.env.NODE_ENV, mock: process.env.NEXT_PUBLIC_MOCK_AUTH };
 let cleanup = async () => {};
-beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 1000 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
+let sight: ReturnType<typeof installRowSight>;
+beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 1000 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; sight = installRowSight(); });
 afterEach(async () => {
   await cleanup(); cleanup = async () => {};
+  sight.show();
   document.body.innerHTML = "";
   if (originalEnvironment.node === undefined) Reflect.deleteProperty(process.env, "NODE_ENV"); else Reflect.set(process.env, "NODE_ENV", originalEnvironment.node);
   if (originalEnvironment.mock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalEnvironment.mock;
 });
-afterAll(async () => { await GlobalRegistrator.unregister(); });
+afterAll(async () => { sight.restore(); await GlobalRegistrator.unregister(); });
 
 const ACTIVITY = { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 1, needs_attention_count: 0, ready_to_review_count: 1 };
 
 /** The live Bandeja over a source whose full read the test can break, and a poll the test can tick. */
-async function mount(language: "es-419" | "en" = "es-419") {
+async function mount(language: "es-419" | "en" = "es-419", panel: BusinessContextValue["panel"] = { kind: "inbox" }) {
   Reflect.set(process.env, "NODE_ENV", "production");
   process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
   const { act } = await import("react");
@@ -40,7 +43,7 @@ async function mount(language: "es-419" | "en" = "es-419") {
     source: { ...source, receiptPage: async (view: string) => { calls.push(view); if (view === "all" && read.failure) throw read.failure; return { items: receipts, activity: ACTIVITY }; } },
     records: { workspace: await source.workspace(), overview: null, inbox: receipts, notes: [], notesTruncated: false, emails: [], error: false, receiptActivity: ACTIVITY },
     spaces: [chosen], chosen, chooseBusiness: () => {}, markAccessSeen: async () => {}, lostAccess: false, clearLostAccess: () => {}, revision: 0, reload: () => {}, refresh: async () => "updated",
-    period: { key: "all", from: "", to: null }, setPeriod: () => {}, panel: { kind: "inbox" }, openPanel: () => {},
+    period: { key: "all", from: "", to: null }, setPeriod: () => {}, panel, openPanel: () => {},
     actions: { create: [], composer: [], starterEntries: [] },
     bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
   };
@@ -80,7 +83,7 @@ test("a healthy list re-reads only when the poll carries changed content", async
   assert.equal(page.allReads(), 1, "ticks with the same content do not re-read");
   await page.tick([...page.receipts(), page.receipt("dos")]);
   assert.equal(page.allReads(), 2, "a changed tick re-reads once");
-  assert.ok(page.host.textContent?.includes("Actualizar lista"), "the new arrival waits behind the update notice");
+  assert.equal(page.titles().length, 2, "the new arrival is in the list");
 });
 
 test("after a failed full read, the next poll tick asks again even when the content is unchanged", async () => {
@@ -132,14 +135,105 @@ test("a server failure offers Reintentar, and a refusal does not ask again on a 
   assert.equal(refused.allReads(), reads, "asking again would get the same refusal");
 });
 
-for (const [language, one, other] of [
-  ["es-419", "Hay 1 elemento nuevo.", "Hay 2 elementos nuevos."],
-  ["en", "There is 1 new item.", "There are 2 new items."],
-] as const) test(`the arrival banner uses singular and plural grammar in ${language}`, async () => {
+const arrivedTitles = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll('[data-testid="reception-row"][data-arrived="true"]')].map(row => row.textContent ?? "");
+const later = (page: Awaited<ReturnType<typeof mount>>, id: string, minutes: number): ReceiptSummary => ({ ...page.receipt(id), received_at: new Date(Date.parse(page.receipts()[0].received_at) + minutes * 60000).toISOString() });
+
+const past = async (page: Awaited<ReturnType<typeof mount>>, ms: number) => page.act(async () => { await new Promise(resolve => setTimeout(resolve, ms + 100)); });
+const grouped = (item: ReceiptSummary, group: "reading" | "attention"): ReceiptSummary => ({ ...item, bandeja_group: { group, reason: null, draft_id: null, version: null } });
+
+for (const language of ["es-419", "en"] as const) test(`a new arrival lands at the top on its own, marked, with no bar to press in ${language}`, async () => {
   const page = await mount(language);
   await page.start();
-  await page.tick([...page.receipts(), page.receipt("dos")]);
-  assert.equal(page.host.querySelector('[role="status"] span')?.textContent, one);
-  await page.tick([...page.receipts(), page.receipt("tres")]);
-  assert.equal(page.host.querySelector('[role="status"] span')?.textContent, other);
+  assert.deepEqual(arrivedTitles(page), [], "the rows the screen opened with are not marked");
+  await page.tick([...page.receipts(), later(page, "dos", 1)]);
+  assert.match(page.titles()[0], /Recibo dos/);
+  assert.equal(arrivedTitles(page).length, 1);
+  assert.match(arrivedTitles(page)[0], /Recibo dos/);
+  assert.equal(page.host.querySelector('[role="status"]'), null, "no bar announces it");
+  assert.equal([...page.host.querySelectorAll("button")].some(button => /Actualizar lista|Update list/.test(button.textContent ?? "")), false);
+});
+
+test("the mark starts when the row first shows in the view the person is on, then goes away by itself", async () => {
+  const { ARRIVAL_HIGHLIGHT_MS } = await import("@/components/business-app/foundation/list-arrivals");
+  const page = await mount();
+  await page.start();
+  await page.act(async () => page.host.querySelector<HTMLElement>("#reception-tab-attention")!.click());
+  await page.tick([grouped(page.receipts()[0], "attention"), grouped(later(page, "dos", 1), "reading")]);
+  assert.doesNotMatch(page.titles().join("|"), /Recibo dos/, "a document still being read is not in this view");
+  await past(page, ARRIVAL_HIGHLIGHT_MS);
+  await page.tick(page.receipts().map(item => grouped(item, "attention")));
+  assert.match(page.titles()[0], /Recibo dos/);
+  assert.match(arrivedTitles(page).join("|"), /Recibo dos/, "the mark waited for the row to show");
+  await past(page, ARRIVAL_HIGHLIGHT_MS);
+  assert.deepEqual(arrivedTitles(page), [], "the mark goes away by itself");
+  assert.equal(page.titles().length, 2);
+}, 20000);
+
+test("a row that lands out of sight is marked when the person reaches it", async () => {
+  const page = await mount();
+  await page.start();
+  sight.hide(row => /Recibo dos/.test(row.textContent ?? ""));
+  await page.tick([...page.receipts(), later(page, "dos", 1)]);
+  assert.match(page.titles()[0], /Recibo dos/, "the row landed");
+  assert.deepEqual(arrivedTitles(page), [], "nobody has seen it yet");
+  await page.act(async () => sight.show());
+  assert.match(arrivedTitles(page).join("|"), /Recibo dos/);
+});
+
+test("rows already shown keep their order when a later one arrives, and an open record stays open", async () => {
+  const page = await mount("es-419", { kind: "receipt", receiptId: "uno", list: "inbox" });
+  await page.start();
+  const open = () => page.host.querySelector('[data-testid="reception-row"][aria-current="true"]')?.textContent ?? "";
+  assert.match(open(), /Recibo uno/);
+  await page.tick([...page.receipts(), later(page, "dos", 1), later(page, "tres", 2)]);
+  assert.match(page.titles().join("|"), /Recibo tres.*\|.*Recibo dos.*\|.*Recibo uno/);
+  // The server now sorts "uno" first; the screen keeps what the person was looking at where it was.
+  await page.tick(page.receipts().map(item => item.id === "uno" ? later(page, "uno", 9) : item));
+  assert.match(page.titles().join("|"), /Recibo tres.*\|.*Recibo dos.*\|.*Recibo uno/);
+  assert.match(open(), /Recibo uno/);
+});
+
+/** Rows of a fixed height on a page the test scrolls; returns the scroll moves the list asked for. */
+function measuredRows(ROW: number) {
+  const state = { scrolled: 0, moves: [] as number[] };
+  const rect = HTMLElement.prototype.getBoundingClientRect;
+  const scrollBy = window.scrollBy;
+  HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+    const index = [...document.querySelectorAll("[data-list-row]")].indexOf(this);
+    const top = index < 0 ? 0 : index * ROW - state.scrolled;
+    return { top, bottom: top + ROW, left: 0, right: 0, width: 0, height: ROW, x: 0, y: top, toJSON: () => ({}) };
+  };
+  window.scrollBy = ((_x: number, y: number) => { state.moves.push(y); state.scrolled += y; }) as typeof window.scrollBy;
+  return { state, restore: () => { HTMLElement.prototype.getBoundingClientRect = rect; window.scrollBy = scrollBy; } };
+}
+
+test("rows that land above what the person sees do not move it, scrolled down the list or at its start", async () => {
+  const ROW = 40;
+  const page = await mount();
+  await page.tick(["a", "b", "c", "d", "e"].map((id, index) => later(page, id, -index)));
+  const rows = measuredRows(ROW);
+  try {
+    rows.state.scrolled = 2.5 * ROW;
+    await page.tick([...page.receipts(), later(page, "nuevo", 5)]);
+    assert.deepEqual(rows.state.moves, [ROW], "the page scrolls by exactly the height that landed above");
+    rows.state.scrolled = 0; rows.state.moves.length = 0;
+    await page.tick([...page.receipts(), later(page, "otro", 6)]);
+    assert.deepEqual(rows.state.moves, [ROW], "at the start of the list the rows in view stay put too");
+    assert.match(page.titles()[0], /Recibo otro/, "and the new row still landed first");
+  } finally { rows.restore(); }
+});
+
+test("the list behind an open record does not jump when a row lands, and the row still lands", async () => {
+  const ROW = 40;
+  const page = await mount("es-419", { kind: "receipt", receiptId: "uno", list: "inbox" });
+  await page.tick([page.receipt("uno"), ...["a", "b"].map((id, index) => later(page, id, -1 - index))]);
+  const rows = measuredRows(ROW);
+  try {
+    const open = () => page.host.querySelector<HTMLElement>('[data-testid="reception-row"][aria-current="true"]')!;
+    const before = open().getBoundingClientRect().top;
+    await page.tick([...page.receipts(), later(page, "nuevo", 5)]);
+    assert.match(page.titles()[0], /Recibo nuevo/, "rows keep arriving while a record is open");
+    assert.match(open().textContent ?? "", /Recibo uno/);
+    assert.equal(open().getBoundingClientRect().top, before, "the open record's row is where it was");
+  } finally { rows.restore(); }
 });

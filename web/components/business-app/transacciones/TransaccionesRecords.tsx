@@ -8,7 +8,7 @@ import { useBusiness } from "../BusinessWorkspace";
 import { formatAmount, formatMoney, formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
 import { isOpenRecord } from "../record-tray";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { RecordGlanceContext } from "./RecordGlanceContext";
+import { RecordArrivalsContext, RecordGlanceContext } from "./RecordGlanceContext";
 import pageStyles from "./records-page.module.css";
 import cellStyles from "./transacciones-cells.module.css";
 import { RecordMarks, useOwnerView } from "../business-ui";
@@ -52,6 +52,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
   const { t, locale } = useTransaccionesWords();
   const owner = useOwnerView();
   const openGlance = useContext(RecordGlanceContext);
+  const arrived = useContext(RecordArrivalsContext);
   const { panel, openPanel, records: workspace } = useBusiness();
   const [localOrder, setLocalOrder] = useState<"desc" | "asc">("desc");
   const order = sort?.direction ?? controlledOrder ?? localOrder;
@@ -146,12 +147,13 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
                 ref={(node) => rowRef(recordRowKey(row), node)}
                 data-record-id={row.id} data-record-key={recordRowKey(row)}
                 data-kind={row.kind}
+                data-arrived={arrived.has(recordRowKey(row))}
                 aria-selected={open}
                 tabIndex={recordRowKey(row) === tabStop ? 0 : -1}
                 style={{ height: DENSITY_ROW_PX[density] }}
                 onFocus={(event) => { if (event.target === event.currentTarget) setFocusedId(recordRowKey(row)); }}
                 onClick={opens ? () => { if (openGlance) openGlance(row); else openPanel(opens); } : undefined}
-                className={`group outline-none focus-visible:[&>td]:shadow-[inset_0_2px_0_var(--cuadrao-green),inset_0_-2px_0_var(--cuadrao-green)] ${opens ? "cursor-pointer" : ""}`}
+                className={`group ${cellStyles.arrival} outline-none focus-visible:[&>td]:shadow-[inset_0_2px_0_var(--cuadrao-green),inset_0_-2px_0_var(--cuadrao-green)] ${opens ? "cursor-pointer" : ""}`}
               >
                 {columns.map((column) => <Fragment key={column.key}>{cells[column.key]}</Fragment>)}
               </tr>
@@ -208,12 +210,13 @@ export function RecordsNarrowList({ records, rowRef }: { records: readonly Recor
   const { t, locale } = useTransaccionesWords();
   const { panel, openPanel } = useBusiness();
   const openGlance = useContext(RecordGlanceContext);
+  const arrived = useContext(RecordArrivalsContext);
   return <ul className={pageStyles.list} data-testid="transacciones-records">
     {records.map((row) => {
       const opens = row.opens;
       const body = <><span className={pageStyles.top}><Truncated text={nameOf(row)} className={pageStyles.name} /><span className={pageStyles.amount}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : row.report ? <span className="cuadrao-amount whitespace-nowrap tabular-nums">{formatMoney(row.money.amount, row.money.currency, locale)}</span> : <PlainAmount money={row.money} />}</span></span>
         <span className={pageStyles.meta}><span className={pageStyles.marks}>{row.report?.family === null ? <Unknown /> : t(`business.transactions.records.detail.${row.kind}`)}<RecordWorkflowBadge row={row} /></span><span className={pageStyles.date}>{formatRecordActivityDate(row.occurredOn, locale)}</span></span></>;
-      return <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className={pageStyles.narrowRecord}>
+      return <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} data-arrived={arrived.has(recordRowKey(row))} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className={pageStyles.narrowRecord}>
         {opens ? <button type="button" ref={(node) => rowRef(recordRowKey(row), node)} className={pageStyles.row} onClick={() => { if (openGlance) openGlance(row); else openPanel(opens); }}>{body}</button> : <div className={pageStyles.row}>{body}</div>}
         <RecordAnnotationActions row={row} />
       </li>;

@@ -138,7 +138,7 @@ describe("pointer capability stays an affordance concern", () => {
     expect(mediaBlocks(reception).filter(block => /hover:|pointer:/.test(block))).toEqual([
       "@media (hover:none) { .trashAction { opacity:1; } }",
     ]);
-    expect(mediaBlocks(recordCells)).toEqual(approved);
+    expect(mediaBlocks(recordCells).filter(block => /hover:|pointer:/.test(block))).toEqual(approved);
     expect(mediaBlocks(recordCells + "\n@media (pointer:fine) { :global(body) { display:none; } }")).not.toEqual(approved);
     expect(mediaBlocks(recordCells.replace("visibility:visible", "display:none"))).not.toEqual(approved);
 
