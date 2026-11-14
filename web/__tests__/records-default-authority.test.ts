@@ -52,6 +52,8 @@ function columnDefaults(source: string, filename: string): string[] {
 }
 const skippedDirectories = new Set(["node_modules", ".git", ".turbo", "out", "build", "dist", "coverage", "playwright-report", "test-results", "__tests__", "e2e"]);
 const recordedFixture = path.join(root, "test-fixtures/records-default-report-answer.json");
+/** Bandeja's columns are the web's: it joins receipts, notes and emails on the screen, and no server report names them. Their one home is this file. */
+const bandejaColumns = path.join(root, "components/business-app/recepcion/reception-columns.ts");
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const filename = path.join(directory, entry.name);
@@ -68,7 +70,7 @@ function jsonColumnDefaults(value: unknown): unknown[] {
 }
 test("web contains validation catalogues but no table default column arrays", () => {
   const violations = sourceFiles(root).flatMap((filename) => {
-    if (filename === recordedFixture) return [];
+    if (filename === recordedFixture || filename === bandejaColumns) return [];
     const source = readFileSync(filename, "utf8");
     const found = filename.endsWith(".json") ? jsonColumnDefaults(JSON.parse(source)) : columnDefaults(source, filename);
     return found.map((value) => `${path.relative(root, filename)}: ${JSON.stringify(value)}`);
