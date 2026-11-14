@@ -44,7 +44,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 function clock() {
   let due: (() => void) | null = null;
   let delay = 0;
-  return { schedule: (fn: () => void, ms: number) => { due = fn; delay = ms; return () => { due = null; }; }, delay: () => due ? delay : null,
+  return { schedule: (fn: () => void, ms: number) => { due = fn; delay = ms; return () => { if (due === fn) due = null; }; }, delay: () => due ? delay : null,
     tick: async () => { const fn = due; due = null; await act(async () => { fn?.(); await Promise.resolve(); await Promise.resolve(); }); } };
 }
 
@@ -175,6 +175,191 @@ test("switching Business aborts discovery and ignores the old response", async (
   await act(async () => resolve({ items: [], activity: counts }));
   assert.equal(refreshed, 0);
   await act(async () => page.root.unmount());
+});
+
+test.each([
+  { reading: true, normal: 5000, delays: [10000, 20000, 40000, 60000, 60000] },
+  { reading: false, normal: 15000, delays: [30000, 60000, 60000, 60000, 60000] },
+].flatMap((state) => [true, false].map((paged) => ({ ...state, paged }))))(
+  "failed refreshes back off and recovery resets with reading=$reading paged=$paged",
+  async ({ reading, normal, delays, paged }) => {
+    const timer = clock();
+    const items = [await receipt()];
+    let failing = false;
+    let asked = 0;
+    let refreshed = 0;
+    let displayed: unknown;
+    const receipts = async () => {
+      asked++;
+      if (failing) throw new Error("offline");
+      return items;
+    };
+    const source: BusinessDataSource = {
+      ...createFixtureBusinessDataSource(), mode: "live", receipts,
+      receiptPage: paged ? async () => ({ items: await receipts(), activity: counts }) : undefined,
+    };
+    function Harness() {
+      useReceiptInboxRefresh({ source, active: true, reading, businessKey: "A", clock: timer.schedule,
+        onRefresh: (page) => { refreshed++; displayed = page; } });
+      return null;
+    }
+    const page = await host();
+    try {
+      await act(async () => page.root.render(<Harness />));
+      assert.equal(timer.delay(), normal);
+      await timer.tick();
+      assert.deepEqual(displayed, { items, activity: paged ? counts : null });
+      const lastGood = displayed;
+      failing = true;
+      for (const delay of delays) {
+        await timer.tick();
+        assert.equal(timer.delay(), delay);
+        assert.equal(refreshed, 1);
+        assert.equal(displayed, lastGood);
+      }
+      assert.equal(asked, 6);
+      failing = false;
+      await timer.tick();
+      assert.equal(refreshed, 2);
+      assert.equal(timer.delay(), normal);
+      failing = true;
+      await timer.tick();
+      assert.equal(timer.delay(), delays[0]);
+    } finally {
+      await act(async () => page.root.unmount());
+      page.element.remove();
+    }
+  },
+);
+
+test.each(["focus", "visibilitychange"])("%s refresh bypasses the delay but only success resets failures", async (event) => {
+  const timer = clock();
+  let asked = 0;
+  let failing = true;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async () => {
+    asked++;
+    if (failing) throw new Error("offline");
+    return { items: [], activity: counts };
+  } };
+  function Harness() { useReceiptInboxRefresh({ source, active: true, reading: true, businessKey: "A", clock: timer.schedule, onRefresh: () => {} }); return null; }
+  const page = await host();
+  try {
+    await act(async () => page.root.render(<Harness />));
+    await timer.tick();
+    await timer.tick();
+    assert.equal(asked, 2);
+    await act(async () => (event === "focus" ? window : document).dispatchEvent(new Event(event)));
+    assert.equal(asked, 3);
+    assert.equal(timer.delay(), 40000);
+    failing = false;
+    await act(async () => (event === "focus" ? window : document).dispatchEvent(new Event(event)));
+    assert.equal(asked, 4);
+    assert.equal(timer.delay(), 5000);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+  }
+});
+
+test("same-Business rerenders and timing changes retain failures", async () => {
+  const timer = clock();
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async () => { throw new Error("offline"); } };
+  function Harness({ active = true, reading = true }: { active?: boolean; reading?: boolean }) {
+    useReceiptInboxRefresh({ source, active, reading, businessKey: "A", clock: timer.schedule, onRefresh: () => {} });
+    return null;
+  }
+  const page = await host();
+  try {
+    await act(async () => page.root.render(<Harness />));
+    await timer.tick();
+    await act(async () => page.root.render(<Harness />));
+    assert.equal(timer.delay(), 10000);
+    await act(async () => page.root.render(<Harness reading={false} />));
+    assert.equal(timer.delay(), 30000);
+    await act(async () => page.root.render(<Harness active={false} reading={false} />));
+    assert.equal(timer.delay(), null);
+    await act(async () => page.root.render(<Harness />));
+    assert.equal(timer.delay(), 10000);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+  }
+});
+
+test.each(["success", "failure"])("hidden tabs cancel back-off and ignore an aborted request's late %s", async (outcome) => {
+  const timer = clock();
+  let asked = 0;
+  let refreshed = 0;
+  let signal: AbortSignal | undefined;
+  let finish!: () => void;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async (_view, requestSignal) => {
+    asked++;
+    if (asked !== 2) throw new Error("offline");
+    signal = requestSignal;
+    return new Promise((resolve, reject) => { finish = () => outcome === "success" ? resolve({ items: [], activity: counts }) : reject(new Error("aborted")); });
+  } };
+  function Harness() { useReceiptInboxRefresh({ source, active: true, reading: true, businessKey: "A", clock: timer.schedule, onRefresh: () => { refreshed++; } }); return null; }
+  const page = await host();
+  try {
+    await act(async () => page.root.render(<Harness />));
+    await timer.tick();
+    hidden = true;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    assert.equal(timer.delay(), null);
+    await timer.tick();
+    assert.equal(asked, 1);
+    hidden = false;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    assert.equal(asked, 2);
+    hidden = true;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    assert.equal(signal?.aborted, true);
+    await act(async () => finish());
+    assert.equal(timer.delay(), null);
+    assert.equal(refreshed, 0);
+    hidden = false;
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    assert.equal(asked, 3);
+    assert.equal(timer.delay(), 20000);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+    hidden = false;
+  }
+});
+
+test.each(["success", "failure"])("Business switches reset back-off and ignore a previous Business's late %s", async (outcome) => {
+  const timer = clock();
+  let asked = 0;
+  let refreshed = 0;
+  let signal: AbortSignal | undefined;
+  let finish!: () => void;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), mode: "live", receiptPage: async (_view, requestSignal) => {
+    asked++;
+    if (asked !== 3) throw new Error("offline");
+    signal = requestSignal;
+    return new Promise((resolve, reject) => { finish = () => outcome === "success" ? resolve({ items: [], activity: counts }) : reject(new Error("offline")); });
+  } };
+  function Harness({ business }: { business: string }) { useReceiptInboxRefresh({ source, active: true, reading: true, businessKey: business, clock: timer.schedule, onRefresh: () => { refreshed++; } }); return null; }
+  const page = await host();
+  try {
+    await act(async () => page.root.render(<Harness business="A" />));
+    await timer.tick();
+    await timer.tick();
+    await timer.tick();
+    await act(async () => page.root.render(<Harness business="B" />));
+    assert.equal(signal?.aborted, true);
+    assert.equal(timer.delay(), 5000);
+    await timer.tick();
+    assert.equal(timer.delay(), 10000);
+    await act(async () => finish());
+    assert.equal(refreshed, 0);
+    await timer.tick();
+    assert.equal(timer.delay(), 20000);
+  } finally {
+    await act(async () => page.root.unmount());
+    page.element.remove();
+  }
 });
 
 test("the badge uses the server count and an unknown count is never 0", () => {
