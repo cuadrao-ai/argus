@@ -344,3 +344,33 @@ for (const form of ["606", "607"] as const) {
     } finally { await view.dispose(); }
   });
 }
+
+for (const [moved, es, en] of [
+  [0, null, null],
+  [1, "1 borrador pasó a Ventas: lo emitió tu negocio", "1 draft moved to Sales: your business issued it"],
+  [2, "2 borradores pasaron a Ventas: los emitió tu negocio", "2 drafts moved to Sales: your business issued them"],
+] as const) {
+  test(`saving the Business RNC says the server moved ${moved} drafts to Ventas`, async () => {
+    for (const [lng, translation, words] of [["es-419", spanish, es], ["en", english, en]] as const) {
+      const release = registerDom();
+      globalThis.fetch = async (_url, init) => init?.body
+        ? Response.json({ name: "Taller Norte", tax_id: { type: "rnc", value: "199990013" }, legal_name: null, can_edit: true, retyped_drafts: moved })
+        : Response.json({ name: "Taller Norte", tax_id: null, legal_name: null, can_edit: true });
+      const i18n = i18next.createInstance(); await i18n.init({ lng, resources: { [lng]: { translation } } });
+      const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+      try {
+        await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessFiscalProfile /></I18nextProvider>));
+        const value = host.querySelector<HTMLInputElement>('input[name="tax-id-value"]');
+        assert.ok(value);
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(value, "199990013");
+          value.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        await act(async () => host.querySelector("button")?.click());
+        const status = host.querySelector('[role="status"]');
+        assert.match(status?.textContent ?? "", lng === "en" ? /^Details saved\./ : /^Datos guardados\./);
+        assert.equal(host.querySelector('[data-testid="profile-drafts-retyped"]')?.textContent?.trim() ?? null, words);
+      } finally { await act(async () => root.unmount()); host.remove(); await release(); }
+    }
+  });
+}

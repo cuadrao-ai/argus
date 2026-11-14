@@ -13,7 +13,7 @@ import FiscalRevision from "./FiscalRevision";
 import { resolveLanguage } from "@/lib/language-features";
 
 /** One thing that happened to the record, as the rail shows it. Only an approval changes the status, so only it gets a status dot. */
-type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; approved?: boolean; testId?: string; detail?: ReactNode; diff?: { before: string; after: string } };
+type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; note?: string; approved?: boolean; testId?: string; detail?: ReactNode; diff?: { before: string; after: string } };
 
 /** Spanish agrees the participle with the field's name. */
 const FEMININE = new Set<string>(["occurred_on", "currency", "category_id", "kind", "business_share"]);
@@ -94,8 +94,10 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   }
   for (const revision of history) {
     const at = revision.created_at;
-    const who = revision.actor.display_name;
-    if (revision.actor.actor_kind === "extractor") {
+    // A revision the server made for a stated reason is a change like any other, made through Cuadrao for the person who caused it.
+    const who = revision.reason ? t("business.history.via_cuadrao", { name: revision.actor.display_name }) : revision.actor.display_name;
+    const start = events.length;
+    if (!revision.reason && revision.actor.actor_kind === "extractor") {
       events.push({ id: `read-${revision.version}`, at, line: t("business.history.read", "Read"), who });
       continue;
     }
@@ -137,6 +139,8 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     if (!events.some((event) => event.line !== null && event.id.startsWith(`${revision.version}-`))) {
       events.push({ id: `${revision.version}-reviewed`, at, line: t("business.dossier.reviewed_revision", "This revision was reviewed."), who });
     }
+    const explained = revision.reason ? events.slice(start).find((event) => event.line !== null) : undefined;
+    if (explained) explained.note = t(`business.history.reason.${revision.reason}`);
   }
   if (approval?.status === "recorded") {
     events.push({ id: "approved", at: approval.approved_at, line: t("business.history.approved", "Approved"), who: approval.actor.display_name, approved: true });
@@ -169,6 +173,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
               <span className="text-[#56635e] dark:text-white/60">→</span>
               <ins className="rounded-mark bg-[#e3ebe1] px-1.5 text-[#2f5a49] no-underline dark:bg-[#293b32] dark:text-[#8fcbb0]">{event.diff.after}</ins>
             </div> : null}
+            {event.note ? <p data-testid="history-note" className="mt-1 text-[14px] leading-5 text-[#172b26] dark:text-white">{event.note}</p> : null}
             <p className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{[event.who, historyWhen(event.at, am, pm)].filter(Boolean).join(" · ")}</p>
             {event.detail}
           </li>
