@@ -35,7 +35,7 @@ export function useBusinessCloseDownloads(business: OwnedBusiness): CloseDownloa
       for (const item of items.filter((candidate) => (only ? candidate.key === only : candidate.status !== "downloaded"))) {
         mark(item.key, "loading");
         try {
-          const blob = await fetchBusinessExport(undefined, item.start, item.end, controller.signal, business.grant_id);
+          const blob = await fetchBusinessExport(item.start, item.end, controller.signal, business.grant_id);
           controller.signal.throwIfAborted();
           saveBlobDownload(blob, `business-export-${item.start}-${item.end}.zip`);
           mark(item.key, "downloaded");
