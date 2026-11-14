@@ -8880,8 +8880,10 @@ is reserved for a value read from the receipt, and nothing sends it yet. A
 suggestion is read fresh and stored nowhere: it is null while
 `declaration_editable` is false or the draft has that answer of its own, and
 it never reads another Business. A suggested type on a declaration
-(`category_suggested`) is no answer, on this draft or as a memory. A
-suggestion reaches the 606 only when a person writes it as
+(`category_suggested`) is no answer, on this draft or as a memory. A forma de
+pago an approval filled from the account that paid is no answer either: the
+last revision that changed the field must be a person's, not an approval's
+own. A suggestion reaches the 606 only when a person writes it as
 `purchase.category` or `purchase.payment_method`, so an approval never takes
 one and neither field blocks approval.
 `fiscal_inclusion_available` is true when the caller may answer

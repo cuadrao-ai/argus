@@ -1,10 +1,11 @@
 """On real local Postgres: the Forma de pago a person last chose for an RNC
-comes back as a suggestion with its source."""
+comes back as a suggestion with its source, and a Forma de pago an approval
+filled from the account that paid is nobody's choice."""
 
 from uuid import uuid4
 
 import pytest
-from argus.domain.business.contracts.actions import ReviewDraft
+from argus.domain.business.contracts.actions import ReopenDraft, ReviewDraft
 from argus.domain.business.contracts.dgii import PurchaseReview
 
 from tests import test_business_approval_fiscal_postgres as fiscal
@@ -92,6 +93,17 @@ def test_the_last_form_chosen_wins(actions):
     assert _suggested(service, context, 5)["value"] == "05"
 
 
+def test_a_form_the_approval_filled_from_the_account_is_no_choice(actions):
+    service, context = actions
+    checking = fiscal.dop_account(service, context, "checking")
+    draft, version = _receipt(service, context, 1)
+
+    _approved(service, context, draft, version, checking)
+
+    assert service.dossier(context, draft).dgii.payment_method == "02"
+    assert _suggested(service, context, 2) is None
+
+
 def test_a_form_chosen_before_the_approval_is_a_choice(actions):
     service, context = actions
     checking = fiscal.dop_account(service, context, "checking")
@@ -113,6 +125,82 @@ def test_a_form_changed_after_the_approval_is_a_choice(actions):
     _choose(service, context, draft, payment_method="04")
 
     assert _suggested(service, context, 2) == {"value": "04", "source": LAST_CHOICE}
+
+
+def test_a_reopened_record_keeps_the_rule_through_its_next_approval(actions):
+    service, context = actions
+    checking = fiscal.dop_account(service, context, "checking")
+    draft, version = _receipt(service, context, 1)
+    _approved(service, context, draft, version, checking)
+
+    def reopen() -> int:
+        current = service.dossier(context, draft).version
+        outcome = service.reopen(
+            context, draft, ReopenDraft(version=current), str(uuid4())
+        )
+        assert outcome.outcome == "applied", outcome
+        return service.dossier(context, draft).version
+
+    _approved(service, context, draft, reopen(), checking)
+    assert service.dossier(context, draft).dgii.payment_method == "02"
+    assert _suggested(service, context, 2) is None
+
+    reopen()
+    _approved(
+        service,
+        context,
+        draft,
+        _choose(service, context, draft, payment_method="01"),
+        checking,
+    )
+    assert _suggested(service, context, 3) == {"value": "01", "source": LAST_CHOICE}
+
+
+def test_a_choice_made_after_a_refused_approval_is_a_choice(actions, monkeypatch):
+    """The refusal leaves a receipt at the version the person then writes on."""
+
+    service, context = actions
+    draft, version = _receipt(service, context, 1)
+    reviewed = fiscal.reviewed(service, context, draft, version)
+    money = service.imports.money
+    monkeypatch.setattr(money, "preview", lambda **_: {"ready": False})
+    refused = fiscal.approve(service, context, draft, reviewed)
+    assert (refused.outcome, refused.code) == (
+        "invalid_input",
+        "balance_coverage_required",
+    )
+    monkeypatch.undo()
+
+    assert _choose(service, context, draft, payment_method="03") == reviewed + 1
+
+    assert _suggested(service, context, 2) == {"value": "03", "source": LAST_CHOICE}
+
+
+def test_a_fill_a_failed_approval_left_behind_is_no_choice(actions, monkeypatch):
+    from argus.domain.business.actions import approval
+    from argus.domain.recording.errors import RecordingInputError
+
+    service, context = actions
+    checking = fiscal.dop_account(service, context, "checking")
+    draft, version = _receipt(service, context, 1)
+    reviewed = fiscal.reviewed(
+        service,
+        context,
+        draft,
+        version,
+        funding={"kind": "business_account", "account_id": str(checking)},
+    )
+
+    def refuse(**kwargs):  # noqa: ANN003, ANN202
+        raise RecordingInputError("activity_invalid", "synthetic refusal")
+
+    monkeypatch.setattr(service.imports.money, "write", refuse)
+    monkeypatch.setattr(approval, "_clear_approval_declaration", lambda *_: None)
+    assert fiscal.approve(service, context, draft, reviewed).outcome == "invalid_input"
+
+    left = service.dossier(context, draft)
+    assert (left.review_state, left.dgii.payment_method) == ("open", "02")
+    assert _suggested(service, context, 2) is None
 
 
 @pytest.mark.parametrize("field", ["category", "payment_method"])

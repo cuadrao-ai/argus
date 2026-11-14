@@ -5,6 +5,11 @@ from typing import Literal
 from uuid import UUID
 
 from argus.domain.business.authority import ActionError
+from argus.domain.business.contracts.actions import (
+    ApprovalCommand,
+    IncomeApprovalCommand,
+    RefundApprovalCommand,
+)
 from argus.domain.business.contracts.dgii import (
     FiscalReview,
     PurchaseDeclaration,
@@ -64,12 +69,30 @@ def reviewed_fiscal_facts(
 #: The 606 answers a person gives one by one, each remembered per supplier RNC.
 RememberedField = Literal["category", "payment_method"]
 
+#: Revision ``r`` is the one approval ``a`` wrote. An approval writes its
+#: declaration at the version its claim took (request version + 1), in the
+#: transaction that starts its receipt. A refused approval leaves a receipt
+#: and no revision, so the person's next revision takes that version at a
+#: later time. The only copy of this rule.
+APPROVAL_REVISION = (
+    "r.space_id=a.space_id and r.draft_id::text=a.command->>'draft_id'"
+    " and a.command->>'action' in ("
+    + ",".join(
+        f"'{command.model_fields['action'].default}'"
+        for command in (ApprovalCommand, IncomeApprovalCommand, RefundApprovalCommand)
+    )
+    + ") and r.version=(a.command->'request'->>'version')::integer+1"
+    " and r.created_at=a.created_at"
+)
+
 
 def last_choice(tx, draft_id, field: RememberedField) -> str | None:
     """The answer a person last gave for this draft's RNC in this Business.
     The only reader of that memory. Nothing stores it: it reaches the 606 only
     when a person writes it on the draft.
 
+    The answer is a person's when the last revision that changed it is not an
+    approval's own: an approval fills Forma de pago from the account that paid.
     A tipo de gasto nobody confirmed is no answer.
     """
 
@@ -86,7 +109,11 @@ def last_choice(tx, draft_id, field: RememberedField) -> str | None:
         " join public.financial_import_events other"
         " on other.owner_space_id=me.owner_space_id and other.business_rnc=me.business_rnc"
         " left join lateral ("
-        "   select r.created_at as chosen_at from public.business_draft_revisions r"
+        "   select r.created_at as chosen_at,exists("
+        "     select 1 from public.business_action_receipts a"
+        f"     where {APPROVAL_REVISION}"
+        "   ) as by_approval"
+        "   from public.business_draft_revisions r"
         "   where r.space_id=other.owner_space_id and r.draft_id=other.id"
         f"   and (r.after_dgii->>'{field}') is distinct from (r.before_dgii->>'{field}')"
         "   order by r.version desc limit 1"
@@ -95,6 +122,7 @@ def last_choice(tx, draft_id, field: RememberedField) -> str | None:
         " and other.state in ('open','accepting','accepted')"
         " and other.resolution->'business'->'dgii'->>'form'='606'"
         f" and {value} is not null{confirmed}"
+        " and choice.by_approval is not true"
         " order by choice.chosen_at desc nulls last,other.id limit 1",
         (draft_id, tx.context.actor.space_id),
     )
