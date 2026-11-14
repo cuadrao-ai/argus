@@ -18,7 +18,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 const OWNER_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "approve", "manage", "assign_owner", "download", "export"];
 const EDITOR_PERMISSIONS: GrantedSpace["permissions"] = ["read", "prepare", "download", "export"];
 
-async function mount({ width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead, bar = false, approveListos }: { approveListos?: BusinessDataSource["approveListos"]; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity>; bar?: boolean } = {}) {
+async function mount({ width = 1440, role = "owner", prepare = true, permissions, tweak = receipts => receipts, markRead, bar = false, approveListos, receiptsOnly = false }: { approveListos?: BusinessDataSource["approveListos"]; width?: number; role?: GrantedSpace["role"]; prepare?: boolean; permissions?: GrantedSpace["permissions"]; tweak?: (receipts: ReceiptSummary[]) => ReceiptSummary[]; markRead?: (id: string, cursor: string) => Promise<ReceiptActivity>; bar?: boolean; receiptsOnly?: boolean } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 1000 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -37,9 +37,9 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
     { ...seed, id: "problem-receipt", merchant: "Recibo con problema", status: "needs_attention", bandeja: { por_revisar: false, leyendo: false, con_problema: true }, bandeja_group: { group: "attention", reason: "unreadable", draft_id: null, version: null } },
     ...["uno", "dos", "tres"].map((name, index) => ({ ...seed, id: `listo-${name}`, merchant: `Listo ${name}`, bandeja: { por_revisar: true, leyendo: false, con_problema: false }, bandeja_group: { group: "listo" as const, reason: null, draft_id: `draft-${name}`, version: index + 1 } })),
   ]);
-  const notes: BusinessCapture[] = [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open" }];
-  const emails = (await source.emailDeliveries()).filter(email => email.id === "email-boletin" || email.id === "email-estacion");
-  assert.equal(emails.length, 2);
+  const notes: BusinessCapture[] = receiptsOnly ? [] : [{ draft_id: "admitted-note", source_id: "note-source", version: 1, revision: 1, text: "Nota admitida", received_at: seed.received_at, review_state: "open" }];
+  const emails = receiptsOnly ? [] : (await source.emailDeliveries()).filter(email => email.id === "email-boletin" || email.id === "email-estacion");
+  assert.equal(emails.length, receiptsOnly ? 0 : 2);
   const globalActivity = { reading_count: 92, unread_count: 94, presentation: "unread" as const, pending_review_count: 95, needs_attention_count: 93, ready_to_review_count: 91, bandeja_attention_count: 96, bandeja_listo_count: 97 };
   const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: !prepare ? ["read"] : role === "owner" ? ["read", "prepare", "approve"] : ["read", "prepare"], permissions: permissions ?? (role === "owner" ? OWNER_PERMISSIONS : EDITOR_PERMISSIONS), access_seen: true };
   let uploads = 0;
@@ -47,7 +47,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   let exports = 0;
   const opened: BusinessPanelState[] = [];
   let context: BusinessContextValue = { receivingChannels: { email: { available: true }, whatsapp: { available: true } },
-    userId: "count-person", source: { ...source, receiptPage: async () => ({ items: receipts, activity: globalActivity }), ...(markRead ? { markReceiptRead: markRead } : {}), ...(approveListos ? { approveListos } : {}) },
+    userId: "count-person", source: { ...source, receiptPage: async () => ({ items: receipts, activity: globalActivity }), ...(receiptsOnly ? { captures: async () => ({ items: [], has_more: false }) } : {}), ...(markRead ? { markReceiptRead: markRead } : {}), ...(approveListos ? { approveListos } : {}) },
     records: { workspace: await source.workspace(), overview: null, inbox: receipts, notes, notesTruncated: false, emails, error: false, receiptActivity: globalActivity },
     spaces: [chosen], chosen, chooseBusiness: () => {}, markAccessSeen: async () => {}, lostAccess: false, clearLostAccess: () => {}, revision: 0, reload: () => { reloads++; }, refresh: async () => "updated",
     period: { key: "all", from: "", to: null }, setPeriod: () => {}, panel: { kind: "inbox" }, openPanel: next => opened.push(next),
@@ -59,7 +59,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   cleanup = async () => { await act(async () => root.unmount()); host.remove(); };
   await render();
   const settle = async (ready: () => boolean) => { for (let i = 0; i < 50; i++) { await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); }); if (ready()) return; } throw new Error(`Missing expected state: ${host.textContent}`); };
-  await settle(() => host.querySelector('[data-testid="reception-row"]') !== null);
+  await settle(() => host.querySelector('[data-testid="reception-row"], [data-testid="reception-empty"]') !== null);
   const click = async (node: HTMLElement | null | undefined) => { assert.ok(node); await act(async () => node.click()); };
   const tab = (key: string) => host.querySelector<HTMLButtonElement>(`#reception-tab-${key}`);
   const badge = (key: string) => tab(key)?.querySelector("span")?.textContent;
@@ -124,6 +124,30 @@ test("the Bandeja opens on Todos with its four tabs, and nothing else from the o
   assert.equal(rows(page).length, 9, "six receipts, one note and two emails");
   assert.equal(rows(page).filter(row => row.getAttribute("data-unseen") === "true").length, 0, "nothing is seeded as unseen");
   assert.deepEqual([...page.host.querySelectorAll("#reception-list > div:first-child > span:not(.sr-only)")].map(cell => cell.textContent).filter(Boolean), ["Contenido", "Adjunto", "Canal", "Canal", "Estado", "Llegada"], "Monto, Moneda and Remitente stay off; the second Canal is the heading the width swaps in");
+});
+
+const seeAll = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="reception-empty"] button')].find(button => button.textContent === "Ver todo");
+const emptyKind = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector('[data-testid="reception-empty"]')?.getAttribute("data-empty-kind");
+
+for (const view of ["all", "attention", "listos", "eliminados"] as const) test(`a Business with no documents offers no Ver todo on ${view}`, async () => {
+  const page = await mount({ tweak: () => [], receiptsOnly: true });
+  await page.click(page.tab(view));
+  await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
+  assert.equal(seeAll(page), undefined, "Todo is empty, so nothing leads there");
+  if (view !== "eliminados") {
+    assert.equal(emptyKind(page), "first_run");
+    assert.match(page.host.querySelector('[data-testid="reception-empty"]')?.textContent ?? "", /Tus archivos y notas llegan aquí/);
+  }
+});
+
+test("an empty Necesita atención offers Ver todo when Todo has documents, and it opens Todo", async () => {
+  const page = await mount({ tweak: receipts => receipts.filter(receipt => receipt.bandeja_group?.group === "listo"), receiptsOnly: true });
+  await page.click(page.tab("attention"));
+  await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
+  assert.equal(emptyKind(page), "done");
+  await page.click(seeAll(page));
+  assert.equal(page.tab("all")?.getAttribute("aria-selected"), "true");
+  assert.equal(rows(page).length, 3);
 });
 
 test("the tab numbers are the server's, not a count of the rows loaded", async () => {
