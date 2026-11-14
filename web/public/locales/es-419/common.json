@@ -2848,7 +2848,27 @@
             "ncf_missing": "Falta el NCF",
             "date_missing": "Falta la fecha",
             "payment_method_missing": "Falta la forma de pago",
-            "detail_missing": "Falta un dato"
+            "detail_missing": "Falta un dato",
+            "billed_amount_zero": "[placeholder] business.transactions.layout.workflow.missing.billed_amount_zero",
+            "credit_note_payment_form": "[placeholder] business.transactions.layout.workflow.missing.credit_note_payment_form",
+            "credit_note_reference": "[placeholder] business.transactions.layout.workflow.missing.credit_note_reference",
+            "date_in_future": "[placeholder] business.transactions.layout.workflow.missing.date_in_future",
+            "date_too_old": "[placeholder] business.transactions.layout.workflow.missing.date_too_old",
+            "duplicate_document": "[placeholder] business.transactions.layout.workflow.missing.duplicate_document",
+            "itbis_cost_over_itbis": "[placeholder] business.transactions.layout.workflow.missing.itbis_cost_over_itbis",
+            "itbis_over_limit": "[placeholder] business.transactions.layout.workflow.missing.itbis_over_limit",
+            "itbis_proportionality_over_itbis": "[placeholder] business.transactions.layout.workflow.missing.itbis_proportionality_over_itbis",
+            "itbis_withheld_over_itbis": "[placeholder] business.transactions.layout.workflow.missing.itbis_withheld_over_itbis",
+            "minor_expense_has_itbis": "[placeholder] business.transactions.layout.workflow.missing.minor_expense_has_itbis",
+            "modified_ncf_invalid": "[placeholder] business.transactions.layout.workflow.missing.modified_ncf_invalid",
+            "modified_ncf_not_allowed": "[placeholder] business.transactions.layout.workflow.missing.modified_ncf_not_allowed",
+            "own_rnc_required": "[placeholder] business.transactions.layout.workflow.missing.own_rnc_required",
+            "payment_after_month": "[placeholder] business.transactions.layout.workflow.missing.payment_after_month",
+            "payment_before_invoice": "[placeholder] business.transactions.layout.workflow.missing.payment_before_invoice",
+            "payment_date_in_future": "[placeholder] business.transactions.layout.workflow.missing.payment_date_in_future",
+            "payment_date_missing": "[placeholder] business.transactions.layout.workflow.missing.payment_date_missing",
+            "purchase_receipt_needs_cedula": "[placeholder] business.transactions.layout.workflow.missing.purchase_receipt_needs_cedula",
+            "tip_over_limit": "[placeholder] business.transactions.layout.workflow.missing.tip_over_limit"
           }
         }
       },

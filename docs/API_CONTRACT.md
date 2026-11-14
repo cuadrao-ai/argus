@@ -9076,10 +9076,20 @@ purchases the 606 holds until a person sets Forma de Pago, marked paid or not,
 each with `payment_form` null; it adds no `reasons` code and does not read into
 `closed`) and `missing_fiscal_data` (every document the 606 or 607 holds this
 month, as a document line plus `missing`, the export's own words for what it
-still needs, first fix first: `expense_type_missing`, `rnc_missing`,
-`rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`,
-`payment_method_missing` or `detail_missing`, the same words Registros shows as
-`export_missing`) and `missing_fiscal_rows` (those documents counted for
+still needs, first fix first, a missing value before a wrong one:
+`expense_type_missing`, `rnc_missing`, `rnc_invalid`, `ncf_invalid`,
+`date_missing`, `ncf_missing`, `payment_method_missing`,
+`payment_date_missing`, `duplicate_document`, `own_rnc_required`,
+`billed_amount_zero`, `itbis_cost_over_itbis`, `payment_after_month`,
+`credit_note_reference`, `credit_note_payment_form`,
+`modified_ncf_not_allowed`, `modified_ncf_invalid`, `date_in_future`,
+`date_too_old`, `payment_date_in_future`, `payment_before_invoice`,
+`itbis_over_limit`, `itbis_proportionality_over_itbis`,
+`itbis_withheld_over_itbis`, `tip_over_limit`,
+`purchase_receipt_needs_cedula`, `minor_expense_has_itbis` or
+`detail_missing`, the same words Registros shows as `export_missing`. The
+server may add a word; a client shows `detail_missing` for one it has no text
+for) and `missing_fiscal_rows` (those documents counted for
 Inicio's "Faltan datos fiscales" rows as `{family, currency, count,
 by_currency}`, Compras then Ventas: one row per family, split by currency only
 when that family's held documents span more than one, so each row opens exactly
@@ -9281,8 +9291,9 @@ computed on every read from the stored facts; nothing is written. `rnc_check_dig
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
 a present NCF or e-CF that is not B plus 10 digits or E plus 12. Both have
 `confirm: true`. `itbis_high` (field `itbis`, `confirm: false`) is an ITBIS above
-18% of the total minus the ITBIS plus 1.00 in the receipt's own currency, in
-decimal math; a lower ITBIS is never flagged. The RNC and NCF stay exactly as
+18% of the total minus the ITBIS plus 0.55 in the receipt's own currency (16%
+for a receipt dated before 2013), in decimal math; a lower ITBIS is never
+flagged. The rate and the 0.55 are the ones the 606 holds an approved row for. The RNC and NCF stay exactly as
 read. While a `confirm` flag stands, the approve request without
 `approve_anyway: true` is refused with 422 `approval_confirmation_required` and
 `context.flags` lists those codes. Send `approve_anyway: true` with a new
@@ -10883,7 +10894,21 @@ accept path recorded.
   and supported known monetary/document effects. A credit's document adjustment
   must pass the existing fiscal source validation. It does not mean paid,
   fiscally valid or government accepted. `needs_fiscal_data` is a recorded row
-  whose month's 606 or 607 names something missing (`export_missing`).
+  whose month's 606 or 607 holds it: `export_missing` names the first value
+  that is missing or that DGII's tools reject, in the month close's
+  `missing_fiscal_data` words, and `export_missing_several` is true when there
+  is more than one. After the verdict a `ready_for_export` purchase is a 606
+  row that passes every rule of the 606 rule table
+  (`src/argus/domain/business/dgii_606_rules.py`): the ITBIS ceiling (18% of
+  Total Monto Facturado plus Impuesto Selectivo al Consumo, plus 0.55) and
+  ITBIS not above the total; ITBIS Retenido and ITBIS sujeto a
+  Proporcionalidad not above the ITBIS; Propina Legal not above 10% of the
+  total; no invoice or payment date after today; an invoice date the
+  comprobante's series existed on (B from 2018-05, E from 2019-01, B17 and E47
+  from 2019-04); a payment date not before the invoice date; an NCF and NCF
+  modificado whose sequence is not 0; a cédula on a B11; and no ITBIS on a B13
+  or E43. The verdict is computed on each read, so a rule applies to every
+  row from the moment it deploys.
   `exported` is a recorded row with a line in `business_dgii_export_lines`; it
   carries `export_line` true. No download writes that table now, so the stage
   is history: rows marked before the DGII TXT was retired keep it, and no new

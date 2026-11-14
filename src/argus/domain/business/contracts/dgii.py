@@ -18,7 +18,8 @@ from pydantic import (
 
 from argus.domain.business.space_name import GivenName
 
-Money = Annotated[str, StringConstraints(pattern=r"^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$")]
+MONEY_PATTERN = r"^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$"
+Money = Annotated[str, StringConstraints(pattern=MONEY_PATTERN)]
 #: The first amount the Money shape cannot hold.
 MONEY_LIMIT = Decimal("1000000000")
 

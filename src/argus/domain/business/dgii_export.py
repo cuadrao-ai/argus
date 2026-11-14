@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import calendar
+import re
 from collections import Counter
 from datetime import date
 from decimal import Decimal
 
+from argus.domain.business import dgii_606_rules
 from argus.domain.business.contracts.dgii import (
+    MONEY_PATTERN,
     PurchaseDeclaration,
     amount_or_zero,
     money_text,
@@ -93,6 +96,36 @@ def line_values(record: FiscalRecord) -> tuple[str, ...]:
     return tuple(result)
 
 
+def rule_issues(record: FiscalRecord, *, today: date) -> list[dict]:
+    """What the 606 rule table holds the record for, read from the line the
+    file would write. A record with no line to write is held by its missing
+    value, not by a rule."""
+
+    tax = fact_value(record, "itbis")
+    if (
+        not isinstance(confirmed_declaration(record), PurchaseDeclaration)
+        or tax is None
+        or re.fullmatch(MONEY_PATTERN, tax) is None
+    ):
+        return []
+    line = dict(
+        zip((name for name, _ in COLUMNS["606"]), line_values(record), strict=True)
+    )
+    context = dgii_606_rules.Context(
+        today=today, period=record.occurred_on.strftime("%Y%m")
+    )
+    return [
+        {
+            "code": rule.id,
+            "activity_id": record.activity_id,
+            "field": rule.field,
+            "message_key": rule.message_key,
+        }
+        for rule in dgii_606_rules.broken(line, context)
+        if rule.severity == "block"
+    ]
+
+
 def fiscal_manifest(
     records: tuple[FiscalRecord, ...],
     *,
@@ -163,7 +196,11 @@ def fiscal_manifest(
 
     def collect(subject: FiscalRecord) -> list[dict]:
         found = record_issues(subject, originals, filer_identity=rnc, period_end=end)
-        return found + hard_rejects(subject, registry)
+        return (
+            found
+            + hard_rejects(subject, registry)
+            + rule_issues(subject, today=captured_on)
+        )
 
     for record in selected:
         gross = Decimal(record.amount)
