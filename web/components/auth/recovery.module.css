@@ -33,12 +33,11 @@
 .primary {
   display: flex; align-items: center; justify-content: center; gap: .5rem;
   width: 100%; min-height: 3.25rem; padding: .75rem 1.25rem;
-  border-radius: 999px; background: var(--auth-pine); color: var(--auth-on-pine);
+  border-radius: 999px;
   font-weight: 500; text-align: center;
 }
-.primary:hover { background: var(--auth-pine-hover); }
 .primary:disabled { cursor: wait; }
-.primary:disabled:not([aria-busy="true"]) { cursor: not-allowed; background: var(--auth-line); color: var(--auth-muted); }
+.primary:disabled:not([aria-busy="true"]) { cursor: not-allowed; }
 .secondary, .language { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 44px; color: var(--auth-muted); font-size: .875rem; }
 .secondary:hover, .language:hover { color: var(--auth-ink); }
 .language { padding: .5rem 1rem; }
