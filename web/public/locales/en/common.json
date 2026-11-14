@@ -2974,7 +2974,7 @@
         "actor": "Deleted by",
         "content": "Content",
         "previous": "Previously in",
-        "purge": "Deleted for good"
+        "purge": "Permanent deletion"
       },
       "delete": "Delete",
       "deleted_state": "Deleted",
