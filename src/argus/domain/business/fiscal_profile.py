@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from argus.domain.business.actions import plans
 from argus.domain.business.actions.dossier import rnc_registry
+from argus.domain.business.actions.type_recheck import recheck_open_drafts
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import Applied
 from argus.domain.business.contracts.dgii import TaxId
@@ -25,6 +26,13 @@ _CODES = (
 )
 #: The longest legal name the profile stores; the registry's names fit.
 LEGAL_NAME_MAX = 250
+
+
+class ProfileSaved(Applied):
+    """The stored answer of a profile save. Its receipt keeps how many drafts
+    the save moved to Ventas, so a replayed key answers the same number."""
+
+    retyped_drafts: int = Field(default=0, ge=0)
 
 
 class TaxIdDraft(BaseModel):
@@ -310,7 +318,10 @@ def set_legal_name(authority, context, command: LegalNameChange, key: str):
 def set_profile(authority, context, command: FiscalProfileChange, key: str):
     with transaction(authority, context, "manage") as tx:
         _require_manager(context)
-        if not _replayed(tx, key, command):
+        saved = plans.receipt(tx, key, command)
+        if saved is not None:
+            moved = ProfileSaved.model_validate(saved["outcome"]).retyped_drafts
+        else:
             row = tx.rows(_PROFILE + " for update", (context.actor.space_id,))[0]
             if (
                 given_name(row["name"]) != command.previous_name
@@ -340,5 +351,10 @@ def set_profile(authority, context, command: FiscalProfileChange, key: str):
                     context.actor.space_id,
                 ),
             )
-            plans.finish_receipt(tx, key, Applied(outcome="applied"))
-    return read_profile(authority, context)
+            moved = 0
+            if row["business_rnc"] is None and tax_id is not None:
+                moved = recheck_open_drafts(tx)
+            plans.finish_receipt(
+                tx, key, ProfileSaved(outcome="applied", retyped_drafts=moved)
+            )
+    return {**read_profile(authority, context), "retyped_drafts": moved}

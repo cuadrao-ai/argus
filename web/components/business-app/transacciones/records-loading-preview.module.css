@@ -3,6 +3,7 @@
 .overview { height:32px; width:64px; }
 .right { margin-left:auto; }
 .counterparty { width:144px; }
+.counterparty_id { width:96px; }
 .date { width:90px; }
 .gross_amount { width:80px; }
 .detail { width:44px; }

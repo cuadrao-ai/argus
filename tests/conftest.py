@@ -97,12 +97,6 @@ def provider_free_env(monkeypatch):
 
 
 @pytest.fixture
-def activity_on(monkeypatch):
-    """Actividad on, for a flow that reads the feed. The server's default is off."""
-    monkeypatch.setenv("CUADRAO_BUSINESS_ACTIVITY_ENABLED", "true")
-
-
-@pytest.fixture
 def settlement_on(monkeypatch):
     """Por cobrar and Por pagar on, for a flow that marks documents cobrado or pagado."""
     monkeypatch.setenv("CUADRAO_BUSINESS_SETTLEMENT_ENABLED", "true")

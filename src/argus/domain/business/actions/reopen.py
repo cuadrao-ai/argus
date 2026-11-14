@@ -77,7 +77,7 @@ def reopen(
 ) -> ActionOutcome:
     """One ledger row under the key, on the approval permission. The owner
     lock every approval, 606 write and export takes serializes it with them,
-    so a reopen never crosses a recording or a TXT build."""
+    so a reopen never crosses a recording or a handover download."""
 
     command = ReopenCommand(draft_id=draft_id, request=request)
     try:

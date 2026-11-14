@@ -17,13 +17,13 @@ test("registry renders environment-neutral Auth slots with only the approved cop
     ]);
     expect(records.map(record => record.file)).toEqual(Object.keys(AUTH_TEMPLATE_SLOTS));
     for (const record of records) {
-      expect(record.html).toContain("https://cuadrao.ai/email/wordmark-light.png");
+      expect(record.html).toContain("https://cuadrao.ai/email/lockup-dark.png");
       expect(record.html).not.toContain("different.example.test");
       expect(record.text).not.toMatch(/synthetic|undefined|2026|example\.test/);
       expect(record.html).not.toContain("<!-- Generated");
       expect(record.html).toContain('class="card"');
       expect(record.html).toContain('background:#ffffff;border-radius:12px');
-      expect(record.html).toContain('padding:24px 32px;background:#172b26;');
+      expect(record.html).toContain('padding:6px 14px;background:#172b26;');
     }
     const greeting = '<p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola,</p>';
     const signOff = '<p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p>';
@@ -31,6 +31,13 @@ test("registry renders environment-neutral Auth slots with only the approved cop
     const safetyCopy = "Nunca te pediremos tu contraseña ni tus códigos de acceso por correo o por teléfono. Escríbelos solo en app.cuadrao.ai.";
     const oldContactCopy = "Si no fuiste tú, escríbenos de inmediato respondiendo a este correo para recuperar tu cuenta.";
     const contactCopy = "Si no fuiste tú, escríbenos de inmediato a hola@cuadrao.ai para recuperar tu cuenta.";
+    const lockupHeader = `padding:6px 14px;background:#172b26;border-radius:12px 12px 0 0">
+<img src="https://cuadrao.ai/email/lockup-dark.png" alt="Cuadrao" width="209" height="72" style="display:block;border:0;color:#fafbf8;font-size:24px;line-height:72px;font-weight:bold;text-indent:18px">`;
+    const wordmarkHeader = `padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->`;
+    const button = ".button{background:#b6e87a!important;color:#172b26!important}";
+    const logoSwitch = [".logo-light{display:none!important}", ".logo-dark{display:block!important;max-height:none!important}"];
     const historicalDigests = {
       "confirmation": "63843850cfcc195f328b1118d2fa14462ae320e0543474d9b1cb87fb8771736c",
       "magic_link": "8a3fd5e39edfb7cc06396cc9ee815eeec4f1ebbd5050e972177d9a4dcd9ae262",
@@ -53,7 +60,9 @@ test("registry renders environment-neutral Auth slots with only the approved cop
         if (record.file.endsWith("_notification")) expect(part).toContain(safetyCopy);
       }
       const historicalHtml = record.html.replace(safetyCopy, oldSafetyCopy).replace(contactCopy, oldContactCopy).replace("</h1>", `</h1>${greeting}`)
-        .replace('class="footer" style="padding:20px 32px 28px;background:#ffffff">', `class="footer" style="padding:20px 32px 28px;background:#ffffff">${signOff}`);
+        .replace('class="footer" style="padding:20px 32px 28px;background:#ffffff">', `class="footer" style="padding:20px 32px 28px;background:#ffffff">${signOff}`)
+        .replace(lockupHeader, wordmarkHeader).replace(`${button}\n`, `${button}\n    ${logoSwitch.join("")}\n`)
+        .replace(`[data-ogsc] ${button}\n`, `[data-ogsc] ${button}${logoSwitch.map(rule => `[data-ogsc] ${rule}`).join("")}\n`);
       const historicalText = record.text.replace(safetyCopy, oldSafetyCopy).replace(contactCopy, oldContactCopy).replace("\n\n", "\n\nHola,\n\n")
         .replace("\n\n¿Necesitas ayuda?", "\n\nSaludos,\nCuadrao\n\n¿Necesitas ayuda?");
       expect(createHash("sha256").update(`${record.subject}\n${historicalHtml}\n${historicalText}`).digest("hex"))

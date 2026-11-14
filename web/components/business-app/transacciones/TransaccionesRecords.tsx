@@ -15,16 +15,18 @@ import { RecordMarks, useOwnerView } from "../business-ui";
 import { DENSITY_ROW_PX, type Density } from "./table-density";
 import { headerCurrency, magnitude, type RecordRow } from "./transacciones-model";
 import { AccountLabel, amountColumnSize, PlainAmount, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
-import { visibleRecordsColumns, recordsMinimumWidth, type RecordsViewPreferences } from "./records-view-preferences";
+import { visibleRecordsColumns, recordsMinimumWidth, taxpayerIdText, type RecordsViewPreferences } from "./records-view-preferences";
 import { formatRecordActivityDate, previewAmountColumnSize, recordRowKey } from "./records-row-preview";
 import RecordWorkflowBadge from "./RecordWorkflowBadge";
 import RecordDgiiCell from "./RecordDgiiCell";
 import { RecordAnnotationActions, RecordAttachmentPreview, RecordNotePreview } from "./RecordsAnnotationsPreview";
 import type { RecordsSort } from "./records-pagination";
-import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
+import { CELL, COLUMNS, PIN_CLASS, RECORDS_TITLE } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN_VALUE;
+/** A frozen cell: the open row keeps its green edge on the left one. */
+const PINNED = { left: `${PIN_CLASS.left} group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`, right: PIN_CLASS.right } as const;
 /** The columns a header click sorts, by the sort each one sets. */
 const SORT_KEY: Partial<Record<string, RecordsSort["key"]>> = { date: "fecha", counterparty: "contraparte", gross_amount: "monto" };
 export { recordRowKey } from "./records-row-preview";
@@ -58,7 +60,9 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
   const header = preferences ? null : headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
   const amountSize = preferences ? previewAmountColumnSize(records.map((row) => row.money), locale) : amountColumnSize(records.map((row) => row.money), header, locale);
   const columns = preferences ? visibleRecordsColumns(preferences) : COLUMNS;
-  const proofPinned = columns.at(-1)?.key === "attachment";
+  const pins = new Map<string, "left" | "right" | undefined>(columns.map((column) => [column.key, column.pin]));
+  /** A cell's own attributes: its column, its frozen side when its column is the frozen one, and its look. */
+  const at = (key: string, look: string) => { const pin = pins.get(key); return { "data-col": key, "data-pinned": pin, className: `${CELL} ${pin ? PINNED[pin] : ""} ${look}` }; };
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const tabStop = focusedId && rows.some((row) => recordRowKey(row) === focusedId) ? focusedId : rows[0] ? recordRowKey(rows[0]) : undefined;
@@ -93,7 +97,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
               const canSort = sort ? sortableKey !== null : sortHere;
               const blocked = serverSorted || Boolean(sort && sortableKey === "monto" && !amountSortAvailable);
               return (
-                <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} aria-sort={sortHere ? (order === "desc" ? "descending" : "ascending") : undefined} className={`sticky top-0 h-11 border-b border-[#DCE0DA] bg-white px-3 text-[13px] font-normal text-[#56635e] dark:border-white/10 dark:bg-[#1f2225] dark:text-white/65 ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${column.pin === "left" ? "left-0" : "right-0"} z-30` : "z-20"}`}>
+                <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} aria-sort={sortHere ? (order === "desc" ? "descending" : "ascending") : undefined} className={`${RECORDS_TITLE} ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${column.pin === "left" ? "left-0" : "right-0"} z-30` : "z-20"}`}>
                   {canSort ? (
                     <button type="button" aria-disabled={blocked || undefined} aria-describedby={blocked ? sortNoticeId : undefined} title={!serverSorted && blocked ? t("business.transactions.pagination.amount_requires_currency") : undefined} onClick={() => {
                       if (serverSorted) return;
@@ -113,26 +117,28 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
           {rows.map((row) => {
             const opens = row.opens;
             const open = opens ? isOpenRecord(panel, opens) : false;
+            const taxpayer = row.report?.counterparty_key ?? null;
             const cells = {
-              counterparty: (<td data-col="counterparty" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}><Truncated text={nameOf(row)} className="font-medium" /></td>),
-              date: (<td data-col="date" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{preferences ? formatRecordActivityDate(row.occurredOn, locale) : formatRelativeDay(row.occurredOn, today, locale)}</td>),
-              gross_amount: (<td data-col="gross_amount" className={`${CELL} text-right font-medium tabular-nums`}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : preferences ? <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report ? row.money.amount : magnitude(row.money).amount, row.money.currency, locale)}</span> : <SignedAmount money={row.money} header={header} />}</td>),
-              fiscal_number: (<td data-col="fiscal_number" className={`${CELL} text-left`}>{row.report?.fiscal_number ? <Truncated text={row.report.fiscal_number} /> : <Unknown />}</td>),
-              net_amount: (<td data-col="net_amount" className={`${CELL} text-right font-normal tabular-nums`}>{row.report?.net_amount == null || row.report.currency === null ? <Unknown /> : <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report.net_amount, row.report.currency, locale)}</span>}</td>),
-              itbis_amount: (<td data-col="itbis_amount" className={`${CELL} text-right font-normal tabular-nums`}>{row.report?.itbis_amount == null || row.report.currency === null ? <Unknown /> : <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report.itbis_amount, row.report.currency, locale)}</span>}</td>),
-              note: (<td data-col="note" className={`${CELL} text-left`}><RecordNotePreview row={row} /></td>),
-              detail: (<td data-col="detail" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}>
+              counterparty_id: (<td {...at("counterparty_id", "whitespace-nowrap text-left font-mono text-[13px] tabular-nums")}>{taxpayer ? row.counterparty ? <Tooltip content={row.counterparty} side="top"><span data-taxpayer-id>{taxpayerIdText(taxpayer)}<span className="sr-only">, {row.counterparty}</span></span></Tooltip> : <span data-taxpayer-id>{taxpayerIdText(taxpayer)}</span> : <Unknown />}</td>),
+              counterparty: (<td {...at("counterparty", "text-left")}><Truncated text={nameOf(row)} className="font-medium" /></td>),
+              date: (<td {...at("date", "whitespace-nowrap text-left text-[#56635e] dark:text-white/65")}>{preferences ? formatRecordActivityDate(row.occurredOn, locale) : formatRelativeDay(row.occurredOn, today, locale)}</td>),
+              gross_amount: (<td {...at("gross_amount", "text-right font-medium tabular-nums")}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : preferences ? <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report ? row.money.amount : magnitude(row.money).amount, row.money.currency, locale)}</span> : <SignedAmount money={row.money} header={header} />}</td>),
+              fiscal_number: (<td {...at("fiscal_number", "text-left")}>{row.report?.fiscal_number ? <Truncated text={row.report.fiscal_number} /> : <Unknown />}</td>),
+              net_amount: (<td {...at("net_amount", "text-right font-normal tabular-nums")}>{row.report?.net_amount == null || row.report.currency === null ? <Unknown /> : <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report.net_amount, row.report.currency, locale)}</span>}</td>),
+              itbis_amount: (<td {...at("itbis_amount", "text-right font-normal tabular-nums")}>{row.report?.itbis_amount == null || row.report.currency === null ? <Unknown /> : <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report.itbis_amount, row.report.currency, locale)}</span>}</td>),
+              note: (<td {...at("note", "text-left")}><RecordNotePreview row={row} /></td>),
+              detail: (<td {...at("detail", "text-left text-[#56635e] dark:text-white/65")}>
                   {row.report?.family === null ? <Unknown /> : preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>
                     <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
                   </Tooltip>}
                 </td>),
-              stage: (<td data-col="stage" className={`${CELL} text-left`}><RecordWorkflowBadge row={row} /></td>),
-              expense_type: (<td data-col="expense_type" className={`${CELL} text-left`}><RecordDgiiCell row={row} field="expense_type" /></td>),
-              payment_form: (<td data-col="payment_form" className={`${CELL} text-left`}><RecordDgiiCell row={row} field="payment_form" /></td>),
+              stage: (<td {...at("stage", "text-left")}><RecordWorkflowBadge row={row} /></td>),
+              expense_type: (<td {...at("expense_type", "text-left")}><RecordDgiiCell row={row} field="expense_type" /></td>),
+              payment_form: (<td {...at("payment_form", "text-left")}><RecordDgiiCell row={row} field="payment_form" /></td>),
               // The ledger's own columns, for the records table bank matching mounts beside its movements.
-              category: (<td data-col="category" className={`${CELL} text-left`}>{row.categoryId ? <Truncated text={t(`business.category.${row.categoryId}`, { defaultValue: row.categoryId })} /> : <Unknown />}</td>),
-              funding: (<td data-col="funding" className={`${CELL} text-left`}><AccountLabel account={row.account} /></td>),
-              attachment: (<td data-col="attachment" data-pinned={proofPinned ? "right" : undefined} className={`${CELL} ${proofPinned ? PIN_CLASS.right : ""} text-right`}>{preferences ? <RecordAttachmentPreview row={row} /> : <Proof row={row} />}</td>),
+              category: (<td {...at("category", "text-left")}>{row.categoryId ? <Truncated text={t(`business.category.${row.categoryId}`, { defaultValue: row.categoryId })} /> : <Unknown />}</td>),
+              funding: (<td {...at("funding", "text-left")}><AccountLabel account={row.account} /></td>),
+              attachment: (<td {...at("attachment", "text-right")}>{preferences ? <RecordAttachmentPreview row={row} /> : <Proof row={row} />}</td>),
             };
             return (
               <tr

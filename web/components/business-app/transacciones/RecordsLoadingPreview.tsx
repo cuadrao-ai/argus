@@ -2,7 +2,7 @@
 
 import { useDelayedPending } from "../business-skeletons";
 import skeleton from "../business-skeletons.module.css";
-import { COLUMNS, CELL, PIN_CLASS } from "./TransaccionesTable";
+import { COLUMNS, CELL, PIN_CLASS, RECORDS_TITLE } from "./TransaccionesTable";
 import { recordsMinimumWidth, visibleRecordsColumns, type RecordsViewPreferences } from "./records-view-preferences";
 import { DENSITY_ROW_PX, type Density } from "./table-density";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -26,7 +26,7 @@ export default function RecordsLoadingPreview({ density, preferences }: { densit
         <div className="argus-thin-scrollbar relative max-h-[calc(100dvh-15rem)] min-h-[16rem] overflow-auto rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
           <table data-density={density} style={{ minWidth: recordsMinimumWidth(columns, { units: 0, width: "104px" }) }} className="w-full table-fixed border-separate border-spacing-0 text-[14px]">
             <colgroup>{columns.map((column) => <col key={column.key} style={{ width: column.width ?? undefined }} />)}</colgroup>
-            <thead><tr>{columns.map((column) => <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} className={`sticky top-0 z-20 h-11 border-b border-[#DCE0DA] bg-white px-3 text-[13px] font-normal text-[#56635e] dark:border-white/10 dark:bg-[#1f2225] dark:text-white/65 ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${PIN_CLASS[column.pin]} z-30` : ""}`}>{t(column.label_key, { currency: "" }).trim()}</th>)}</tr></thead>
+            <thead><tr>{columns.map((column) => <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} className={`${RECORDS_TITLE} z-20 ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${PIN_CLASS[column.pin]} z-30` : ""}`}>{t(column.label_key, { currency: "" }).trim()}</th>)}</tr></thead>
             <tbody>{ROWS.map((row) => <tr key={row} style={{ height: DENSITY_ROW_PX[density] }}>{columns.map((column) => <td key={column.key} data-col={column.key} data-pinned={column.pin} className={`${CELL} ${column.pin ? PIN_CLASS[column.pin] : ""}`}><RecordsLoadingBar className={`${styles[column.key]} ${column.align === "right" ? styles.right : ""}`} /></td>)}</tr>)}</tbody>
           </table>
         </div>

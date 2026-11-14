@@ -2461,7 +2461,66 @@
         "set_business_legal_name": "confirmed the business legal name",
         "set_business_rnc": "updated the business RNC",
         "settle_remainder": "settled a record's remainder"
-      }
+      },
+      "am": "a.m.",
+      "areas": {
+        "business": "Business",
+        "documents": "Documents",
+        "invoicing": "Invoicing",
+        "records": "Records"
+      },
+      "cols": {
+        "area": "Area",
+        "record": "Record",
+        "time": "Time",
+        "what": "What happened",
+        "who": "Who"
+      },
+      "error_body": "Your records are fine. Try again in a moment.",
+      "error_title": "We could not load the activity",
+      "extractor_name": "Cuadrao",
+      "filtered_body": "There is activity outside this date or these filters.",
+      "filtered_title": "Nothing matches these filters",
+      "filters": {
+        "action": "Action",
+        "all": "All dates",
+        "area": "Area",
+        "clear": "Clear filters",
+        "clear_group": "Clear",
+        "date": "Date",
+        "month": "Last 30 days",
+        "person": "Person",
+        "remove": "Remove filter:",
+        "title": "Filters",
+        "today": "Today",
+        "week": "Last 7 days"
+      },
+      "first_run_body": "When someone uploads, reviews or approves something in this business, you will see it here.",
+      "first_run_title": "No activity yet",
+      "former_member": "Former member",
+      "go_home": "Go to Home",
+      "groups": {
+        "access": "Access",
+        "approvals": "Approvals",
+        "edits": "Record changes",
+        "files": "Attachments",
+        "invoices": "Invoices",
+        "other": "Other",
+        "reading": "Reading",
+        "reviews": "Reviews",
+        "settings": "Business details",
+        "uploads": "Uploads"
+      },
+      "load_more": "Load more",
+      "load_more_failed": "We couldn't load more activity.",
+      "managers_only": "Only owners and admins see this",
+      "no_actor": "Actor not recorded",
+      "no_record": "no data",
+      "pm": "p.m.",
+      "record_placeholder": "-",
+      "retry": "Try again",
+      "unmark_personal": "moved an expense back to the business",
+      "via_chat": "from chat"
     },
     "bank": {
       "empty": {
@@ -2525,22 +2584,10 @@
     "export": {
       "start": "From",
       "end": "Through",
-      "access_error": "This export isn't available with your current access.",
       "limit_error": "This export exceeds a package limit. Choose a shorter period.",
-      "error": "The export could not be downloaded. Check your access and try again.",
-      "preview": "Downloads are available in the connected Business view.",
       "action": "Export",
-      "preparing": "Preparing your file…",
-      "done": "Done. Find the ZIP in your downloads.",
       "range": "{{from}} to {{to}}",
-      "range_invalid": "Choose between 1 and 366 days.",
-      "other_dates": "Other dates",
       "pick_end": "Now pick the last day",
-      "includes": "Includes",
-      "records": "Records",
-      "records_detail": "Excel and CSV",
-      "originals": "Originals",
-      "originals_detail": "Photos and PDFs of each receipt",
       "filename": {
         "dgii": "DGII",
         "mixed": "Purchases and sales",
@@ -2549,16 +2596,7 @@
         "sales": "Sales",
         "to": "to"
       },
-      "fiscal": "606 and 607",
-      "fiscal_detail": "For the DGII",
-      "included": "Included",
-      "fiscal_month_only": "Whole month only",
-      "fiscal_checking": "Checking…",
-      "fiscal_profile": "Name and RNC on the 606",
-      "form_needs_review": "Needs review",
-      "form_no_aplica": "Does not apply",
-      "form_no_operations": "No operations",
-      "form_summary_only": "Summary only"
+      "form_no_aplica": "Does not apply"
     },
     "terms": {
       "calculated_hint": "Calculated: Total − ITBIS",
@@ -2767,7 +2805,6 @@
           "cancelled": "Column order restored.",
           "columns": "Columns",
           "dropped": "Column placed.",
-          "fixed": "Always visible · fixed first",
           "grabbed": "Column picked up. Use the arrow keys to move it.",
           "height": "Row height",
           "instructions": "Drag to reorder. With a keyboard, focus the six-dot handle and press Space, then ↑ or ↓. Space places it; Esc cancels.",
@@ -2776,7 +2813,6 @@
           "move_up": "Move {{name}} up",
           "position_one": "{{name}}, position {{position}} of {{count}}",
           "position_other": "{{name}}, position {{position}} of {{count}}",
-          "required": "Always visible",
           "restore": "Restore defaults"
         },
         "type": "Type",
@@ -2894,7 +2930,7 @@
       "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
       "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
       "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
-      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
+      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "ncf": "NCF", "itbis": "ITBIS", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "rnc_cedula": "RNC or ID", "comprobante": "Proof" },
       "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of_one": "of {{count}}", "of_other": "of {{count}}" },
       "sign": { "in": "Money in", "out": "Money out" },
       "detail": {
@@ -3242,6 +3278,9 @@
         "group_retentions": "Withholdings",
         "group_other": "Other",
         "section_choices": "For the 606",
+        "suggestion_source": {
+          "last_choice": "Last choice for this RNC"
+        },
         "use_suggestion": "Use",
         "mark_no_receipt": "Mark as no receipt"
       },
@@ -3324,6 +3363,22 @@
       "account_unknown": "Unknown"
     },
     "guide_cards": {
+      "actividad_intro": {
+        "copy_review": "approved",
+        "deleted": {
+          "body": "Permanently deleted documents are still noted here, even though they can't be opened.",
+          "label": "Nothing slips by"
+        },
+        "follow": {
+          "body": "See who uploaded, approved, edited or deleted documents, and when.",
+          "label": "Follow the activity"
+        },
+        "open": {
+          "body": "Open a deleted document's row to see it in Deleted or restore it.",
+          "label": "Get it back"
+        },
+        "title": "What happens in your business, in one place"
+      },
       "bandeja_intro": {
         "copy_review": "pending_lucas",
         "pending": {
@@ -3371,10 +3426,12 @@
       "channel_web": "Uploaded",
       "pm": "PM",
       "read": "Read",
+      "reason": { "business_rnc_set": "Your business issued it" },
       "received": "Received",
       "rnc_verified": "RNC verified",
       "set": "{{field}}: {{after}}",
-      "title": "History"
+      "title": "History",
+      "via_cuadrao": "{{name}} via Cuadrao"
     },
     "reading": {
       "line": "Reading your receipt…",
@@ -4236,8 +4293,6 @@
       "group_earlier": "Earlier",
       "no_problems": "No receipts with problems",
       "nothing_to_review": "Your receipts are up to date.",
-      "see_all_body": "Every receipt you have is under All.",
-      "see_all": "See all",
       "segment_review_short": "Review",
       "segment_problem_short": "Issues",
       "email_row_title": "Email from {{sender}}",
@@ -4717,6 +4772,8 @@
       "profile_discard": "Discard changes",
       "profile_discard_detail": "Changes to this section have not been saved.",
       "profile_discard_title": "Discard changes?",
+      "profile_drafts_retyped_one": "1 draft moved to Sales: your business issued it",
+      "profile_drafts_retyped_other": "{{count}} drafts moved to Sales: your business issued them",
       "profile_email": "Business email",
       "profile_error_email": "Enter a valid email address.",
       "profile_error_length_one": "Use {{count}} character or fewer.",

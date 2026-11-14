@@ -670,10 +670,13 @@ export async function signupWithEmail(payload: {
 }) {
   const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
-  const response = await postPasswordAuth<AuthResponsePayload>("/auth/signup", {
-    ...payload,
-    captcha_token: captchaToken,
-    ...attributionBody(),
+  const response = await unauthenticatedApiFetch<AuthResponsePayload>("/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({
+      ...payload,
+      captcha_token: captchaToken,
+      ...attributionBody(),
+    }),
   });
   requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);

@@ -81,7 +81,7 @@ test.each([
 });
 
 test("an export entered in A refuses to send once the person has switched to B", async () => {
-  await assert.rejects(actInAThenSwitchToB(() => api.fetchBusinessExport(undefined, "2026-01-01", "2026-01-31")), { message: "Business selection changed" });
+  await assert.rejects(actInAThenSwitchToB(() => api.fetchBusinessExport("2026-01-01", "2026-01-31")), { message: "Business selection changed" });
   assert.deepEqual(sent, []);
 });
 

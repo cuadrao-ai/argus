@@ -10,7 +10,7 @@ import { createBusinessReportHttpFixture, fixtureId } from "./fixtures/business-
 import { recordedReportAnswer } from "./fixtures/recorded-report-answer";
 import spanish from "@/public/locales/es-419/common.json";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
-import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
+import { mountAnnotatedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
 
 await keepOwnListSearch();
 

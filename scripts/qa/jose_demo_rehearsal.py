@@ -1936,12 +1936,12 @@ class Rehearsal:
         with rec.step(
             "5",
             "606-not-filing-ready",
-            "submitted false, official validation NOT RUN, no DGII_F_606 TXT",
+            "submitted false, official validation NOT RUN, no DGII file in the ZIP",
         ) as obs:
             need(state, "zip")
-            summary = json.loads(z.get("dgii/summary.json", b"{}"))
-            text = json.dumps(manifest) + json.dumps(summary)
-            txt = [n for n in z if n.startswith("dgii/DGII_F_606")]
+            summary = manifest.get("dgii", {})
+            text = json.dumps(manifest)
+            txt = [n for n in z if n.startswith("dgii/")]
             obs.update(
                 txt=txt,
                 submitted=re.findall(r'"submitted": (\w+)', text),
@@ -1952,7 +1952,7 @@ class Rehearsal:
                     if k.startswith("606") or k == "forms"
                 },
             )
-            expect(not txt, "a 606 TXT was produced")
+            expect(not txt, "the ZIP carries a DGII file")
             expect(
                 obs["submitted"] and set(obs["submitted"]) == {"false"},
                 "submitted is not false everywhere",
@@ -1960,12 +1960,12 @@ class Rehearsal:
         with rec.step(
             "5",
             "personal-out-of-606",
-            "the personal purchase is excluded from the DGII packet",
+            "the personal purchase is excluded from the DGII summary",
             fix=FIX_1417 + " (gap 3c)",
-            hop="GET /api/v1/business/exports dgii/summary.json reconciliation",
+            hop="GET /api/v1/business/exports manifest.json dgii reconciliation",
         ) as obs:
             need(state, "zip", "c3_activity")
-            summary = json.loads(z.get("dgii/summary.json", b"{}"))
+            summary = manifest.get("dgii", {})
             hits = [
                 r
                 for r in summary.get("reconciliation", [])

@@ -25,7 +25,7 @@ import BusinessProfileDetails from "./BusinessProfileDetails";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
 import { useBusinessProfile } from "@/components/business-app/useBusinessProfile";
 import { businessAppearanceState,businessSettingsRequest,subscribeBusinessAppearance } from "@/lib/business-profile-api";
-import type { FiscalProfile } from "@/lib/business-dgii";
+import type { FiscalProfile, FiscalProfileSaved } from "@/lib/business-dgii";
 import {referenceCode} from "@/lib/failure-screen";
 import {ReferenceCode} from "@/components/status/ReferenceCode";
 import { SettingsColumns } from "@/components/business-app/foundation/SettingsLayout";
@@ -60,11 +60,11 @@ function BusinessProfileContent() {
   const [fiscalReference,setFiscalReference]=useState<string|null>(null);
   const fiscalRequest=useRef<AbortController|null>(null);
   const fiscalRefused=useRef(false);
-  const fetchFiscal=useCallback(async(options:RequestInit={})=>{
+  const fetchFiscal=useCallback(async<T extends FiscalProfile=FiscalProfile>(options:RequestInit={})=>{
     fiscalRequest.current?.abort();
     const controller=new AbortController();fiscalRequest.current=controller;
     try{
-      const value=await businessSettingsRequest<FiscalProfile>("/business/fiscal-profile",{...options,signal:controller.signal});
+      const value=await businessSettingsRequest<T>("/business/fiscal-profile",{...options,signal:controller.signal});
       if(!fiscalRefused.current){setFiscal(value);setFiscalFailed(false);}
       return value;
     }catch(error){
@@ -119,11 +119,11 @@ function BusinessProfileContent() {
     fiscalProfile:async()=>live ? fetchFiscal() : ({name:profile.name,tax_id:taxType && taxValue ? {type:taxType,value:taxValue} : null,legal_name:null,can_edit:canEdit}),
     saveFiscalProfile:async(input:Parameters<typeof saveBusinessProfilePreview>[2],key:string)=>{
       if(!canEdit) throw new Error("permission_denied");
-      if(live){const next=await fetchFiscal({method:"PATCH",headers:{"Idempotency-Key":key},body:JSON.stringify(input)});reloadWorkspace();retryProfile();return next;}
+      if(live){const next=await fetchFiscal<FiscalProfileSaved>({method:"PATCH",headers:{"Idempotency-Key":key},body:JSON.stringify(input)});reloadWorkspace();retryProfile();return next;}
       saveBusinessProfilePreview(storage(),businessId,input);
       renamePreviewBusiness?.(input.name);
       refresh();
-      return {name:input.name,tax_id:input.tax_id,legal_name:null,can_edit:canEdit};
+      return {name:input.name,tax_id:input.tax_id,legal_name:null,can_edit:canEdit,retyped_drafts:0};
     },
     // The registry check and the confirmed legal name are the server's; the local preview has neither.
     lookupRegistry:live ? lookupRegistry : undefined,

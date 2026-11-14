@@ -81,12 +81,12 @@ test("the web's column keys are the contract's: the openapi Presentation and Rep
 });
 test("the web validates a layout's shape only and keeps no column rule of its own", () => {
   assert.equal(reportPresentationSchema.safeParse({ order: ["date", "counterparty", "category"], hidden: ["counterparty"], density: 48 }).success, true);
-  const ruled = { ...recordedReportAnswer, columns: recordedReportAnswer.columns.map((column) => ({ ...column, required: column.key === "note", pinned: false })) };
-  assert.deepEqual(reportAnswerSchema.parse(ruled).columns, ruled.columns);
+  const reversed = { ...recordedReportAnswer, columns: [...recordedReportAnswer.columns].reverse().map((column) => ({ ...column, shown: !column.shown })) };
+  assert.deepEqual(reportAnswerSchema.parse(reversed).columns, reversed.columns);
 });
 test("authority guard rejects renamed literal defaults and order derived from a catalogue", () => {
   for (const source of [
-    'const required = { counterparty: true, gross_amount: true };',
+    'const alwaysInFile = { counterparty: true, payment_form: true };',
     'const startingColumns = ["counterparty", "date", "gross_amount"];',
     'const layout = () => ({ order: RECORDS_PREVIEW_COLUMNS.map(column => column.key), hidden: ["funding"] });',
     'const schema = z.object({ order: z.array(key).default([...REPORT_PRESENTATION_KEYS]) });',

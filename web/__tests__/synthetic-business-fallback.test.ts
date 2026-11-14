@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { defaultReportRequest } from "../lib/business-reporting-wire";
+import { BUSINESS_GUIDE_CARD_IDS } from "../lib/business-guide-api";
 import { reportAnswerSchema } from "../lib/business-reports-api";
 import recordedAnswer from "../test-fixtures/records-default-report-answer.json";
 
@@ -19,6 +20,32 @@ function syntheticRoute(path = "reports/query", method = "POST", body = JSON.str
 }
 
 describe("synthetic Business fallback", () => {
+  test.each([
+    { type: "rnc", value: "131245678" },
+    { type: "cedula", value: "00113938865" },
+  ])("answers the registry lookup for $type without inventing a registry record", async (taxId) => {
+    const route = syntheticRoute("fiscal-profile/registry", "POST", JSON.stringify({ tax_id: taxId }));
+    await fulfillSyntheticBusinessFallback(route);
+
+    expect(route.responses).toEqual([{
+      tax_id: taxId,
+      verification: "sin_verificar",
+      record: null,
+      checked_at: "2026-10-21T17:45:00Z",
+    }]);
+  });
+
+  test.each([
+    ["fiscal-profile/registry", "GET"],
+    ["fiscal-profile/registry", "PUT"],
+    ["fiscal-profile/registry", "DELETE"],
+    ["fiscal-profile/registry?source=test", "POST"],
+  ])("rejects unsupported registry request %s with %s", async (path, method) => {
+    const route = syntheticRoute(path, method, JSON.stringify({ tax_id: { type: "rnc", value: "131245678" } }));
+    await expect(fulfillSyntheticBusinessFallback(route)).rejects.toThrow("Synthetic fiscal-profile/registry requires POST without query parameters");
+    expect(route.responses).toEqual([]);
+  });
+
   test("fulfills the app's default report request with a complete empty report", async () => {
     const route = syntheticRoute();
     await fulfillSyntheticBusinessFallback(route);
@@ -66,14 +93,14 @@ describe("synthetic Business fallback", () => {
     expect(reportAnswerSchema.parse(first.responses[0])).toMatchObject({ page: 3, page_size: 50, page_count: 0, items: [] });
   });
 
-  test.each(["bandeja-intro", "registros-intro"])("returns the undismissed state for the known guide card %s", async (card) => {
+  test.each([...BUSINESS_GUIDE_CARD_IDS])("returns the undismissed state for the known guide card %s", async (card) => {
     const route = syntheticRoute(`guide-cards/${card}`, "GET");
     await fulfillSyntheticBusinessFallback(route);
 
     expect(route.responses).toEqual([{ dismissed: false }]);
   });
 
-  test.each(["bandeja-intro", "registros-intro"])("returns the dismissed state for the known guide card %s", async (card) => {
+  test.each([...BUSINESS_GUIDE_CARD_IDS])("returns the dismissed state for the known guide card %s", async (card) => {
     const route = syntheticRoute(`guide-cards/${card}/dismiss`, "POST");
     await fulfillSyntheticBusinessFallback(route);
 

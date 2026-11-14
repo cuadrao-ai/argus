@@ -577,16 +577,13 @@ def test_a_recorded_expense_without_an_ncf_needs_fiscal_data(actions):
 
 
 def test_each_card_counts_its_stage_and_its_filter_matches_it(actions):
-    from argus.domain.business.export import export_package
     from argus.domain.business.fiscal_profile import set_profile
     from argus.domain.business.reporting_query import ReportRequest
     from argus.domain.business.reporting_store import read_report
     from argus.domain.business.spaces import PostgresSpaceStore
-    from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 
     from tests.test_business_declaration_after_approval_postgres import (
         FILER,
-        PERIOD,
         account_funding,
         approved,
         captured,
@@ -633,7 +630,16 @@ def test_each_card_counts_its_stage_and_its_filter_matches_it(actions):
         service.authority, context, ReportRequest(filters={"fiscal_data": "complete"})
     )
     assert [row.draft_id for row in before_download.items] == [str(complete)]
-    export_package(service.authority, context, PERIOD, InMemorySourceObjects())
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_dgii_export_lines(space_id,activity_id,form,period,actor_id)"
+            " values(%s,%s,'606','202609',%s)",
+            (
+                context.actor.space_id,
+                view.approval_result.activity_id,
+                context.actor.actor_id,
+            ),
+        )
     assert cards() == (1, 0, 1)
     assert matching("ready_for_export") == []
     [exported] = read_report(

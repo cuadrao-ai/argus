@@ -7,6 +7,7 @@ import type { BusinessDataSource } from "./business-data";
 
 export const RECEIPT_DISCOVERY_MS = 15000;
 export const RECEIPT_READING_MS = 5000;
+const MAX_REFRESH_DELAY_MS = 60000;
 const realClock: PollClock = (fn, ms) => { const timer = setTimeout(fn, ms); return () => clearTimeout(timer); };
 type Page = { items: ReceiptSummary[]; activity: ReceiptActivityCounts | null };
 
@@ -15,7 +16,9 @@ export function useReceiptInboxRefresh({ source, active, reading, businessKey, o
   onRefresh: (page: Page) => void; clock?: PollClock;
 }) {
   const latest = useRef(onRefresh);
+  const failures = useRef(0);
   useEffect(() => { latest.current = onRefresh; });
+  useEffect(() => { failures.current = 0; }, [businessKey]);
   useEffect(() => {
     if (source.mode !== "live") return;
     let current = true;
@@ -25,7 +28,8 @@ export function useReceiptInboxRefresh({ source, active, reading, businessKey, o
     const visible = () => document.visibilityState !== "hidden";
     const schedule = () => {
       cancel();
-      if (current && visible() && eligible) cancel = clock(() => void refresh(), reading ? RECEIPT_READING_MS : RECEIPT_DISCOVERY_MS);
+      const interval = reading ? RECEIPT_READING_MS : RECEIPT_DISCOVERY_MS;
+      if (current && visible() && eligible) cancel = clock(() => void refresh(), Math.min(interval * 2 ** failures.current, MAX_REFRESH_DELAY_MS));
     };
     const refresh = async () => {
       if (!current || !visible() || request) return;
@@ -33,8 +37,14 @@ export function useReceiptInboxRefresh({ source, active, reading, businessKey, o
       request = controller;
       try {
         const page = source.receiptPage ? await source.receiptPage("inbox", controller.signal) : { items: await source.receipts("inbox"), activity: null };
-        if (current && !controller.signal.aborted) latest.current(page);
-      } catch { /* Keep the last server projection until the next refresh. */ }
+        if (current && !controller.signal.aborted) {
+          failures.current = 0;
+          latest.current(page);
+        }
+      } catch {
+        // Keep the last server projection; cancellation is not a failed refresh.
+        if (current && !controller.signal.aborted) failures.current++;
+      }
       finally { if (request === controller) request = null; schedule(); }
     };
     const wake = () => {

@@ -117,7 +117,7 @@ describe("the form marks the fields the server's blockers name; the attention st
     const { html } = await render(dossier);
     assert.ok(!html.includes('data-testid="receipt-review-counts"'));
     assert.ok(!html.includes(">Falta<") && !html.includes("Faltan"));
-    assert.ok(html.includes('data-fact="ncf" data-standing="empty"') && !html.includes("Sin dato"));
+    assert.ok(html.includes('data-fact="fiscal_number" data-standing="person"') && !html.includes('data-fact="ncf"') && !html.includes("Sin dato"));
   });
 
   test("a blocked field that has a value is 'por resolver', never 'Falta': the line equals the chips (amount is a blocked suggestion)", async () => {
@@ -171,7 +171,7 @@ describe("the record facts on the review page", () => {
     assert.ok(!html.includes("confirm-counterparty") && !html.includes("lucide-sparkles"));
     assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && !html.includes('data-fact="category_id"'));
     for (const chip of ["Sin verificar", "lucide-circle-dashed"]) assert.ok(!html.includes(chip), chip);
-    assert.ok(html.includes('data-fact="ecf" data-standing="suggestion"') && !html.includes("confirm-ecf"));
+    assert.ok(html.includes('data-fact="fiscal_number" data-standing="suggestion"') && !html.includes("confirm-ecf"));
     assert.ok(html.indexOf('data-fact="counterparty"') < html.indexOf('data-fact="occurred_on"'));
     assert.ok(html.indexOf('data-fact="amount"') > html.indexOf('data-fact="counterparty"'));
     assert.ok(!html.includes("Desconocido"), "the unknown amount is an empty field");
@@ -262,3 +262,29 @@ for (const language of ["es-419", "en"] as const) {
     }
   }
 }
+
+describe("the NCF and the e-CF are one fiscal number, on a recorded receipt and in review", () => {
+  const read = (value: string): BusinessFact<string> => ({ ...known("extracted"), value });
+  const receipts = [
+    { carries: "ncf", number: "B0100000123", fiscal: { rnc: unknown, ncf: read("B0100000123"), ecf: unknown, itbis: unknown } },
+    { carries: "ecf", number: "E310000000777", fiscal: { rnc: unknown, ncf: unknown, ecf: read("E310000000777"), itbis: unknown } },
+  ] as const;
+  const fiscalRows = (html: string) => [...html.matchAll(/data-fact="(ncf|ecf|fiscal_number)"/g)].map((match) => match[1]);
+  const numberRow = (html: string) => html.match(/<div data-fact="fiscal_number"[^>]*><dt[^>]*>.*?<\/dt>/)?.[0];
+
+  for (const { carries, number, fiscal } of receipts) {
+    test(`a receipt with an ${carries} shows one NCF / e-CF row with its number, the same row in both views`, async () => {
+      const base = await fixture();
+      const dossier = { ...base, facts: { ...base.facts, fiscal }, fiscal_known: true, fiscal_value: carries, blockers: [], questions: [] } as unknown as BusinessDossier;
+      const recorded = (await render(dossier)).html;
+      const reviewing = (await render(dossier, "es-419", true, [], true)).html;
+      for (const html of [recorded, reviewing]) {
+        assert.deepEqual(fiscalRows(html), ["fiscal_number"]);
+        assert.ok(html.slice(html.indexOf('data-fact="fiscal_number"')).includes(number));
+      }
+      assert.ok(numberRow(recorded)?.includes(">NCF / e-CF</dt>"));
+      assert.equal(numberRow(recorded), numberRow(reviewing), "one label, one standing and one source match for both views");
+      assert.ok(!recorded.slice(recorded.indexOf('data-testid="receipt-facts-fiscal"')).includes("El dueño no sabe"));
+    });
+  }
+});

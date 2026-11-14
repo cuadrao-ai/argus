@@ -16,9 +16,9 @@ afterEach(async () => { await cleanup(); (await import("@/components/layout/over
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
 
 const renderedColumnKeys = () => [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
-test("an old saved URL shows the server's upgrade: the net amount before the total, NCF and ITBIS hidden, and later edits kept", async () => {
-  const order = recordedReportAnswer.presentation.order.filter((key) => key !== "fiscal_number" && key !== "net_amount" && key !== "itbis_amount");
-  const presentation = { order: [order[0], ...order.slice(1).reverse()], hidden: ["date"], density: 40 as const };
+test("an old saved URL shows the server's upgrade: the net amount before the total, RNC o Cédula, NCF and ITBIS hidden, and later edits kept", async () => {
+  // A link from before RNC o Cédula, NCF, the net amount and ITBIS were columns.
+  const presentation = { order: ["counterparty", "funding", "payment_form", "expense_type", "attachment", "note", "stage", "gross_amount", "date"], hidden: ["date"], density: 40 as const };
   const request = reportRequestSchema.parse({ schema_version: 2, presentation });
   window.history.replaceState(null, "", `/biz?report=${encodeURIComponent(JSON.stringify(request))}`);
   const page = await mount();
@@ -26,7 +26,7 @@ test("an old saved URL shows the server's upgrade: the net amount before the tot
   assert.deepEqual(renderedColumnKeys(), expectedColumns);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  for (const key of ["fiscal_number", "itbis_amount"]) {
+  for (const key of ["counterparty_id", "fiscal_number", "itbis_amount"]) {
     const checkbox = document.querySelector<HTMLInputElement>(`[data-column-setting="${key}"] input[type="checkbox"]`);
     assert.equal(checkbox?.checked, false, `${key} must be available and hidden`);
   }
@@ -38,25 +38,29 @@ test("an old saved URL shows the server's upgrade: the net amount before the tot
   assert.deepEqual(renderedColumnKeys(), [...expectedColumns, "fiscal_number"]);
   const restored = restoreReportLocation(new URLSearchParams(window.location.search)).request;
   const upgraded = presentation.order.flatMap((key) => key === "gross_amount" ? ["net_amount", key] : [key]);
-  assert.deepEqual(restored.schema_version === 2 && restored.presentation, { ...presentation, order: [...upgraded, "fiscal_number", "itbis_amount"], hidden: ["date", "itbis_amount"] });
+  assert.deepEqual(restored.schema_version === 2 && restored.presentation, { ...presentation, order: [...upgraded, "counterparty_id", "itbis_amount", "fiscal_number"], hidden: ["date", "counterparty_id", "itbis_amount"] });
 });
 
-for (const language of ["es-419", "en"] as const) test(`server defaults show eight columns and all optional columns remain available in ${language}`, async () => {
+for (const language of ["es-419", "en"] as const) test(`server defaults start with RNC o Cédula and every other column stays in the menu in ${language}`, async () => {
   const page = await mount({ language });
-  assert.deepEqual(renderedColumnKeys(), ["counterparty", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment"]);
+  assert.deepEqual(renderedColumnKeys(), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.equal(document.querySelector("thead th")?.textContent, language === "en" ? "RNC or ID" : "RNC o Cédula");
   assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).every((call) => !Object.hasOwn(call.body as object, "presentation")), "fresh V1 and V2 requests leave defaults to the server");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  for (const [key, label] of language === "en" ? [["expense_type", "Expense type"], ["payment_form", "Payment method"], ["funding", "Account"], ["fiscal_number", "NCF"], ["itbis_amount", "ITBIS"]] : [["expense_type", "Tipo de gasto"], ["payment_form", "Forma de pago"], ["funding", "Cuenta"], ["fiscal_number", "NCF"], ["itbis_amount", "ITBIS"]]) {
+  const shown = ["counterparty_id", "expense_type"];
+  for (const [key, label] of language === "en" ? [["counterparty_id", "RNC or ID"], ["expense_type", "Expense type"], ["counterparty", "Counterparty"], ["fiscal_number", "NCF"], ["note", "Notes"], ["attachment", "Attachment"], ["payment_form", "Payment method"], ["funding", "Account"]] : [["counterparty_id", "RNC o Cédula"], ["expense_type", "Tipo de gasto"], ["counterparty", "Contraparte"], ["fiscal_number", "NCF"], ["note", "Notas"], ["attachment", "Adjunto"], ["payment_form", "Forma de pago"], ["funding", "Cuenta"]]) {
     const row = document.querySelector(`[data-column-setting="${key}"]`);
     assert.ok(row?.textContent?.includes(label));
-    assert.equal(row?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked, key === "itbis_amount");
+    const checkbox = row?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    assert.equal(checkbox?.checked, shown.includes(key));
+    assert.equal(checkbox?.disabled, false, "no column is locked by name");
   }
 });
 
 test("server layout changes render, saved views retain the effective layout, and Restore asks for fresh defaults", async () => {
-  const chosen: typeof recordedReportAnswer.presentation = { ...recordedReportAnswer.presentation, order: ["counterparty", ...recordedReportAnswer.presentation.order.slice(1).reverse()], hidden: [], density: 40 as const };
+  const chosen: typeof recordedReportAnswer.presentation = { ...recordedReportAnswer.presentation, order: [...recordedReportAnswer.presentation.order].reverse(), hidden: [], density: 40 as const };
   const page = await mount({ presentation: chosen });
-  assert.deepEqual(renderedColumnKeys(), ["counterparty", "funding", "payment_form", "expense_type", "attachment", "note", "stage", "gross_amount", "itbis_amount", "net_amount", "date", "fiscal_number"]);
+  assert.deepEqual(renderedColumnKeys(), ["funding", "payment_form", "attachment", "note", "fiscal_number", "stage", "gross_amount", "itbis_amount", "net_amount", "expense_type", "date", "counterparty", "counterparty_id"]);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista actual"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Mi diseño"); await page.click(page.button("Guardar"));
@@ -67,7 +71,7 @@ test("server layout changes render, saved views retain the effective layout, and
   await page.click(document.querySelector('[data-testid="records-refresh"]'));
   await page.settle(() => !renderedColumnKeys().includes("attachment"));
   await page.click(page.button("Vistas: Mi diseño")); await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Mi diseño"));
-  await page.settle(() => renderedColumnKeys()[1] === "funding");
+  await page.settle(() => renderedColumnKeys()[0] === "funding");
   assert.deepEqual((page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as { presentation: unknown }).presentation, chosen);
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   await page.click(page.button("Restaurar valores iniciales"));
@@ -158,16 +162,23 @@ test("selected ITBIS stays unknown when row currency is missing", async () => {
   assert.ok(amounts.every((cell) => cell.textContent === "-sin dato"));
 });
 
-test("column up and down buttons move the saved order and keep counterparty fixed", async () => {
+test("column up and down buttons move any column to the first place, where it freezes, and the last shown column cannot hide", async () => {
   const page = await mount();
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+  assert.equal(document.querySelectorAll("[data-column-setting]").length, document.querySelectorAll('[data-column-setting] [aria-label^="Mover "]').length, "every column moves");
   const row = () => document.querySelector('[data-column-setting="date"]')!;
   await page.click(row().querySelector('[aria-label="Subir Fecha"]'));
+  await page.click(row().querySelector('[aria-label="Subir Fecha"]'));
   const restored = restoreReportLocation(new URLSearchParams(window.location.search)).request;
-  assert.equal(restored.schema_version === 2 && restored.presentation?.order[1], "date");
+  assert.equal(restored.schema_version === 2 && restored.presentation?.order[0], "date");
   assert.equal(row().querySelector<HTMLButtonElement>('[aria-label="Subir Fecha"]')?.disabled, true);
-  await page.click(row().querySelector('[aria-label="Bajar Fecha"]'));
-  await page.click(row().querySelector('[aria-label="Bajar Fecha"]'));
-  assert.equal(document.querySelector('[data-column-setting="counterparty"] button'), null);
-  assert.deepEqual(renderedColumnKeys().slice(0, 3), ["counterparty", "net_amount", "date"]);
+  assert.deepEqual(renderedColumnKeys().slice(0, 2), ["date", "counterparty_id"]);
+  assert.equal(document.querySelector('thead th[data-col="date"]')?.getAttribute("data-pinned"), "top left");
+  assert.equal(document.querySelector('tbody td[data-col="counterparty_id"]')?.getAttribute("data-pinned"), null);
+  const box = (key: string) => document.querySelector<HTMLInputElement>(`[data-column-setting="${key}"] input[type="checkbox"]`)!;
+  for (const key of renderedColumnKeys().slice(1)) await page.click(box(key!));
+  assert.deepEqual(renderedColumnKeys(), ["date"]);
+  assert.equal(box("date").disabled, true);
+  await page.click(box("note"));
+  assert.equal(box("date").disabled, false);
 });

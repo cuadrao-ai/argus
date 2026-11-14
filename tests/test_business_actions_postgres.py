@@ -961,7 +961,6 @@ def test_owner_workspace_uses_existing_live_membership(actions, monkeypatch):
             "invoicing_available",
         "notifications_available",
             "settlement_available",
-            "activity_available",
             "receiving_channels",
             "receipt_limits",
             "logo_url",

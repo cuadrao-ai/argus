@@ -303,6 +303,42 @@ def test_the_logo_needs_a_started_business(biz: TestClient) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "content,media_type,status,code",
+    [
+        (b"not an image", "application/pdf", 415, "image_media_type_unsupported"),
+        (b"\0" * (MAX_BYTES + 1), "image/png", 413, "image_too_large"),
+        (b"not an image", "image/png", 422, "image_invalid"),
+    ],
+    ids=["unsupported", "oversized", "undecodable"],
+)
+@pytest.mark.parametrize("boundary", ["allowed", "denied", "unavailable"])
+def test_logo_validation_preserves_permission_and_availability_error_precedence(
+    biz: TestClient,
+    alice: Owner,
+    bob: Owner,  # noqa: F811
+    member: dict[str, str],  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    content: bytes,
+    media_type: str,
+    status: int,
+    code: str,
+    boundary: str,
+) -> None:
+    headers = alice.auth
+    if boundary == "denied":
+        headers = {**bob.auth, **member}
+        status, code = 403, "business_permission_denied"
+    elif boundary == "unavailable":
+        monkeypatch.setattr("argus.api.profile_images._images", None)
+        status, code = 503, "profile_images_unavailable"
+
+    refused = _put(biz, LOGO, content, media_type, **headers)
+    assert refused.status_code == status, refused.text
+    assert refused.json()["code"] == code
+    assert refused.headers["cache-control"] == "no-store"
+
+
 def test_erasing_a_subject_removes_only_its_object(biz: TestClient, identities) -> None:
     """What account deletion and the Business purge call: the object goes,
     other subjects keep theirs, and a second erase is a no-op."""

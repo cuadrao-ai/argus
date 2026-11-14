@@ -1,3 +1,4 @@
+import type { ReceiptSummary } from "@/lib/business-api";
 import type { ReceptionRow } from "./reception-model";
 
 /** The four row tags, plus the existing word for a discarded receipt. `reason` is a code the server sent. */
@@ -8,15 +9,19 @@ export type ReceptionTag =
   | { tag: "approved" }
   | { tag: "dismissed" };
 
-export function receptionTag(row: ReceptionRow): ReceptionTag {
-  if (row.kind === "note") return { tag: "attention", reason: "note" };
-  if (row.kind === "email") return row.email.standing === "reading" ? { tag: "reading" } : { tag: "attention", reason: "no_receipt" };
-  const { status, bandeja_group: group } = row.receipt;
+/** A receipt's tag, from the server's Bandeja group. Every place that says a receipt needs attention or is ready reads it here. */
+export function receiptTag({ status, bandeja_group: group }: Pick<ReceiptSummary, "status" | "bandeja_group">): ReceptionTag {
   if (status === "confirmed") return { tag: "approved" };
   if (status === "dismissed") return { tag: "dismissed" };
   if (group?.group === "listo") return { tag: "listo" };
   if (group?.reason === "reading") return { tag: "reading" };
   return { tag: "attention", reason: group?.reason ?? null };
+}
+
+export function receptionTag(row: ReceptionRow): ReceptionTag {
+  if (row.kind === "note") return { tag: "attention", reason: "note" };
+  if (row.kind === "email") return row.email.standing === "reading" ? { tag: "reading" } : { tag: "attention", reason: "no_receipt" };
+  return receiptTag(row.receipt);
 }
 
 const MISSING = "business.transactions.layout.workflow.missing";

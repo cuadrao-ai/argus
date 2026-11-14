@@ -185,17 +185,7 @@ export type ReceiptDetail = ReceiptSummary & {
   missing_fields: (keyof ReceiptReviewFields)[];
 };
 
-export function businessExportPeriodValid(start: string, end: string): boolean {
-  const date = (value: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000-")) return NaN;
-    const parsed = Date.parse(`${value}T00:00:00Z`);
-    return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value ? parsed : NaN;
-  };
-  const days = (date(end) - date(start)) / 86_400_000;
-  return days >= 0 && days <= 365;
-}
-
-export async function fetchBusinessExport(draftId: string | undefined, start: string, end: string, signal?: AbortSignal, expectedGrant = getChosenGrant()): Promise<Blob> {
+export async function fetchBusinessExport(start: string, end: string, signal?: AbortSignal, expectedGrant = getChosenGrant()): Promise<Blob> {
   const generation = browserAuthGeneration();
   const grant = expectedGrant;
   const requireScope = () => {
@@ -206,7 +196,6 @@ export async function fetchBusinessExport(draftId: string | undefined, start: st
   const authHeaders = await authenticatedRequestHeaders();
   requireScope();
   const query = new URLSearchParams({ start, end });
-  if (draftId) query.set("draft_id", draftId);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/exports?${query}`, {
     headers: argusApiRequestHeaders(undefined, authHeaders, grant), credentials: "include", cache: "no-store", signal,
   });
@@ -371,8 +360,6 @@ export type BusinessWorkspaceInfo = {
   notifications_available?: boolean;
   /** Whether the server offers Por cobrar and Por pagar; the one switch. Absent in older payloads. */
   settlement_available?: boolean;
-  /** Whether the server offers Actividad; the one switch. Absent in older payloads. */
-  activity_available?: boolean;
   /** Server-owned channel availability, independent of address or linking state. */
   receiving_channels?: ReceivingChannels;
   /** What a receipt upload accepts. The backend's document settings own it. */
@@ -400,11 +387,6 @@ export function businessInvoicingAvailable(workspace: BusinessWorkspaceInfo): bo
 /** The one reader of `settlement_available`: an older payload, or none yet, offers no Por cobrar or Por pagar. */
 export function businessSettlementAvailable(workspace: Pick<BusinessWorkspaceInfo, "settlement_available"> | null | undefined): boolean {
   return workspace?.settlement_available === true;
-}
-
-/** The one reader of `activity_available`: an older payload, or none yet, offers no Actividad. */
-export function businessActivityAvailable(workspace: Pick<BusinessWorkspaceInfo, "activity_available"> | null | undefined): boolean {
-  return workspace?.activity_available === true;
 }
 
 export type ReceiptLimits = {

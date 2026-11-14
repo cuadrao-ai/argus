@@ -267,6 +267,33 @@ describe("the receipt dossier on an open draft", () => {
     } finally { await page.close(); }
   });
 
+  test("both choices show the server's suggestion with its source, and Usar writes it", async () => {
+    const page = await setup();
+    try {
+      const rows = [["category", "expense-type-suggestion", "Gastos por trabajos, suministros y servicios", "02"], ["payment_method", "payment-form-suggestion", "Tarjeta crédito/débito", "03"]] as const;
+      for (const [index, [choice, id, label, code]] of rows.entries()) {
+        const offered = page.row(choice).querySelector(`[data-testid="${id}"]`);
+        assert.ok(offered?.textContent?.includes(`Sugerido: ${label}`), choice);
+        assert.equal(offered?.querySelector('[data-suggestion-source="last_choice"]')?.textContent, "Última elección para este RNC");
+        assert.equal(page.row(choice).querySelector("select")?.value, "", "a suggestion is not a choice");
+        await page.act(async () => button(page.row(choice), "Usar").click());
+        await page.wait(() => Boolean(page.row(choice).querySelector('[data-testid="row-saved"]')));
+        assert.deepEqual([page.writes[index].kind, page.writes[index].body], ["purchase", { [choice]: code }]);
+        assert.equal(page.row(choice).querySelector("select")?.value, code);
+        assert.equal(page.host.querySelector(`[data-testid="${id}"]`), null);
+      }
+    } finally { await page.close(); }
+  });
+
+  test("with no suggestion from the server neither choice offers one", async () => {
+    const page = await setup("fiscal", (dossier) => { dossier.declaration_suggestions = { category: null, payment_method: null }; });
+    try {
+      assert.equal(page.host.querySelector('[data-testid="expense-type-suggestion"]'), null);
+      assert.equal(page.host.querySelector('[data-testid="payment-form-suggestion"]'), null);
+      assert.equal(button(page.host, "Aprobar").disabled, false);
+    } finally { await page.close(); }
+  });
+
   test("edits made in a row keep their order: a second save waits for the first and takes its version", async () => {
     const order: [string, number][] = [];
     let answerFirst = () => undefined as void;

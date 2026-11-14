@@ -7,7 +7,7 @@ import * as searchApi from "@/lib/business-search-api";
 import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
 import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
-import { getDgiiFields, getFiscalProfile, lookupRegistry, reviewDgii, reviewPurchase, setFiscalProfile, setLegalName, type DgiiFields, type DgiiReview, type FiscalProfile, type FiscalProfileInput, type LegalNameInput, type PurchaseChoice, type RegistryAnswer, type TaxId } from "@/lib/business-dgii";
+import { getDgiiFields, getFiscalProfile, lookupRegistry, reviewDgii, reviewPurchase, setFiscalProfile, setLegalName, type DgiiFields, type DgiiReview, type FiscalProfile, type FiscalProfileInput, type FiscalProfileSaved, type LegalNameInput, type PurchaseChoice, type RegistryAnswer, type TaxId } from "@/lib/business-dgii";
 import type {
   GrantedSpace,
   BusinessAccount,
@@ -93,7 +93,7 @@ export type BusinessDataSource = Readonly<{
   emailIntake: () => Promise<BusinessEmailIntake>;
   /** The business's name and tax id as the 606, 607 and exports print them. */
   fiscalProfile: (draftId?: string) => Promise<FiscalProfile>;
-  saveFiscalProfile: (input: FiscalProfileInput, key: string) => Promise<FiscalProfile>;
+  saveFiscalProfile: (input: FiscalProfileInput, key: string) => Promise<FiscalProfileSaved>;
   /** Only the live source checks the registry and stores a legal name; elsewhere the Razón social block is absent. */
   lookupRegistry?: (taxId: TaxId, signal?: AbortSignal) => Promise<RegistryAnswer>;
   saveLegalName?: (input: LegalNameInput, key: string) => Promise<FiscalProfile>;
