@@ -40,33 +40,33 @@ function LegalNav({ locale, c }: { locale: BusinessLocale; c: FooterCopy }) {
 
 const SOCIAL_ICONS = { tiktok: Music2, instagram: Instagram, youtube: Youtube } as const;
 
-function FooterBar({ c, locale }: { c: FooterCopy; locale: BusinessLocale }) {
+function FooterSocial({ c }: { c: FooterCopy }) {
   const socials = visibleSocials(
     SOCIAL_PLATFORMS,
     socialPreviewEnabled(process.env.CUADRAO_SOCIAL_PREVIEW),
   );
+  if (socials.length === 0) return null;
   return (
-    <div className={`${styles.footerBar} ${shell.footerBarWithCredits}`}>
-      {socials.length > 0 && (
-        <div className={styles.footerSocial} role="group" aria-label={c.socialLabel}>
-          {socials.map(({ id, label, href }) => {
-            const Icon = SOCIAL_ICONS[id];
-            return href ? (
-              <a key={id} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}>
-                <Icon size={18} aria-hidden="true" />
-              </a>
-            ) : (
-              <span key={id} role="img" aria-label={label}>
-                <Icon size={18} aria-hidden="true" />
-              </span>
-            );
-          })}
-        </div>
-      )}
-      <a href="#top" className={styles.backTop}>
-        {c.top}
-        <ArrowUpRight size={16} aria-hidden="true" />
-      </a>
+    <div className={styles.footerSocial} role="group" aria-label={c.socialLabel}>
+      {socials.map(({ id, label, href }) => {
+        const Icon = SOCIAL_ICONS[id];
+        return href ? (
+          <a key={id} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}>
+            <Icon size={18} aria-hidden="true" />
+          </a>
+        ) : (
+          <span key={id} role="img" aria-label={label}>
+            <Icon size={18} aria-hidden="true" />
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function FooterBar({ c, locale }: { c: FooterCopy; locale: BusinessLocale }) {
+  return (
+    <div className={styles.footerBar}>
       <div className={shell.footerCredits} data-footer-credits>
         <p>© Cuadrao LLC 2026</p>
         <div className={shell.footerCreditReveal}>
@@ -75,6 +75,10 @@ function FooterBar({ c, locale }: { c: FooterCopy; locale: BusinessLocale }) {
           </div>
         </div>
       </div>
+      <a href="#top" className={styles.backTop}>
+        {c.top}
+        <ArrowUpRight size={16} aria-hidden="true" />
+      </a>
     </div>
   );
 }
@@ -109,6 +113,7 @@ export function BusinessFooter({
           </a>
           <span>{c.business}</span>
           <p>{c.footerTag}</p>
+          <FooterSocial c={c} />
         </div>
         <nav aria-label={c.footerExplore}>
           <span>{c.footerExplore}</span>
