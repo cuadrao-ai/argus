@@ -66,13 +66,6 @@
   margin-top: 3px;
 }
 
-.body {
-  color: color-mix(in srgb, var(--fg) 74%, transparent);
-  font-size: 14px;
-  line-height: 1.45;
-  margin-top: 6px;
-}
-
 @container guide-card (min-width: 38rem) {
   .points {
     grid-template-columns: repeat(3, minmax(0, 1fr));

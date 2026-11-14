@@ -3361,9 +3361,20 @@
     },
     "guide_cards": {
       "actividad_intro": {
-        "body": "Sigue lo que tú o tu equipo hacen en el negocio: quién subió, aprobó, editó o eliminó documentos, y cuándo. Abre una fila para ir directo a ese documento o registro.",
         "copy_review": "approved",
-        "title": "Quién hizo qué y cuándo"
+        "deleted": {
+          "body": "Lo que se borra definitivamente también queda anotado, aunque ya no se pueda abrir.",
+          "label": "Nada se pierde de vista"
+        },
+        "follow": {
+          "body": "Ve quién subió, aprobó, editó o eliminó documentos, y cuándo.",
+          "label": "Sigue la actividad"
+        },
+        "open": {
+          "body": "Abre una fila para ir a ese documento o registro.",
+          "label": "Ve directo al documento"
+        },
+        "title": "Lo que pasa en tu negocio, en un solo lugar"
       },
       "bandeja_intro": {
         "copy_review": "approved",

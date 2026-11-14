@@ -97,16 +97,36 @@ async function mount(query: string, language: keyof typeof LANGUAGES = "es-419")
   return { host, settle, guide, dismiss, close: () => act(async () => root.unmount()) };
 }
 
-for (const language of ["es-419", "en"] as const) test(`Actividad shows its one-body guide in ${language} until the person dismisses it`, async () => {
-  const copy = LANGUAGES[language].business.guide_cards.actividad_intro;
+const LOCKED = {
+  "es-419": {
+    title: "Lo que pasa en tu negocio, en un solo lugar",
+    points: [
+      ["Sigue la actividad", "Ve quién subió, aprobó, editó o eliminó documentos, y cuándo."],
+      ["Ve directo al documento", "Abre una fila para ir a ese documento o registro."],
+      ["Nada se pierde de vista", "Lo que se borra definitivamente también queda anotado, aunque ya no se pueda abrir."],
+    ],
+  },
+  en: {
+    title: "What happens in your business, in one place",
+    points: [
+      ["Follow the activity", "See who uploaded, approved, edited or deleted documents, and when."],
+      ["Go straight to it", "Open a row to go to that document or record."],
+      ["Nothing slips by", "Permanently deleted documents are still noted here, even though they can't be opened."],
+    ],
+  },
+} as const;
+
+for (const language of ["es-419", "en"] as const) test(`Actividad shows its three-point guide in ${language} until the person dismisses it`, async () => {
   const page = await mount("view=activity", language);
   try {
     await page.settle(() => page.guide() !== null);
     const guide = page.guide()!;
     assert.ok(page.host.querySelector('[data-testid="business-activity-draft"]')?.contains(guide));
-    assert.equal(guide.querySelector("h3")?.textContent, copy.title);
-    assert.deepEqual([...guide.querySelectorAll("p")].map((item) => item.textContent), [copy.body]);
-    assert.equal(guide.querySelector("ul"), null, "one body, no labeled points");
+    assert.equal(guide.querySelector("h3")?.textContent, LOCKED[language].title);
+    assert.deepEqual(
+      [...guide.querySelectorAll("li")].map((item) => [item.querySelector("strong")?.textContent, item.querySelector("p")?.textContent]),
+      LOCKED[language].points,
+    );
     await page.dismiss();
     await page.settle(() => page.guide() === null);
     assert.deepEqual(guideRequests, ["GET /business/guide-cards/actividad-intro", "POST /business/guide-cards/actividad-intro/dismiss"]);

@@ -389,7 +389,13 @@ export default function ActivityDraft() {
   return (
     <div data-testid="business-activity-draft">
       <PageHeading screen="activity" />
-      {live && userId && chosen ? <GuideCard cardId="actividad-intro" userId={userId} title={t("business.guide_cards.actividad_intro.title")} body={t("business.guide_cards.actividad_intro.body")} /> : null}
+      {live && userId && chosen ? (
+        <GuideCard cardId="actividad-intro" userId={userId} title={t("business.guide_cards.actividad_intro.title")} points={[
+          { label: t("business.guide_cards.actividad_intro.follow.label"), body: t("business.guide_cards.actividad_intro.follow.body") },
+          { label: t("business.guide_cards.actividad_intro.open.label"), body: t("business.guide_cards.actividad_intro.open.body") },
+          { label: t("business.guide_cards.actividad_intro.deleted.label"), body: t("business.guide_cards.actividad_intro.deleted.body") },
+        ]} />
+      ) : null}
       {/* The controls stay while the history loads; empty and failed states have nothing to filter. */}
       {live || mode === "empty" || mode === "error" ? null : toolbar}
       {body}

@@ -3325,9 +3325,20 @@
     },
     "guide_cards": {
       "actividad_intro": {
-        "body": "Follow what you or your team do in the business: who uploaded, approved, edited or deleted documents, and when. Open a row to go straight to that document or record.",
         "copy_review": "approved",
-        "title": "Who did what, and when"
+        "deleted": {
+          "body": "Permanently deleted documents are still noted here, even though they can't be opened.",
+          "label": "Nothing slips by"
+        },
+        "follow": {
+          "body": "See who uploaded, approved, edited or deleted documents, and when.",
+          "label": "Follow the activity"
+        },
+        "open": {
+          "body": "Open a row to go to that document or record.",
+          "label": "Go straight to it"
+        },
+        "title": "What happens in your business, in one place"
       },
       "bandeja_intro": {
         "copy_review": "pending_lucas",
