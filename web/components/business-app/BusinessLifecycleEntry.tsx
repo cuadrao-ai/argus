@@ -14,6 +14,7 @@ import { ReferenceCode } from "@/components/status/ReferenceCode";
 import BusinessCloseDialog, { BusinessCloseShell, useBusinessCloseCopy, type BusinessCloseState } from "./BusinessCloseDialog";
 import BusinessTransferDialog, { useBusinessTransferCopy } from "./BusinessTransferDialog";
 import { useBusinessCloseDownloads } from "./useBusinessCloseDownloads";
+import { ToastViewport } from "./foundation/ToastViewport";
 import { secondaryButtonClass } from "./business-ui";
 import { formatBusinessName } from "./business-format";
 
@@ -95,5 +96,6 @@ export default function BusinessLifecycleEntry({ spaceId, action }: { spaceId: s
 /** The close dialog with this Business's own handover downloads. */
 function BusinessCloseFlow({ business, ...dialog }: { business: OwnedBusiness } & Omit<ComponentProps<typeof BusinessCloseDialog>, "preview" | "downloads">) {
   const downloads = useBusinessCloseDownloads(business);
-  return <BusinessCloseDialog {...dialog} preview={business} downloads={downloads} />;
+  // This entry draws without the workspace, so it brings the toast's one place with it.
+  return <><BusinessCloseDialog {...dialog} preview={business} downloads={downloads} /><ToastViewport /></>;
 }

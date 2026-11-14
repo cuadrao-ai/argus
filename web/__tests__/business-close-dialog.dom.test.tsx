@@ -5,6 +5,7 @@ import { act } from "react";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
+import english from "@/public/locales/en/common.json";
 import { createRoot } from "react-dom/client";
 import BusinessCloseDialog, { businessCloseCopyEs, type BusinessCloseState, type CloseDownload } from "@/components/business-app/BusinessCloseDialog";
 
@@ -15,11 +16,11 @@ beforeAll(() => {
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 const windows = [
-  { key: "2025-01-01/2025-12-31", start: "2025-01-01", end: "2025-12-31", record_count: 1204, original_count: 987, status: "idle" },
-  { key: "2026-01-01/2026-10-21", start: "2026-01-01", end: "2026-10-21", record_count: 1, original_count: 1, status: "idle" },
+  { key: "2025-01-01/2025-12-31", start: "2025-01-01", end: "2025-12-31", record_count: 1204, status: "idle" },
+  { key: "2026-01-01/2026-10-21", start: "2026-01-01", end: "2026-10-21", record_count: 1, status: "idle" },
 ] satisfies CloseDownload[];
 
-async function mount(first: CloseDownload[] = windows) {
+async function mount(first: CloseDownload[] = windows, members = 7) {
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const i18n = i18next.createInstance();
@@ -30,7 +31,7 @@ async function mount(first: CloseDownload[] = windows) {
   let items = first;
   const render = async (state: BusinessCloseState = { kind: "idle" }, name = "Taller Luna", next = items) => {
     items = next;
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessCloseDialog businessName={name} preview={{ member_count: 7, reopen_until: "2026-11-20T17:45:00Z" }} copy={businessCloseCopyEs} state={state} downloads={{ items, start: (key) => { started.push(key); } }} onConfirm={(name) => { confirmed.push(name); }} onCancel={() => { cancelled++; }} /></I18nextProvider>));
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessCloseDialog businessName={name} preview={{ member_count: members, reopen_until: "2026-11-20T17:45:00Z" }} copy={businessCloseCopyEs} state={state} downloads={{ items, start: (key) => { started.push(key); } }} onConfirm={(name) => { confirmed.push(name); }} onCancel={() => { cancelled++; }} /></I18nextProvider>));
   };
   await render();
   const button = (text: string) => { const found = [...document.querySelectorAll("button")].find((item) => item.textContent === text); assert.ok(found, text); return found; };
@@ -47,12 +48,16 @@ test("closing is one centered dialog, never the side dossier or a second overlay
     assert.ok(dialog);
     assert.equal(dialog.getAttribute("role"), "dialog");
     assert.equal(dialog.getAttribute("aria-modal"), "true");
-    for (const copy of [businessCloseCopyEs.title, businessCloseCopyEs.warning]) assert.ok(text().includes(copy));
+    assert.equal(document.querySelector("h2")?.textContent, "Cerrar Taller Luna");
+    assert.ok(text().includes("Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borrará y no se podrá recuperar. Descarga una copia antes de continuar."));
+    assert.ok(text().includes("La copia incluye tus registros en Excel y CSV y, cuando es posible, el archivo de cada documento."));
+    assert.ok(view.button("Descargar copia") && view.button("Continuar sin descargar"));
     await view.openConfirm();
     assert.equal(document.querySelectorAll('[aria-modal="true"]').length, 1);
     assert.equal(document.querySelector('[data-testid="business-close-dialog"]'), dialog, "the confirm is a step inside the same dialog");
-    assert.ok(text().includes(businessCloseCopyEs.confirmation));
-    assert.ok(text().includes(businessCloseCopyEs.consequences));
+    assert.equal(document.querySelector("h2")?.textContent, "¿Cerrar Taller Luna?");
+    assert.equal(document.querySelector("label")?.textContent, "Escribe Taller Luna para confirmar.");
+    assert.equal(/ley|10 años|borramos/.test(text()), false, "no legal text and no promised deletion");
     await act(async () => view.button(businessCloseCopyEs.cancel).click());
     assert.equal(view.cancelled(), 0, "Cancelar returns to the downloads");
     assert.ok(text().includes(businessCloseCopyEs.warning));
@@ -68,10 +73,9 @@ test("each period reads as a range of months with the server's counts, never an 
   try {
     const rows = [...document.querySelectorAll('[data-testid="business-close-period"]')].map((row) => row.textContent ?? "");
     assert.equal(rows.length, 2);
-    assert.ok(rows[0].includes("ene – dic 2025"), rows[0]);
-    assert.ok(rows[0].includes("1,204 registros") && rows[0].includes("987 originales"), rows[0]);
-    assert.ok(rows[1].includes("ene – 21 oct 2026"), rows[1]);
-    assert.ok(rows[1].includes("1 registro") && !rows[1].includes("1 registros") && rows[1].includes("1 original") && !rows[1].includes("1 originales"), rows[1]);
+    assert.ok(rows[0].startsWith("ene – dic 2025 · 1,204 registros"), rows[0]);
+    assert.ok(rows[1].startsWith("ene – 21 oct 2026 · 1 registro") && !rows[1].includes("1 registros"), rows[1]);
+    assert.equal(/original/i.test(text()), false, "no count of original files");
     assert.equal(/\d{4}-\d{2}-\d{2}/.test(text()), false);
   } finally { await view.close(); }
 });
@@ -91,14 +95,12 @@ test("the main action downloads what is left, each period shows its state, and t
     await act(async () => rows[1].querySelector("button")!.click());
     assert.deepEqual(view.started, [undefined, windows[1].key]);
     await view.openConfirm();
-    assert.ok(text().includes("Te falta descargar 1 período."));
     assert.equal(view.button(businessCloseCopyEs.close).disabled, true);
     await act(async () => view.button(businessCloseCopyEs.cancel).click());
     await view.render({ kind: "idle" }, "Taller Luna", windows.map((item) => ({ ...item, status: "downloaded" as const })));
     assert.equal([...document.querySelectorAll("button")].some((item) => item.textContent === businessCloseCopyEs.continueWithout), false);
     assert.ok(view.button(businessCloseCopyEs.continue).className.includes("bg-[var(--cuadrao-green)]"));
     await view.openConfirm();
-    assert.equal(text().includes("Te falta descargar"), false);
     assert.deepEqual(view.confirmed, []);
   } finally { await view.close(); }
 });
@@ -109,7 +111,7 @@ test("a Business with no history has nothing to download and goes straight on", 
     assert.ok(text().includes("No hay registros ni comprobantes para descargar."));
     assert.equal([...document.querySelectorAll("button")].some((item) => item.textContent === businessCloseCopyEs.download), false);
     await act(async () => view.button(businessCloseCopyEs.continue).click());
-    assert.ok(text().includes(businessCloseCopyEs.confirmation));
+    assert.ok(text().includes("Escribe Taller Luna para confirmar."));
   } finally { await view.close(); }
 });
 
@@ -173,14 +175,49 @@ test("close uses readable destructive colors in light and dark modes", async () 
 });
 
 
-test("close confirmation uses the server member count and Dominican Republic preview deadline", async () => {
+test("close confirmation uses the server member count and the server's reopen date, with no time", async () => {
   const view = await mount();
   try {
     await view.openConfirm();
-    assert.ok(document.body.textContent?.includes("7 miembros pierden acceso al cerrar."));
-    assert.ok(document.body.textContent?.includes("20 de noviembre de 2026"));
-    assert.ok(document.body.textContent?.includes("13:45") || document.body.textContent?.includes("1:45"));
-    assert.ok(document.body.textContent?.includes("¿Cerrar Taller Luna?"));
+    assert.ok(text().includes("7 miembros pierden acceso al cerrar."));
+    assert.ok(text().includes("Podrás reabrirlo hasta el 20 de noviembre de 2026."));
+    assert.equal(/hora de RD|\d{1,2}:\d{2}/.test(text()), false);
     assert.deepEqual(view.confirmed, []);
   } finally { await view.close(); }
+});
+
+for (const [members, line] of [[0, null], [1, "1 miembro pierde acceso al cerrar."], [2, "2 miembros pierden acceso al cerrar."]] as const) {
+  test(`the member line ${line ? "shows" : "is hidden"} with ${members} members`, async () => {
+    const view = await mount(windows, members);
+    try {
+      await view.openConfirm();
+      assert.equal(document.querySelector('[data-testid="business-close-members"]')?.textContent ?? null, line);
+      assert.equal(/pierden? acceso/.test(text()), line !== null);
+      assert.ok(text().includes("Podrás reabrirlo hasta el"));
+    } finally { await view.close(); }
+  });
+}
+
+test("the locked copy is in both locales and the retired keys are gone", () => {
+  const locked = {
+    "close.title_named": ["Cerrar {{businessName}}", "Close {{businessName}}"],
+    "close.warning": ["Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borrará y no se podrá recuperar. Descarga una copia antes de continuar.", "After you close, you have 30 days to reopen this business. After that, it will be deleted and can't be recovered. Download a copy before you continue."],
+    "export.package": ["La copia incluye tus registros en Excel y CSV y, cuando es posible, el archivo de cada documento.", "The copy includes your records in Excel and CSV and, when possible, the file for each document."],
+    "close.download": ["Descargar copia", "Download copy"],
+    "close.continue_without": ["Continuar sin descargar", "Continue without downloading"],
+    "close_alert_title": ["¿Cerrar {{businessName}}?", "Close {{businessName}}?"],
+    "close_preview.member_count_other": ["{{count}} miembros pierden acceso al cerrar.", "{{count}} members lose access when you close."],
+    "close_preview.reopen_until": ["Podrás reabrirlo hasta el {{purgeDate}}.", "You can reopen it until {{purgeDate}}."],
+    "close.confirmation": ["Escribe {{businessName}} para confirmar.", "Type {{businessName}} to confirm."],
+    "close.action": ["Cerrar negocio", "Close business"],
+  };
+  const read = (root: unknown, path: string) => path.split(".").reduce<unknown>((node, key) => (node as Record<string, unknown> | undefined)?.[key], root);
+  for (const [path, [es, en]] of Object.entries(locked)) {
+    assert.equal(read(spanish.business.lifecycle, path), es, path);
+    assert.equal(read(english.business.lifecycle, path), en, path);
+  }
+  assert.equal(spanish.common.cancel, "Cancelar");
+  for (const lifecycle of [spanish.business.lifecycle, english.business.lifecycle]) {
+    for (const gone of ["close.consequences", "close.missing_one", "close.missing_other", "close_preview.member_count_zero", "export.complete", "export.originals_one", "export.originals_other"]) assert.equal(read(lifecycle, gone), undefined, gone);
+  }
 });

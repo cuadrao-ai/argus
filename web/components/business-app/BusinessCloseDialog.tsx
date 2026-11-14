@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronLeft, Download, Loader2, TriangleAlert } from "lucide-react";
+import { Check, Download, Loader2 } from "lucide-react";
 import spanish from "@/public/locales/es-419/common.json";
 import { FormField } from "@/components/ui/FormField";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
@@ -21,8 +21,6 @@ export type { CloseDownload, CloseDownloads } from "./useBusinessCloseDownloads"
 export const businessCloseCopyEs = {
   title: spanish.business.lifecycle.close.title,
   warning: spanish.business.lifecycle.close.warning,
-  consequences: spanish.business.lifecycle.close.consequences,
-  confirmation: spanish.business.lifecycle.name_confirmation,
   download: spanish.business.lifecycle.close.download,
   continue: spanish.business.lifecycle.close.continue,
   continueWithout: spanish.business.lifecycle.close.continue_without,
@@ -35,8 +33,6 @@ export function useBusinessCloseCopy() {
   return {
     title: t("business.lifecycle.close.title", businessCloseCopyEs.title),
     warning: t("business.lifecycle.close.warning", businessCloseCopyEs.warning),
-    consequences: t("business.lifecycle.close.consequences", businessCloseCopyEs.consequences),
-    confirmation: t("business.lifecycle.name_confirmation", businessCloseCopyEs.confirmation),
     download: t("business.lifecycle.close.download", businessCloseCopyEs.download),
     continue: t("business.lifecycle.close.continue", businessCloseCopyEs.continue),
     continueWithout: t("business.lifecycle.close.continue_without", businessCloseCopyEs.continueWithout),
@@ -79,17 +75,16 @@ function PeriodRow({ item, busy, onStart }: { item: CloseDownload; busy: boolean
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const span = formatDaySpan(item.start, item.end, locale);
   const period = span.to === null ? span.from : t("business.period.range", { from: span.from, to: span.to, defaultValue: "{{from}} – {{to}}" });
-  // Counts are the server's, said in the reader's number format.
-  const counted = (key: "records" | "originals", count: number) => t(`business.lifecycle.export.${key}`, { count, n: count.toLocaleString(locale) });
+  // The count is the server's, said in the reader's number format.
+  const records = t("business.lifecycle.export.records", { count: item.record_count, n: item.record_count.toLocaleString(locale) });
   const action = t(item.status === "failed" ? "common.retry" : "business.lifecycle.export.download");
   return (
     <li data-testid="business-close-period" data-status={item.status} className="flex min-h-14 items-center gap-3 rounded-item border border-black/15 py-2 pl-3 pr-2 dark:border-white/20">
       <div className="min-w-0 flex-1 text-[14px]">
-        <p className="flex flex-wrap items-center gap-x-2 font-medium">
-          <span>{period}</span>
+        <p className="flex flex-wrap items-center gap-x-2">
+          <span><span className="font-medium">{period}</span><span className="tabular-nums text-black/60 dark:text-white/60"> · {records}</span></span>
           {item.status === "downloaded" ? <span className="inline-flex items-center gap-1 text-[13px] font-normal text-[var(--cuadrao-green)]"><Check className="h-3.5 w-3.5" aria-hidden="true" />{t("business.lifecycle.export.downloaded")}</span> : null}
         </p>
-        <p className="tabular-nums text-black/60 dark:text-white/60">{counted("records", item.record_count)} · {counted("originals", item.original_count)}</p>
       </div>
       {item.status === "loading" ? <span role="status" aria-label={t("business.export.preparing")} className="flex h-11 w-11 shrink-0 items-center justify-center"><Loader2 className={`h-5 w-5 animate-spin motion-reduce:animate-none ${mutedTextClass}`} aria-hidden="true" /></span>
         : item.status === "downloaded" ? <button type="button" disabled={busy} aria-label={`${t("business.transactions.reporting.export.download_again")}: ${period}`} onClick={onStart} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/60 transition-colors hover:bg-black/5 hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"><Download className="h-5 w-5" aria-hidden="true" /></button>
@@ -99,8 +94,8 @@ function PeriodRow({ item, busy, onStart }: { item: CloseDownload; busy: boolean
 }
 
 /**
- * Two steps in one dialog: download what the law asks the Business to keep,
- * one server period at a time, then the red confirm that closes it.
+ * Two steps in one dialog: download a copy, one server period at a time,
+ * then the red confirm that closes the Business.
  */
 export default function BusinessCloseDialog({ businessName, copy, state, preview, downloads, onConfirm, onCancel }: CloseProps) {
   const { t, i18n } = useTranslation();
@@ -126,7 +121,6 @@ export default function BusinessCloseDialog({ businessName, copy, state, preview
   const submit = () => { if (matches && !submitting) onConfirm(confirmation); };
 
   if (phase === "confirm") {
-    const countKey = preview.member_count === 0 ? "zero" : preview.member_count === 1 ? "one" : "other";
     const footer = (
       <div className="flex flex-wrap justify-end gap-2">
         <button type="button" onClick={() => go("download")} disabled={submitting} className={secondaryButtonClass}>{copy.cancel}</button>
@@ -135,18 +129,12 @@ export default function BusinessCloseDialog({ businessName, copy, state, preview
     );
     return (
       <BusinessCloseShell title={t("business.lifecycle.close_alert_title", { businessName })} closeLabel={copy.cancel} onClose={onCancel} locked={submitting} footer={footer}>
-        <button type="button" disabled={submitting} onClick={() => go("download")} className="-ml-1 mb-1 flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[14px] text-[#56635e] hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-40 dark:text-white/70 dark:hover:text-white">
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />{copy.title}
-        </button>
         <div className="space-y-2 text-[14px] leading-relaxed text-black/75 dark:text-white/75" aria-busy={submitting || undefined}>
-          {remaining ? <p data-testid="business-close-missing" className="flex items-start gap-2 text-[#172b26] dark:text-white"><TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" /><span>{t("business.lifecycle.close.missing", { count: remaining })}</span></p> : null}
-          <p>{copy.consequences}</p>
-          <p>{t(`business.lifecycle.close_preview.member_count_${countKey}`, { count: preview.member_count })}</p>
-          <p>{t("business.lifecycle.close_preview.reopen_until", businessDeadlineParts(preview.reopen_until, locale))}</p>
+          {preview.member_count > 0 ? <p data-testid="business-close-members">{t("business.lifecycle.close_preview.member_count", { count: preview.member_count })}</p> : null}
+          <p>{t("business.lifecycle.close_preview.reopen_until", { purgeDate: businessDeadlineParts(preview.reopen_until, locale).purgeDate })}</p>
         </div>
         <form className="mt-5" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-          <p className="mb-2 break-words text-[16px] font-semibold">{businessName}</p>
-          <FormField ref={inputRef} id={inputId} label={copy.confirmation} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={submitting} error={state.kind === "error" && state.field ? state.message : undefined} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+          <FormField ref={inputRef} id={inputId} label={t("business.lifecycle.close.confirmation", { businessName })} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={submitting} error={state.kind === "error" && state.field ? state.message : undefined} autoComplete="off" autoCapitalize="off" spellCheck={false} />
         </form>
         {state.kind === "error" ? <div role="alert" className="mt-3 space-y-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">{!state.field ? <p>{state.message}</p> : null}{state.reference ? <ReferenceCode reference={state.reference} /> : null}</div> : null}
       </BusinessCloseShell>
@@ -156,7 +144,6 @@ export default function BusinessCloseDialog({ businessName, copy, state, preview
   const footer = (
     <div className="space-y-2">
       {failed ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.lifecycle.export.failed")}</p> : null}
-      {items.length && !remaining ? <p role="status" className={`text-[13px] ${mutedTextClass}`}>{t("business.lifecycle.export.complete")}</p> : null}
       {remaining ? (
         <div className="flex flex-col-reverse gap-x-3 gap-y-1 sm:flex-row sm:items-center sm:justify-between">
           <button type="button" disabled={busy} onClick={() => go("confirm")} className={`${quietButtonClass} justify-center`}>{copy.continueWithout}</button>
@@ -169,7 +156,7 @@ export default function BusinessCloseDialog({ businessName, copy, state, preview
     </div>
   );
   return (
-    <BusinessCloseShell title={copy.title} closeLabel={copy.cancel} onClose={onCancel} footer={footer}>
+    <BusinessCloseShell title={t("business.lifecycle.close.title_named", { businessName })} closeLabel={copy.cancel} onClose={onCancel} footer={footer}>
       <p className={`mb-4 text-[14px] leading-relaxed ${mutedTextClass}`}>{copy.warning}</p>
       {items.length ? <>
         <ul className="space-y-2" aria-busy={busy || undefined}>

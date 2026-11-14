@@ -21,7 +21,7 @@ if (!cases.length) throw new Error("Unknown evidence case");
 const owner = { space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", name: "Colmado Rosa", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true };
 const client = { ...owner, space_id: "49767c9c-9f8a-4af7-82e3-bcc065e09a19", grant_id: "b3acd38c-2e99-49aa-888f-4ee3a6268066", name: "Taller Sol", role: "accountant", capabilities: ["read", "prepare"] };
 const closed = { ...owner, closed_at: "2026-10-21T17:45:00Z", reopen_until: "2026-11-20T17:45:00Z" };
-const owned = { ...owner, member_count: 3, reopen_until: closed.reopen_until, export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 1204, original_count: 987 }, { start: "2026-01-01", end: "2026-10-21", record_count: 310, original_count: 255 }], members: [
+const owned = { ...owner, member_count: 3, reopen_until: closed.reopen_until, export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 1204 }, { start: "2026-01-01", end: "2026-10-21", record_count: 310 }], members: [
   { grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa Pérez", eligible: true, reason: null },
   { grant_id: "3200626b-f480-4249-97bd-04bdc03f1a15", name: "Ana López", eligible: false, reason: "email_unconfirmed" },
   { grant_id: "2100626b-f480-4249-97bd-04bdc03f1a15", name: "Luis Díaz", eligible: false, reason: "owns_open_business" },
@@ -79,12 +79,12 @@ try {
       if (state === "owner-datos") { await expect(page.getByTestId("business-lifecycle-controls")).toBeVisible(); await expect(page.getByTestId("business-profile-preview").getByRole("heading", { name: owner.name })).toBeVisible(); await page.getByTestId("business-lifecycle-controls").scrollIntoViewIfNeeded(); }
       if (state.startsWith("close-")) {
         const dialog = page.getByRole("dialog");
-        await expect(dialog.getByRole("button", { name: "Descargar comprobantes", exact: true })).toBeVisible();
-        await expect(dialog).toContainText("ene – dic 2025"); await expect(dialog).toContainText("1,204 registros · 987 originales");
+        await expect(dialog.getByRole("button", { name: "Descargar copia", exact: true })).toBeVisible();
+        await expect(dialog).toContainText("ene – dic 2025 · 1,204 registros");
         if (state === "close-downloaded") { await dialog.getByRole("button", { name: "Descargar: ene – dic 2025", exact: true }).click(); await expect(dialog.getByTestId("business-close-period").first()).toHaveAttribute("data-status", "downloaded"); }
         if (state === "close-confirm" || state === "close-uncertain") {
           await dialog.getByRole("button", { name: "Continuar sin descargar", exact: true }).click();
-          await expect(dialog).toContainText("3 miembros"); await expect(dialog).toContainText("hora de RD"); await expect(dialog).toContainText("Te falta descargar 2 períodos.");
+          await expect(dialog).toContainText("3 miembros pierden acceso al cerrar."); await expect(dialog).toContainText("Podrás reabrirlo hasta el");
           expect(calls.filter(call => call.method === "POST")).toHaveLength(0);
           if (state === "close-uncertain") { await dialog.getByRole("textbox").fill(owner.name); await dialog.getByRole("button", { name: "Cerrar negocio", exact: true }).click(); await expect(dialog.getByRole("alert")).toBeVisible(); }
         }

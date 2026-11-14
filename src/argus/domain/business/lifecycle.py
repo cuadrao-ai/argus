@@ -45,12 +45,11 @@ class LifecycleResult:
 def export_windows(
     activities: Sequence[Mapping[str, Any]],
     drafts: Sequence[Mapping[str, Any]],
-    links: Sequence[tuple[Any, Any]],
 ) -> list[dict[str, Any]]:
     """Consecutive periods the existing export accepts that, downloaded in
     order, cover every recorded day through today; none without a record.
-    Each carries the counts of what its download lists, chosen by the
-    export's own selection: the records dated in it and their originals."""
+    Each carries the count of records its download lists, chosen by the
+    export's own selection."""
     from argus.domain.business.contracts.facts import BusinessResolution, Known
     from argus.domain.business.export import ExportPeriod, select_window
     from argus.domain.business.ledger import occurred_on, today
@@ -75,9 +74,6 @@ def export_windows(
                 "start": period.start,
                 "end": period.end,
                 "record_count": len(chosen.activity_ids),
-                "original_count": len(
-                    {source for draft, source in links if draft in chosen.draft_ids}
-                ),
             }
         )
         start = period.end + timedelta(days=1)
@@ -172,9 +168,9 @@ class PostgresBusinessLifecycle:
 
     def _export_history(
         self, db: Connection, space_id: str
-    ) -> tuple[list[dict], list[dict], list[tuple[Any, Any]]]:
+    ) -> tuple[list[dict], list[dict]]:
         """What the Business export selects from, read as it reads it: the
-        current activities, every draft, and each draft's linked sources."""
+        current activities and every draft."""
         from psycopg.rows import dict_row
 
         from argus.domain.owner_scope import BusinessSpace
@@ -202,16 +198,7 @@ class PostgresBusinessLifecycle:
                 " where user_id=%s and owner_space_id=%s order by created_at,id",
                 (custodian, space_id),
             ).fetchall()
-        links = db.execute(
-            "select l.draft_id,s.id from public.business_sources s"
-            " join public.business_draft_sources l"
-            " on l.source_id=s.id and l.space_id=s.space_id"
-            " join public.financial_import_events e"
-            " on e.id=l.draft_id and e.owner_space_id=l.space_id"
-            " where s.space_id=%s and e.user_id=%s",
-            (space_id, custodian),
-        ).fetchall()
-        return activities, drafts, links
+        return activities, drafts
 
     def closed_spaces(self, owner_id: str) -> tuple[LifecycleResult, ...]:
         with self._pool.connection() as connection:

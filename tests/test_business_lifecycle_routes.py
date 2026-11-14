@@ -51,7 +51,6 @@ class Service:
                         "start": "2025-01-01",
                         "end": "2025-12-31",
                         "record_count": 12,
-                        "original_count": 9,
                     }
                 ],
                 "members": [
@@ -247,7 +246,6 @@ def test_preview_carries_member_count_reopen_deadline_and_eligibility(client):
             "start": "2025-01-01",
             "end": "2025-12-31",
             "record_count": 12,
-            "original_count": 9,
         }
     ]
     assert owned["members"][0]["eligible"] is False
@@ -327,11 +325,12 @@ def test_export_window_counts_follow_the_exports_own_selection():
             "resolution": None,
         },
     ]
-    links = [(recorded, uuid4()), (recorded, uuid4()), (undated, uuid4())]
-    first, *later = export_windows(activities, drafts, links)
+    first, *later = export_windows(activities, drafts)
     assert first["start"].isoformat() == "2020-03-05"
-    assert (first["record_count"], first["original_count"]) == (1, 3)
-    # An open draft with no known date goes in every window's download.
+    assert first["record_count"] == 1
+    # The later windows run through today and hold no record.
     assert later
-    assert {(w["record_count"], w["original_count"]) for w in later} == {(0, 1)}
-    assert export_windows([], [], links) == []
+    assert {w["record_count"] for w in later} == {0}
+    # The count of original files was inaccurate, so no window carries one.
+    assert all(set(w) == {"start", "end", "record_count"} for w in [first, *later])
+    assert export_windows([], []) == []
