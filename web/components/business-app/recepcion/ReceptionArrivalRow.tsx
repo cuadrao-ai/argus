@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { ChatCircle } from "@phosphor-icons/react";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -19,6 +19,8 @@ import type { ReceptionColumnKey, ReceptionPreferences } from "./reception-colum
 import { originPlace, receptionPlaces } from "./reception-grid";
 import ReceptionOriginal from "./ReceptionOriginal";
 import styles from "./reception.module.css";
+
+type CellProps = { style: CSSProperties; "data-testid": string };
 
 export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck, onDelete }: { onDelete?: () => void; row: ReceptionRow; rowKey: string; arrived: boolean; view: ReceptionView; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
   const { t, i18n } = useTranslation();
@@ -39,17 +41,18 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
   const identity = <button type="button" onClick={open} className={styles.identity}>
     <span className={styles.documentText}>{unseen ? <span className={styles.unseenDot} aria-hidden="true" /> : null}<span ref={titleRef} className={styles.title}>{unseen ? <span className="sr-only">{word("unseen")}: </span> : null}{row.kind === "note" ? <ChatCircle className={styles.noteIcon} size={15} aria-hidden="true" /> : null}{title}</span>{money ? <span className={`${styles.mobileMoney} cuadrao-amount`}>{money}</span> : null}</span>
   </button>;
-  // Canal, Remitente and the phone's arrival travel in one element, which a wide screen dissolves into its cells.
+  const channel = (cell?: CellProps) => has("source") ? <span className={styles.channel} {...cell}><SourceIcon size={15} aria-hidden="true" />{word(`source_${row.source}`)}</span> : null;
+  const from = (cell?: CellProps) => !has("sender") ? null : sender ? <ReceptionCutText text={sender} className={styles.sender} data-known="true" {...cell} /> : <span className={styles.sender} data-known="false" title={t("business.email.no_sender")} aria-label={t("business.email.no_sender")} {...cell}>{UNKNOWN_VALUE}</span>;
+  // Below 940px Canal, Remitente and the phone's arrival share one cell, in the order they read there. A wide table hides it and draws each at its own place.
   const origin = <span className={styles.source} style={places.shared} data-info={has("source") || has("sender")} data-testid="reception-source">
-    {has("source") ? <span className={styles.channel} style={places.at("source")} data-testid="reception-channel"><SourceIcon size={15} aria-hidden="true" />{word(`source_${row.source}`)}</span> : null}
-    {!has("sender") ? null : sender ? <ReceptionCutText text={sender} className={styles.sender} style={places.at("sender")} data-known="true" data-testid="reception-sender" /> : <span className={styles.sender} style={places.at("sender")} data-known="false" data-testid="reception-sender" title={t("business.email.no_sender")} aria-label={t("business.email.no_sender")}>{UNKNOWN_VALUE}</span>}
+    {from()}{channel()}
     {arrival ? <span className={styles.mobileArrival}>{arrival}</span> : null}
   </span>;
   const together = originPlace(places.shown);
   const cells: Record<ReceptionColumnKey, ReactNode> = {
     file: <span className={styles.fileCell} style={places.at("file")} data-file={!!receipt || row.kind === "note"}>{receipt ? <ReceptionOriginal receipt={receipt} /> : row.kind === "note" ? <Unknown meaning={word("without_file")} /> : <Unknown meaning={word("no_file")} />}</span>,
-    source: null,
-    sender: null,
+    source: channel({ style: places.at("source"), "data-testid": "reception-channel" }),
+    sender: from({ style: places.at("sender"), "data-testid": "reception-sender" }),
     amount: <span data-testid="reception-amount" style={places.at("amount")} className={`${styles.amountCell} cuadrao-amount`}>{receipt?.amount != null && receipt.currency ? formatAmount(receipt.amount, receipt.currency, locale) : <Unknown />}</span>,
     currency: <span data-testid="reception-currency" style={places.at("currency")} className={styles.currencyCell}>{receipt?.currency ? currencySymbol(receipt.currency) : <Unknown />}</span>,
     status: <ReceptionStatus row={row} reasonOnly={view === "attention"} style={places.at("status")} />,

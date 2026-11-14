@@ -317,6 +317,30 @@ test("a WhatsApp receipt shows no sender instead of one inferred from its mercha
   assert.equal(sender?.getAttribute("aria-label"), "Remitente no disponible");
 });
 
+test("with Canal, Adjunto and Remitente apart, a row's cells and focus stops come in the order its columns show", async () => {
+  window.localStorage.setItem("cuadrao:bandeja_columns:v1", JSON.stringify({ order: ["source", "file", "sender", "status", "arrival", "amount", "currency"], hidden: ["amount", "currency"], density: "amplio" }));
+  const own = ["scrollWidth", "clientWidth"].map(key => [key, Object.getOwnPropertyDescriptor(HTMLElement.prototype, key)] as const);
+  Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => 200 });
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 100 });
+  try {
+    const page = await mount({ tweak: receipts => receipts.map(receipt => receipt.id === "review-receipt" ? { ...receipt, channel: "email" as const, email_delivery_ids: ["email-estacion"] } : receipt) });
+    const row = page.row("Recibo admitido")!;
+    const place = (node: Element) => Number((node.closest<HTMLElement>('[style*="--col"]')?.style.getPropertyValue("--col")) || 0);
+    const inOrder = (places: number[]) => places.every((value, index) => index === 0 || places[index - 1] <= value);
+    const cells = [...row.querySelectorAll<HTMLElement>('[style*="--col"]')].map(place);
+    assert.ok(inOrder(cells), `cells by place: ${cells.join(",")}`);
+    assert.equal(row.querySelector('[data-testid="reception-sender"]')?.getAttribute("tabindex"), "0", "a cut-off sender takes focus");
+    assert.ok(row.querySelector('[data-testid="reception-original"]'), "Adjunto holds a focusable file button");
+    const stops = [...row.querySelectorAll('button, input, a[href], [tabindex]:not([tabindex="-1"])')].map(place);
+    assert.ok(inOrder(stops), `focus stops by place: ${stops.join(",")}`);
+  } finally {
+    for (const [key, descriptor] of own) {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, key, descriptor);
+      else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[key];
+    }
+  }
+});
+
 const box = (page: Awaited<ReturnType<typeof mount>>, name: string) => page.row(name)?.querySelector<HTMLInputElement>('input[type="checkbox"]') ?? null;
 const header = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector<HTMLInputElement>('input[aria-label="Seleccionar esta página"]');
 const approveSelected = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector<HTMLButtonElement>('[data-testid="reception-approve-selected"]');
