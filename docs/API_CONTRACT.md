@@ -9580,7 +9580,17 @@ Validation failures are 422 and the problem `code` says what to fix.
 A member who is not the owner and holds approve receives 403 `business_owner_required`.
 A member without approve receives 403 `business_permission_denied`. Each accepted change
 is an immutable action receipt with the actor and the time. Replaying the same key returns
-the saved profile and does not write again. A change of tax id types no existing draft
+the saved profile and does not write again. The first tax id a Business saves
+(none stored before) types its open drafts once more by the read's rule: a `recibo`
+the read chose whose issuer RNC is that tax id becomes a `venta` with
+`document_type_detected` true, in one revision. A type a person named, an approved
+record and a draft with another issuer stay as they are. The answer is the profile plus
+`retyped_drafts`, the number of drafts that save moved to `venta`: zero for every save
+but that first one, and the same number when the key is replayed. Each moved draft's
+`history` entry carries `reason: "business_rnc_set"`; every other entry carries
+`reason: null`. The server stores the reason on the revision and the count on the
+save's action receipt, so the web shows the note and the count and never infers
+them from the actor or the facts. A change from one tax id to another types no existing draft
 again: only documents read after it are compared with it. A change of tax id, or clearing it,
 clears the stored legal name; a change of name alone keeps it.
 
@@ -10220,8 +10230,9 @@ accept path recorded.
   purchase, so the draft is a `recibo` marked as the read's choice and the
   person may switch it. With no issuer RNC on the document and a Business tax
   id, `recibo` is a default, not the read's choice. The tax id is the one on
-  the profile when the draft is read; setting it later types no existing
-  draft again. A typed note follows the same rule and prints no issuer, so an
+  the profile when the draft is read; the first tax id saved later types
+  open drafts once more, as `PATCH /business/fiscal-profile` states. A typed
+  note follows the same rule and prints no issuer, so an
   unnamed note is a default `recibo` with a Business tax id and the read's
   choice without one; a typed `purchase` names a `recibo`.
   `ReceiptSummary.document_type` reports the current

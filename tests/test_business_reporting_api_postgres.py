@@ -212,9 +212,8 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     ].replace("PRACTICA Jose", PRACTICE_NAME)
     assert written[0][:2] == ["RNC o Cédula", "Tipo Id"]
     (official,) = [line.split("|") for line in txt if line]
-    assert (official[2], official[11], official[17], official[22]) == ("02", "", "", "01")
+    assert (official[2], official[11], official[17], official[22]) == ("02", "0.00", "0.00", "01")
     official[2] = "02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS "
-    official[11] = official[17] = "0"
     official[22] = "01 - EFECTIVO"
     official[5:7] = [official[5][:6], official[5][6:], official[6][:6], official[6][6:]]
     assert written[1:] == [official]

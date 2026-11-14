@@ -21,6 +21,7 @@ from argus.domain.business.contracts.facts import (
 )
 from argus.domain.business.dgii_columns import COLUMNS, OPTIONAL_AMOUNTS
 from argus.domain.business.dgii_line import (
+    REQUIRED_ZERO_606,
     confirmed_declaration,
     hard_rejects,
     line_review,
@@ -85,6 +86,8 @@ def line_values(record: FiscalRecord) -> tuple[str, ...]:
     result = []
     for name, _ in COLUMNS[declaration.form]:
         value = None if name in {"itbis_perceived", "income_perceived"} else values[name]
+        if value is None and declaration.form == "606" and name in REQUIRED_ZERO_606:
+            value = "0.00"
         if isinstance(value, date):
             value = value.strftime("%Y%m%d")
         elif value is not None and name not in {

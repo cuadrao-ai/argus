@@ -226,7 +226,8 @@ def test_optional_blanks_and_zeroes_keep_their_positions(synthetic, value):
         )
     )
     assert len(row) == 23
-    assert all(row[i] == "" for i in (4, 6, 8, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21))
+    assert all(row[i] == "" for i in (4, 6, 8, 12, 13, 15, 16, 18, 19, 20, 21))
+    assert row[11] == row[17] == "0.00"
     assert row[7] == row[9] == d.services_amount
     assert row[10] == row[14] == facts.fiscal.itbis.value
 
@@ -290,7 +291,7 @@ def test_zero_tax_stays_numeric_in_required_and_calculated_fields(synthetic):
     )
     row = detail(packet(record, identities["1"], name))
     assert row[10] == row[14] == "0.00"
-    assert row[11:14] == ["", "", ""]
+    assert row[11:14] == ["0.00", "", ""]
 
 
 @pytest.mark.parametrize("field", ("itbis_perceived", "income_perceived"))

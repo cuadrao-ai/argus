@@ -95,6 +95,11 @@ class ReviewQuestion(Contract):
         return self
 
 
+# Why a revision no person and no read made exists, as
+# business_draft_revisions.reason stores it.
+RevisionReason = Literal["business_rnc_set"]
+
+
 class DraftRevision(Contract):
     draft_id: UUID
     version: int = Field(ge=1)
@@ -110,6 +115,7 @@ class DraftRevision(Contract):
     after_current_note: str | None = None
     before_due_on: date | None = None
     after_due_on: date | None = None
+    reason: RevisionReason | None = None
 
 
 class Blocker(Contract):
