@@ -5,17 +5,18 @@ import type { Density } from "./table-density";
 type Layout = { width: number | null; align: "left" | "right"; endPin?: true };
 /** How each server column draws. The server says which columns the table offers, their names and their rules. Attachment pins right while it is last. */
 export const RECORDS_COLUMN_LAYOUT: Record<ReportColumnKey, Layout> = {
-  counterparty: { width: 200, align: "left" },
-  fiscal_number: { width: 176, align: "left" },
-  date: { width: 116, align: "left" },
-  net_amount: { width: 160, align: "right" },
-  itbis_amount: { width: 160, align: "right" },
+  counterparty_id: { width: 128, align: "left" },
+  counterparty: { width: 192, align: "left" },
+  fiscal_number: { width: 136, align: "left" },
+  date: { width: 112, align: "left" },
+  net_amount: { width: 136, align: "right" },
+  itbis_amount: { width: 124, align: "right" },
   gross_amount: { width: 104, align: "right" },
-  stage: { width: 200, align: "left" },
+  stage: { width: 164, align: "left" },
   note: { width: 120, align: "left" },
-  attachment: { width: 88, align: "right", endPin: true },
-  expense_type: { width: 120, align: "left" },
-  payment_form: { width: 120, align: "left" },
+  attachment: { width: 80, align: "right", endPin: true },
+  expense_type: { width: 160, align: "left" },
+  payment_form: { width: 160, align: "left" },
   funding: { width: 176, align: "left" },
 };
 /** Bandeja sizes its Moneda column from this entry until it owns that width (#2081). */

@@ -16,6 +16,7 @@ from argus.domain.business.country import business_country
 
 Family = Literal["sale", "purchase"]
 TableColumn = Literal[
+    "counterparty_id",
     "counterparty",
     "fiscal_number",
     "date",
@@ -55,25 +56,24 @@ class ColumnSpec:
 
 COLUMNS: tuple[ColumnSpec, ...] = (
     ColumnSpec(
-        "counterparty",
-        "business.transactions.columns.contraparte",
-        required=True,
+        "counterparty_id",
+        "business.transactions.columns.rnc_cedula",
         pinned=True,
     ),
-    ColumnSpec("fiscal_number", "business.transactions.columns.ncf", hidden=True),
+    ColumnSpec("counterparty", "business.transactions.columns.contraparte"),
     ColumnSpec("date", "business.transactions.columns.fecha"),
+    ColumnSpec("fiscal_number", "business.transactions.columns.ncf"),
+    ColumnSpec(
+        "expense_type",
+        "business.dossier.placeholder.expense_type",
+        families=_PURCHASE,
+    ),
     ColumnSpec("net_amount", "business.terms.net_amount"),
     ColumnSpec("itbis_amount", "business.terms.itbis"),
     ColumnSpec("gross_amount", "business.terms.total", required=True),
     ColumnSpec("stage", "business.transactions.layout.column_state"),
     ColumnSpec("note", "business.transactions.columns.notas"),
     ColumnSpec("attachment", "business.transactions.layout.column_attachment"),
-    ColumnSpec(
-        "expense_type",
-        "business.dossier.placeholder.expense_type",
-        hidden=True,
-        families=_PURCHASE,
-    ),
     ColumnSpec(
         "payment_form",
         "business.dossier.placeholder.payment_form",

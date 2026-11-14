@@ -25,7 +25,7 @@ CountryCode = Literal["DO", "US", "CA"]
 COUNTRIES: Mapping[str, BusinessCountry] = {
     country.code: country
     for country in (
-        BusinessCountry("DO", "DOP"),
+        BusinessCountry("DO", "DOP", frozenset({"funding"})),
         BusinessCountry("US", "USD"),
         BusinessCountry("CA", "CAD"),
     )

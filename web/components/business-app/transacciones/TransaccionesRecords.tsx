@@ -25,6 +25,13 @@ import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN_VALUE;
+const LEFT_PIN = `${PIN_CLASS.left} group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`;
+/** DGII's hyphens: an RNC reads 1-01-00157-7, a cédula 001-0000000-1. */
+function taxpayerIdText(digits: string): string {
+  if (digits.length === 9) return `${digits[0]}-${digits.slice(1, 3)}-${digits.slice(3, 8)}-${digits[8]}`;
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 10)}-${digits[10]}`;
+  return digits;
+}
 /** The columns a header click sorts, by the sort each one sets. */
 const SORT_KEY: Partial<Record<string, RecordsSort["key"]>> = { date: "fecha", counterparty: "contraparte", gross_amount: "monto" };
 export { recordRowKey } from "./records-row-preview";
@@ -59,6 +66,8 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
   const amountSize = preferences ? previewAmountColumnSize(records.map((row) => row.money), locale) : amountColumnSize(records.map((row) => row.money), header, locale);
   const columns = preferences ? visibleRecordsColumns(preferences) : COLUMNS;
   const proofPinned = columns.at(-1)?.key === "attachment";
+  const leftPinned = preferences ? columns.find((column) => "pin" in column && column.pin === "left")?.key : "counterparty";
+  const pinnedLeft = (key: string) => leftPinned === key;
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const tabStop = focusedId && rows.some((row) => recordRowKey(row) === focusedId) ? focusedId : rows[0] ? recordRowKey(rows[0]) : undefined;
@@ -114,7 +123,8 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
             const opens = row.opens;
             const open = opens ? isOpenRecord(panel, opens) : false;
             const cells = {
-              counterparty: (<td data-col="counterparty" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}><Truncated text={nameOf(row)} className="font-medium" /></td>),
+              counterparty_id: (<td data-col="counterparty_id" data-pinned={pinnedLeft("counterparty_id") ? "left" : undefined} className={`${CELL} ${pinnedLeft("counterparty_id") ? LEFT_PIN : ""} whitespace-nowrap text-left font-mono tabular-nums text-[13px]`}>{row.report?.counterparty_key ? taxpayerIdText(row.report.counterparty_key) : <Unknown />}</td>),
+              counterparty: (<td data-col="counterparty" data-pinned={pinnedLeft("counterparty") ? "left" : undefined} className={`${CELL} ${pinnedLeft("counterparty") ? LEFT_PIN : ""} text-left`}><Truncated text={nameOf(row)} className="font-medium" /></td>),
               date: (<td data-col="date" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{preferences ? formatRecordActivityDate(row.occurredOn, locale) : formatRelativeDay(row.occurredOn, today, locale)}</td>),
               gross_amount: (<td data-col="gross_amount" className={`${CELL} text-right font-medium tabular-nums`}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : preferences ? <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report ? row.money.amount : magnitude(row.money).amount, row.money.currency, locale)}</span> : <SignedAmount money={row.money} header={header} />}</td>),
               fiscal_number: (<td data-col="fiscal_number" className={`${CELL} text-left`}>{row.report?.fiscal_number ? <Truncated text={row.report.fiscal_number} /> : <Unknown />}</td>),

@@ -23,7 +23,7 @@ const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
 /** The server registry's column keys, the `Presentation` enum in docs/api/openapi.yaml. Cell renderers and layouts key on them; a test pins the two lists equal. */
-export const REPORT_PRESENTATION_KEYS = ["counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment", "expense_type", "payment_form", "funding"] as const;
+export const REPORT_PRESENTATION_KEYS = ["counterparty_id", "counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "note", "attachment", "expense_type", "payment_form", "funding"] as const;
 export type ReportColumnKey = typeof REPORT_PRESENTATION_KEYS[number];
 /** A layout as a request carries it. An old link's keys pass through; the server upgrades them and answers the layout the web keeps. */
 export const reportPresentationSchema = z.strictObject({

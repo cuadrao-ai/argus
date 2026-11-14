@@ -365,6 +365,8 @@ def _amount(text: str | None) -> Decimal | None:
 def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
     if key == "counterparty":
         return row.counterparty
+    if key == "counterparty_id":
+        return row.counterparty_key
     if key == "fiscal_number":
         return row.fiscal_number
     if key == "date":
