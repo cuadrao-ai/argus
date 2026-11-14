@@ -17,7 +17,7 @@ test("registry renders environment-neutral Auth slots with only the approved cop
     ]);
     expect(records.map(record => record.file)).toEqual(Object.keys(AUTH_TEMPLATE_SLOTS));
     for (const record of records) {
-      expect(record.html).toContain("https://cuadrao.ai/email/wordmark-light.png");
+      expect(record.html).toContain("https://cuadrao.ai/email/lockup-dark.png");
       expect(record.html).not.toContain("different.example.test");
       expect(record.text).not.toMatch(/synthetic|undefined|2026|example\.test/);
       expect(record.html).not.toContain("<!-- Generated");

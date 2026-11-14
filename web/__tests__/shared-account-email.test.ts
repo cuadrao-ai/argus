@@ -13,6 +13,23 @@ const luminance = (color: string) => {
 };
 
 describe("shared account email layout", () => {
+  test("the header shows the lockup image exported at twice its stated size, and no other email image ships", () => {
+    const { html } = renderAccountEmail({title: "Título", paragraphs: []}, {assetOrigin: "https://assets.example.test"});
+    const images = [...html.matchAll(/<img [^>]*>/g)].map(([tag]) => tag);
+    expect(images).toHaveLength(1);
+    const [, file, width, height] = images[0].match(/src="https:\/\/assets\.example\.test\/email\/([^"]+)" alt="Cuadrao" width="(\d+)" height="(\d+)"/)!;
+    const folder = new URL("../../marketing/public/email/", import.meta.url);
+    const pixels = (name: string) => { const png = readFileSync(new URL(name, folder)); return [png.readUInt32BE(16), png.readUInt32BE(20)]; };
+    expect(file).toBe("lockup-dark.png");
+    expect(pixels(file)).toEqual([Number(width) * 2, Number(height) * 2]);
+  });
+  test("templates published with the wordmark header still load their images into the 168 by 36 slot", () => {
+    const folder = new URL("../../marketing/public/email/", import.meta.url);
+    for (const name of ["wordmark-light.png", "wordmark-dark.png"]) {
+      const png = readFileSync(new URL(name, folder));
+      expect([png.readUInt32BE(16) / 168, png.readUInt32BE(20) / 36]).toEqual([3, 3]);
+    }
+  });
   test("escapes copy and renders the same action in a button, grey fallback and plain text", () => {
     const result = renderAccountEmail({title: '<img src="x">', paragraphs: ["<script>&'"], action: {label: "Entrar", url: link}});
     expect(result.html).toContain("&lt;script&gt;&amp;&#39;");
