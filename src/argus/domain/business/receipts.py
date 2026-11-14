@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
+from argus.domain.business.contracts.deletion import DeletedDocument, deletion
 from argus.domain.business.contracts.facts import BusinessResolution, Known
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
 from argus.domain.ingestion.documents.service import entered_by_owner
@@ -150,6 +151,9 @@ class Receipt:
     # A read will happen (in flight, or queued and allowed now); None reads it
     # from the draft's status alone, for callers without a documents service.
     read_pending: bool | None = None
+    deleted: DeletedDocument | None = None
+    # Why the hand-off refuses the saved read. Another read replays that read.
+    refusal: str | None = None
 
     @property
     def id(self) -> str:
@@ -194,7 +198,8 @@ class Receipt:
         review, nothing is reading it, and no read purchase is being recorded."""
 
         return (
-            not self.email_original
+            self.status not in CLOSED
+            and not self.email_original
             and self.review.blocker is not None
             and self.review.blocker != "possible_duplicate"
             and not self.busy
@@ -209,11 +214,12 @@ class Receipt:
         source is stored, and another read could succeed."""
 
         return (
-            not self.email_original
+            self.status not in CLOSED
+            and not self.email_original
             and self.review.blocker == "not_prepared"
             and self.draft.source_available
             and not self.busy
-            and self.review.terminal is None
+            and self.refusal is None
             and _UNREAD_ATTENTION.get(self.draft.error_code or "") not in _NO_RETRY
         )
 
@@ -224,8 +230,8 @@ class Receipt:
 
         if self.status != "needs_attention":
             return None
-        if self.review.terminal is not None:
-            return self.review.terminal
+        if self.refusal is not None:
+            return READ_REFUSAL_ATTENTION[self.refusal]
         blocker = self.review.blocker
         if blocker is None:
             return "check_details"
@@ -265,6 +271,11 @@ class Receipt:
             "size_bytes": self.draft.size_bytes,
             "received_at": self.draft.created_at,
             "status": self.status,
+            "deleted": self.deleted,
+            "delete_available": all(
+                purchase.state in ("open", "dismissed")
+                for purchase in self.review.read_purchases
+            ),
             "error_code": self.error_code,
             "attention": self.attention,
             "duplicate_of": self.review.duplicate_of,
@@ -345,12 +356,26 @@ def compose(
     channel: Channel,
     read_pending: bool | None = None,
 ) -> Receipt:
+    # Lazy: the action package imports this module.
+    from argus.domain.business.actions.mutations import read_refusal
+
+    events = tuple(events)
+    review = receipt_review(draft, batch, events)
+    entered = entered_by_owner(batch)
+    # A saved read, not an entry by hand, that is still waiting for its hand-off.
+    waiting = batch is not None and not entered and review.blocker == "not_prepared"
+    event = next((event for event in events if event["id"] == review.event_id), None)
+    marker = deletion(draft.status, draft.resolution)
+    if marker is None and event is not None:
+        marker = deletion(event["state"], event["resolution"])
     return Receipt(
         draft,
-        receipt_review(draft, batch, events),
+        review,
         channel,
-        entered_by_owner(batch),
+        entered,
         read_pending=read_pending,
+        deleted=marker,
+        refusal=read_refusal(batch) if waiting else None,
     )
 
 

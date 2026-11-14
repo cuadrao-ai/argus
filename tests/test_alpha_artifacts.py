@@ -209,7 +209,6 @@ def test_reliability_contract_locks_openapi_authority_and_exclusions() -> None:
         f"`POST {ACCESS_REQUEST_APPROVE_PATH}`",
         f"`POST {REQUESTED_SIGNUP_DENIAL_PATH}`",
         "`POST /api/v1/dev/reset`",
-        "`POST /api/v1/chat/stream` 200 `text/event-stream` response body",
         "`/api/v1` appears exactly once",
     ):
         assert exact_rule in authority
@@ -250,7 +249,6 @@ def test_reliability_contract_locks_durable_turn_lifecycle() -> None:
         "`15 minutes`",
         "`20` stale rows",
         "`completed | recoverable_failed`",
-        "`chat.run_backtest` is excluded",
         "`stale_since = COALESCE(running_at, accepted_at)`",
         "`stale_since ASC, turn_id ASC`",
         "`metadata.agent_runtime_turn.turn_id = turn_id`",
@@ -260,10 +258,6 @@ def test_reliability_contract_locks_durable_turn_lifecycle() -> None:
         "`accepted|running -> recoverable_failed`",
         "`accepted|running -> abandoned`",
         "`accepted|running -> reconciled`",
-        "Chat request boundary transaction",
-        "Runtime worker before the first graph operation",
-        "Terminal message persistence/finalizer",
-        "Terminal failure guard/message store",
         "Server reconciler",
         "`turn_abandoned`",
     ):

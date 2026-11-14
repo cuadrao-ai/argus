@@ -14,6 +14,7 @@ from fastapi import Depends, HTTPException, Request
 from loguru import logger
 
 from argus.api import state as api_state
+from argus.api.business_database import business_pool, close_business_pool
 from argus.api.dependencies import current_user, problem
 from argus.api.guest_access import account_context
 from argus.api.schemas import User
@@ -50,16 +51,18 @@ def configure_financial_accounts_service(service: FinancialAccountService | None
 
 
 def start_financial_accounts(app) -> None:  # noqa: ANN001
-    """Build the service at startup; flag off builds nothing.
+    """Publish the shared pool, then build the service if its flag is on.
 
     Durable mode never falls back to volatile storage: without a database the
     surface stays off rather than minting accounts that vanish on restart.
     """
 
-    if not financial_accounts_enabled():
-        configure_financial_accounts_service(None)
-        return
+    configure_financial_accounts_service(None)
     try:
+        if api_state.PERSISTENCE_MODE == "supabase" and api_state.DATABASE_URL:
+            app.state.financial_accounts_pool = business_pool(api_state.DATABASE_URL)
+        if not financial_accounts_enabled():
+            return
         if api_state.PERSISTENCE_MODE == "supabase":
             if not api_state.DATABASE_URL:
                 logger.warning(
@@ -67,16 +70,11 @@ def start_financial_accounts(app) -> None:  # noqa: ANN001
                 )
                 configure_financial_accounts_service(None)
                 return
-            from psycopg_pool import ConnectionPool
-
             from argus.domain.recording.postgres_repository import (
                 PostgresFinancialAccountRepository,
             )
 
-            pool = ConnectionPool(
-                api_state.DATABASE_URL, min_size=0, max_size=4, open=True
-            )
-            app.state.financial_accounts_pool = pool
+            pool = app.state.financial_accounts_pool
             configure_financial_accounts_service(
                 FinancialAccountService(PostgresFinancialAccountRepository(pool))
             )
@@ -94,12 +92,9 @@ def start_financial_accounts(app) -> None:  # noqa: ANN001
 
 def stop_financial_accounts(app) -> None:  # noqa: ANN001
     configure_financial_accounts_service(None)
-    pool = getattr(app.state, "financial_accounts_pool", None)
-    if pool is not None:
-        try:
-            pool.close()
-        except Exception:
-            logger.warning("Financial accounts pool close failed")
+    try:
+        close_business_pool()
+    finally:
         app.state.financial_accounts_pool = None
 
 

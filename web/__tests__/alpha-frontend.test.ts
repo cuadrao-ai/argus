@@ -2566,15 +2566,13 @@ describe("Argus Alpha frontend contract", () => {
     expect(en).toContain('"title": "Data Controls"');
     expect(en).toContain('"title": "Preferences"');
     expect(en).toContain('"title": "Help & Legal"');
-    expect(en).toContain('"usage": "Usage"');
     expect(es).toContain('"title": "Controles de datos"');
     expect(es).toContain('"title": "Preferencias"');
     expect(es).toContain('"title": "Ayuda y legal"');
-    expect(es).toContain('"usage": "Uso"');
 
     expect(registry).toContain('settings: ["settings.app.title", "Preferences"]');
     expect(registry).toContain('data: ["settings.data.title", "Data Controls"]');
-    for (const label of ["settings.app.appearance", "settings.app.language", "settings.app.sidebar", "settings.data.usage"]) {
+    for (const label of ["settings.app.appearance", "settings.app.language", "settings.app.sidebar"]) {
       expect(registry).toContain(`label: ["${label}"`);
     }
     expect(settingsWindow).toContain("settings.data.security");
@@ -2706,8 +2704,6 @@ describe("Argus Alpha frontend contract", () => {
     expect(securityRow).not.toContain("disabled");
     expect(en.settings.data.security).toBeTruthy();
     expect(es.settings.data.security).toBeTruthy();
-    // Usage is a section in the window, offered outside Business only.
-    expect(menu).toContain("usage: !isBusiness,");
   });
 
   test("landing redirects authenticated sessions straight into chat", () => {

@@ -58,11 +58,11 @@ The initial sandboxed build stalled before compilation and was stopped. The allo
 
 | State | Desktop | 390px |
 | --- | --- | --- |
-| Before | [Before](before-inbox-1280.png) | [Before](before-inbox-390.png) |
-| After | [After](after-inbox-1280.png) | [After](after-inbox-390.png) |
-| Keyboard focus | [Focus](after-focus-1280.png) | [Focus](after-focus-390.png) |
-| Menu | [Menu](after-menu-1280.png) | [Menu](after-menu-390.png) |
-| Recovery | [Recovery](after-recovery-1280.png) | [Recovery](after-recovery-390.png) |
+| Before | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/before-inbox-1280.png) | [Before](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/before-inbox-390.png) |
+| After | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/after-inbox-1280.png) | [After](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/after-inbox-390.png) |
+| Keyboard focus | [Focus](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/after-focus-1280.png) | [Focus](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/after-focus-390.png) |
+| Menu | [Menu](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/after-menu-1280.png) | [Menu](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/after-menu-390.png) |
+| Recovery | [Recovery](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/after-recovery-1280.png) | [Recovery](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/lane09-item7-personal-action/after-recovery-390.png) |
 
 ## References and limits
 

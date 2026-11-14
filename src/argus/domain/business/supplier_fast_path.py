@@ -7,14 +7,13 @@ nothing here is wired to a route.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, Literal
 
+from argus.domain.business.fiscal_identity import normalized_ncf
 from argus.domain.ingestion.documents.config import enabled_flag
-from argus.domain.ingestion.documents.dgii_qr import tipo_ecf_of
 from argus.settings_names import setting_value
 
 _FLAG = "BUSINESS_SUPPLIER_FAST_PATH_ENABLED"
@@ -24,7 +23,7 @@ _EXCLUDED_NOTICE = (
 )
 _INVALID_NCF = "Este comprobante no es válido. Pide al suplidor uno nuevo."
 _NO_DUE_DATE = "Sin fecha de vencimiento"
-_B_SERIES = re.compile(r"^B(?:0[1-4]|1[1-5]|17)\d{8}$", re.IGNORECASE)
+_B_TYPES = frozenset({"01", "02", "03", "04", "11", "12", "13", "14", "15", "17"})
 
 
 class RegistryStatus(str, Enum):
@@ -132,10 +131,12 @@ def ncf_valid_on_issue_date(
 
     issued = _as_date(issue_date)
     due = None if vencimiento is None else _as_date(vencimiento)
-    text = (ncf or "").strip()
-    if tipo_ecf_of(text) is not None:
+    text = normalized_ncf(ncf)
+    if text is None:
+        return NcfOnIssueDate(valid=False, note=_INVALID_NCF)
+    if text.startswith("E"):
         return NcfOnIssueDate(valid=True, note=_NO_DUE_DATE)
-    if _B_SERIES.match(text) is None:
+    if text[1:3] not in _B_TYPES:
         return NcfOnIssueDate(valid=False, note=_INVALID_NCF)
     if due is None:
         return NcfOnIssueDate(valid=True, note=_NO_DUE_DATE)

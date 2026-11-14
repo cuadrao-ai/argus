@@ -84,6 +84,7 @@ describe("responsive breakpoints", () => {
 });
 
 const POINTER_AFFORDANCE_PATHS = [
+  "components/business-app/recepcion/reception.module.css",
   "components/sidebar/pointerAffordances.module.css",
   "components/business-app/transacciones/transacciones-cells.module.css",
 ] as const;
@@ -95,7 +96,7 @@ describe("pointer capability stays an affordance concern", () => {
     expect(pointerInventory([...POINTER_AFFORDANCE_PATHS, "components/global-pointer.css"])).not.toEqual(pointerInventory(POINTER_AFFORDANCE_PATHS));
   });
 
-  test("only the cleared sidebar and record-cell affordances branch on the pointer", () => {
+  test("only the cleared sidebar and document actions branch on the pointer", () => {
     /*
      * Geometry follows the DESIGN.md widths. Pointer capability answers only
      * whether a hover-revealed control is reachable, so it stays in one CSS
@@ -129,10 +130,14 @@ describe("pointer capability stays an affordance concern", () => {
 
     const recordCells = readFileSync(join(import.meta.dir, "../components/business-app/transacciones/transacciones-cells.module.css"), "utf-8");
     const approved = [
-      "@media (hover:hover) and (pointer:fine) { .emptyActionDash { visibility:visible; } .emptyActionIcon { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionDash, :global(tr[data-record-key]:focus-within) .emptyActionDash { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionIcon, :global(tr[data-record-key]:focus-within) .emptyActionIcon { visibility:visible; } }",
+      "@media (hover:hover) and (pointer:fine) { .emptyActionDash { visibility:visible; } .emptyActionIcon { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionDash, :global(tr[data-record-key]:focus-visible) .emptyActionDash, :global(tr[data-record-key]:has(:focus-visible)) .emptyActionDash { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionIcon, :global(tr[data-record-key]:focus-visible) .emptyActionIcon, :global(tr[data-record-key]:has(:focus-visible)) .emptyActionIcon { visibility:visible; } }",
       "@media (any-pointer:coarse) { .emptyActionDash { visibility:hidden; } .emptyActionIcon { visibility:visible; } }",
     ];
     const mediaBlocks = (source: string) => source.match(/@media[^{}]*\{(?:[^{}]|\{[^{}]*\})*\}/g)?.map((block) => block.replace(/\s+/g, " ").trim()) ?? [];
+    const reception = readFileSync(join(import.meta.dir, "../components/business-app/recepcion/reception.module.css"), "utf-8");
+    expect(mediaBlocks(reception).filter(block => /hover:|pointer:/.test(block))).toEqual([
+      "@media (hover:none) { .trashAction { opacity:1; } }",
+    ]);
     expect(mediaBlocks(recordCells)).toEqual(approved);
     expect(mediaBlocks(recordCells + "\n@media (pointer:fine) { :global(body) { display:none; } }")).not.toEqual(approved);
     expect(mediaBlocks(recordCells.replace("visibility:visible", "display:none"))).not.toEqual(approved);

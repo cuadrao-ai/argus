@@ -1,5 +1,5 @@
 import { recordedReportAnswer } from "./recorded-report-answer";
-import { reportAnswerSchema, reportRequestSchema, type ReportRecord, type ReportRequest, type ReportTotal } from "@/lib/business-reports-api";
+import { reportAnswerSchema, reportRequestSchema, type ExportPreview, type ReportColumn, type ReportPresentation, type ReportRecord, type ReportRequest, type ReportTotal } from "@/lib/business-reports-api";
 
 export const fixtureId = (value: number) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
 export const FROZEN_REPORT_BACKEND = "eda4bb38ab2a195761523b084dbbfb6862e67c7e";
@@ -22,6 +22,20 @@ export function documentFamilyTotals(rows: readonly ReportRecord[]): ReportTotal
 }
 
 /** Mirrors the server's `latest_month`: the month of the newest dated row. */
+/** The server's upgrade of a stored or linked layout, as `_current_columns` does it. */
+function serverLayout(presentation: ReportPresentation): ReportPresentation {
+  const rename = (key: string) => key === "category" ? "expense_type" : key;
+  const order = presentation.order.filter((key) => key !== "family" && key !== "currency").map(rename);
+  const hidden = presentation.hidden.filter((key) => key !== "family" && key !== "currency").map(rename);
+  if (!order.includes("payment_form") && order.includes("expense_type")) { order.splice(order.indexOf("expense_type") + 1, 0, "payment_form"); hidden.push("payment_form"); }
+  if (!order.includes("net_amount")) order.splice(order.includes("gross_amount") ? order.indexOf("gross_amount") : order.length, 0, "net_amount");
+  for (const { key, required } of recordedReportAnswer.columns) if (!order.includes(key)) { order.push(key); if (!required && !hidden.includes(key)) hidden.push(key); }
+  return { ...presentation, order, hidden };
+}
+/** The columns the server answers: the recorded specs in the layout's order, Compras-only ones dropped on Ventas. */
+function serverColumns(presentation: ReportPresentation, sale: boolean): ReportColumn[] {
+  return presentation.order.flatMap((key) => recordedReportAnswer.columns.filter((column) => column.key === key && !(sale && (key === "expense_type" || key === "payment_form"))).map((column) => ({ ...column, shown: !presentation.hidden.includes(key) })));
+}
 function latestMonth(rows: readonly ReportRecord[]) {
   const newest = rows.flatMap((row) => row.report_date ?? []).sort().at(-1) ?? "2026-10-26";
   const [year, month] = newest.split("-").map(Number);
@@ -43,9 +57,10 @@ export function createBusinessReportHttpFixture() {
   }));
   const calls: { path: string; method: string; headers: Headers; body: unknown }[] = [];
   const views: { id: string; name: string; recipe: unknown; version: number; created_at: string; updated_at: string }[] = [];
+  let createdViews = 0;
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
-  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
+  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", rncSuppliers: [] as ExportPreview["dgii"]["rnc_suppliers"], noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
   const dossier = (row: ReportRecord) => ({ draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
   const problem = (status: number, code: string) => Response.json({ code, detail: code }, { status });
   const matchingRecords = (report: ReportRequest) => {
@@ -75,7 +90,8 @@ export function createBusinessReportHttpFixture() {
       const effective_sort = blocked ? "date_desc" : report.sort;
       if (effective_sort.startsWith("name_")) matching.sort((a, b) => (a.counterparty ?? "").localeCompare(b.counterparty ?? "") * (effective_sort.endsWith("asc") ? 1 : -1));
       const items = matching.slice((report.page - 1) * report.page_size, report.page * report.page_size).map((row) => ({ ...row, can_edit_note: !controls.readOnly, can_append_supporting: !controls.readOnly, attachment_sources: row.attachment_sources?.map((source) => ({ ...source, source_available: source.receipt_id === fixtureId(700) ? controls.originalAvailable : source.source_available, download_available: !controls.readOnly && (source.receipt_id !== fixtureId(700) || controls.originalAvailable) })) }));
-      return Response.json(reportAnswerSchema.parse({ presentation: report.schema_version === 2 && report.presentation ? report.presentation : controls.presentation, items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
+      const presentation = serverLayout(report.schema_version === 2 && report.presentation ? report.presentation : controls.presentation);
+      return Response.json(reportAnswerSchema.parse({ presentation, columns: serverColumns(presentation, report.filters.record_families[0] === "sale"), items, matching_count: matching.length, page: report.page, page_size: report.page_size, page_count: Math.ceil(matching.length / report.page_size),
         totals: documentFamilyTotals(matching),
         fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: report.filters.period.kind === "latest_month" ? latestMonth(records) : { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
         counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: [{ code: "02", label: "Gastos por trabajos, suministros y servicios" }], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
@@ -83,16 +99,17 @@ export function createBusinessReportHttpFixture() {
     }
     if (path.endsWith("/reports/export/preview")) {
       const report = reportRequestSchema.parse((body as { report: unknown }).report);
-      const presentation = report.schema_version === 2 && report.presentation ? report.presentation : controls.presentation;
+      const presentation = serverLayout(report.schema_version === 2 && report.presentation ? report.presentation : controls.presentation);
       const sale = report.filters.record_families[0] === "sale";
-      const selection = (rows: ReportRecord[]) => ({ record_count: rows.length, currencies: [...new Set(rows.flatMap((row) => row.currency ? [row.currency] : []))].sort() });
+      const fileColumns = (all: boolean) => serverColumns(presentation, sale).flatMap(({ key, label_key, pinned, shown }) => [{ key, label_key, required: pinned, shown }, ...all && key === "gross_amount" ? [{ key: "currency", label_key: "business.transactions.columns.moneda", required: true, shown: true }] : []]);
+      const selection = (rows: ReportRecord[], all = false) => ({ record_count: rows.length, currencies: [...new Set(rows.flatMap((row) => row.currency ? [row.currency] : []))].sort(), columns: fileColumns(all) });
       const bounded = report.filters.amount_min !== null || report.filters.amount_max !== null;
       const family = records.filter((row) => row.family === report.filters.record_families[0]);
       const foreign = family.filter((row) => row.fiscal_data && row.currency && row.currency !== controls.dgiiCurrency);
       const pendingFiscal = family.filter((row) => row.fiscal_data === "missing" && row.currency === controls.dgiiCurrency).length;
       return Response.json({
-        table: { columns: presentation.order.filter((key) => !sale || (key !== "expense_type" && key !== "payment_form")).map((key) => ({ key, shown: !presentation.hidden.includes(key) })), current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } })) },
-        dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort() },
+        table: { current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } }), true) },
+        dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort(), rnc_suppliers: controls.rncSuppliers, rnc_supplier_count: controls.rncSuppliers.length, rnc_warning_count: controls.rncSuppliers.reduce((sum, supplier) => sum + supplier.record_count, 0) },
       });
     }
     if (path.endsWith("/reports/export")) {
@@ -108,7 +125,7 @@ export function createBusinessReportHttpFixture() {
       const current = views.find((view) => view.id === id);
       if (method !== "POST" && (!current || current.version !== command.expected_version)) return problem(409, "business_report_view_changed");
       if (method === "DELETE") { views.splice(views.indexOf(current!), 1); return new Response(null, { status: 204 }); }
-      const saved = { id: current?.id ?? fixtureId(9000 + views.length), name: command.name!, recipe: command.recipe, version: (current?.version ?? 0) + 1, created_at: "2026-10-26T12:00:00Z", updated_at: "2026-10-26T12:00:00Z" };
+      const saved = { id: current?.id ?? fixtureId(9000 + createdViews++), name: command.name!, recipe: command.recipe, version: (current?.version ?? 0) + 1, created_at: "2026-10-26T12:00:00Z", updated_at: "2026-10-26T12:00:00Z" };
       if (current) views.splice(views.indexOf(current), 1, saved); else views.push(saved);
       return Response.json(saved, { status: current ? 200 : 201 });
     }

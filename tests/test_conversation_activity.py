@@ -6,12 +6,13 @@ from unittest.mock import MagicMock
 
 import pytest
 from argus.api import state as api_state
+from argus.api.business_spaces import business_spaces, configure_business_spaces
 from argus.api.conversation_activity import _as_datetime
 from argus.api.dependencies import current_user
 from argus.api.guest_access import guest_account_context, store_account_context
 from argus.api.main import app
-from argus.api.message_store import memory_message
 from argus.api.schemas import BacktestRun, ConversationActivity, EvidenceArtifact
+from argus.domain.business.spaces import InMemorySpaceStore
 from argus.domain.conversation_activity import (
     ActivityReadState,
     ActivitySource,
@@ -33,6 +34,7 @@ from tests.conversation_activity_job_scenarios import (
     JOB_SETTLEMENT_SCENARIOS,
     JobSettlementScenario,
 )
+from tests.conversation_fixtures import seed_message
 
 fake = Faker()
 Faker.seed(20260801)
@@ -512,9 +514,22 @@ def test_supabase_activity_gateway_mutation_passes_verified_source_identity() ->
     )
 
 
+@pytest.fixture(autouse=True)
+def business_conversation_scope(monkeypatch):
+    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_CHAT_ENABLED", "true")
+    previous = business_spaces()
+    configure_business_spaces(InMemorySpaceStore())
+    yield
+    configure_business_spaces(previous)
+
+
 def _api_client() -> TestClient:
     client = TestClient(app)
     client.post("/api/v1/dev/reset")
+    spaces = business_spaces()
+    assert spaces is not None
+    spaces.create(api_state.store.get_or_create_dev_user().id, "Business")
     return client
 
 
@@ -527,7 +542,7 @@ def _store_terminal_turn(
 ) -> tuple[str, datetime]:
     terminal_at = datetime.now(timezone.utc)
     turn_id = fake.uuid4()
-    assistant = memory_message(
+    assistant = seed_message(
         conversation_id=conversation_id,
         role="assistant",
         content="Stored terminal response",
@@ -872,7 +887,7 @@ def test_memory_job_settlement_follows_the_shared_scenario_table(
         "updated_at": now.isoformat(),
     }
     if scenario.answer_present:
-        answer = memory_message(
+        answer = seed_message(
             conversation_id=conversation["id"],
             role="assistant",
             content="HOOD vs. JPM vs. SCHW",

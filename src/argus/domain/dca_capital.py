@@ -21,6 +21,8 @@ from typing import Any
 
 from argus.domain.cadences import SUPPORTED_DCA_CADENCE_VALUES
 
+MAX_STARTING_CAPITAL = 100_000_000.0
+
 DCA_CAPITAL_SCHEMA_VERSION = "dca_capital_v1"
 
 # The names each money role travels under between the interpreter's drafts,
@@ -131,8 +133,6 @@ def build_dca_capital_plan(
 
 
 def _money_role(value: Any, *, default: float, code: str) -> float:
-    from argus.domain.backtesting.config import MAX_STARTING_CAPITAL
-
     if value is None:
         return default
     if isinstance(value, bool) or not isinstance(value, int | float):

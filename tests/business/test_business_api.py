@@ -357,7 +357,6 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
         "invoicing_available": False,
         "notifications_available": False,
         "settlement_available": False,
-        "activity_available": False,
         "receiving_channels": {
             "email": {"available": False}, "whatsapp": {"available": False}
         },
@@ -599,6 +598,7 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
             "por_igualar_count": None,
             "confirmed_count": 1,
             "dismissed_count": 0,
+            "bandeja_eliminados_count": 0,
         },
     }
     [saved] = alice.get("/receipts", view="all").json()["items"]
@@ -763,6 +763,7 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
             "por_igualar_count": None,
             "confirmed_count": 0,
             "dismissed_count": 0,
+            "bandeja_eliminados_count": 0,
         },
     }
     window = {"from": "2026-10-01", "to": "2026-10-31"}

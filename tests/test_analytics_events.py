@@ -1,16 +1,8 @@
-"""The closed analytics registry (SPEC 0, package 0C-1, acceptance check A4).
-
-PostHog receives only Iris's wave 1 events and the Business pilot's events,
-each under its own name, each with exactly its listed properties. Nothing else
-reaches PostHog.
-"""
-
 from __future__ import annotations
 
 import json
 import types
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import httpx
@@ -22,28 +14,22 @@ from argus.api.main import app
 from argus.domain.business.analytics_events import (
     BUSINESS_EVENT_MODELS,
     BUSINESS_HASH_PATTERN,
+    BusinessDocumentReceived,
     BusinessHash,
     FileType,
     RecordField,
     business_hash_for_id,
 )
 from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts
-from argus.domain.calculations import get_calculation_declarations
 from argus.domain.guest_cleanup import cleanup_expired_guest_workspaces
 from argus.domain.guest_workspaces import GuestWorkspace
 from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
 from argus.observability.analytics_events import (
     ANALYTICS_EVENT_MODELS,
-    INVITE_COHORT_PATTERN,
     TECHNICAL_PROPERTIES,
     AnalyticsEvent,
-    CardSaved,
-    ClosedVocabulary,
-    InviteCohort,
-    SignedIn,
     build_analytics_envelope,
     capture_analytics_event,
-    registered_calculation_names,
 )
 from argus.observability.envelope import (
     SERVER_DISTINCT_ID,
@@ -74,38 +60,9 @@ BUSINESS_EVENT_NAMES = {
     "business_record_recorded",
     "business_records_exported",
 }
-IRIS_EVENT_NAMES = {
-    "first_answer_shown",
-    "signed_in",
-    "card_saved",
-    "goal_created",
-    "checklist_step_completed",
-    "reminders_opted_in",
-    "reminders_opted_out",
-    "session_started",
-    "installed_app_opened",
-    "landing_viewed",
-    "receipt_shared",
-}
 
 # One valid instance of every event, with every optional property set.
 VALID_PROPERTIES: dict[str, dict[str, Any]] = {
-    "first_answer_shown": {
-        "account_kind": "guest",
-        "chip_audience": "none",
-        "language": "es-419",
-        "cohort": "piloto-7kq2",
-    },
-    "signed_in": {"signup": "new", "trigger": "save", "cohort": "piloto-7kq2"},
-    "card_saved": {"calculator": "time_value"},
-    "goal_created": {"goal_type": "savings"},
-    "checklist_step_completed": {"step": 2},
-    "reminders_opted_in": {"channel": "email"},
-    "reminders_opted_out": {"channel": "push"},
-    "session_started": {"days_since_signup": 9, "cohort": "piloto-7kq2"},
-    "installed_app_opened": {},
-    "landing_viewed": {"language": "en", "cohort": "piloto-7kq2"},
-    "receipt_shared": {"calculator": "multiple"},
     "business_document_received": {
         "business_hash": BUSINESS_HASH,
         "channel": "whatsapp",
@@ -147,11 +104,9 @@ VALID_PROPERTIES: dict[str, dict[str, Any]] = {
         "row_count": 42,
     },
 }
-REGISTERED_EVENT_NAMES = IRIS_EVENT_NAMES | BUSINESS_EVENT_NAMES
+REGISTERED_EVENT_NAMES = BUSINESS_EVENT_NAMES
 
 MONEY_FORMATTED_VALUES = ("RD$5,000", "US$5,000.00", "5000.00", "$5,000", 5000.0)
-
-FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _event(name: str, **overrides: Any) -> AnalyticsEvent:
@@ -174,7 +129,14 @@ def posthog_posts(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     return posts
 
 
-def test_registry_is_exactly_irises_and_the_business_events() -> None:
+def _sample_event() -> BusinessDocumentReceived:
+    return BusinessDocumentReceived(
+        business_hash=BUSINESS_HASH,
+        channel="upload",
+    )
+
+
+def test_registry_is_exactly_the_business_events() -> None:
     assert set(ANALYTICS_EVENT_MODELS) == REGISTERED_EVENT_NAMES
     assert set(VALID_PROPERTIES) == REGISTERED_EVENT_NAMES
     for name, model in ANALYTICS_EVENT_MODELS.items():
@@ -225,8 +187,6 @@ def _literal_tuple(parts: list[Any], metadata: list[Any]) -> bool:
 
 
 def test_every_property_is_literal_bool_or_bounded_int() -> None:
-    """The A4 lint: nothing in any event can hold free text or an amount."""
-    cohort_parts = [InviteCohort]
     offenders: list[str] = []
     for name, model in ANALYTICS_EVENT_MODELS.items():
         assert model.model_config.get("extra") == "forbid", name
@@ -247,21 +207,13 @@ def test_every_property_is_literal_bool_or_bounded_int() -> None:
                 continue
             if bare == [int] and _has_bounds(metadata):
                 continue
-            # A string checked against a list another owner keeps (the
-            # calculation catalog) is as closed as a literal.
-            if parts == [str] and any(
-                isinstance(item, ClosedVocabulary) for item in field.metadata
+            if (
+                field_name == "business_hash"
+                and bare == [str]
+                and [getattr(item, "pattern", None) for item in metadata]
+                == [BUSINESS_HASH_PATTERN]
             ):
                 continue
-            # The constrained strings: the invite cohort and the hashed
-            # Business id, each pattern-anchored.
-            if field_name == "cohort" and parts == cohort_parts:
-                continue
-            if field_name == "business_hash" and bare == [str] and [
-                getattr(item, "pattern", None) for item in metadata
-            ] == [BUSINESS_HASH_PATTERN]:
-                continue
-            # A closed set of names, never their values.
             if _literal_tuple(bare, metadata):
                 continue
             offenders.append(where)
@@ -273,12 +225,6 @@ def test_every_property_is_literal_bool_or_bounded_int() -> None:
     assert base is str
     assert [getattr(item, "pattern", None) for item in constraints] == [
         BUSINESS_HASH_PATTERN
-    ]
-    assert get_origin(InviteCohort) is Annotated
-    base, *constraints = get_args(InviteCohort)
-    assert base is str
-    assert [getattr(item, "pattern", None) for item in constraints] == [
-        INVITE_COHORT_PATTERN
     ]
 
 
@@ -309,71 +255,11 @@ def test_free_text_and_personal_data_are_rejected_in_every_field() -> None:
 
 def test_bounded_ints_reject_out_of_range_values() -> None:
     with pytest.raises(ValidationError):
-        _event("session_started", days_since_signup=-1)
+        _event("business_records_exported", row_count=-1)
     with pytest.raises(ValidationError):
-        _event("session_started", days_since_signup=10**9)
-    for step in (0, 4):
-        with pytest.raises(ValidationError):
-            _event("checklist_step_completed", step=step)
-
-
-def test_cohort_accepts_only_the_invite_code_format() -> None:
-    for code in ("piloto-7kq2", "qa-t7k2", "ab-abcd1234", "abcdefghijkl-0000"):
-        assert _event("landing_viewed", cohort=code).model_dump()["cohort"] == code
-    for code in (
-        "piloto-1",
-        "Piloto-7kq2",
-        "piloto_7kq2",
-        "piloto-7kq2-x",
-        "piloto 7kq2",
-        "",
-        "a-7kq2",
-        "piloto-7kq2abcde",
-        "abcdefghijklm-7kq2",
-    ):
-        with pytest.raises(ValidationError):
-            _event("landing_viewed", cohort=code)
-
-
-def test_calculator_values_come_from_the_calculation_catalog() -> None:
-    catalog = {declaration.name for declaration in get_calculation_declarations()}
-    assert registered_calculation_names() == catalog
-    for name in sorted(catalog | {"backtest"}):
-        assert CardSaved(calculator=name).calculator == name
-    receipt_shared = ANALYTICS_EVENT_MODELS["receipt_shared"]
-    for name in sorted(catalog | {"backtest", "multiple", "none"}):
-        assert receipt_shared(calculator=name).calculator == name
-    for model, name in (
-        (CardSaved, "multiple"),
-        (CardSaved, "none"),
-        (CardSaved, "loan_payoff"),
-        (receipt_shared, "loan_payoff"),
-    ):
-        with pytest.raises(ValidationError):
-            model(calculator=name)
-
-
-def test_a_new_catalog_calculation_is_accepted_without_editing_the_registry(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """One owner: adding a calculation to the catalog is the whole change."""
-    import argus.domain.calculations as calculations
-
-    original = calculations.get_calculation_declarations
-    monkeypatch.setattr(
-        calculations,
-        "get_calculation_declarations",
-        lambda: (*original(), types.SimpleNamespace(name="loan_payoff")),
-    )
-    registered_calculation_names.cache_clear()
-    try:
-        assert CardSaved(calculator="loan_payoff").calculator == "loan_payoff"
-        assert ANALYTICS_EVENT_MODELS["receipt_shared"](calculator="loan_payoff")
-    finally:
-        monkeypatch.undo()
-        registered_calculation_names.cache_clear()
+        _event("business_records_exported", row_count=1_000_001)
     with pytest.raises(ValidationError):
-        CardSaved(calculator="loan_payoff")
+        _event("business_document_read", latency_ms=-1)
 
 
 def test_payload_has_only_technical_and_event_properties(
@@ -409,48 +295,29 @@ def test_unset_optional_properties_are_not_sent(
     posthog_posts: list[dict[str, Any]],
 ) -> None:
     capture_analytics_event(
-        ANALYTICS_EVENT_MODELS["landing_viewed"](language="en"),
-        user_id="guest-raw-id",
-        internal_account=False,
-    )
-
-    [body] = posthog_posts
-    assert set(body["properties"]) == TECHNICAL_PROPERTIES | {"language"}
-
-
-def test_only_signed_in_carries_the_guest_id_hash(
-    posthog_posts: list[dict[str, Any]],
-) -> None:
-    capture_analytics_event(
-        SignedIn(signup="new", trigger="other"),
+        BusinessDocumentReceived(business_hash=BUSINESS_HASH, channel="note"),
         user_id="account-raw-id",
-        guest_user_id="guest-raw-id",
         internal_account=False,
     )
 
     [body] = posthog_posts
-    assert body["properties"]["guest_id_hash"] == actor_hash_for_user("guest-raw-id")
-    assert "guest-raw-id" not in json.dumps(body)
-    for name in sorted(REGISTERED_EVENT_NAMES - {"signed_in"}):
-        with pytest.raises(ValueError):
-            capture_analytics_event(
-                _event(name),
-                user_id="account-raw-id",
-                guest_user_id="guest-raw-id",
-                internal_account=False,
-            )
+    assert set(body["properties"]) == TECHNICAL_PROPERTIES | {"business_hash", "channel"}
 
 
 def test_an_unregistered_event_model_is_refused(
     posthog_posts: list[dict[str, Any]],
 ) -> None:
     class Unlisted(AnalyticsEvent):
-        event_name = "card_saved"
+        event_name = "business_document_received"
 
     with pytest.raises(TypeError):
-        capture_analytics_event(Unlisted(), user_id="account-raw-id", internal_account=False)
+        capture_analytics_event(
+            Unlisted(), user_id="account-raw-id", internal_account=False
+        )
     with pytest.raises(ValueError):
-        capture_analytics_event(_event("card_saved"), user_id=" ", internal_account=False)
+        capture_analytics_event(
+            _event("business_document_received"), user_id=" ", internal_account=False
+        )
     assert posthog_posts == []
 
 
@@ -490,7 +357,7 @@ def _generic_envelope_kwargs() -> list[tuple[str, dict[str, Any]]]:
                 "event_type": "system",
                 "event_action": "failed",
                 "feature_area": "storage",
-                "analytics_event": CardSaved(calculator="backtest"),
+                "analytics_event": _sample_event(),
                 "schema_version": "person@example.com",
                 "event_id": "secret free text",
                 "environment": "question text",
@@ -505,7 +372,7 @@ def _generic_envelope_kwargs() -> list[tuple[str, dict[str, Any]]]:
                 "event_type": "analytics",
                 "event_action": "completed",
                 "feature_area": "product_analytics",
-                "analytics_event": CardSaved(calculator="backtest"),
+                "analytics_event": _sample_event(),
                 "occurred_at": datetime(2020, 1, 1, tzinfo=timezone.utc),
                 "internal_account": False,
                 "actor_hash": valid_actor,
@@ -530,46 +397,64 @@ def test_a_generic_envelope_cannot_carry_an_analytics_event(
 
 def _forged_envelopes():
     valid_actor = actor_hash_for_user("account-raw-id")
-    yield "generic envelope with the registry literals", build_event_envelope(
-        schema_version="argus_analytics_event/v1",
-        event_type="analytics",
-        event_action="completed",
-        feature_area="product_analytics",
-        actor_hash=valid_actor,
+    yield (
+        "generic envelope with the registry literals",
+        build_event_envelope(
+            schema_version="argus_analytics_event/v1",
+            event_type="analytics",
+            event_action="completed",
+            feature_area="product_analytics",
+            actor_hash=valid_actor,
+        ),
     )
-    yield "model_construct skips validation", build_analytics_envelope(
-        CardSaved(calculator="time_value"),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(
-        update={"analytics_event": CardSaved.model_construct(calculator="RD$5,000")}
+    yield (
+        "model_construct skips validation",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(
+            update={
+                "analytics_event": BusinessDocumentReceived.model_construct(
+                    business_hash=BUSINESS_HASH, channel="RD$5,000"
+                )
+            }
+        ),
     )
 
-    class Sneaky(CardSaved):
+    class Sneaky(BusinessDocumentReceived):
         amount: str = "RD$5,000"
 
-    yield "subclass of a registered model", build_analytics_envelope(
-        CardSaved(calculator="time_value"),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(update={"analytics_event": Sneaky(calculator="time_value")})
-    yield "extra attribute next to a registered event", build_analytics_envelope(
-        CardSaved(calculator="time_value"),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(update={"attributes": {"amount": "RD$5,000"}})
-    yield "guest hash on an event that does not carry one", build_analytics_envelope(
-        CardSaved(calculator="time_value"),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(update={"attributes": {"guest_id_hash": valid_actor}})
-    yield "free text as the guest hash", build_analytics_envelope(
-        SignedIn(signup="new", trigger="save"),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(update={"attributes": {"guest_id_hash": "person@example.com"}})
+    yield (
+        "subclass of a registered model",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(
+            update={
+                "analytics_event": Sneaky(business_hash=BUSINESS_HASH, channel="upload")
+            }
+        ),
+    )
+    yield (
+        "extra attribute next to a registered event",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(update={"attributes": {"amount": "RD$5,000"}}),
+    )
+    yield (
+        "guest hash on an event that does not carry one",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(update={"attributes": {"guest_id_hash": valid_actor}}),
+    )
     registry_built = build_analytics_envelope(
-        CardSaved(calculator="backtest"),
+        _sample_event(),
         user_id="account-raw-id",
         internal_account=False,
     )
@@ -597,11 +482,14 @@ def _forged_envelopes():
         ),
     ):
         yield label, registry_built.model_copy(update={field: value})
-    yield "free text as the distinct id", build_analytics_envelope(
-        CardSaved(calculator="time_value"),
-        user_id="account-raw-id",
-        internal_account=False,
-    ).model_copy(update={"actor_hash": "person@example.com"})
+    yield (
+        "free text as the distinct id",
+        build_analytics_envelope(
+            _sample_event(),
+            user_id="account-raw-id",
+            internal_account=False,
+        ).model_copy(update={"actor_hash": "person@example.com"}),
+    )
 
 
 @pytest.mark.parametrize(
@@ -680,7 +568,7 @@ def _drive_http_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
     with TestClient(app) as client:
         for stage in ("viewed", "try_argus"):
             response = client.post("/api/v1/public/receipt-funnel", json={"stage": stage})
-            assert response.status_code == 204
+            assert response.status_code == 404
         retired = client.post(
             "/api/v1/analytics/guest-events",
             json={
@@ -697,7 +585,12 @@ def _drive_http_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
             json={"type": "general", "message": "Clean break check"},
         )
         assert feedback.status_code == 200, feedback.text
-        assert client.get("/api/v1/search", params={"q": "AAPL"}).status_code == 200
+        assert (
+            client.get(
+                "/api/v1/search", params={"q": "AAPL", "surface": "personal"}
+            ).status_code
+            == 404
+        )
 
 
 @pytest.mark.parametrize(
@@ -720,19 +613,6 @@ def test_removed_events_do_not_reach_posthog(
         drive()
 
     assert posthog_posts == []
-
-
-def test_shared_cohort_fixture_matches_when_present() -> None:
-    """0C-9 adds the shared fixture; once it exists it must agree with this type."""
-    fixture = FIXTURES / "invite_cohort_codes.json"
-    if not fixture.exists():
-        pytest.skip("invite cohort fixture arrives with SPEC 0 package 0C-9")
-    codes = json.loads(fixture.read_text(encoding="utf-8"))
-    for code in codes["accepted"]:
-        _event("landing_viewed", cohort=code)
-    for code in codes["rejected"]:
-        with pytest.raises(ValidationError):
-            _event("landing_viewed", cohort=code)
 
 
 def test_business_vocabularies_come_from_their_owners() -> None:
@@ -762,7 +642,11 @@ def _raise_with_a_customer_value() -> None:
 
 
 @pytest.mark.parametrize(
-    ("where", "named"), [({"route": "/business/receipts"}, "route"), ({"job": "document_preparation"}, "job")]
+    ("where", "named"),
+    [
+        ({"route": "/business/receipts"}, "route"),
+        ({"job": "document_preparation"}, "job"),
+    ],
 )
 def test_the_exception_payload_carries_only_its_allowed_fields(
     where: dict[str, str], named: str

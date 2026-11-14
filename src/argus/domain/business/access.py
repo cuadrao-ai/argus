@@ -205,7 +205,7 @@ class AccessStore(Protocol):
         space_id: str,
         actor_id: str,
         invite_id: str,
-        send: Callable[[], DeliveryState],
+        send: Callable[[Connection | None], DeliveryState],
     ) -> DeliveryState: ...
 
     def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
@@ -1142,7 +1142,7 @@ class InMemoryAccessStore:
         space_id: str,
         actor_id: str,
         invite_id: str,
-        send: Callable[[], DeliveryState],
+        send: Callable[[Connection | None], DeliveryState],
     ) -> DeliveryState:
         with self._lock:
             self._manager(space_id, actor_id)
@@ -1167,7 +1167,7 @@ class InMemoryAccessStore:
                 return "uncertain"
             invite["delivery_state"] = "sending"
             try:
-                invite["delivery_state"] = send()
+                invite["delivery_state"] = send(None)
             except Exception:
                 invite["delivery_state"] = "uncertain"
             return invite["delivery_state"]

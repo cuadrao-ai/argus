@@ -109,8 +109,11 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
         record_expense(service, context)
     assert len(query(http, filters=PURCHASES)["items"]) == 25
     summary = preview(http)
-    assert summary["table"]["current"] == {"record_count": 26, "currencies": ["DOP"]}
+    current = summary["table"]["current"]
+    assert (current["record_count"], current["currencies"]) == (26, ["DOP"])
+    assert "currency" not in [column["key"] for column in current["columns"]]
     assert summary["table"]["all"]["record_count"] == 26
+    assert "currency" in [column["key"] for column in summary["table"]["all"]["columns"]]
     response = export(http)
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
     written = lines(response)
@@ -122,7 +125,7 @@ def test_table_export_is_one_file_of_every_matching_record(client, actions):
         unquote(encoded),
     )
     assert fallback == f'attachment; filename="{unquote(encoded)}"'
-    assert written[0] == ["Contraparte", "Fecha", "Monto", "Moneda"]
+    assert written[0] == ["Contraparte", "Fecha", "Total", "Moneda"]
     assert len(written) == 27
     assert {line[3] for line in written[1:]} == {"DOP"}
     excel = export(http, format="xlsx")
@@ -181,6 +184,17 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
         "pending_fiscal_count": card,
         "pending_rate_count": 0,
         "pending_rate_currencies": [],
+        "rnc_warning_count": 1,
+        "rnc_supplier_count": 1,
+        "rnc_suppliers": [
+            {
+                "name": "PRÁCTICA B0100000031",
+                "rnc": "199990021",
+                "estado": "sin verificar",
+                "status": "rnc_unverified",
+                "record_count": 1,
+            }
+        ],
     }
     assert card == 1
     response = export(
@@ -202,6 +216,7 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     official[2] = "02-GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS "
     official[11] = official[17] = "0"
     official[22] = "01 - EFECTIVO"
+    official[5:7] = [official[5][:6], official[5][6:], official[6][:6], official[6][6:]]
     assert written[1:] == [official]
 
 
@@ -495,3 +510,71 @@ def test_fiscal_totals_use_current_hand_entered_declaration_and_filtered_records
     sales = query(http, filters={"record_families": ["sale"]})
     assert sales["matching_count"] == 1
     assert {item["basis"] for item in sales["fiscal_totals"]} == {"itbis"}
+
+
+def test_export_source_carries_rnc_registry_after_its_database_transaction(actions):
+    from argus.domain.business.fiscal_profile import set_profile
+    from argus.domain.business.reporting_file import summarize_export
+    from argus.domain.business.reporting_query import ReportRequestV2
+    from argus.domain.business.reporting_store import read_export_source
+
+    from tests.test_business_declaration_after_approval_postgres import (
+        FILER,
+        SUPPLIER,
+        account_funding,
+        approved,
+        captured,
+        declared,
+    )
+    from tests.test_business_dgii_postgres import filer_change
+
+    service, context, _ = actions
+    space = PostgresSpaceStore(service.authority.pool).get(str(context.actor.space_id))
+    assert space is not None
+    set_profile(
+        service.authority,
+        context,
+        filer_change(FILER, name=space.name, previous_name=space.name),
+        "rnc",
+    )
+    funding = account_funding(cash_account(service, context))
+    for ncf in ("B0100000041", "B0100000042"):
+        draft, version = captured(service, context, ncf, funding)
+        view = approved(service, context, draft, version)
+        assert (
+            declared(service, context, draft, view.version, category="02").outcome
+            == "applied"
+        )
+    request = ReportRequestV2(filters={**PURCHASES, "period": SEPTEMBER})
+    with service.authority.pool.connection() as db:
+        db.execute("delete from public.dgii_rnc where rnc=%s", (SUPPLIER,))
+    missing = read_export_source(service.authority, context)
+    assert SUPPLIER in missing.rnc_registry.entries
+    assert missing.rnc_registry.lookup(SUPPLIER) is None
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.dgii_rnc (rnc,name,status,file_date) values (%s,%s,%s,%s)",
+            (SUPPLIER, "Suplidor de prueba", "SUSPENDIDO", "2026-09-01"),
+        )
+    try:
+        inactive = read_export_source(service.authority, context)
+        with service.authority.pool.connection() as db:
+            db.execute(
+                "update public.dgii_rnc set status='ACTIVO' where rnc=%s", (SUPPLIER,)
+            )
+        old = summarize_export(missing, request).dgii
+        frozen = summarize_export(inactive, request).dgii
+        assert (old.rnc_warning_count, old.rnc_supplier_count) == (2, 1)
+        assert old.rnc_suppliers[0].status == "rnc_unverified"
+        assert (frozen.rnc_warning_count, frozen.rnc_supplier_count) == (2, 1)
+        assert frozen.rnc_suppliers[0].name == "Suplidor de prueba"
+        assert frozen.rnc_suppliers[0].estado == "SUSPENDIDO"
+        assert frozen.rnc_suppliers[0].status == "rnc_inactive"
+        fresh = summarize_export(
+            read_export_source(service.authority, context), request
+        ).dgii
+        assert fresh.rnc_warning_count == fresh.rnc_supplier_count == 0
+        assert fresh.rnc_suppliers == ()
+    finally:
+        with service.authority.pool.connection() as db:
+            db.execute("delete from public.dgii_rnc where rnc=%s", (SUPPLIER,))

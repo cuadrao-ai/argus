@@ -10,6 +10,7 @@ from argus.domain.business.contracts.facts import (
     BusinessFacts,
     BusinessResolution,
     Known,
+    MontosReview,
 )
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.reconcile.model import ImportEvent
@@ -62,3 +63,12 @@ def validate_facts(tx: ActionTransaction, facts: BusinessFacts) -> None:
             and account[0]["currency"] != facts.currency.value
         ):
             raise ActionError("invalid_input", "import_currency_mismatch")
+
+
+def reviewed_amount_facts(before: BusinessFacts, review: MontosReview, source_ids: tuple[UUID, ...], *, origin: str) -> BusinessFacts:
+    changes = {}
+    for name in ("net_amount", "legal_tip"):
+        value = getattr(review, name)
+        if value is not None:
+            changes[name] = {**value.model_dump(), "origin": origin, "verified": False, "source_ids": source_ids}
+    return BusinessFacts.model_validate(before.model_dump() | changes)

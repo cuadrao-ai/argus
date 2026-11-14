@@ -424,7 +424,7 @@ Frontend package management uses Bun.
 
 Required model and data variables:
 
-- `OPENROUTER_API_KEY`
+- `CUADRAO_OPENROUTER_API_KEY_DEV` (local; `OPENROUTER_API_KEY` is the legacy fallback)
 - `CUADRAO_UTILITY_MODEL` / `CUADRAO_UTILITY_FALLBACK_MODEL`: cheap background
   utility tasks such as titles and labels.
 - `CUADRAO_CHAT_MODEL` / `CUADRAO_CHAT_FALLBACK_MODEL`: clarification,

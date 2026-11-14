@@ -226,14 +226,6 @@
           }
         },
         {
-          "name": "CUADRAO_BUSINESS_ACTIVITY_ENABLED",
-          "kind": "plain",
-          "value": "true",
-          "production": {
-            "value": "false"
-          }
-        },
-        {
           "name": "CUADRAO_BUSINESS_INVOICING_ENABLED",
           "kind": "plain",
           "value": "false",
@@ -1223,10 +1215,25 @@
           }
         },
         {
+          "name": "CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS",
+          "kind": "plain",
+          "value": "60",
+          "production": {
+            "value": "5"
+          }
+        },
+        {
           "name": "CUADRAO_DOCUMENT_JOBS_MAX_READS",
           "kind": "plain",
           "production": {
             "value": "3"
+          }
+        },
+        {
+          "name": "CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS",
+          "kind": "plain",
+          "production": {
+            "value": "3600"
           }
         },
         {

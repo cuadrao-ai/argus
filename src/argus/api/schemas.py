@@ -276,7 +276,7 @@ class ConversationCreate(BaseModel):
     language: Language | None = None
     #: Which chats the new conversation joins. The server resolves Business to
     #: the person's own space; the client never names a space.
-    surface: ConversationSurface = "personal"
+    surface: ConversationSurface = "business"
 
 
 class ConversationPatch(BaseModel):

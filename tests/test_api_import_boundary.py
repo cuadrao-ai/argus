@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import json
 import os
 import subprocess
@@ -39,7 +38,7 @@ def test_api_startup_health_does_not_import_backtest_compute_stack() -> None:
 
 def test_api_real_workflow_build_does_not_import_backtest_compute_stack() -> None:
     result = _run_import_probe()
-    assert result["workflow_loaded"] is True
+    assert result["workflow_loaded"] is False
     assert result["forbidden_after_workflow"] == []
 
 
@@ -52,41 +51,10 @@ def test_api_readiness_warms_lazy_workflow_without_backtest_compute_stack() -> N
         if isinstance(check, dict)
     }
 
-    assert checks["agent_runtime_workflow"]["status"] == "ready"
+    assert "agent_runtime_workflow" not in checks
     assert result["forbidden_after_readiness"] == []
 
 
-def test_runtime_uses_lightweight_workflow_contract_for_shared_runtime_names() -> None:
-    runtime_path = REPO_ROOT / "src" / "argus" / "agent_runtime" / "runtime.py"
-    tree = ast.parse(runtime_path.read_text(encoding="utf-8"))
-
-    imports_contract = any(
-        isinstance(node, ast.ImportFrom)
-        and node.module == "argus.agent_runtime.workflow_contract"
-        for node in ast.walk(tree)
-    )
-    assert imports_contract
-
-    forbidden_local_assignments = {
-        "OFFLINE_CLARIFICATION_FALLBACK",
-        "TOKEN_STREAM_NODES",
-        "WORKFLOW_NODE_NAMES",
-    }
-    assigned_names = {
-        target.id
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Assign | ast.AnnAssign)
-        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
-        if isinstance(target, ast.Name)
-    }
-    assert forbidden_local_assignments.isdisjoint(assigned_names)
-
-    workflow_contract_path = (
-        REPO_ROOT / "src" / "argus" / "agent_runtime" / "workflow_contract.py"
-    )
-    assert "OFFLINE_CLARIFICATION_FALLBACK" not in workflow_contract_path.read_text(
-        encoding="utf-8"
-    )
 
 
 def test_api_import_probe_reports_memory_smoke() -> None:
@@ -183,8 +151,7 @@ _IMPORT_PROBE_SCRIPT = textwrap.dedent(
         readiness_body = readiness_response.json()
 
     forbidden_after_readiness = forbidden_loaded()
-    workflow = api_state.get_agent_runtime_workflow()
-    workflow_loaded = workflow is not None
+    workflow_loaded = hasattr(api_state, "get_agent_runtime_workflow")
     forbidden_after_workflow = forbidden_loaded()
 
     print(

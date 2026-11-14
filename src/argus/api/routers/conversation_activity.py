@@ -52,7 +52,11 @@ def _visible_conversation(
         conversation = api_state.store.conversations.get(conversation_id)
         if api_state.store.conversation_owners.get(conversation_id) != user.id:
             conversation = None
-    if conversation is None or conversation.deleted_at is not None:
+    if (
+        conversation is None
+        or conversation.deleted_at is not None
+        or conversation.surface != "business"
+    ):
         raise _not_found(request)
 
     context = account_context(request)

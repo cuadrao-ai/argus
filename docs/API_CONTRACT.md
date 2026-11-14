@@ -9,6 +9,67 @@
 > [!IMPORTANT]
 > **Locked Status**: No breaking changes (structural JSON shape changes) are allowed without explicit approval or critical implementation blockers. Additive changes and clarifications are permitted.
 
+## Active conversation endpoint table
+
+As of #1996, `business_conversations.py` owns the retained conversation,
+history and search operations below. This table lists mounted operations, not
+permission to start a chat: Business creation remains flag-gated, and Personal
+chat creation is closed. Other API families remain documented in their sections.
+The generic conversation catch-all is a refusal handler, not a restored operation.
+
+| Method | Path | Status |
+| --- | --- | --- |
+| `GET` | `/api/v1/conversations` | Active |
+| `POST` | `/api/v1/conversations` | Active |
+| `DELETE` | `/api/v1/conversations` | Active |
+| `PATCH` | `/api/v1/conversations/{conversation_id}` | Active |
+| `DELETE` | `/api/v1/conversations/{conversation_id}` | Active |
+| `GET` | `/api/v1/conversations/{conversation_id}/messages` | Active |
+| `GET` | `/api/v1/history` | Active |
+| `GET` | `/api/v1/search` | Active |
+
+## Retired operations (#1996)
+
+Every operation below was removed from `docs/api/openapi.yaml` when the legacy
+conversation routers were unmounted. None is served, including when its former
+feature flag is enabled. Historical payloads, examples and behavior below are
+retained as history only; this retirement ledger supersedes those descriptions.
+Conversation catch-all refusals do not implement the retired operations.
+
+The web chat stream and starter-prompt operations were also retired in #2001.
+Their endpoint descriptions have been removed below. Historical investing
+admission, action and result contracts describe compatibility data only; they
+do not enable a writer, an execution endpoint or a Personal conversation.
+
+| Method | Path | Status |
+| --- | --- | --- |
+| `GET` | `/api/v1/computations/answers` | Retired |
+| `POST` | `/api/v1/computations/compare` | Retired |
+| `POST` | `/api/v1/conversations/guest/replace` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/confirmations/{confirmation_id}/direct-edit` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/confirmations/{confirmation_id}/peer-assets` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/messages/{message_id}/computation/refresh` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/messages/{message_id}/computation/rerun` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/messages/{message_id}/continue` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/messages/{message_id}/decision` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/public-excerpt` | Retired |
+| `GET` | `/api/v1/conversations/{conversation_id}/public-excerpt-candidates` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/public-excerpt-preview` | Retired |
+| `GET` | `/api/v1/conversations/{conversation_id}/run-dossiers` | Retired |
+| `POST` | `/api/v1/conversations/{conversation_id}/tool-results/{artifact_id}/recompute` | Retired |
+| `GET` | `/api/v1/decisions/{decision_id}` | Retired |
+| `POST` | `/api/v1/decisions/{decision_id}/rerun` | Retired |
+| `GET` | `/api/v1/discovery/assets` | Retired |
+| `GET` | `/api/v1/discovery/indicators` | Retired |
+| `POST` | `/api/v1/evidence-artifacts/{artifact_id}/decision` | Retired |
+| `POST` | `/api/v1/evidence-artifacts/{artifact_id}/public-excerpt` | Retired |
+| `GET` | `/api/v1/market/session` | Retired |
+| `GET` | `/api/v1/public-excerpts` | Retired |
+| `DELETE` | `/api/v1/public-excerpts/{snapshot_id}` | Retired |
+| `POST` | `/api/v1/public/receipt-funnel` | Retired |
+| `GET` | `/api/v1/public/receipts/{public_id}` | Retired |
+| `POST` | `/api/v1/public/receipts/{public_id}/fork` | Retired |
+
 ---
 
 # 1. Contract Principles
@@ -60,12 +121,6 @@ preferences remain read-only compatibility metadata.
 
 Every backtest run must be reproducible from its `config_snapshot`. Defaults must be persisted, and result cards must show the assumptions used during execution.
 
-## First Use Is Ordinary Chat
-
-There is no explicit onboarding flow. Authentication leads directly into
-normal chat, localized generic starter prompts reduce blank-page friction,
-and the first successful backtest is the meaningful onboarding milestone.
-
 ## Ask Only What Improves the Next Useful Response
 
 Do not block users with friction. Language is chosen at signup and improves comprehension. Everything else should be delayed until contextually useful or derived through conversation.
@@ -82,7 +137,6 @@ Language preference is global, persistent, and reversible. Changing language upd
 Base URL: /api/v1
 Transport: HTTPS
 Format: JSON
-Streaming: SSE for chat
 Auth: Supabase Auth session cookie or bearer token
 Timezone: UTC server-side
 
@@ -147,8 +201,8 @@ claims (`claim_guest_compute_usage`, `claim_registered_compute_usage`)
 left with the chat routes (#1625) and were dropped from the database by
 `20261110160100_drop_unowned_objects.sql` (#1890). No endpoint claims a
 `guest_compute_turns` or `account_compute_turns` unit, and no `429` or
-`503` is answered for one. `GET /me/usage` reports conversation as
-unbounded and never projects such a counter.
+`503` is answered for one. The retired `GET /me/usage` reported conversation as
+unbounded and never projected such a counter.
 
 Supported rate-limit headers where applicable:
 - `X-RateLimit-Limit`
@@ -377,8 +431,8 @@ every replay deterministic.
 <a id="contract-request-boundaries"></a>
 ### Chat request-size and RFC 9457 ownership
 
-These are Argus-owned limits for `POST /api/v1/chat/stream`; provider token or
-gateway defaults do not define the product contract.
+These retained schema/security limits describe historical chat payloads, not a
+served chat endpoint. Provider token or gateway defaults never defined them.
 
 | Boundary | Inclusive maximum |
 | --- | ---: |
@@ -460,16 +514,9 @@ allowlist. Documentation-only fields (`description`, `summary`, `operationId`,
 `tags`, examples, and external documentation links) do not participate in the
 structural comparison.
 
-One manual streaming difference is approved: for the
-`POST /api/v1/chat/stream` 200 `text/event-stream` response body, the gate
-normalizes FastAPI's generated success media type to `text/event-stream` and
-excludes only that success body schema from comparison. The checked artifact
-may then describe SSE events and examples precisely. The route, method, header
-parameter name/schema, request schema, 200 status, and all RFC 9457 error
-statuses/media/schema remain structural gate inputs. The conditional
-requirement that the header equal `confirmation_id` for `run_backtest` is
-semantic text because OpenAPI cannot express that body/header dependency. There
-are no other schema or public-route exclusions.
+The retired chat streaming success-body exception no longer describes a public
+operation. The retained conversation reads use their generated response schemas;
+no replacement chat endpoint is introduced.
 
 <a id="contract-run-action-reconciliation"></a>
 ### Stable Run action identity and ambiguous-result reconciliation
@@ -538,21 +585,12 @@ confirmation as unsuccessful. A timeout, disconnect, fetch exception, empty
 response, or `404` lookup alone must never produce `could_not_run`.
 
 <a id="contract-chat-turn-lifecycle"></a>
-### Durable ordinary chat-turn lifecycle
+### Retained chat-turn lifecycle reads
 
-Supabase owns one current lifecycle row for every accepted non-backtest chat
-turn. Here, an ordinary turn is an accepted `POST /api/v1/chat/stream` request
-that is not admitted under `operation_scope = chat.run_backtest`; it includes
-message-only requests and all other supported structured chat actions.
-`chat.run_backtest` is excluded because `backtest_jobs` owns that action's
-durable execution and recovery state. This record is recovery truth, not a
-second queue, chat brain, transcript, or replacement for LangGraph checkpointer
-state.
-
-Acceptance occurs only after auth, request validation, quota, conversation
-ownership, and the durable user message plus lifecycle row succeed. The server
-preallocates one `turn_id` and uses it as the user `request_message_id`, so one
-accepted user message maps to one lifecycle identity.
+Existing lifecycle rows remain readable through Business conversation history.
+The retired web chat request boundary and runtime no longer create these turns.
+The persisted terminal metadata and read-time recovery rules below continue to
+interpret historical rows; they do not expose a new chat writer.
 
 Every terminal assistant message for this ordinary turn persists immutable
 `metadata.agent_runtime_turn` with `turn_id`, the lifecycle `request_id`,
@@ -561,14 +599,16 @@ recoverable-failure message also stores `failure_code` and `retryable`. This
 metadata is written with the terminal message before the lifecycle CAS, so it
 remains discoverable if that CAS is the interrupted operation.
 
-| State | Meaning | Transition owner |
-| --- | --- | --- |
-| `accepted` | User message and lifecycle identity are durable; runtime work has not started. | Chat request boundary transaction |
-| `running` | LangGraph/runtime work has started for the accepted turn. | Runtime worker before the first graph operation |
-| `completed` | Terminal assistant message/artifact is durable. Network delivery is irrelevant. | Terminal message persistence/finalizer |
-| `recoverable_failed` | Existing terminal runtime-failure owner persisted safe recovery and any retry metadata. | Terminal failure guard/message store |
-| `abandoned` | A stale accepted/running turn has no durable success or failure proof after the reconciliation window. | Server reconciler |
-| `reconciled` | The normal terminal transition was missing, but durable evidence proves `completed` or `recoverable_failed`. | Server reconciler |
+| State | Persisted meaning |
+| --- | --- |
+| `accepted` | User message and lifecycle identity are durable. |
+| `running` | Runtime work had started for the accepted turn. |
+| `completed` | A terminal assistant message/artifact is durable. |
+| `recoverable_failed` | A terminal failure and retry metadata were persisted. |
+| `abandoned` | A stale turn has no durable success or failure proof. |
+| `reconciled` | Durable evidence proves `completed` or `recoverable_failed`. |
+
+Server reconciler behavior remains part of the retained read path.
 
 Allowed transitions are `accepted -> running`, `accepted|running -> completed`,
 `accepted|running -> recoverable_failed`, `accepted|running -> abandoned`, and
@@ -588,8 +628,7 @@ disconnect/cancellation never marks a turn failed or abandoned by itself;
 process loss and incomplete terminal persistence belong to reconciliation.
 
 An `accepted` or `running` row becomes stale after `15 minutes` according to the
-database clock and `stale_since = COALESCE(running_at, accepted_at)`. Before the
-next chat POST for that conversation and before returning
+database clock and `stale_since = COALESCE(running_at, accepted_at)`. Before returning
 `GET /conversations/{id}/messages`, the server selects at most `20` stale rows
 for that conversation in deterministic `stale_since ASC, turn_id ASC` order;
 private alpha adds no background sweeper.
@@ -663,6 +702,9 @@ persisted solely to represent abandonment.
 
 ### Public evidence receipts
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 #### Approved answer-sharing extension
 
 Founder decision 2026-09-14: sharing is enabled by owner selection and the exact
@@ -718,19 +760,19 @@ Owner endpoints, authenticated, registered accounts only (`can_save_decision`):
 
 | Method   | Path                                               | Purpose |
 | :------- | :------------------------------------------------- | :------ |
-| `GET`    | `/conversations/{conversation_id}/public-excerpt-candidates` | List final answer units with server-owned eligibility |
-| `POST`   | `/conversations/{conversation_id}/public-excerpt-preview` | Validate selected turns and return their exact public rendering payload |
-| `POST`   | `/conversations/{conversation_id}/public-excerpt` | Recheck and freeze the previewed selection |
-| `POST`   | `/evidence-artifacts/{artifact_id}/public-excerpt` | Compatibility adapter to the same single-message receipt |
-| `GET`    | `/public-excerpts`                                 | The owner's receipt list for Data Controls |
-| `DELETE` | `/public-excerpts/{snapshot_id}`                   | Revoke, immediately and irreversibly |
+| `GET`    | `/conversations/{conversation_id}/public-excerpt-candidates` | **Retired (#1996).** List final answer units with server-owned eligibility |
+| `POST`   | `/conversations/{conversation_id}/public-excerpt-preview` | **Retired (#1996).** Validate selected turns and return their exact public rendering payload |
+| `POST`   | `/conversations/{conversation_id}/public-excerpt` | **Retired (#1996).** Recheck and freeze the previewed selection |
+| `POST`   | `/evidence-artifacts/{artifact_id}/public-excerpt` | **Retired (#1996).** Compatibility adapter to the same single-message receipt |
+| `GET`    | `/public-excerpts`                                 | **Retired (#1996).** The owner's receipt list for Data Controls |
+| `DELETE` | `/public-excerpts/{snapshot_id}`                   | **Retired (#1996).** Revoke, immediately and irreversibly |
 
 Public endpoints, unauthenticated:
 
 | Method | Path                           | Purpose |
 | :----- | :----------------------------- | :------ |
-| `GET`  | `/public/receipts/{public_id}` | Read one frozen receipt |
-| `POST` | `/public/receipt-funnel`       | Accept a viewer-side funnel stage; records nothing |
+| `GET`  | `/public/receipts/{public_id}` | **Retired (#1996).** Read one frozen receipt |
+| `POST` | `/public/receipt-funnel`       | **Retired (#1996).** Accept a viewer-side funnel stage; records nothing |
 
 A result whose conversation has been deleted is no longer shareable: creation answers
 `404` with the ordinary not-available detail, and the database refuses the insert even
@@ -3121,168 +3163,14 @@ for a fresh one.
 
 ## `GET /me/usage`
 
-Return the authenticated account's current allowance truth keyed by operation
-class. This is an owner-only read surface. The backend returns zero-state
-windows when a counter row does not exist; reading usage does not create or
-increment a counter.
-
-Three operation classes, one meter each:
-
-| Class | Covers | Metered |
-| --- | --- | --- |
-| `compute` | Conversation: interpretation, answers, clarifications, edits | Never. Free and unlimited. |
-| `grounding` | A retrieval that produces cited facts | Per retrieval. |
-| `execution` | A backtest run | Per unique durable admission. |
-
-**Response (registered account, research rail on):**
-```json
-{
-  "allowances": {
-    "compute": {
-      "hour": null,
-      "day": null,
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": null
-    },
-    "grounding": {
-      "hour": null,
-      "day": null,
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": null
-    },
-    "execution": {
-      "hour": {
-        "limit": 10,
-        "used": 1,
-        "remaining": 9,
-        "period_end": "2026-07-21T15:00:00Z"
-      },
-      "day": {
-        "limit": 50,
-        "used": 4,
-        "remaining": 46,
-        "period_end": "2026-07-22T00:00:00Z"
-      },
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": "hour"
-    }
-  }
-}
-```
-
-**Response (guest whose workspace allowance is spent):**
-```json
-{
-  "allowances": {
-    "compute": {
-      "hour": null,
-      "day": null,
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": null
-    },
-    "grounding": {
-      "hour": null,
-      "day": {
-        "limit": 3,
-        "used": 1,
-        "remaining": 2,
-        "period_end": "2026-07-22T00:00:00Z"
-      },
-      "guest_session": null,
-      "available_now": true,
-      "limiting_window": "day"
-    },
-    "execution": {
-      "hour": null,
-      "day": {
-        "limit": 2,
-        "used": 0,
-        "remaining": 2,
-        "period_end": "2026-07-22T00:00:00Z"
-      },
-      "guest_session": {
-        "limit": 2,
-        "used": 2,
-        "remaining": 0,
-        "period_end": "2026-07-27T14:03:09Z"
-      },
-      "available_now": false,
-      "limiting_window": "guest_session"
-    }
-  }
-}
-```
-
-**Allowance semantics:**
-- Every class carries the same five keys. An unbounded class has every window
-  `null`, `available_now: true`, and `limiting_window: null`. `compute` is
-  always unbounded. `grounding` is unbounded for a signed-in account while the
-  research rail is on: the per-account research cap and the shared daily
-  ceiling are anti-abuse circuit breakers rather than allowance windows and
-  are not projected here.
-- `grounding` reports the counter the live retrieval rail claims. Rail on, that
-  is `research_searches`: guests receive the visitor-owned UTC `day` window of
-  three. Rail off, it is `discovery_searches`: guests receive two per visitor
-  day and signed-in accounts receive the discovery `hour` and `day` windows.
-- `execution` reports the `backtest_runs` counters charged by unique durable
-  simulation admission. Registered accounts receive both UTC calendar windows.
-  Guests receive the visitor-owned UTC `day` window and the workspace-lifetime
-  `guest_session` window, whose `period_end` is the fixed workspace expiry,
-  because admission enforces both.
-- Every populated window carries the exact backend-owned `period_end`; clients
-  may localize its display, but must not infer or replace it with a countdown,
-  local timer, or `Retry-After` value.
-- `remaining` is computed by the backend as `max(limit - used, 0)`. Settlement
-  is truthful accounting, not a ceiling: `used` may exceed `limit` after
-  concurrent in-flight admissions settle, and `remaining` clamps at zero.
-- `available_now` is backend-derived and true only when every window the class
-  carries has capacity. A guest whose workspace counter is at 2/2 reads
-  `available_now: false` even after the visitor day has reset (#546).
-- `limiting_window` is backend-derived: the window with the smaller remaining
-  capacity, and on ties the window whose `period_end` is later (`day` over
-  `hour`; for a guest, whichever of `day` and `guest_session` ends later, which
-  on the workspace's final calendar day is `day`). The frontend must not compute, estimate, or
-  hardcode quota truth; it renders these derived fields and reads
-  `limiting_window` to choose which reset horizon to show.
-- The UI emphasizes the daily allowance, reveals the hourly window whenever
-  `limiting_window` is `hour`, and reveals the workspace window whenever it is
-  `guest_session`.
-- `messages` and `backtests` are deprecated aliases of `compute` and
-  `execution`, present in every response (omitted from the examples above)
-  so deployed web bundles keep a stable shape during the rollout, as `GET /me`
-  does for `onboarding`. They are derived from the classes, marked
-  `deprecated` in the OpenAPI artifact, and are removed after the first
-  promotion that carries the operation-class keys. New clients must not read
-  them.
-
-**Accounting semantics:**
-- Conversation is compute. Ordinary turns settle no allowance at entry or at
-  their terminal outcome, are never rejected for an exhausted allowance, and
-  write no `chat_messages` row; that resource survives only in historical rows.
-  A guest turn additionally counts one unit against the silent anti-abuse
-  ceiling described under Rate Limiting, in the same terminal transaction; that
-  counter is not an allowance and is not projected here.
-- Grounding capacity is claimed atomically immediately before billable
-  provider work (see the research rail section); cache hits, unconfigured
-  providers, and replays claim nothing.
-- `chat.run_backtest` action turns consume the execution allowance at unique
-  durable admission; replays and pre-admission rejections (including
-  data-window preflight) consume zero, and a post-admission execution or
-  finalization failure still counts exactly one. Chat and direct API launches
-  follow the same rule.
-
-**Error rules:**
-- `401 Unauthorized`: authentication is missing or invalid.
-- `403 Forbidden`: the authenticated identity no longer has private-alpha
-  access.
-- `500 Server Error`: durable usage truth is unavailable outside the explicit
-  development fallback mode.
+**Retired (#2001).** The investing usage panel and its allowance projection are
+removed. This endpoint is not served and returns 404. Business document-read
+usage and budgets retain their existing owners.
 
 ## `GET /market/session`
+
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
 
 Return which session US equities are in, and what the caller's own records show
 interest in. Owner-authenticated read.
@@ -3699,27 +3587,19 @@ What remains is inert compatibility state only:
 
 # 11. Conversations
 
-**Chat surfaces.** A person has two chat histories: Personal (`/chat`) and
-Business (`/biz`). The client names a `surface`, `personal` (the default) or
-`business`, and never a space. The server resolves `business` to the person's
-own space through `resolve_business_scope`. Without
-`ARGUS_BUSINESS_PILOT_ENABLED` it answers 404 `business_unavailable`, and before
-the person starts their space it answers 404 `business_space_missing`, like the
-Business routes. A conversation stores its side in `owner_space_id` (null is
-Personal), so every conversation written before Business existed is Personal.
-`GET /conversations`, `POST /conversations`, `DELETE /conversations`,
-`GET /history` and `GET /search` take the surface and return or change only
-that side's conversations, with the Business flag on or off. A request without
-`surface` is exactly the Personal request it was before. Reads by conversation
-id (messages, activity, `PATCH`, `DELETE /conversations/{id}`) stay owner-scoped
-and serve both sides. Every `Conversation` in a response (list, create, patch,
-continue, fork) carries `surface` (`personal` or `business`), and
-`GET /conversations/{id}/messages` returns the conversation's `surface` beside
-its items. A web shell that loads a conversation of the other surface sends it
-to `/chat` or `/biz` with the same id and does not render it. A continued
-computed answer keeps its source's side; a fork of a public receipt is
-Personal. The guest-only `GET /conversations?limit=2` reads (initial session,
-receipt follow-up) send no surface: guests have only Personal chats.
+**Current route scope:** See the [active endpoint table](#active-conversation-endpoint-table).
+The Personal chat, guest replacement and card-action descriptions below are
+historical where they conflict with the #1996 or #2001 retirement ledger.
+
+**Conversation surface (#2001).** Only `business` remains available, and it is
+now the default for create, list, bulk delete, history and search. Explicit
+`surface=personal` returns 404 without reading or modifying saved Personal data.
+The server resolves Business scope through `resolve_business_scope`; the existing
+Business availability and space-required refusals still apply. Reads, updates
+and deletes by conversation id also refuse saved Personal conversations with 404.
+Stored `Conversation.surface` values retain their historical type; no rows or
+tables are migrated or deleted by this retirement. Business transcript and
+preview responses keep their existing shape.
 
 Personal artifacts never attach to a Business conversation. The decision,
 computation re-run, evidence decision, sharing (`public-excerpt*`) and receipt
@@ -3730,38 +3610,21 @@ chat turn recalls no saved memory, and `POST /memory/candidates` and
 when a source is a Business conversation, one of its messages, or evidence it
 produced.
 
-**Business chat.** `CUADRAO_BUSINESS_CHAT_ENABLED` (older `ARGUS_BUSINESS_CHAT_ENABLED`) is a default-off flag nested
-inside `CUADRAO_BUSINESS_PILOT_ENABLED` (older `ARGUS_BUSINESS_PILOT_ENABLED`); Business chat stays off until Business
-turns have their own tool restrictions. While it is off (or the pilot is off),
-`POST /conversations` with `surface: business` and every turn or card action on
-a Business conversation answer 404 `business_chat_unavailable` with
-`Cache-Control: no-store`, before any model or provider work:
-`POST /chat/stream`, `POST /backtests/run` with its `conversation_id`, and the
-`continue`, `computation/refresh`, `tool-results/{id}/recompute`,
-`confirmations/{id}/peer-assets` and `confirmations/{id}/direct-edit` routes.
-The pilot flag is checked first, so creating with the pilot off still answers
-`business_unavailable`. Reading, renaming and deleting existing Business
-conversations keep working, so their owner can see and delete them. Every
-`POST` under `/conversations/{conversation_id}` must declare its side, Business
-chat or Personal only; `tests/test_business_chat_flag.py` enforces this.
-`GET /business/workspace` reports the flag as `chat_available`.
-
-## `GET /chat/starter-prompts`
-
-Returns the localized generic starter prompts for the signed-in user's profile
-language. Requires a session.
-
-```json
-{ "prompts": ["string"] }
-```
-
----
+**Business conversation creation.** `CUADRAO_BUSINESS_CHAT_ENABLED` (older
+`ARGUS_BUSINESS_CHAT_ENABLED`) remains default-off inside the Business pilot
+switch. `POST /conversations` refuses with `business_chat_unavailable` while
+it is off; the pilot check runs first and returns `business_unavailable` when
+appropriate. `GET /business/workspace` reports `chat_available`. Reading,
+renaming and deleting existing Business conversations remain available under
+their existing scope checks. This capability does not restore retired stream,
+starter-prompt or card-action endpoints. WhatsApp intake uses its separate
+Business runtime, not a web chat endpoint.
 
 ## `GET /conversations`
 
 **Query Params:**
 - `limit`, `cursor`, `archived`, `deleted`
-- `surface=personal|business` (Optional; default `personal`)
+- `surface=business` (Optional; default `business`; `personal` is retired and returns 404)
 
 **Response:**
 ```json
@@ -3801,7 +3664,7 @@ Create new chat thread.
 }
 ```
 *Note: `language` is optional; if omitted, backend resolves from user profile or fallback.*
-*Note: `surface` is optional (`personal` by default); `business` creates the chat in the person's Business space.*
+*Note: `surface` is optional (`business` by default); `personal` is retired and returns 404.*
 *Note: If title is not provided, backend may use a system placeholder until AI-generated title is available.*
 
 **Response:**
@@ -3817,7 +3680,7 @@ Create new chat thread.
 ## `DELETE /conversations`
 
 Soft delete all non-deleted conversations owned by the authenticated user on
-one surface (`?surface=personal|business`, default `personal`), including
+the Business surface (`?surface=business`, the default), including
 active and archived conversations. Deleting all in `/chat` leaves Business
 chats alone, and the reverse. Already-deleted conversations are ignored so
 repeated calls are safe and return `deleted_count: 0`.
@@ -3948,6 +3811,9 @@ Soft delete conversation.
 
 ## `GET /api/v1/conversations/{conversation_id}/run-dossiers`
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 Returns a lazy, newest-first page of finalized evidence-backed runs for one
 owned conversation.
 
@@ -4059,127 +3925,13 @@ stores nothing and makes no LLM, provider, or market-data call.
 
 ---
 
-# 12. Chat Streaming Endpoint
+# 12. Retained conversation payload compatibility
 
-`POST /chat/stream` accepts optional `failed_assistant_id: string | null`
-(1 to 128 characters when supplied). Retry sends the failed assistant reply's
-message ID alongside the original question or structured action, both live and
-after reload. The API accepts the ID only when it identifies this conversation's
-latest assistant reply and that reply has `recovery.retryable: true`. Validation
-and history selection use the same owned newest 20-message snapshot, augmented
-by the bounded imported shared context, in chronological order. This includes
-Supabase-backed conversations and needs no separate retry-validation read.
-Other IDs are ignored and
-are not persisted. The API stores an accepted ID as
-`metadata.failed_assistant_id` on the new user message, preserving any original
-`chat_action` metadata. This also applies to canonical `run_backtest` retries:
-their user-message ID is stable per confirmation and failed reply, so the retry
-is saved after the failure without changing the backtest execution identity.
-
-For that retry turn, runtime history omits only the assistant message with that
-ID from the owned conversation. The question and every other reply, including
-degraded answers, remain eligible for history. An absent, unmatched, stale, or
-nonretryable ID drops nothing. Once an assistant reply follows the persisted
-retry request, later turns omit that same failed reply through the durable retry
-link, subject to the same validation against the preceding latest assistant.
-If the retry stream is interrupted, the next ordinary user turn clears its
-pending retirement; a later assistant cannot complete that abandoned link. The legacy
-`chat_action.type: retry_last_turn` / `payload.failed_assistant_id` link remains
-read-compatible. Matching repeated question text alone does not remove replies
-from model history; that compatibility behavior belongs to transcript display.
-
-### Declared tool calls and results
-
-The neutral transport `ToolCall` is `{tool_name, call_id, arguments}`. Each
-declaration supplies its callable's typed argument and return schemas. Calls are
-ordered, bounded by `MAX_TOOL_CALLS`, and have distinct call IDs. The dispatcher
-supports different tools and repeated calls; a local call bypasses backtest
-launch preparation. The existing validated Run action enters this dispatcher
-with its confirmed canonical strategy.
-
-The interpreter retains its seven intents and reads no calculation. Since Any
-grounded math the answering step returns one typed `calculation` beside its
-prose (see Calculation turns); the kinds and argument names it reads are
-generated from the declarations, so the catalogue the model sees and the math
-that runs share one owner. The model never emits a `ToolCall` itself: the
-runtime validates the calculation against the declaration and dispatches the
-call.
-
-An actual invocation emits `stage_start.tool_progress` containing
-`{locale_key, interpolation_args, call_id, tool_name}`. Interpolation values are
-typed argument facts; the client selects localized copy from `locale_key`.
-Stage-only events carry operational state and display a neutral loader. They do
-not imply strategy extraction, backtest execution, or metric calculation.
-
-Final payloads and persisted assistant metadata carry `tool_result_cards` as a
-list. Each card is `{kind: "tool_result", schema_version: 1, tool_name, call_id,
-artifact_id, input_revision, card_type, card_version, arguments, outcome,
-presentation, artifact_state}`. The outcome status is `succeeded`, `invalid`,
-`ambiguous`, `bounded`, or `unavailable`. Only success has a typed result;
-unsuccessful outcomes contain a failure code and affected field names and cannot
-present an answer. The declaration validates the result before projecting it.
-`presentation` contains a localized title, answer, supporting rows, inputs,
-notes, and optional narrative, public source citations and a typed visual.
-Facts retain their raw value; optional `value_text` supplies localized display
-for typed tokens. Input facts preserve units, editability and the retained
-unknown. Their `visibility` defaults to `private`; a declaration explicitly
-marks shareable input facts `public`. This display contract does not
-replace any tool's argument or result model.
-
-Supporting row facts may carry `comparison_only: true` (absent means false).
-These facts participate in answer comparisons but are omitted from displayed
-card rows, card copy text and public receipts. Ranked comparisons retain a
-`gap_0` fact with value zero for the first item this way: every item's gap can
-be paired by item identity when the leader changes, without an extra zero row.
-
-Additive since the calculations lane (2026-09-11): every fact may carry a
-`source`, `{kind, title?, url?, date?}`, where `kind` is `user` (the user
-stated it), `page` (a retrieved page, which alone carries its title, url and
-`YYYY-MM-DD` date), `market_data` (Argus's own market data, carrying only the
-date of its bar), `assumption` (a figure the answer states as an assumption,
-carrying no citation), `computed` (derived from the other inputs; every answer
-and row) or `not_found` (readable on older cards, no longer produced). Cards
-written before this lane carry no source and remain readable. An input fact
-also carries `driving`: the declaration names the inputs that drive its result,
-most telling first, and a card marks at most five of them that carry a value,
-never the retained unknown; a computed answer's card starts collapsed under the
-prose and shows only those inputs, never a blank one. An unsuccessful
-outcome's `failure` may carry a typed `repair`, `{kind: "set_inputs", label,
-changes}`, an argument edit the recompute route accepts that the client offers
-as a tap; the backend computed it, the client never invents one. `visual.kind`
-also admits `value_path`, a computed path over dated periods such as a balance
-paid down. An argument model may carry its inputs' provenance under the one
-field `sources`, keyed by field name; the declaration projects it onto the
-card, the retained unknown reads as `computed`, an input the call left to its default is
-recorded as `assumption`, and an edited input is marked `user` by the recompute path.
-
-`tool_jobs` retains asynchronous work as
-`[{call_id, tool_name, artifact_id, job}]`. Existing job polling and result-message
-publication resolve each entry independently, including repeated calls and
-out-of-order completions. The legacy `result_card` still identifies a backtest;
-general tools never manufacture runs or use that key to force publication.
-
-`POST /conversations/{conversation_id}/tool-results/{artifact_id}/recompute`
-takes `{message_id, input_revision, arguments}`, where `arguments` is a nonempty
-partial edit. Only a declared local, unconfirmed, editable tool is eligible.
-The endpoint verifies ownership, current message/card liveness and revision,
-retains the original unknown, validates all cross-argument rules, and invokes
-the same callable. Zero remains a known input. It returns `{message}` after a
-guarded update of the same artifact with its next revision; it adds no chat turn.
-Missing/foreign results return 404, dead artifacts return
-`409 artifact_action_invalid_state`, stale revisions or racing writes return
-`409 tool_result_changed`, and rejected inputs return
-`422 tool_arguments_invalid`. A missing or incompatible declaration binding
-returns `422 tool_inputs_not_editable`.
-
-When the recomputed card belongs to a free calculation, the same write stores
-`metadata.computation` derived from every free calculation card the message
-carries, in order, by its one owner (`argus.domain.computation_marker`), so the
-marker and the cards never disagree and a decision saved afterward stores every
-option's current inputs. When the answer stated its figures through
-`metadata.answer_text_template`, `content` is re-rendered from every card the
-template names; a card that no longer computes hands the prose to Argus's own
-lead.
+The chat streaming and starter-prompt endpoints are retired (#2001) and are not
+in OpenAPI. No flag enables them. The shared response/stream types remain in
+the Business shell; stored result payloads remain readable through Business
+history and search. The following legacy action metadata describes those stored
+artifacts only, not available commands or a running investing interpreter.
 
 ### Structured Action Semantics
 
@@ -4296,472 +4048,6 @@ actions and to ordinary user text.
 - Generic guidance responses such as "try next" are valid only for open-ended
   result questions. They must not replace a patch response when the user is
   modifying, rerunning, or retrying a known setup.
-
-### Grounded Discovery Responses
-
-An explicit peer/category asset-discovery turn (typed
-`asset_discovery` interpretation) returns an ordinary assistant response whose
-final payload and persisted assistant-message metadata may include an additive
-`discovery` sidecar. Two producers emit the same sidecar contract:
-
-- **Model-knowledge (default):** the interpreter judged the answer stable
-  (`needs_current_facts=false`) or the caller's search allowance is exhausted.
-  Candidates come from model knowledge, individually verified by provider
-  asset resolution. `sources` is empty and `retrieved_at` is composition time.
-- **Grounded search:** the interpreter judged the answer needs current facts,
-  or the user explicitly asked to search, and allowance remains. Candidates
-  are extracted from provider results and carry `source_indices`.
-
-`sources.length == 0` **is** the ungrounded signal: clients derive the
-"general knowledge, not a current search" marker from it and must not rely on
-any separate flag. A grounded search that yields no usable sources is
-correctly marked ungrounded by the same rule.
-
-The runtime Search path is enabled by default.
-`ARGUS_GROUNDED_DISCOVERY_ENABLED=false` is the emergency kill switch; with
-the flag off, discovery turns return typed honest recovery and make zero
-Search-provider calls.
-
-```json
-{
-  "discovery": {
-    "schema_version": "argus_discovery/v1",
-    "kind": "asset_discovery",
-    "relationship": "category",
-    "query_summary": "cybersecurity stocks",
-    "retrieved_at": "2026-07-26T15:04:05Z",
-    "sources": [
-      {
-        "title": "…",
-        "domain": "example.com",
-        "url": "https://example.com/article",
-        "source_date": "2026-07-20"
-      }
-    ],
-    "candidates": [
-      {
-        "symbol": "CRWD",
-        "name": "CrowdStrike",
-        "asset_class": "equity",
-        "reason_text": "Named as a leading cybersecurity vendor.",
-        "source_indices": [0]
-      }
-    ],
-    "unverified_names": ["ExamplePrivateCo"],
-    "can_request_search": true
-  }
-}
-```
-
-`can_request_search` is optional, backend-owned, and emitted only on
-model-knowledge responses: `true` means the caller still has search allowance,
-so clients may render a "search for current results" escalation that sends a
-plain natural-language turn (no typed action). Absent or `false`, no
-escalation renders — an affordance that cannot fire must not exist.
-
-Contract rules:
-
-- Every entry in `candidates` has passed provider-backed asset resolution and
-  carries a supported `asset_class`; only these may render as selectable
-  actions. `unverified_names` are prose-only context and must never be
-  actionable.
-- Bounds: at most 5 sources, 5 candidates, and 3 unverified names; all strings
-  are backend-sanitized and length-capped; source URLs are https-only.
-- Search-provider identity is intentionally absent from this sidecar and from
-  user-facing prose; route receipts and the cost ledger own provider
-  provenance.
-- Selecting a candidate sends a normal user turn (with optional `chat_action`
-  metadata) through the ordinary interpretation, clarification, and
-  confirmation lifecycle. Discovery never auto-runs a backtest.
-- Clients render source `domain` plus locale-formatted dates from the ISO
-  fields; the sources drawer renders `url` as an outbound link
-  (`target="_blank"`, `rel="noopener noreferrer"`), with the domain always
-  visible from the href.
-- Discovery turns never mutate pending drafts, active confirmations, or the
-  latest result; reload hydrates the response and this sidecar from persisted
-  message metadata without re-querying any provider.
-- Typed discovery recovery uses the standard `recovery` object with codes
-  `discovery_unavailable` (non-retryable when Search is disabled, missing its
-  configured credentials, or receives HTTP 401/403),
-  `discovery_search_failed` (retryable for temporary timeout, transport, other
-  HTTP, malformed-provider-response, extraction, or voicing failures),
-  `discovery_no_verified_candidates`, `discovery_suggestions_unavailable`
-  (retryable; the model-knowledge path failed), `discovery_limit_reached`
-  (retained; an exhausted allowance now falls through to the model-knowledge
-  path instead of this recovery), and `discovery_target_missing`. Direct
-  backtests and ordinary follow-ups make zero Search calls.
-- A retryable discovery recovery finalizes its chat turn as
-  `recoverable_failed` with a durable `retry_last_turn` anchored to the
-  persisted user request, and settles no allowance.
-- Charging: the per-subject search allowance settles only for usable results
-  (no `fallback_code`); the global daily ceiling counts every attempt.
-
-**Retry semantics:**
-- `retry_last_turn` replays a specific failed user message and may include
-  `failed_assistant_id`.
-- `retry_failed_action` retries a specific failed action artifact and launch
-  payload.
-- A later user turn, new confirmation, completed result, or cancellation
-  supersedes stale retry affordances. Hydrated clients must hide or disable
-  stale retry actions when their referenced artifact is no longer the active
-  failed-action anchor.
-
-**Request:**
-```json
-{
-  "conversation_id": "uuid",
-  "message": "Quiero probar comprar cuando baja Tesla",
-  "mentions": [
-    {
-      "id": "asset:crypto:BTC",
-      "type": "asset",
-      "label": "Bitcoin",
-      "symbol": "BTC",
-      "asset_class": "crypto",
-      "description": "Crypto",
-      "insert_text": "BTC",
-      "provider": "kraken",
-      "message_range": { "start": 4, "end": 7 },
-      "support_status": "supported"
-    }
-  ],
-  "language": "es"
-}
-```
-
-`mentions` is optional selection provenance. It records user-selected asset or
-indicator hints, but it does not rewrite `message`, bypass LLM interpretation,
-or create hidden execution state. It accompanies a `message` from the composer
-affordance, and may also accompany an `action` when the action is itself an
-asset selection — today only `select_discovery_candidate`, whose candidate
-already passed provider-backed resolution before it was renderable. Carrying
-that identity keeps the interpreter from re-deriving an asset the resolver
-already verified; it is identity, never a prepared action, so the selection
-turn still re-enters interpretation and still requires confirmation. Asset mentions
-should include durable `asset_class` (`equity`, `crypto`, or `currency_pair`)
-and IDs shaped as `asset:{asset_class}:{symbol}` so selected ambiguous symbols
-preserve the user's chosen asset identity. Backend resolution still validates
-extracted candidates after interpretation. `provider` is optional machine
-provenance for resolver/debugging continuity; it must not be rendered as
-assistant-facing copy or used to bypass execution validation.
-
-`mentions[].message_range` is optional display-only provenance for the final
-serialized `message`. It is a UTF-16 `{ start, end }` span whose substring must
-equal the mention's `insert_text`. The composer calculates it after its existing
-whitespace normalization, so duplicate symbols remain unambiguous in the
-transcript. Admission accepts an ordinary turn even when this display metadata
-is malformed, stale, or out of bounds: it simply omits the range from durable
-metadata. A valid range is rendered on the submitted user message only; it does
-not enter `ResolutionProvenance`, context hints, LangGraph input, provider
-resolution, execution state, message content, or Omnisearch indexing/querying.
-
-**Conditional Header:**
-- `Idempotency-Key` is required when `action.type = run_backtest`, and its value
-  must equal `action.payload.confirmation_id`.
-- It is optional for non-executing ordinary chat turns.
-- Missing or mismatched Run-action identity returns the exact error defined in
-  `contract-run-action-reconciliation` before admission or compute.
-
-**Language Resolution:**
-Backend resolves preferred response language from:
-1. Explicit request `language`
-2. Authenticated user profile `language`
-3. Fallback English
-
-AI response uses the resolved language unless the user clearly asks otherwise in-message.
-
-**Response Transport:**
-`Content-Type: text/event-stream`
-
-**Reconnect Behavior:**
-If the stream disconnects, the client should reconnect by re-fetching the conversation messages (`GET /conversations/{id}/messages`).
-- No token-level replay is guaranteed in Alpha.
-- No `last_message_id` reconnect contract is enforced yet.
-- A disconnected `run_backtest` action additionally reconciles through
-  `GET /backtest-jobs/by-action/{confirmation_id}` and, only when no admission
-  exists, an exact replay with the same key and request identity.
-- Hydrated confirmation actions are valid only when the runtime checkpoint still has pending confirmation state or structured metadata can safely reconstruct the pending snapshot.
-- Hydrated result actions that save or explain a run require canonical run and conversation context.
-
-**Recommended Header:**
-- `X-Accel-Buffering: no` (To prevent proxy buffering)
-
-**Stream Events:**
-
-Frame fields are recorded in [Message and stream shapes](message-and-stream-shapes.md). The examples below describe turn behavior.
-
-All events follow the SSE format: `data: {json}\n\n`.
-
-Events are emitted in this order per turn:
-
-**1. `stage_start`** — emitted when each pipeline stage begins
-```jsonl
-{ "type": "stage_start", "stage": "interpret" }
-{ "type": "stage_start", "stage": "clarify" }
-{ "type": "stage_start", "stage": "confirm" }
-{ "type": "stage_start", "stage": "execute" }
-{ "type": "stage_start", "stage": "explain" }
-{ "type": "stage_start", "stage": "next_step" }
-```
-
-The frontend maps `stage` values to human-readable progress labels:
-- `interpret` → "Understanding your idea..."
-- `clarify` → "I have a question..."
-- `confirm` → "Here's what I found..."
-- `execute` → "Running backtest..."
-- `explain` → "Reviewing results..."
-- `next_step` → "What's next..."
-
-**2. `token`** — streaming LLM response text, one chunk at a time
-```jsonl
-{ "type": "token", "content": "Based on your idea" }
-{ "type": "token", "content": " about Tesla..." }
-```
-Frontend appends tokens progressively. Applies to `clarify`, `explain`, and `next_step` nodes.
-
-**3. `stage_outcome`** — emitted after `interpret` completes, so the frontend can render the correct UI element before the full graph finishes
-```jsonl
-{ "type": "stage_outcome", "outcome": "ready_for_confirmation" }
-{ "type": "stage_outcome", "outcome": "needs_clarification" }
-{ "type": "stage_outcome", "outcome": "approved_for_execution" }
-{ "type": "stage_outcome", "outcome": "ready_to_respond" }
-```
-
-**4. `final`** — last event, carries the complete response payload
-```json
-{
-  "type": "final",
-  "payload": {
-    "stage_outcome": "execution_succeeded",
-    "assistant_response": "The strategy returned +23%...",
-    "confirmation_payload": null,
-    "run": { },
-    "next_actions": ["refine_strategy", "show_breakdown"],
-    "message_id": "uuid"
-  }
-}
-```
-
-When chat execution is accepted as an asynchronous durable job instead of a
-completed in-stream run, the final payload includes `backtest_job` and omits
-`run` until the workflow writes the canonical result:
-
-```json
-{
-  "type": "final",
-  "payload": {
-    "stage_outcome": "ready_to_respond",
-    "assistant_response": "I started the backtest. I will show the result here as soon as it is ready.",
-    "backtest_job": {
-      "id": "uuid",
-      "conversation_id": "uuid",
-      "status": "queued",
-      "result_run_id": null,
-      "failure_code": null,
-      "failure_detail": null,
-      "retryable": false
-    },
-    "message_id": "uuid"
-  }
-}
-```
-
-The final event may also carry nullable `final_response_payload`, the typed
-graph output. Its optional nullable `code` is the authoritative conversion
-signal for admission refusals (`account_conversion_required`). The frontend
-stream type imports `ChatFinalResponsePayload`, generated from the backend
-`FinalResponsePayload` model by
-`scripts/generate_chat_final_response_type.py`; do not hand-maintain a second
-field list. Clients accept legacy payloads without this object or code.
-
-When a turn reaches a recoverable assistant response without a completed card,
-the final payload and persisted assistant message metadata may include
-`retry_last_turn` and `recovery`. `recovery` is a typed status object with a
-stable `code`, `retryable`, and optional `params`. User-facing recovery copy is
-presentation only; clients must render retry affordances and localized recovery
-copy from structured metadata, not by matching assistant prose.
-
-The final payload and persisted assistant message metadata may also include
-`clarification`. This typed contract carries the reason, requested field,
-strategy payload, structured option payloads, and `prompt_source` provenance.
-`prompt_source = llm_generated` means `assistant_prompt` or
-`assistant_response` owns the exact user-visible prose; clients keep that text
-while hydrating actions from `clarification`. `prompt_source =
-degraded_fallback` means clients render localized deterministic copy from
-static i18n bundles using the typed fields. Legacy sidecars without
-`prompt_source` are treated as degraded fallback for reload compatibility.
-The persisted `content` on a degraded fallback remains compatibility transport
-for reload and non-upgraded clients; it is excluded from later interpreter
-history and from `last_message_preview` (therefore Recents and conversation
-search). Exact `llm_generated` prose remains eligible for interpreter history
-and preview surfaces. Clarification and recovery writers receive the current
-typed decision, its options, the current user message, and preferred language;
-they do not receive transcript history. Earlier replies therefore cannot supply
-a competing reason for the current question.
-
-Recoverable streaming error frames may also include the same structured fields
-so live clients can render retry controls immediately, before reload hydration:
-
-```json
-{
-  "type": "error",
-  "code": "agent_runtime_failure",
-  "message": "Something went wrong. Your conversation is saved. Please try again.",
-  "message_id": "uuid",
-  "recovery": {
-    "code": "runtime_failure",
-    "retryable": true,
-    "language": "en"
-  },
-  "retry_last_turn": {
-    "message": "What if I bought BTC last year?"
-  }
-}
-```
-
-Example degraded clarification payload:
-
-```json
-{
-  "type": "final",
-  "payload": {
-    "stage_outcome": "await_user_reply",
-    "assistant_prompt": "What date window should I use for AAPL?",
-    "requested_field": "date_range",
-    "clarification": {
-      "kind": "clarification",
-      "reason_code": "missing_period",
-      "prompt_source": "degraded_fallback",
-      "requested_field": "date_range",
-      "requested_fields": ["date_range"],
-      "semantic_needs": ["period"],
-      "payload": {
-        "strategy": {
-          "asset_universe": ["AAPL"],
-          "asset_class": "equity"
-        }
-      },
-      "options": []
-    }
-  }
-}
-```
-
-Example unsupported-recovery clarification payload:
-
-```json
-{
-  "clarification": {
-    "kind": "unsupported_recovery",
-    "reason_code": "unsupported_strategy_logic",
-    "prompt_source": "degraded_fallback",
-    "requested_field": "unsupported_constraints",
-    "requested_fields": ["unsupported_constraints"],
-    "semantic_needs": ["simplification_choice"],
-    "payload": {
-      "strategy": {
-        "asset_universe": ["TSLA"],
-        "asset_class": "equity"
-      }
-    },
-    "options": [
-      {
-        "id": "rsi_threshold",
-        "replacement_values": {
-          "simplify_logic": "rsi_only"
-        }
-      },
-      {
-        "id": "buy_and_hold",
-        "replacement_values": {
-          "strategy_type": "buy_and_hold"
-        }
-      }
-    ]
-  }
-}
-```
-
-### Cause-aware unsupported recovery
-
-`unsupported_recovery` is an additive typed projection. Its cause determines
-both the recovery route and the facts available to deterministic fallback copy:
-
-- A surviving `unsupported_strategy_logic` capability constraint may use
-  `unsupported_recovery` with supported simplification options. Only this
-  capability route may say that Argus cannot run a strategy.
-- `future_performance` is a test asked over a window that points forward from
-  today. There is no market data for it, so the recovery says so, offers the
-  historical test, and mentions that Argus can research what analysts expect.
-  It is not a refusal of forward-looking questions: those are research answers
-  (decision 10, 2026-09-10) and never produce `unsupported_recovery`.
-- Incomplete or unparseable extraction is a normal clarification outcome. It
-  asks for the missing executable detail and must not be represented as a
-  strategy-capability refusal.
-- `unsupported_starting_capital` is a launch-validation range outcome, not a
-  strategy-capability refusal. It asks for a starting-capital amount before a
-  confirmation card or acknowledgement is emitted.
-- `capital_amount` remains role-sensitive at launch validation. For DCA it is
-  the recurring contribution, so an invalid DCA contribution routes to the
-  normal sizing clarification and never inherits the one-time bankroll floor.
-
-`raw_value` may remain in runtime records as opaque diagnostic or interpreter
-evidence. It is never a generic display subject and is not included in the
-generic clarifier voice input, `assistant_prompt`, or deterministic fallback
-copy. A generic capability recovery instead speaks about the typed capability
-and its supported options.
-
-For `unsupported_starting_capital`, `payload.minimum` is a typed finite number
-and `payload.maximum` is an optional typed finite number. A finite minimum
-alone is a valid floor projection. When a maximum is present, the projection
-emits both bounds only if both are finite and ordered with `minimum <= maximum`;
-missing minimum, malformed, non-finite, or reversed pairs fail closed by
-omitting the numeric bounds and using the generic starting-capital prompt.
-
-`unsupported_time_granularity` is the dedicated typed exception. Its typed bar
-size may be supplied to the clarifier and displayed in the bar-size recovery,
-because it names the specific timeframe field rather than a generic strategy
-or interpretation value. This exception does not permit other `raw_value`
-fields to become clarifier voice input or display text.
-
-When a pending strategy exists for `await_user_reply`, `ready_for_confirmation`,
-or `await_approval`, the final payload may include:
-
-```json
-{
-  "pending_strategy": {
-    "strategy": {
-      "strategy_type": "buy_and_hold",
-      "asset_universe": ["AAPL"],
-      "asset_class": "equity",
-      "date_range": "past year"
-    },
-    "requested_field": "asset_universe",
-    "missing_required_fields": ["asset_universe"],
-    "pending_resolution": {
-      "field": "asset_universe",
-      "raw_value": "Apple",
-      "candidate_normalized_value": "AAPL",
-      "asset_class": "equity"
-    }
-  }
-}
-```
-
-When `pending_resolution` is present, it represents the candidate behind a
-specific clarification prompt. A short affirmative answer such as "yes" may
-accept that candidate only for that pending field; it does not bypass normal LLM
-interpretation for unrelated turns.
-
-**5. `done`** — signals stream end (no data payload required beyond SSE `data: [DONE]`)
-```
-data: [DONE]
-```
-
-The stream does not write an SSE `retry` field. Clients own reconnect timing.
-
-> [!IMPORTANT]
-> Frontend must never use local timers to fake progress states. Progress labels must be driven by `stage_start` events from the backend. This is the binding contract between DESIGN.md Section 11 and the agent runtime pipeline.
 
 ---
 
@@ -4899,9 +4185,9 @@ Contract rules:
   through `release_research_usage`, the same way a guest question is
   returned. Every provider attempt also uses the shared ceiling.
   `ARGUS_RESEARCH_GLOBAL_DAILY_CEILING` defaults to `5000`.
-  `GET /me/usage` still leaves signed-in `grounding` unbounded: the
+  The retired `GET /me/usage` left signed-in `grounding` unbounded: the
   per-account research cap is anti-abuse, not an allowance window.
-  `GET /me/usage` projects this meter as the `grounding` operation class.
+  The retired `GET /me/usage` projected this meter as the `grounding` operation class.
   Ordinary chat turns, cache hits, unconfigured-provider paths, and idempotent
   persisted thorough-job replays do not claim capacity. An unreadable or
   unwritable
@@ -5275,6 +4561,9 @@ Contract rules:
 
 ## `POST /conversations/{conversation_id}/confirmations/{confirmation_id}/peer-assets`
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 Grows or restores the active confirmation's basket **without spending a
 turn**: no allowance, no interpretation, no LLM call. Available only
 while `ARGUS_RESEARCH_RAIL_ENABLED` and `ARGUS_IN_PLACE_CARD_EDITS_ENABLED`
@@ -5311,6 +4600,9 @@ the coverage preflight cannot reach provider data. Failures persist
 nothing.
 
 ## `POST /conversations/{conversation_id}/confirmations/{confirmation_id}/direct-edit`
+
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
 
 Edits the active confirmation's capital, dates, or costs **without spending a
 turn**: no allowance, no interpretation, no LLM call, no backtest
@@ -5870,6 +5162,9 @@ These are stable ids/enums and must not be localized.
 
 ## `POST /evidence-artifacts/{id}/decision`
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 Create or update the current explicit user decision attached to a user-owned
 evidence artifact. P1 stores one canonical current `DecisionNote` per
 `user_id + evidence_artifact_id`; repeated POSTs and retries update that
@@ -5953,6 +5248,9 @@ or corrupt legacy user text.
   failure state and must not invent a saved decision locally.
 
 ## Decisions on computed answers
+
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
 
 A decision attaches to a computation and carries what a re-run needs. Every
 `DecisionNote` has exactly one attachment:
@@ -6090,6 +5388,9 @@ model answers `422 validation_error`. The registered kinds are `time_value`,
 the calculation's `currency`, an ISO 4217 code in use; zero is a known input.
 
 ### `POST /conversations/{conversation_id}/messages/{message_id}/computation/rerun`
+
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
 
 Re-run an owned computed answer from Search, decided or not, without touching
 it. Body: `{"inputs": {...}, "calculation": 0}`, overrides merged over that
@@ -6248,15 +5549,18 @@ under `docs/reports/evidence/545/probes` and
 
 ### Computed answers outside a turn
 
+**Retired (#1996).** The operation descriptions in this section are historical;
+see the [retirement ledger](#retired-operations-1996).
+
 Every route is owner-scoped. Listing, comparing and continuing call no model,
 retrieval or provider.
 
 | Method | Path | Purpose |
 | :----- | :--- | :------ |
-| `GET`  | `/computations/answers?kind=&exclude_message_id=&surface=` | The owner's newest computed answers of one kind in live conversations of one surface (`personal` by default, or `business`), at most 10 |
-| `POST` | `/computations/compare` | Two answers of one kind side by side |
-| `POST` | `/conversations/{conversation_id}/messages/{message_id}/continue` | A new chat carrying only this result |
-| `POST` | `/conversations/{conversation_id}/messages/{message_id}/computation/refresh` | Look the answer's cited inputs up again |
+| `GET`  | `/computations/answers?kind=&exclude_message_id=&surface=` | **Retired (#1996).** The owner's newest computed answers of one kind in live conversations of one surface (`personal` by default, or `business`), at most 10 |
+| `POST` | `/computations/compare` | **Retired (#1996).** Two answers of one kind side by side |
+| `POST` | `/conversations/{conversation_id}/messages/{message_id}/continue` | **Retired (#1996).** A new chat carrying only this result |
+| `POST` | `/conversations/{conversation_id}/messages/{message_id}/computation/refresh` | **Retired (#1996).** Look the answer's cited inputs up again |
 
 Listing returns `{items: [{conversation_id, message_id, kind, asked,
 computed_at, symbols}]}`. Only an answer with one calculation is listed: an
@@ -6298,7 +5602,11 @@ when no input is cited, `429 research_capacity_exhausted` (context
 `guest_exhausted`) when the allowance refuses, and `503 research_unavailable`
 (context `reason`) when the provider cannot answer.
 
-### Answer dossiers in Search
+### Answer dossiers in Search (retired #2001)
+
+The following describes retired investing hydration. Business search no longer
+attaches computed-answer dossiers or adds computed answers to asset rollups.
+Its existing scoped conversation results and previews remain unchanged.
 
 A computed answer gets a dossier beside the run dossier, which is unchanged. A
 `conversation` search row carries `answer_dossier`, `null` or the newest
@@ -6357,7 +5665,7 @@ Mixed recent activity feed.
 - `asset_class=equity|crypto|currency_pair` (Optional filter)
 - `archived=false` (Optional; archived conversations are excluded by default)
 - `deleted=false` (Optional; soft-deleted items are excluded by default)
-- `surface=personal|business` (Optional; default `personal`). Business returns
+- `surface=business` (Optional; default `business`; `personal` is retired and returns 404). Business returns
   only Business chats and the runs of Business chats; strategies, collections
   and runs without a conversation are Personal.
 
@@ -6443,7 +5751,7 @@ the `/search` contract.
   canonical `archived` state so an already-open Recents surface can remove a
   conversation archived elsewhere without hiding archived conversations from
   ordinary Omnisearch.
-- `surface=personal|business`: optional, default `personal`. Every
+- `surface=business`: optional, default `business`; `personal` returns 404. Every
   conversation, message, run, idea, evidence and decision match, the asset row
   and computed answers come only from that side's conversations. The `/biz`
   client never asks for ledger groups, because Business chats hold no saved
@@ -6783,15 +6091,14 @@ Core fields:
 - `analytics_event` and `internal_account`, which exist only on the frozen
   `AnalyticsEnvelope` the registry builds; the generic envelope cannot carry them
 
-### Product analytics events (wave 1, SPEC 0)
+### Product analytics events
 
 One closed registry, `src/argus/observability/analytics_events.py`, owns every
-event PostHog receives. Each event is one Pydantic model (`extra="forbid"`,
+event the sink receives. Each event is one Pydantic model (`extra="forbid"`,
 strict) whose fields are the event's exact properties, typed only as literal
-values, booleans, a bounded integer, a calculation name checked against the
-calculation catalog at validation time, or the pattern-checked invite
-`cohort`. An amount, a name, an email, question or answer text, or any other
-free text cannot be represented. Events are sent only through
+values, booleans, a bounded integer, or the hashed Business id. An amount, a
+name, an email, question or answer text, or any other free text cannot be
+represented. Events are sent only through
 `capture_analytics_event()`: only the frozen `AnalyticsEnvelope` the registry
 builds can carry an event, and the sink validates it again before sending,
 including that its timestamp is the build time (aware UTC, not backdated or in
@@ -6801,22 +6108,21 @@ envelope that only names an event, is suppressed with
 
 PostHog receives each event under its own name as the PostHog `event`. The
 event names and properties are documented in `docs/DATA_MODEL.md` section
-12.1.1: `first_answer_shown`, `signed_in`, `card_saved`, `goal_created`,
-`checklist_step_completed`, `reminders_opted_in`, `reminders_opted_out`,
-`session_started`, `installed_app_opened`, `landing_viewed`, and
-`receipt_shared`. The emitters land package by package (SPEC 0, 0C-3 to 0C-8);
-`goal_created`, `checklist_step_completed`, and the two reminder events are
-registered now and fire in later stages.
+12.1.1. They are the Business events: `business_document_received`,
+`business_document_read`, `business_document_needs_review`,
+`business_record_approved`, `business_record_recorded`, and
+`business_records_exported`. The wave 1 names (`first_answer_shown`,
+`signed_in`, `card_saved`, `goal_created`, `checklist_step_completed`,
+`reminders_opted_in`, `reminders_opted_out`, `session_started`,
+`installed_app_opened`, `landing_viewed`, `receipt_shared`) are not registered.
 
 Each PostHog capture carries only the event's own properties plus these
 technical properties: `$process_person_profile` (always `false`),
 `schema_version`, `event_id`, `environment`, and `internal_account` (a boolean
 every caller must state). The sink checks each technical value is exactly what
-the registry sets. `signed_in` alone may also
-carry `guest_id_hash`. `distinct_id` is `actor_hash_for_user(<user id>)`: the
-account id for signed-in users and the guest user id for guests. Hashed
-conversation, message, or run ids, `status`, `latency_ms`, and nested
-`attributes` are never sent.
+the registry sets. `distinct_id` is `actor_hash_for_user(<user id>)`. Hashed
+conversation, message, or run ids,
+`status`, `latency_ms`, and nested `attributes` are never sent.
 
 Privacy posture:
 - Default mode is `metadata_only`.
@@ -6825,8 +6131,7 @@ Privacy posture:
   account balances, exact holdings, exact dates/capital, email, display name,
   private titles/previews, URLs, cookies, headers, IP addresses, payment
   identifiers, and similar sensitive payloads from envelope attributes.
-- Raw identifiers never reach PostHog; `distinct_id` and `guest_id_hash` are
-  one-way hashes.
+- Raw identifiers never reach PostHog. `distinct_id` is a one-way hash.
 - PostHog capture is server-side only. The browser has no PostHog key and no
   analytics endpoint of its own: `POST /analytics/guest-events` and its two
   browser events (`starter_action_selected`, `conversion_prompt_shown`) were
@@ -6842,15 +6147,12 @@ PostHog any more: the earlier product events (`evidence_capture`,
 `decision_capture`, `recall_usage`, `continuity_mismatch`, `compare_started`,
 `next_experiments_offered`, `next_experiment_selected`, `eval_readiness`, the
 `receipt_*` funnel, and `account_registration_completed`), every guest funnel
-event, and the research settlement event. Their emit calls are removed, except
-`decision_capture`, `receipt_created`, `account_registration_completed`,
-`first_useful_assistant_response_completed`, `account_creation_completed`, and
-`existing_account_sign_in_completed`, whose call sites SPEC 0 packages 0C-3,
-0C-4, and 0C-8 replace with `first_answer_shown`, `signed_in`, `card_saved`,
-and `receipt_shared`. Until then those calls stop at the sink. The guest funnel
-milestone claim stays; `first_answer_shown` reuses it. Research work kind and
-outcome stay on the cost ledger and the research sidecar
-(`capability_class`), which are not analytics.
+event, and the research settlement event. `decision_capture`,
+`receipt_created`, and `account_registration_completed` still have call sites
+inside the old chat evidence path. Those calls stop at the sink. The auth and
+share-link call sites no longer emit them. The guest funnel milestone claim
+stays. Research work kind and outcome stay on the cost ledger and the research
+sidecar (`capability_class`), which are not analytics.
 
 Implemented operational surface:
 - The append-only first-party `cost_ledger_entries` table is the server-owned
@@ -6920,17 +6222,11 @@ Endpoints (all under `/api/v1`):
 - `GET /memory/export` -> readable portable
   `argus.personalization-memory-export/v1` document as an attachment.
 
-Chat integration:
+Stored chat metadata compatibility (no live chat endpoint):
 - Completed ordinary turns may carry `memory_recalls` (record id, label,
   value, category) in the final stream payload and assistant message
   metadata. It is an annotation added after the turn finishes; it never
   feeds back into a request.
-- `POST /chat/stream` accepts optional `memory_opt_out: true` (private
-  chat). Opting out only disables recall and proposals for that turn.
-- `POST /chat/stream` accepts optional `viewport: "narrow" | "wide"`, the
-  width band the turn was sent from. It only shortens a generated
-  conversation title at generation time, so a phone header shows a title
-  composed short rather than one clipped by the client. Absent means wide.
 - Try next rows in `next_experiments` may carry `label_short` and
   `label_short_key` beside `label` and `label_key`. The short form is the
   same ask written for a narrow screen; the backend owns both, and the
@@ -9242,6 +8538,89 @@ HTTP request already sent. Model/composition/send unknown outcomes retain the
 existing no-blind-retry rule. Business checkpoint persistence remains disabled
 pending proof of its authorization and deletion lifecycle.
 
+### Business document deletion and restore
+
+`POST /business/drafts/{draft_id}/delete` and
+`POST /business/drafts/{draft_id}/restore` require `Idempotency-Key` and the
+same owner-only `approve` permission as approval. The identifier is a draft
+UUID or the receipt connection UUID already used by the Bandeja when no draft
+exists. No body is required. Both return `{document_id, deleted}` and
+`Cache-Control: no-store`. Repeating the same action key returns its saved
+outcome without another change. Reusing it for another action or document
+returns 409 `business_action_conflict`.
+
+Delete accepts an open draft or a document with no draft that has finished
+reading. It refuses an approved or otherwise closed draft with 422
+`business_document_not_open`, a document being read with 422
+`business_document_reading`, and a non-owner with 403
+`business_permission_denied`. An approved document must use the existing
+reopen flow first. Restore requires the deletion marker and otherwise returns
+422 `business_document_not_deleted`. Sources, revisions and financial records
+are retained until the purge below. A deleted or restored purged document
+returns 404 `business_document_purged`.
+
+Receipt summary, detail and dossier responses expose `deleted`,
+`delete_available` and `restore_available`. The deletion metadata contains
+`actor: {actor_id, display_name}`, `at`, `key`, and `previous_state: {state, group}`.
+The previous group is `attention` or `listo`. For several generic read
+candidates, `previous_state.events` retains their IDs and prior states for
+restore under the document's one marker. Server availability uses the
+current permission and document state. Row trash appears only for the server's
+`attention` group; an eligible `listo` document is deleted from its review menu.
+
+The Bandeja adds the server group `eliminados` and
+`bandeja_eliminados_count`. `GET /business/captures?view=eliminados` returns
+deleted standalone typed documents with the same metadata and availability.
+`limit` and a nonnegative `offset` page this feed in stable newest-first order;
+`has_more` reports whether another page exists. Eliminados loads all pages so
+search and restore also reach older deleted documents.
+Notes attached to a receipt remain part of that receipt and are not counted
+again. Deleted documents leave every other Bandeja group,
+its Inicio counts, month-close pending work, and duplicate checks. Registros,
+financial totals and exports do not change. Restore removes the marker and
+returns the stored state, retaining the document's facts and original.
+
+An exact-byte repeat upload returns the existing deleted document with its
+deletion metadata and restore availability. It neither creates another item
+nor restores the existing one. Activity records `delete_document` and
+`restore_document` through the action ledger. Their links open Eliminados and
+the restored document respectively.
+
+### Business document purge
+
+A deleted document stays in Eliminados for 7 calendar days, then the server
+purges it for good. The deletion metadata adds a read-only `purge_at`, which
+is the deletion `at` plus 7 days; the stored marker does not hold it.
+
+`POST /business/drafts/{draft_id}/purge` purges one deleted document at once.
+It requires `Idempotency-Key`, the owner-only `approve` permission and a person
+actor, takes no body, and returns `{document_id, deleted: true}` with
+`Cache-Control: no-store`. The identifier rules match delete and restore. A
+document outside Eliminados returns 422 `business_document_not_deleted`;
+shared attachments return 422 `business_document_ambiguous`; a Business whose
+owner account is being deleted or whose files are being moved returns 422
+`business_document_purge_busy`. A repeat with the same key returns the saved
+outcome. A purge of an already purged document returns 200 and changes
+nothing, so the button and the expiry can race safely.
+
+A purge removes the stored file, the read, the draft with its revisions,
+questions and source links, and the draft's own message sources. A message
+source that another draft also uses stays. The Activity entries stay. A purge
+by the owner adds `purge_document` and the expiry adds `expire_document` with
+the Cuadrao actor; neither names the document or links to it. Older entries
+of the purged document keep their `object` with `purged: true` and `label:
+null`, so the client says "un documento" and opens nothing. After the purge every
+document route answers its usual not-found error, and delete and restore
+answer 404 `business_document_purged`.
+
+The database part runs in one transaction and records the purge with the
+stored objects still to erase. The objects are then erased; when Storage fails,
+the record keeps them and the next expiry run finishes the erase. The expiry
+is a step of the documents worker's sweep loop. It runs at most once every
+`CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS` (default 3600; 0 turns it off) with
+extraction on or off. Each run finishes left-over erases, then purges deleted
+documents older than 7 days in batches of 25, at most 500 per run.
+
 ### Business guide cards
 
 `GET /api/v1/business/guide-cards/{card_id}` returns `{dismissed: boolean}`
@@ -9249,7 +8628,7 @@ for the signed-in person. `POST /api/v1/business/guide-cards/{card_id}/dismiss`
 takes no body. After a dismissal commits, it returns `{dismissed: true}`.
 Repeating the request keeps the first dismissal time.
 
-The card IDs are `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
+The card IDs are `actividad-intro`, `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
 follows the registered person across Businesses and sessions. The server takes
 the person ID from the session and ignores `X-Business-Grant` for these routes.
 Both responses use `Cache-Control: no-store`. If storage is unavailable, both
@@ -9263,11 +8642,11 @@ A Business owner explicitly enables scope version 3 `business_receipt_reading` f
 
 The stored setting is the only consent for a Business read, on every path: web upload, the legacy `/prepare`, email, WhatsApp, and the reader (`python -m workflows.document_worker`). A receipt is queued under the setting's current generation and read only while that generation is still on. Each read asks again before it reads the source and again just before the provider call; a setting turned off in between leaves the receipt `saved`, unread, with no provider call. A reader built without the setting never reads a Business receipt. `X-Extraction-Consent` on `POST /business/receipts` is ignored for every caller, owner or grantee: the receipt is `queued` while the setting is on and `saved` while it is off.
 
-Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `needs_attention_count`, `ready_to_review_count`, `bandeja_listo_count`, `bandeja_attention_count` and `por_igualar_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
+Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `needs_attention_count`, `ready_to_review_count`, `bandeja_listo_count`, `bandeja_attention_count`, `bandeja_eliminados_count` and `por_igualar_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
 
 The Bandeja's counts have three meanings and three names. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists), plus each email whose `standing` is not null (see email deliveries). `needs_attention_count` is how many of those receipts are `needs_attention`, plus each email whose `standing` is `no_receipt`. `reading_count` also counts each email whose `standing` is `reading`, and `presentation` is `working` while any receipt or email is being read. An email's `standing` is `null` when it is no row of its own: it saved a new file (one no earlier email and no earlier upload brought), so that receipt is the row; it saved its own text as the original and no attachment, so that original is the row; or it settled with every saved file a repeat and nothing refused. Otherwise it is `reading` while the delivery is `received` or `processing` or any part is `pending`, and `no_receipt` once it settled and it is `rejected`, has no parts, or has a refused part. Mail from a blocked sender is `no_receipt`. Once a retry saves a new file, the email stops counting and that receipt counts instead, so nothing counts twice. `ready_to_review_count` is the "por revisar" number, the web's `porRevisar` rule: each receipt that is not `confirmed`, not `dismissed`, not an email original, not still being read (`queued`, `preparing`, `read_pending`, or `activity.state` `reading`) and whose `attention` is not `unreadable`, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source, one per draft. An email never counts here, whatever its `standing`. `por_igualar_count` is the Transacciones "Por igualar" number: every bank movement whose state is `sugerencia` or `falta_comprobante` plus every `sin_movimiento` document, from any period, by the movements read rule (`docs/contracts/business-bank-matching.md`). It is null while bank matching is off. `GET /business/email/deliveries`, `/{id}` and `/inbox` return `standing` on each delivery. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` derives its `needs_attention` and `awaiting_review` (`pending_review_count` minus `needs_attention_count`) from the same server projection and returns the same `ready_to_review_count`. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`; the Resumen's attention line renders `needs_attention_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja: {por_revisar, con_problema, leyendo}`, its membership in those buckets by the same three predicates the counts sum: `por_revisar` is the `ready_to_review_count` rule for that receipt, `con_problema` the `needs_attention_count` rule (the receipt is `needs_attention`), `leyendo` the `reading_count` rule (its `activity.state` is `reading`). A `confirmed` or `dismissed` receipt and an email original have all three false. So `ready_to_review_count` equals the receipts flagged `por_revisar` plus the notes, `needs_attention_count` the receipts flagged `con_problema` plus the `no_receipt` emails, and `reading_count` the receipts flagged `leyendo` plus the `reading` emails. The web renders the flags; it does not recompute them. `ReceiptActivityCounts` also carries `confirmed_count` and `dismissed_count`, the receipts that left the Bandeja each way (never the email original), counted over every receipt of the Business whichever `view` is read, so `view=inbox` says what it does not list and the web needs no second fetch of `view=all`.
 
-One server function, `bandeja_group.group_of`, puts each open receipt in one Bandeja group. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja_group: {group, reason, draft_id, version}`. `group` is `listo`, `attention` or `reading`; it is null for a `confirmed` or `dismissed` receipt and for an email original. `reading` is a receipt with `read_pending` true, and its `reason` is `reading`; a failed read is `attention`. `reason` is null for `listo` and otherwise one word, and the first gap below names it. `draft_id` and `version` are what an approval of this row names; they are null while the receipt has no open draft. The existing `bandeja`, `status` and `attention` fields keep their meaning.
+One server function, `bandeja_group.group_of`, puts each open receipt in one Bandeja group. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja_group: {group, reason, draft_id, version}`. `group` is `listo`, `attention`, `reading` or `eliminados`; it is null for a `confirmed` receipt, an unmarked `dismissed` receipt and an email original. A dismissed receipt with `resolution.deleted` belongs to `eliminados` and does not enter the open groups or counts. `reading` is a receipt with `read_pending` true, and its `reason` is `reading`; a failed read is `attention`. `reason` is null for `listo` and otherwise one word, and the first gap below names it. `draft_id` and `version` are what an approval of this row names; they are null while the receipt has no open draft. The existing `bandeja`, `status` and `attention` fields keep their meaning.
 
 A receipt is `listo` only when the server confirms all of these, in this order:
 
@@ -9491,13 +8870,20 @@ answers 422 `fiscal_direction_unsupported`), and the draft is open or
 approved. A downloaded DGII TXT changes nothing here. `payment_split_editable`
 is true on the same terms for a sale: a `venta`. The type alone decides which
 form a record takes; neither flag reads the kind or a saved declaration.
-`expense_type_suggestion` is the tipo de gasto (`01` to
-`11`) a person last chose for this draft's supplier RNC in this Business, on
-another open, accepting or accepted purchase, or null. It is read fresh and
-stored nowhere: it is null while `declaration_editable` is false or the draft
-has a choice of its own, a suggested type on a declaration is no choice, and it
-never reads another Business. It reaches the 606 only when a person writes it
-as `purchase.category`, so an approval leaves the type blank.
+`declaration_suggestions` holds one suggestion for each 606 answer a person
+gives one by one, under the declaration's field name: `category` (tipo de
+gasto, `01` to `11`) and `payment_method` (forma de pago, `01` to `07`). Each
+is `{value, source}` or null. `source` says where the value came from:
+`last_choice` is the answer a person last gave for this draft's supplier RNC
+in this Business, on another open, accepting or accepted purchase; `receipt`
+is reserved for a value read from the receipt, and nothing sends it yet. A
+suggestion is read fresh and stored nowhere: it is null while
+`declaration_editable` is false or the draft has that answer of its own, and
+it never reads another Business. A suggested type on a declaration
+(`category_suggested`) is no answer, on this draft or as a memory. A
+suggestion reaches the 606 only when a person writes it as
+`purchase.category` or `purchase.payment_method`, so an approval never takes
+one and neither field blocks approval.
 `fiscal_inclusion_available` is true when the caller may answer
 `POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
 enforces: a member holding `prepare` who is not the owner, on an `open` or
@@ -9758,7 +9144,16 @@ The existing `/source` route applies the same live read grant. Foreign resource
 IDs return 404 without revealing existence; a readable in-scope record with a
 missing write capability returns 403. Stale versions and same-key/different-input
 requests return 409; invalid facts or unresolved approval blockers return 422.
-An uncertain financial effect is `outcome_unknown`, not success or safe retry.
+An uncertain action result (`outcome_unknown`) returns HTTP 409 with its existing
+code, such as `business_recording_unsettled` or
+`business_approval_reconciliation_required`, and `Cache-Control: no-store`.
+This applies to draft review, duplicate resolution, Personal marks, fiscal
+inclusion, approval, reopening and remainder settlement. The route does not read
+or return a dossier for that result, and the result does not make a retry safe.
+Approval returns HTTP 200 only when the dossier has a recorded
+approval with the activity ID named by the applied or replayed action result.
+Replaying an old approval after reopening or approving again returns
+409 `stale_version` if that recorded activity is absent or different.
 
 `GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, `Pago`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. `Pago` is the stored settlement status of a recorded income or expense (`pendiente`, `pagado` or `cobrado`, the same words month close and bank matching write): `pendiente` until a settlement or a confirmed bank match stores one, and empty for a transfer. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows. A record that carries the owner's Personal mark (`business_share` none, stated by a person) is not a business row: it leaves `records.csv` and the first sheet and is listed in `personal.csv` and the fourth sheet `Personal` with the columns `Registro`, `Fecha`, `Total`, `Moneda`, `Originales` (the `originals/` paths of its included sources). Its originals stay under `originals/`, its canonical row stays in the second sheet and in `manifest.json` `records` with `personal` `yes`, and `manifest.json` `files` hashes `personal.csv`. In the DGII packet such a record has disposition `excluded` with reason `personal` unless it is a purchase the accountant answered `include_606` yes, the same rule month close applies; that answer also puts the purchase back among the business rows of `records.csv` and the first sheet, while a personal sale stays out whatever the answer. The mark and the 606 answer are read from the draft as it stands when the package is built, not from the approved revision: both change after approval, and month close, Registros and this package read them from the same place, so one mark moves the record on every surface at once.
 
@@ -9821,7 +9216,66 @@ sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
+Montos uses `purchase_review.net_amount` for the dossier, fiscal defaults,
+Registros, month close and exports. `BusinessFacts.amount` remains the gross
+amount paid. The dossier adds `net_amount: {amount, source}`. `amount` is an
+exact decimal string or null. `source` is `read`, `calculated`, `edited`, or
+null when the total is unknown. A known `facts.net_amount` retains the read
+subtotal or a person's edit. Otherwise the function subtracts the components
+in `AMOUNT_PARTS`: ITBIS, legal tip, ISC and other taxes. The read's `service`
+is the legal tip; `tip` is used only when `service` is absent. Both values live
+in existing fact JSON and revision history. No database migration is required.
+
+`POST /business/drafts/{id}/amounts-preview` takes `version` and optional
+`amount`, `itbis`, `net_amount`, and `legal_tip` fact inputs. It requires the
+same selected Business, human actor, prepare permission, open draft and current
+version as amount review. The response contains `net_amount` and `mismatch`
+(the existing `amounts_mismatch` review flag, or null). It uses the review's
+fact mutations, inheritance, net owner and shared parts check without saving
+facts, sources, revisions or action receipts. Responses are `no-store`.
+The web discards a preview when its draft, version or typed values change.
+
+Human review also accepts top-level `montos`, with optional `net_amount` and
+`legal_tip` fact inputs and `override_inherited` or `restore_inherited` field
+names. These inputs do not enter the interpreter's fact patch. Changing a
+main amount requires an open draft. Restoring or overriding fiscal inheritance
+uses the existing fiscal edit permission and version checks.
+
+The dossier and Registros rows expose `inheritance`, keyed by fiscal field.
+Each entry holds `{field, value, inherited}`; `value` is the current source
+value to restore, not a copy calculated by the browser. The single mapping is
+`amount_inheritance.INHERITANCE`:
+
+| Fiscal field | Main source |
+| --- | --- |
+| `billed_amount` (607) | `net_amount` |
+| `goods_amount` (606), by confirmed expense type | `net_amount` |
+| `itbis` (606 and 607) | `fiscal.itbis` |
+| `legal_tip` (606 and 607) | `legal_tip` |
+| `paid_on` (606), when paid | `occurred_on` |
+| `services_amount` (606), by confirmed expense type | `net_amount` |
+
+An explicit override stops inheritance even when the typed value equals the
+source. Goods and services share override ownership; restoring either restores
+both sides from the confirmed expense type. Their sum must equal the net
+amount before export. `modified_ncf` never inherits. The fiscal declaration's
+optional ITBIS override does not rewrite the main ITBIS fact. Main amount
+updates refresh inherited fields on every revision. Payment-date inheritance
+uses the stored document settlement or the existing paid-bill mark, never the
+selected account. Reads and exports refresh inherited values when settlement
+changes. An explicit fiscal date remains an override. The existing monthly
+sin-comprobante purchase cost remains the gross amount because its ITBIS is
+not creditable; all other monthly net calculations use the same net owner.
+
+`amounts_mismatch` is a warning review flag with `field: amount`, `confirm:
+false` and `difference`. The signed exact decimal difference is gross minus
+net minus the same `AMOUNT_PARTS` components. It appears only when the absolute
+difference exceeds 0.01 and is recomputed for every read and revision. The
+existing `itbis_high` warning remains. New Montos fields and declaration ITBIS
+overrides are excluded from the model-facing dossier and source text.
+
 The draft dossier carries `review_flags`, a list of `{code, field, confirm}`
+objects, with `difference` on `amounts_mismatch`
 computed on every read from the stored facts; nothing is written. `rnc_check_digit`
 (field `rnc`) is a 9-digit RNC or 11-digit cédula whose check digit does not
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
@@ -9840,13 +9294,8 @@ Spanish copy for these codes is `dgii_line.COPY`.
 
 ### Business activity feed
 
-Actividad sits behind one server switch, `CUADRAO_BUSINESS_ACTIVITY_ENABLED`
-(`argus.domain.business.config.business_activity_enabled`), off by default; staging
-sets it true and the production pilot false. `GET /api/v1/business/workspace` says
-the same as `activity_available`. While it is off, `GET /business/activity` is refused
-with `404` `business_activity_disabled` before authentication, and the web shows no
-Actividad entry, sends no request, and sends a direct link to Inicio. Actions keep
-recording their entries either way, so turning it on later shows the whole history.
+Actividad is always on. It has no server switch, and the workspace answer carries
+no field for it. The web always shows its entry.
 
 `GET /business/activity?limit=25|50|100&cursor=<opaque>` lists who changed what
 and when in the working Business (the chosen `X-Business-Grant`'s Business, else
@@ -9903,11 +9352,13 @@ and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
 changes, the two derived events and `other`), so the client can mark it.
 
-`object` is `{kind: draft|grant|invite, id, label}` when the action names one
+`object` is `{kind: draft|grant|invite, id, label, purged}` when the action names one
 and the server knows its id, else `null`. `label` is a human name for the
 object from a record the reader may read, else `null`: a draft's counterparty
 when it is known, a grant's person by their current profile label. An invite
-names only an email, so its label is always `null`. No amount, email or other
+names only an email, so its label is always `null`. `purged` is `true` when a
+document purge removed the draft or upload, read from the purge record; its
+`label` is then always `null`. It is `false` otherwise. No amount, email or other
 field of the command leaves the ledger.
 
 Three actions carry one typed field of the stored command, `null` elsewhere:
@@ -10499,15 +9950,11 @@ person starts their space, every route below except POST `/space` answers 404
     `business_permission_denied` wherever the chat is a Business one: `POST`
     and `GET /conversations` with `surface=business`, and on a Business
     conversation `PATCH` and `DELETE /conversations/{id}`, `GET
-    /conversations/{id}/messages`, `GET` and `PATCH
-    /conversations/{id}/activity`, `GET /conversations/{id}/run-dossiers`,
-    `POST /chat/stream`, `POST /backtests/run`, `GET /backtests/{run_id}`,
-    the `continue`, `computation/refresh`, `tool-results/{id}/recompute`,
-    `confirmations/{id}/peer-assets` and `confirmations/{id}/direct-edit`
-    routes. The person's own Personal chat is theirs whatever Business is
-    chosen: those routes answer as before on a Personal conversation. The
-    web client sends `X-Business-Grant` only on `/business` calls and on
-    `/conversations` with `surface=business`, never on Personal chat. A
+    /conversations/{id}/messages`. Retired chat, action and run endpoints
+    are not restored by a grant. Personal conversation access refuses with
+    404 regardless of the selected Business. The web client sends
+    `X-Business-Grant` only on `/business` calls and on `/conversations`
+    with `surface=business`, never on Personal chat. A
     client's `GET /business/workspace` reports
     `chat_available: false`. With no header and no own Business nothing is
     in scope: the Business routes answer 404 `business_space_missing`, record
@@ -10707,7 +10154,7 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, records_default_currency, accounts,
   currencies, assistant_available: false, chat_available, invoicing_available, notifications_available,
-  settlement_available, activity_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
+  settlement_available, receipt_limits: {max_bytes, media_types}, logo_url}`. `settlement_available` is the
   server's one answer on Por cobrar and Por pagar, true only while `CUADRAO_BUSINESS_SETTLEMENT_ENABLED`
   is on (default off). While it is false the month close carries no settlement state, its net result
   is final, the open items read and the settlement PATCH are refused with 404
@@ -11033,18 +10480,27 @@ accept path recorded.
   for a person; a source that names no currency never fires it. The batch
   metadata records `document_currency`.
 - A read that was saved but never became a record (the hosted hand-off refused
-  or failed after the extractor answered) is `needs_attention` with attention
-  `interrupted`, `preparable: true` and the real cause in `error_code`, except
-  two terminal refusals derived from the saved batch. An unreadable read
-  (`readable` false, or issue `unreadable_document`) is attention `unreadable`
-  and `preparable: false`. A notice or statement with no purchase, and any
-  read that has no receipt object, is attention `not_a_receipt` and
-  `preparable: false`. A readable fiscal bill (an NCF and a plain total on
-  `batch.receipt`) that was refused stays `interrupted` and `preparable: true`.
+  or failed after the extractor answered) is `needs_attention` and shows what
+  the hand-off does with that saved read now, with the real cause in
+  `error_code`. One rule decides both. When the hand-off makes a draft from
+  it, the attention is `interrupted` and `preparable: true`. When the
+  hand-off refuses it, the attention names that refusal and `preparable` is
+  false, because another read replays the same saved read: `unreadable` for an
+  unreadable read (`readable` false), `not_a_receipt` for a read with no
+  receipt object and no purchase amount, or a complete receipt whose only rows
+  are notices or statement periods, and `check_details` for an incomplete
+  receipt with no amount (`receipt_requires_review`). A readable read with an
+  amount a person can review is never refused: a fiscal bill (an NCF and a
+  plain total on `batch.receipt`), a positive priced amount, or a positive
+  receipt total or purchase row that names no currency. It becomes a review
+  draft: a fiscal receipt that names no currency takes DOP by default, any
+  other keeps the currency unknown. A read amount is parsed where it enters
+  the draft: a leading zero is dropped, and zero, a negative, or text the
+  facts cannot hold leaves the amount unknown for a person (the server logs
+  `business_post_read_rule ... rule=read_amount_unknown`).
   "Try again with AI" replays the saved read without a new provider call and
-  runs the hand-off again, except for an incomplete receipt that is not a
-  fiscal bill. Replaying that batch refuses the same way, so the retry asks
-  the provider for a new read. On a replay a fiscal bill becomes one expense
+  runs the hand-off again. A saved read is never replaced, so a replay never
+  asks the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
   statement period. An NCF due notice is that one expense, marked
   `Factura por pagar` on the dossier as `bill_mark` (null while settlement is
@@ -11193,8 +10649,9 @@ accept path recorded.
   `outcome_unknown` (an attempt may have reached the provider; only the
   owner's consented retry starts another), `no_purchase_found`,
   `not_a_receipt` (a statement, a payment notice, or a file with no receipt
-  object), `several_purchases` (several or ambiguous purchases), `source_unavailable`,
-  `check_details` (a purchase is ready but the read was incomplete),
+  object and no purchase amount), `several_purchases` (several or ambiguous purchases), `source_unavailable`,
+  `check_details` (a purchase is ready but the read was incomplete, or an
+  incomplete receipt has no amount),
   `read_budget_day` or `read_budget_month` (the Business's read budget for
   the day or the month was spent before this read could start; `error_code`
   is `business_read_budget_day` or `business_read_budget_month`, the receipt
@@ -11290,8 +10747,9 @@ accept path recorded.
   fact revision; current workflow blockers may still require review. Sources,
   account legs, approval receipts and payment annotations are not extra rows.
 
-  The strict body is `{schema_version:1, filters, columns, sort:"date_desc",
-  page:1, page_size:25}`. Pages are positive integers; sizes are 25, 50 or 100.
+  The strict body is `{schema_version:1, filters, sort:"date_desc",
+  page:1, page_size:25}`. A `columns` list from the first table, in an old
+  link or saved view, is accepted and dropped; nothing reads it. Pages are positive integers; sizes are 25, 50 or 100.
   `matching_count`, `page_count` and totals cover all matches before slicing.
   A page above the last is empty with unchanged counts. Sorting is report date
   descending, then stable row ID ascending, with unknown dates last. No query
@@ -11417,6 +10875,14 @@ accept path recorded.
   amounts. `coverage_notes` explicitly includes absent legal-cancellation coverage,
   unknown source subtype and evidence separation.
 
+  Montos adds `document_net_amount`, `document_net_credit_adjustment` and
+  `document_net_family_amount` totals with the same admission, credit sign,
+  currency grouping and completeness rules. The overview's purchase and sale
+  cards use `document_net_family_amount`. Each row adds `net_amount`,
+  `net_amount_source`, `amounts_difference` and `inheritance`. The default
+  table and its “Lo que ves” export place net amount, ITBIS and gross Total
+  together. Gross fields and recorded money retain their previous meaning.
+
   `fiscal_totals` is separate from those existing gross/activity totals. It is
   reduced on the server over the same full filtered records, before pagination,
   with the same Personal admission rule. Entries partition by nullable `currency`,
@@ -11424,9 +10890,9 @@ accept path recorded.
   `itbis`, `goods`, or `services`. No currency conversion or cross-currency sum
   occurs, and gross is never reconciled to the three fiscal amounts.
 
-  ITBIS has one source: the known `facts.fiscal.itbis` read through `fact_value`,
-  as in both 606 and 607 export. Neither declaration has another billed-ITBIS
-  field. Goods and services read the populated `goods_amount` and
+  Registros ITBIS reads the main `facts.fiscal.itbis`. The fiscal declaration
+  inherits this value unless a person overrides it; 606 and 607 exports read
+  that declaration value when present. Goods and services read the populated `goods_amount` and
   `services_amount` of the existing confirmed purchase declaration, including
   hand-entered values. No new split or fiscal mapping is computed. Each row
   carries nullable decimal `itbis_amount`, `goods_amount`, and `services_amount`.
@@ -11462,12 +10928,15 @@ accept path recorded.
   Registros sends for its table, and returns what the export modal shows before
   any file is built. Both routes need the live `export` capability and the
   report's one selected type (`business_export_family_required` otherwise).
-  `table.columns` lists the table columns the selected tab offers
-  (`reporting_preferences.py` owns them), in the table's order, each with `shown`
-  for the table's current visibility; expense type and payment form are offered
-  on Compras only. `table.current` counts the records the table's request
-  matches, with their currencies; `table.all` counts the same request in every
-  currency, and is null while an amount range ties the request to one currency.
+  `table.current` counts the records the table's request matches, with their
+  currencies; `table.all` counts the same request in every currency, and is
+  null while an amount range ties the request to one currency. Each carries
+  `columns`, the file's columns for that choice in file order: the columns the
+  table offers (the registry in `reporting_columns.py` owns them), in the
+  table's order, then `currency` after `gross_amount` in `table.all`. Each column
+  is `{key, label_key, required, shown}`: `label_key` is the locale path of its
+  name, `required` says every file holds it (the fixed first column and Moneda),
+  and `shown` is the table's current visibility. The modal renders this list.
   `dgii` counts by the tab and period only, whatever the other filters say:
   `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
   currency (`DOP`), `record_count` the records whose
@@ -11479,7 +10948,15 @@ accept path recorded.
   records the form holds until they have a rate. No count is computed on the web.
   The notice's Revisar queries exactly those records: the tab, the period,
   `currency` and `fiscal_data: missing`, with every other filter and the search
-  cleared.
+  cleared. `rnc_warning_count` counts exported purchase rows with an inactive
+  or unverified RNC, and `rnc_supplier_count` counts their unique normalized
+  supplier identities. `rnc_suppliers` groups those rows by normalized `rnc`,
+  with `name` (registry name, else projected counterparty), `estado` (raw registry
+  status, else `sin verificar`), `status` (`rnc_inactive` or `rnc_unverified` for
+  localized fallback), and `record_count`. These notices use the same registry
+  snapshot and line review as fiscal selection. Pending and excluded rows do
+  not count. Sales return zero counts and an empty list. The notice does not
+  block download.
 
 - POST `/api/v1/business/reports/export` takes `{report, mode, columns, currencies,
   format}` and returns one no-store file. `Content-Disposition`, exposed to
@@ -11496,11 +10973,12 @@ accept path recorded.
   `format` is `xlsx` (default, one sheet, frozen header row) or `csv`
   (UTF-8 with a BOM). There is no ZIP, manifest, totals row or original.
   `mode: "table"` writes what the table shows: the report's every filter, the
-  chosen `columns` in the table's order with Contraparte always first, and
-  `currencies` `current` (the screen's currency) or `all` (the same request in
+  chosen `columns` in the preview's order with its `required` columns always in,
+  and `currencies` `current` (the screen's currency) or `all` (the same request in
   every currency, with a Moneda column after Monto; refused with
   `business_export_currency_required` while an amount range is set). A column
-  the tab does not offer is refused with `business_export_column_unavailable`.
+  the preview for that choice does not list is refused with
+  `business_export_column_unavailable`.
   Table headers and values use the web locales through
   `records_file_words.generated.json`, generated by
   `scripts/generate_records_file_words.py`. Expense type and payment method
@@ -11512,7 +10990,10 @@ accept path recorded.
   `mode: "dgii"` takes no `columns` and `currencies` `all`. It follows the tab
   and period, uses the annex columns in `dgii_columns.py`, and sorts lines by
   `Fecha Comprobante` ascending. Amounts are numbers. Identities and
-  `AAAAMMDD` dates stay text. For the 606 file, expense type and payment method
+  dates stay text. The 606 spreadsheet has 25 columns. Each of Fecha Comprobante
+  and Fecha Pago becomes an `(AAAAMM)` column followed by a `(DD)` column,
+  with both payment cells blank when unpaid. The 607 retains its `AAAAMMDD`
+  date columns. For the 606 file, expense type and payment method
   use the exact choices from the official workbook. Empty or zero ITBIS and
   income withholding amounts are numeric zero. The period ZIP
   (`GET /business/exports`) still writes the official TXT codes and amount
@@ -11545,18 +11026,27 @@ accept path recorded.
   precision; historical version-1 bounds and exact response strings remain valid.
 
   Version-2 recipes also save `page_size` (25/50/100) and optional
-  `presentation`. The backend `Presentation` in
-  `src/argus/domain/business/reporting_preferences.py` owns the default table
-  layout. Every answer's `presentation` is the explicitly requested layout when
-  supplied, or that backend default when omitted. Version 1 still rejects
-  `presentation` in its request. Both versions return the effective typed
-  `presentation` in every answer. The web leaves omitted
-  request presentation absent and renders the answer; it defines no table defaults.
+  `presentation`. The column registry in
+  `src/argus/domain/business/reporting_columns.py` owns every column fact and the
+  default table layout. Every answer's `presentation` is the explicitly requested
+  layout after the upgrade below, or the backend default when omitted. Version 1
+  still rejects `presentation` in its request. Both versions return the effective
+  typed `presentation` in every answer, and the web keeps that one in place of
+  its request's. Every answer also carries `columns`: each column the request's
+  type offers in the Business's country, in the layout's order, as
+  `{key, label_key, required, pinned, shown}`. `label_key` is the locale path of
+  the column's name, so the web says it in the reader's language; `required`
+  columns cannot be hidden, `pinned` columns stay first and cannot move, and
+  `shown` follows `presentation.hidden`. A country can omit optional columns
+  (`BusinessCountry.omitted_columns`). The web leaves omitted request
+  presentation absent and renders the answer; it defines no table defaults or
+  column rules.
   Before the answer, it shows pending UI without invented columns or options.
   Restore omits presentation and queries again. Saving a view records the effective
   layout, including when the original request omitted it. Explicit saved layouts
-  keep their order, hidden columns and density. Missing `fiscal_number` and
-  `itbis_amount` columns append to saved orders hidden.
+  keep their order, hidden columns and density. A column a saved or linked
+  layout does not name joins it at the end, hidden unless it is required. The
+  net amount instead joins just before the total, shown.
 
   `presentation.order` contains each supported table key once, with counterparty
   first. The default visible order is counterparty, date, amount, stage, note,
@@ -11572,8 +11062,9 @@ accept path recorded.
   `itbis_amount` columns are hidden by default. ITBIS uses the row currency;
   missing amounts or currency remain unknown, and zero remains numeric.
   Density is 40/48/56, default 48. Reordering supports drag and up/down buttons.
-  Amount uses heavier text; ITBIS uses regular text. `columns` is a retained
-  recipe field; the Registros export reads its own `columns` choice instead. No summary or widget preference is accepted. Page, page size, columns and presentation do
+  Amount uses heavier text; ITBIS uses regular text. Recipes no longer carry the
+  first table's `columns`; a stored one is dropped on read. No summary or widget
+  preference is accepted. Page, page size and presentation do
   not alter the result fingerprint. The preview reads the recorded empty answer
   `web/test-fixtures/records-default-report-answer.json`; it is not a live fallback.
   `test_query_returns_backend_default_presentation`,

@@ -239,15 +239,10 @@ def test_workflows_main_import_installs_safe_handler(
     fake_render_sdk = ModuleType("render_sdk")
     fake_render_sdk.Retry = FakeRetry
     fake_render_sdk.Workflows = FakeWorkflows
-    fake_backtest_job = ModuleType("workflows.backtest_job")
-    fake_backtest_job.PostgresBacktestJobGateway = object
-    fake_backtest_job.capacity_probe_should_raise = lambda result: False
-    fake_backtest_job.run_backtest_job = lambda *args, **kwargs: {}
     fake_proof = ModuleType("workflows.proof")
     fake_proof.PostgresProofJobGateway = object
     fake_proof.run_workflow_proof = lambda *args, **kwargs: {}
     monkeypatch.setitem(sys.modules, "render_sdk", fake_render_sdk)
-    monkeypatch.setitem(sys.modules, "workflows.backtest_job", fake_backtest_job)
     monkeypatch.setitem(sys.modules, "workflows.proof", fake_proof)
     logger.remove()
     logger.add(sys.stderr)
@@ -256,13 +251,6 @@ def test_workflows_main_import_installs_safe_handler(
     _assert_handlers_are_safe()
 
 
-def test_backtest_job_import_installs_safe_handler() -> None:
-    import workflows.backtest_job as backtest_job
-
-    logger.remove()
-    logger.add(sys.stderr)
-    importlib.reload(backtest_job)
-    _assert_handlers_are_safe()
 
 
 @pytest.mark.parametrize("module_name", _OPS_SCRIPT_MODULES)

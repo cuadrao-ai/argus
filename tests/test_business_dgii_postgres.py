@@ -543,6 +543,8 @@ def _blank_purchase():
 
 
 def test_purchase_review_save_applies_payment_withholding_and_the_base(actions):
+    from argus.domain.business.contracts.facts import MontosReview
+
     service, context, _ = actions
     account = cash_account(service, context)
     capture = service.capture(
@@ -569,6 +571,7 @@ def test_purchase_review_save_applies_payment_withholding_and_the_base(actions):
         ReviewDraft(
             version=capture.version,
             facts=facts,
+            montos=MontosReview(legal_tip={"state": "known", "value": "0.25"}),
             dgii=FiscalReview.model_validate(
                 {
                     "fiscal": {

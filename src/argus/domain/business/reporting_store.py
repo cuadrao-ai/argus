@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -21,6 +21,7 @@ from argus.domain.business.authority import (
     BusinessAuthority,
     authorize,
 )
+from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.dgii_snapshot import fiscal_snapshot
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
@@ -33,6 +34,7 @@ from argus.domain.business.reporting_query import (
     ReportRecord,
     ReportRequest,
 )
+from argus.domain.business.rnc_registry import RncRegistrySnapshot
 from argus.domain.recording.canonical_groups import VisibleAccounts, load
 from argus.domain.recording.money_reads import current_activities
 from argus.domain.recording.postgres_repository import PostgresFinancialAccountRepository
@@ -283,13 +285,14 @@ def read_recorded(
 
 def _projected(
     authority: BusinessAuthority, context: ActionContext, connection: Connection
-) -> tuple[RecordedSnapshot, tuple[ReportRecord, ...]]:
+) -> tuple[RecordedSnapshot, tuple[ReportRecord, ...], RncRegistrySnapshot]:
     from argus.domain.business.actions.dossier import record_context, workflow_blockers
     from argus.domain.business.contracts.dossier import ReviewQuestion
     from argus.domain.business.contracts.facts import (
         BusinessResolution,
         fiscal_inclusion,
         is_personal,
+        personal_mark_admits,
     )
     from argus.domain.business.reporting_projection import DraftState, project, value
 
@@ -347,6 +350,7 @@ def _projected(
             tuple(source.source_id for source in sources),
             personal=is_personal(facts),
             include_606=fiscal_inclusion(facts),
+            fiscal_overrides=resolution.fiscal_overrides,
         )
         dependency = hashlib.sha256(
             _json(
@@ -415,7 +419,11 @@ def _projected(
                 }
             )
         )
-    from argus.domain.business.dgii_export import line_verdicts
+    from argus.domain.business.contracts.dgii import PurchaseDeclaration
+    from argus.domain.business.dgii_export import fiscal_form, line_verdicts
+    from argus.domain.business.dgii_line import confirmed_declaration
+    from argus.domain.business.dgii_validation import fact_value
+    from argus.domain.business.fiscal_identity import identity_digits
     from argus.domain.business.reporting_projection import with_export_verdicts
     from argus.domain.business.rnc_registry import (
         postgres_rnc_fetch,
@@ -428,11 +436,27 @@ def _projected(
             cursor.execute(sql, params)
             return cursor.fetchone()
 
+        registry = registry_from_config("dgii", postgres_rnc_fetch(lookup))
+        identities = {
+            digits
+            for record in snapshot.records
+            if fiscal_form(record.approved) is not None
+            if personal_mark_admits(
+                record.approved.personal,
+                record.approved.include_606,
+                sale=fiscal_form(record.approved) == "607",
+            )
+            if isinstance(confirmed_declaration(record.approved), PurchaseDeclaration)
+            if (digits := identity_digits(fact_value(record.approved, "rnc")))
+        }
+        rnc_snapshot = RncRegistrySnapshot(
+            {digits: registry.lookup(digits) for digits in sorted(identities)}
+        )
         verdicts = line_verdicts(
             tuple(record.approved for record in snapshot.records),
             rnc=filer_identity,
             captured_on=snapshot.observed_at.date(),
-            registry=registry_from_config("dgii", postgres_rnc_fetch(lookup)),
+            registry=rnc_snapshot,
         )
     exported = frozenset(
         row[0]
@@ -442,7 +466,11 @@ def _projected(
             (context.actor.space_id,),
         ).fetchall()
     )
-    return snapshot, with_export_verdicts(tuple(public_rows), verdicts, exported)
+    return (
+        snapshot,
+        with_export_verdicts(tuple(public_rows), verdicts, exported),
+        rnc_snapshot,
+    )
 
 
 def read_606(
@@ -512,6 +540,8 @@ class ExportSource:
     records: tuple[ReportRecord, ...]
     approved: dict[str, FiscalRecord]
     observed_at: datetime
+    rnc_registry: RncRegistrySnapshot = field(default_factory=RncRegistrySnapshot)
+    country: str = DEFAULT_COUNTRY
 
 
 def read_export_source(
@@ -520,12 +550,14 @@ def read_export_source(
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         authorize(connection, context.actor, context.grant_id).require("export")
-        snapshot, records = _projected(authority, context, connection)
+        snapshot, records, rnc_registry = _projected(authority, context, connection)
         authorize(connection, context.actor, context.grant_id).require("export")
     return ExportSource(
         records,
         {record.approved.activity_id: record.approved for record in snapshot.records},
         snapshot.observed_at,
+        rnc_registry,
+        context.country,
     )
 
 
@@ -548,8 +580,14 @@ def read_report_snapshot(
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         authorize(connection, context.actor, context.grant_id).require(capability)
-        snapshot, records = _projected(authority, context, connection)
-        result = run_query(snapshot.identity(""), records, request, snapshot.observed_at)
+        snapshot, records, _ = _projected(authority, context, connection)
+        result = run_query(
+            snapshot.identity(""),
+            records,
+            request,
+            snapshot.observed_at,
+            country=context.country,
+        )
         authorize(connection, context.actor, context.grant_id).require(capability)
         return result, matching_records(records, request, snapshot.observed_at)
 

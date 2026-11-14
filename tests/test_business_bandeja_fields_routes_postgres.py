@@ -204,7 +204,11 @@ def test_notes_say_how_many_came_before_and_whether_the_page_is_the_whole_list(
     exact = _get(world, "/business/captures", alice.headers, limit=4)
     assert (len(exact["items"]), exact["has_more"]) == (4, False)
     # The accountant working in Alice's Business reads the same page.
-    assert _get(world, "/business/captures", _as(world.bob, world.grant), limit=2) == page
+    assert all(item["delete_available"] for item in page["items"])
+    assert _get(world, "/business/captures", _as(world.bob, world.grant), limit=2) == {
+        **page,
+        "items": [{**item, "delete_available": False} for item in page["items"]],
+    }
 
 
 def test_the_dossier_names_its_approve_action_and_the_606_gate_agrees_with_the_action(

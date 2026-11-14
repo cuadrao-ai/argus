@@ -1,49 +1,54 @@
-import type { ColumnKey } from "./TransaccionesTable";
+import type { ReportColumn, ReportColumnKey } from "@/lib/business-reports-api";
 import { type RecordsSort } from "./records-pagination";
 import type { Density } from "./table-density";
 
-/** Registros table keys. Currency metadata remains shared with Bandeja. */
-export type RecordsColumnKey = Exclude<ColumnKey, "categoria" | "detalle"> | "tipo_gasto" | "forma_pago" | "estado" | "notas" | "ncf" | "itbis";
-type RecordsColumn = { key: RecordsColumnKey | "moneda"; width: number | null; align: "left" | "right"; pin?: "left" | "right" };
-export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = [
-  { key: "contraparte", width: 200, align: "left", pin: "left" },
-  { key: "fecha", width: 116, align: "left" },
-  { key: "monto", width: 104, align: "right" },
-  { key: "moneda", width: 80, align: "left" },
-  { key: "tipo_gasto", width: 120, align: "left" },
-  { key: "forma_pago", width: 120, align: "left" },
-  { key: "estado", width: 200, align: "left" },
-  { key: "notas", width: 120, align: "left" },
-  { key: "cuenta", width: 176, align: "left" },
-  { key: "comprobante", width: 88, align: "right", pin: "right" },
-  { key: "ncf", width: 176, align: "left" },
-  { key: "itbis", width: 160, align: "right" },
-];
-/** A column of either table: Registros' own, or the ledger's when bank matching mounts the records beside its movements. */
-export type TableColumnKey = RecordsColumnKey | ColumnKey | "moneda";
-/** Tipo de gasto and Forma de pago read the words Bandeja's review form uses, so the two screens never name a 606 field differently. */
-export const recordsColumnLabelKey = (key: TableColumnKey) => key === "detalle" ? "business.transactions.layout.column_type" : key === "estado" ? "business.transactions.layout.column_state" : key === "comprobante" ? "business.transactions.layout.column_attachment" : key === "tipo_gasto" ? "business.dossier.placeholder.expense_type" : key === "forma_pago" ? "business.dossier.placeholder.payment_form" : `business.transactions.columns.${key}`;
-export type RecordsViewPreferences = { order: RecordsColumnKey[]; hidden: RecordsColumnKey[]; density: Density; sort: RecordsSort };
-export const requiredColumn = (key: RecordsColumnKey) => key === "contraparte" || key === "monto";
-export function moveRecordsColumn(value: RecordsViewPreferences, key: RecordsColumnKey, target: number): RecordsViewPreferences {
-  if (key === "contraparte") return value;
+type Layout = { width: number | null; align: "left" | "right"; endPin?: true };
+/** How each server column draws. The server says which columns the table offers, their names and their rules. Attachment pins right while it is last. */
+export const RECORDS_COLUMN_LAYOUT: Record<ReportColumnKey, Layout> = {
+  counterparty: { width: 200, align: "left" },
+  fiscal_number: { width: 176, align: "left" },
+  date: { width: 116, align: "left" },
+  net_amount: { width: 160, align: "right" },
+  itbis_amount: { width: 160, align: "right" },
+  gross_amount: { width: 104, align: "right" },
+  stage: { width: 200, align: "left" },
+  note: { width: 120, align: "left" },
+  attachment: { width: 88, align: "right", endPin: true },
+  expense_type: { width: 120, align: "left" },
+  payment_form: { width: 120, align: "left" },
+  funding: { width: 176, align: "left" },
+};
+/** Bandeja sizes its Moneda column from this entry until it owns that width (#2081). */
+export const RECORDS_PREVIEW_COLUMNS: readonly { key: "moneda"; width: number | null }[] = [{ key: "moneda", width: 80 }];
+
+/** The server's offered columns and the person's layout, in server keys. */
+export type RecordsViewPreferences = { columns: readonly ReportColumn[]; order: string[]; hidden: string[]; density: Density; sort: RecordsSort };
+export type RecordsTableColumn = ReportColumn & { width: number | null; align: "left" | "right"; pin?: "left" | "right" };
+
+/** The offered columns in the person's order, each shown unless the layout hides it. The server's required columns always show. */
+export function recordsColumnSettings(value: RecordsViewPreferences): ReportColumn[] {
+  return value.order.flatMap((key) => value.columns.filter((column) => column.key === key).map((column) => ({ ...column, shown: column.required || !value.hidden.includes(key) })));
+}
+/** The server's pinned columns lead and do not move. */
+export function moveRecordsColumn(value: RecordsViewPreferences, key: string, target: number): RecordsViewPreferences {
+  const pinned = value.columns.filter((column) => column.pinned).length;
+  if (value.columns.some((column) => column.key === key && column.pinned)) return value;
   const order = value.order.filter((item) => item !== key);
-  order.splice(Math.max(1, Math.min(order.length, target)), 0, key);
+  order.splice(Math.max(pinned, Math.min(order.length, target)), 0, key);
   return { ...value, order };
 }
-export function toggleRecordsColumn(value: RecordsViewPreferences, key: RecordsColumnKey): RecordsViewPreferences {
-  if (requiredColumn(key)) return value;
+export function toggleRecordsColumn(value: RecordsViewPreferences, key: string): RecordsViewPreferences {
+  if (value.columns.some((column) => column.key === key && column.required)) return value;
   return { ...value, hidden: value.hidden.includes(key) ? value.hidden.filter((item) => item !== key) : [...value.hidden, key] };
 }
-export const purchaseOnlyColumn = (key: RecordsColumnKey) => key === "tipo_gasto" || key === "forma_pago";
-export function visibleRecordsColumns(value: RecordsViewPreferences, purchase = true) {
-  const keys: RecordsColumnKey[] = ["contraparte" as const, ...value.order.filter((key) => key !== "contraparte" && (purchase || !purchaseOnlyColumn(key)) && (requiredColumn(key) || !value.hidden.includes(key)))];
-  return keys.map((key, index) => {
-    const column = RECORDS_PREVIEW_COLUMNS.find((item) => item.key === key)!;
-    return { ...column, key, pin: key === "contraparte" ? "left" as const : key === "comprobante" && index === keys.length - 1 ? "right" as const : undefined };
+export function visibleRecordsColumns(value: RecordsViewPreferences): RecordsTableColumn[] {
+  const shown = recordsColumnSettings(value).filter((column) => column.shown);
+  return shown.map((column, index) => {
+    const { width, align, endPin } = RECORDS_COLUMN_LAYOUT[column.key];
+    return { ...column, width, align, pin: column.pinned ? "left" as const : endPin && index === shown.length - 1 ? "right" as const : undefined };
   });
 }
-export function recordsMinimumWidth(columns: readonly { key: TableColumnKey; width: number | null }[], amount: { units: number; width: string }) {
-  const other = columns.reduce((sum, column) => sum + (column.key === "monto" ? 0 : column.width ?? 288), 0);
+export function recordsMinimumWidth(columns: readonly { key: string; width: number | null }[], amount: { units: number; width: string }) {
+  const other = columns.reduce((sum, column) => sum + (column.key === "gross_amount" ? 0 : column.width ?? 288), 0);
   return amount.units ? `calc(${other + 24}px + ${amount.units}ch)` : `calc(${other}px + ${amount.width})`;
 }

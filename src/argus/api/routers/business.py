@@ -131,10 +131,7 @@ from argus.api.whatsapp import whatsapp_receiving_available
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
-from argus.domain.business.config import (
-    business_activity_enabled,
-    business_settlement_enabled,
-)
+from argus.domain.business.config import business_settlement_enabled
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
@@ -834,7 +831,6 @@ def get_workspace(
         "invoicing_available": invoicing_available(request),
         "notifications_available": notifications_available(),
         "settlement_available": business_settlement_enabled(),
-        "activity_available": business_activity_enabled(),
         "receiving_channels": {
             "email": {"available": email_receiving_available()},
             "whatsapp": {"available": whatsapp_receiving_available(context.scope)},
@@ -853,7 +849,7 @@ def create_account(
     response: Response,
     body: CreateBusinessAccount,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-    context: BusinessContext = Depends(require_business_management),  # noqa: B008
+    context: BusinessContext = Depends(require_business_management, scope="function"),  # noqa: B008
 ) -> dict[str, Any]:
     manager_only(request, context)
     key = _required_idempotency_key(request, idempotency_key)
@@ -864,6 +860,7 @@ def create_account(
                 type=body.type, currency=body.currency, nickname=body.nickname
             ),
             key,
+            connection=context.connection,
         )
     except Exception as error:
         raise _problem(request, error) from None
@@ -1003,13 +1000,6 @@ async def set_receipt_reading(
                         scope=context.scope.owner,
                     )
                 except DocumentServiceError as error:
-                    await run_in_threadpool(
-                        context.service.documents.release_queued,
-                        user_id=context.scope.person_id,
-                        connection_id=receipt_id,
-                        scope=context.scope.owner,
-                        code=error.code,
-                    )
                     if error.retryable:
                         failure = error
             if failure is not None:

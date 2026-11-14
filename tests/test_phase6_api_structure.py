@@ -28,10 +28,9 @@ def test_required_api_router_modules_exist() -> None:
     required = [
         "auth",
         "profile",
-        "conversations",
+        "business_conversations",
         "history",
         "search",
-        "discovery",
         "feedback",
         "dev",
     ]
@@ -40,7 +39,21 @@ def test_required_api_router_modules_exist() -> None:
         assert path.exists(), f"missing router {name}"
         assert "router = APIRouter(" in path.read_text(encoding="utf-8")
 
-    for retired_name in ("strategies", "collections", "backtest"):
+    for retired_name in (
+        "strategies",
+        "collections",
+        "backtest",
+        "conversations",
+        "computations",
+        "decisions",
+        "discovery",
+        "evidence",
+        "evidence_receipts",
+        "market",
+        "public_receipts",
+        "receipt_forks",
+        "tool_results",
+    ):
         retired_path = ROOT / "src" / "argus" / "api" / "routers" / f"{retired_name}.py"
         assert not retired_path.exists()
 
@@ -65,26 +78,3 @@ def test_legacy_signal_parser_package_is_deleted() -> None:
     assert not (signals_path / "__init__.py").exists()
     assert not (signals_path / "task_relation.py").exists()
     assert list(signals_path.glob("*.py")) == []
-
-
-def test_regex_nlu_artifacts_are_absent() -> None:
-    paths = [
-        "src/argus/agent_runtime/stages/interpret.py",
-        "src/argus/agent_runtime/extraction/structured.py",
-    ]
-    forbidden = [
-        "extract_signals(",
-        "extract_strategy_fields(",
-        "detect_symbols(",
-        "extract_date_range(",
-        "explicit_strategy_logic_present(",
-        "_is_approval_message(",
-        "_confirmation_edit_action(",
-        "_social_opener_response(",
-        "SYMBOL_ALIASES",
-        "COMMON_NAMES",
-        "NON_SYMBOLS",
-    ]
-    combined = "\n".join(_source(path) for path in paths)
-    for token in forbidden:
-        assert token not in combined

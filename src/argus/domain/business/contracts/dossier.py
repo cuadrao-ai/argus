@@ -7,14 +7,23 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.space_name import GivenName
 
 from .actions import ApprovalAction
 from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
-from .dgii import DgiiDeclaration, ExpenseType
-from .facts import BusinessFacts, Contract, FactField, ReadPurchase
+from .dgii import DgiiDeclaration, ExpenseType, PaymentForm
+from .facts import (
+    HUMAN_AMOUNT_FIELDS,
+    BusinessFacts,
+    Contract,
+    FactField,
+    InheritedValue,
+    NetAmount,
+    ReadPurchase,
+)
 
 
 class MessageSource(Contract):
@@ -112,9 +121,10 @@ class ReviewFlag(Contract):
     """A read value to check again. ``confirm`` flags need ``approve_anyway``
     on the approve request; the rest only warn."""
 
-    code: Literal["rnc_check_digit", "ncf_malformed", "itbis_high"]
-    field: Literal["rnc", "ncf", "itbis"]
+    code: Literal["rnc_check_digit", "ncf_malformed", "itbis_high", "amounts_mismatch"]
+    field: Literal["rnc", "ncf", "itbis", "amount"]
     confirm: bool
+    difference: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class RecordedApproval(Contract):
@@ -169,7 +179,33 @@ class DuplicateCandidate(Contract):
     version: int = Field(ge=1)
 
 
+#: Where a suggested 606 answer came from: the last one a person gave for this
+#: RNC in this Business, or what the receipt shows. Nothing sends ``receipt`` yet.
+SuggestionSource = Literal["last_choice", "receipt"]
+
+
+class ExpenseTypeSuggestion(Contract):
+    value: ExpenseType
+    source: SuggestionSource
+
+
+class PaymentFormSuggestion(Contract):
+    value: PaymentForm
+    source: SuggestionSource
+
+
+class DeclarationSuggestions(Contract):
+    """One suggestion per 606 answer a person gives, under the declaration's
+    own field name. Null where the server has none or the draft has its own."""
+
+    category: ExpenseTypeSuggestion | None = None
+    payment_method: PaymentFormSuggestion | None = None
+
+
 class BusinessDossier(RecordContext):
+    deleted: DeletedDocument | None = None
+    delete_available: bool = False
+    restore_available: bool = False
     current_note: str | None = None
     #: "No pudimos verificar este remitente." when the draft came from email
     #: whose sender is authorized but did not verify; null otherwise. The same
@@ -183,6 +219,8 @@ class BusinessDossier(RecordContext):
     version: int = Field(ge=1)
     review_state: Literal["open", "accepting", "accepted", "dismissed"]
     facts: BusinessFacts
+    net_amount: NetAmount = NetAmount(amount=None, source=None)
+    inheritance: dict[str, InheritedValue] = Field(default_factory=dict)
     sources: tuple[SourceEvidence, ...]
     questions: tuple[ReviewQuestion, ...]
     history: tuple[DraftRevision, ...]
@@ -229,10 +267,9 @@ class BusinessDossier(RecordContext):
     #: The caller may write the 606 declaration now: open or approved, and the
     #: caller holds prepare. A download changes nothing here.
     declaration_editable: bool = False
-    #: The tipo de gasto a person last chose for this RNC in this Business,
-    #: while this draft has no choice of its own and takes one. A suggestion:
-    #: it is stored only when a person writes it.
-    expense_type_suggestion: ExpenseType | None = None
+    #: What the server offers for each 606 answer this draft lacks, with where
+    #: it came from. A suggestion: it is stored only when a person writes it.
+    declaration_suggestions: DeclarationSuggestions = DeclarationSuggestions()
     #: The caller may write the 607 payment split now, on the same terms as
     #: declaration_editable, on a sale.
     payment_split_editable: bool = False
@@ -261,6 +298,13 @@ class BusinessDossier(RecordContext):
 
 #: The due date a person sets in review, wherever the dossier carries it.
 _UNMEASURED_DOSSIER_FIELDS = {
+    "net_amount": True,
+    "inheritance": True,
+    "facts": set(HUMAN_AMOUNT_FIELDS),
+    "dgii": {"itbis"},
+    "deleted": True,
+    "delete_available": True,
+    "restore_available": True,
     "current_note": True,
     "note_edit_available": True,
     "supporting_append_available": True,
@@ -268,7 +312,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "due_on": True,
     "declaration_editable": True,
     "reopen_available": True,
-    "expense_type_suggestion": True,
+    "declaration_suggestions": True,
     "payment_split_editable": True,
     "approval_action": True,
     "fiscal_inclusion_available": True,
@@ -277,24 +321,32 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "review_flags": True,
     "history": {
         "__all__": {
-            "before_due_on",
-            "after_due_on",
-            "before_current_note",
-            "after_current_note",
+            "before_due_on": True,
+            "after_due_on": True,
+            "before_current_note": True,
+            "after_current_note": True,
+            "before": set(HUMAN_AMOUNT_FIELDS),
+            "after": set(HUMAN_AMOUNT_FIELDS),
+            "before_dgii": {"itbis"},
+            "after_dgii": {"itbis"},
         }
     },
 }
 
 
-_UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split")
+_UNMEASURED_REVIEW_INPUT = ("due_on", "payment_split", "montos")
 
 
 def _unmeasured_removed(source: dict[str, Any]) -> dict[str, Any]:
     if source["kind"] != "web_action" or not any(
-        f'"{name}"' in source["text"] for name in _UNMEASURED_REVIEW_INPUT
+        f'"{name}"' in source["text"] for name in (*_UNMEASURED_REVIEW_INPUT, "itbis")
     ):
         return source
     command = json.loads(source["text"])
     for name in _UNMEASURED_REVIEW_INPUT:
         command.get("request", {}).pop(name, None)
+    request = command.get("request", {})
+    for declaration in ((request.get("dgii") or {}).get("declaration"), request.get("purchase")):
+        if isinstance(declaration, dict):
+            declaration.pop("itbis", None)
     return {**source, "text": web_action_text(command)}

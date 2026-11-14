@@ -1,21 +1,26 @@
-"""Registration signal, kept out of the alpha API suite for its budget.
-
-Argus emits one acquisition event whose surface separates a guest converting
-from a cold signup. Counting them together answers neither funnel question.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import pytest
+from argus.api.main import app
 from argus.api.routers import auth as auth_router
 from argus.api.schemas import OnboardingState, User
 from argus.domain.store import utcnow
+from fastapi.testclient import TestClient
 
-from tests.test_alpha_api_supabase import client, mock_gateway  # noqa: F401
+client = TestClient(app)
 
 
-def test_signup_emits_product_event_for_public_registration(
+@pytest.fixture
+def mock_gateway():
+    gateway = MagicMock()
+    with patch("argus.api.state.supabase_gateway", gateway):
+        yield gateway
+
+
+def test_signup_does_not_emit_a_retired_product_event(
     mock_gateway,  # noqa: F811
     monkeypatch,
 ):
@@ -23,15 +28,6 @@ def test_signup_emits_product_event_for_public_registration(
     auth_router.reset_auth_attempt_limiter_for_tests()
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
     monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
-    captured_events: list[tuple[str, dict[str, object]]] = []
-
-    def fake_capture_product_event(kind: str, **payload: object) -> None:
-        captured_events.append((kind, dict(payload)))
-
-    monkeypatch.setattr(
-        "argus.api.routers.auth.capture_product_event",
-        fake_capture_product_event,
-    )
     mock_gateway.private_alpha_email_allowed.return_value = True
     now = utcnow()
     mock_gateway.signup.return_value = {
@@ -75,55 +71,19 @@ def test_signup_emits_product_event_for_public_registration(
     )
 
     assert response.status_code == 200
-    assert captured_events == [
-        (
-            "account_registration_completed",
-            {
-                "user_id": "user-1",
-                "attributes": {
-                    "surface": "direct_signup",
-                    "language": "en",
-                },
-            },
-        ),
-    ]
-    kind, payload = captured_events[0]
-    assert kind == "account_registration_completed"
-    assert set(payload.keys()) == {"user_id", "attributes"}
-    assert payload["attributes"]["language"] == "en"
-    assert payload["attributes"]["surface"] == "direct_signup"
-    assert set(payload["attributes"].keys()) == {
-        "surface",
-        "language",
-    }
-    assert not set(payload["attributes"]).intersection(
-        {
-            "assistant_prose",
-            "prompt",
-            "message_history",
-            "capital",
-            "account_balance",
-            "holdings",
-            "email",
-        }
+    assert response.json()["user"]["id"] == "user-1"
+    assert "capture_product_event" not in Path(
+        __file__
+    ).resolve().parents[1].joinpath("src/argus/api/routers/auth.py").read_text(
+        encoding="utf-8"
     )
 
-def test_registration_surfaces_distinguish_guest_conversion_from_direct_signup():
-    """A guest converting and a cold signup are different funnel events.
 
-    Collapsing them to one surface loses the only thing the signal is for:
-    knowing whether the guest path is working.
-    """
-
+def test_signup_source_does_not_name_retired_funnel_surfaces():
     source = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "argus"
-        / "api"
-        / "routers"
-        / "auth.py"
+        Path(__file__).resolve().parents[1] / "src/argus/api/routers/auth.py"
     ).read_text(encoding="utf-8")
 
-    assert 'surface="guest_conversion"' in source
-    assert 'surface="direct_signup"' in source
+    assert "capture_product_event" not in source
+    assert "emit_verified_guest_funnel_event" not in source
     assert 'surface="auth_signup"' not in source

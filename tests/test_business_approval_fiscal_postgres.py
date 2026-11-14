@@ -338,7 +338,7 @@ def test_usd_owner_funded_receipt_stays_usd_after_approval(actions):
     assert booked(service, context) == [("owner_funds", "USD")]
 
 
-def test_a_printed_currency_symbol_defaults_to_dop_with_valid_ncf(actions):
+def test_a_printed_rd_dollar_is_read_as_dop_not_defaulted(actions):
     service, context = actions
 
     draft, _ = receipt_draft(service, context, colmado(currency="RD$"), None)
@@ -346,7 +346,7 @@ def test_a_printed_currency_symbol_defaults_to_dop_with_valid_ncf(actions):
     currency = revisions(service, draft)[-1]["facts"]["currency"]
     assert (currency["value"], currency["origin"], currency["verified"]) == (
         "DOP",
-        "default",
+        "extracted",
         False,
     )
 
@@ -493,7 +493,7 @@ def test_declaration_saved_before_approval_is_kept(actions):
     assert outcome.outcome == "applied", outcome
     history = revisions(service, draft)
     assert history[-1]["version"] == approved
-    assert history[-1]["dgii"] == saved
+    assert history[-1]["dgii"] == {**saved, "itbis": "180.00"}
     lines, issues = lines_606(service, context)
     assert issues == []
     [line] = lines
@@ -667,7 +667,7 @@ def test_failed_money_write_keeps_the_saved_declaration(actions, monkeypatch):
     failed = approve(service, context, draft, approved)
 
     assert failed.outcome == "invalid_input", failed
-    assert service.dossier(context, draft).dgii.model_dump(mode="json") == saved
+    assert service.dossier(context, draft).dgii.model_dump(mode="json") == {**saved, "itbis": "180.00"}
     assert revisions(service, draft)[-1]["version"] == approved
 
 
@@ -763,10 +763,10 @@ def test_failed_money_write_puts_back_the_declaration_the_approval_filled(
 
     assert failed.outcome == "invalid_input", failed
     reopened = service.dossier(context, draft)
-    assert reopened.dgii.model_dump(mode="json") == blank
+    assert reopened.dgii.model_dump(mode="json") == {**blank, "itbis": "180.00"}
     filled, undone = revisions(service, draft)[-2:]
     assert (filled["dgii"]["id_type"], filled["dgii"]["payment_method"]) == ("1", "02")
-    assert (undone["version"], undone["dgii"]) == (reopened.version, blank)
+    assert (undone["version"], undone["dgii"]) == (reopened.version, {**blank, "itbis": "180.00"})
 
 
 def test_reapproval_rebuilds_a_declaration_the_clear_missed(actions, monkeypatch):

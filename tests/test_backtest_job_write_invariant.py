@@ -194,29 +194,6 @@ EXPECTED_WRITE_SITES = {
         "postgrest-update",
     ): _requires('.eq("status", "running")'),
     (
-        "workflows/backtest_job.py",
-        "PostgresBacktestJobGateway._try_mark_backtest_job_running",
-        "sql-update",
-    ): _requires("for update", "_workflow_start_candidate", "result_run_id = null"),
-    (
-        "workflows/backtest_job.py",
-        "PostgresBacktestJobGateway.merge_backtest_job_execution_metadata",
-        "sql-update",
-    ): _requires("set execution_metadata", absent=("result_run_id", "status =")),
-    (
-        "workflows/backtest_job.py",
-        "PostgresBacktestJobGateway.link_backtest_job_result",
-        "sql-update",
-    ): _requires(
-        "{job_result_attach_sql_predicate()}",
-        "{job_success_write_sql_predicate()}",
-    ),
-    (
-        "workflows/backtest_job.py",
-        "PostgresBacktestJobGateway.mark_backtest_job_failed",
-        "sql-update",
-    ): _requires("result_run_id = null"),
-    (
         "workflows/proof.py",
         "PostgresProofJobGateway.update_job_status",
         "sql-update",
@@ -274,10 +251,7 @@ def test_link_write_callers_are_enumerated() -> None:
                 and node.func.attr == "link_backtest_job_result"
             ):
                 callers.add((str(path.relative_to(REPO)), index.function_at(node.lineno)))
-    assert callers == {
-        ("src/argus/api/chat/result_link.py", "link_shadow_backtest_job_result"),
-        ("workflows/backtest_job.py", "run_backtest_job"),
-    }, (
+    assert callers == set(), (
         f"Unrecognized link_backtest_job_result caller set: {sorted(callers)}. "
         "A new caller is gated by the implementation, but it must be "
         "enumerated here and its publisher must derive from the returned "

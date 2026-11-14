@@ -74,7 +74,6 @@ def root_prose_reader_paths() -> list[Path]:
             *(
                 ROOT / name
                 for name in (
-                    "src/argus/api/routers/conversations.py",
                     "src/argus/api/routers/history.py",
                     "src/argus/api/routers/search.py",
                     "src/argus/api/conversation_previews.py",
@@ -99,28 +98,10 @@ def root_reader_inventory(overrides: dict[Path, str] | None = None) -> Counter:
 def test_root_prose_has_only_exact_generic_transcript_readers() -> None:
     assert root_reader_inventory() == Counter(
         {
-            # Naming is private model context. Marker filters read only user text.
-            (
-                "src/argus/api/artifact_naming.py",
-                "_conversation_title_context_from_messages",
-                "message.content",
-            ): 1,
             (
                 "src/argus/api/conversation_previews.py",
                 "latest_conversation_messages",
                 "message.content",
-            ): 1,
-            # One user-marker read and one input to the sole scrubber, whose output
-            # is then unwrapped. Neither is a public artifact fallback.
-            (
-                "src/argus/api/routers/conversations.py",
-                "_public_message_projection",
-                "message.content",
-            ): 2,
-            (
-                "src/argus/api/routers/conversations.py",
-                "_public_message_projection",
-                "public.pop('content')",
             ): 1,
             # Reached only after typed artifacts/degraded compatibility return.
             (
@@ -165,23 +146,6 @@ def test_single_reader_boundary_blanks_the_shared_root_registry() -> None:
     )
 
 
-def test_runtime_source_prose_aliases_must_belong_to_the_scrub_registry() -> None:
-    tree = ast.parse((ROOT / "src/argus/api/chat/streaming.py").read_text())
-    extractor = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == "runtime_result_message"
-    )
-    aliases = {
-        node.args[0].value
-        for node in ast.walk(extractor)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "get"
-        and node.args
-        and isinstance(node.args[0], ast.Constant)
-    }
-    assert aliases <= ARTIFACT_ROOT_PROSE_FIELDS
 
 
 @pytest.mark.parametrize(

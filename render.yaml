@@ -120,8 +120,6 @@ services:
         value: "3"
       - key: CUADRAO_DOCUMENT_UPLOADS_PER_MINUTE
         value: "60"
-      - key: CUADRAO_BUSINESS_ACTIVITY_ENABLED
-        value: "false"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
@@ -186,8 +184,12 @@ services:
     envVars:
       - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
         value: "210"
+      - key: CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS
+        value: "5"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
+      - key: CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS
+        value: "3600"
       - key: POSTHOG_PROJECT_TOKEN
         sync: false
       - key: POSTHOG_REGION
@@ -244,8 +246,6 @@ services:
         value: "true"
       - key: CUADRAO_BUSINESS_INVITE_ADMISSION_ENABLED
         value: "false"
-      - key: CUADRAO_BUSINESS_ACTIVITY_ENABLED
-        value: "true"
       - key: CUADRAO_BUSINESS_INVOICING_ENABLED
         value: "false"
       - key: CUADRAO_BUSINESS_NOTIFICATIONS_ENABLED
@@ -411,8 +411,12 @@ services:
     envVars:
       - key: CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS
         value: "210"
+      - key: CUADRAO_DOCUMENT_JOBS_IDLE_POLL_SECONDS
+        value: "60"
       - key: CUADRAO_DOCUMENT_JOBS_MAX_READS
         value: "3"
+      - key: CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS
+        value: "3600"
       - key: POSTHOG_PROJECT_TOKEN
         sync: false
       - key: POSTHOG_REGION

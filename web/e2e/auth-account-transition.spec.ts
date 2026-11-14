@@ -84,7 +84,7 @@ test("a fresh account drops persisted old Business context and waits for its own
   expect(failures).toEqual([]);
 });
 
-test("signing out of Business opens login without the account-changed alert", async ({ page, context, baseURL }) => {
+test("signing out of Business opens login without the account-changed alert", async ({ page, context, baseURL }, testInfo) => {
   const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
   const session = { access_token: token(newId), refresh_token: "new-refresh", expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: "bearer", user: user(newId) };
   await context.addCookies([{ name: "sb-127-auth-token", value: `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`, url: baseURL! }]);
@@ -109,7 +109,7 @@ test("signing out of Business opens login without the account-changed alert", as
   await expect(page).toHaveURL(/\/\?auth=login/);
   await expect(page.getByText("Your account changed")).toHaveCount(0);
   await page.screenshot({
-    path: "../docs/reports/evidence/business-signin-browser-check/business-sign-out-login.png",
+    path: testInfo.outputPath("business-sign-out-login.png"),
     fullPage: true,
   });
 });

@@ -203,25 +203,6 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     assert "live_provider" not in joined_steps
 
 
-_PILOT_POSTGRES_GLOBS = (
-    "tests/test_business*_postgres.py",
-    "tests/test_whatsapp*_postgres.py",
-    "tests/test_ingestion*_postgres.py",
-    "tests/test_fiscal*_postgres.py",
-    "tests/test_registros*_postgres.py",
-    "tests/test_document*_postgres.py",
-    "tests/test_rls*_postgres.py",
-    "tests/test_access*_postgres.py",
-    "tests/test_client_grants_postgres.py",
-    "tests/test_account_deletion_fk_census_postgres.py",
-    "tests/test_email_daily_budget_postgres.py",
-    "tests/test_dgii_rnc_postgres.py",
-    "tests/test_supplier_fast_path_postgres.py",
-    "tests/test_flags_off_removal_postgres.py",
-    "tests/test_login_failure_parity_postgres.py",
-)
-
-
 def _test_files(args: list[str]) -> list[str]:
     return [arg for arg in args if arg.startswith("tests/")]
 
@@ -261,37 +242,19 @@ def _run_postgres_matrix_step(
     return result, args
 
 
-def test_pull_requests_run_the_pilot_postgres_set_and_other_events_run_every_proof(
-    tmp_path: Path,
-) -> None:
-    pilot = sorted(
-        {
-            str(path.relative_to(ROOT))
-            for glob in _PILOT_POSTGRES_GLOBS
-            for path in ROOT.glob(glob)
-        }
-    )
+def test_every_event_runs_every_postgres_proof(tmp_path: Path) -> None:
     everything = sorted(
         str(path.relative_to(ROOT)) for path in ROOT.glob("tests/test_*_postgres.py")
     )
-    assert "tests/test_business_postgres.py" in pilot
-    assert "tests/test_client_grants_postgres.py" in pilot
-    assert "tests/test_account_deletion_fk_census_postgres.py" in pilot
-    assert "tests/test_login_failure_parity_postgres.py" in pilot
-    assert set(pilot) < set(everything)
-
-    result, files = _run_postgres_matrix_step(tmp_path, ROOT, "pull_request")
-    assert result.returncode == 0, result.stderr
-    assert sorted(_test_files(files)) == pilot
-    assert files[-2:] == [
-        "scripts/qa/assert_pytest_gate.py",
-        "temp/guest-postgres-junit.xml",
-    ]
-
-    for event in ("push", "schedule", "workflow_dispatch"):
+    assert "tests/test_conversation_surfaces_postgres.py" in everything
+    for event in ("pull_request", "push", "schedule", "workflow_dispatch"):
         result, files = _run_postgres_matrix_step(tmp_path, ROOT, event)
         assert result.returncode == 0, result.stderr
         assert sorted(_test_files(files)) == everything, event
+        assert files[-2:] == [
+            "scripts/qa/assert_pytest_gate.py",
+            "temp/guest-postgres-junit.xml",
+        ]
 
 
 def test_database_inventory_artifact_retains_only_json_inventories() -> None:
@@ -371,30 +334,22 @@ def test_database_inventory_download_layout_restores_union_glob_inputs(
                 assert (repo / f"temp/ci-proof/{kind}.json").is_file()
 
 
-def test_a_pilot_postgres_glob_that_matches_no_file_fails_the_step(
+def test_full_postgres_glob_requires_a_match_and_includes_new_proofs(
     tmp_path: Path,
 ) -> None:
     repo = tmp_path / "repo"
     (repo / "tests").mkdir(parents=True)
-    for glob in _PILOT_POSTGRES_GLOBS:
-        if "whatsapp" not in glob:
-            (repo / glob.replace("*", "")).touch()
+    for event in ("pull_request", "push", "schedule", "workflow_dispatch"):
+        missing, _ = _run_postgres_matrix_step(tmp_path, repo, event)
+        assert missing.returncode != 0
+        assert "tests/test_*_postgres.py" in missing.stderr
 
-    missing, _ = _run_postgres_matrix_step(tmp_path, repo, "pull_request")
-    assert missing.returncode != 0
-    assert "tests/test_whatsapp*_postgres.py" in missing.stderr
-
-    # A file named without a trailing word still matches its prefix glob.
-    (repo / "tests/test_whatsapp_postgres.py").touch()
-    found, files = _run_postgres_matrix_step(tmp_path, repo, "pull_request")
-    assert found.returncode == 0, found.stderr
-    assert "tests/test_whatsapp_postgres.py" in _test_files(files)
-
-    # A literal pilot file that has gone missing fails too.
-    (repo / "tests/test_client_grants_postgres.py").unlink()
-    gone, _ = _run_postgres_matrix_step(tmp_path, repo, "pull_request")
-    assert gone.returncode != 0
-    assert "tests/test_client_grants_postgres.py" in gone.stderr
+    proof = "tests/test_new_proof_postgres.py"
+    (repo / proof).touch()
+    for event in ("pull_request", "push", "schedule", "workflow_dispatch"):
+        found, files = _run_postgres_matrix_step(tmp_path, repo, event)
+        assert found.returncode == 0, found.stderr
+        assert _test_files(files) == [proof]
 
 
 def test_marketing_checks_prove_the_runtime_and_tooling_render_will_use() -> None:
@@ -585,7 +540,7 @@ def test_agent_runtime_regression_workflow_runs_full_runtime_sweep() -> None:
 
     runtime_target = ROOT / "tests" / "agent_runtime"
     hidden_regression_file = (
-        ROOT / "tests" / "agent_runtime" / "test_conversational_contract_hardening.py"
+        ROOT / "tests" / "agent_runtime" / "test_business_runtime.py"
     )
     assert hidden_regression_file.exists()
     assert hidden_regression_file.is_relative_to(runtime_target)

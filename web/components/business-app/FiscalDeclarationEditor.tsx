@@ -2,14 +2,15 @@
 
 import { secondaryButtonClass } from "./business-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Link2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import MoneyInput from "@/components/money/MoneyInput";
-import type { BusinessDossier, RefundCandidate } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessMontosReview, RefundCandidate } from "@/lib/business-dossier";
 import type { DgiiDeclaration, DgiiField, DgiiFields, DgiiReview } from "@/lib/business-dgii";
 import { referenceCode } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import { resolveLanguage } from "@/lib/language-features";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { DatePicker } from "./foundation/DatePicker";
@@ -22,15 +23,20 @@ const GROUP_TITLE_CLASS = "text-[12px] font-medium uppercase leading-4 tracking-
 const FIELD_LABEL_CLASS = "mb-1 block text-[13px] leading-[18px] text-[#56635e] dark:text-white/70";
 const FIELD_NOTE_CLASS = "mt-1 block min-h-5 text-[13px] leading-5 text-[#9e2f39] dark:text-[#ec9aa0]";
 const MONEY_NOTE_CLASS = "[&_p[aria-live]]:mt-1 [&_p[aria-live]]:min-h-5 [&_p[aria-live]]:text-[13px] [&_p[aria-live]]:leading-5";
-const OWN_ROWS: ReadonlySet<string> = new Set(["rnc", "ncf", "itbis", "category", "payment_method"]);
+const OWN_ROWS: ReadonlySet<string> = new Set(["rnc", "ncf", "category", "payment_method"]);
 
-export default function FiscalDeclarationEditor({ dossier, fields, disabled, open, onOpenChange, reviewFiscal, onChanged, onBusy, onDirty }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; /** Held by the page, because a saved row gives this form a fresh revision. */ open?: boolean; onOpenChange?: (open: boolean) => void; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
+export default function FiscalDeclarationEditor({ dossier, fields, disabled, open, onOpenChange, reviewFiscal, reviewMontos, onChanged, onBusy, onDirty }: { dossier: BusinessDossier; fields: DgiiFields | null; disabled: boolean; /** Held by the page, because a saved row gives this form a fresh revision. */ open?: boolean; onOpenChange?: (open: boolean) => void; reviewMontos?: (id: string, version: number, review: BusinessMontosReview, key: string) => Promise<BusinessDossier>; reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const recordForm = dossier.facts.kind.value === "income" ? "607" : "606";
   const formFollows = dossier.facts.kind.state === "known" && (dossier.dgii?.form ?? recordForm) === recordForm;
   const [form, setForm] = useState<"606" | "607">(dossier.dgii?.form ?? recordForm);
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(dossier.dgii ?? {}).map(([name, value]) => [name, String(value ?? "")])));
+  const initialValues = () => Object.fromEntries([
+    ...Object.entries(dossier.dgii ?? {}).map(([name, value]) => [name, String(value ?? "")]),
+    ...Object.entries(dossier.inheritance ?? {}).filter(([, entry]) => entry.inherited).map(([name, entry]) => [name, entry.value ?? ""]),
+  ]);
+  const [values, setValues] = useState<Record<string, string>>(initialValues);
+  const [overrides, setOverrides] = useState<ReadonlySet<string>>(new Set());
   const fiscal = { rnc: dossier.facts.fiscal?.rnc.value ?? "", ncf: dossier.facts.fiscal?.ecf.value ?? dossier.facts.fiscal?.ncf.value ?? "", itbis: dossier.facts.fiscal?.itbis.value ?? "" };
   const [actualRefund, setActualRefund] = useState(dossier.dgii?.actual_refund === true);
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
@@ -38,28 +44,32 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
   const [resets, setResets] = useState(0);
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
   const [problem, setProblem] = useState<{ text: string; reference: string } | null>(null);
   // The purchase the server refused for this refund: the choice stays, and the person picks another.
   const [refused, setRefused] = useState<string | null>(null);
   const candidates = dossier.refund_candidates ?? [];
   const request = useRef<{ key: string; version: number; input: DgiiReview } | null>(null);
+  const restoreRequest = useRef<{ key: string; field: string } | null>(null);
   useEffect(() => () => { onDirty(false); onBusy(false); }, [onBusy, onDirty]);
   const editable = dossier.review_state === "open" && dossier.capabilities.includes("prepare") && !disabled && !busy;
-  const change = () => onDirty(true);
+  const change = () => { setDirty(true); onDirty(true); };
   const reset = () => {
     setForm(dossier.dgii?.form ?? recordForm);
-    setValues(Object.fromEntries(Object.entries(dossier.dgii ?? {}).map(([name, value]) => [name, String(value ?? "")])));
+    setValues(initialValues());
+    setOverrides(new Set());
     setActualRefund(dossier.dgii?.actual_refund === true);
     setBroken(new Set()); setChecked(false); setResets((value) => value + 1);
-    setProblem(null); setRefused(null); onDirty(false);
+    setProblem(null); setRefused(null); setDirty(false); onDirty(false);
   };
   const save = async () => {
     if (!fields || !editable) return;
     if (broken.size) { setChecked(true); return; }
     const declaration: DgiiDeclaration = { form };
-    for (const field of fields[form]) if (!(field.name in fiscal)) declaration[field.name] = values[field.name] || null;
+    for (const field of fields[form]) if (field.name !== "rnc" && field.name !== "ncf") declaration[field.name] = values[field.name] || null;
     if (form === "606") { if (values.category_suggested === "true") declaration.category_suggested = true; declaration.actual_refund = actualRefund; declaration.purchase_activity_id = values.purchase_activity_id || null; }
-    const input: DgiiReview = { fiscal: { rnc: fiscal.rnc || null, ncf: fiscal.ncf || null, itbis: fiscal.itbis || null }, declaration };
+    const input: DgiiReview = { fiscal: { rnc: fiscal.rnc || null, ncf: fiscal.ncf || null, itbis: fiscal.itbis || null }, declaration, ...(overrides.size ? { montos: { override_inherited: [...overrides] } } : {}) };
     request.current ??= { key: randomId(), version: dossier.version, input };
     const pending = request.current;
     setBusy(true); onBusy(true); setProblem(null); setRefused(null);
@@ -76,6 +86,22 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
       setProblem({ text: t(`business.dgii.error.${code}`, "") || t("business.dgii.save_failed", "We couldn't confirm the tax details were saved. Check the current record before you approve."), reference: referenceCode(error) });
     } finally { setBusy(false); onBusy(false); }
   };
+  const restore = async (field: string) => {
+    if (!reviewMontos || !editable) return;
+    restoreRequest.current ??= { key: randomId(), field };
+    const pending = restoreRequest.current;
+    setRestoring(pending.field);
+    setBusy(true); onBusy(true); setProblem(null);
+    try {
+      const next = await reviewMontos(dossier.draft_id, dossier.version, { restore_inherited: [pending.field] }, pending.key);
+      restoreRequest.current = null; setRestoring(null); setUncertain(false); onDirty(false); onChanged(next);
+    } catch (error) {
+      const { status } = error as { status?: number };
+      if (status && status >= 400 && status < 500) { restoreRequest.current = null; setRestoring(null); }
+      else setUncertain(true);
+      setProblem({ text: t("business.dgii.save_failed"), reference: referenceCode(error) });
+    } finally { setBusy(false); onBusy(false); }
+  };
   const locked = !editable || uncertain;
   const currency = dossier.facts.currency.value ?? "";
   const groupTitle: Record<FiscalGroup, string> = {
@@ -89,13 +115,19 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     const id = `${EDITOR_ID}-${field.name}`;
     const value = values[field.name] ?? "";
     const setValue = (next: string, invalid = false) => {
-      if (next === value && invalid === broken.has(field.name)) return;
+      if (dossier.inheritance?.[field.name]) setOverrides((current) => new Set([...current, field.name]));
       change();
       setValues((current) => ({ ...current, [field.name]: next }));
       setBroken((current) => { const kept = new Set(current); if (invalid) kept.add(field.name); else kept.delete(field.name); return kept; });
     };
     const label = t([`business.dgii.field_${form}.${field.name}`, `business.dgii.field.${field.name}`], { defaultValue: field.name });
-    const title = <span className={FIELD_LABEL_CLASS}>{label}</span>;
+    const inherited = dossier.inheritance?.[field.name];
+    const linked = inherited?.inherited && !overrides.has(field.name);
+    const sourceLabel = inherited?.field === "occurred_on" ? t("business.dossier.field.occurred_on") : t(`business.terms.${inherited?.field}`);
+    const sourceValue = inherited?.value == null ? UNKNOWN_VALUE : inherited.field === "occurred_on" ? formatDay(inherited.value, locale) : formatMoney(inherited.value, currency, locale) || UNKNOWN_VALUE;
+    const inheritedLabel = t("business.terms.inherited_from", { field: sourceLabel });
+    const restoreLabel = t("business.terms.use_inherited", { amount: sourceValue });
+    const title = <span className={`${FIELD_LABEL_CLASS} flex items-center gap-1.5`}>{label}{inherited ? linked ? <Tooltip content={inheritedLabel} side="top"><span tabIndex={0} aria-label={inheritedLabel} data-inherited={field.name}><Link2 className="h-3.5 w-3.5" aria-hidden="true" /></span></Tooltip> : reviewMontos ? <Tooltip content={restoreLabel} side="top"><button type="button" aria-label={restoreLabel} data-restore-inherited={field.name} className="-my-2 flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.06]" disabled={!editable || dirty || uncertain && restoring !== field.name} onClick={() => void restore(field.name)}><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /></button></Tooltip> : null : null}</span>;
     const dateProblem = checked && broken.has(field.name);
     if (field.kind === "date") return <div key={field.name}>
       <label htmlFor={id}>{title}</label>
@@ -128,7 +160,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
     </div>
     {form === "606" ? <div className="my-4 space-y-3"><label className="flex min-h-11 items-center gap-2 text-[13px]"><input type="checkbox" checked={actualRefund} disabled={!editable || uncertain} onChange={(event) => { change(); setActualRefund(event.target.checked); }} />{t("business.dgii.actual_refund", "Money was refunded for this credit note")}</label>{actualRefund ? <RefundCandidates candidates={candidates} chosen={values.purchase_activity_id ?? ""} refused={refused} disabled={!editable || uncertain} locale={locale} onChoose={(id) => { change(); setRefused(null); setValues((current) => ({ ...current, purchase_activity_id: id })); }} /> : null}</div> : null}
     {problem ? <div role="alert" className="my-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]"><p>{problem.text}</p><ReferenceCode reference={problem.reference} /></div> : null}
-    {dossier.review_state === "open" && dossier.capabilities.includes("prepare") ? <button type="button" className={`${secondaryButtonClass} mt-3`} disabled={!editable || !fields} onClick={() => void save()}>{t("business.dgii.save", "Save tax review")}</button> : null}
+    {dossier.review_state === "open" && dossier.capabilities.includes("prepare") ? <button type="button" className={`${secondaryButtonClass} mt-3`} disabled={!editable || !fields || restoring !== null} onClick={() => void save()}>{t("business.dgii.save", "Save tax review")}</button> : null}
     {editable && !uncertain ? <button type="button" className={`${secondaryButtonClass} ml-2 mt-3`} onClick={reset}>{t("common.cancel", "Cancel")}</button> : null}
   </details>;
 }

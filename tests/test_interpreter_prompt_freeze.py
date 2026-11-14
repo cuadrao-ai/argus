@@ -131,17 +131,6 @@ def test_business_fingerprint_names_a_complete_scoped_measurement(
     assert calibration["fixture_sha256"] == measured["calibration_fixture_sha256"]
 
 
-def test_the_interpreter_system_prompt_is_covered(
-    observed: dict[str, dict[str, object]],
-) -> None:
-    """Guard the guard: the file that caused this must stay in scope."""
-
-    interpreter = observed.get("src/argus/agent_runtime/llm_interpreter.py")
-    assert interpreter is not None, (
-        "The extractor no longer sees the interpreter's system prompt. Either "
-        "the prompt moved, or the extraction rule stopped matching it."
-    )
-    assert int(str(interpreter["chars"])) > 10_000
 
 
 def test_document_extractor_prompt_is_covered(

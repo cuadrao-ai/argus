@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
@@ -44,6 +45,7 @@ from argus.domain.business.contracts.actions import (
     TurnPlan,
     canonical_input_hash,
 )
+from argus.domain.business.contracts.amounts import AmountsPreview, AmountsPreviewRequest
 from argus.domain.business.contracts.authority import ActorProvenance, TrustedActor
 from argus.domain.business.contracts.dossier import (
     BusinessDossier,
@@ -52,6 +54,7 @@ from argus.domain.business.contracts.dossier import (
     WebActionSource,
     web_action_text,
 )
+from argus.domain.business.contracts.facts import HUMAN_AMOUNT_FIELDS
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
@@ -122,8 +125,11 @@ class BusinessActions:
         query: str = "",
         limit: int = 20,
         view: str = "all",
+        offset: int = 0,
     ) -> list[dict]:
-        return captures.entries(self, context, query=query, limit=limit, view=view)
+        return captures.entries(
+            self, context, query=query, limit=limit, view=view, offset=offset
+        )
 
     def captures_page(
         self,
@@ -132,8 +138,11 @@ class BusinessActions:
         query: str = "",
         limit: int = 20,
         view: str = "all",
+        offset: int = 0,
     ) -> dict:
-        return captures.page(self, context, query=query, limit=limit, view=view)
+        return captures.page(
+            self, context, query=query, limit=limit, view=view, offset=offset
+        )
 
     def persist_plan(
         self,
@@ -238,16 +247,37 @@ class BusinessActions:
 
     def dossier(self, context: ActionContext, draft_id: UUID) -> BusinessDossier:
         with transaction(self.authority, context) as tx:
-            return views.dossier(tx, draft_id, ledger=lambda: self._activities(context))
+            return views.dossier(
+                tx, draft_id, ledger=lambda: self._activities(context, tx.connection)
+            )
 
-    def _activities(self, context: ActionContext) -> list[dict]:
+    def preview_amounts(self, context: ActionContext, draft_id: UUID, request: AmountsPreviewRequest) -> AmountsPreview:
+        from argus.domain.business.actions.amounts_preview import preview_amounts
+        from argus.domain.business.amount_inheritance import draft_is_paid
+        from argus.domain.business.contracts.facts import BusinessResolution
+
+        with transaction(self.authority, context, "prepare") as tx:
+            if context.actor.actor_kind != "member":
+                raise ActionError("permission_denied", "business_human_command_required")
+            event = mutations.event_at(tx, ExistingDraft(draft_id=draft_id, version=request.version))
+            mutations.facts_of(event)
+            resolution = BusinessResolution.model_validate(event.resolution.get("business"))
+            return preview_amounts(resolution, request, paid=draft_is_paid(tx, event.activity_id, resolution.bill_mark))
+
+    def _activities(self, context: ActionContext, connection: Connection) -> list[dict]:
         """The Business's current money activities, as the Resumen reads them."""
 
+        from argus.domain.recording.canonical_groups import owner_closure
+        from argus.domain.recording.money_postgres import owner_lock
         from argus.domain.recording.money_reads import current_activities
 
+        # Match the writer's sorted owner locks while retaining the grant and
+        # import lock. Money commits before import finalization takes that lock.
+        for owner in owner_closure(connection, {context.owner_id}):
+            owner_lock(connection, owner)
         return current_activities(
             self.imports.money.accounts.list_accounts(
-                user_id=context.owner_id, scope=context.scope
+                user_id=context.owner_id, scope=context.scope, connection=connection
             )
         )
 
@@ -258,10 +288,10 @@ class BusinessActions:
     def read_context(self, context: ActionContext) -> dict:
         with transaction(self.authority, context) as tx:
             drafts = tx.rows(
-                "select id,version,resolution->'business'->'facts' as facts"
+                "select id,version,(resolution->'business'->'facts') - %s::text[] as facts"
                 " from public.financial_import_events where owner_space_id=%s and user_id=%s"
                 " and state='open' and resolution ? 'business' order by updated_at desc,id limit 20",
-                (context.actor.space_id, context.owner_id),
+                (list(HUMAN_AMOUNT_FIELDS), context.actor.space_id, context.owner_id),
             )
             questions = tx.rows(
                 "select id,draft_id,field,asked_of,channel,state,prompt,allowed_answers,"
@@ -344,6 +374,7 @@ class BusinessActions:
                             payment_split=request.payment_split,
                             document_type=request.document_type,
                             due_on=request.due_on,
+                            montos=request.montos,
                         )
                 except ActionError as error:
                     result = error.result

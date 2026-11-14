@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
+from types import MappingProxyType
 from typing import Literal, Protocol
 
 Verification = Literal["verificado", "no_activo"]
@@ -21,6 +22,17 @@ class RncRecord:
 
 class RncRegistry(Protocol):
     def lookup(self, number: str) -> RncRecord | None: ...
+
+
+@dataclass(frozen=True)
+class RncRegistrySnapshot:
+    entries: Mapping[str, RncRecord | None] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "entries", MappingProxyType(dict(self.entries)))
+
+    def lookup(self, number: str) -> RncRecord | None:
+        return self.entries.get(number)
 
 
 class UnknownRncRegistry:

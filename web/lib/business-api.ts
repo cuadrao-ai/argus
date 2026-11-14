@@ -5,7 +5,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-a
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
-import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
+import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -78,6 +78,7 @@ export type ReceiptActivityCounts = {
   bandeja_listo_count?: number;
   /** The Bandeja's Necesitan atención tab: every other row it lists. Absent in older payloads. */
   bandeja_attention_count?: number;
+  bandeja_eliminados_count?: number;
   /** Transacciones' Por igualar over every period. Null while bank matching is off, which is not 0. Absent in older payloads. */
   por_igualar_count?: number | null;
   /** Receipts that left the Bandeja saved as a record, or dismissed, over every receipt whichever view was read. Absent from servers older than #1353. */
@@ -87,7 +88,10 @@ export type ReceiptActivityCounts = {
 /** Which Bandeja buckets a receipt sits in, by the predicates the counts sum. A closed receipt and an email original sit in none. */
 export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; leyendo: boolean };
 /** The server's one Bandeja group of an open receipt: `reason` is its one plain word, null when Listos. A closed receipt has no group. `draft_id` and `version` are what an approval of this row names. */
-export type BandejaGroup = { group: "listo" | "attention" | "reading" | null; reason: string | null; draft_id: string | null; version: number | null };
+export type BandejaGroup = { group: "listo" | "attention" | "reading" | "eliminados" | null; reason: string | null; draft_id: string | null; version: number | null };
+/** `purge_at` is when the server purges the document for good. */
+export type DocumentDeletion = { actor: { actor_id: string; display_name: string }; at: string; purge_at: string; key: string; previous_state: { state: string; group: "attention" | "listo" } };
+export type DocumentDeleteAccess = { deleted?: DocumentDeletion | null; delete_available?: boolean; restore_available?: boolean };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
 export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
@@ -103,7 +107,7 @@ export function markReceiptRead(id: string, completionCursor: string): Promise<R
   return apiFetch(`/business/receipts/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({ completion_cursor: completionCursor }) });
 }
 
-export type ReceiptSummary = ReceiptReviewFields & {
+export type ReceiptSummary = ReceiptReviewFields & DocumentDeleteAccess & {
   id: string;
   activity?: ReceiptActivity | null;
   /** The server's Bandeja membership; absent from servers older than #1353, which reads as in no bucket. */
@@ -314,6 +318,18 @@ export async function reopenBusinessDraft(draftId: string, version: number, idem
   });
 }
 
+export function deleteBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(id)}/delete`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
+}
+
+export function restoreBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(id)}/restore`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
+}
+
+export function purgeBusinessDocument(id: string, key: string): Promise<{ document_id: string; deleted: boolean }> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(id)}/purge`, { method: "POST", headers: { "Idempotency-Key": key }, body: "{}" });
+}
+
 /** The account types POST /business/accounts accepts; the server's ExpenseAccountType. */
 export const EXPENSE_ACCOUNT_TYPES = ["cash", "checking", "savings", "credit_card"] as const;
 export type ExpenseAccountType = (typeof EXPENSE_ACCOUNT_TYPES)[number];
@@ -352,10 +368,9 @@ export type BusinessWorkspaceInfo = {
   chat_available: boolean;
   /** Whether the server offers Facturación to this person; the one switch. */
   invoicing_available: boolean;
+  notifications_available?: boolean;
   /** Whether the server offers Por cobrar and Por pagar; the one switch. Absent in older payloads. */
   settlement_available?: boolean;
-  /** Whether the server offers Actividad; the one switch. Absent in older payloads. */
-  activity_available?: boolean;
   /** Server-owned channel availability, independent of address or linking state. */
   receiving_channels?: ReceivingChannels;
   /** What a receipt upload accepts. The backend's document settings own it. */
@@ -383,11 +398,6 @@ export function businessInvoicingAvailable(workspace: BusinessWorkspaceInfo): bo
 /** The one reader of `settlement_available`: an older payload, or none yet, offers no Por cobrar or Por pagar. */
 export function businessSettlementAvailable(workspace: Pick<BusinessWorkspaceInfo, "settlement_available"> | null | undefined): boolean {
   return workspace?.settlement_available === true;
-}
-
-/** The one reader of `activity_available`: an older payload, or none yet, offers no Actividad. */
-export function businessActivityAvailable(workspace: Pick<BusinessWorkspaceInfo, "activity_available"> | null | undefined): boolean {
-  return workspace?.activity_available === true;
 }
 
 export type ReceiptLimits = {
@@ -449,7 +459,8 @@ export type BusinessOverview = {
 
 /** `document_type` only on a new note: a note on a draft is refused with it. Left out, the note is a detected receipt. */
 export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number }; document_type?: "recibo" | "venta" };
-export type BusinessCapture = {
+export type BusinessCapture = DocumentDeleteAccess & {
+  bandeja_group?: BandejaGroup | null;
   draft_id: string;
   /** The draft's current version, which also counts approvals and settlements. */
   version: number;
@@ -486,8 +497,9 @@ export async function captureBusinessNote(input: BusinessCaptureInput, key: stri
 }
 
 /** `inbox` asks for the notes the Bandeja lists: drafts awaiting review that no receipt carries. */
-export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" = "all"): Promise<BusinessCapturePage> {
+export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" | "eliminados" = "all", offset = 0): Promise<BusinessCapturePage> {
   const params = new URLSearchParams({ q: query, limit: String(limit), view });
+  if (offset) params.set("offset", String(offset));
   return apiFetch<BusinessCapturePage>(`/business/captures?${params}`);
 }
 
@@ -866,4 +878,15 @@ export const inviteBusinessMembers = async (recipients:BusinessInvitationCommand
 /** Owner action: bind a receipt whose preparation grant is no longer live to the owner's current grant. */
 export async function rebindBusinessReceipt(id: string): Promise<ReceiptDetail> {
   return apiFetch(`/business/receipts/${encodeURIComponent(id)}/rebind`, { method: "POST" });
+}
+
+export async function reviewBusinessMontos(draftId: string, version: number, montos: BusinessMontosReview, key: string): Promise<BusinessDossier> {
+  return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/review`, { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify({ version, montos }) });
+}
+
+export type BusinessAmountsPreviewInput = Partial<Record<"amount" | "itbis" | "net_amount" | "legal_tip", { state: "known"; value: string } | { state: "unknown"; value: null }>>;
+const amountsPreviewSchema = z.object({ net_amount: z.object({ amount: z.string().nullable(), source: z.enum(["read", "calculated", "edited"]).nullable() }), mismatch: z.object({ code: z.literal("amounts_mismatch"), difference: z.string() }).nullable() });
+export type BusinessAmountsPreview = z.infer<typeof amountsPreviewSchema>;
+export async function previewBusinessAmounts(draftId: string, version: number, amounts: BusinessAmountsPreviewInput): Promise<BusinessAmountsPreview> {
+  return amountsPreviewSchema.parse(await apiFetch<unknown>(`/business/drafts/${encodeURIComponent(draftId)}/amounts-preview`, { method: "POST", body: JSON.stringify({ version, ...amounts }) }));
 }

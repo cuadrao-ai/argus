@@ -84,13 +84,13 @@ Native acceptance:
   visually inspected and revalidated against `e1b2a4d7`; this evidence-only update
   does not change app source. Earlier failed batches are superseded by these checks.
 
-Retained screenshots: [period and chart](story-month-title-es.png),
-[empty month](story-empty-month-es.png), [unknown history](story-unknown-month-es.png),
-[category highlight](story-category-highlight-es.png),
-[largest expense](story-largest-highlight-es.png),
-[supporting records](story-supporting-records-es.png),
-[distribution highlights](story-distribution-highlights-es.png), and
-[large English](story-highlight-dark-large-en.png).
+Retained screenshots: [period and chart](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/story-month-title-es.png),
+[empty month](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/story-empty-month-es.png), [unknown history](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/story-unknown-month-es.png),
+[category highlight](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/story-category-highlight-es.png),
+[largest expense](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/story-largest-highlight-es.png),
+[supporting records](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/story-supporting-records-es.png),
+[distribution highlights](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/story-distribution-highlights-es.png), and
+[large English](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-native-design/home-activity/story-highlight-dark-large-en.png).
 
 Connected coverage, category identity and source-record contracts remain in the
 main execution board. No provider, financial API or production release changed.

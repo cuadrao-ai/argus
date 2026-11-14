@@ -8,7 +8,6 @@ import {
   sendTurn,
   shot,
   startNewChat,
-  usageSnapshot,
 } from "./j241.helpers";
 
 // PR #266 review-response QA: the future-window edit corridor (finding 2)
@@ -48,7 +47,6 @@ test("q0 probe + usage baseline", async () => {
   const probe = await meProbe(context);
   expect(probe.status).toBe(200);
   expect(probe.isAdmin).toBe(false);
-  saveEvidence("q0-usage-before", await usageSnapshot(context));
 });
 
 test("q1 future-window edit on an active confirmation", async () => {
@@ -82,8 +80,4 @@ test("q2 historical lookback control", async () => {
   );
   await shot(page, "q2-lookback-control");
   await capture("q2-lookback-control", conversationId);
-});
-
-test("q9 usage after", async () => {
-  saveEvidence("q9-usage-after", await usageSnapshot(context));
 });

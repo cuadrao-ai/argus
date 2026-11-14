@@ -15,6 +15,7 @@ import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from
 await keepOwnListSearch();
 
 const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+const viewRowInOpenMenu = (name: string) => [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"][aria-label="Vistas"] button')].find((button) => button.textContent === name);
 beforeAll(() => { process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz"); });
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
@@ -163,22 +164,22 @@ test("saved views persist only recipes, rename with versions, restore page one a
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"] } }) });
   await page.click(document.querySelector('button[aria-label="Última página"]'));
   await page.settle(() => document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "3");
-  await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista"));
+  await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista actual"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Mi vista"); await page.click(page.button("Guardar"));
   await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
   const saved = page.fixture.views[0].recipe as Record<string, unknown>;
   assert.equal(saved.schema_version, 2); assert.ok(saved.presentation); assert.equal(saved.page_size, 25); assert.equal(saved.page, undefined); assert.equal(saved.totals, undefined);
   await page.type(document.querySelector('input[type="search"]')!, "pena");
   await page.settle(() => document.querySelectorAll("tbody tr").length === 1);
-  await page.click(page.button("Vistas")); await page.click(page.button("Mi vista"));
+  await page.click(page.button("Vistas: Mi vista")); await page.click(viewRowInOpenMenu("Mi vista"));
   await page.settle(() => document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "1" && document.querySelectorAll("tbody tr").length === 25);
   assert.equal(document.querySelector<HTMLInputElement>('input[type="search"]')!.value, "");
-  await page.click(page.button("Vistas")); await page.click(page.button(spanish.common.rename));
-  await page.type(document.querySelector('input[maxlength="120"]')!, "Mi vista nueva"); await page.click(page.button("Guardar"));
+  await page.click(page.button("Vistas: Mi vista")); await page.click(page.button("Renombrar Mi vista"));
+  await page.type(document.querySelector('input[maxlength="120"]')!, "Mi vista nueva"); await page.click(page.button("Guardar nombre"));
   await page.settle(() => page.fixture.views[0].version === 2);
   const update = page.fixture.calls.find((call) => call.method === "PATCH" && call.path.includes("report-views"));
   assert.equal((update!.body as { expected_version: number }).expected_version, 1);
-  await page.click(page.button("Vistas")); await page.click(page.button(spanish.common.delete));
+  await page.click(page.button("Eliminar Mi vista nueva"));
   await page.settle(() => page.fixture.views.length === 0);
 });
 
@@ -212,11 +213,11 @@ test("viewer metadata never grants append or source bytes, and unavailable origi
 test("authoritative decimal text above the safe integer limit renders exactly beside unknown money in the selected currency", async () => {
   await mount({ large: true });
   const rows = [...document.querySelectorAll("tbody tr")];
-  assert.equal(rows[0].querySelector('[data-col="monto"]')!.textContent, "9,007,199,254,740,993.01");
+  assert.equal(rows[0].querySelector('[data-col="gross_amount"]')!.textContent, "9,007,199,254,740,993.01");
   assert.equal(document.querySelector('th[data-col="moneda"]'), null);
-  assert.match(rows[2].querySelector('[data-col="monto"]')!.textContent!, /-/);
-  assert.equal(rows[3].querySelector('[data-col="monto"]')!.textContent, "20.00");
-  assert.equal(rows[4].querySelector('[data-col="monto"]')!.textContent, "-20.00");
+  assert.match(rows[2].querySelector('[data-col="gross_amount"]')!.textContent!, /-/);
+  assert.equal(rows[3].querySelector('[data-col="gross_amount"]')!.textContent, "20.00");
+  assert.equal(rows[4].querySelector('[data-col="gross_amount"]')!.textContent, "-20.00");
 });
 
 test("an unavailable original keeps its filename and linked evidence distinct from a missing attachment", async () => {
@@ -270,18 +271,18 @@ test("the phone keeps the pull gesture and gets no toolbar refresh control", asy
 
 test("view conflicts keep the unsaved name and require current version readback before another save", async () => {
   const page = await mount();
-  await page.click(page.button('Vistas')); await page.click(page.button('Guardar vista'));
+  await page.click(page.button('Vistas')); await page.click(page.button('Guardar vista actual'));
   await page.type(document.querySelector('input[maxlength="120"]')!, 'Vista inicial'); await page.click(page.button('Guardar'));
   await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
-  await page.click(page.button('Vistas')); await page.click(page.button(spanish.common.rename));
+  await page.click(page.button('Vistas: Vista inicial')); await page.click(page.button('Renombrar Vista inicial'));
   await page.type(document.querySelector('input[maxlength="120"]')!, 'Mi nombre pendiente');
   page.fixture.views[0].version = 5;
-  await page.click(page.button('Guardar')); await page.settle(() => document.querySelector('[role="alert"]')?.textContent?.includes('vista cambió') ?? false);
+  await page.click(page.button('Guardar nombre')); await page.settle(() => document.querySelector('[role="alert"]')?.textContent?.includes('vista cambió') ?? false);
   assert.equal(document.querySelector<HTMLInputElement>('input[maxlength="120"]')!.value, 'Mi nombre pendiente');
   assert.equal(page.fixture.views[0].name, 'Vista inicial');
   await page.click(page.button('Actualizar'));
   await page.settle(() => page.fixture.calls.filter((call) => call.path.endsWith('/report-views') && call.method === 'GET').length >= 2);
-  await page.click(page.button('Guardar')); await page.settle(() => page.fixture.views[0].version === 6);
+  await page.click(page.button('Guardar nombre')); await page.settle(() => page.fixture.views[0].version === 6);
   const writes = page.fixture.calls.filter((call) => call.method === 'PATCH');
   assert.equal((writes[0].body as { expected_version: number }).expected_version, 1);
   assert.equal((writes[1].body as { expected_version: number }).expected_version, 5);
@@ -370,7 +371,7 @@ test("a period the person chose stays chosen when Registros opens again", async 
 
 test("the Estado chip names the one missing fact on the live panel", async () => {
   await mount({ edit: (records) => { Object.assign(records[0], { stage: "needs_fiscal_data", fiscal_data: "missing", export_missing: "payment_method_missing", export_missing_several: false }); Object.assign(records[1], { family: "purchase", stage: "needs_fiscal_data", fiscal_data: "missing", export_missing: "ncf_missing", export_missing_several: true }); } });
-  const chip = (id: number) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="estado"] [data-record-workflow="fiscal"]`)?.textContent;
+  const chip = (id: number) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="stage"] [data-record-workflow="fiscal"]`)?.textContent;
   assert.equal(chip(1), "Falta la forma de pago");
   assert.equal(chip(2), "Faltan datos fiscales");
 });
@@ -379,23 +380,23 @@ test("chosen purchase columns use the server's name, missing word and a dash for
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, presentation: { ...recordedReportAnswer.presentation, hidden: ["funding", "payment_form"] } }) });
   const cell = (id: number, column: string) => document.querySelector(`[data-record-key="draft:${fixtureId(id)}"] td[data-col="${column}"]`);
   const headings = [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
-  assert.ok(!headings.includes("categoria") && !headings.includes("detalle") && headings.includes("tipo_gasto"), "the optional purchase field replaces the removed table fields");
-  assert.equal(document.querySelector('th[data-col="tipo_gasto"]')?.textContent, "Tipo de gasto");
-  assert.equal(document.querySelector('th[data-col="forma_pago"]'), null, "Forma de pago starts hidden");
-  assert.equal(cell(1, "tipo_gasto")?.textContent, "Falta");
-  assert.equal(cell(3, "tipo_gasto")?.textContent, "Gastos por trabajos, suministros y servicios");
+  assert.ok(!headings.includes("category") && !headings.includes("detail") && headings.includes("expense_type"), "the optional purchase field replaces the removed table fields");
+  assert.equal(document.querySelector('th[data-col="expense_type"]')?.textContent, "Tipo de gasto");
+  assert.equal(document.querySelector('th[data-col="payment_form"]'), null, "Forma de pago starts hidden");
+  assert.equal(cell(1, "expense_type")?.textContent, "Falta");
+  assert.equal(cell(3, "expense_type")?.textContent, "Gastos por trabajos, suministros y servicios");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   await page.click([...document.querySelectorAll('button[role="radio"]')].find((node) => node.textContent === "Columnas"));
-  await page.click(document.querySelector('[data-column-setting="forma_pago"] label'));
-  await page.settle(() => document.querySelector('th[data-col="forma_pago"]') !== null);
-  assert.equal(document.querySelector('th[data-col="forma_pago"]')?.textContent, "Forma de pago");
-  assert.equal(cell(1, "forma_pago")?.textContent, "Falta");
-  assert.equal(cell(3, "forma_pago")?.textContent, "Efectivo");
+  await page.click(document.querySelector('[data-column-setting="payment_form"] label'));
+  await page.settle(() => document.querySelector('th[data-col="payment_form"]') !== null);
+  assert.equal(document.querySelector('th[data-col="payment_form"]')?.textContent, "Forma de pago");
+  assert.equal(cell(1, "payment_form")?.textContent, "Falta");
+  assert.equal(cell(3, "payment_form")?.textContent, "Efectivo");
   const request = restoreReportLocation(new URL(window.location.href).searchParams).request;
   assert.deepEqual(request.schema_version === 2 ? request.presentation?.hidden : null, ["funding"], "the chosen columns travel with the saved presentation");
   await page.click(document.querySelector('#records-type-venta'));
-  await page.settle(() => document.querySelector('th[data-col="tipo_gasto"]') === null);
-  assert.equal(document.querySelector('th[data-col="forma_pago"]'), null);
+  await page.settle(() => document.querySelector('th[data-col="expense_type"]') === null);
+  assert.equal(document.querySelector('th[data-col="payment_form"]'), null);
 });
 
 test("Filtros offers Tipo de gasto from the server's catalogue plus Falta, and sends expense_types", async () => {
@@ -412,7 +413,7 @@ test("Filtros offers Tipo de gasto from the server's catalogue plus Falta, and s
   assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent ?? "", /Tipo de gasto · Falta/);
   // 21 of the 126 fixture rows are purchases still missing their tipo de gasto.
   await page.settle(() => document.querySelectorAll("tbody tr").length === 21);
-  assert.ok([...document.querySelectorAll('tbody tr td[data-col="tipo_gasto"]')].every((node) => node.textContent === "Falta"));
+  assert.ok([...document.querySelectorAll('tbody tr td[data-col="expense_type"]')].every((node) => node.textContent === "Falta"));
 });
 
 test("Filtros offers only the document kinds a row can carry, and each one finds its records", async () => {
@@ -809,12 +810,12 @@ test("selecting a saved Fiscal view discards the prior status snapshot", async (
   await page.click(fiscalCard());
   await page.settle(() => fiscalCard().getAttribute("aria-pressed") === "true" && !fiscalCard().disabled);
   await page.click(page.button("Vistas"));
-  await page.click(page.button("Guardar vista"));
+  await page.click(page.button("Guardar vista actual"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Fiscales");
   await page.click(page.button("Guardar"));
   await page.settle(() => page.fixture.views.length === 1 && !document.querySelector('input[maxlength="120"]'));
-  await page.click(page.button("Vistas"));
-  await page.click(page.button("Fiscales"));
+  await page.click(page.button("Vistas: Fiscales"));
+  await page.click(viewRowInOpenMenu("Fiscales"));
   await page.settle(() => !fiscalCard().disabled);
   await page.click(fiscalCard());
   await page.settle(() => sentFilters(page).at(-1)?.review_stages.length === 0);
@@ -837,7 +838,7 @@ function currencyCardAnswer(request: ReportRequest, answer: ReportAnswer): Repor
       const position = (request.page - 1) * 25 + index;
       return { ...row, row_id: `draft:${fixtureId(200 + position)}`, draft_id: fixtureId(200 + position), linked_activity_ids: [], report_date: "2026-10-20", family, money_kind: kind, counterparty: `Proveedor ${position + 1}`, counterparty_key: "101001577", currency: value.currency, gross_amount: position === count - 1 ? value.last : "1.00", stage: position < value.fiscal ? "needs_fiscal_data" : "ready_for_export", funding_key: "cash", fiscal_classification: "B01", dgii_606: family === "purchase" ? { expense_type: { code: "02", label: "Suministros" }, payment_form: null } : null };
     }) : [],
-    totals: count ? [{ currency: value.currency, kind, basis: "document_family_amount", matching_count: count, complete: true, unknown_count: 0, unsupported_count: 0, amount: value.total, known_amount: value.total, amount_minor: value.totalMinor, known_amount_minor: value.totalMinor }] : [],
+    totals: count ? [{ currency: value.currency, kind, basis: "document_net_family_amount", matching_count: count, complete: true, unknown_count: 0, unsupported_count: 0, amount: value.total, known_amount: value.total, amount_minor: value.totalMinor, known_amount_minor: value.totalMinor }] : [],
     fiscal_totals: count ? value.values.filter(([basis]) => family === "purchase" || basis === "itbis").map(([basis, amount, minor]) => ({ currency: value.currency, kind, basis, applicable_count: count, populated_count: count, complete: true, unknown_count: 0, unsupported_count: 0, amount, known_amount: amount, amount_minor: minor, known_amount_minor: minor })) : [],
     overview: { needs_review: 0, needs_fiscal_data: count ? value.fiscal : 0, ready_for_export: count ? count - value.fiscal : 0 },
   };
@@ -853,11 +854,11 @@ for (const family of ["purchase", "sale"] as const) for (const sample of currenc
   assert.deepEqual(shelfMoney(), family === "purchase" ? [...sample.shown] : [sample.shown[0], sample.shown[1], null, null]);
   assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, String(sample.count));
   assert.equal(document.querySelectorAll("tbody tr").length, 25);
-  assert.equal(document.querySelector('th[data-col="detalle"]'), null);
-  if (family === "sale") { assert.equal(document.querySelector('th[data-col="tipo_gasto"]'), null); assert.equal(sentFilters(page).at(-1)!.expense_types.length, 0); }
+  assert.equal(document.querySelector('th[data-col="detail"]'), null);
+  if (family === "sale") { assert.equal(document.querySelector('th[data-col="expense_type"]'), null); assert.equal(sentFilters(page).at(-1)!.expense_types.length, 0); }
   assert.equal(document.querySelector('[data-overview-card="total"] button'), null);
   assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-  assert.deepEqual([...document.querySelectorAll('tbody td[data-col="monto"]')].map((cell) => cell.textContent), Array(25).fill("1.00"));
+  assert.deepEqual([...document.querySelectorAll('tbody td[data-col="gross_amount"]')].map((cell) => cell.textContent), Array(25).fill("1.00"));
   await page.click(document.querySelector('button[aria-label="Última página"]'));
   await page.settle(() => document.querySelector('[data-testid="records-pagination"]')?.getAttribute("data-page") === "2");
   assert.equal(document.querySelectorAll("tbody tr").length, sample.count - 25);
@@ -1025,21 +1026,21 @@ for (const choice of ["complete", "missing", null] as const) test(`choosing ${ch
 
 test("purchase-only choices and filters disappear on sales and return on purchases", async () => {
   const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { expense_types: ["02"] }, presentation: { ...recordedReportAnswer.presentation, hidden: [] } }) });
-  assert.ok(document.querySelector('th[data-col="tipo_gasto"]'));
+  assert.ok(document.querySelector('th[data-col="expense_type"]'));
   await page.click(document.querySelector('#records-type-venta'));
   await page.settle(() => sentFilters(page).at(-1)?.record_families[0] === "sale" && document.querySelector('[data-testid="records-count"]') !== null);
   assert.deepEqual(sentFilters(page).at(-1)!.expense_types, []);
-  assert.equal(document.querySelector('th[data-col="tipo_gasto"], th[data-col="forma_pago"]'), null);
+  assert.equal(document.querySelector('th[data-col="expense_type"], th[data-col="payment_form"]'), null);
   assert.ok(page.fixture.records.filter((row) => row.family === "sale").every((row) => row.dgii_606 === null));
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  assert.equal(document.querySelector('[data-column-setting="tipo_gasto"], [data-column-setting="forma_pago"]'), null);
+  assert.equal(document.querySelector('[data-column-setting="expense_type"], [data-column-setting="payment_form"]'), null);
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   await page.click(page.button("Filtros"));
   assert.equal(document.querySelector('[data-group="expense_type"]'), null);
   await page.click(page.button("Aplicar"));
   await page.click(document.querySelector('#records-type-gasto'));
-  await page.settle(() => document.querySelector('th[data-col="tipo_gasto"]') !== null);
-  assert.ok(document.querySelector('th[data-col="forma_pago"]'));
+  await page.settle(() => document.querySelector('th[data-col="expense_type"]') !== null);
+  assert.ok(document.querySelector('th[data-col="payment_form"]'));
   assert.deepEqual(sentFilters(page).at(-1)!.expense_types, []);
 });
 

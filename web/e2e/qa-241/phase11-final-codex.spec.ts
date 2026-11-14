@@ -8,7 +8,6 @@ import {
   sendTurn,
   shot,
   startNewChat,
-  usageSnapshot,
 } from "./j241.helpers";
 
 // Final Codex pass QA: DCA future-edit recovery must re-ask the period after
@@ -52,7 +51,6 @@ test("f0 probe + usage baseline", async () => {
   const probe = await meProbe(context);
   expect(probe.status).toBe(200);
   expect(probe.isAdmin).toBe(false);
-  saveEvidence("f0-usage-before", await usageSnapshot(context));
 });
 
 test("f1 dated DCA reaches a card", async () => {
@@ -107,8 +105,4 @@ test("f4 one-shot future refusal control", async () => {
   );
   await shot(page, "f4-eth-future");
   await capture("f4-eth-future", conversationId);
-});
-
-test("f9 usage after", async () => {
-  saveEvidence("f9-usage-after", await usageSnapshot(context));
 });

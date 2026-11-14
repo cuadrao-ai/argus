@@ -22,6 +22,7 @@ import english from "@/public/locales/en/common.json";
 let hidden = false;
 let focused = true;
 const intersections = new Set<IntersectionObserverCallback>();
+const observed = new Set<Element>();
 let observerInstance: IntersectionObserver;
 const i18n = i18next.createInstance();
 
@@ -33,7 +34,7 @@ beforeAll(async () => {
   const Original = globalThis.IntersectionObserver;
   globalThis.IntersectionObserver = class extends Original {
     constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) { super(callback, options); intersections.add((entries, observer) => callback(entries, observer)); }
-    observe(target: Element) { observerInstance = new Original(() => {}); super.observe(target); }
+    observe(target: Element) { observerInstance = new Original(() => {}); observed.add(target); super.observe(target); }
     disconnect() { intersections.clear(); super.disconnect(); }
   };
   await i18n.init({ lng: "en", resources: { en: { translation: english } } });
@@ -205,6 +206,19 @@ test("opening or old hydration does not mark seen; focused visible hydrated cont
   await act(async () => page.root.unmount());
 });
 
+
+test("the record in view acknowledges it, not only its last line", async () => {
+  const detail = await receipt();
+  let marked = 0;
+  const source: BusinessDataSource = { ...createFixtureBusinessDataSource(), markReceiptRead: async (_id, cursor) => { marked++; return { state: "ready", unread: false, completion_cursor: cursor }; } };
+  const page = await host();
+  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><section data-testid="record"><p>Facts</p><ReceiptSeenBoundary receipt={detail} hydrated /></section></BusinessContext.Provider></I18nextProvider>));
+  const record = page.element.querySelector('[data-testid="record"]')!;
+  assert.ok(observed.has(record), "the boundary watches the record it closes, so a record taller than the screen is seen on open");
+  await act(async () => intersect(record));
+  assert.equal(marked, 1);
+  await act(async () => page.root.unmount());
+});
 
 test("an unpaid NCF due notice shows Factura por pagar on the dossier", async () => {
   const fixture = createFixtureBusinessDataSource();

@@ -6,11 +6,12 @@ import time
 from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
+from threading import Event as ThreadEvent
 from typing import Any
 
 import pytest
 import yaml
-from argus.api.documents import documents_service
+from argus.api.documents import dispatch_preparation, documents_service
 from argus.domain.ingestion.connections import DEFAULT_LEASE
 from argus.domain.ingestion.documents import extractor as extraction
 from argus.domain.ingestion.documents import preparation
@@ -37,13 +38,17 @@ from argus.domain.ingestion.documents.models import (
     ExtractionBatch,
     PreparationJob,
 )
-from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.documents.service import (
+    DocumentServiceError,
+    DocumentsService,
+)
 from argus.domain.ingestion.documents.worker import DocumentWorker
 from argus.domain.ingestion.sink import SubmitResult
 from argus.domain.owner_scope import PERSONAL
 from argus.llm import openrouter
 
 from tests.document_extractor_support import start_request
+from tests.document_reads_support import read_receipt, refused_while_another_records
 from tests.ingestion import test_document_jobs_api as api
 from tests.ingestion import test_document_jobs_recharge as support
 from tests.ingestion.test_document_timeout_retry import OK, Provider
@@ -62,6 +67,10 @@ HOST_SHUTDOWN_MARGIN_SECONDS, HOST_SHUTDOWN_MAX_SECONDS = 5, 300
 JOB_SETTINGS = {
     "CUADRAO_DOCUMENT_JOBS_MAX_READS": "3",
     "CUADRAO_DOCUMENT_JOBS_DRAIN_SECONDS": f"{read_seconds():g}",
+    # The Eliminados countdown promises the purge wherever the button shows.
+    "CUADRAO_DOCUMENT_PURGE_EVERY_SECONDS": (
+        f"{DocumentJobSettings.model_fields['purge_every_seconds'].default:g}"
+    ),
 }
 # Deleted with the one read path (issue 1795): nothing may declare them again.
 REMOVED_SETTINGS = (
@@ -164,6 +173,84 @@ async def test_a_read_queued_past_the_old_window_runs_with_no_attempt_burned(pul
     assert read(service, connection).status == "review_ready"
     assert attempt(service, connection).attempt == 1
     assert extractor.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_cannot_start_waits_saved_and_a_started_one_stays_queued(
+    pull, monkeypatch
+):
+    service, jobs, _, _ = pull
+    [started] = await waiting(service, jobs)
+    unstarted = (
+        await service.upload(
+            user_id=OWNER,
+            content=b"%PDF-unstarted",
+            filename="receipt.pdf",
+            media_type="application/pdf",
+            consent=True,
+            scope=PERSONAL,
+        )
+    ).connection_id
+
+    def refused(*_: Any, **__: Any) -> None:
+        raise DocumentServiceError("business_preparation_binding_conflict")
+
+    monkeypatch.setattr(PreparationJobs, "start", refused)
+    for connection in (started, unstarted, unstarted):
+        with pytest.raises(DocumentServiceError, match="binding_conflict"):
+            await dispatch_preparation(service, OWNER, connection, scope=PERSONAL)
+
+    assert read(service, started).status == "queued", "its recorded attempt reads it"
+    released = read(service, unstarted)
+    assert (released.status, released.consent, released.error_code) == (
+        "saved",
+        False,
+        "business_preparation_binding_conflict",
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_refused_read_never_releases_an_attempt_recorded_after_its_read(pull):
+    service, _, _, extractor = pull
+    connection = (
+        await service.upload(
+            user_id=OWNER,
+            content=b"%PDF-raced",
+            filename="receipt.pdf",
+            media_type="application/pdf",
+            consent=True,
+            scope=PERSONAL,
+        )
+    ).connection_id
+
+    await refused_while_another_records(service, OWNER, connection)
+
+    raced = read(service, connection)
+    assert (raced.status, raced.consent, raced.error_code) == ("queued", True, None)
+    assert attempt(service, connection).draft_version == raced.version
+    assert await read_receipt(service, OWNER, connection) == "prepared"
+    assert extractor.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_a_failed_release_keeps_the_original_error_and_chains_the_release(
+    pull, monkeypatch
+):
+    service, jobs, _, _ = pull
+    [connection] = await waiting(service, jobs)
+
+    def not_started(*_: Any, **__: Any) -> None:
+        raise ValueError("read could not start")
+
+    def release_broke(*_: Any, **__: Any) -> None:
+        raise RuntimeError("release broke")
+
+    monkeypatch.setattr(PreparationJobs, "start", not_started)
+    monkeypatch.setattr(DocumentsService, "release_queued", release_broke)
+    with pytest.raises(ValueError, match="read could not start") as raised:
+        await dispatch_preparation(service, OWNER, connection, scope=PERSONAL)
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "release broke"
 
 
 @pytest.mark.asyncio
@@ -317,32 +404,62 @@ async def test_an_edit_while_waiting_gets_a_fresh_attempt_from_the_sweep(pull):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("delay_first_source", [False, True], ids=["normal", "slow-first"])
 async def test_a_worker_reads_oldest_first_and_never_passes_the_cap(
-    rig, worker_env
+    rig, worker_env, monkeypatch, delay_first_source: bool
 ) -> None:
     service, _, clock, _, _ = rig
     gauge = service.extractor = Gauge()
     jobs = PreparationJobs(service)
     connections = await waiting(service, jobs, 5)
+    pulled: list[str] = []
+    original_pull = service.store.pull
+
+    def pull(**kwargs: Any) -> tuple[str, str] | None:
+        taken = original_pull(**kwargs)
+        if taken is not None:
+            pulled.append(taken[0])
+        return taken
+
+    monkeypatch.setattr(service.store, "pull", pull)
+    # Source reads run on threads, so extraction can start out of pull order.
+    first_source = ThreadEvent()
+    original_source = service.store.source
+
+    def source(**kwargs: Any) -> bytes | None:
+        if delay_first_source and kwargs["connection_id"] == connections[0]:
+            assert first_source.wait(5), "the second read did not reach extraction"
+        return original_source(**kwargs)
+
+    monkeypatch.setattr(service.store, "source", source)
     stop = asyncio.Event()
     running = asyncio.create_task(
         DocumentWorker(service, settings(max_reads=2)).run(stop)
     )
 
-    await until(lambda: gauge.running == 2)
-    await asyncio.sleep(0.05)
-    assert gauge.read == connections[:2]
+    try:
+        if delay_first_source:
+            await until(lambda: gauge.read == [connections[1]])
+            first_source.set()
+        await until(lambda: gauge.running == 2)
+        await asyncio.sleep(0.05)
+        assert pulled == connections[:2]
+        assert sorted(gauge.read) == sorted(connections[:2])
 
-    gauge.release.set()
-    await until(lambda: len(gauge.read) == 5)
-    await until(
-        lambda: all(read(service, c).status == "review_ready" for c in connections)
-    )
-    stop.set()
-    await running
+        gauge.release.set()
+        await until(lambda: len(gauge.read) == 5)
+        await until(
+            lambda: all(read(service, c).status == "review_ready" for c in connections)
+        )
+    finally:
+        first_source.set()
+        gauge.release.set()
+        stop.set()
+        await asyncio.wait_for(running, 5)
 
     assert gauge.peak == 2
-    assert gauge.read == connections
+    assert pulled == connections
+    assert sorted(gauge.read) == sorted(connections)
 
 
 @pytest.mark.asyncio

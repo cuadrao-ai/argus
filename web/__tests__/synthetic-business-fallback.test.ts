@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { fulfillSyntheticBusinessFallback } from "../e2e/support/synthetic-business-fallback";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { defaultReportRequest } from "../lib/business-reporting-wire";
+import { BUSINESS_GUIDE_CARD_IDS } from "../lib/business-guide-api";
 import { reportAnswerSchema } from "../lib/business-reports-api";
 import recordedAnswer from "../test-fixtures/records-default-report-answer.json";
 
@@ -27,6 +28,7 @@ describe("synthetic Business fallback", () => {
     const answer = reportAnswerSchema.parse(route.responses[0]);
     expect(answer).toEqual({
       presentation: recordedAnswer.presentation,
+      columns: recordedAnswer.columns,
       items: [],
       overview: { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 },
       effective_sort: "date_desc",
@@ -65,14 +67,14 @@ describe("synthetic Business fallback", () => {
     expect(reportAnswerSchema.parse(first.responses[0])).toMatchObject({ page: 3, page_size: 50, page_count: 0, items: [] });
   });
 
-  test.each(["bandeja-intro", "registros-intro"])("returns the undismissed state for the known guide card %s", async (card) => {
+  test.each([...BUSINESS_GUIDE_CARD_IDS])("returns the undismissed state for the known guide card %s", async (card) => {
     const route = syntheticRoute(`guide-cards/${card}`, "GET");
     await fulfillSyntheticBusinessFallback(route);
 
     expect(route.responses).toEqual([{ dismissed: false }]);
   });
 
-  test.each(["bandeja-intro", "registros-intro"])("returns the dismissed state for the known guide card %s", async (card) => {
+  test.each([...BUSINESS_GUIDE_CARD_IDS])("returns the dismissed state for the known guide card %s", async (card) => {
     const route = syntheticRoute(`guide-cards/${card}/dismiss`, "POST");
     await fulfillSyntheticBusinessFallback(route);
 

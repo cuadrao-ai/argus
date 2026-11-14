@@ -16,6 +16,7 @@ from pydantic import (
 
 from argus.api.schemas import Language
 from argus.domain.business.bandeja_group import BandejaGroupName, BandejaReason
+from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.country import CountryCode
 from argus.domain.business.document_type import DocumentType
@@ -145,8 +146,6 @@ class BusinessWorkspace(_Wire):
     notifications_available: bool
     #: The server's one answer on Por cobrar and Por pagar; the client shows none of it while false.
     settlement_available: bool
-    #: The server's one answer on Actividad; the client shows no entry point while false.
-    activity_available: bool
     receiving_channels: ReceivingChannels
     receipt_limits: ReceiptLimits
     records_default_currency: Literal["DOP", "USD", "EUR"]
@@ -291,6 +290,7 @@ class ReceiptActivityCounts(_Wire):
     # a record, or dismissed. The email itself never counts.
     confirmed_count: int = 0
     dismissed_count: int = 0
+    bandeja_eliminados_count: int = 0
 
 
 class ReceiptReadingBody(_Wire):
@@ -305,6 +305,9 @@ class ReceiptReadBody(_Wire):
 
 
 class ReceiptSummary(_Wire):
+    deleted: DeletedDocument | None = None
+    delete_available: bool = False
+    restore_available: bool = False
     id: str
     activity: ReceiptActivity | None = None
     bandeja: BandejaMembership | None = None

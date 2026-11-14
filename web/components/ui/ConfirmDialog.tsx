@@ -19,6 +19,8 @@ type ConfirmDialogProps = {
   tone?: "danger" | "primary";
   /** The confirm failed: says so inside the alert, and the confirm button tries again. */
   error?: ReactNode;
+  children?: ReactNode;
+  leadingAction?: ReactNode;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -58,11 +60,14 @@ function ConfirmDialogSurface({
   showKeyboardHints = false,
   tone = "danger",
   error = null,
+  children,
+  leadingAction,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
   const overlayId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmLock = useRef(false);
   const sawBusy = useRef(false);
   useEffect(() => {
@@ -72,11 +77,11 @@ function ConfirmDialogSurface({
       return;
     }
     if (isBusy) sawBusy.current = true;
-    if (!isBusy && sawBusy.current) {
+    if (!isBusy && (sawBusy.current || error)) {
       sawBusy.current = false;
       confirmLock.current = false;
     }
-  }, [isBusy, isOpen]);
+  }, [error, isBusy, isOpen]);
   const confirmOnce = useCallback(() => {
     if (confirmLock.current || isBusy) return;
     confirmLock.current = true;
@@ -114,6 +119,7 @@ function ConfirmDialogSurface({
     isOpen,
     overlayId,
     containerRef: panelRef,
+    initialFocusRef: cancelRef,
     onDismiss: onCancel,
     // `onCancel` refuses while the delete is in flight, and refusing inside the
     // dismissal is too late: the entry is claimed by then, so the dialog stayed
@@ -149,6 +155,7 @@ function ConfirmDialogSurface({
         >
           {title}
         </h2>
+        {children}
         <p
           id="argus-confirm-description"
           className="mt-2 text-[13px] leading-relaxed text-black/55 dark:text-white/55"
@@ -160,8 +167,10 @@ function ConfirmDialogSurface({
             {error}
           </p>
         ) : null}
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          {leadingAction ? <div className="mr-auto">{leadingAction}</div> : null}
           <button
+            ref={cancelRef}
             type="button"
             onClick={onCancel}
             disabled={isBusy}

@@ -453,13 +453,13 @@ test.describe("pilot dictionary labels", () => {
       await page.goto("/dev/business-preview");
       await page.getByTestId("business-sidebar-nav").getByRole("button", { name: es ? /^Registros/ : /^Records/ }).click();
       await page.getByRole("button", { name: es ? "Opciones de vista" : "View options", exact: true }).click();
-      for (const key of ["tipo_gasto", "forma_pago"]) await page.locator(`[data-column-setting="${key}"] input`).check();
+      for (const key of ["expense_type", "payment_form"]) await page.locator(`[data-column-setting="${key}"] input`).check();
       await page.keyboard.press("Escape");
       for (const label of es ? ["Contraparte", "Fecha", "Monto", "Tipo de gasto", "Estado", "Adjunto"] : ["Counterparty", "Date", "Amount", "Expense type", "Status", "Attachment"]) {
         await expect(page.getByRole("columnheader", { name: label, exact: true })).toBeVisible();
       }
-      await expect(page.locator('[data-col="tipo_gasto"]').filter({ hasText: /^09 - / })).toBeVisible();
-      await expect(page.locator('[data-col="forma_pago"]').filter({ hasText: /^02 - / })).toBeVisible();
+      await expect(page.locator('[data-col="expense_type"]').filter({ hasText: /^09 - / })).toBeVisible();
+      await expect(page.locator('[data-col="payment_form"]').filter({ hasText: /^02 - / })).toBeVisible();
       await capture("records-headers");
       await page.getByRole("button", { name: es ? "Filtros" : "Filters", exact: true }).click();
       await page.getByRole("tab", { name: es ? "Tipo de gasto" : "Expense type", exact: true }).click();
@@ -470,4 +470,102 @@ test.describe("pilot dictionary labels", () => {
       expect(external, "the proof never contacts a hosted service").toEqual([]);
     });
   }
+});
+
+for (const width of [1280, 375]) {
+  test.describe(`receipt image viewer at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } });
+    test("reads a rotated receipt up to 500 percent in a full window overlay", async ({ page }, testInfo) => {
+      await openRecord(page, dossierFixtureIds.fiscalAttached);
+      await showTab(page, "Original");
+      const well = page.getByTestId("receipt-image-zoom");
+      await expect(well).toBeVisible();
+      await expect(well.locator("img")).toHaveJSProperty("complete", true);
+      await expect(well).toHaveAttribute("data-fit", "fit-page");
+      const captureViewer = async (name: string) => {
+        await well.locator("img").evaluate(async (image) => { await Promise.all(image.getAnimations().map((animation) => animation.finished)); });
+        const directory = process.env.CUADRAO_RECEIPT_VIEWER_EVIDENCE_DIR;
+        const path = directory ? `${directory}/${width}-${name}.png` : testInfo.outputPath(`${width}-${name}.png`);
+        await page.screenshot({ path });
+        await testInfo.attach(`${width}-${name}`, { path, contentType: "image/png" });
+      };
+      const toolbar = page.getByTestId("receipt-viewer-toolbar");
+      expect(await toolbar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await captureViewer("fit");
+      await page.getByRole("button", { name: "Girar a la derecha", exact: true }).click();
+      await expect(well).toHaveAttribute("data-rotation", "90");
+      await captureViewer("90deg");
+      await page.getByRole("button", { name: "Girar a la izquierda", exact: true }).click();
+      await well.focus();
+      for (let i = 0; i < 20; i++) await page.keyboard.press("+");
+      await expect(well).toHaveAttribute("data-zoom", "5");
+      await expect(page.getByRole("button", { name: "Acercar", exact: true })).toBeDisabled();
+      await well.evaluate((element) => element.scrollTo(0, 0));
+      await captureViewer("500");
+      await page.keyboard.press("0");
+      await page.getByRole("button", { name: "Pantalla completa", exact: true }).click();
+      const overlay = page.getByTestId("receipt-viewer-overlay");
+      await expect(overlay).toBeVisible();
+      await expect(page.getByTestId("receipt-viewer-toolbar")).toHaveCount(1);
+      await overlay.getByRole("button", { name: "Girar a la derecha", exact: true }).hover();
+      await expect(page.getByRole("tooltip")).toContainText("Girar a la derecha (R)");
+      await expect(page.getByRole("tooltip")).toBeVisible();
+      await captureViewer("fullscreen");
+      const last = overlay.getByRole("link", { name: "Abrir original", exact: true });
+      await last.focus();
+      await page.keyboard.press("Tab");
+      await expect(well).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(overlay).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Pantalla completa", exact: true })).toBeFocused();
+      await expect(page.getByRole("link", { name: "Abrir original", exact: true })).toHaveAttribute("href", /^blob:/);
+      const originalTab = page.waitForEvent("popup");
+      await page.getByRole("link", { name: "Abrir original", exact: true }).click();
+      const popup = await originalTab;
+      await expect(popup).toHaveURL(/^blob:/);
+      await popup.close();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+  });
+}
+
+test.describe("large receipt photo fit", () => {
+  test.use({ viewport: { width: 375, height: 900 } });
+  test("a 3024 by 4032 source opens fully in the well and both fit presets remain exact", async ({ page }, testInfo) => {
+    await installReceiptBusiness(page, (parts, route) => {
+      if (parts[0] !== "receipts" || parts[2] !== "source") return undefined;
+      return route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="3024" height="4032"><rect width="3024" height="4032" fill="#fffefa"/><rect x="12" y="12" width="3000" height="4008" fill="none" stroke="#172b26" stroke-width="24"/><text x="200" y="400" font-size="160">Comprobante de prueba</text><text x="200" y="800" font-size="120">3024 × 4032</text></svg>' }).then(() => null);
+    });
+    await page.goto(`/biz?draft=${dossierFixtureIds.fiscalAttached}`);
+    await expect(page.getByTestId("business-record-review")).toBeVisible();
+    await showTab(page, "Original");
+    const well = page.getByTestId("receipt-image-zoom");
+    await expect(well).toBeVisible();
+    await expect(well.locator("img")).toHaveJSProperty("naturalWidth", 3024);
+    const dimensions = () => well.evaluate((element) => {
+      const image = element.querySelector("img")!;
+      const box = image.getBoundingClientRect();
+      return { width: element.clientWidth, height: element.clientHeight, imageWidth: box.width, imageHeight: box.height, scale: Number(element.dataset.zoom) };
+    });
+    const capturePhoto = async (name: string) => {
+      const directory = process.env.CUADRAO_RECEIPT_VIEWER_EVIDENCE_DIR;
+      const path = directory ? `${directory}/375-large-${name}.png` : testInfo.outputPath(`375-large-${name}.png`);
+      await page.screenshot({ path });
+      await testInfo.attach(`375-large-${name}`, { path, contentType: "image/png" });
+    };
+    const fitted = await dimensions();
+    expect(fitted.scale).toBeCloseTo(Math.min(fitted.width / 3024, fitted.height / 4032), 8);
+    expect(fitted.imageWidth).toBeLessThanOrEqual(fitted.width + 0.1);
+    expect(fitted.imageHeight).toBeLessThanOrEqual(fitted.height + 0.1);
+    await capturePhoto("page");
+    await page.getByRole("button", { name: "Ajustar al ancho", exact: true }).click();
+    const widthFit = await dimensions();
+    expect(widthFit.scale).toBeCloseTo(widthFit.width / 3024, 8);
+    expect(Math.abs(widthFit.imageWidth - widthFit.width)).toBeLessThan(0.1);
+    await capturePhoto("width");
+    await page.getByRole("button", { name: "Tamaño real", exact: true }).click();
+    for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Alejar", exact: true }).click();
+    await expect(well).toHaveAttribute("data-fit", "fit-page");
+    expect((await dimensions()).scale).toBeCloseTo(fitted.scale, 8);
+  });
 });

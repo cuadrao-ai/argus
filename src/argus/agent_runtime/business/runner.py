@@ -10,9 +10,12 @@ from argus.agent_runtime.business.interpretation import (
     BusinessInterpretation,
     BusinessReply,
 )
+from argus.agent_runtime.business.interpreter import BusinessTurnInterpreter
 from argus.agent_runtime.business.stages import BusinessStages
-from argus.agent_runtime.graph.workflow import build_workflow
-from argus.agent_runtime.runtime import build_workflow_input
+from argus.agent_runtime.business.workflow import (
+    build_business_workflow,
+    business_workflow_input,
+)
 from argus.agent_runtime.state.models import ConversationMessage, UserState
 from argus.domain.business.context import AuthorizedBusinessContext
 from argus.domain.business.contracts.facts import Contract
@@ -73,16 +76,7 @@ class BusinessTurnRunner:
 
     def _interpreter(self) -> Any:
         if self.interpreter is None:
-            from argus.agent_runtime.capabilities.contract import (
-                build_default_capability_contract,
-            )
-            from argus.agent_runtime.llm_interpreter import (
-                OpenRouterStructuredInterpreter,
-            )
-
-            self.interpreter = OpenRouterStructuredInterpreter(
-                contract=build_default_capability_contract(), model_name=self.model_name
-            )
+            self.interpreter = BusinessTurnInterpreter(model_name=self.model_name)
         return self.interpreter
 
     async def run(
@@ -138,10 +132,10 @@ class BusinessTurnRunner:
         interpreter: Any,
     ) -> BusinessTurnResult:
         stages = BusinessStages(context, interpreter, message)
-        workflow = build_workflow(business_runtime=stages)
+        workflow = build_business_workflow(stages)
         graph_run_id = uuid4()
         state = await workflow.ainvoke(
-            build_workflow_input(
+            business_workflow_input(
                 user=UserState(
                     user_id=str(turn.actor_id),
                     language_preference=context.language,

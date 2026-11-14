@@ -1,7 +1,9 @@
 from dataclasses import replace
+from datetime import date
 from uuid import UUID
 
 import pytest
+from argus.domain.business.dgii_validation import record_issues
 from argus.domain.business.fiscal_identity import (
     cedula_check_digit_ok,
     identity_digits,
@@ -10,6 +12,7 @@ from argus.domain.business.fiscal_identity import (
     normalized_taxpayer_id,
     rnc_check_digit_ok,
 )
+from argus.domain.business.supplier_fast_path import ncf_valid_on_issue_date
 from argus.domain.ingestion.documents.extractor import fiscal_facts_from_receipt
 from argus.domain.ingestion.documents.models import ReceiptDetails
 from faker import Faker
@@ -84,6 +87,15 @@ def test_606_requires_ascii_receipt_identifier(fake, fiscal_number, digit_style)
         assert form not in result.files
 
 
+def test_supplier_issue_date_check_requires_ascii(fiscal_number, digit_style):
+    # Keep the type code ASCII so the sequence alone tests the digit boundary.
+    read = fiscal_number[:3] + styled(fiscal_number[3:], digit_style)
+
+    result = ncf_valid_on_issue_date(read, date(2026, 9, 1))
+
+    assert result.valid is (digit_style == "ascii")
+
+
 @pytest.fixture(
     params=[("rnc", 9, rnc_check_digit_ok), ("cedula", 11, cedula_check_digit_ok)]
 )
@@ -112,3 +124,31 @@ def test_taxpayer_normalization_requires_ascii(taxpayer, digit_style):
     else:
         with pytest.raises(ValueError, match="tax_id_not_digits"):
             normalized_filer_tax_id(kind, value)
+
+
+def test_declaration_identity_requires_ascii(taxpayer, digit_style):
+    kind, number, _ = taxpayer
+    record = practice_records()[0]
+    record = replace(
+        record,
+        facts=record.facts.model_copy(
+            update={
+                "fiscal": record.facts.fiscal.model_copy(
+                    update={
+                        "rnc": record.facts.fiscal.rnc.model_copy(
+                            update={"value": styled(number, digit_style)}
+                        )
+                    }
+                )
+            }
+        ),
+        declaration=record.declaration.model_copy(
+            update={"id_type": "1" if kind == "rnc" else "2"}
+        ),
+    )
+
+    issues = record_issues(record, {}, filer_identity=None)
+
+    assert any(item["code"] == "fiscal_identity_required" for item in issues) is (
+        digit_style != "ascii"
+    )

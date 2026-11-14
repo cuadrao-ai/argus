@@ -25,6 +25,7 @@ from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.document_type import SALE, direction
 from argus.domain.business.ledger import occurred_on
 from argus.domain.business.month_close import document_settlement
+from argus.domain.business.purchase_review import net_amount
 from argus.domain.business.rnc_registry import (
     RncRegistry,
     postgres_rnc_fetch,
@@ -226,8 +227,8 @@ def sheet_rows(
 ) -> list[dict[str, str]]:
     """Each recorded row as the accountant reads it: supplier and fiscal facts
     from the approved revision, the 606 answer from its declaration, the
-    fiscal packet's disposition and the month-close settlement. Subtotal is
-    the total less a known ITBIS."""
+    fiscal packet's disposition and the month-close settlement. Net amount
+    comes from the same owner as review and monthly figures."""
 
     approved = {str(UUID(str(record.activity_id))): record for record in records}
     status = {
@@ -242,6 +243,7 @@ def sheet_rows(
         purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
         itbis = _known(getattr(facts.fiscal, "itbis", None))
         settlement = document_settlement(row, settlements)
+        net = net_amount(facts, declaration, total=row["amount"]).amount
         sheet.append(
             {
                 "Fecha": row["occurred_on"],
@@ -253,9 +255,7 @@ def sheet_rows(
                 if purchase and not purchase.category_suggested
                 else "",
                 "Forma de pago": purchase.payment_method or "" if purchase else "",
-                "Subtotal": money_text(Decimal(row["amount"]) - Decimal(itbis))
-                if itbis
-                else "",
+                "Subtotal": money_text(Decimal(net)) if net is not None else "",
                 "ITBIS": money_text(Decimal(itbis)) if itbis else "",
                 "Total": row["amount"],
                 "Moneda": row["currency"],

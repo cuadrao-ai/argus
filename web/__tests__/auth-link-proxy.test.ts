@@ -6,8 +6,8 @@ import { NextRequest } from "next/server";
 import { proxy } from "../proxy";
 
 describe("auth link proxy", () => {
-  test("redirects an expired recovery query before the recovery page", () => {
-    const response = proxy(
+  test("redirects an expired recovery query before the recovery page", async () => {
+    const response = await proxy(
       new NextRequest(
         "https://app.example.test/auth/recovery?error=access_denied&error_code=otp_expired",
       ),
@@ -20,8 +20,8 @@ describe("auth link proxy", () => {
     expect(location.searchParams.get("type")).toBe("recovery");
   });
 
-  test("leaves a recovery code on the recovery page", () => {
-    const response = proxy(new NextRequest("https://app.example.test/auth/recovery?code=abc"));
+  test("leaves a recovery code on the recovery page", async () => {
+    const response = await proxy(new NextRequest("https://app.example.test/auth/recovery?code=abc"));
     expect(response.headers.get("location")).toBeNull();
   });
 

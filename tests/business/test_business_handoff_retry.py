@@ -25,6 +25,7 @@ from tests.ingestion.test_business_document_bridge import (  # noqa: F401
     document_bridge,
     reading_on,
 )
+from tests.test_business_attachment_preparation import checked  # noqa: F401
 
 NOW = datetime(2026, 10, 12, 20, 26, tzinfo=timezone.utc)
 
@@ -189,6 +190,13 @@ def _saved_read(kind: str) -> ExtractionBatch:
         return ExtractionBatch(
             complete=False, readable=True, candidates=(), receipt=receipt
         )
+    if kind == "no_total":
+        return ExtractionBatch(
+            complete=False,
+            readable=True,
+            candidates=(),
+            receipt=ReceiptDetails(merchant="Colmado La Esquina"),
+        )
     if kind == "unreadable":
         return ExtractionBatch(
             complete=True, readable=False, candidates=(), receipt=receipt
@@ -205,26 +213,94 @@ def _saved_read(kind: str) -> ExtractionBatch:
     raise AssertionError(kind)
 
 
+_RECEIPT = dict(merchant="Colmado La Esquina", currency="DOP")
+_ROW = dict(page=1, row=1, direction="outflow", kind_hint="expense")
+_READS = {
+    "priced_total": dict(complete=False, receipt=_RECEIPT | dict(total="250.50")),
+    "no_total": dict(complete=False, receipt=_RECEIPT),
+    "unreadable": dict(readable=False, receipt=_RECEIPT | dict(total="250.50")),
+    "no_receipt": dict(),
+    "ncf_bill": dict(
+        complete=False, receipt=_RECEIPT | dict(total="1500.00", ncf="B0100000001")
+    ),
+    "due_notice_only": dict(
+        observations=[_ROW | dict(evidence="due_notice", amount="19.00")],
+        receipt=dict(merchant="Colmado La Esquina"),
+    ),
+    "transfer_with_no_currency": dict(
+        observations=[_ROW | dict(evidence="transaction", amount="500.00")]
+    ),
+    "zero_purchase": dict(
+        observations=[_ROW | dict(evidence="transaction", amount="0.00", currency="DOP")],
+        receipt=_RECEIPT | dict(total="0.00"),
+    ),
+    "leading_zero_total": dict(complete=False, receipt=_RECEIPT | dict(total="01180.00")),
+}
+
+
+@pytest.mark.parametrize(
+    "stored_code", ["receipt_requires_review", "business_preparation_batch_changed"]
+)
+@pytest.mark.parametrize("kind", list(_READS))
+def test_a_receipt_offers_another_hand_off_only_when_it_would_make_a_draft(
+    checked,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    stored_code: str,
+):
+    """A saved read that waits for the hand-off shows what the hand-off would
+    do with it now. A read it refuses shows that refusal and offers no new
+    read. A read it turns into a draft waits as interrupted, with a new read."""
+
+    from argus.domain.business.actions import mutations, sources
+    from argus.domain.business.actions.facts import validate_facts
+    from argus.domain.business.receipts import READ_REFUSAL_ATTENTION
+
+    _, tx, binding, row = checked
+    tx.context.owner_id = str(binding.owner_id)
+    draft = DocumentDraft.model_validate(row["draft"]).model_copy(
+        update={"status": "needs_attention", "error_code": stored_code}
+    )
+    read = dict(complete=True, readable=True, pages_read=[1], observations=[])
+    result = ExtractionResult.model_validate(read | _READS[kind])
+    batch = batch_from_result(result, draft.sha256, draft.connection_id, NOW, 1)
+    monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
+    monkeypatch.setattr(
+        mutations,
+        "save_revision",
+        lambda tx, event, before, after, *args, **kwargs: validate_facts(tx, after),
+    )
+    try:
+        mutations.prepare_attachment(tx, None, batch, draft, binding.actor)
+    except ActionError as refused:
+        expected = (READ_REFUSAL_ATTENTION.get(refused.code), False)
+    else:
+        expected = ("interrupted", True)
+    shown = compose(draft, batch, [], "web")
+    assert (shown.attention, shown.preparable) == expected
+    assert shown.enterable is True
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("kind", "attention", "preparable", "extracts_again"),
+    ("kind", "attention", "preparable"),
     [
-        ("incomplete", "interrupted", True, False),
-        ("unreadable", "unreadable", False, False),
-        ("no_receipt", "not_a_receipt", False, False),
-        ("ncf_bill", "interrupted", True, False),
+        ("incomplete", "interrupted", True),
+        ("no_total", "check_details", False),
+        ("unreadable", "unreadable", False),
+        ("no_receipt", "not_a_receipt", False),
+        ("ncf_bill", "interrupted", True),
     ],
 )
-async def test_a_retry_rereads_only_a_saved_read_that_cannot_finish(
+async def test_a_retry_replays_the_saved_read_and_never_reads_again(
     document_bridge,  # noqa: F811
     kind: str,
     attention: str,
     preparable: bool,
-    extracts_again: bool,
 ):
-    """A second prepare asks the provider only when replaying the saved batch
-    would refuse the same way and a new read could differ. An unreadable file
-    and a file with no receipt stay closed. A fiscal bill replays and finishes."""
+    """A second prepare never asks the provider: the saved read is the only
+    read a document has. A read the hand-off still refuses ends in the same
+    refusal. A fiscal bill replays and finishes."""
 
     service, bridge, extractor, _ = document_bridge
     saved = _saved_read(kind)
@@ -257,24 +333,18 @@ async def test_a_retry_rereads_only_a_saved_read_that_cannot_finish(
     batch = service.store.get(user_id=owner, connection_id=uploaded.connection_id)
     shown = compose(draft, batch, [], "web")
     assert (shown.attention, shown.preparable) == (attention, preparable)
-    if extracts_again:
-        with pytest.raises(ActionError):
+    if kind == "ncf_bill":
+        outcome = await service.resume(
+            user_id=owner, connection_id=uploaded.connection_id, scope=scope
+        )
+        assert outcome.replayed is True
+    else:
+        with pytest.raises(ActionError, match="receipt_requires_review"):
             await service.resume(
                 user_id=owner, connection_id=uploaded.connection_id, scope=scope
             )
-        assert extractor.extract.await_count == 2
-    else:
-        if kind == "ncf_bill":
-            outcome = await service.resume(
-                user_id=owner, connection_id=uploaded.connection_id, scope=scope
-            )
-            assert outcome.replayed is True
-        else:
-            with pytest.raises(ActionError):
-                await service.resume(
-                    user_id=owner, connection_id=uploaded.connection_id, scope=scope
-                )
-        assert extractor.extract.await_count == 1
+    assert extractor.extract.await_count == 1
+    assert service.store.get(user_id=owner, connection_id=uploaded.connection_id) == saved
 
 
 @pytest.mark.asyncio

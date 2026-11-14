@@ -1,10 +1,4 @@
-"""Personal (/chat) and Business (/biz) chat histories stay apart, in memory mode.
-
-The client names a surface and never a space. One person's Personal and
-Business conversations appear only on their own surface in Recents, search and
-History, and delete-all on one surface leaves the other alone. Another person
-sees neither. The artifact routes answer 404 for a Business conversation.
-"""
+"""Business conversations remain scoped; Personal conversation access is retired."""
 
 from __future__ import annotations
 
@@ -19,11 +13,12 @@ from argus.api.business_spaces import business_spaces, configure_business_spaces
 from argus.api.dependencies import current_user
 from argus.api.guest_access import registered_account_context, store_account_context
 from argus.api.main import app
-from argus.api.message_store import create_message
-from argus.api.schemas import EvidenceArtifact, OnboardingState, User
+from argus.api.schemas import OnboardingState, User
 from argus.domain.business.spaces import InMemorySpaceStore
 from fastapi import Request
 from fastapi.testclient import TestClient
+
+from tests.conversation_fixtures import seed_message
 
 ALICE = "00000000-0000-4000-8000-00000000a11c"
 BOB = "00000000-0000-4000-8000-0000000000b0"
@@ -49,8 +44,8 @@ def _user(request: Request) -> User:
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_BUSINESS_CHAT_ENABLED", "true")
     previous_spaces = business_spaces()
     api_state.store.reset()
     app.dependency_overrides[current_user] = _user
@@ -85,8 +80,7 @@ def _create(client: TestClient, person: str, title: str, surface: str | None = N
     created = client.post("/api/v1/conversations", json=body, headers=_as(person))
     assert created.status_code == 200, created.text
     conversation_id = created.json()["conversation"]["id"]
-    create_message(
-        user_id=person,
+    seed_message(
         conversation_id=conversation_id,
         role="user",
         content=f"{title} question",
@@ -95,7 +89,7 @@ def _create(client: TestClient, person: str, title: str, surface: str | None = N
 
 
 def _listed(client: TestClient, person: str, path: str, **params: str) -> list[str]:
-    response = client.get(path, params=params, headers=_as(person))
+    response = client.get(path, params=params or None, headers=_as(person))
     assert response.status_code == 200, response.text
     return sorted(
         item.get("conversation_id") or item["id"]
@@ -104,185 +98,156 @@ def _listed(client: TestClient, person: str, path: str, **params: str) -> list[s
     )
 
 
-def _surfaces(
-    client: TestClient, person: str, surfaces: tuple[str, ...] = ("personal", "business")
-) -> dict[str, dict[str, list[str]]]:
-    return {
-        surface: {
-            "recents": _listed(client, person, "/api/v1/conversations", surface=surface),
-            "search": _listed(
-                client, person, "/api/v1/search", q="ledger", surface=surface
-            ),
-            "history": _listed(client, person, "/api/v1/history", surface=surface),
-        }
-        for surface in surfaces
-    }
+def _personal_record() -> str:
+    from argus.api.schemas import Conversation
 
-
-def test_one_person_sees_each_chat_only_on_its_own_surface(client: TestClient) -> None:
-    _start_space(ALICE)
-    personal = _create(client, ALICE, "Household ledger")
-    business = _create(client, ALICE, "Shop ledger", surface="business")
-
-    assert _surfaces(client, ALICE) == {
-        "personal": {
-            "recents": [personal],
-            "search": [personal],
-            "history": [personal],
-        },
-        "business": {
-            "recents": [business],
-            "search": [business],
-            "history": [business],
-        },
-    }
-    assert _listed(client, ALICE, "/api/v1/conversations") == [personal]
-
-
-def test_delete_all_on_one_surface_leaves_the_other(client: TestClient) -> None:
-    _start_space(ALICE)
-    personal = _create(client, ALICE, "Household ledger")
-    business = _create(client, ALICE, "Shop ledger", surface="business")
-
-    cleared = client.delete("/api/v1/conversations", headers=_as(ALICE))
-    assert cleared.json() == {"success": True, "deleted_count": 1}
-    assert _surfaces(client, ALICE)["business"]["recents"] == [business]
-    assert _surfaces(client, ALICE)["personal"]["recents"] == []
-
-    personal_again = _create(client, ALICE, "Household ledger again")
-    cleared = client.delete(
-        "/api/v1/conversations", params={"surface": "business"}, headers=_as(ALICE)
+    item = Conversation(
+        id=api_state.store.new_id(),
+        title="Household ledger",
+        created_at=NOW,
+        updated_at=NOW,
+        surface="personal",
     )
-    assert cleared.json() == {"success": True, "deleted_count": 1}
-    assert _surfaces(client, ALICE)["personal"]["recents"] == [personal_again]
-    assert _surfaces(client, ALICE)["business"]["recents"] == []
-    assert personal != personal_again
+    api_state.store.conversations[item.id] = item
+    api_state.store.conversation_owners[item.id] = ALICE
+    api_state.store.messages[item.id] = []
+    return item.id
 
 
-def test_another_person_sees_none_of_them(client: TestClient) -> None:
+@pytest.mark.parametrize("path", ["/conversations", "/history", "/search?q=ledger"])
+def test_business_is_the_default_and_personal_rows_stay_hidden(client, path):
+    _start_space(ALICE)
+    personal = _personal_record()
+    business = _create(client, ALICE, "Shop ledger", surface="business")
+    assert _listed(client, ALICE, "/api/v1" + path) == [business]
+    assert personal in api_state.store.conversations
+
+
+@pytest.mark.parametrize(
+    "method,path,body",
+    [
+        ("POST", "/conversations", {"surface": "personal"}),
+        ("GET", "/conversations?surface=personal", None),
+        ("DELETE", "/conversations?surface=personal", None),
+        ("GET", "/history?surface=personal", None),
+        ("GET", "/search?q=ledger&surface=personal", None),
+    ],
+)
+def test_personal_surface_is_retired(client, method, path, body):
+    _start_space(ALICE)
+    personal = _personal_record()
+    response = client.request(method, "/api/v1" + path, json=body, headers=_as(ALICE))
+    assert response.status_code == 404, response.text
+    assert api_state.store.conversations[personal].deleted_at is None
+
+
+@pytest.mark.parametrize(
+    "method,suffix,body",
+    [
+        ("GET", "/messages", None),
+        ("GET", "/activity", None),
+        ("PATCH", "/activity", {"action": "mark_unread"}),
+        ("PATCH", "", {"title": "Changed"}),
+        ("DELETE", "", None),
+        ("POST", "/messages", {"content": "Hello"}),
+    ],
+)
+def test_personal_id_cannot_bypass_retirement(client, method, suffix, body):
+    _start_space(ALICE)
+    personal = _personal_record()
+    response = client.request(
+        method,
+        f"/api/v1/conversations/{personal}{suffix}",
+        json=body,
+        headers=_as(ALICE),
+    )
+    assert response.status_code == 404, response.text
+    assert api_state.store.conversations[personal].title == "Household ledger"
+    assert api_state.store.conversations[personal].deleted_at is None
+
+
+def test_default_creation_and_deletion_are_business_only(client):
+    _start_space(ALICE)
+    personal = _personal_record()
+    business = _create(client, ALICE, "Shop ledger")
+    assert api_state.store.conversations[business].surface == "business"
+    response = client.delete("/api/v1/conversations", headers=_as(ALICE))
+    assert response.json() == {"success": True, "deleted_count": 1}
+    assert api_state.store.conversations[personal].deleted_at is None
+
+
+def test_another_person_cannot_read_business_conversations(client):
     _start_space(ALICE)
     _start_space(BOB)
-    _create(client, ALICE, "Household ledger")
-    _create(client, ALICE, "Shop ledger", surface="business")
-
-    empty = {"recents": [], "search": [], "history": []}
-    assert _surfaces(client, BOB) == {"personal": empty, "business": empty}
-
-
-def test_business_surface_needs_the_flag_and_a_started_space(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    calls = (
-        ("post", "/api/v1/conversations", {"json": {"surface": "business"}}),
-        ("get", "/api/v1/conversations", {"params": {"surface": "business"}}),
-        ("get", "/api/v1/search", {"params": {"q": "x", "surface": "business"}}),
-        ("get", "/api/v1/history", {"params": {"surface": "business"}}),
-        ("delete", "/api/v1/conversations", {"params": {"surface": "business"}}),
+    business = _create(client, ALICE, "Shop ledger", surface="business")
+    for path in ("/conversations", "/history", "/search?q=ledger"):
+        assert _listed(client, BOB, "/api/v1" + path) == []
+    assert (
+        client.get(
+            f"/api/v1/conversations/{business}/messages", headers=_as(BOB)
+        ).status_code
+        == 404
     )
 
-    def codes() -> list[tuple[int, str]]:
-        answers = []
-        for method, path, kwargs in calls:
-            response = client.request(method, path, headers=_as(ALICE), **kwargs)
-            answers.append((response.status_code, response.json()["code"]))
-        return answers
 
-    assert codes() == [(404, "business_space_missing")] * len(calls)
-    monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED")
+def test_business_surface_needs_flag_and_started_space(client, monkeypatch):
+    calls = (
+        ("POST", "/conversations", {}),
+        ("GET", "/conversations", None),
+        ("GET", "/search?q=ledger", None),
+        ("GET", "/history", None),
+        ("DELETE", "/conversations", None),
+    )
+    for method, path, body in calls:
+        response = client.request(method, "/api/v1" + path, json=body, headers=_as(ALICE))
+        assert response.status_code == 404
+        assert response.json()["code"] == "business_space_missing"
     _start_space(ALICE)
-    assert codes() == [(404, "business_unavailable")] * len(calls)
-    personal = client.post("/api/v1/conversations", json={}, headers=_as(ALICE))
-    assert personal.status_code == 200
-    assert api_state.store.conversation_spaces == {}
+    monkeypatch.delenv("CUADRAO_BUSINESS_PILOT_ENABLED")
+    for method, path, body in calls:
+        response = client.request(method, "/api/v1" + path, json=body, headers=_as(ALICE))
+        assert response.status_code == 404
+        assert response.json()["code"] == "business_unavailable"
 
 
-def test_a_business_chat_is_kept_after_the_flag_turns_off(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _start_space(ALICE)
-    personal = _create(client, ALICE, "Household ledger")
-    _create(client, ALICE, "Shop ledger", surface="business")
-    monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED")
-
-    assert _surfaces(client, ALICE, ("personal",))["personal"] == {
-        "recents": [personal],
-        "search": [personal],
-        "history": [personal],
-    }
-
-
-def test_artifact_routes_answer_404_for_a_business_conversation(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("CUADRAO_EVIDENCE_RECEIPT_SHARING_ENABLED", "true")
+def test_business_transcript_and_updates_keep_surface(client):
     _start_space(ALICE)
     business = _create(client, ALICE, "Shop ledger", surface="business")
-    personal = _create(client, ALICE, "Household ledger")
-    artifacts = {}
-    for side, conversation_id in (("business", business), ("personal", personal)):
-        artifact = EvidenceArtifact(
-            id=f"evidence-{side}",
-            idea_id="idea",
-            idea_version_id="idea-version",
-            source_conversation_id=conversation_id,
-            title="Saved result",
-            digest="digest",
-            payload={},
-            created_at=NOW,
-            updated_at=NOW,
-        )
-        api_state.store.evidence_artifacts[artifact.id] = artifact
-        api_state.store.evidence_artifact_owners[artifact.id] = ALICE
-        artifacts[side] = artifact.id
-
-    def answers(side: str, conversation_id: str) -> list[tuple[int, str | None]]:
-        artifact_id = artifacts[side]
-        calls = (
-            ("post", f"/conversations/{conversation_id}/messages/m-1/decision", {}),
-            (
-                "post",
-                f"/conversations/{conversation_id}/messages/m-1/computation/rerun",
-                {},
-            ),
-            ("post", f"/evidence-artifacts/{artifact_id}/decision", {}),
-            ("post", f"/evidence-artifacts/{artifact_id}/public-excerpt", {}),
-            ("get", f"/conversations/{conversation_id}/public-excerpt-candidates", None),
-            ("post", f"/conversations/{conversation_id}/public-excerpt-preview", {}),
-            ("post", f"/conversations/{conversation_id}/public-excerpt", {}),
-        )
-        found = []
-        for method, path, body in calls:
-            response = client.request(
-                method, "/api/v1" + path, json=body, headers=_as(ALICE)
-            )
-            found.append((response.status_code, response.json().get("detail")))
-        return found
-
-    assert answers("business", business) == [(404, "Conversation not found.")] * 7
-    assert (404, "Conversation not found.") not in answers("personal", personal)
+    messages = client.get(
+        f"/api/v1/conversations/{business}/messages", headers=_as(ALICE)
+    )
+    assert messages.json()["surface"] == "business"
+    patched = client.patch(
+        f"/api/v1/conversations/{business}", json={"pinned": True}, headers=_as(ALICE)
+    )
+    assert patched.json()["conversation"]["surface"] == "business"
 
 
-def test_every_conversation_response_names_its_surface(client: TestClient) -> None:
+def test_business_record_is_kept_when_business_turns_off(client, monkeypatch):
     _start_space(ALICE)
-    personal = _create(client, ALICE, "Household ledger")
     business = _create(client, ALICE, "Shop ledger", surface="business")
+    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "false")
+    response = client.get(
+        f"/api/v1/conversations/{business}/messages", headers=_as(ALICE)
+    )
+    assert response.status_code == 404
+    assert business in api_state.store.conversations
+    assert api_state.store.conversations[business].deleted_at is None
 
-    def surfaces(surface: str) -> dict[str, str]:
-        listed = client.get(
-            "/api/v1/conversations", params={"surface": surface}, headers=_as(ALICE)
-        ).json()["items"]
-        return {item["id"]: item["surface"] for item in listed}
 
-    assert surfaces("personal") == {personal: "personal"}
-    assert surfaces("business") == {business: "business"}
-    for conversation_id, surface in ((personal, "personal"), (business, "business")):
-        messages = client.get(
-            f"/api/v1/conversations/{conversation_id}/messages", headers=_as(ALICE)
-        )
-        assert messages.json()["surface"] == surface
-        patched = client.patch(
-            f"/api/v1/conversations/{conversation_id}",
-            json={"pinned": True},
-            headers=_as(ALICE),
-        )
-        assert patched.json()["conversation"]["surface"] == surface
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        "/messages/m-1/decision",
+        "/messages/m-1/computation/rerun",
+        "/public-excerpt-preview",
+        "/public-excerpt",
+    ],
+)
+def test_retired_artifact_actions_stay_closed_for_business(client, suffix):
+    _start_space(ALICE)
+    business = _create(client, ALICE, "Shop ledger", surface="business")
+    response = client.post(
+        f"/api/v1/conversations/{business}{suffix}", json={}, headers=_as(ALICE)
+    )
+    assert response.status_code == 404

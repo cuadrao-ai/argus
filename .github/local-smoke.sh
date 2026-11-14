@@ -208,34 +208,18 @@ print_contract_report() {
   echo "env_fingerprint=$(local_env_fingerprint)"
 }
 
-run_workflow_probe() {
-  poetry run python - <<'PY'
-import os
+run_production_import_probe() {
+  poetry run python - <<'PYTHON'
+from importlib import import_module
 
-from workflows.trigger_proof import _task_id
-from argus.api.chat import backtest_jobs
-
-mode = os.environ["ARGUS_LOCAL_SMOKE_WORKFLOW_MODE"]
-task = os.environ["ARGUS_BACKTEST_WORKFLOW_TASK"]
-real_task = os.environ["ARGUS_BACKTEST_REAL_WORKFLOW_TASK"]
-
-if _task_id(task) != task:
-    raise SystemExit("workflow proof task id mismatch")
-if real_task != "argus-backtests/run_backtest_job":
-    raise SystemExit("real workflow task id mismatch")
-
-shadow = backtest_jobs.backtest_jobs_shadow_enabled()
-dispatch = backtest_jobs.backtest_jobs_dispatch_enabled()
-execution = backtest_jobs.backtest_workflow_execution_enabled()
-if mode == "safe-off" and (shadow or dispatch or execution):
-    raise SystemExit("safe-off workflow flags are not off")
-if mode == "proof-shadow" and not shadow:
-    raise SystemExit("proof-shadow did not enable shadow job bookkeeping")
-if dispatch or execution:
-    raise SystemExit("local smoke must not dispatch or execute Render workflows")
-
-print("workflow_probe=ready")
-PY
+for module in (
+    "argus.agent_runtime.business.runner",
+    "workflows.document_job",
+    "workflows.document_worker",
+):
+    import_module(module)
+PYTHON
+  echo "production_import_probe=ready"
 }
 
 wait_for_url() {
@@ -339,11 +323,8 @@ if unexpected_degraded:
 top_status = str(payload.get("status") or "unknown")
 if top_status != "ready" and not allowed_degraded_seen:
     raise SystemExit(f"readiness failed: status={top_status!r} checks={statuses!r}")
-if statuses.get("agent_runtime_workflow") != "ready":
-    raise SystemExit(f"agent runtime readiness failed: {statuses!r}")
-asset_status = statuses.get("asset_universe")
-if asset_status not in {"ready", "warm"}:
-    raise SystemExit(f"asset readiness failed: {statuses!r}")
+if "supabase" not in statuses:
+    raise SystemExit(f"required database readiness check is missing: {statuses!r}")
 print(f"readiness_status={payload.get('status', 'unknown')}")
 PY
 }
@@ -374,7 +355,7 @@ if [ "$CONTRACT_ONLY" = true ]; then
   exit 0
 fi
 
-run_workflow_probe
+run_production_import_probe
 start_api
 start_web
 wait_for_url "api_health" "${API_URL}/health"

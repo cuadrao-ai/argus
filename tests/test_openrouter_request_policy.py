@@ -12,7 +12,13 @@ from argus.llm.openrouter import (
 from argus.llm.openrouter_request_policy import guard_openrouter_request
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from tests.test_openrouter_policy import FakeChatOpenRouter
+
+class FakeChatOpenRouter:
+    calls: list[dict] = []
+
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+        self.calls.append(kwargs)
 
 
 @pytest.mark.parametrize("task", openrouter.OPENROUTER_TASK_MODEL_TIERS)
@@ -22,12 +28,14 @@ from tests.test_openrouter_policy import FakeChatOpenRouter
 def test_luna_pro_sampling_capability_preserves_structured_request_policy(
     task: openrouter.OpenRouterTask, model: str
 ) -> None:
-    from argus.agent_runtime.llm_interpreter_types import LLMDateRangeIntent
+    class DateRangeIntent(BaseModel):
+        start_date: str | None = None
+        end_date: str | None = None
 
     arguments = {
         "messages": [{"role": "user", "content": "hello"}],
-        "schema_model": LLMDateRangeIntent,
-        "schema_name": "LLMDateRangeIntent",
+        "schema_model": DateRangeIntent,
+        "schema_name": "DateRangeIntent",
         "profile": openrouter_profile_for_task(task),
     }
     baseline = openrouter._json_schema_payload(model="openai/gpt-5.6-luna", **arguments)

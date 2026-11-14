@@ -19,18 +19,17 @@ async function render(children: ReactNode) {
 
 test("pending table follows selected columns, pinned identity, required amounts and density", async () => {
   let preferences = sampleRecordsPreferences();
-  preferences = toggleRecordsColumn(preferences, "notas");
-  preferences = toggleRecordsColumn(preferences, "monto");
-  preferences = toggleRecordsColumn(preferences, "itbis");
-  preferences = moveRecordsColumn(preferences, "itbis", 1);
+  preferences = toggleRecordsColumn(preferences, "note");
+  preferences = toggleRecordsColumn(preferences, "gross_amount");
+  preferences = moveRecordsColumn(preferences, "itbis_amount", 1);
   const html = await render(<RecordsLoadingPreview preferences={preferences} density="compacto" />);
   const columns = [...html.matchAll(/<th\b[^>]*data-col="([^"]+)"/g)].map((match) => match[1]);
   assert.deepEqual(columns, visibleRecordsColumns(preferences).map(({ key }) => key));
-  assert.equal(columns[0], "contraparte");
-  assert.equal(columns[1], "itbis");
-  assert.ok(columns.includes("monto"));
-  assert.ok(!columns.includes("notas"));
-  assert.match(html, /data-col="contraparte" data-pinned="left"/);
+  assert.equal(columns[0], "counterparty");
+  assert.equal(columns[1], "itbis_amount");
+  assert.ok(columns.includes("gross_amount"));
+  assert.ok(!columns.includes("note"));
+  assert.match(html, /data-col="counterparty" data-pinned="left"/);
   assert.equal([...html.matchAll(/<tr style="height:40px"/g)].length, 8);
   assert.match(html, /data-testid="records-loading-pagination"/);
   assert.ok(!html.includes('aria-current="page"'));

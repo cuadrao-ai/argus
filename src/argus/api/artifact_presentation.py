@@ -14,10 +14,7 @@ from pydantic import BaseModel, field_serializer
 
 from argus.domain.artifact_presentation_kind import artifact_presentation_kind
 from argus.domain.result_figures import result_display_figures
-from argus.domain.result_readout_content import (
-    readout_metadata,
-    validated_readout,
-)
+from argus.domain.result_readout_content import validated_readout
 from argus.domain.result_readout_facts import (
     result_readout_config,
     with_result_readout_facts,
@@ -106,59 +103,9 @@ def reader_run(value: Any) -> Any:
     return value.model_copy(update=public)
 
 
-def reader_chat_result(
-    payload: Mapping[str, Any], metadata: Mapping[str, Any]
-) -> dict[str, Any]:
-    from argus.api.chat.confirmation import public_confirmation_projection
-
-    # Live and hydrated replies classify the same persisted action facts.
-    return reader_payload(
-        public_confirmation_projection(
-            {**payload, "chat_action": metadata.get("chat_action")}
-        )
-    )
-
-
 class ReaderJobResponse(BaseModel):
     @field_serializer("result_readout", check_fields=False)
     def omit_private_readout(self, _value: str | None) -> None:
         # Older clients retain the slot, but can never receive its stored prose.
         return None
 
-
-def result_breakdown_metadata(
-    message: Any, run: Any, *, language: str = "en"
-) -> dict[str, Any]:
-    """Keep composition provenance beside the typed, reloadable reply facts."""
-    from argus.agent_runtime.research_grounded import returned_sources_research_sidecar
-    from argus.domain.backtest_message_projection import result_fact_bank
-
-    metadata = {
-        "response_intent": {
-            "kind": "result_breakdown",
-            "facts": {
-                "result_fact_bank": result_fact_bank(run) if run is not None else None
-            },
-        },
-        "result_breakdown_source": message.source,
-        "result_breakdown_fallback_used": message.fallback_used,
-    }
-    if message.failure_mode is not None:
-        metadata["result_breakdown_failure_mode"] = message.failure_mode
-    metadata.update(
-        readout_metadata(
-            surface="breakdown",
-            text=message.text,
-            language=language,
-            source=message.source,
-            fallback_used=message.fallback_used,
-            failure_mode=message.failure_mode,
-        )
-    )
-    if message.sources:
-        metadata["research"] = returned_sources_research_sidecar(
-            sources=message.sources,
-            usage=message.usage,
-            degraded_code=message.failure_mode if message.fallback_used else None,
-        )
-    return metadata

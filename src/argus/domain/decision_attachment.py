@@ -15,7 +15,8 @@ from typing import Any
 from pydantic import ValidationError
 
 from argus.api.decision_contract import DecisionComputation, DecisionNote
-from argus.domain.computations import BACKTEST_COMPUTATION_KIND
+
+BACKTEST_COMPUTATION_KIND = "backtest"
 
 # The message metadata keys shared by every layer that stamps or reads a
 # decision on a message. Cards carry the same two keys through

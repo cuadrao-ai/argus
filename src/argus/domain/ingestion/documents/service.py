@@ -293,6 +293,8 @@ class DocumentsService:
         scope: OwnerScope,
     ) -> DocumentDraft:
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if draft.status == "dismissed":
+            raise DocumentServiceError("business_document_deleted")
         if version != draft.version or draft.status == "preparing":
             raise DocumentServiceError("document_version_conflict", retryable=True)
         return self._update(user_id, draft, proposal=proposal)
@@ -443,11 +445,18 @@ class DocumentsService:
     def release_queued(
         self, *, user_id: str, connection_id: str, scope: OwnerScope, code: str
     ) -> None:
-        """A queued read that could not start waits saved, unread, with its reason."""
+        """A queued read that could not start waits saved, unread, with its reason.
+        One store write checks and releases, so a dispatch that records an
+        attempt for this version, or any writer that moves the draft, keeps it."""
 
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
         if draft.status == "queued":
-            self._update(user_id, draft, status="saved", consent=False, error_code=code)
+            self.store.update(
+                user_id=user_id,
+                draft=self.revise(draft, status="saved", consent=False, error_code=code),
+                expected_version=draft.version,
+                unstarted=True,
+            )
 
     def _business_permission(self, scope: OwnerScope, user_id: str) -> dict:
         """The owner's setting for this Business; off when the service has none."""
@@ -484,18 +493,16 @@ class DocumentsService:
         consent and the owner's reading is allowed right now. A queued document
         whose owner switched reading off waits for a person, not for a read."""
 
-        if draft.status == "preparing":
-            return True
-        return (
-            draft.status == "queued"
-            and draft.consent
-            and self._reading_allowed(user_id, connection_id)
+        return draft.read_pending(
+            draft.status == "queued" and self._reading_allowed(user_id, connection_id)
         )
 
     def queue(
         self, *, user_id: str, connection_id: str, consent: bool, scope: OwnerScope
     ) -> DocumentOutcome:
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if draft.status == "dismissed":
+            raise DocumentServiceError("business_document_deleted")
         if draft.status == "preparing":
             raise DocumentServiceError("document_busy", retryable=True)
         batch = self.store.get(user_id=user_id, connection_id=connection_id)
@@ -539,6 +546,8 @@ class DocumentsService:
         """
 
         draft = self.get(user_id=user_id, connection_id=connection_id, scope=scope)
+        if draft.status == "dismissed":
+            raise DocumentServiceError("business_document_deleted")
         if draft.status in ("queued", "preparing"):
             raise DocumentServiceError("document_busy", retryable=True)
         batch = self.store.get(user_id=user_id, connection_id=connection_id)
@@ -596,6 +605,8 @@ class DocumentsService:
             not draft.consent or (queued_only and draft.status != "queued")
         ):
             raise DocumentServiceError("document_preparation_not_queued")
+        if draft.status == "dismissed":
+            raise DocumentServiceError("business_document_deleted")
         if draft.status == "preparing":
             raise DocumentServiceError("document_busy", retryable=True)
         if batch is None and not self._reading_allowed(user_id, connection_id):
@@ -620,12 +631,7 @@ class DocumentsService:
                 raise DocumentServiceError("document_attempt_superseded")
         replayed = batch is not None
         from argus.domain.business import analytics as business_analytics
-        from argus.domain.business.actions.mutations import _read_refusal
 
-        if batch is not None and _read_refusal(batch) == "receipt_requires_review":
-            # The same saved batch refuses again. Only a new read can finish it.
-            batch = None
-            replayed = False
         # Set once a provider call is admitted: only such a read is reported.
         provider_called = False
         read_started = read_ms = None

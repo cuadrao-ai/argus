@@ -1,4 +1,4 @@
-import type { BusinessAccount } from "./business-api";
+import type { BusinessAccount, DocumentDeleteAccess } from "./business-api";
 import type { DgiiDeclaration } from "./business-dgii";
 
 export type BusinessFact<T> =
@@ -10,6 +10,8 @@ export type BusinessFunding = { kind: "business_account"; account_id: string } |
 export type BusinessFacts = {
   kind: BusinessFact<"expense" | "income" | "transfer" | "refund" | "owner_contribution" | "owner_withdrawal" | "credit_purchase" | "payable_payment" | "loan_received" | "loan_payment">;
   amount: BusinessFact<string>;
+  net_amount?: BusinessFact<string>;
+  legal_tip?: BusinessFact<string>;
   currency: BusinessFact<string>;
   occurred_on: BusinessFact<string>;
   counterparty: BusinessFact<string>;
@@ -30,7 +32,8 @@ export const BUSINESS_FISCAL_FIELDS: BusinessFiscalField[] = ["rnc", "ncf", "ecf
 
 export type BusinessFactField = Exclude<keyof BusinessFacts, "fiscal">;
 export type BusinessFactInput<T> = { state: "known"; value: T } | { state: "unknown" | "owner_does_not_know"; value: null };
-export type BusinessFactPatch = { [K in BusinessFactField]?: BusinessFactInput<NonNullable<BusinessFacts[K]["value"]>> };
+export type BusinessFactPatch = { [K in BusinessFactField]?: BusinessFactInput<NonNullable<NonNullable<BusinessFacts[K]>["value"]>> };
+export type BusinessMontosReview = { net_amount?: BusinessFactInput<string>; legal_tip?: BusinessFactInput<string>; restore_inherited?: string[]; override_inherited?: string[] };
 export type BusinessActor = { actor_id: string; actor_kind: "owner_via_agent" | "member" | "extractor"; display_name: string; grant_id: string; issuer_id: string; issuer_display_name: string };
 
 export type BusinessReviewQuestion = {
@@ -97,10 +100,10 @@ export function readBusinessDossier(value: unknown): BusinessDossier {
   return { ...body, review_note: readReviewNote(body.review_note) };
 }
 
-export const REVIEW_FLAG_CODES = ["rnc_check_digit", "ncf_malformed", "itbis_high"] as const;
+export const REVIEW_FLAG_CODES = ["rnc_check_digit", "ncf_malformed", "itbis_high", "amounts_mismatch"] as const;
 export type ReviewFlagCode = (typeof REVIEW_FLAG_CODES)[number];
 /** A read value to check again. A `confirm` flag stops approval until the person approves anyway; the rest only warn. */
-export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis"; confirm: boolean };
+export type ReviewFlag = { code: ReviewFlagCode; field: "rnc" | "ncf" | "itbis" | "amount"; confirm: boolean; difference?: string | null };
 
 export function isReviewFlagCode(value: unknown): value is ReviewFlagCode {
   return REVIEW_FLAG_CODES.includes(value as ReviewFlagCode);
@@ -110,7 +113,12 @@ export type BusinessApprovalAction = "record_expense" | "record_income" | "recor
 /** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
 export type RefundCandidate = { id: string; merchant: string | null; occurred_on: string; amount: string; currency: string };
 
-export type BusinessDossier = BusinessRecordContext & {
+/** A value the server suggests and where it came from: the last answer a person gave for this RNC, or what the receipt shows. */
+export type DeclarationSuggestion = { value: string; source: "last_choice" | "receipt" };
+
+export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
+  net_amount?: { amount: string | null; source: "read" | "calculated" | "edited" | null };
+  inheritance?: Record<string, { field: "net_amount" | "itbis" | "legal_tip" | "occurred_on"; value: string | null; inherited: boolean }>;
   current_note?: string | null;
   note_edit_available?: boolean;
   supporting_append_available?: boolean;
@@ -120,8 +128,8 @@ export type BusinessDossier = BusinessRecordContext & {
   declaration_editable?: boolean;
   /** The caller may return this approved record to the Bandeja now: it holds approve and no bank match, credit note or refund is linked to it. */
   reopen_available?: boolean;
-  /** The tipo de gasto a person last chose for this supplier's RNC in this Business. A suggestion: it reaches the 606 only when a person writes it. */
-  expense_type_suggestion?: string | null;
+  /** What the server offers for each 606 answer this record lacks, under the declaration's field name. A suggestion: it reaches the 606 only when a person writes it. */
+  declaration_suggestions?: Partial<Record<"category" | "payment_method", DeclarationSuggestion | null>>;
   /** What the e-CF XML proved by itself; null for any other source. */
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */

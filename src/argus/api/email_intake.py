@@ -10,6 +10,7 @@ from datetime import datetime
 import httpx
 from fastapi import Request
 from loguru import logger
+from psycopg import Connection
 
 from argus.api import state as api_state
 from argus.api.dependencies import problem
@@ -34,14 +35,27 @@ from argus.domain.ingestion.email_intake.store import (
     EmailStore,
     PostgresEmailStore,
 )
+from argus.domain.postgres_connection import BorrowedConnection
 
 RESEND_DOWNLOAD_HOSTS = ("cdn.resend.app",)
 
 _runtime: EmailCapture | None = None
 
 
-def email_intake() -> EmailCapture | None:
-    return _runtime
+def email_intake(connection: Connection | None = None) -> EmailCapture | None:
+    if _runtime is None or connection is None:
+        return _runtime
+    pool = BorrowedConnection(connection)
+    return EmailCapture(
+        PostgresEmailStore(pool, _runtime.store.budget),
+        _runtime.documents,
+        grant_route_authority(pool),
+        _runtime.provider,
+        _runtime.enabled,
+        _runtime.receiving_enabled,
+        _runtime.read_receipt,
+        _runtime.pending_senders,
+    )
 
 
 @dataclass(frozen=True)
@@ -159,6 +173,7 @@ def _queued_email_reader(route, connection_id: str):
     from uuid import UUID
 
     from argus.api.business_drafts import bind_to_grant
+    from argus.api.documents import release_unstarted
     from argus.domain.business.contracts.authority import TrustedActor
     from argus.domain.owner_scope import BusinessSpace
 
@@ -170,15 +185,20 @@ def _queued_email_reader(route, connection_id: str):
     if current.status != "queued":
         return None
     actions = documents.business_actions
-    context = actions.resolve_actor(
-        TrustedActor(
-            actor_id=UUID(route.granted_by),
-            actor_kind="member",
-            space_id=UUID(route.space_id),
-        ),
-        grant_id=UUID(route.grant_id),
-    )
-    service, _ = bind_to_grant(documents, documents.hub, actions, context, "prepare")
+    try:
+        context = actions.resolve_actor(
+            TrustedActor(
+                actor_id=UUID(route.granted_by),
+                actor_kind="member",
+                space_id=UUID(route.space_id),
+            ),
+            grant_id=UUID(route.grant_id),
+        )
+        service, _ = bind_to_grant(documents, documents.hub, actions, context, "prepare")
+    except Exception as error:
+        release_unstarted(
+            documents, route.principal_id, connection_id, scope=scope, error=error
+        )
     return service, scope
 
 
@@ -189,17 +209,7 @@ async def _read_receipt(route, connection_id: str) -> None:
     if reader is None:
         return
     service, scope = reader
-    try:
-        await dispatch_preparation(service, route.principal_id, connection_id, scope=scope)
-    except Exception as error:
-        await asyncio.to_thread(
-            service.release_queued,
-            user_id=route.principal_id,
-            connection_id=connection_id,
-            scope=scope,
-            code=getattr(error, "code", "document_delivery_failed"),
-        )
-        raise
+    await dispatch_preparation(service, route.principal_id, connection_id, scope=scope)
 
 
 def start_email_intake(app) -> None:  # noqa: ANN001

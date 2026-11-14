@@ -26,13 +26,13 @@ records the matrix. `manual-small/checks.json` records manual assertions and
 
 ## Representative captures
 
-![Small phone Home](en-small/tab_home.png)
-![Large phone Argus](en-large/tab_argus.png)
-![Spanish enlarged Plan](es-small/tab_plan.png)
-![Spanish Dark appearance](es-large/appearance_dark.png)
-![Chat registration boundary](es-small/registration_chat.png)
-![Cold restart retains Dark](manual-small/cold-restart-dark.png)
-![Keyboard hides bottom navigation](manual-small/composer-keyboard.png)
+[Small phone Home](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-phone-foundation/en-small/tab_home.png)
+[Large phone Argus](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-phone-foundation/en-large/tab_argus.png)
+[Spanish enlarged Plan](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-phone-foundation/es-small/tab_plan.png)
+[Spanish Dark appearance](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-phone-foundation/es-large/appearance_dark.png)
+[Chat registration boundary](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-phone-foundation/es-small/registration_chat.png)
+[Cold restart retains Dark](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-phone-foundation/manual-small/cold-restart-dark.png)
+[Keyboard hides bottom navigation](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-phone-foundation/manual-small/composer-keyboard.png)
 
 ## Limits
 

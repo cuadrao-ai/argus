@@ -1,7 +1,8 @@
 from datetime import date, datetime
 from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from loguru import logger
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
 from argus.domain.business.document_type import DocumentType
@@ -14,6 +15,7 @@ from argus.domain.ingestion.contract import (
     KindHint,
     UncertainField,
 )
+from argus.domain.ingestion.shortcuts.amounts import marker_currency
 
 
 class DocumentExtractionError(Exception):
@@ -26,6 +28,18 @@ class DocumentExtractionError(Exception):
 
 class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+def _read_currency(value: object) -> object:
+    """The code a printed marker names, where the model's currency text enters."""
+
+    if not isinstance(value, str):
+        return value
+    code = marker_currency(value)
+    if code is None:
+        return value
+    logger.info("document_read_currency_marker raw={!r} mapped={}", value, code)
+    return code
 
 
 class ExtractedObservation(_Frozen):
@@ -49,6 +63,18 @@ class ExtractedObservation(_Frozen):
     period_start: date | None = None
     period_end: date | None = None
     uncertain: tuple[UncertainField, ...] = ()
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def _currency(cls, value: object) -> object:
+        return _read_currency(value)
+
+    @field_validator("account", mode="before")
+    @classmethod
+    def _account_currency(cls, value: object) -> object:
+        if isinstance(value, dict) and "currency" in value:
+            return {**value, "currency": _read_currency(value["currency"])}
+        return value
 
 
 class ReceiptItem(_Frozen):
@@ -103,6 +129,11 @@ class ReceiptDetails(_Frozen):
         "source, as extracted decimal text. Null if absent, unreadable or conflicting. "
         "Never calculate it from a rate, subtotal, total or generic tax.",
     )
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def _currency(cls, value: object) -> object:
+        return _read_currency(value)
 
 
 # A receipt whose rows do not reduce to one purchase at its total.
@@ -164,10 +195,15 @@ class DraftProposal(_Frozen):
     item_assignments: tuple[ItemAssignment, ...] = Field(default=(), max_length=300)
 
 
-DraftStatus = Literal["saved", "queued", "preparing", "review_ready", "needs_attention"]
+DraftStatus = Literal[
+    "saved", "queued", "preparing", "review_ready", "needs_attention", "dismissed"
+]
 
 
 class DocumentDraft(_Frozen):
+    resolution: dict[str, object] = Field(
+        default_factory=dict, exclude_if=lambda value: not value
+    )
     connection_id: str
     filename: str = Field(max_length=80)
     media_type: str
@@ -189,6 +225,11 @@ class DocumentDraft(_Frozen):
     document_type: DocumentType | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+
+    def read_pending(self, reading_allowed: bool) -> bool:
+        return self.status == "preparing" or (
+            self.status == "queued" and self.consent and reading_allowed
+        )
 
 
 class PreparationJob(_Frozen):

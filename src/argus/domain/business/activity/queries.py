@@ -33,6 +33,7 @@ from argus.domain.business.contracts.activity import (
     ActivityFacetActor,
     ActivityFilters,
     ActivityItem,
+    ActivityObject,
     ActivityPage,
     ObjectKind,
     PageSize,
@@ -100,6 +101,12 @@ _EVENTS = f"""
                'receipt_reading_enabled', '{{}}'::jsonb, null::jsonb
         from public.business_receipt_reading_consents
         where space_id = %(space_id)s
+        union all
+        select {_key("space_id::text || ':purge:' || id::text")}, space_id,
+               purged_at, null::uuid, 'extractor', 'Cuadrao',
+               'expire_document', '{{}}'::jsonb, null::jsonb
+        from argus_private.business_document_purges
+        where space_id = %(space_id)s and reason = 'expiry'
     ), visible as (
         select e.id, e.created_at, e.actor_id, e.actor_kind, e.display_name,
                e.action, e.command, e.outcome, {_ACTOR_KEY} as actor_key,
@@ -242,13 +249,85 @@ def read_activity(
                 facets = cursor.fetchall()
             page = rows[:limit]
             _fill_names(cursor, context.actor.space_id, page + (facets or []))
-            items = tuple(project(row) for row in page)
+            items = _purged(
+                cursor,
+                context.actor.space_id,
+                _document_targets(
+                    cursor, context.actor.space_id, tuple(project(row) for row in page)
+                ),
+            )
             labels = _labels(cursor, context.actor.space_id, items)
     items = tuple(with_labels(item, labels) for item in items)
     return ActivityPage(
         items=items,
         next_cursor=encode_cursor(items[-1], filters) if len(rows) > limit else None,
         actors=None if facets is None else _facet(facets),
+    )
+
+
+def _document_targets(
+    cursor, space_id: UUID, items: tuple[ActivityItem, ...]
+) -> tuple[ActivityItem, ...]:
+    ids = [
+        item.object.id
+        for item in items
+        if item.action in ("delete_document", "restore_document")
+        and item.object is not None
+        and item.object.kind == "draft"
+    ]
+    if not ids:
+        return items
+    cursor.execute(
+        "select e.id,min(o.connection_id::text) as receipt_id from public.financial_import_events e"
+        " join public.financial_import_observations o on o.event_id=e.id and o.user_id=e.user_id"
+        " where e.owner_space_id=%s and e.id=any(%s) and not (e.resolution ? 'business')"
+        " group by e.id having count(distinct o.connection_id)=1",
+        (space_id, ids),
+    )
+    targets = {row["id"]: row["receipt_id"] for row in cursor.fetchall()}
+    return tuple(
+        item.model_copy(
+            update={"object": ActivityObject(kind="receipt", id=targets[item.object.id])}
+        )
+        if item.action in ("delete_document", "restore_document")
+        and item.object is not None
+        and item.object.id in targets
+        else item
+        for item in items
+    )
+
+
+def _purged(
+    cursor, space_id: UUID, items: tuple[ActivityItem, ...]
+) -> tuple[ActivityItem, ...]:
+    """Every entry whose document a purge removed says so. The purge record
+    keeps the draft and upload ids the document answered to, never a name."""
+
+    ids = sorted(
+        {
+            item.object.id
+            for item in items
+            if item.object is not None and item.object.kind in ("draft", "receipt")
+        }
+    )
+    if not ids:
+        return items
+    cursor.execute(
+        "select distinct d.id from argus_private.business_document_purges p,"
+        " unnest(p.document_ids) as d(id)"
+        " where p.space_id=%s and p.document_ids && %s::uuid[]",
+        (space_id, ids),
+    )
+    gone = {row["id"] for row in cursor.fetchall()}
+    return tuple(
+        item.model_copy(
+            update={"object": item.object.model_copy(update={"purged": True})}
+        )
+        if item.object is not None
+        and item.object.kind in ("draft", "receipt")
+        and item.object.id in gone
+        else item
+        for item in items
     )
 
 
@@ -293,10 +372,16 @@ def _labels(
     read: a draft's counterparty, a grant's person. An invite names only an
     email, which never leaves the ledger."""
 
-    ids: dict[ObjectKind, set[UUID]] = {"draft": set(), "grant": set()}
+    ids: dict[ObjectKind, set[UUID]] = {"draft": set(), "receipt": set(), "grant": set()}
+    document_ids = set()
     for item in items:
         if item.object is not None and item.object.kind in ids:
             ids[item.object.kind].add(item.object.id)
+            if (
+                item.action in ("delete_document", "restore_document")
+                and item.object.kind == "draft"
+            ):
+                document_ids.add(item.object.id)
     labels: dict[tuple[ObjectKind, UUID], str] = {}
     if ids["draft"]:
         cursor.execute(_DRAFT_LABELS, {"space_id": space_id, "ids": sorted(ids["draft"])})
@@ -304,6 +389,33 @@ def _labels(
             label = _known(row["counterparty"])
             if label:
                 labels[("draft", row["id"])] = label
+    unnamed = document_ids - {identity for kind, identity in labels if kind == "draft"}
+    if unnamed:
+        cursor.execute(
+            "select e.id,coalesce("
+            " (select coalesce(d.draft->>'filename',s.text_content) from public.business_draft_sources l"
+            " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
+            " left join public.financial_document_extractions d on d.connection_id=s.connection_id"
+            " where l.space_id=e.owner_space_id and l.draft_id=e.id order by s.received_at,s.id limit 1),"
+            " (select d.draft->>'filename' from public.financial_import_observations o"
+            " join public.financial_document_extractions d on d.connection_id=o.connection_id and d.user_id=o.user_id"
+            " where o.event_id=e.id and o.user_id=e.user_id order by o.first_seen_at,o.id limit 1)) as label"
+            " from public.financial_import_events e where e.owner_space_id=%s and e.id=any(%s)",
+            (space_id, sorted(unnamed)),
+        )
+        for row in cursor.fetchall():
+            if row["label"]:
+                labels[("draft", row["id"])] = row["label"]
+    if ids["receipt"]:
+        cursor.execute(
+            "select d.connection_id,d.draft->>'filename' as label from public.financial_document_extractions d"
+            " join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id"
+            " where c.owner_space_id=%s and d.connection_id=any(%s)",
+            (space_id, sorted(ids["receipt"])),
+        )
+        for row in cursor.fetchall():
+            if row["label"]:
+                labels[("receipt", row["connection_id"])] = row["label"]
     if ids["grant"]:
         cursor.execute(_GRANT_LABELS, {"space_id": space_id, "ids": sorted(ids["grant"])})
         for row in cursor.fetchall():

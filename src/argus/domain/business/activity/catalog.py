@@ -71,6 +71,14 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "approve_expense": ActionSpec("records", "approvals", object=_DRAFT),
         "approve_income": ActionSpec("records", "approvals", object=_DRAFT),
         "approve_refund": ActionSpec("records", "approvals", object=_DRAFT),
+        "delete_document": ActionSpec(
+            "documents", "files", object=("receipt", (("command", "document_id"),))
+        ),
+        "restore_document": ActionSpec(
+            "documents", "files", object=("receipt", (("command", "document_id"),))
+        ),
+        # A purged document names nothing: no label and no link.
+        "purge_document": ActionSpec("documents", "files"),
         "reopen_draft": ActionSpec("records", "approvals", object=_DRAFT),
         "capture_note": ActionSpec("records", "edits", object=_DRAFT),
         "prepare_attachment": ActionSpec("documents", "reading", object=_DRAFT),
@@ -112,6 +120,7 @@ DERIVED: Mapping[str, ActionSpec] = MappingProxyType(
     {
         "ownership_transferred": ActionSpec("business", "access", "manager"),
         "receipt_reading_enabled": ActionSpec("business", "settings", "manager"),
+        "expire_document": ActionSpec("documents", "files"),
     }
 )
 ACTIONS: Mapping[str, ActionSpec] = MappingProxyType({**CATALOG, **DERIVED})
@@ -190,7 +199,7 @@ def project(row: EventRow) -> ActivityItem:
 def with_labels(
     item: ActivityItem, labels: Mapping[tuple[ObjectKind, UUID], str]
 ) -> ActivityItem:
-    if item.object is None:
+    if item.object is None or item.object.purged:
         return item
     label = labels.get((item.object.kind, item.object.id))
     if label is None:
@@ -215,6 +224,10 @@ def _object(row: EventRow, spec: ActionSpec) -> ActivityObject | None:
     if spec.object is None:
         return None
     kind, paths = spec.object
+    if kind == "receipt" and _at(row, ("outcome", "draft_id")):
+        return ActivityObject(
+            kind="draft", id=UUID(str(_at(row, ("outcome", "draft_id"))))
+        )
     for path in paths:
         try:
             return ActivityObject(kind=kind, id=UUID(str(_at(row, path))))

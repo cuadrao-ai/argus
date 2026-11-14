@@ -101,23 +101,28 @@ Tipo de gasto: 01–11 · Forma de pago: 01–07
 
 ## Registros columns
 
-The backend `Presentation` in `src/argus/domain/business/reporting_preferences.py` owns the default layout. The report answer returns the effective `presentation`; the connected table uses it. The preview uses `web/test-fixtures/records-default-report-answer.json`, recorded from the backend. `test_recorded_preview_answer_matches_backend` checks that fixture and `records-default-authority.test.ts` prevents web defaults. Saved layouts keep their explicit order, hidden columns and density. The default visible order is Contraparte, Fecha, Monto, Estado, Notas, Adjunto. NCF follows Contraparte and ITBIS follows Monto, both hidden by default. Monto uses heavier text and ITBIS regular text. The column picker supports drag and up/down buttons. Saved layouts drop removed Tipo and Moneda keys. Account remains available because receipt review can set a Business account and approval records it. Further table additions wait for the pilot client’s workflow.
+One registry owns every column fact: `COLUMNS` in `src/argus/domain/business/reporting_columns.py`. Each entry names the column's server key, the locale path of its name, whether it is required (never hidden), pinned (fixed first, and in every export file), hidden by default, and which record families offer it. The default layout, the stored-layout upgrade, the report answer, the export preview and the export file all read it. A country can withhold optional columns with `omitted_columns` on its entry in `src/argus/domain/business/country.py`; no country withholds any today.
 
-| Column key | Pilot default | ES / EN | Why |
+Every report answer carries `columns`: the columns the request's type offers in the Business's country, in the layout's order, each `{key, label_key, required, pinned, shown}`. Keys are server keys and language-neutral. `label_key` is a locale path; the web turns it into words from `web/public/locales/<language>/common.json`, and the export file reads the same words through `records_file_words.generated.json`, which `scripts/generate_records_file_words.py` builds from the registry's paths. The web keeps only how a column draws: its width, alignment and cell renderer, keyed by server key. It keeps no column list, default or rule. `records-default-authority.test.ts` pins the web's keys to the openapi enum and rejects a column list or table written by hand; `test_reporting_columns.py` pins a name for every column in every locale.
+
+A stored or linked layout is upgraded on the server, and the web keeps the answer's `presentation`. A column the layout does not name joins it at the end, hidden unless it is required. The shipped exceptions keep their places: `category` becomes `expense_type`, `payment_form` joins after it hidden, `net_amount` joins just before `gross_amount` shown, and `family` and `currency` are dropped.
+
+| Key | Name (ES / EN) | Default | Rule |
 |---|---|---|---|
-| contraparte | On | Contraparte / Counterparty | |
-| fecha | On | Fecha / Date | Short for Fecha del comprobante |
-| monto | On | Monto / Amount | Gross |
-| tipo_gasto | Available (hidden by default) | Tipo de gasto / Expense type | Available on Compras only; never offered or rendered on Ventas |
-| forma_pago | Available (hidden by default) | Forma de pago / Payment method | Available on Compras only; never offered or rendered on Ventas |
-| estado | On | Estado / Status | |
-| comprobante | On | Adjunto / Attachment | |
-| notas | On | Notas / Notes | Notas stays available, not stripped or forced hidden. |
-| cuenta | Available (hidden by default) | Cuenta / Account | Forma de pago ≠ Cuenta |
-| ncf | Available (hidden by default) | NCF / NCF | Existing `fiscal_number`, NCF or e-CF; missing stays unknown |
-| itbis | Available (hidden by default) | ITBIS / ITBIS | Existing `itbis_amount` in the row currency; missing amount or currency stays unknown, zero stays numeric |
+| `counterparty` | Contraparte / Counterparty | Shown | Required and pinned |
+| `fiscal_number` | NCF / NCF | Hidden | NCF or e-CF; missing stays unknown |
+| `date` | Fecha / Date | Shown | Short for Fecha del comprobante |
+| `net_amount` | Monto sin ITBIS / Amount before ITBIS | Shown | |
+| `itbis_amount` | ITBIS / ITBIS | Shown | Row currency; missing stays unknown, zero stays numeric |
+| `gross_amount` | Total / Total | Shown | Required |
+| `stage` | Estado / Status | Shown | |
+| `note` | Notas / Notes | Shown | |
+| `attachment` | Adjunto / Attachment | Shown | |
+| `expense_type` | Tipo de gasto / Expense type | Hidden | Compras only |
+| `payment_form` | Forma de pago / Payment method | Hidden | Compras only |
+| `funding` | Cuenta / Account | Hidden | Forma de pago ≠ Cuenta |
 
-NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client’s workflow. These are semantic targets, not a ship list. They already exist in Más datos or export. The Registros export chooses among the table columns and between Excel and CSV; see `docs/API_CONTRACT.md`.
+The names in the table are today's words; the locale files own them. A per-type name, such as Emisor on Compras and Cliente on Ventas, is one more registry field, resolved where the answer sets `label_key`. The export modal lists the preview's columns for the chosen currencies: the table's, then Moneda after the total when the file holds every currency. NCF afectado, servicios, bienes, ISC, and propina legal are pilot export fields, not Registros columns today. Further table additions wait for the pilot client's workflow. See `docs/API_CONTRACT.md` for the answer and export contracts.
 
 ## Score cards
 

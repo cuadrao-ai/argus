@@ -1,7 +1,7 @@
 import {
   downloadRecordsExport, listBusinessReportViews, mutateBusinessReportView, previewRecordsExport, queryBusinessReport,
   reportRecipeSchema, reportRequestSchema,
-  type ReportAnswer, type ReportProblem, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand, type SavedReportView, type ReportPresentation,
+  type ReportAnswer, type ReportColumn, type ReportProblem, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand, type SavedReportView, type ReportPresentation,
 } from "./business-reports-api";
 import type { ReportRecord } from "./business-reports-api";
 import { consumeOverlayEntriesForNavigation } from "./overlay-history";
@@ -9,7 +9,7 @@ import type { RecordRow } from "@/components/business-app/transacciones/transacc
 import type { SettlementSummary } from "@/components/business-app/transacciones/records-results-preview";
 import type { RecordsSort } from "@/components/business-app/transacciones/records-pagination";
 import type { ReportSort } from "./business-reports-api";
-import type { RecordsColumnKey, RecordsViewPreferences } from "@/components/business-app/transacciones/records-view-preferences";
+import type { RecordsViewPreferences } from "@/components/business-app/transacciones/records-view-preferences";
 import { DENSITIES, DENSITY_ROW_PX } from "@/components/business-app/transacciones/table-density";
 
 const SORT_KEYS = { fecha: "date", contraparte: "name", monto: "amount" } as const;
@@ -20,13 +20,11 @@ export function reportSortToRecords(sort: ReportSort): RecordsSort {
   const key = (Object.keys(SORT_KEYS) as RecordsSort["key"][]).find((key) => sort.startsWith(`${SORT_KEYS[key]}_`))!;
   return { key, direction: sort.endsWith("_asc") ? "asc" : "desc" };
 }
-const COLUMN_KEYS: Record<RecordsColumnKey, ReportPresentation["order"][number]> = { contraparte: "counterparty", fecha: "date", monto: "gross_amount", tipo_gasto: "expense_type", forma_pago: "payment_form", estado: "stage", notas: "note", comprobante: "attachment", cuenta: "funding", ncf: "fiscal_number", itbis: "itbis_amount" };
-export const recordColumnKey = (key: ReportPresentation["order"][number]): RecordsColumnKey => (Object.keys(COLUMN_KEYS) as RecordsColumnKey[]).find((column) => COLUMN_KEYS[column] === key)!;
-export function reportPresentationToRecords(presentation: ReportPresentation, sort: ReportSort): RecordsViewPreferences {
-  return { order: presentation.order.map(recordColumnKey), hidden: presentation.hidden.map(recordColumnKey), density: DENSITIES.find((density) => DENSITY_ROW_PX[density] === presentation.density)!, sort: reportSortToRecords(sort) };
+export function reportPresentationToRecords(presentation: ReportPresentation, sort: ReportSort, columns: readonly ReportColumn[]): RecordsViewPreferences {
+  return { columns, order: presentation.order, hidden: presentation.hidden, density: DENSITIES.find((density) => DENSITY_ROW_PX[density] === presentation.density)!, sort: reportSortToRecords(sort) };
 }
 export function recordsPresentationToReport(preferences: RecordsViewPreferences): ReportPresentation {
-  return { order: preferences.order.map((key) => COLUMN_KEYS[key]), hidden: preferences.hidden.map((key) => COLUMN_KEYS[key]), density: DENSITY_ROW_PX[preferences.density] };
+  return { order: preferences.order, hidden: preferences.hidden, density: DENSITY_ROW_PX[preferences.density] };
 }
 
 export function businessReportRow(report: ReportRecord): RecordRow {
@@ -53,7 +51,7 @@ export function reportSummary(answer: ReportAnswer | undefined, kind: RecordRow[
 
 export const defaultReportRequest = (): ReportRequest => reportRequestSchema.parse({});
 export const recipeFromRequest = (request: ReportRequest, presentation?: ReportPresentation): ReportRecipe => {
-  const recipe = { schema_version: request.schema_version, filters: request.filters, columns: request.columns, sort: request.sort };
+  const recipe = { schema_version: request.schema_version, filters: request.filters, sort: request.sort };
   return reportRecipeSchema.parse(request.schema_version === 2 ? { ...recipe, presentation: request.presentation ?? presentation, page_size: request.page_size } : recipe);
 };
 export type ReportFailure = { kind: "access" | "version" | "conflict" | "unavailable" | "uncertain" | "failed"; code: string; requestId?: string };
@@ -76,6 +74,8 @@ export type ReportLoad =
 export type ViewLoad = { kind: "idle" | "loading" } | { kind: "ready"; items: SavedReportView[] } | { kind: "failed"; problem: ReportFailure };
 export type ReportOperation = { kind: "idle" | "busy" } | { kind: "failed"; problem: ReportFailure } | { kind: "done" };
 export type ViewOperation = ReportOperation & { command?: ReportViewCommand };
+/** What one view write did: the saved view the server returned, or why it did not land. An unconfirmed write also carries `confirmed`, its outcome once a retry with its key is answered. */
+export type ViewWriteResult = { kind: "done"; view: SavedReportView | null } | { kind: "failed"; problem: ReportFailure; confirmed?: Promise<ViewWriteResult> };
 export type ReportState = Readonly<{ request: ReportRequest; load: ReportLoad; views: ViewLoad; viewOperation: ViewOperation; anchor: string | null; missingAnchor: boolean }>;
 export type ReportingTransport = {
   query: typeof queryBusinessReport; exportPreview: typeof previewRecordsExport; exportFile: typeof downloadRecordsExport;
@@ -92,17 +92,54 @@ export function createBusinessReportController(scope: ReportScope, initial = def
   let viewsVersion = 0;
   let queryAbort: AbortController | undefined;
   const operations = new Set<AbortController>();
+  // View writes run one at a time, in the order asked. A write asked for while another runs waits for it.
+  let viewWrites: Promise<unknown> = Promise.resolve();
+  // Callers of an unconfirmed write wait here by its key. The next answer to that key settles them, and so does the end of this scope.
+  const unconfirmed = new Map<string, { confirmed: Promise<ViewWriteResult>; settle: (result: ViewWriteResult) => void }>();
+  const confirmation = (key: string) => {
+    const waiting = unconfirmed.get(key);
+    if (waiting) return waiting.confirmed;
+    let settle: (result: ViewWriteResult) => void = () => undefined;
+    const confirmed = new Promise<ViewWriteResult>((resolve) => { settle = resolve; });
+    unconfirmed.set(key, { confirmed, settle });
+    return confirmed;
+  };
+  const answer = (key: string, result: ViewWriteResult) => { unconfirmed.get(key)?.settle(result); unconfirmed.delete(key); return result; };
+  const abandonUnconfirmed = (problem: ReportFailure) => { for (const key of [...unconfirmed.keys()]) answer(key, { kind: "failed", problem }); };
   const publish = (patch: Partial<ReportState>) => { state = { ...state, ...patch }; listeners.forEach((listener) => listener()); };
   const abortOperations = () => { queryAbort?.abort(); for (const operation of operations) operation.abort(); operations.clear(); };
   const revoke = (problem: ReportFailure) => {
     generation += 1;
     abortOperations();
     publish({ load: { kind: "failed", problem }, views: { kind: "failed", problem }, viewOperation: { kind: "idle" }, anchor: null });
+    abandonUnconfirmed(problem);
+  };
+  const writeView = async (snapshot: ReportViewCommand, currentGeneration: number): Promise<ViewWriteResult> => {
+    if (currentGeneration !== generation) return { kind: "failed", problem: { kind: "access", code: "business_report_scope_changed" } };
+    // An uncertain write is retried with its own key before any other write runs.
+    if (state.viewOperation.kind === "failed" && state.viewOperation.problem.kind === "uncertain" && state.viewOperation.command?.key !== snapshot.key) return { kind: "failed", problem: state.viewOperation.problem };
+    const abort = new AbortController();
+    operations.add(abort);
+    publish({ viewOperation: { kind: "busy", command: snapshot } });
+    try {
+      const saved = await transport.mutateView(scope, snapshot, abort.signal);
+      if (abort.signal.aborted || currentGeneration !== generation) return { kind: "failed", problem: { kind: "access", code: "business_report_scope_changed" } };
+      const existing = state.views.kind === "ready" ? state.views.items : [];
+      const items = snapshot.kind === "delete" ? existing.filter((view) => view.id !== snapshot.id) : saved ? [...existing.filter((view) => view.id !== saved.id), saved] : existing;
+      publish({ views: { kind: "ready", items }, viewOperation: { kind: "done" } });
+      return answer(snapshot.key, { kind: "done", view: saved });
+    } catch (error) {
+      const problem = reportFailure(error, true);
+      if (abort.signal.aborted || currentGeneration !== generation) return { kind: "failed", problem };
+      if (problem.kind === "access") revoke(problem);
+      else publish({ viewOperation: { kind: "failed", problem, command: snapshot } });
+      return problem.kind === "uncertain" ? { kind: "failed", problem, confirmed: confirmation(snapshot.key) } : answer(snapshot.key, { kind: "failed", problem });
+    } finally { operations.delete(abort); }
   };
   const controller = {
     getSnapshot: () => state,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); },
-    dispose: () => { generation += 1; abortOperations(); },
+    dispose: () => { generation += 1; abortOperations(); abandonUnconfirmed({ kind: "access", code: "business_report_scope_changed" }); },
     revoke: () => revoke({ kind: "access", code: "business_report_scope_changed" }),
     async load(request = state.request): Promise<void> {
       const report = reportRequestSchema.parse(request);
@@ -119,12 +156,9 @@ export function createBusinessReportController(scope: ReportScope, initial = def
         // A page the records no longer have opens the last one that exists.
         const lastPage = Math.max(1, answer.page_count);
         if (report.page > lastPage) return controller.load({ ...state.request, page: lastPage });
-        let request = state.request;
-        if (request.schema_version === 2 && request.presentation) {
-          const presentation = request.presentation;
-          const missing = answer.presentation.order.filter((key) => !presentation.order.includes(key));
-          if (missing.length) request = { ...request, presentation: { ...presentation, order: presentation.order.concat(missing), hidden: Array.from(new Set(presentation.hidden.concat(missing))) } };
-        }
+        // The request's layout becomes the server's upgrade of it, unless the person changed it while this answer was on its way.
+        const sent = report.schema_version === 2 ? report.presentation : undefined;
+        const request = sent && state.request.schema_version === 2 && state.request.presentation === sent ? { ...state.request, presentation: answer.presentation } : state.request;
         publish({ request, load: { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
       } catch (error) {
         if (abort.signal.aborted || version !== queryVersion || currentGeneration !== generation) return;
@@ -164,29 +198,15 @@ export function createBusinessReportController(scope: ReportScope, initial = def
         else publish({ views: { kind: "failed", problem } });
       } finally { operations.delete(abort); }
     },
-    async mutateView(command: ReportViewCommand) {
-      if (state.viewOperation.kind === "busy") return;
-      if (state.viewOperation.kind === "failed" && state.viewOperation.problem.kind === "uncertain" && state.viewOperation.command?.key !== command.key) return;
+    mutateView(command: ReportViewCommand): Promise<ViewWriteResult> {
       // Keep the exact command and key after an uncertain response. Retrying must not create a second write.
       const snapshot = structuredClone(command);
       const currentGeneration = generation;
-      const abort = new AbortController();
-      operations.add(abort);
-      publish({ viewOperation: { kind: "busy", command: snapshot } });
-      try {
-        const saved = await transport.mutateView(scope, snapshot, abort.signal);
-        if (abort.signal.aborted || currentGeneration !== generation) return;
-        const existing = state.views.kind === "ready" ? state.views.items : [];
-        const items = snapshot.kind === "delete" ? existing.filter((view) => view.id !== snapshot.id) : saved ? [...existing.filter((view) => view.id !== saved.id), saved] : existing;
-        publish({ views: { kind: "ready", items }, viewOperation: { kind: "done" } });
-      } catch (error) {
-        if (abort.signal.aborted || currentGeneration !== generation) return;
-        const problem = reportFailure(error, true);
-        if (problem.kind === "access") revoke(problem);
-        else publish({ viewOperation: { kind: "failed", problem, command: snapshot } });
-      } finally { operations.delete(abort); }
+      const write = viewWrites.then(() => writeView(snapshot, currentGeneration));
+      viewWrites = write.catch(() => undefined);
+      return write;
     },
-    retryView: () => state.viewOperation.kind === "failed" && state.viewOperation.problem.kind === "uncertain" && state.viewOperation.command ? controller.mutateView(state.viewOperation.command) : Promise.resolve(),
+    retryView: (): Promise<ViewWriteResult | null> => state.viewOperation.kind === "failed" && state.viewOperation.problem.kind === "uncertain" && state.viewOperation.command ? controller.mutateView(state.viewOperation.command) : Promise.resolve(null),
     openView: (view: SavedReportView) => controller.setRecipe(view.recipe),
   };
   return controller;
@@ -211,6 +231,10 @@ export function writeReportLocation(request: ReportRequest, anchor: string | nul
 export function restoreReportLocation(params: URLSearchParams): { request: ReportRequest; anchor: string | null } {
   try {
     const encoded = params.get("report");
-    return { request: encoded ? reportRequestSchema.parse(JSON.parse(encoded)) : defaultReportRequest(), anchor: params.get("report_row") };
+    if (!encoded) return { request: defaultReportRequest(), anchor: params.get("report_row") };
+    const linked = JSON.parse(encoded);
+    // An old link still names the first table's columns, which nothing reads.
+    if (linked && typeof linked === "object") delete linked.columns;
+    return { request: reportRequestSchema.parse(linked), anchor: params.get("report_row") };
   } catch { return { request: defaultReportRequest(), anchor: null }; }
 }

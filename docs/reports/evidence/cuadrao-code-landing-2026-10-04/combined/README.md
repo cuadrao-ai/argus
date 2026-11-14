@@ -28,17 +28,17 @@ spending highlights, Search recovery and chart-context return.
 
 | Capture | What was inspected |
 | --- | --- |
-| [Unanswered access](access-unanswered-es-light.png) | Retry and sign-out while admission stays closed |
-| [Chart context](context-chart-selection-en.png) | Context chip and retained chart selection |
-| [Balance paging](interactive-paging-balance-es.png) | Period selection and balance meaning |
-| [Month title](story-month-title-es.png) | Selected period heading and spending hierarchy |
-| [Supporting months](story-supporting-months-es.png) | Historical data supporting the insight |
-| [Average](story-history-average-es.png) | Six-month average, category palette and marks |
-| [All highlights](story-all-highlights-es.png) | Highlights presentation |
-| [Distribution](story-distribution-decomposition-es.png) | Selected distribution and decomposition |
-| [Plan search](search-real-plan-es.png) | Search result and destination |
-| [Chat return](search-chat-return-es.png) | Return from an existing conversation to Search |
-| [Empty search](search-no-results-es.png) | No-results recovery |
+| [Unanswered access](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/access-unanswered-es-light.png) | Retry and sign-out while admission stays closed |
+| [Chart context](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/context-chart-selection-en.png) | Context chip and retained chart selection |
+| [Balance paging](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/interactive-paging-balance-es.png) | Period selection and balance meaning |
+| [Month title](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/story-month-title-es.png) | Selected period heading and spending hierarchy |
+| [Supporting months](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/story-supporting-months-es.png) | Historical data supporting the insight |
+| [Average](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/story-history-average-es.png) | Six-month average, category palette and marks |
+| [All highlights](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/story-all-highlights-es.png) | Highlights presentation |
+| [Distribution](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/story-distribution-decomposition-es.png) | Selected distribution and decomposition |
+| [Plan search](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/search-real-plan-es.png) | Search result and destination |
+| [Chat return](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/search-chat-return-es.png) | Return from an existing conversation to Search |
+| [Empty search](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/cuadrao-code-landing-2026-10-04/combined/search-no-results-es.png) | No-results recovery |
 
 An independent reviewer inspected all 11 captures. No new visual regression was
 identified. Some captures show scrolled content under fixed controls; they are

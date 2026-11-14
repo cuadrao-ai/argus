@@ -223,7 +223,7 @@ def test_lo_que_ves_follows_every_filter_and_the_chosen_columns(fake):
     assert [value for _, value, _ in cells[0]] == [
         "Contraparte",
         "Fecha",
-        "Monto",
+        "Total",
         "Notas",
     ]
     assert [[value for _, value, _ in line] for line in cells[1:]] == [
@@ -238,7 +238,7 @@ def test_lo_que_ves_follows_every_filter_and_the_chosen_columns(fake):
         source(*rows), table(request, ("gross_amount",), currencies="all", format="csv")
     )
     lines = list(csv.reader(io.StringIO(every.content.decode("utf-8-sig"))))
-    assert lines[0] == ["Contraparte", "Monto", "Moneda"]
+    assert lines[0] == ["Contraparte", "Total", "Moneda"]
     assert sorted(line[2] for line in lines[1:]) == ["DOP", "USD"]
 
 
@@ -287,17 +287,30 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
         presentation=presentation,
     )
     preview = summarize_export(source(row(fake, family="sale")), request)
-    assert [(column.key, column.shown) for column in preview.table.columns] == [
-        ("counterparty", True),
-        ("note", True),
-        ("date", True),
-        ("gross_amount", True),
-        ("fiscal_number", False),
-        ("itbis_amount", False),
-        ("stage", True),
-        ("attachment", True),
-        ("funding", False),
+    current = [
+        (column.key, column.required, column.shown)
+        for column in preview.table.current.columns
     ]
+    assert current == [
+        ("counterparty", True, True),
+        ("note", False, True),
+        ("date", False, True),
+        ("net_amount", False, True),
+        ("gross_amount", False, True),
+        ("fiscal_number", False, False),
+        ("itbis_amount", False, False),
+        ("stage", False, True),
+        ("attachment", False, True),
+        ("funding", False, False),
+    ]
+    every = [
+        (column.key, column.required, column.shown)
+        for column in preview.table.all.columns
+    ]
+    assert every == [*current[:5], ("currency", True, True), *current[5:]]
+    assert preview.table.all.columns[5].label_key == (
+        "business.transactions.columns.moneda"
+    )
     built = build_file(
         source(row(fake, family="sale")),
         table(request, ("gross_amount", "note"), currencies="current", format="csv"),
@@ -305,11 +318,43 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
     assert next(csv.reader(io.StringIO(built.content.decode("utf-8-sig")))) == [
         "Contraparte",
         "Notas",
-        "Monto",
+        "Total",
     ]
     with pytest.raises(ActionError) as refused:
         build_file(source(), table(request, ("expense_type",), currencies="current"))
     assert refused.value.result.code == "business_export_column_unavailable"
+
+
+def test_a_country_omission_leaves_the_preview_and_the_file(fake, monkeypatch):
+    from argus.domain.business import country
+
+    monkeypatch.setitem(
+        country.COUNTRIES,
+        "DO",
+        country.BusinessCountry("DO", "DOP", frozenset({"funding"})),
+    )
+    request = report(currencies=["DOP"])
+    dominican = replace(source(row(fake)), country="DO")
+    preview = summarize_export(dominican, request)
+    assert "funding" not in [column.key for column in preview.table.current.columns]
+    assert "funding" in [
+        column.key
+        for column in summarize_export(
+            replace(dominican, country="US"), request
+        ).table.current.columns
+    ]
+    with pytest.raises(ActionError) as refused:
+        build_file(dominican, table(request, ("funding",), currencies="current"))
+    assert refused.value.result.code == "business_export_column_unavailable"
+
+
+def test_required_columns_join_the_file_even_when_not_chosen(fake):
+    built = build_file(source(row(fake)), table(report(), ("note",), format="csv"))
+    assert next(csv.reader(io.StringIO(built.content.decode("utf-8-sig")))) == [
+        "Contraparte",
+        "Moneda",
+        "Notas",
+    ]
 
 
 def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
@@ -346,8 +391,8 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     assert [value for _, value, _ in cells[0]] == [
         "Contraparte",
         "Fecha",
-        "Monto",
         "ITBIS",
+        "Total",
         "Estado",
         "Adjunto",
         "Tipo de gasto",
@@ -380,8 +425,8 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     )[1]
     assert csv_line[1:4] == [
         record.report_date.strftime("%d/%m/%Y"),
-        record.gross_amount,
         "18.00",
+        record.gross_amount,
     ]
 
     english = build_file(
@@ -403,13 +448,13 @@ def test_amounts_keep_their_currency_precision_in_both_formats(fake):
     choice = table(request, ("gross_amount", "itbis_amount"), currencies="current")
     cells = xlsx(build_file(source(record), choice).content)
     assert [cell for cell in cells[1][1:]] == [
-        ("n", Decimal("1.234"), "#,##0.000"),
         ("n", Decimal("0.185"), "#,##0.000"),
+        ("n", Decimal("1.234"), "#,##0.000"),
     ]
     written = build_file(
         source(record), choice.model_copy(update={"format": "csv"})
     ).content.decode("utf-8-sig")
-    assert written.splitlines()[1].split(",")[1:] == ["1.234", "0.185"]
+    assert written.splitlines()[1].split(",")[1:] == ["0.185", "1.234"]
 
 
 def test_an_amount_past_excel_precision_stays_exact_text(fake):
@@ -418,8 +463,8 @@ def test_an_amount_past_excel_precision_stays_exact_text(fake):
         report(currencies=["DOP"]), ("gross_amount", "itbis_amount"), currencies="current"
     )
     cells = xlsx(build_file(source(record), choice).content)
-    assert cells[1][1][:2] == ("s", "123456789012345.67")
-    assert cells[1][2] == ("n", Decimal("18"), "#,##0.00")
+    assert cells[1][2][:2] == ("s", "123456789012345.67")
+    assert cells[1][1] == ("n", Decimal("18"), "#,##0.00")
 
 
 def test_formula_like_cells_are_escaped_in_both_formats(fake):
@@ -628,7 +673,9 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
         "Tipo Id",
         "Tipo Bienes y Servicios Comprados",
     ]
-    assert [line[5] for line in written[1:]] == sorted(line[5] for line in lines["606"])
+    assert [(line[5], line[6]) for line in written[1:]] == sorted(
+        (line[5][:6], line[5][6:]) for line in lines["606"]
+    )
     expected = []
     for original in lines["606"]:
         line = list(original)
@@ -636,6 +683,7 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
         line[22] = TOOL_PAYMENTS[int(line[22]) - 1]
         for column in (11, 17):
             line[column] = line[column] or "0"
+        line[5:7] = [line[5][:6], line[5][6:], line[6][:6], line[6][6:]]
         expected.append(line)
     assert sorted(written[1:]) == sorted(expected)
     sales = summarize_export(
@@ -671,7 +719,7 @@ def test_dgii_excel_amounts_are_numbers_and_codes_stay_text():
     line = dict(zip(header, cells[1], strict=True))
     assert line["Tipo Bienes y Servicios Comprados"][0] == "s"
     assert line["Tipo Bienes y Servicios Comprados"][1] in TOOL_CATEGORIES
-    assert line["Fecha Comprobante"][0] == "s"
+    assert line["Fecha Comprobante (AAAAMM)"][0] == "s"
     assert line["Total Monto Facturado"][:1] == ("n",)
     assert line["Total Monto Facturado"][2] == "#,##0.00"
 
@@ -718,7 +766,8 @@ def test_606_tool_values_exact_for_every_choice_and_withholding(fake, format):
         withholding = ("0", "0", "12.34")[(index - 1) % 3]
         expected = {
             "Tipo Bienes y Servicios Comprados": category,
-            "Fecha Comprobante": day,
+            "Fecha Comprobante (AAAAMM)": day[:6],
+            "Fecha Comprobante (DD)": day[6:],
             "Forma de Pago": payment,
             "ITBIS Retenido": withholding,
             "Monto Retención Renta": withholding,
@@ -839,3 +888,21 @@ def test_every_606_code_has_the_exact_export_rendering(
         )
         expected = TOOL_CATEGORIES if field == "category" else TOOL_PAYMENTS
         assert result[label] == expected[int(code) - 1]
+
+
+def test_lo_que_ves_exports_server_net_itbis_and_total_in_table_order(fake):
+    record = row(
+        fake, net_amount="1000.00", itbis_amount="180.00", gross_amount="1280.00"
+    )
+    written = build_file(
+        source(record),
+        table(
+            report(currencies=["DOP"]),
+            ("gross_amount", "net_amount", "itbis_amount"),
+            currencies="current",
+            format="csv",
+        ),
+    ).content.decode("utf-8-sig")
+    header, values = csv.reader(io.StringIO(written))
+    assert header == ["Contraparte", "Monto sin ITBIS", "ITBIS", "Total"]
+    assert values[1:] == ["1000.00", "180.00", "1280.00"]

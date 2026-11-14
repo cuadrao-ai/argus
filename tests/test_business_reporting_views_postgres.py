@@ -34,7 +34,7 @@ def test_private_recipe_survives_reread_and_replay_without_result_cache(actions,
     assert save_view(service.authority, context, command, key) == first
     [saved] = list_views(service.authority, context)
     assert saved.recipe.filters.period.kind == "this_month"
-    assert saved.recipe.columns == ("counterparty", "gross_amount")
+    assert "columns" not in saved.recipe.model_dump()
     assert saved.version == 1
     viewer = viewer_context(service, context, users["other"])
     assert list_views(service.authority, viewer) == ()
@@ -176,9 +176,9 @@ def test_saved_v2_layout_drops_removed_columns_and_keeps_review_stages(actions):
             ),
         )
     [view] = list_views(service.authority, context)
-    assert view.recipe.presentation.order == tuple(
-        key for key in old_order if key not in {"currency", "family"}
-    )
+    expected_order = [key for key in old_order if key not in {"currency", "family"}]
+    expected_order.insert(expected_order.index("gross_amount"), "net_amount")
+    assert view.recipe.presentation.order == tuple(expected_order)
     assert view.recipe.presentation.hidden == ("note",)
     assert view.recipe.presentation.density == 56
     assert view.recipe.filters.review_stages == ("ready_for_export", "exported")

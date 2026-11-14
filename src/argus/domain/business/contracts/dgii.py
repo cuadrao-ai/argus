@@ -61,6 +61,7 @@ class Declaration(BaseModel):
     selective_tax: Money | None
     other_taxes: Money | None
     legal_tip: Money | None
+    itbis: Money | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 ExpenseType = Literal["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"]
@@ -103,6 +104,7 @@ class PurchaseReview(BaseModel):
     selective_tax: Money | None = None
     other_taxes: Money | None = None
     legal_tip: Money | None = None
+    itbis: Money | None = None
     category: ExpenseType | None = None
     category_suggested: bool = False
     paid_on: date | None = None

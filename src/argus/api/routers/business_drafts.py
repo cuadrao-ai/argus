@@ -4,6 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, Request, Response
+from loguru import logger
 
 from argus.api.business_drafts import (
     DraftContext,
@@ -20,13 +21,16 @@ from argus.domain.business.contracts.actions import (
     ApproveRefund,
     DecideFiscalInclusion,
     MarkPersonal,
+    OutcomeUnknown,
     Refused,
     ReopenDraft,
     ResolveDuplicate,
     ReviewDraft,
     SettleRemainder,
 )
-from argus.domain.business.contracts.dossier import BusinessDossier
+from argus.domain.business.contracts.amounts import AmountsPreview, AmountsPreviewRequest
+from argus.domain.business.contracts.deletion import DocumentActionResult, DocumentCommand
+from argus.domain.business.contracts.dossier import BusinessDossier, RecordedApproval
 from argus.domain.business.contracts.listos import ApproveListos, ListosApproved
 
 router = APIRouter(
@@ -38,6 +42,11 @@ router = APIRouter(
         }
     },
 )
+
+_ACTION_CONFLICT = {
+    "description": "`stale_version` or `idempotency_conflict`; an uncertain action"
+    " returns 409 with its existing outcome code."
+}
 
 
 def _key(request: Request, value: str | None) -> str:
@@ -77,8 +86,9 @@ def _email_sender_blocks_approval(request, context, draft_id) -> bool:
 
 def _run(request, response, context, draft_id, command=None, key=None):
     response.headers.update(NO_STORE)
+    is_approval = isinstance(command, (ApproveExpense, ApproveIncome, ApproveRefund))
     try:
-        if isinstance(command, (ApproveExpense, ApproveIncome, ApproveRefund)):
+        if is_approval:
             if _email_sender_blocks_approval(request, context, draft_id):
                 raise ActionError("permission_denied", "email_sender_unauthorized")
         actor = context.for_draft(draft_id)
@@ -104,13 +114,42 @@ def _run(request, response, context, draft_id, command=None, key=None):
             result = method(actor, draft_id, command, key)
             if isinstance(result, Refused):
                 raise action_problem(request, result)
+            if isinstance(result, OutcomeUnknown):
+                raise problem(
+                    request,
+                    status_code=409,
+                    code=result.code,
+                    title="Action outcome unknown",
+                    detail=result.code,
+                    headers=NO_STORE,
+                )
         dossier = context.service.dossier(actor, draft_id)
+        if is_approval and (
+            not isinstance(dossier.approval_result, RecordedApproval)
+            or dossier.approval_result.activity_id != result.activity_id
+        ):
+            raise ActionError("stale_version", "stale_version")
         return with_source_channels(
             dossier,
             space_id=str(actor.actor.space_id),
             owner_id=actor.owner_id,
             service=context.service,
         )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
+
+
+@router.post("/{draft_id}/amounts-preview", response_model=AmountsPreview)
+def preview_amounts(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    body: AmountsPreviewRequest,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+):
+    response.headers.update(NO_STORE)
+    try:
+        return context.service.preview_amounts(context.for_draft(draft_id), draft_id, body)
     except ActionError as error:
         raise action_problem(request, error.result) from None
 
@@ -125,7 +164,11 @@ def get_dossier(
     return _run(request, response, context, draft_id)
 
 
-@router.patch("/{draft_id}/review", response_model=BusinessDossier)
+@router.patch(
+    "/{draft_id}/review",
+    response_model=BusinessDossier,
+    responses={409: _ACTION_CONFLICT},
+)
 def review_draft(
     request: Request,
     response: Response,
@@ -139,7 +182,11 @@ def review_draft(
     )
 
 
-@router.post("/{draft_id}/duplicate-resolution", response_model=BusinessDossier)
+@router.post(
+    "/{draft_id}/duplicate-resolution",
+    response_model=BusinessDossier,
+    responses={409: _ACTION_CONFLICT},
+)
 def resolve_duplicate(
     request: Request,
     response: Response,
@@ -153,7 +200,11 @@ def resolve_duplicate(
     )
 
 
-@router.post("/{draft_id}/personal", response_model=BusinessDossier)
+@router.post(
+    "/{draft_id}/personal",
+    response_model=BusinessDossier,
+    responses={409: _ACTION_CONFLICT},
+)
 def mark_personal(
     request: Request,
     response: Response,
@@ -170,7 +221,11 @@ def mark_personal(
     )
 
 
-@router.post("/{draft_id}/fiscal-inclusion", response_model=BusinessDossier)
+@router.post(
+    "/{draft_id}/fiscal-inclusion",
+    response_model=BusinessDossier,
+    responses={409: _ACTION_CONFLICT},
+)
 def decide_fiscal_inclusion(
     request: Request,
     response: Response,
@@ -187,12 +242,24 @@ def decide_fiscal_inclusion(
     )
 
 
-@router.post("/{draft_id}/approve", response_model=BusinessDossier)
+@router.post(
+    "/{draft_id}/approve",
+    response_model=BusinessDossier,
+    responses={
+        409: {
+            "description": "`stale_version` or `idempotency_conflict`; an uncertain approval"
+            " returns 409 with its existing outcome code. A historical approval whose"
+            " recorded activity is absent or changed returns `stale_version`."
+        }
+    },
+)
 def approve_draft(
     request: Request,
     response: Response,
     draft_id: UUID,
-    body: Annotated[ApproveExpense | ApproveIncome | ApproveRefund, Body(discriminator="action")],
+    body: Annotated[
+        ApproveExpense | ApproveIncome | ApproveRefund, Body(discriminator="action")
+    ],
     context: Annotated[DraftContext, Depends(require_drafts)],
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
@@ -231,7 +298,7 @@ def approve_listos(
             "description": "`business_permission_denied` without approve permission;"
             " `business_human_command_required` for a non-person actor."
         },
-        409: {"description": "`stale_version` or `idempotency_conflict`."},
+        409: _ACTION_CONFLICT,
         422: {
             "description": "`business_draft_not_recorded` before approval;"
             " `business_remainder_none` when nothing is left."
@@ -262,7 +329,7 @@ def settle_remainder(
             "description": "`business_permission_denied` without approve permission;"
             " `business_human_command_required` for a non-person actor."
         },
-        409: {"description": "`stale_version` or `idempotency_conflict`."},
+        409: _ACTION_CONFLICT,
         422: {
             "description": "`business_draft_not_recorded` on a draft that is not approved;"
             " `business_record_matched` while a bank line is matched to the record;"
@@ -285,4 +352,153 @@ def reopen_draft(
 
     return _run(
         request, response, context, draft_id, body, _key(request, idempotency_key)
+    )
+
+
+def _document_action(
+    request: Request,
+    response: Response,
+    context: DraftContext,
+    draft_id: UUID,
+    key: str | None,
+    action: str,
+) -> DocumentActionResult:
+    from argus.domain.business.actions.document_deletion import change_document
+
+    response.headers.update(NO_STORE)
+    try:
+        result = change_document(
+            context.service,
+            context.for_space(request),
+            DocumentCommand(action=action, document_id=draft_id),
+            _key(request, key),
+        )
+        if isinstance(result, Refused):
+            raise action_problem(request, result)
+        if isinstance(result, OutcomeUnknown):
+            raise problem(
+                request,
+                status_code=409,
+                code=result.code,
+                title="Document action outcome unknown",
+                detail=result.code,
+                headers=NO_STORE,
+            )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
+    if action == "purge_document":
+        _erase_now(context)
+    return DocumentActionResult(
+        document_id=draft_id, deleted=action != "restore_document"
+    )
+
+
+def _erase_now(context: DraftContext) -> None:
+    """The stored objects go inside the request when Storage answers; the
+    documents worker's next expiry run finishes what is left."""
+    from argus.api.documents import documents_service
+    from argus.domain.business.actions.document_purge import erase
+    from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
+
+    store = getattr(documents_service(), "store", None)
+    try:
+        erase(
+            context.service.authority.pool,
+            store.objects if isinstance(store, PostgresDocumentStore) else None,
+            UUID(context.space_id),
+        )
+    except Exception as error:
+        logger.warning(
+            "Document erase failed; the expiry run retries",
+            failure_mode=type(error).__name__,
+        )
+
+
+@router.post(
+    "/{draft_id}/delete",
+    response_model=DocumentActionResult,
+    responses={
+        403: {
+            "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
+        },
+        404: {
+            "description": "`business_record_not_found` outside the selected Business; `business_document_purged` once the document was purged."
+        },
+        409: {
+            "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
+        },
+        422: {
+            "description": "`business_document_not_open` for an approved or set-aside document; `business_document_reading` while being read; `business_document_ambiguous` for shared attachments."
+        },
+    },
+)
+def delete_document(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> DocumentActionResult:
+    return _document_action(
+        request, response, context, draft_id, idempotency_key, "delete_document"
+    )
+
+
+@router.post(
+    "/{draft_id}/restore",
+    response_model=DocumentActionResult,
+    responses={
+        403: {
+            "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
+        },
+        404: {
+            "description": "`business_record_not_found` outside the selected Business; `business_document_purged` once the document was purged."
+        },
+        409: {
+            "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
+        },
+        422: {
+            "description": "`business_document_not_deleted` without a deletion marker; `business_document_ambiguous` for shared attachments."
+        },
+    },
+)
+def restore_document(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> DocumentActionResult:
+    return _document_action(
+        request, response, context, draft_id, idempotency_key, "restore_document"
+    )
+
+
+@router.post(
+    "/{draft_id}/purge",
+    response_model=DocumentActionResult,
+    responses={
+        403: {
+            "description": "`business_permission_denied` without approve permission; `business_human_command_required` for a non-person actor."
+        },
+        404: {
+            "description": "`business_record_not_found` outside the selected Business; `business_document_purged` once the document was purged."
+        },
+        409: {
+            "description": "`business_action_conflict` for a reused key; `business_action_unsettled` while the original result is unknown."
+        },
+        422: {
+            "description": "`business_document_not_deleted` outside Eliminados; `business_document_ambiguous` for shared attachments; `business_document_purge_busy` while the Business changes custody."
+        },
+    },
+)
+def purge_document(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> DocumentActionResult:
+    return _document_action(
+        request, response, context, draft_id, idempotency_key, "purge_document"
     )

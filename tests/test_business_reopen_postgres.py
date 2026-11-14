@@ -122,7 +122,6 @@ def _txt_lines(files: dict[str, str]) -> list[str]:
     return files["606"].strip().split("\r\n")[1:] if "606" in files else []
 
 
-@pytest.mark.usefixtures("activity_on")
 def test_approve_export_reopen_fix_reapprove_export_counts_once(world) -> None:  # noqa: ANN001, F811
     """The full cycle on one purchase whose supplier RNC was wrong: the first
     TXT carries the wrong RNC, the reopened record leaves every read while it
@@ -368,7 +367,10 @@ def test_payment_status_and_marks_after_a_reopen(world) -> None:  # noqa: ANN001
     reopened = _reopen(world, draft, marked.json()["version"]).json()
     assert reopened["personal"] is True
     sibling, _ = _reviewed(world, "expense", "B0100000036")
-    assert _dossier(world, sibling)["expense_type_suggestion"] == "04"
+    assert _dossier(world, sibling)["declaration_suggestions"]["category"] == {
+        "value": "04",
+        "source": "last_choice",
+    }
 
     unmarked = world.client.post(
         f"{API}/business/drafts/{draft}/personal",

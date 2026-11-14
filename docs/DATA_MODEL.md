@@ -588,7 +588,10 @@ queue, scheduler, or general mail system.
 
 # 7. conversations
 
-Represents an isolated chat thread. Each conversation represents a single investing "idea journey."
+Stores conversation history. Personal conversation API access is retired under
+#2001; existing Personal rows are retained, not migrated or deleted. Business
+conversation routes still read this table and `messages`. This retirement does
+not make either table unused.
 
 ### Fields
 - `id`: `uuid` (Primary Key)
@@ -1358,9 +1361,10 @@ service role server-side; service-role grants do not relax frontend/client RLS.
 
 P1 defines the private-alpha observability envelope in code. B3 measurement
 slice 3 adds the first durable internal cost ledger while keeping product
-analytics and eval-result persistence separate. Wave 1 (SPEC 0, package 0C-1)
-replaces the earlier product and guest funnel events with one closed analytics
-registry: PostHog receives only the events below, each under its own name.
+analytics and eval-result persistence separate. Wave 1 (SPEC 0, package 0C-1) replaced the earlier product and guest funnel
+events with one closed analytics registry. The wave 1 names are no longer
+registered. The sink receives only the Business events below, each under its
+own name.
 
 Current behavior:
 - `argus_observability_event/v1` is the canonical event-envelope schema;
@@ -1385,23 +1389,12 @@ Current behavior:
 
 Analytics events. Each is one Pydantic model (`extra="forbid"`, strict) whose
 fields are exactly the properties listed. Every field is a literal value, a
-boolean, a bounded integer, a calculation name checked against the catalog,
-`cohort`, the hashed Business id `business_hash`, or a bounded tuple of
-literal values. `tests/test_analytics_events.py`
-fails if any field could hold free text or a money-formatted value (A4).
+boolean, a bounded integer, the hashed Business id `business_hash`, or a
+bounded tuple of literal values. `tests/test_analytics_events.py`
+fails if any field could hold free text or a money-formatted value.
 
-| Event | Properties | Fires (package) |
+| Event | Properties | Fires |
 | --- | --- | --- |
-| `first_answer_shown` | `account_kind`: `guest` or `signed_in`; `chip_audience`: `everyday`, `practitioner`, or `none`; `language`: `en` or `es-419`; `cohort` for guests with a stored cohort only | first completed answer per subject (0C-3) |
-| `signed_in` | `signup`: `new` or `returning`; `trigger`: `save`, `goal`, `checklist`, or `other`; `guest_id_hash` only when the account came from a guest; `cohort` when the account has one | every sign-up and sign-in (0C-4) |
-| `card_saved` | `calculator`: a registered calculation name or `backtest` | saving a card (0C-4) |
-| `goal_created` | `goal_type`: `savings` | registered; fires in stage 2 |
-| `checklist_step_completed` | `step`: `1`, `2`, or `3` | registered; fires in stage 2 |
-| `reminders_opted_in`, `reminders_opted_out` | `channel`: `email` or `push` | registered; fire in stage 3 |
-| `session_started` | `days_since_signup`: integer, 0 to 36500, computed on the server; `cohort` when the account has one | once per browser session, signed-in only (0C-5) |
-| `installed_app_opened` | none | standalone launch, once per session (0C-5) |
-| `landing_viewed` | `language`: `en` or `es-419`; `cohort` for guests with a stored cohort only | once per landing view (0C-5) |
-| `receipt_shared` | `calculator`: a registered calculation name, `backtest`, `multiple`, or `none` | a real share-link insert (0C-8) |
 | `business_document_received` | `channel`: `upload`, `note`, `email`, or `whatsapp`; `file_type`: an extension `SOURCE_MEDIA_TYPES` names, absent for a typed note; `page_count`: `1` for an image, absent when not known before the read; `size_bucket`: `under_100kb`, `100kb_to_1mb`, `1mb_to_5mb`, or `5mb_or_more` | a new Business document is saved; a repeat of the same bytes is not counted |
 | `business_document_read` | `result`: `read`, `failed`, or `unsure`; `failure_reason`: a receipt `Attention` value (for example `ai_unavailable`, `interrupted`, `unreadable`, `not_a_receipt`, `check_details`), absent when `read`; `latency_ms`: 0 to 3600000; `model_tier`: an OpenRouter model tier; `input_tokens`, `output_tokens`: 0 to 10000000; `cost_micro_usd`: 0 to 100000000 | a read that reached the model settles, once per provider-admitted attempt |
 | `business_document_needs_review` | `reason_codes`: one or more `BandejaReason` values, in the Listos rule's order | a read leaves a draft that is not Listos, or the model's answer cannot become a draft |
@@ -1432,29 +1425,24 @@ fails if any field could hold free text or a money-formatted value (A4).
   function and line number, and `$process_person_profile = false`. The
   exception message, local variables, request bodies and headers are never
   read. A refusal the Business rules raise during a read is not an exception.
-- `cohort` is the invite cohort code, `^[a-z]{2,12}-[a-z0-9]{4,8}$` (for
-  example `piloto-7kq2`). The pattern is enforced by the model.
-- `calculator` is checked when the event is validated against the names
-  `get_calculation_declarations()` returns, plus the listed fixed values. The
-  calculation catalog is the only owner of that list; a new calculation is
-  accepted without editing the analytics registry.
 - Technical properties, sent with every event and nothing else besides the
   event's own properties: `$process_person_profile` (always `false`),
   `schema_version`, `event_id`, `environment`, and `internal_account`
   (a boolean every caller must state; the sink refuses an envelope without one,
-  and any technical value the registry did not set). `distinct_id` is `actor_hash_for_user(<user id>)`:
-  the account id for signed-in users, the guest user id for guests.
-  `guest_id_hash` is the same hash of the guest user id, so a guest's events
-  and the account's `signed_in` join without person profiles or aliasing.
+  and any technical value the registry did not set). `distinct_id` is `actor_hash_for_user(<user id>)`.
 - Saved-query filter (SPEC 0, 0C-6): `environment = production` and
-  `internal_account = false`, broken down by `cohort`.
-- Retired: `evidence_capture`, `decision_capture`, `recall_usage`,
+  `internal_account = false`.
+- Retired, and not in the registry: `first_answer_shown`, `signed_in`,
+  `card_saved`, `goal_created`, `checklist_step_completed`,
+  `reminders_opted_in`, `reminders_opted_out`, `session_started`,
+  `installed_app_opened`, `landing_viewed`, `receipt_shared`,
+  `evidence_capture`, `decision_capture`, `recall_usage`,
   `continuity_mismatch`, `compare_started`, `next_experiments_offered`,
   `next_experiment_selected`, `eval_readiness`, the `receipt_*` funnel,
   `account_registration_completed`, every guest funnel event, and the research
-  settlement event no longer reach PostHog. Research work kind and outcome stay
+  settlement event. Research work kind and outcome stay
   on the cost ledger (`capability_class`). The guest funnel milestone claim
-  table stays and is reused by `first_answer_shown`.
+  table stays. No current analytics event reads it.
 
 Deferred durable surfaces:
 - Eval run/case result persistence.
@@ -2376,8 +2364,8 @@ profile owner. This is intentionally separate from `usage_counters`, whose
 anti-abuse ceiling (`guest_compute_turns`, one visitor-keyed row and one
 `session:<guest user id>` row, claimed atomically at turn start) and the
 signed-in compute ceiling (`account_compute_turns`, keyed on
-`user:<account id>`), which are not allowances and are never projected by
-`GET /me/usage`. Signed-in research uses the same `user:<account id>`
+`user:<account id>`), which are not allowances and were never projected by
+the retired `GET /me/usage`. Signed-in research uses the same `user:<account id>`
 subject on `research_searches`.
 
 ### Fields
@@ -2426,7 +2414,7 @@ subject on `research_searches`.
   UTC day. Renewing the temporary workspace does not reset that allowance.
 - A signed-in account receives 15 provider-backed research questions per
   UTC day (`ARGUS_REGISTERED_DAILY_RESEARCH_CEILING`), keyed on
-  `user:<account id>` in the same table. `GET /me/usage` does not project
+  `user:<account id>` in the same table. The retired `GET /me/usage` did not project
   that row.
 - Every signed-in or guest provider attempt also draws on the shared
   `global:research` daily row. Its ceiling is configured by
@@ -2657,6 +2645,17 @@ Every user-owned table must enforce strict Row Level Security (RLS).
   plus `UPDATE (avatar_theme, country, currency_override, preferred_name)` on
   `profiles` (`20261005090000_explicit_client_grants.sql`). The backend writes
   these tables with the service role.
+
+### Retired investing context packets (#2001)
+
+`context_packets` and `run_context_packets` are retained legacy investing storage.
+No mounted product path reads these packets or attaches them to a run. The
+remaining gateway methods are compatibility code, not a current feature. This
+retirement changes no tables, rows, grants or migrations.
+
+Conversation, message, lifecycle, read-state and saved-result tables are not
+unread: retained Business history and search still use their scoped projections.
+Their ownership, security and read contracts remain in force.
 
 ### Chat-turn lifecycle
 - `chat_turn_lifecycles` grants authenticated owners `SELECT` only. No client
@@ -3514,12 +3513,81 @@ cascade preference metadata only. They neither own nor reference financial rows,
 original objects or custody state, and do not enable account deletion. Synthetic
 PostgreSQL view, conflict, revocation and client-grant tests prove this boundary.
 
+### Business document deletion actions
+
+Migration `20261112221308_business_document_delete_actions.sql` extends
+`business_action_receipts_unplanned_command` with `delete_document` and
+`restore_document`, preserving every previously allowed action. The new
+`business_document_delete_human_commands` check requires both commands to have
+`actor.actor_kind = member`, no `turn_key`, and no `action_index`. They use the
+existing action-key ledger and approve permission. The migration changes only
+these constraints, adds no columns or tables, and changes no data. Hosted
+application remains a separate deployment step.
+
+Deletion state has one owner. For a linked draft it is
+`financial_import_events.state = dismissed` together with
+`financial_import_events.resolution.deleted`. For a receipt without a draft,
+it is `financial_document_extractions.draft.status = dismissed` together with
+`financial_document_extractions.draft.resolution.deleted`. Receipt lists and
+counts already load that document JSON. A linked draft does not copy its marker
+onto the receipt. A dismissed item without this marker is not deleted.
+
+The marker holds `{actor: {actor_id, display_name}, at, key, previous_state}`.
+The actor uses the existing account-deletion identity shape, so departure replaces
+its ID with the Business alias and its name with `Exmiembro`. Delete and restore
+action receipts keep the existing `ActorProvenance` snapshot; restore removes the
+deleted marker.
+`previous_state` holds the original `state` and Bandeja `group` (`attention`
+or `listo`). A receipt with several generic, unapproved read candidates keeps
+one marker on its document JSON. Its optional `previous_state.events` maps
+candidate IDs to their prior review states. Delete dismisses those open
+candidates in the same transaction without copying the marker onto them.
+Restore removes the marker and restores those states. A receipt with an
+approved or accepting candidate cannot be deleted. The command
+ledger retains who deleted or restored the document and when. Original bytes,
+source links, facts and revisions remain in place until the purge below.
+Deletion changes no financial records, totals or exports.
+
+### Business document purge
+
+Migration `20261113091746_business_document_purge.sql` adds `purge_document`
+to `business_action_receipts_unplanned_command` and to the person-only
+`business_document_delete_human_commands` check. It adds
+`argus_private.business_document_purge_marked(space)`. The evidence guard
+`business_immutable_evidence` now also accepts a delete of
+`business_sources` or `business_draft_revisions` while that transaction-local,
+Postgres-only mark names the row's Business. Updates stay refused.
+
+`argus_private.business_document_purges` holds one row per purged document:
+`space_id` (cascade with the Business), `document_ids` (the draft, candidate
+and upload ids the document answered to), `reason` (`owner` or `expiry`),
+`purged_at`, and `pending_objects` (stored paths and legacy upload prefixes
+still to erase). It holds no name, amount, file name or content. Row-level
+security is on with no policy, and API roles have no schema access. A Business
+purge copies every pending path and upload prefix into its own object plan in
+the transaction that removes the space, then erases them: a path when no live
+document or custody copy names it, a prefix with all objects under it.
+
+The 7-day window is `PURGE_AFTER` in the deletion contract; the marker `at`
+is its one stored fact. Partial indexes `financial_import_events_deleted_idx`
+and `financial_document_extractions_deleted_idx` cover only rows with a
+deletion marker, so the hourly expiry query reads deleted documents only.
+
+A purge runs in one transaction under the owner lock. It writes the purge row
+first, then deletes the drafts, the draft's own message sources and the upload
+connections. Cascades remove revisions, source links, questions,
+observations, reads and read states. It removes custody object rows that
+recorded finished copies of the same paths. The erase then removes each path no
+live document or custody copy still references, under the owner's stored-object
+lock, and takes it off `pending_objects`.
+
 ### Business record annotations and version-two preferences
 
 The additive `20261026095000_registros_preferences_annotations.sql` migration
 allows recipe schema versions 1 and 2 in the existing private saved-view table.
 Version 2 stores presentation order/hidden columns/density and page size; neither
-version stores result money or cached rows. Existing RLS, person/Business scope,
+version stores result money or cached rows. New writes no longer store the first
+table's `columns` list; a stored one stays in the row and is dropped when read. Existing RLS, person/Business scope,
 FKs, client privilege denial and deletion behavior remain unchanged.
 
 Current editable text is `financial_import_events.resolution.current_note`.
@@ -3816,6 +3884,16 @@ retain immutable typed declaration snapshots alongside the existing facts,
 actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
+
+Montos adds `facts.net_amount` and `facts.legal_tip` to the existing resolution
+and immutable revision JSON. These are provenance-bearing facts: read subtotal
+or human net edit, and read service charge with tip as an absence-only fallback.
+Gross `facts.amount` and recorded money are unchanged. The existing declaration
+JSON may carry a fiscal ITBIS override. `resolution.business.fiscal_overrides`
+records which fields no longer inherit from Montos; null denotes older records
+whose override state must be interpreted from their saved declaration. No table,
+column, migration, or backfill is added. The review action receipt records every
+edit and restore under the existing version, grant and idempotency checks.
 
 Migration `20261110000127_business_legal_name.sql` adds the Business's legal name
 (razón social) to the same `spaces` row: `business_legal_name` (1 to 250 characters,

@@ -37,8 +37,9 @@ Layout: `src/argus/api/` API, `src/argus/domain/business/` Business domain,
 packages with no personal app, `supabase/migrations/`,
 `tests/` (with `tests/evals/`), `scripts/` checks and ops tools, `.github/` CI and setup.
 
-`src/argus/agent_runtime/business/` is live. WhatsApp uses its `BusinessTurnRunner`.
-The interpreter and model-facing text rules below apply to it.
+`src/argus/agent_runtime/business/` serves WhatsApp intake through its
+`BusinessTurnRunner`. Preserve its Business interpretation boundary and measured
+model-facing text; it is not the retired investing chat.
 
 ## Setup and run
 
@@ -58,6 +59,7 @@ The interpreter and model-facing text rules below apply to it.
 ```bash
 poetry run ruff check src tests workflows scripts
 poetry run python scripts/check_modularity_budget.py
+python scripts/check_cross_folder_links.py
 poetry run pytest tests -q --no-cov
 python scripts/check_config_credentials.py
 python .agent/scripts/ownership/verify_branch_ownership.py
@@ -67,7 +69,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - When changing the remaining runtime, use the hermetic chat sweep.
   If it takes minutes rather than seconds, stop and check for a leaked live path:
-  `OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
+  `OPENROUTER_API_KEY= CUADRAO_OPENROUTER_API_KEY_DEV= CUADRAO_OPENROUTER_API_KEY_STG= CUADRAO_OPENROUTER_API_KEY_PROD= CUADRAO_PROD_OPENROUTER_API_KEY= CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY= ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture poetry run pytest tests/agent_runtime tests/test_spine_guardrails.py -q --no-cov`
 - Postgres tests need `ARGUS_DISPOSABLE_DATABASE_URL` on a throwaway local DB, never staging/prod.
 - Evals: read the Test Tiers in `tests/evals/README.md`. Use the mocked harness for
   runtime changes. Docs-only PRs use No Eval under `.github/pull_request_template.md`.
@@ -79,14 +81,16 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 
 - One owner per fact. Ask of every change who else holds this fact and what forces
   them to agree. Derive from one source; never keep two copies in sync.
-- While `src/argus/agent_runtime/llm_interpreter.py` remains, preserve its
-  interpretation boundary. Do not add regex, phrase lists or language gates in
-  front of it. Code checks facts after interpretation. Any layer that patches a
-  weak model read logs when it fires. This rule does not restore the old investing chat to product scope.
-- Model-facing text rules still apply while the interpreter code exists.
-  Prompt builders and `Field(description=...)` are fingerprinted by `tests/test_interpreter_prompt_freeze.py`. Changing them needs a
-  live scorecard under `docs/reports/evidence/`, no regression against the one named
-  in `.agent/interpreter_prompt_fingerprint.json`, and a regenerated fingerprint.
+- A fact used by more than one of the API, app and marketing site lives only in `shared/`, and each one lists it as a dependency. Never copy files between those folders or read another one's files. scripts/check_cross_folder_links.py enforces this.
+- Preserve the Business interpreter's WhatsApp intake boundary. Do not add regex,
+  phrase lists or language gates ahead of interpretation; code checks facts after
+  interpretation, and any layer that patches a weak model read logs when it fires.
+- Keep the Business and document-extraction entries protected by
+  `tests/test_interpreter_prompt_freeze.py`. Changes to their measured prompt
+  builders or `Field(description=...)` need the affected scope's live measurement,
+  no regression against its recorded evidence, and an updated fingerprint in
+  `.agent/interpreter_prompt_fingerprint.json`. Unchanged scopes keep their hashes
+  and evidence. Retired investing prompt rules do not restore investing chat.
 - The backend owns truth; the frontend renders its state and never invents progress,
   totals, statuses or options. Money is exact. Business approval is the owner's alone.
 - A schema change updates `docs/API_CONTRACT.md` and `docs/api/openapi.yaml` in the

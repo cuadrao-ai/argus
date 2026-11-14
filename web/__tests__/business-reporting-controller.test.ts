@@ -4,7 +4,8 @@ import { businessReportRow, createBusinessReportController, defaultReportRequest
 import type { ReportAnswer, ReportRequest, ReportViewCommand, SavedReportView } from "@/lib/business-reports-api";
 import { reportRequestSchema } from "@/lib/business-reports-api";
 
-const answer = (request: ReportRequest, count = 125): ReportAnswer => ({ ...recordedReportAnswer, items: [], matching_count: count, page: request.page, page_size: request.page_size, page_count: Math.ceil(count / request.page_size), totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
+// Like the server, the answer returns the request's own layout when it sends one.
+const answer = (request: ReportRequest, count = 125): ReportAnswer => ({ ...recordedReportAnswer, presentation: request.schema_version === 2 && request.presentation ? request.presentation : recordedReportAnswer.presentation, items: [], matching_count: count, page: request.page, page_size: request.page_size, page_count: Math.ceil(count / request.page_size), totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable"] });
 const scope = { userId: "person", businessId: "business-a", grantId: null };
 const problem = (status: number, code: string) => Object.assign(new Error(code), { status, code });
 const transport = (overrides: Partial<ReportingTransport> = {}): ReportingTransport => ({ query: async (_scope, request) => answer(request), exportPreview: async () => { throw new Error("unused"); }, exportFile: async () => { throw new Error("unused"); }, listViews: async () => [], mutateView: async () => null, ...overrides });
@@ -66,23 +67,22 @@ describe("Business report controller", () => {
     const updated = controller.getSnapshot().request;
     expect(updated.schema_version === 2 && updated.presentation?.density).toBe(56);
   });
-  test.each([{ known: [] }, { known: ["fiscal_number"] }] as const)("saved layouts append missing server columns hidden and retain later edits: %j", async ({ known }) => {
+  test("an old link missing the net amount renders the server's layout and keeps later edits", async () => {
     const original = recordedReportAnswer.presentation;
-    const oldOrder = original.order.filter((key) => key !== "fiscal_number" && key !== "itbis_amount");
-    const presentation = { order: [oldOrder[0], ...oldOrder.slice(1).reverse(), ...known], hidden: ["date" as const, "attachment" as const], density: 40 as const };
-    const request = reportRequestSchema.parse({ schema_version: 2, presentation });
-    const serverOrder = [...oldOrder, "itbis_amount" as const, "fiscal_number" as const];
+    const linked = { order: original.order.filter((key) => key !== "net_amount"), hidden: ["attachment"], density: 40 as const };
+    const request = reportRequestSchema.parse({ schema_version: 2, presentation: linked });
+    const order = [...linked.order];
+    order.splice(order.indexOf("gross_amount"), 0, "net_amount");
+    const upgraded = { ...linked, order };
     const pending = deferred<ReportAnswer>();
     let reads = 0;
-    const controller = createBusinessReportController(scope, undefined, transport({ query: async (_scope, query) => ++reads === 1 ? { ...answer(query), presentation: { ...original, order: serverOrder } } : pending.promise }));
-    await controller.openView({ id: "old", name: "Old layout", recipe: recipeFromRequest(request), version: 1, created_at: "now", updated_at: "now" });
-    const missing = serverOrder.filter((key) => !presentation.order.includes(key));
-    const reconciled = { ...presentation, order: [...presentation.order, ...missing], hidden: [...presentation.hidden, ...missing] };
-    expect(recipeFromRequest(controller.getSnapshot().request)).toMatchObject({ presentation: reconciled });
+    const controller = createBusinessReportController(scope, request, transport({ query: async (_scope, query) => ++reads === 1 ? { ...answer(query), presentation: upgraded } : pending.promise }));
+    await controller.load();
+    expect(recipeFromRequest(controller.getSnapshot().request)).toMatchObject({ presentation: upgraded });
     const refresh = controller.refresh();
-    const edited = { order: [reconciled.order[0], ...reconciled.order.slice(1).reverse()], hidden: ["attachment" as const], density: 56 as const };
+    const edited = { order: [upgraded.order[0], ...upgraded.order.slice(1).reverse()], hidden: ["attachment"], density: 56 as const };
     controller.setPresentation(edited);
-    pending.resolve({ ...answer(request), presentation: reconciled });
+    pending.resolve({ ...answer(request), presentation: upgraded });
     await refresh;
     expect(recipeFromRequest(controller.getSnapshot().request)).toMatchObject({ presentation: edited });
     controller.dispose();

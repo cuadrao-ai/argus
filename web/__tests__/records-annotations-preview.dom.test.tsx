@@ -146,9 +146,9 @@ test("note and attachment keyboard actions do not open the dossier, dates/money/
   await page.key(page.attachment(), "Enter"); assert.equal(page.calls.opens, 0);
   await page.click(page.note()); await page.type("Keep"); await page.click(page.button("Guardar"));
   const row = page.host.querySelector('[data-record-key="gasto:exp-gas"]')!;
-  assert.equal(row.querySelector('[data-col="fecha"]')!.textContent, "25 oct 2026");
-  assert.equal(row.querySelector('[data-col="monto"]')!.textContent, "9,007,199,254,740,993.01");
-  assert.ok(row.querySelector('[data-col="monto"] .cuadrao-amount'));
+  assert.equal(row.querySelector('[data-col="date"]')!.textContent, "25 oct 2026");
+  assert.equal(row.querySelector('[data-col="gross_amount"]')!.textContent, "9,007,199,254,740,993.01");
+  assert.ok(row.querySelector('[data-col="gross_amount"] .cuadrao-amount'));
   assert.equal(row.querySelector('[data-col="moneda"]'), null);
   assert.equal(row.querySelector('[data-record-workflow]')!.textContent, "Falta el tipo de gasto");
   assert.equal(page.host.querySelector('[data-record-key="gasto:unknown"] [data-record-attachment]'), null);
@@ -254,7 +254,7 @@ test("phone attachment sheet starts full and keeps several selected files locall
 
 test("unknown attachment presence is not treated as missing and revoked read hides local evidence", async () => {
   const page = await mount();
-  const unknown = page.host.querySelector('[data-record-key="gasto:unknown"] [data-col="comprobante"]')!;
+  const unknown = page.host.querySelector('[data-record-key="gasto:unknown"] [data-col="attachment"]')!;
   assert.ok(unknown);
   assert.equal(unknown.querySelector("button"), null);
   assert.doesNotMatch(unknown.textContent!, /Sin adjuntos vinculados/);

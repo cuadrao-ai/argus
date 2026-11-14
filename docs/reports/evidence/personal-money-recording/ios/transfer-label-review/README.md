@@ -9,18 +9,18 @@ and synthetic user A. No financial command was confirmed.
 The build succeeded. The focused UI check passed **1/1 in 163.259 seconds**.
 [Terminal status](terminal-status.txt) records the result-finalization limitation.
 
-- [English/dark](transfer-labels-en-dark.png) shows visible **From/To** and no
+- [English/dark](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/transfer-label-review/transfer-labels-en-dark.png) shows visible **From/To** and no
   redundant origin heading. Both menus were used to select cash as source and
   bank as destination.
-- [Spanish/light](transfer-labels-es-419-light.png) shows **Desde/Hacia**, the
+- [Spanish/light](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/transfer-label-review/transfer-labels-es-419-light.png) shows **Desde/Hacia**, the
   same correct selections and no redundant heading.
 - Both review flows showed the DOP 40 transfer’s effects: cash 225 → 185 and
-  bank 750 → 790. [English review](transfer-labels-review-en-dark.png) and
-  [Spanish review](transfer-labels-review-es-419-light.png) were cancelled.
-- The existing [transfer correction form](transfer-correction-labels-en-dark.png)
+  bank 750 → 790. [English review](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/transfer-label-review/transfer-labels-review-en-dark.png) and
+  [Spanish review](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/transfer-label-review/transfer-labels-review-es-419-light.png) were cancelled.
+- The existing [transfer correction form](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/transfer-label-review/transfer-correction-labels-en-dark.png)
   retained its bank → cash direction with visible labels. It was cancelled.
-- [Expense](expense-picker-smoke-en-dark.png) and
-  [card-payment](card-picker-smoke-en-dark.png) pickers still exposed their
+- [Expense](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/transfer-label-review/expense-picker-smoke-en-dark.png) and
+  [card-payment](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/personal-money-recording/ios/transfer-label-review/card-picker-smoke-en-dark.png) pickers still exposed their
   selected values and working menus. Those drafts were cancelled.
 - [Canonical readback](readback.json) confirms all three tested account balances
   and versions are unchanged. No transfer, correction or other financial record

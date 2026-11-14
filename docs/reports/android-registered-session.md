@@ -55,9 +55,9 @@ vertically; the 411×891dp view shows all profile actions. Both use 130% text.
 
 | State | Compact | Large |
 | --- | --- | --- |
-| English sign-in | [Image](evidence/android-registered-session/1080x1920/session-en-signed-out.png) | [Image](evidence/android-registered-session/1440x3120/session-en-signed-out.png) |
-| Spanish verified profile | [Image](evidence/android-registered-session/1080x1920/session-es-verified.png) | [Image](evidence/android-registered-session/1440x3120/session-es-verified.png) |
-| Retryable sign-out failure | [Image](evidence/android-registered-session/1080x1920/session-en-revocation-failed.png) | [Image](evidence/android-registered-session/1440x3120/session-en-revocation-failed.png) |
+| English sign-in | [Image](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-registered-session/1080x1920/session-en-signed-out.png) | [Image](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-registered-session/1440x3120/session-en-signed-out.png) |
+| Spanish verified profile | [Image](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-registered-session/1080x1920/session-es-verified.png) | [Image](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-registered-session/1440x3120/session-es-verified.png) |
+| Retryable sign-out failure | [Image](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-registered-session/1080x1920/session-en-revocation-failed.png) | [Image](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/android-registered-session/1440x3120/session-en-revocation-failed.png) |
 
 ## Local setup and limits
 

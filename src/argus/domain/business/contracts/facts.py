@@ -86,6 +86,17 @@ class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class NetAmount(Contract):
+    amount: str | None
+    source: Literal["read", "calculated", "edited"] | None
+
+
+class InheritedValue(Contract):
+    field: Literal["net_amount", "itbis", "legal_tip", "occurred_on"]
+    value: str | None
+    inherited: bool
+
+
 class Known(Contract, Generic[T]):
     state: Literal["known"] = "known"
     value: T
@@ -202,9 +213,16 @@ class FiscalFacts(Contract):
         return self
 
 
+#: Facts only a person reviews. No model reads them: the dossier and the
+#: read context both drop them on the way to a model.
+HUMAN_AMOUNT_FIELDS = ("net_amount", "legal_tip")
+
+
 class BusinessFacts(Contract):
     kind: Fact[ActivityKind] = Unknown()
     amount: Fact[Amount] = Unknown()
+    net_amount: Fact[Amount] = Unknown()
+    legal_tip: Fact[Amount] = Unknown()
     currency: Fact[Currency] = Unknown()
     occurred_on: Fact[date] = Unknown()
     counterparty: Fact[str] = Unknown()
@@ -249,6 +267,7 @@ class BusinessResolution(Contract):
     #: The server worked out the 606 services or goods amount from the Tipo de
     #: gasto, so it follows the total. False once a person types one.
     amount_derived: bool = Field(default=False, exclude_if=lambda value: value is False)
+    fiscal_overrides: tuple[str, ...] | None = None
     #: Empty for a single clean read. Several entries mean the read showed
     #: several purchases; the facts above hold only what they all share.
     read_purchases: tuple[ReadPurchase, ...] = ()
@@ -316,6 +335,23 @@ class UnknownInput(Contract):
 
 #: A due date a person states, or takes back to unknown.
 DueOnInput = Annotated[KnownInput[date] | UnknownInput, Field(discriminator="state")]
+
+
+class MontosReview(Contract):
+    net_amount: FactInput[Amount] | None = None
+    legal_tip: FactInput[Amount] | None = None
+    override_inherited: tuple[str, ...] = ()
+    restore_inherited: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def has_change(self) -> MontosReview:
+        if self.net_amount is None and self.legal_tip is None and not (
+            self.override_inherited or self.restore_inherited
+        ):
+            raise ValueError("supply an amount or an inheritance change")
+        if set(self.override_inherited) & set(self.restore_inherited):
+            raise ValueError("a field cannot be overridden and restored together")
+        return self
 
 
 def _patch_json_schema(schema: dict[str, Any]) -> None:

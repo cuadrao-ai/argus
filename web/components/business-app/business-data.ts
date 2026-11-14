@@ -51,6 +51,8 @@ export type BusinessDataSource = Readonly<{
   receipts: (view: "inbox" | "all") => Promise<ReceiptSummary[]>;
   receipt: (id: string, signal?: AbortSignal) => Promise<ReceiptDetail>;
   dossier: (id: string) => Promise<BusinessDossier>;
+  reviewMontos?: typeof api.reviewBusinessMontos;
+  previewAmounts?: typeof api.previewBusinessAmounts;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   dgiiFields: () => Promise<DgiiFields>;
   reviewFiscal: (id: string, version: number, review: DgiiReview, key: string) => Promise<BusinessDossier>;
@@ -60,6 +62,9 @@ export type BusinessDataSource = Readonly<{
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner returns an approved record to the Bandeja; the server reverses its money row. */
   reopenDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
+  deleteDocument?: typeof api.deleteBusinessDocument;
+  restoreDocument?: typeof api.restoreBusinessDocument;
+  purgeDocument?: typeof api.purgeBusinessDocument;
   approveListos: typeof api.approveBusinessListos;
   /** The owner marks the receipt as personal or takes the mark back. */
   markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;
@@ -80,7 +85,7 @@ export type BusinessDataSource = Readonly<{
   recordSearchOpen?: (kind: BusinessSearchKind, id: string) => Promise<void>;
   /** `grant` is the Business the note was written in; omitted, the call binds the chosen Business before it awaits. */
   captureNote: (input: BusinessCaptureInput, key: string, grant?: string | null) => Promise<BusinessDossier>;
-  captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapturePage>;
+  captures: (query?: string, limit?: number, view?: "inbox" | "all" | "eliminados", offset?: number) => Promise<BusinessCapturePage>;
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener, grant?: string | null) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;
@@ -120,6 +125,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receipt: api.getBusinessReceipt,
   dossier: api.getBusinessDossier,
   reviewDraft: api.reviewBusinessDraft,
+  reviewMontos: api.reviewBusinessMontos,
+  previewAmounts: api.previewBusinessAmounts,
   dgiiFields: getDgiiFields,
   reviewFiscal: reviewDgii,
   reviewPurchase,
@@ -127,6 +134,9 @@ export const liveBusinessDataSource: BusinessDataSource = {
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
   reopenDraft: api.reopenBusinessDraft,
+  deleteDocument: api.deleteBusinessDocument,
+  restoreDocument: api.restoreBusinessDocument,
+  purgeDocument: api.purgeBusinessDocument,
   approveListos: api.approveBusinessListos,
   markPersonal: api.markBusinessPersonal,
   decideFiscalInclusion: api.decideBusinessFiscalInclusion,
@@ -238,6 +248,8 @@ export function withBusinessSpace(
     expense: source.expense,
     dossier: source.dossier,
     reviewDraft: source.reviewDraft,
+    reviewMontos: source.reviewMontos,
+    previewAmounts: source.previewAmounts,
     dgiiFields: source.dgiiFields,
     reviewFiscal: source.reviewFiscal,
     reviewPurchase: source.reviewPurchase,
@@ -245,6 +257,9 @@ export function withBusinessSpace(
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,
     reopenDraft: source.reopenDraft,
+    deleteDocument: source.deleteDocument,
+    restoreDocument: source.restoreDocument,
+    purgeDocument: source.purgeDocument,
     approveListos: source.approveListos,
     markPersonal: source.markPersonal,
     decideFiscalInclusion: source.decideFiscalInclusion,

@@ -4,6 +4,8 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
 import { I18nextProvider } from "react-i18next";
 import { readFileSync } from "node:fs";
+import { renderToStaticMarkup } from "react-dom/server";
+import DgiiRegistryTag from "@/components/business-app/DgiiRegistryTag";
 import { reportFiltersSchema, reportRequestSchema, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
 import { openRecordsExport, useRecordsExportRequested } from "@/components/business-app/transacciones/records-export-request";
 import { mountConnectedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
@@ -24,6 +26,12 @@ const downloadButton = () => document.querySelector<HTMLButtonElement>('[data-te
 const previews = (page: Page) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/export/preview"));
 const exports = (page: Page) => page.fixture.calls.filter((call) => call.path.endsWith("/reports/export")).map((call) => call.body as ExportBody);
 const dialogText = () => document.querySelector('[role="dialog"]')?.textContent ?? "";
+const noticeSentence = (notice: Element | null) => {
+  const paragraph = notice?.querySelector("p")?.cloneNode(true);
+  if (!(paragraph instanceof HTMLElement)) return undefined;
+  paragraph.querySelector("button")?.remove();
+  return paragraph.textContent?.trim();
+};
 const summary = () => document.querySelector('[data-testid="records-export-summary"]')?.textContent;
 
 async function open(page: Page) {
@@ -47,7 +55,7 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   assert.match(dialogText(), /Exportar compras/);
   assert.match(dialogText(), /1 filtro · 63 registros · 3 monedas/);
   assert.equal(downloadButton()!.textContent!.trim(), "Exportar 63 registros");
-  assert.match(dialogText(), /Columnas de tu tabla \(6\)/);
+  assert.match(dialogText(), /Columnas de tu tabla \(8\)/);
   const [sent] = previews(page).map((call) => call.body as { report: ReportRequest }).slice(-1);
   assert.equal(sent.report.filters.q, "proveedor");
   assert.deepEqual(sent.report.filters.currencies, ["DOP"]);
@@ -58,7 +66,7 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
   const [body] = exports(page);
-  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty", "date", "gross_amount", "stage", "note", "attachment"], currencies: "all", format: "csv" });
+  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty", "date", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "note", "attachment"], currencies: "all", format: "csv" });
   assert.equal(body.report.filters.q, "proveedor");
   assert.equal(panel(), null, "the panel closes once the file is saved");
 });
@@ -117,23 +125,23 @@ test("Editar chooses columns in the table's order inside the same panel, with Co
   assert.equal(document.querySelectorAll('[role="dialog"]').length, 1, "a sub-view, not a second modal");
   const boxes = () => [...document.querySelectorAll<HTMLInputElement>('[data-testid="records-export-columns"] input[type="checkbox"]')];
   const labels = () => [...document.querySelectorAll('[data-testid="records-export-columns"] label')].map((label) => label.textContent);
-  assert.deepEqual(labels(), ["Contraparte", "NCF", "Fecha", "Monto", "Moneda", "ITBIS", "Estado", "Notas", "Adjunto", "Tipo de gasto", "Forma de pago", "Cuenta"]);
+  assert.deepEqual(labels(), ["Contraparte", "NCF", "Fecha", "Monto sin ITBIS", "ITBIS", "Total", "Moneda", "Estado", "Notas", "Adjunto", "Tipo de gasto", "Forma de pago", "Cuenta"]);
   assert.equal(boxes()[0].disabled, true);
-  assert.equal(boxes()[4].checked && boxes()[4].disabled, true, "Moneda is locked on with every currency");
+  assert.equal(boxes()[6].checked && boxes()[6].disabled, true, "Moneda is locked on with every currency");
   await act(async () => boxes()[1].click());
-  await act(async () => boxes()[7].click());
+  await act(async () => boxes()[8].click());
   await page.click(page.button("Listo"));
-  await page.settle(() => /Columnas personalizadas \(6\)/.test(dialogText()));
+  await page.settle(() => /Columnas personalizadas \(8\)/.test(dialogText()));
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
   await page.click(page.button("Usar las de mi tabla"));
   await page.click(page.button("Exportar compras"));
-  await page.settle(() => /Columnas de tu tabla \(6\)/.test(dialogText()));
+  await page.settle(() => /Columnas de tu tabla \(8\)/.test(dialogText()));
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
   await act(async () => boxes()[1].click());
   await page.click(page.button("Listo"));
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
-  assert.deepEqual(exports(page)[0].columns, ["counterparty", "fiscal_number", "date", "gross_amount", "stage", "note", "attachment"]);
+  assert.deepEqual(exports(page)[0].columns, ["counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "note", "attachment"]);
 });
 
 test("Formato DGII counts only tab and period, shows the server's notices and Revisar applies the fiscal filter", async () => {
@@ -145,6 +153,12 @@ test("Formato DGII counts only tab and period, shows the server's notices and Re
   assert.match(summary()!, /^Octubre de 2026 · 4 listas · 5 pendientes$/, "the summary counts what the notices hold back");
   assert.match(dialogText(), /3 compras tienen datos fiscales pendientes y no se incluyen\./);
   assert.match(dialogText(), /2 compras en EUR y USD necesitan tasa y no se incluyen\./);
+  const notices = document.querySelector('[data-testid="records-export-notices"]')!;
+  assert.ok(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(notices));
+  assert.equal(notices.children.length, 2);
+  assert.equal(notices.querySelectorAll(".lucide-circle-minus").length, 2);
+  assert.equal(page.button("Revisar")!.closest("label"), null);
+  assert.equal(document.querySelector('[data-testid="records-export-dgii"]')!.textContent, "La DGII define las columnas. Solo en pesos.");
   assert.equal(document.querySelector('[data-testid="records-export-currencies"]'), null);
   assert.equal(document.querySelector('[data-testid="records-export-edit-columns"]'), null);
   await page.click(downloadButton());
@@ -170,6 +184,7 @@ test("Formato DGII says every record is ready only when the server holds none ba
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 63 registros");
   assert.match(summary()!, /^Octubre de 2026 · todas las compras listas · 63 registros$/);
   assert.doesNotMatch(dialogText(), /no se incluyen?\./);
+  assert.equal(document.querySelector('[data-testid="records-export-notices"]'), null);
 });
 
 test("before the server counts, the button names no number and cannot start", async () => {
@@ -268,4 +283,151 @@ test("a failed file keeps the choices and offers Reintentar with the server's re
   await page.click(page.button("Reintentar"));
   await page.settle(() => page.downloads.length === 1);
   assert.deepEqual(exports(page).map((body) => body.format), ["csv", "csv"]);
+});
+
+
+for (const language of ["es-419", "en"] as const) {
+  test(`606 keeps server RNC warnings inside the option with a bounded supplier toggle in ${language}`, async () => {
+    const page = await mount({ edit: fiscalBooks, language, width: language === "en" ? 390 : 1440 });
+    page.fixture.controls.rncSuppliers = [
+      { name: "Suplidor registrado", rnc: "101001577", estado: "SUSPENDIDO", status: "rnc_inactive", record_count: 2 },
+      { name: "Proveedor sin registro", rnc: "101010632", estado: "SUSPENDIDO", status: "rnc_unverified", record_count: 1 },
+      { name: "Proveedor cancelado", rnc: "101010633", estado: "DADO DE BAJA", status: "rnc_inactive", record_count: 1 },
+      ...Array.from({ length: 24 }, (_, index) => ({ name: `Proveedor ${index}`, rnc: `1310000${String(index).padStart(2, "0")}`, estado: "ANULADO", status: "rnc_inactive" as const, record_count: 1 })),
+    ];
+    await page.click(document.querySelector('[data-testid="records-export"]'));
+    await page.settle(() => downloadButton() !== null && !downloadButton()!.disabled);
+    assert.equal(document.querySelector('[data-testid="records-export-notices"]'), null);
+    await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+    const option = document.querySelector('[data-testid="records-export-mode-dgii"]')!;
+    const notice = option.querySelector('[data-testid="records-export-rnc-notice"]')!;
+    assert.ok(notice, "the RNC notice is inside the 606 option");
+    const notices = option.querySelector('[data-testid="records-export-notices"]')!;
+    const toggle = notice.querySelector<HTMLButtonElement>("button")!;
+    assert.equal(notices.children.length, 3, "RNC, pending fiscal data, and pending rates share one list");
+    assert.equal(notices.querySelectorAll("h3").length, 0);
+    assert.ok(notice.querySelector(".lucide-triangle-alert"));
+    assert.equal(toggle.closest("label"), null);
+    assert.ok(toggle.closest("p"), "the sentence and action share one paragraph");
+    for (const link of [toggle, page.button(language === "es-419" ? "Revisar" : "Review")!]) {
+      assert.ok(link.classList.contains("inline"));
+      assert.ok(link.classList.contains("text-[14px]"));
+      assert.equal(link.classList.contains("min-h-11"), false);
+    }
+    assert.equal(notice.querySelector(".lucide-triangle-alert")?.classList.contains("mt-3.5"), false);
+    assert.equal(toggle.textContent, language === "es-419" ? "Ver proveedores" : "View suppliers");
+    assert.equal(toggle.getAttribute("aria-expanded"), "false");
+    const list = document.getElementById(toggle.getAttribute("aria-controls")!)!;
+    assert.ok(list, "the toggle points to its supplier list");
+    assert.equal(list.tabIndex, 0);
+    assert.equal(list.getAttribute("aria-label"), language === "es-419" ? "Ver proveedores" : "View suppliers");
+    assert.equal(list.hidden, true);
+    assert.equal(noticeSentence(notice), language === "es-419"
+      ? "27 proveedores con RNC no activo o sin verificar"
+      : "27 suppliers with an inactive or unverified RNC");
+    assert.ok(notice.textContent?.includes(language === "es-419" ? "La DGII puede rechazar sus líneas." : "The DGII may reject their lines."));
+    await page.click(toggle);
+    assert.equal(toggle.getAttribute("aria-expanded"), "true");
+    assert.equal(toggle.textContent, language === "es-419" ? "Ocultar" : "Hide");
+    assert.equal(list.hidden, false);
+    assert.ok(list.classList.contains("max-h-[132px]"));
+    assert.ok(list.classList.contains("overflow-y-auto"));
+    assert.ok(list.classList.contains("border"));
+    assert.equal(list.children.length, 27);
+    assert.deepEqual([...list.children].slice(0, 3).map((item) => ({
+      name: item.firstElementChild?.firstElementChild?.textContent,
+      status: item.firstElementChild?.lastElementChild?.textContent,
+      rnc: item.lastElementChild?.textContent,
+    })), [
+      { name: "Suplidor registrado", status: language === "es-419" ? "No activo" : "Not active", rnc: "101001577" },
+      { name: "Proveedor sin registro", status: language === "es-419" ? "Sin verificar" : "Not verified", rnc: "101010632" },
+      { name: "Proveedor cancelado", status: language === "es-419" ? "No activo" : "Not active", rnc: "101010633" },
+    ]);
+    for (const item of list.children) {
+      assert.ok(item.firstElementChild?.classList.contains("justify-between"));
+      assert.ok(item.firstElementChild?.lastElementChild?.firstElementChild?.classList.contains("rounded-full"));
+      assert.ok(item.firstElementChild?.lastElementChild?.firstElementChild?.classList.contains("text-[12px]"));
+      assert.ok(item.lastElementChild?.classList.contains("font-mono"));
+    }
+    assert.doesNotMatch(list.textContent!, /SUSPENDIDO|DADO DE BAJA|ANULADO/);
+    const i18n = await translate(language);
+    for (const [index, status] of (["inactive", "unverified", "inactive"] as const).entries()) {
+      const tag = renderToStaticMarkup(<I18nextProvider i18n={i18n}><DgiiRegistryTag status={status} /></I18nextProvider>);
+      assert.equal(list.children[index].firstElementChild?.lastElementChild?.innerHTML, tag);
+    }
+    assert.ok(list.children[0].firstElementChild?.lastElementChild?.firstElementChild?.classList.contains("bg-[#F6EBD4]"));
+    assert.ok(list.children[1].firstElementChild?.lastElementChild?.firstElementChild?.classList.contains("bg-[#EDECE6]"));
+    assert.equal(downloadButton()!.disabled, false);
+    await page.click(toggle);
+    assert.equal(list.hidden, true);
+    await page.click(downloadButton());
+    await page.settle(() => page.downloads.length === 1);
+  });
+
+  test(`one RNC supplier uses the singular notice in ${language}`, async () => {
+    const page = await mount({ language, edit: (rows) => rows.filter((row) => row.family === "purchase").forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.currency = "DOP"; }) });
+    page.fixture.controls.rncSuppliers = [
+      { name: "Suplidor registrado", rnc: "101001577", estado: "SUSPENDIDO", status: "rnc_inactive", record_count: 2 },
+    ];
+    await page.click(document.querySelector('[data-testid="records-export"]'));
+    await page.settle(() => downloadButton() !== null && !downloadButton()!.disabled);
+    await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+    const notice = document.querySelector('[data-testid="records-export-rnc-notice"]');
+    assert.equal(document.querySelector('[data-testid="records-export-notices"]')?.children.length, 1);
+    assert.equal(noticeSentence(notice), language === "es-419"
+      ? "1 proveedor con RNC no activo o sin verificar"
+      : "1 supplier with an inactive or unverified RNC");
+    assert.equal(downloadButton()!.disabled, false);
+  });
+}
+
+test("zero RNC warnings hide the notice in DGII mode", async () => {
+  const page = await mount({ edit: fiscalBooks });
+  await open(page);
+  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+  assert.equal(document.querySelector('[data-testid="records-export-rnc-notice"]'), null);
+});
+
+test("607 keeps pending notices below the options", async () => {
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"], currencies: ["DOP"] } });
+  const page = await mount({ initial, edit: (rows) => rows.filter((row) => row.family === "sale").slice(0, 1).forEach((row) => { row.fiscal_data = "missing"; row.stage = "needs_fiscal_data"; }) });
+  await open(page);
+  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+  assert.match(dialogText(), /Formato DGII 607/);
+  assert.equal(document.querySelector('[data-testid="records-export-notices"]'), null);
+  const notice = document.querySelector('[data-testid="records-export-dgii"]')!;
+  assert.match(notice.textContent!, /1 venta tiene datos fiscales pendientes y no se incluye\./);
+  assert.ok(notice.contains(page.button("Revisar")!));
+  assert.ok(page.button("Revisar")!.classList.contains("min-h-11"), "607 keeps its existing review button");
+  assert.equal(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(page.button("Revisar")!), false);
+});
+
+test("Registros renders distinct server net, ITBIS and Total columns and its card uses only the net total", async () => {
+  const page = await mount({ queryAnswer: (_, answer) => ({
+    ...answer,
+    items: answer.items.map((row) => ({ ...row, net_amount: "80.00", net_amount_source: "read", itbis_amount: "18.00", gross_amount: "100.00" })),
+    totals: [
+      { currency: "DOP", kind: "expense", basis: "document_family_amount", matching_count: 1, known_amount_minor: 10000, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 10000, known_amount: "100.00", amount: "100.00" },
+      { currency: "DOP", kind: "expense", basis: "document_net_family_amount", matching_count: 1, known_amount_minor: 8000, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 8000, known_amount: "80.00", amount: "80.00" },
+    ],
+  }) });
+  const headings = [...document.querySelectorAll('thead th[data-col]')].map((cell) => cell.getAttribute("data-col"));
+  const index = headings.indexOf("net_amount");
+  assert.deepEqual(headings.slice(index, index + 3), ["net_amount", "itbis_amount", "gross_amount"]);
+  assert.equal(document.querySelector('th[data-col="net_amount"]')?.textContent, "Monto sin ITBIS");
+  assert.equal(document.querySelector('th[data-col="gross_amount"]')?.textContent, "Total");
+  const row = document.querySelector("tbody tr")!;
+  for (const [key, value] of [["net_amount", "80.00"], ["itbis_amount", "18.00"], ["gross_amount", "100.00"]]) {
+    const cell = row.querySelector(`[data-col="${key}"]`)!;
+    assert.equal(cell.textContent, value);
+    assert.ok(cell.classList.contains("text-right"));
+    assert.ok(cell.classList.contains("tabular-nums"));
+    assert.ok(cell.querySelector(".cuadrao-amount"));
+  }
+  const card = document.querySelector('[data-overview-card="total"]')!;
+  assert.match(card.textContent!, /Compras sin ITBIS/);
+  assert.equal(card.querySelector(".cuadrao-amount")?.getAttribute("aria-label"), "DOP 80.00");
+  assert.equal(card.querySelector("button"), null);
+  await open(page);
+  assert.match(dialogText(), /Columnas de tu tabla \(8\)/);
 });

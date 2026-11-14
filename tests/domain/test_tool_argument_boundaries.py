@@ -151,40 +151,6 @@ def test_tool_model_derivation_does_not_change_legacy_model_reads(declaration):
     assert BoundaryArguments.model_validate({"unknown": 0}).detail is None
 
 
-@pytest.mark.parametrize("boundary", ["runtime", "declared_model"])
-@pytest.mark.parametrize("nested", [False, True], ids=["strategy", "provenance"])
-def test_real_backtest_call_rejects_unknown_typed_financial_and_temporal_keys(
-    boundary, nested
-):
-    from argus.agent_runtime.tools.registered_backtest import get_backtest_declaration
-
-    tool = get_backtest_declaration()
-    strategy = {
-        "strategy_type": "dca_accumulation",
-        "capital_amount": 0,
-        "cadence": "monthly",
-        "resolution_provenance": [
-            {
-                "field": "asset_universe",
-                "raw_text": "AAPL",
-                "source": "user_mention",
-                "candidate_kind": "asset",
-            }
-        ],
-        "extra_parameters": {
-            "recurring_contribution": 0,
-            "context": {"unknown": 0},
-        },
-    }
-    parsed = _parse(boundary, tool, {"strategy": strategy})
-    assert parsed.strategy.capital_amount == 0
-    assert parsed.strategy.extra_parameters["recurring_contribution"] == 0
-    assert parsed.strategy.extra_parameters == strategy["extra_parameters"]
-    target = strategy["resolution_provenance"][0] if nested else strategy
-    target["unknown"] = 0
-    with pytest.raises(ValidationError) as rejected:
-        _parse(boundary, tool, {"strategy": strategy})
-    assert any(error["type"] == "extra_forbidden" for error in rejected.value.errors())
 
 
 def test_forward_references_resolve_in_the_callable_model_namespace():

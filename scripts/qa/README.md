@@ -194,7 +194,7 @@ delivery stays gated on sandbox SMTP.
 The focused backend matrix must run hermetically, per `AGENTS.md`:
 
 ```bash
-OPENROUTER_API_KEY= ALPACA_API_KEY= ALPACA_SECRET_KEY= \
+OPENROUTER_API_KEY= CUADRAO_OPENROUTER_API_KEY_DEV= CUADRAO_OPENROUTER_API_KEY_STG= CUADRAO_OPENROUTER_API_KEY_PROD= CUADRAO_PROD_OPENROUTER_API_KEY= CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY= ALPACA_API_KEY= ALPACA_SECRET_KEY= \
 ARGUS_MARKET_DATA_PROVIDER_MODE=synthetic_unit_fixture \
 poetry run pytest tests/test_auth_sessions.py tests/test_alpha_api_supabase.py \
   tests/test_alpha_artifacts.py tests/test_environment_scripts.py -q --no-cov

@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { authLinkErrorRedirect } from "./lib/auth-link-error";
 import { decideBusinessOnlyWeb } from "./lib/business-only-web";
 import { businessOnlyWebFromEnv } from "./lib/private-alpha-flags";
+import { publishRefreshedSession } from "./lib/supabase-server";
 
-export function proxy(request: NextRequest) {
+function decide(request: NextRequest): NextResponse {
   const { pathname, search, searchParams, origin } = request.nextUrl;
 
   if (
@@ -28,6 +29,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(decision.location, request.url));
   }
   return NextResponse.next();
+}
+
+export async function proxy(request: NextRequest) {
+  return publishRefreshedSession(request, decide(request));
 }
 
 export const config = {

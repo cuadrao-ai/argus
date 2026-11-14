@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+from argus.domain.business.amount_inheritance import inherits
 from argus.domain.business.contracts.dgii import (
     MONEY_LIMIT,
     DgiiDeclaration,
@@ -50,6 +51,8 @@ class FiscalRecord:
     # Registros and the export handoff read them from the same place.
     personal: bool = False
     include_606: bool | None = None
+    fiscal_overrides: tuple[str, ...] | None = None
+    paid: bool = False
 
 
 def ncf_type(value: str) -> str | None:
@@ -78,7 +81,12 @@ def declarable(currency: str) -> bool:
 
 def fact_value(record: FiscalRecord, name: str) -> str | None:
     fact = getattr(record.facts.fiscal, name, None)
-    return fact.value if isinstance(fact, Known) else None
+    value = fact.value if isinstance(fact, Known) else None
+    if name == "itbis" and record.declaration is not None:
+        declared = record.declaration.itbis
+        if declared is not None or not inherits(name, declared, value, record.fiscal_overrides):
+            return declared
+    return value
 
 
 def is_credit(record: FiscalRecord) -> bool:
@@ -157,6 +165,7 @@ def record_issues(
     elif re.fullmatch(r"(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?", tax) is None:
         issue("fiscal_amount_precision_or_limit", "itbis")
     optional = {
+        "itbis",
         "modified_ncf",
         "paid_on",
         "withheld_on",
@@ -206,7 +215,7 @@ def record_issues(
         if (
             identity is None
             or expected
-            and not re.fullmatch(rf"\d{{{expected}}}", identity)
+            and len(identity) != expected
             or identity
             and not any(c in "123456789" for c in identity)
         ):
@@ -342,6 +351,8 @@ def record_issues(
         ):
             issue("fiscal_payment_total_conflict", "cash")
     if not issues:
+        from argus.domain.business.purchase_review import net_amount
+
         base = (
             amount_or_zero(declaration.services_amount)
             + amount_or_zero(declaration.goods_amount)
@@ -358,7 +369,11 @@ def record_issues(
         )
         if isinstance(declaration, PurchaseDeclaration) and base <= 0:
             issue("fiscal_billed_amount_must_be_positive", "billed_amount")
-        if gross != Decimal(record.amount):
+        net = net_amount(record.facts, declaration)
+        if gross != Decimal(record.amount) or (
+            isinstance(declaration, PurchaseDeclaration)
+            and net.amount is not None and base != Decimal(net.amount)
+        ):
             issue("fiscal_invoice_total_conflict", "amount")
         if base >= MONEY_LIMIT:
             issue("fiscal_amount_precision_or_limit", "billed_amount")

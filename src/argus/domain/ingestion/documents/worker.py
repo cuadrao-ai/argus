@@ -10,6 +10,7 @@ leases for the next boot's sweep.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 
 from loguru import logger
 
@@ -30,18 +31,29 @@ POLL_SECONDS = 1.0
 
 
 class DocumentWorker:
-    def __init__(self, service: DocumentsService, settings: DocumentJobSettings) -> None:
-        self.service, self.settings = service, settings
+    def __init__(
+        self,
+        service: DocumentsService,
+        settings: DocumentJobSettings,
+        upkeep: Callable[[], object] | None = None,
+    ) -> None:
+        self.service, self.settings, self.upkeep = service, settings, upkeep
         self.reads: set[asyncio.Task[str]] = set()
 
     async def run(self, stop: asyncio.Event) -> None:
         jobs = PreparationJobs(self.service)
-        sweeper = asyncio.create_task(sweep_forever(jobs, self.settings.sweep_seconds))
+        sweeper = asyncio.create_task(
+            sweep_forever(jobs, self.settings.sweep_seconds, self.upkeep)
+        )
         logger.info("Document worker started max_reads={}", self.settings.max_reads)
+        delay = POLL_SECONDS
         try:
             while not stop.is_set():
-                await self._pull(stop)
-                await self._nap(stop)
+                found = await self._pull(stop)
+                if found or self.reads:
+                    delay = POLL_SECONDS
+                await self._nap(stop, delay)
+                delay = min(delay * 2, self.settings.idle_poll_seconds)
         finally:
             sweeper.cancel()
             # Joins a sweep still on its thread. Waiting, not awaiting, so a
@@ -49,17 +61,18 @@ class DocumentWorker:
             await asyncio.wait({sweeper})
         await self._drain()
 
-    async def _nap(self, stop: asyncio.Event) -> None:
+    async def _nap(self, stop: asyncio.Event, seconds: float) -> None:
         waiting = asyncio.ensure_future(stop.wait())
         try:
-            await asyncio.wait({waiting}, timeout=POLL_SECONDS)
+            await asyncio.wait({waiting}, timeout=seconds)
         finally:
             waiting.cancel()
 
-    async def _pull(self, stop: asyncio.Event) -> None:
+    async def _pull(self, stop: asyncio.Event) -> bool:
         # As in the sweep: with extraction off a queued read neither runs nor fails.
         if not load_document_extraction_settings().enabled:
-            return
+            return False
+        found = False
         store, clock = self.service.store, self.service.hub.clock
         while len(self.reads) < self.settings.max_reads and not stop.is_set():
             try:
@@ -71,12 +84,14 @@ class DocumentWorker:
                 logger.warning(
                     "Document read pull failed failure_mode={}", type(error).__name__
                 )
-                return
+                return True  # Retry failures at the existing busy pace.
             if pulled is None:
-                return
+                return found
+            found = True
             read = asyncio.create_task(self._read(*pulled))
             self.reads.add(read)
             read.add_done_callback(self.reads.discard)
+        return found
 
     async def _read(self, connection_id: str, attempt_id: str) -> str:
         outcome = await run_attempt(self.service, connection_id, attempt_id)

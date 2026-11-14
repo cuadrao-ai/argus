@@ -149,12 +149,14 @@ def inbox(
 
     store = context.service.imports.store
     notes = 0
+    eliminated_notes = 0
     por_igualar = None
     if isinstance(store, GrantImportStore):
-        from argus.domain.business.actions.captures import awaiting_notes
+        from argus.domain.business.actions.captures import awaiting_notes, deleted_notes
 
         with transaction(store.authority, store.context) as tx:
             notes = awaiting_notes(tx)
+            eliminated_notes = deleted_notes(tx)
         from argus.domain.business.bank.service import bank_matching_on
 
         if bank_matching_on():
@@ -163,7 +165,9 @@ def inbox(
             por_igualar = por_igualar_count(store.authority.pool, store.context)
     if emails is None:
         emails = email_standings(str(context.scope.owner.space_id))
-    return inbox_counts(views, notes, emails, por_igualar)
+    result = inbox_counts(views, notes, emails, por_igualar)
+    result["bandeja_eliminados_count"] += eliminated_notes
+    return result
 
 
 def unreviewed_days(

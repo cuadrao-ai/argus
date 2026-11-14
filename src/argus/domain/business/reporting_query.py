@@ -10,7 +10,8 @@ from datetime import date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from argus.domain.business.contracts.facts import personal_mark_admits
+from argus.domain.business.contracts.facts import InheritedValue, personal_mark_admits
+from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.reporting import (
     FiscalAmount,
     ReportIdentity,
@@ -18,12 +19,7 @@ from argus.domain.business.reporting import (
     summarize,
     summarize_fiscal,
 )
-from argus.domain.business.reporting_preferences import (
-    DEFAULT_COLUMNS as DEFAULT_COLUMNS,
-)
-from argus.domain.business.reporting_preferences import (
-    Column as Column,
-)
+from argus.domain.business.reporting_columns import SPECS, TableColumn, offered_columns
 from argus.domain.business.reporting_preferences import (
     Contract,
     DocumentKind,
@@ -99,6 +95,10 @@ class ReportRecord(Contract):
     workflow_blockers: tuple[str, ...] = ()
     currency: str | None = None
     gross_amount: str | None = None
+    net_amount: str | None = None
+    net_amount_source: Literal["read", "calculated", "edited"] | None = None
+    amounts_difference: str | None = None
+    inheritance: dict[str, InheritedValue] = {}
     itbis_amount: str | None = None
     goods_amount: str | None = None
     services_amount: str | None = None
@@ -139,6 +139,9 @@ class Total(Contract):
         "document_gross_amount",
         "document_credit_adjustment",
         "document_family_amount",
+        "document_net_amount",
+        "document_net_credit_adjustment",
+        "document_net_family_amount",
     ]
     matching_count: int
     known_amount_minor: int
@@ -195,8 +198,42 @@ class ExcludedPersonal(Contract):
     expense: int = 0
 
 
+class ReportColumn(Contract):
+    """One column the table offers, with the rules the web draws it by."""
+
+    key: TableColumn
+    #: Locale path of its name; the web reads the words in the reader's language.
+    label_key: str
+    #: Always shown.
+    required: bool
+    #: Fixed first.
+    pinned: bool
+    shown: bool
+
+
+def report_columns(
+    presentation: Presentation, families: tuple[Family, ...], country: str
+) -> tuple[ReportColumn, ...]:
+    """The columns these families offer in this country, in the layout's order."""
+
+    offered = offered_columns(families, country)
+    return tuple(
+        ReportColumn(
+            key=key,
+            label_key=SPECS[key].label,
+            required=SPECS[key].required,
+            pinned=SPECS[key].pinned,
+            shown=key not in presentation.hidden,
+        )
+        for key in presentation.order
+        if key in offered
+    )
+
+
 class ReportAnswer(Contract):
+    #: The request's layout after the upgrade; the web keeps this one.
     presentation: Presentation
+    columns: tuple[ReportColumn, ...]
     items: tuple[ReportRecord, ...]
     overview: ReportOverview = ReportOverview()
     effective_sort: str = "date_desc"
@@ -409,8 +446,66 @@ def _totals(
                 else None
             )
             result.append(Total(**fields))
+    result.extend(_net_totals(rows))
     result.extend(_document_totals(result, rows))
     return tuple(result)
+
+
+def _net_totals(rows: tuple[ReportRecord, ...]) -> list[Total]:
+    result = []
+    for credit in (False, True):
+        components = []
+        for row in rows:
+            if (row.document_kind == "credit_note") != credit or (
+                not credit and row.date_basis != "document_issue"
+            ):
+                continue
+            kind = {"sale": "income", "purchase": "expense"}.get(row.family, "unknown")
+            effect = (row.adjustment_effect or "unknown") if credit else row.money_effect
+            if row.net_amount is None or row.currency is None or kind == "unknown":
+                effect = "unknown"
+            amount_minor = None
+            if row.net_amount is not None and row.currency is not None:
+                try:
+                    amount_minor = _fiscal_minor_units(row.net_amount, row.currency)
+                except RecordingInputError:
+                    effect = "unsupported"
+            components.append(
+                FiscalAmount(
+                    currency=row.currency,
+                    kind=kind,
+                    basis="net_amount",
+                    amount_minor=amount_minor,
+                    populated=row.net_amount is not None,
+                    effect=effect,
+                    sign=-1 if credit else 1,
+                )
+            )
+        for total in summarize_fiscal(components):
+            result.append(
+                Total(
+                    currency=total.currency,
+                    kind=total.kind,
+                    basis="document_net_credit_adjustment"
+                    if credit
+                    else "document_net_amount",
+                    matching_count=total.applicable_count,
+                    known_amount_minor=total.known_amount_minor,
+                    unknown_count=total.unknown_count,
+                    unsupported_count=total.unsupported_count,
+                    complete=total.complete,
+                    amount_minor=total.amount_minor,
+                    known_amount=format_minor_units(
+                        total.known_amount_minor, total.currency
+                    )
+                    if total.currency
+                    else None,
+                    amount=format_minor_units(total.amount_minor, total.currency)
+                    if total.currency and total.amount_minor is not None
+                    else None,
+                )
+            )
+    return result
 
 
 def _fiscal_minor_units(amount: str, currency: str) -> int:
@@ -473,12 +568,24 @@ def _fiscal_totals(rows: tuple[ReportRecord, ...]) -> tuple[FiscalReportTotal, .
 def _document_totals(
     components: list[Total], rows: tuple[ReportRecord, ...]
 ) -> list[Total]:
-    groups: dict[tuple[str | None, str], list[Total]] = {}
+    groups: dict[tuple[str | None, str, str], list[Total]] = {}
     for component in components:
-        if component.basis in ("document_gross_amount", "document_credit_adjustment"):
-            groups.setdefault((component.currency, component.kind), []).append(component)
+        if component.basis in (
+            "document_gross_amount",
+            "document_credit_adjustment",
+            "document_net_amount",
+            "document_net_credit_adjustment",
+        ):
+            basis = (
+                "document_net_family_amount"
+                if "net" in component.basis
+                else "document_family_amount"
+            )
+            groups.setdefault((component.currency, component.kind, basis), []).append(
+                component
+            )
     totals = []
-    for (currency, kind), members in groups.items():
+    for (currency, kind, basis), members in groups.items():
         known = sum(member.known_amount_minor for member in members)
         unknown = sum(member.unknown_count for member in members)
         unsupported = sum(member.unsupported_count for member in members)
@@ -487,7 +594,7 @@ def _document_totals(
             Total(
                 currency=currency,
                 kind=kind,
-                basis="document_family_amount",
+                basis=basis,
                 matching_count=sum(member.matching_count for member in members),
                 known_amount_minor=known,
                 unknown_count=unknown,
@@ -545,6 +652,8 @@ def run_query(
     records: tuple[ReportRecord, ...] | list[ReportRecord],
     request: ReportRequest | ReportRequestV2,
     observed_at: datetime,
+    *,
+    country: str = DEFAULT_COUNTRY,
 ) -> ReportAnswer:
     ids = [row.row_id for row in records]
     effects = [effect for row in records for effect in row.linked_activity_ids]
@@ -553,7 +662,7 @@ def run_query(
     period = resolve_period(request.filters.period, records, observed_at)
     rows = matching_records(records, request, observed_at)
     semantic = request.model_dump(
-        mode="json", exclude={"page", "page_size", "columns", "presentation"}
+        mode="json", exclude={"page", "page_size", "presentation"}
     )
     # Multiselect order and repeated keys do not change the semantic query.
     for key, value in semantic["filters"].items():
@@ -643,10 +752,12 @@ def run_query(
     )
     chosen_sort, reason = effective_sort(rows, request.sort)
     left_out = [row for row in rows if not _admitted(row)]
+    presentation = (
+        request.presentation if isinstance(request, ReportRequestV2) else Presentation()
+    )
     return ReportAnswer(
-        presentation=request.presentation
-        if isinstance(request, ReportRequestV2)
-        else Presentation(),
+        presentation=presentation,
+        columns=report_columns(presentation, request.filters.record_families, country),
         excluded_personal=ExcludedPersonal(
             income=sum(row.family == "sale" for row in left_out),
             expense=sum(row.family == "purchase" for row in left_out),

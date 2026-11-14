@@ -6,7 +6,7 @@ import { reportSummary } from "@/lib/business-reporting-wire";
 
 const total = (patch: Record<string, unknown>) => reportTotalSchema.parse({ currency: "DOP", kind: "income", basis: "document_family_amount", matching_count: 2, known_amount_minor: 30000, unknown_count: 0, unsupported_count: 0, complete: true, amount_minor: 30000, known_amount: "300.00", amount: "300.00", ...patch });
 const answer = (totals: unknown[]): ReportAnswer => reportAnswerSchema.parse({
-  presentation: recordedReportAnswer.presentation, items: [], matching_count: 0, page: 1, page_size: 25, page_count: 0, totals, fingerprint: "a".repeat(64), captured_at: "2026-10-27T12:00:00Z",
+  presentation: recordedReportAnswer.presentation, columns: recordedReportAnswer.columns, items: [], matching_count: 0, page: 1, page_size: 25, page_count: 0, totals, fingerprint: "a".repeat(64), captured_at: "2026-10-27T12:00:00Z",
   resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: [],
 });
 

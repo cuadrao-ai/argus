@@ -348,95 +348,6 @@ def frame_types() -> list[str]:
     return sorted(found)
 
 
-def _function(path: Path, name: str) -> ast.FunctionDef | ast.AsyncFunctionDef:
-    tree = ast.parse(path.read_text())
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
-            return node
-    raise SystemExit(f"{name} missing in {path}")
-
-
-def _payload_dict(func: ast.AST) -> ast.Dict:
-    for node in ast.walk(func):
-        if not isinstance(node, ast.Dict):
-            continue
-        for key, value in _dict_items(node):
-            if key == "payload" and isinstance(value, ast.Dict):
-                return value
-    raise SystemExit("payload dict missing")
-
-
-def _projection_dict(func: ast.AST) -> ast.Dict:
-    for node in ast.walk(func):
-        if isinstance(node, ast.Call) and _call_name(node) == "public_confirmation_projection":
-            for arg in node.args:
-                if isinstance(arg, ast.Dict):
-                    return arg
-    raise SystemExit("projection dict missing")
-
-
-def _assigned_payload_dict(func: ast.AST) -> ast.Dict:
-    for node in ast.walk(func):
-        if (
-            isinstance(node, ast.AnnAssign)
-            and isinstance(node.target, ast.Name)
-            and node.target.id == "payload"
-            and isinstance(node.value, ast.Dict)
-        ):
-            return node.value
-    raise SystemExit("assigned payload missing")
-
-
-def _returned_dict(func: ast.AST) -> ast.Dict:
-    for node in ast.walk(func):
-        if isinstance(node, ast.Return) and isinstance(node.value, ast.Tuple):
-            for element in node.value.elts:
-                if isinstance(element, ast.Dict):
-                    return element
-    raise SystemExit("returned dict missing")
-
-
-def _subscript_payload_keys(func: ast.AST) -> list[str]:
-    keys: list[str] = []
-    for node in ast.walk(func):
-        if not isinstance(node, ast.Assign):
-            continue
-        for target in node.targets:
-            if (
-                isinstance(target, ast.Subscript)
-                and isinstance(target.value, ast.Name)
-                and target.value.id == "payload"
-            ):
-                text = _string_constant(target.slice)
-                if text is None:
-                    raise SystemExit("payload subscript is not a string")
-                keys.append(text)
-    return keys
-
-
-def closed_final_keys() -> dict[str, list[str]]:
-    retest = ROOT / "src/argus/api/chat/retest.py"
-    failure = _function(retest, "failed_retest_turn")
-    retry_keys: list[str] = []
-    for node in ast.walk(failure):
-        if isinstance(node, ast.DictComp):
-            iterator = node.generators[0].iter
-            if isinstance(iterator, ast.Tuple):
-                retry_keys = [
-                    text
-                    for element in iterator.elts
-                    if (text := _string_constant(element)) is not None
-                ]
-    return {
-        "retest-final-keys": _literal_keys(
-            _projection_dict(_function(retest, "complete_retest_turn"))
-        ),
-        "retest-failure-keys": _literal_keys(_assigned_payload_dict(failure))
-        + _subscript_payload_keys(failure),
-        "retest-retry-keys": retry_keys,
-    }
-
-
 def _bullet_block(items: list[str]) -> str:
     return "\n".join(f"- `{item}`" for item in items)
 
@@ -454,7 +365,6 @@ def _message_table(fields: dict[str, bool]) -> str:
 
 
 def published_blocks() -> dict[str, str]:
-    finals = closed_final_keys()
     with_detail, without_detail = substages_passing_detail()
     lists = {
         "message-fields": _message_table(message_fields()),
@@ -466,9 +376,6 @@ def published_blocks() -> dict[str, str]:
         "substage-no-detail": _bullet_block(without_detail),
         "tool-progress-fields": _bullet_block(tool_progress_fields()),
         "stage-outcomes": _bullet_block(stage_outcomes()),
-        "retest-final-keys": _bullet_block(finals["retest-final-keys"]),
-        "retest-failure-keys": _bullet_block(finals["retest-failure-keys"]),
-        "retest-retry-keys": _bullet_block(finals["retest-retry-keys"]),
     }
     return lists
 

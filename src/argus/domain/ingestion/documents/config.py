@@ -152,6 +152,11 @@ class DocumentJobSettings(BaseSettings):
         le=3600,
         validation_alias=setting_aliases("DOCUMENT_JOBS_SWEEP_SECONDS"),
     )
+    idle_poll_seconds: float = Field(
+        default=5.0,
+        ge=1,
+        validation_alias=setting_aliases("DOCUMENT_JOBS_IDLE_POLL_SECONDS"),
+    )
     # Reads at once across every document worker.
     max_reads: int = Field(
         default=3,
@@ -165,6 +170,14 @@ class DocumentJobSettings(BaseSettings):
         gt=0,
         le=300,
         validation_alias=setting_aliases("DOCUMENT_JOBS_DRAIN_SECONDS"),
+    )
+    # How often the sweep loop also purges documents past their days in
+    # Eliminados and finishes erases left over. 0 turns the expiry off.
+    purge_every_seconds: float = Field(
+        default=3600.0,
+        ge=0,
+        le=86400,
+        validation_alias=setting_aliases("DOCUMENT_PURGE_EVERY_SECONDS"),
     )
 
 

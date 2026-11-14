@@ -303,6 +303,22 @@ def test_606_data_is_added_after_approval_and_after_an_export(actions):  # noqa:
     assert len(after.history) == len(view.history) + 1
 
 
+def legacy_amount_facts(service, context, draft_id):
+    """Seed the pre-Montos JSON shape, including immutable approval evidence."""
+    with service.authority.pool.connection() as db:
+        db.execute("set local session_replication_role=replica")
+        db.execute(
+            "update public.financial_import_events set resolution=jsonb_set(resolution,'{business}',"
+            " ((resolution->'business') - 'fiscal_overrides') || jsonb_build_object('facts',"
+            " (resolution->'business'->'facts') - 'net_amount' - 'legal_tip')) where id=%s and owner_space_id=%s",
+            (draft_id, context.actor.space_id),
+        )
+        db.execute(
+            "update public.business_draft_revisions set after_facts=after_facts - 'net_amount' - 'legal_tip'"
+            " where draft_id=%s and space_id=%s", (draft_id, context.actor.space_id),
+        )
+
+
 def test_a_record_the_old_approval_left_blank_takes_the_whole_606(actions):  # noqa: ANN001
     """The approval before this slice saved the blank form and filled nothing.
     Every 606 field a person then supplies lands on the approved record in one
@@ -318,6 +334,7 @@ def test_a_record_the_old_approval_left_blank_takes_the_whole_606(actions):  # n
         draft_id, version = captured(service, context, "B0100000041", cash)
         view = approved(service, context, draft_id, version)
     assert (view.dgii.id_type, view.dgii.payment_method) == (None, None)
+    legacy_amount_facts(service, context, draft_id)
 
     chosen = {
         "id_type": "1",
@@ -351,6 +368,7 @@ def test_a_restaurant_receipt_ships_its_base_itbis_and_tip(actions):  # noqa: AN
     cash = account_funding(cash_account(service, context))
     draft_id, version = captured(service, context, "B0100000042", cash, amount="1280.00")
     view = approved(service, context, draft_id, version)
+    legacy_amount_facts(service, context, draft_id)
     added = declared(
         service,
         context,
@@ -600,7 +618,9 @@ def test_a_record_that_takes_no_606_refuses_the_606_write(actions):  # noqa: ANN
     refused = declared(service, context, draft_id, version, category="02")
     assert refused.code == "fiscal_direction_unsupported", refused
     view = service.dossier(context, draft_id)
-    assert (view.version, view.dgii) == (version, None)
+    assert view.version == version
+    assert view.dgii.form == "607"
+    assert view.dgii.billed_amount == "2000.00"
 
     recorded = service.approve_income(
         context,
@@ -618,7 +638,7 @@ def test_a_record_that_takes_no_606_refuses_the_606_write(actions):  # noqa: ANN
     after = service.dossier(context, draft_id)
     assert (after.version, after.dgii, len(after.history)) == (
         view.version,
-        None,
+        view.dgii,
         len(view.history),
     )
 

@@ -1192,28 +1192,13 @@ def test_eval_docs_document_mocked_first_test_tiers_and_agent_pointer() -> None:
 
     assert "## Test Tiers" in readme
     assert "**Mocked harness - every change (free, no API calls):**" in readme
-    assert "poetry run pytest tests/evals/test_measurement_eval_harness.py" in readme
-    assert "Validates routing, scorecard provenance, live-environment refusal" in readme
-    assert "full conversation-step manifests" in readme
+    assert "tests/evals/test_business*.py -q --no-cov" in readme
+    assert "fixtures, mutation detection, acceptance, invariants, runtime capture and variety" in readme
     assert "**Live eval - only the 3 sanctioned moments:**" in readme
     assert "Pre-merge on a PR that changes runtime behavior" in readme
     assert "Main promotion candidate" in readme
     assert "After any model/provider change" in readme
     assert "**Browser QA is also real-API:**" in readme
-    assert "ARGUS_MARKET_DATA_PROVIDER_MODE=live_provider" in readme
-    assert "ARGUS_ASSET_PROVIDER_MODE=live_provider" in readme
-    for provenance_field in (
-        "market_data_provider_mode",
-        "asset_provider_mode",
-        "candidate_sha",
-        "python_version",
-        "fixture_sha256",
-        "fixture_case_ids",
-        "worktree_clean",
-        "live_market_data_probe",
-    ):
-        assert provenance_field in readme
-
     assert "tests/evals/README.md" in agents
     assert "mocked harness" in agents
     assert "live eval" in agents

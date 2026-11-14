@@ -30,8 +30,8 @@ and native-branch modularity checks passed before this UI run.
 
 ## Visual evidence
 
-- [Active list after archive](archive-active-list-dark.png)
-- [Manage accounts with the archived record](archive-management-dark.png)
+- [Active list after archive](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/archive-active-list-dark.png)
+- [Manage accounts with the archived record](https://github.com/cuadrao-ai/argus/blob/c4ec20adb7b72c1921b43475e2bbe2cb5fc07007/docs/reports/evidence/financial-loop/ios/archive-management-dark.png)
 
 Compared with locked `journey-audit/account-archive.png`: the management view uses
 Active/Archived groups, existing quiet rows, and concise archive explanation. The

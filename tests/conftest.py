@@ -5,6 +5,8 @@ import pytest
 
 PROVIDER_CREDENTIAL_ENV_VARS = (
     "OPENROUTER_API_KEY",
+    "CUADRAO_PROD_OPENROUTER_API_KEY",
+    "CUADRAO_GUEST_ACCESS_OPENROUTER_API_KEY",
     "CUADRAO_OPENROUTER_API_KEY_DEV",
     "CUADRAO_OPENROUTER_API_KEY_STG",
     "CUADRAO_OPENROUTER_API_KEY_PROD",
@@ -92,12 +94,6 @@ def provider_free_env(monkeypatch):
     monkeypatch.setenv("ARGUS_MARKET_DATA_PROVIDER_MODE", "synthetic_unit_fixture")
     for name in PROVIDER_CREDENTIAL_ENV_VARS:
         monkeypatch.setenv(name, "")
-
-
-@pytest.fixture
-def activity_on(monkeypatch):
-    """Actividad on, for a flow that reads the feed. The server's default is off."""
-    monkeypatch.setenv("CUADRAO_BUSINESS_ACTIVITY_ENABLED", "true")
 
 
 @pytest.fixture
