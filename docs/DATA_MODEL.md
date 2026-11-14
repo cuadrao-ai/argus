@@ -3786,8 +3786,11 @@ document type, and `document_type_detected` is true while the read's choice
 stands: the read compared the issuer RNC with the Business's own, or found no
 Business RNC to compare with and read a `recibo` the person may switch. A
 `recibo` the server fell back to with no issuer is a default and is not
-detected. The Business RNC is read when the draft is typed; setting it later
-types no existing draft again. The type is the one owner of purchase or sale:
+detected. The Business RNC is read when the draft is typed. The first RNC a
+Business saves types its open drafts once more: a `recibo` the read chose whose
+issuer is that RNC becomes a detected `venta` in one revision by the read. A
+named type, an approved record and a later change of RNC type nothing again.
+The type is the one owner of purchase or sale:
 Registros' family, the Bandeja's 606 and 607 editors, month close's invoice or
 receipt role and the export's form all read it, never the kind or the saved
 declaration. The upload's own choice lives on `financial_document_extractions.draft`

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from argus.domain.business.actions import plans
 from argus.domain.business.actions.dossier import rnc_registry
+from argus.domain.business.actions.type_recheck import recheck_open_drafts
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import Applied
 from argus.domain.business.contracts.dgii import TaxId
@@ -340,5 +341,7 @@ def set_profile(authority, context, command: FiscalProfileChange, key: str):
                     context.actor.space_id,
                 ),
             )
+            if row["business_rnc"] is None and tax_id is not None:
+                recheck_open_drafts(tx)
             plans.finish_receipt(tx, key, Applied(outcome="applied"))
     return read_profile(authority, context)

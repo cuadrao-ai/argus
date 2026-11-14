@@ -24,6 +24,7 @@ from argus.domain.business.fiscal_identity import normalized_taxpayer_id
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from argus.domain.business.contracts.checks import DgiiQr
     from argus.domain.business.contracts.facts import (
         ActivityKind,
         BusinessFacts,
@@ -79,8 +80,7 @@ def resolved_document_type(
     receipt marked as the read's choice, so the person sees it and may switch
     it. Otherwise the issuer decides: the Business's own number is a Venta,
     any other a receipt. With no issuer to compare, a receipt by default,
-    never marked as the read's choice. A number set later types no existing
-    draft again."""
+    never marked as the read's choice."""
 
     if named is not None:
         return named, False
@@ -91,6 +91,13 @@ def resolved_document_type(
     if issuer is None:
         return "recibo", False
     return ("venta" if issuer == own else "recibo"), True
+
+
+def issuer_tax_id(qr: DgiiQr | None, read_rnc: str | None) -> str | None:
+    """The issuer the rule compares: the QR's when the document carries one,
+    else the RNC the read found."""
+
+    return qr.rnc_emisor if qr is not None else read_rnc
 
 
 def kind_disagrees(document_type: DocumentType, facts: BusinessFacts) -> bool:

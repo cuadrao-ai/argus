@@ -57,6 +57,7 @@ from argus.domain.business.document_type import (
     TYPE_OF_KIND,
     DocumentType,
     direction,
+    issuer_tax_id,
     kind_disagrees,
     kind_follows_type,
     require_type_kind,
@@ -249,6 +250,7 @@ def revise(
     purchase: PurchaseReview | None = None,
     payment_split: SalePaymentSplit | None = None,
     document_type: DocumentType | None = None,
+    document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
     montos: MontosReview | None = None,
 ) -> Applied:
@@ -387,6 +389,7 @@ def revise(
             purchase,
         ),
         document_type=document_type,
+        document_type_detected=document_type_detected,
         due_on=due_on,
     )
 
@@ -725,10 +728,9 @@ def _read_document_type(
         return previous.get("document_type", "recibo"), previous.get(
             "document_type_detected", False
         )
-    if batch.dgii_qr is not None:
-        issuer = batch.dgii_qr.rnc_emisor
-    else:
-        issuer = batch.receipt.rnc if batch.receipt is not None else None
+    issuer = issuer_tax_id(
+        batch.dgii_qr, batch.receipt.rnc if batch.receipt is not None else None
+    )
     own = business_tax_id(tx)
     document_type, detected = resolved_document_type(draft.document_type, issuer, own)
     if detected:

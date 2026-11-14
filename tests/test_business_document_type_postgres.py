@@ -115,14 +115,14 @@ def _headers(world) -> dict:  # noqa: ANN001
     return {**world.alice.headers, "Idempotency-Key": str(uuid4())}
 
 
-def _own_rnc(world, value: str = OWN_RNC) -> None:  # noqa: ANN001
+def _own_rnc(world, value: str = OWN_RNC, previous: str | None = None) -> None:  # noqa: ANN001
     saved = world.client.patch(
         f"{API}/business/fiscal-profile",
         json={
             "name": NAME,
             "previous_name": NAME,
             "tax_id": {"type": "rnc", "value": value},
-            "previous_tax_id": None,
+            "previous_tax_id": previous and {"type": "rnc", "value": previous},
         },
         headers=_headers(world),
     )
@@ -768,17 +768,15 @@ def _as_saved(dossier: dict) -> tuple:
     )
 
 
-def test_setting_the_business_rnc_later_retypes_no_draft_and_the_next_read_uses_it(
+def test_the_first_business_rnc_leaves_other_issuers_and_the_next_read_uses_it(
     web,  # noqa: ANN001
 ) -> None:
-    """Drafts read before the Business RNC keep the receipt they were read as,
-    with no new revision. A receipt read after it is compared with it: the
-    Business's own number reads as a Venta."""
+    """Drafts read before the Business RNC that another issuer printed, or that
+    print none, keep the receipt they were read as, with no new revision. A
+    receipt read after it is compared with it: the Business's own number reads
+    as a Venta."""
 
-    early = [
-        _upload(web, OWN_RNC)["draft_id"],
-        _upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"],
-    ]
+    early = [_upload(web, SUPPLIER_RNC, occurred_on="2026-09-04")["draft_id"]]
     note = _capture(web, {"text": "Compra de clavos"})
     assert note.status_code == 200, note.text
     early.append(note.json()["draft_id"])
@@ -846,3 +844,97 @@ def test_bandeja_registros_and_the_export_agree_on_the_form(
     assert _family(web, draft) == (family, (family,))
     form = "607" if sale else "606"
     assert _dgii(web) == ({draft: (kind, form)}, int(not sale), int(sale))
+
+
+def test_the_first_business_rnc_makes_its_own_open_draft_a_detected_venta(
+    web,  # noqa: ANN001
+) -> None:
+    """A draft read before the Business had a number is checked when it gets
+    one, as a new read is: the Business's own invoice becomes a Venta the read
+    chose, in one new revision."""
+
+    own = _upload(web, "199-99001-3")["draft_id"]
+    before = _dossier(web, own)
+    assert _typed(before) == ("recibo", True, True)
+
+    _own_rnc(web)
+
+    after = _dossier(web, own)
+    assert _typed(after) == ("venta", True, True)
+    kind, rnc = after["facts"]["kind"], after["facts"]["fiscal"]["rnc"]
+    assert (kind["value"], kind["origin"]) == ("income", "extracted")
+    assert (rnc["state"], rnc["value"]) == ("unknown", None)
+    assert after["bill_mark"] is None
+    revision = after["history"][-1]
+    assert revision["version"] == after["version"] == before["version"] + 1
+    assert (revision["before"]["kind"]["value"], revision["after"]["kind"]["value"]) == (
+        "expense",
+        "income",
+    )
+    listed = _receipt(web, after["sources"][0]["connection_id"])
+    assert _typed(listed) == ("venta", True, True)
+
+
+def test_the_first_business_rnc_leaves_a_named_type_as_named(web) -> None:  # noqa: ANN001
+    at_upload = _upload(web, OWN_RNC, "recibo")["draft_id"]
+    in_review = _upload(web, OWN_RNC)["draft_id"]
+    named = _review(web, in_review, {"document_type": "recibo"})
+    assert named.status_code == 200, named.text
+    before = [_dossier(web, draft) for draft in (at_upload, in_review)]
+    assert [_typed(view) for view in before] == [("recibo", False, True)] * 2
+
+    _own_rnc(web)
+
+    assert [_dossier(web, draft) for draft in (at_upload, in_review)] == before
+
+
+def test_the_first_business_rnc_leaves_an_approved_record_as_it_is(web) -> None:  # noqa: ANN001
+    account = _account(web)
+    draft = _upload(web, OWN_RNC)["draft_id"]
+    fiscal = {**PURCHASE_606, "fiscal": {**PURCHASE_606["fiscal"], "rnc": OWN_RNC}}
+    reviewed = _review(
+        web,
+        draft,
+        {"facts": _facts("expense", "1180.00", "2026-09-03", account), "dgii": fiscal},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    _approve(web, draft, "record_expense")
+    before = _dossier(web, draft)
+    assert before["document_type"] == "recibo"
+    assert before["facts"]["fiscal"]["rnc"]["value"] == OWN_RNC
+
+    _own_rnc(web)
+
+    assert _dossier(web, draft) == before
+
+
+def test_a_changed_business_rnc_types_no_open_draft_again(web) -> None:  # noqa: ANN001
+    _own_rnc(web, SUPPLIER_RNC)
+    draft = _upload(web, OWN_RNC)["draft_id"]
+    before = _dossier(web, draft)
+    assert _typed(before) == ("recibo", True, True)
+
+    _own_rnc(web, OWN_RNC, previous=SUPPLIER_RNC)
+
+    assert _dossier(web, draft) == before
+
+
+def test_a_draft_the_recheck_cannot_move_does_not_block_the_business_rnc(
+    web,  # noqa: ANN001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from argus.domain.business.actions import mutations
+    from argus.domain.business.authority import ActionError
+
+    draft = _upload(web, OWN_RNC)["draft_id"]
+    before = _dossier(web, draft)
+
+    def refuse(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        raise ActionError("invalid_input", "activity_kind_unsupported")
+
+    monkeypatch.setattr(mutations, "revise", refuse)
+    _own_rnc(web)
+
+    profile = web.client.get(f"{API}/business/fiscal-profile", headers=web.alice.headers)
+    assert profile.json()["tax_id"] == {"type": "rnc", "value": OWN_RNC}
+    assert _dossier(web, draft) == before
