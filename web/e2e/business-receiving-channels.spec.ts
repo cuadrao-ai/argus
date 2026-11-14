@@ -53,9 +53,9 @@ for (const width of [1440, 390]) {
     await page.screenshot({ path: info.outputPath(`channels-off-inbox-${width}.png`), fullPage: true });
     await page.getByRole("button", { name: "Filtros", exact: true }).click();
     if (width < 720) await page.getByRole("button", { name: "Canal", exact: true }).click();
-    await expect(page.getByText("Carga manual", { exact: true })).toBeVisible();
-    await expect(page.getByText("Correo", { exact: true })).toBeVisible();
-    await expect(page.getByText("WhatsApp", { exact: true })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Carga manual", exact: true })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Correo", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("checkbox", { name: "WhatsApp", exact: true })).toHaveCount(0);
     await page.goto("/biz?view=business&tab=correo");
     await expect(page.getByTestId("business-settings")).toBeVisible();
     await expect(page.getByRole("button", { name: "Obtener una dirección" })).toHaveCount(0);
