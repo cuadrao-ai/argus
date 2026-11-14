@@ -6,6 +6,7 @@ import time
 from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
+from threading import Event as ThreadEvent
 from typing import Any
 
 import pytest
@@ -403,32 +404,62 @@ async def test_an_edit_while_waiting_gets_a_fresh_attempt_from_the_sweep(pull):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("delay_first_source", [False, True], ids=["normal", "slow-first"])
 async def test_a_worker_reads_oldest_first_and_never_passes_the_cap(
-    rig, worker_env
+    rig, worker_env, monkeypatch, delay_first_source: bool
 ) -> None:
     service, _, clock, _, _ = rig
     gauge = service.extractor = Gauge()
     jobs = PreparationJobs(service)
     connections = await waiting(service, jobs, 5)
+    pulled: list[str] = []
+    original_pull = service.store.pull
+
+    def pull(**kwargs: Any) -> tuple[str, str] | None:
+        taken = original_pull(**kwargs)
+        if taken is not None:
+            pulled.append(taken[0])
+        return taken
+
+    monkeypatch.setattr(service.store, "pull", pull)
+    # Source reads run on threads, so extraction can start out of pull order.
+    first_source = ThreadEvent()
+    original_source = service.store.source
+
+    def source(**kwargs: Any) -> bytes | None:
+        if delay_first_source and kwargs["connection_id"] == connections[0]:
+            assert first_source.wait(5), "the second read did not reach extraction"
+        return original_source(**kwargs)
+
+    monkeypatch.setattr(service.store, "source", source)
     stop = asyncio.Event()
     running = asyncio.create_task(
         DocumentWorker(service, settings(max_reads=2)).run(stop)
     )
 
-    await until(lambda: gauge.running == 2)
-    await asyncio.sleep(0.05)
-    assert gauge.read == connections[:2]
+    try:
+        if delay_first_source:
+            await until(lambda: gauge.read == [connections[1]])
+            first_source.set()
+        await until(lambda: gauge.running == 2)
+        await asyncio.sleep(0.05)
+        assert pulled == connections[:2]
+        assert sorted(gauge.read) == sorted(connections[:2])
 
-    gauge.release.set()
-    await until(lambda: len(gauge.read) == 5)
-    await until(
-        lambda: all(read(service, c).status == "review_ready" for c in connections)
-    )
-    stop.set()
-    await running
+        gauge.release.set()
+        await until(lambda: len(gauge.read) == 5)
+        await until(
+            lambda: all(read(service, c).status == "review_ready" for c in connections)
+        )
+    finally:
+        first_source.set()
+        gauge.release.set()
+        stop.set()
+        await asyncio.wait_for(running, 5)
 
     assert gauge.peak == 2
-    assert gauge.read == connections
+    assert pulled == connections
+    assert sorted(gauge.read) == sorted(connections)
 
 
 @pytest.mark.asyncio
