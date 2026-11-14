@@ -61,8 +61,9 @@ demonstrations.
 Keep specific limitations at forms and fiscal/export boundaries.
 
 The Business footer links to the page sections, Contact, the direct email, Lucas's
-LinkedIn and the legal pages. Do not add social account placeholders while those
-accounts have no content.
+LinkedIn and the legal pages. Social account icons sit in the brand column under
+the footer message, and only accounts with content show. The bottom row holds the
+copyright on the left and "Volver arriba" on the right.
 
 On mobile, Contact presents the introduction,
 form and then direct contact/founder details. DOM order and visual order agree.
