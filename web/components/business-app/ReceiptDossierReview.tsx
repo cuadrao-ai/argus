@@ -2,13 +2,13 @@
 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
-import { referenceCode } from "@/lib/failure-screen";
+import { recordGone, referenceCode, refusedForGood } from "@/lib/failure-screen";
 import { rncStatus } from "@/lib/rnc-status";
 import { ReceiptShortcutRegistration, receiptNavigationActions, receiptPlace } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import { Check, CircleAlert, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, readReviewNote, type BusinessDossier, type ReviewFlagCode } from "@/lib/business-dossier";
@@ -48,6 +48,8 @@ import { receiptTag } from "./recepcion/reception-status";
 import { bandejaReceipts, handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
 import { primaryButtonClass, secondaryButtonClass, StatusPill } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
+import { showToast } from "./foundation/toasts";
+import { useShownRecord } from "./useShownRecord";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -208,6 +210,22 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   // One key per request body: a retry repeats it, and approving anyway is a different request with its own key.
   const approvalKey = useRef<{ version: number; anyway: boolean; key: string } | null>(null);
 
+  // A draft that is gone closes onto its list, so a dead link never leaves a panel whose Reintentar cannot work.
+  // Only a refusal says the person's access; any other failure can pass, so it offers Reintentar.
+  const loadFailed = (error: unknown) => {
+    if (recordGone(error)) {
+      openPanel({ kind: origin?.list ?? "inbox" });
+      showToast({ kind: "info", text: t("business.review.gone") });
+      return;
+    }
+    const { code, status } = (error ?? {}) as { code?: string; status?: number };
+    const refused = status === 401 || status === 403 || code === "permission_denied" || refusedForGood(error);
+    setProblem({ text: refused ? t("business.dossier.unavailable", "This record isn't available with your current access.") : t("common.refresh_failed", "We couldn't update."), reference: referenceCode(error) });
+    setUnavailable(refused);
+    setDossier(null);
+  };
+  const onLoadFailed = useEffectEvent(loadFailed);
+  const shown = useShownRecord(draftId);
   useEffect(() => {
     let cancelled = false;
     source.dossier(draftId).then((next) => { if (!cancelled) setDossier(next); }).catch((error: unknown) => {
@@ -216,8 +234,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
         if (onUnprepared) onUnprepared();
         else setProblem({ text: t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.") });
       } else {
-        setProblem({ text: t("business.dossier.unavailable", "This record isn't available with your current access."), reference: referenceCode(error) });
-        setUnavailable(true);
+        onLoadFailed(error);
       }
     });
     return () => { cancelled = true; };
@@ -305,17 +322,17 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   };
 
   const refresh = async () => {
+    const asked = draftId;
     setChecking(true);
     try {
       const next = await source.dossier(draftId);
+      if (!shown(asked)) return;
       setDossier(next);
       setUnavailable(false);
       if (operation.kind !== "uncertain") { setProblem(null); setDuplicate(null); rows.clear(); }
       else if (next.approval_result?.status === "recorded" || next.approval_result?.status === "failed") { setOperation({ kind: "idle" }); rows.clear(); setProblem(null); }
     } catch (error) {
-      setProblem({ text: t("business.dossier.unavailable", "This record isn't available with your current access."), reference: referenceCode(error) });
-      setUnavailable(true);
-      setDossier(null);
+      if (shown(asked)) loadFailed(error);
     } finally { setChecking(false); }
   };
 

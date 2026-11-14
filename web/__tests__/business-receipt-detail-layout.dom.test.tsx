@@ -228,7 +228,7 @@ describe("a receipt that will not load", () => {
       ...fixture,
       receipt: async (id, signal) => {
         calls += 1;
-        if (calls === 1) throw Object.assign(new Error("gone"), { status: 404 });
+        if (calls === 1) throw Object.assign(new Error("down"), { status: 500 });
         return fixture.receipt(id, signal);
       },
     };
@@ -241,7 +241,7 @@ describe("a receipt that will not load", () => {
     for (let i = 0; i < 40 && !host.querySelector('[data-testid="receipt-load-error"]'); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     const error = host.querySelector('[data-testid="receipt-load-error"]')!;
     const alert = error.querySelector('[role="alert"]')!;
-    assert.equal(alert.textContent, "Este recibo no está disponible. Puede que lo hayan quitado.");
+    assert.equal(alert.textContent, "No pudimos actualizar.");
     assert.match(alert.className, /text-\[#9e2f39\]/);
     assert.ok(alert.querySelector(".lucide-circle-alert"));
     const retry = [...error.querySelectorAll("button")].find((item) => item.textContent === "Reintentar")!;

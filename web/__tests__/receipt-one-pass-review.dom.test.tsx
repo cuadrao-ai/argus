@@ -675,7 +675,7 @@ describe("the receipt dossier on an open draft", () => {
   });
 
   test("a receipt that never loaded still shows the error card", async () => {
-    const page = await mount(() => ({ receipt: async () => { throw Object.assign(new Error("gone"), { status: 404 }); } }));
+    const page = await mount(() => ({ receipt: async () => { throw Object.assign(new Error("down"), { status: 500 }); } }));
     try {
       await page.open({ kind: "receipt", receiptId: "rcpt-listo-suplidora" }, () => Boolean(page.host.querySelector('[data-testid="receipt-load-error"]')));
       assert.equal(page.host.querySelector('[data-testid="receipt-refetch-failed"]'), null);
