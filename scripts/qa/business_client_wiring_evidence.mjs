@@ -227,7 +227,7 @@ async function closeDossier(){
 }
 try{
  const serverLog=openSync(join(output,"server.log"),"w");
- app=spawn(process.execPath,[join(root,"web/node_modules/next/dist/bin/next"),"start","--hostname","127.0.0.1","--port",String(webPort)],{cwd:join(root,"web"),env:{HOME:process.env.HOME??"",PATH:process.env.PATH??"",NEXT_PUBLIC_MOCK_AUTH:"true",NEXT_PUBLIC_BUSINESS_PILOT_ENABLED:"true",NEXT_PUBLIC_ENABLE_SPANISH:"true",NEXT_PUBLIC_CUADRAO_API_URL:`${fixtureOrigin}/api/v1`,NEXT_TELEMETRY_DISABLED:"1"},stdio:["ignore",serverLog,serverLog]});
+ app=spawn(process.execPath,[join(root,"web/node_modules/next/dist/bin/next"),"start","--hostname","127.0.0.1","--port",String(webPort)],{cwd:join(root,"web"),env:{HOME:process.env.HOME??"",PATH:process.env.PATH??"",NEXT_PUBLIC_MOCK_AUTH:"true",NEXT_PUBLIC_BUSINESS_PILOT_ENABLED:"true",NEXT_PUBLIC_CUADRAO_API_URL:`${fixtureOrigin}/api/v1`,NEXT_TELEMETRY_DISABLED:"1"},stdio:["ignore",serverLog,serverLog]});
  closeSync(serverLog);
  const deadline=Date.now()+60000;
  while(true){try{const response=await fetch(webOrigin);if(response.ok)break;}catch{}if(Date.now()>deadline||app.exitCode!==null)throw new Error("Isolated app did not start");await new Promise(resolve=>setTimeout(resolve,300));}

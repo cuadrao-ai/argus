@@ -41,7 +41,6 @@ function shown(build: "business" | "consumer", navigator: string, stored: string
     cwd: webRoot,
     env: {
       ...process.env,
-      NEXT_PUBLIC_ENABLE_SPANISH: "true",
       NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: build === "business" ? "true" : "false",
       PROBE_NAVIGATOR: navigator,
       PROBE_STORED: stored,
