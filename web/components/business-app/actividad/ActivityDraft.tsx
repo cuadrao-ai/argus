@@ -2,7 +2,7 @@
 
 // Actividad: the live history reads GET /business/activity (#1407) and shows only what that feed returns. The local
 // preview (sample data, `?activity=contract|empty|loading|error`) also shows the fields #1410 and ACT-2a add.
-// UI copy lives in the locale files (`business.activity` and `business.activity_feed`).
+// UI copy lives in the locale files (`business.activity_feed`).
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -164,30 +164,30 @@ export default function ActivityDraft() {
   const lang = (i18n.resolvedLanguage ?? resolveLanguage({})) === "en" ? "en" : "es";
   const locale = lang === "en" ? "en-US" : "es-419";
   const c = {
-    cols: { who: t("business.activity.cols.who"), what: t("business.activity.cols.what"), record: t("business.activity.cols.record"), area: t("business.activity.cols.area"), time: t("business.activity.cols.time") },
-    filters: { title: t("business.activity.filters.title"), date: t("business.activity.filters.date"), person: t("business.activity.filters.person"), area: t("business.activity.filters.area"), action: t("business.activity.filters.action"), clear: t("business.activity.filters.clear"), clearGroup: t("business.activity.filters.clearGroup"), remove: t("business.activity.filters.remove"), all: t("business.activity.filters.all"), today: t("business.activity.filters.today"), week: t("business.activity.filters.week"), month: t("business.activity.filters.month") },
-    areas: { documents: t("business.activity.areas.documents"), records: t("business.activity.areas.records"), invoicing: t("business.activity.areas.invoicing"), business: t("business.activity.areas.business") },
-    groups: { uploads: t("business.activity.groups.uploads"), reading: t("business.activity.groups.reading"), reviews: t("business.activity.groups.reviews"), approvals: t("business.activity.groups.approvals"), edits: t("business.activity.groups.edits"), files: t("business.activity.groups.files"), invoices: t("business.activity.groups.invoices"), access: t("business.activity.groups.access"), settings: t("business.activity.groups.settings"), other: t("business.activity.groups.other") },
-    viaChat: t("business.activity.viaChat"),
-    formerMember: t("business.activity.formerMember"),
-    unmarkPersonal: t("business.activity.unmarkPersonal"),
-    managersOnly: t("business.activity.managersOnly"),
-    noActor: t("business.activity.noActor"),
-    noRecord: t("business.activity.noRecord"),
-    loadMore: t("business.activity.loadMore"),
-    am: t("business.activity.am"),
-    pm: t("business.activity.pm"),
-    firstRunTitle: t("business.activity.firstRunTitle"),
-    firstRunBody: t("business.activity.firstRunBody"),
-    filteredTitle: t("business.activity.filteredTitle"),
-    filteredBody: t("business.activity.filteredBody"),
-    errorTitle: t("business.activity.errorTitle"),
-    errorBody: t("business.activity.errorBody"),
-    goHome: t("business.activity.goHome"),
-    loadMoreFailed: t("business.activity.loadMoreFailed"),
-    retry: t("business.activity.retry"),
-    extractorName: t("business.activity.extractorName"),
-    recordPlaceholder: t("business.activity.recordPlaceholder"),
+    cols: { who: t("business.activity_feed.cols.who"), what: t("business.activity_feed.cols.what"), record: t("business.activity_feed.cols.record"), area: t("business.activity_feed.cols.area"), time: t("business.activity_feed.cols.time") },
+    filters: { title: t("business.activity_feed.filters.title"), date: t("business.activity_feed.filters.date"), person: t("business.activity_feed.filters.person"), area: t("business.activity_feed.filters.area"), action: t("business.activity_feed.filters.action"), clear: t("business.activity_feed.filters.clear"), clearGroup: t("business.activity_feed.filters.clear_group"), remove: t("business.activity_feed.filters.remove"), all: t("business.activity_feed.filters.all"), today: t("business.activity_feed.filters.today"), week: t("business.activity_feed.filters.week"), month: t("business.activity_feed.filters.month") },
+    areas: { documents: t("business.activity_feed.areas.documents"), records: t("business.activity_feed.areas.records"), invoicing: t("business.activity_feed.areas.invoicing"), business: t("business.activity_feed.areas.business") },
+    groups: { uploads: t("business.activity_feed.groups.uploads"), reading: t("business.activity_feed.groups.reading"), reviews: t("business.activity_feed.groups.reviews"), approvals: t("business.activity_feed.groups.approvals"), edits: t("business.activity_feed.groups.edits"), files: t("business.activity_feed.groups.files"), invoices: t("business.activity_feed.groups.invoices"), access: t("business.activity_feed.groups.access"), settings: t("business.activity_feed.groups.settings"), other: t("business.activity_feed.groups.other") },
+    viaChat: t("business.activity_feed.via_chat"),
+    formerMember: t("business.activity_feed.former_member"),
+    unmarkPersonal: t("business.activity_feed.unmark_personal"),
+    managersOnly: t("business.activity_feed.managers_only"),
+    noActor: t("business.activity_feed.no_actor"),
+    noRecord: t("business.activity_feed.no_record"),
+    loadMore: t("business.activity_feed.load_more"),
+    am: t("business.activity_feed.am"),
+    pm: t("business.activity_feed.pm"),
+    firstRunTitle: t("business.activity_feed.first_run_title"),
+    firstRunBody: t("business.activity_feed.first_run_body"),
+    filteredTitle: t("business.activity_feed.filtered_title"),
+    filteredBody: t("business.activity_feed.filtered_body"),
+    errorTitle: t("business.activity_feed.error_title"),
+    errorBody: t("business.activity_feed.error_body"),
+    goHome: t("business.activity_feed.go_home"),
+    loadMoreFailed: t("business.activity_feed.load_more_failed"),
+    retry: t("business.activity_feed.retry"),
+    extractorName: t("business.activity_feed.extractor_name"),
+    recordPlaceholder: t("business.activity_feed.record_placeholder"),
   };
   const mode = live || typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("activity");
   const [filters, setFilters] = useState<ActivityFilterValue>(EMPTY_ACTIVITY_FILTERS);

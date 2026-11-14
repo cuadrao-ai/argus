@@ -2400,69 +2400,12 @@
     },
     "activity": {
       "all_channels": "La lectura de documentos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
-      "am": "a.m.",
-      "areas": {
-        "business": "Negocio",
-        "documents": "Documentos",
-        "invoicing": "Facturación",
-        "records": "Registros"
-      },
       "change": "Cambiar",
-      "cols": {
-        "area": "Área",
-        "record": "Registro",
-        "time": "Hora",
-        "what": "Qué pasó",
-        "who": "Quién"
-      },
       "error": "No se pudo actualizar la lectura de documentos. Inténtalo de nuevo.",
-      "errorBody": "Tus registros están bien. Inténtalo de nuevo en un momento.",
-      "errorTitle": "No pudimos cargar la actividad",
-      "extractorName": "Cuadrao",
-      "filteredBody": "Hay actividad fuera de esta fecha o de estos filtros.",
-      "filteredTitle": "Nada coincide con estos filtros",
-      "filters": {
-        "action": "Acción",
-        "all": "Todas las fechas",
-        "area": "Área",
-        "clear": "Limpiar filtros",
-        "clearGroup": "Limpiar",
-        "date": "Fecha",
-        "month": "Últimos 30 días",
-        "person": "Persona",
-        "remove": "Quitar filtro:",
-        "title": "Filtros",
-        "today": "Hoy",
-        "week": "Últimos 7 días"
-      },
-      "firstRunBody": "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
-      "firstRunTitle": "Todavía no hay actividad",
-      "formerMember": "Exmiembro",
-      "goHome": "Ir a Inicio",
-      "groups": {
-        "access": "Accesos",
-        "approvals": "Aprobaciones",
-        "edits": "Cambios en registros",
-        "files": "Adjuntos",
-        "invoices": "Facturas",
-        "other": "Otros",
-        "reading": "Lecturas",
-        "reviews": "Revisiones",
-        "settings": "Datos del negocio",
-        "uploads": "Subidas"
-      },
-      "loadMore": "Cargar más",
-      "loadMoreFailed": "No pudimos cargar más actividad.",
-      "managersOnly": "Solo lo ven dueños y administradores",
       "mark_read": "Marcar como leído",
-      "noActor": "Actor no registrado",
-      "noRecord": "sin dato",
       "open_settings": "Abrir configuración de lectura",
       "owner_only": "Tus documentos se guardan sin leer. El dueño del negocio puede activar la lectura.",
-      "pm": "p.m.",
       "reading_on": "La lectura de documentos está activada.",
-      "recordPlaceholder": "-",
-      "retry": "Reintentar",
       "saved_prompt": "Tus documentos están guardados sin leer. Activa la lectura para prepararlos para revisión.",
       "sheet_title": "Lectura de documentos",
       "state_off": "Desactivada",
@@ -2472,9 +2415,7 @@
       "turn_on": "Activar lectura de documentos",
       "turned_off": "Lectura de documentos desactivada.",
       "turned_on": "Lectura de documentos activada.",
-      "unavailable": "Ahora no se puede activar la lectura con IA.",
-      "unmarkPersonal": "devolvió un gasto al negocio",
-      "viaChat": "desde el chat"
+      "unavailable": "Ahora no se puede activar la lectura con IA."
     },
     "activity_feed": {
       "actions": {
@@ -2520,7 +2461,66 @@
         "set_business_legal_name": "confirmó la razón social del negocio",
         "set_business_rnc": "actualizó el RNC del negocio",
         "settle_remainder": "saldó el resto de un registro"
-      }
+      },
+      "am": "a.m.",
+      "areas": {
+        "business": "Negocio",
+        "documents": "Documentos",
+        "invoicing": "Facturación",
+        "records": "Registros"
+      },
+      "cols": {
+        "area": "Área",
+        "record": "Registro",
+        "time": "Hora",
+        "what": "Qué pasó",
+        "who": "Quién"
+      },
+      "error_body": "Tus registros están bien. Inténtalo de nuevo en un momento.",
+      "error_title": "No pudimos cargar la actividad",
+      "extractor_name": "Cuadrao",
+      "filtered_body": "Hay actividad fuera de esta fecha o de estos filtros.",
+      "filtered_title": "Nada coincide con estos filtros",
+      "filters": {
+        "action": "Acción",
+        "all": "Todas las fechas",
+        "area": "Área",
+        "clear": "Limpiar filtros",
+        "clear_group": "Limpiar",
+        "date": "Fecha",
+        "month": "Últimos 30 días",
+        "person": "Persona",
+        "remove": "Quitar filtro:",
+        "title": "Filtros",
+        "today": "Hoy",
+        "week": "Últimos 7 días"
+      },
+      "first_run_body": "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
+      "first_run_title": "Todavía no hay actividad",
+      "former_member": "Exmiembro",
+      "go_home": "Ir a Inicio",
+      "groups": {
+        "access": "Accesos",
+        "approvals": "Aprobaciones",
+        "edits": "Cambios en registros",
+        "files": "Adjuntos",
+        "invoices": "Facturas",
+        "other": "Otros",
+        "reading": "Lecturas",
+        "reviews": "Revisiones",
+        "settings": "Datos del negocio",
+        "uploads": "Subidas"
+      },
+      "load_more": "Cargar más",
+      "load_more_failed": "No pudimos cargar más actividad.",
+      "managers_only": "Solo lo ven dueños y administradores",
+      "no_actor": "Actor no registrado",
+      "no_record": "sin dato",
+      "pm": "p.m.",
+      "record_placeholder": "-",
+      "retry": "Reintentar",
+      "unmark_personal": "devolvió un gasto al negocio",
+      "via_chat": "desde el chat"
     },
     "bank": {
       "empty": {

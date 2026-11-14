@@ -54,8 +54,8 @@ for (const language of ["es-419", "en"] as const) {
     i18n.removeResourceBundle(language, "translation");
     i18n.addResourceBundle(language, "translation", catalog);
     const replacement = { title: `title-${language}`, body: `body-${language}` };
-    i18n.addResource(language, "translation", "business.activity.firstRunTitle", replacement.title);
-    i18n.addResource(language, "translation", "business.activity.firstRunBody", replacement.body);
+    i18n.addResource(language, "translation", "business.activity_feed.first_run_title", replacement.title);
+    i18n.addResource(language, "translation", "business.activity_feed.first_run_body", replacement.body);
     assert.deepEqual(await mount(i18n), replacement);
   });
 }
