@@ -126,28 +126,20 @@ test("the Bandeja opens on Todos with its four tabs, and nothing else from the o
   assert.deepEqual([...page.host.querySelectorAll("#reception-list > div:first-child > span:not(.sr-only)")].map(cell => cell.textContent).filter(Boolean), ["Contenido", "Adjunto", "Canal", "Canal", "Estado", "Llegada"], "Monto, Moneda and Remitente stay off; the second Canal is the heading the width swaps in");
 });
 
-const seeAll = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="reception-empty"] button')].find(button => button.textContent === "Ver todo");
-const emptyKind = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector('[data-testid="reception-empty"]')?.getAttribute("data-empty-kind");
+const EMPTY_TITLE = { attention: "Nada necesita atención", listos: "No hay recibos listos", eliminados: "No hay documentos eliminados" } as const;
+const BUSINESSES: Record<string, Record<keyof typeof EMPTY_TITLE, (receipts: ReceiptSummary[]) => ReceiptSummary[]>> = {
+  "no documents": { attention: () => [], listos: () => [], eliminados: () => [] },
+  "documents in Todo": { attention: receipts => receipts.filter(receipt => receipt.bandeja_group?.group === "listo"), listos: receipts => receipts.filter(receipt => receipt.bandeja_group?.group !== "listo"), eliminados: receipts => receipts },
+};
 
-for (const view of ["all", "attention", "listos", "eliminados"] as const) test(`a Business with no documents offers no Ver todo on ${view}`, async () => {
-  const page = await mount({ tweak: () => [], receiptsOnly: true });
+for (const [business, tweaks] of Object.entries(BUSINESSES)) for (const view of ["attention", "listos", "eliminados"] as const) test(`on a Business with ${business}, an empty ${view} tab shows its own title and offers no Ver todo`, async () => {
+  const page = await mount({ tweak: tweaks[view], receiptsOnly: true });
+  assert.equal(rows(page).length > 0, business === "documents in Todo");
   await page.click(page.tab(view));
   await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
-  assert.equal(seeAll(page), undefined, "Todo is empty, so nothing leads there");
-  if (view !== "eliminados") {
-    assert.equal(emptyKind(page), "first_run");
-    assert.match(page.host.querySelector('[data-testid="reception-empty"]')?.textContent ?? "", /Tus archivos y notas llegan aquí/);
-  }
-});
-
-test("an empty Necesita atención offers Ver todo when Todo has documents, and it opens Todo", async () => {
-  const page = await mount({ tweak: receipts => receipts.filter(receipt => receipt.bandeja_group?.group === "listo"), receiptsOnly: true });
-  await page.click(page.tab("attention"));
-  await page.settle(() => page.host.querySelector('[data-testid="reception-empty"]') !== null);
-  assert.equal(emptyKind(page), "done");
-  await page.click(seeAll(page));
-  assert.equal(page.tab("all")?.getAttribute("aria-selected"), "true");
-  assert.equal(rows(page).length, 3);
+  const empty = page.host.querySelector('[data-testid="reception-empty"]');
+  assert.equal(empty?.querySelector("h3")?.textContent, EMPTY_TITLE[view]);
+  assert.doesNotMatch(empty?.textContent ?? "", /Ver todo/, "Todas las fechas already widens the list; the empty tab adds no second way back");
 });
 
 test("the tab numbers are the server's, not a count of the rows loaded", async () => {
