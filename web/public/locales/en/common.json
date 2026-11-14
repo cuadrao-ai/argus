@@ -2461,7 +2461,66 @@
         "set_business_legal_name": "confirmed the business legal name",
         "set_business_rnc": "updated the business RNC",
         "settle_remainder": "settled a record's remainder"
-      }
+      },
+      "am": "a.m.",
+      "areas": {
+        "business": "Business",
+        "documents": "Documents",
+        "invoicing": "Invoicing",
+        "records": "Records"
+      },
+      "cols": {
+        "area": "Area",
+        "record": "Record",
+        "time": "Time",
+        "what": "What happened",
+        "who": "Who"
+      },
+      "error_body": "Your records are fine. Try again in a moment.",
+      "error_title": "We could not load the activity",
+      "extractor_name": "Cuadrao",
+      "filtered_body": "There is activity outside this date or these filters.",
+      "filtered_title": "Nothing matches these filters",
+      "filters": {
+        "action": "Action",
+        "all": "All dates",
+        "area": "Area",
+        "clear": "Clear filters",
+        "clear_group": "Clear",
+        "date": "Date",
+        "month": "Last 30 days",
+        "person": "Person",
+        "remove": "Remove filter:",
+        "title": "Filters",
+        "today": "Today",
+        "week": "Last 7 days"
+      },
+      "first_run_body": "When someone uploads, reviews or approves something in this business, you will see it here.",
+      "first_run_title": "No activity yet",
+      "former_member": "Former member",
+      "go_home": "Go to Home",
+      "groups": {
+        "access": "Access",
+        "approvals": "Approvals",
+        "edits": "Record changes",
+        "files": "Attachments",
+        "invoices": "Invoices",
+        "other": "Other",
+        "reading": "Reading",
+        "reviews": "Reviews",
+        "settings": "Business details",
+        "uploads": "Uploads"
+      },
+      "load_more": "Load more",
+      "load_more_failed": "We couldn't load more activity.",
+      "managers_only": "Only owners and admins see this",
+      "no_actor": "Actor not recorded",
+      "no_record": "no data",
+      "pm": "p.m.",
+      "record_placeholder": "-",
+      "retry": "Try again",
+      "unmark_personal": "moved an expense back to the business",
+      "via_chat": "from chat"
     },
     "bank": {
       "empty": {

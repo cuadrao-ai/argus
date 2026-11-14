@@ -6,6 +6,7 @@ import spanish from "@/public/locales/es-419/common.json";
 
 /** Words that read the same in both languages: DGII names, document names, and plain words English shares. */
 const SHARED_CONTEXTS = new Map([
+  ["business.activity_feed.extractor_name", "Cuadrao"],
   ["business.invoicing_preview.email_cc_short", "Cc"],
   ["business.invoicing_preview.document_customer_ced", "CED: {{id}}"],
   ["business.invoicing_preview.document_customer_rnc", "RNC: {{id}}"],

@@ -2461,7 +2461,66 @@
         "set_business_legal_name": "confirmó la razón social del negocio",
         "set_business_rnc": "actualizó el RNC del negocio",
         "settle_remainder": "saldó el resto de un registro"
-      }
+      },
+      "am": "a.m.",
+      "areas": {
+        "business": "Negocio",
+        "documents": "Documentos",
+        "invoicing": "Facturación",
+        "records": "Registros"
+      },
+      "cols": {
+        "area": "Área",
+        "record": "Registro",
+        "time": "Hora",
+        "what": "Qué pasó",
+        "who": "Quién"
+      },
+      "error_body": "Tus registros están bien. Inténtalo de nuevo en un momento.",
+      "error_title": "No pudimos cargar la actividad",
+      "extractor_name": "Cuadrao",
+      "filtered_body": "Hay actividad fuera de esta fecha o de estos filtros.",
+      "filtered_title": "Nada coincide con estos filtros",
+      "filters": {
+        "action": "Acción",
+        "all": "Todas las fechas",
+        "area": "Área",
+        "clear": "Limpiar filtros",
+        "clear_group": "Limpiar",
+        "date": "Fecha",
+        "month": "Últimos 30 días",
+        "person": "Persona",
+        "remove": "Quitar filtro:",
+        "title": "Filtros",
+        "today": "Hoy",
+        "week": "Últimos 7 días"
+      },
+      "first_run_body": "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
+      "first_run_title": "Todavía no hay actividad",
+      "former_member": "Exmiembro",
+      "go_home": "Ir a Inicio",
+      "groups": {
+        "access": "Accesos",
+        "approvals": "Aprobaciones",
+        "edits": "Cambios en registros",
+        "files": "Adjuntos",
+        "invoices": "Facturas",
+        "other": "Otros",
+        "reading": "Lecturas",
+        "reviews": "Revisiones",
+        "settings": "Datos del negocio",
+        "uploads": "Subidas"
+      },
+      "load_more": "Cargar más",
+      "load_more_failed": "No pudimos cargar más actividad.",
+      "managers_only": "Solo lo ven dueños y administradores",
+      "no_actor": "Actor no registrado",
+      "no_record": "sin dato",
+      "pm": "p.m.",
+      "record_placeholder": "-",
+      "retry": "Reintentar",
+      "unmark_personal": "devolvió un gasto al negocio",
+      "via_chat": "desde el chat"
     },
     "bank": {
       "empty": {
