@@ -147,7 +147,7 @@ for (const action of ["delete_document", "restore_document"] as const) {
   });
 }
 
-for (const [action, words] of [["purge_document", "eliminó definitivamente un documento."], ["expire_document", "eliminó definitivamente un documento después de 7 días en Eliminados."]] as const) {
+for (const [action, words] of [["purge_document", "borró definitivamente un documento."], ["expire_document", "borró definitivamente un documento después de 7 días en Eliminados."]] as const) {
   test(`Actividad shows ${action} with no name and no link`, async () => {
     const actor = action === "expire_document" ? { display_name: "Cuadrao", kind: "extractor" } : { display_name: "Lucía Peña", kind: "member" };
     feed = async () => ({ items: [{ ...item("purge-event", "Lucía Peña", action, 5), actor, object: null }], next_cursor: null });
@@ -157,7 +157,7 @@ for (const [action, words] of [["purge_document", "eliminó definitivamente un d
       const surface = page.host.querySelector('[data-testid="business-activity-draft"]');
       assert.ok(surface);
       assert.ok(surface.textContent?.includes(action === "expire_document" ? "Cuadrao" : "Lucía Peña"));
-      assert.equal([...surface.querySelectorAll("button")].filter(button => button.textContent?.includes("eliminó definitivamente")).length, 0);
+      assert.equal([...surface.querySelectorAll("button")].filter(button => button.textContent?.includes("borró definitivamente")).length, 0);
     } finally { await page.close(); }
   });
 }
