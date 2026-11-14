@@ -5926,6 +5926,17 @@ paths:
           - all
           type: string
           default: inbox
+      - name: if-none-match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The `ETag` of an earlier answer. When the Business's lists still have
+            that version the answer is 304 with no body.
+        description: The `ETag` of an earlier answer. When the Business's lists still have
+          that version the answer is 304 with no body.
       - name: X-Business-Grant
         in: header
         required: false
@@ -5950,6 +5961,9 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '304':
+          description: The Business's lists have not changed since the version named in `If-None-Match`.
+            No body.
         '422':
           description: Validation Error
           content:
