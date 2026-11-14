@@ -253,7 +253,7 @@ def dossier(
     questions = review_questions(tx, [draft_id]).get(str(draft_id), ())
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note,reason"
         " from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
