@@ -70,6 +70,18 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div className="text-sm"><dt className="text-black/45 dark:text-white/45">{label}</dt><dd>{children}</dd></div>;
 }
 
+function LoadRetry({ reference, onRetry }: { reference: string; onRetry: () => void }) {
+  const { t } = useTranslation();
+  return <div>
+    <p role="alert" className="flex items-start gap-2 text-sm text-[#9e2f39] dark:text-[#ec9aa0]">
+      <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      {t("common.refresh_failed", "We couldn't update.")}
+    </p>
+    <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={reference} /></div>
+    <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={onRetry}>{t("common.retry", "Retry")}</button>
+  </div>;
+}
+
 function ReceiptPreview({ receiptId, source }: { receiptId: string; source: BusinessDataSource }) {
   const { t, i18n } = useTranslation();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
@@ -83,14 +95,7 @@ function ReceiptPreview({ receiptId, source }: { receiptId: string; source: Busi
     return () => { active = false; };
   }, [receiptId, source, attempt]);
   if (failure === "gone") return <p className="text-sm text-black/55 dark:text-white/55">{t("business.review.gone")}</p>;
-  if (failure) return <div>
-    <p role="alert" className="flex items-start gap-2 text-sm text-[#9e2f39] dark:text-[#ec9aa0]">
-      <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-      {t("common.refresh_failed", "We couldn't update.")}
-    </p>
-    <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={failure.reference} /></div>
-    <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => setAttempt((value) => value + 1)}>{t("common.retry", "Retry")}</button>
-  </div>;
+  if (failure) return <LoadRetry reference={failure.reference} onRetry={() => setAttempt((value) => value + 1)} />;
   if (!detail) return <Settle pending layout="rows" rows={3} />;
   return <>
     <Field label={t("business.review.source", "Original receipt")}><span className="break-all">{detail.filename ?? detail.media_type}</span></Field>
@@ -103,21 +108,22 @@ function NotePreview({ note, source, accounts }: { note: BusinessCapture; source
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<"gone" | { reference: string } | null>(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
     setDossier(null);
-    setFailed(false);
-    source.dossier(note.draft_id).then((value) => active && setDossier(value)).catch(() => active && setFailed(true));
+    setFailure(null);
+    source.dossier(note.draft_id).then((value) => active && setDossier(value)).catch((error: unknown) => active && setFailure(recordGone(error) ? "gone" : { reference: referenceCode(error) }));
     return () => { active = false; };
-  }, [note.draft_id, source]);
+  }, [note.draft_id, source, attempt]);
   return <section aria-label={t("business.capture.saved_note", "Saved original note")} className="space-y-5">
     <div>
       <p className="mb-2 text-xs uppercase tracking-wide text-black/45 dark:text-white/45">{t("business.capture.saved_note", "Saved original note")} · {formatTimestamp(note.received_at, locale)}</p>
       <blockquote className="whitespace-pre-wrap break-words border-l-2 border-black/10 pl-3 text-[15px] leading-relaxed text-black/80 dark:border-white/15 dark:text-white/80">{note.text}</blockquote>
     </div>
     <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.revision", "Revision {{version}}", { version: dossier ? factsRevision(dossier) : note.revision })} · {t(`business.dossier.state.${note.review_state}`, note.review_state)}</p>
-    {failed ? <p role="alert" className="text-sm">{t("business.search.record_unavailable", "This record isn't available.")}</p> : dossier ? <>
+    {failure === "gone" ? <p className="text-sm text-black/55 dark:text-white/55">{t("business.search.record_unavailable", "This record isn't available.")}</p> : failure ? <LoadRetry reference={failure.reference} onRetry={() => setAttempt((value) => value + 1)} /> : dossier ? <>
       <ReceiptRecordFacts dossier={dossier} accounts={[...accounts]} />
       <ReceiptMessages sources={dossier.sources} />
     </> : <Settle pending layout="rows" rows={4} />}
