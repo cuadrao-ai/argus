@@ -383,11 +383,10 @@ def test_an_invited_accountant_is_admitted_by_the_invite_and_works_from_the_firs
             "personal.csv",
             "records.xlsx",
             "unresolved.csv",
-            "dgii/606-607.xlsx",
-            "dgii/summary.json",
             *originals,
         ]
     )
+    assert not [name for name in package.namelist() if name.startswith("dgii/")]
     assert len(originals) == 3 and all(n.startswith("originals/") for n in originals)
     assert {tuple(s["draft_ids"]) for s in manifest["sources"]} == {(draft,)}
     assert (

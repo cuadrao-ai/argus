@@ -120,7 +120,7 @@ def reconciled(service, context, activity: str) -> dict:  # noqa: ANN001
 
 
 def shipped(service, context, draft) -> list[dict]:  # noqa: ANN001
-    """The 606 issues for this draft's record, after the TXT carried its line.
+    """The 606 issues for this draft's record, after the 606 placed its line.
     The dossier's approval receipt, the export manifest and the recorded
     snapshot name the same approved revision."""
 

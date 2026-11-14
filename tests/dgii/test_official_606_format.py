@@ -3,22 +3,21 @@
 The source XLS is not a test dependency.
 """
 
-import io
 import unicodedata
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
-from xml.etree import ElementTree
-from zipfile import ZipFile
 
 import pytest
 from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.business.contracts.facts import BusinessFacts, FiscalFacts, Known
 from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
-from argus.domain.business.dgii_export import build_fiscal_packet
+from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_validation import FiscalRecord
 from faker import Faker
+
+from tests.dgii.test_packet import Packet
 
 
 @pytest.fixture
@@ -102,20 +101,23 @@ def synthetic():
 
 
 def packet(record, reporter, name):
-    return build_fiscal_packet(
-        (record,),
-        rnc=reporter,
-        business_name=name,
-        start=date(2026, 9, 1),
-        end=date(2026, 9, 30),
-        captured_on=date(2026, 10, 1),
+    return Packet(
+        *fiscal_manifest(
+            (record,),
+            rnc=reporter,
+            business_name=name,
+            start=date(2026, 9, 1),
+            end=date(2026, 9, 30),
+            captured_on=date(2026, 10, 1),
+        )
     )
 
 
 def detail(result):
     assert result.manifest["issues"] == []
-    txt = next(value for name, value in result.files.items() if name.endswith(".TXT"))
-    return txt.decode("ascii").split("\r\n")[1].split("|")
+    assert result.manifest["forms"]["606"]["status"] == "prepared_candidate"
+    [row] = result.rows["606"]
+    return list(row)
 
 
 @pytest.mark.parametrize("category", [f"{n:02}" for n in range(1, 12)])
@@ -175,12 +177,7 @@ def test_every_code_pair_emits_the_official_23_fields(
         payment,
     ]
     assert detail(result) == expected
-    txt = result.files[f"dgii/DGII_F_606_{identities['1']}_202609.TXT"]
-    assert txt == (f"606|{identities['1']}|202609|1\r\n" + "|".join(expected)).encode(
-        "ascii"
-    )
     assert result.manifest["official_validation"] == "NOT RUN"
-    assert result.manifest["physical_format"]["official_tool_verified"] is False
 
 
 @pytest.mark.parametrize("value", (None, "0", "0.00"))
@@ -233,13 +230,13 @@ def test_optional_blanks_and_zeroes_keep_their_positions(synthetic, value):
 
 
 @pytest.mark.parametrize("field", ("id_type", "category", "payment_method"))
-def test_required_codes_do_not_become_blank_txt_fields(synthetic, field):
+def test_required_codes_do_not_become_blank_fields(synthetic, field):
     record, identities, name = synthetic
     record = replace(
         record, declaration=record.declaration.model_copy(update={field: None})
     )
     result = packet(record, identities["1"], name)
-    assert not any(path.endswith(".TXT") for path in result.files)
+    assert result.manifest["forms"]["606"]["status"] == "needs_review"
     assert any(item["field"] == field for item in result.manifest["issues"])
 
 
@@ -308,27 +305,11 @@ def test_unsupported_perceptions_are_refused_instead_of_silently_omitted(
         ),
     )
     result = packet(record, identities["1"], name)
-    assert not any(path.endswith(".TXT") for path in result.files)
+    assert result.manifest["forms"]["606"]["status"] == "needs_review"
     assert any(
         item["code"] == "fiscal_perception_regime_unsupported" and item["field"] == field
         for item in result.manifest["issues"]
     )
-
-
-def test_review_sheet_retains_txt_values_without_claiming_native_grid_compatibility(
-    synthetic,
-):
-    record, identities, name = synthetic
-    result = packet(record, identities["1"], name)
-    expected = detail(result)
-    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-    with ZipFile(io.BytesIO(result.files["dgii/606-607.xlsx"])) as archive:
-        strings = ElementTree.fromstring(archive.read("xl/sharedStrings.xml"))
-        text = [item.find("m:t", ns).text or "" for item in strings]
-        sheet = ElementTree.fromstring(archive.read("xl/worksheets/sheet2.xml"))
-        row = sheet.findall("m:sheetData/m:row", ns)[1]
-        assert [text[int(cell.find("m:v", ns).text)] for cell in row] == expected
-        assert all(cell.attrib["t"] == "s" for cell in row)
 
 
 @pytest.mark.parametrize(

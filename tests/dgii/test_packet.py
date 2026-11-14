@@ -1,12 +1,9 @@
-import io
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from uuid import UUID
-from xml.etree import ElementTree
-from zipfile import ZipFile
 
 import pytest
 from argus.domain.business.contracts.dgii import FiscalReview, PurchaseDeclaration
@@ -16,7 +13,7 @@ from argus.domain.business.contracts.facts import (
     Known,
     Unknown,
 )
-from argus.domain.business.dgii_export import build_fiscal_packet
+from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_validation import FiscalRecord
 from pydantic import ValidationError
 
@@ -89,17 +86,25 @@ def practice_records():
     return tuple(result)
 
 
+@dataclass(frozen=True)
+class Packet:
+    manifest: dict
+    rows: dict[str, list[tuple[str, ...]]]
+
+
 def packet(records=None, **changes):
-    return build_fiscal_packet(
-        practice_records() if records is None else records,
-        **{
-            "rnc": "199990013",
-            "business_name": "Taller Ensayo",
-            "start": date(2026, 9, 1),
-            "end": date(2026, 9, 30),
-            "captured_on": date(2026, 10, 18),
-            **changes,
-        },
+    return Packet(
+        *fiscal_manifest(
+            practice_records() if records is None else records,
+            **{
+                "rnc": "199990013",
+                "business_name": "Taller Ensayo",
+                "start": date(2026, 9, 1),
+                "end": date(2026, 9, 30),
+                "captured_on": date(2026, 10, 18),
+                **changes,
+            },
+        )
     )
 
 
@@ -108,12 +113,11 @@ def test_practice_annex_rows_and_economic_reconciliation():
     assert result.manifest["issues"] == []
     assert result.manifest["forms"]["606"]["record_count"] == 3
     assert result.manifest["forms"]["607"]["record_count"] == 1
-    purchase = (
-        result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode("ascii").splitlines()
-    )
-    assert purchase[0] == "606|199990013|202609|3"
-    assert all(len(row.split("|")) == 23 for row in purchase[1:])
-    note = purchase[-1].split("|")
+    assert result.manifest["forms"]["606"]["status"] == "prepared_candidate"
+    purchase = result.rows["606"]
+    assert len(purchase) == 3
+    assert all(len(row) == 23 for row in purchase)
+    note = purchase[-1]
     assert (note[3], note[4], note[9], note[10], note[14], note[22]) == (
         "B0400000001",
         "B0100000001",
@@ -158,13 +162,12 @@ def test_practice_annex_rows_and_economic_reconciliation():
     assert result.manifest["submitted"] is False
 
 
-def test_missing_rnc_produces_no_aplica_without_empty_txt():
+def test_missing_rnc_produces_no_aplica():
     result = packet(rnc=None, start=date(2026, 10, 1), end=date(2026, 10, 17))
-    assert all(form["label"] == "No aplica" for form in result.manifest["forms"].values())
-    assert not any(name.lower().endswith(".txt") for name in result.files)
+    assert {
+        (form["status"], form["label"]) for form in result.manifest["forms"].values()
+    } == {("no_aplica", "No aplica")}
     assert result.manifest["period_status"] == "DRY RUN"
-    with ZipFile(io.BytesIO(result.files["dgii/606-607.xlsx"])) as book:
-        assert b"No aplica" in book.read("xl/sharedStrings.xml")
 
 
 @pytest.mark.parametrize(
@@ -178,18 +181,11 @@ def test_blank_optional_amount_stays_empty_and_valid(field, column):
     )
     result = packet((first, *records[1:]))
     assert result.manifest["forms"]["606"]["status"] == "prepared_candidate"
-    row = result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode().splitlines()[1]
-    assert row.split("|")[column] == ""
+    assert result.rows["606"][0][column] == ""
 
 
 def test_zero_optional_amount_prints_empty_and_required_itbis_stays_numeric():
-    row = (
-        packet()
-        .files["dgii/DGII_F_606_199990013_202609.TXT"]
-        .decode()
-        .splitlines()[1]
-        .split("|")
-    )
+    row = packet().rows["606"][0]
     assert row[7] == ""
     assert row[10] == "180.00"
     assert row[11] == "0.00"
@@ -202,7 +198,7 @@ def test_missing_itbis_blocks_the_annex_file():
     blocked = packet(
         (replace(first, facts=first.facts.model_copy(update={"fiscal": fiscal})),)
     )
-    assert "dgii/DGII_F_606_199990013_202609.TXT" not in blocked.files
+    assert blocked.manifest["forms"]["606"]["status"] == "needs_review"
     assert any(issue["field"] == "itbis" for issue in blocked.manifest["issues"])
 
 
@@ -214,7 +210,7 @@ def test_duplicate_document_does_not_silently_claim_valid_second_expense():
         issue["code"] == "fiscal_duplicate_document"
         for issue in result.manifest["issues"]
     )
-    assert "dgii/DGII_F_606_199990013_202609.TXT" not in result.files
+    assert result.manifest["forms"]["606"]["status"] == "needs_review"
 
 
 def test_itbis_advance_is_billed_minus_cost_not_withholding():
@@ -223,13 +219,7 @@ def test_itbis_advance_is_billed_minus_cost_not_withholding():
         update={"itbis_cost": "20.00", "itbis_withheld": "10.00"}
     )
     result = packet((replace(record, declaration=declaration),))
-    row = (
-        result.files["dgii/DGII_F_606_199990013_202609.TXT"]
-        .decode()
-        .splitlines()[1]
-        .split("|")
-    )
-    assert row[14] == "160.00"
+    assert result.rows["606"][0][14] == "160.00"
 
 
 def test_credit_note_requires_actual_refund_original_and_tax_date():
@@ -259,28 +249,6 @@ def test_money_and_identifiers_reject_unsafe_or_inexact_inputs(value):
         FiscalReview.model_validate(inputs)
 
 
-def test_xlsx_identifiers_are_text_without_formula_or_hyperlink():
-    result = packet(business_name='=HYPERLINK("bad")')
-    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-    with ZipFile(io.BytesIO(result.files["dgii/606-607.xlsx"])) as book:
-        strings = [
-            "".join(item.itertext())
-            for item in ElementTree.fromstring(book.read("xl/sharedStrings.xml")).findall(
-                "m:si", ns
-            )
-        ]
-        for name in book.namelist():
-            if name.startswith("xl/worksheets/sheet"):
-                sheet = ElementTree.fromstring(book.read(name))
-                assert sheet.findall(".//m:f", ns) == []
-                assert sheet.findall(".//m:hyperlink", ns) == []
-        sheet = ElementTree.fromstring(book.read("xl/worksheets/sheet2.xml"))
-        first = sheet.findall("m:sheetData/m:row", ns)[1]
-        cells = [strings[int(cell.find("m:v", ns).text)] for cell in first]
-        assert cells[0] == "199990021"
-        assert cells[2] == "09"
-
-
 def test_year_boundary_requires_one_month_and_current_month_stays_dry_run():
     assert (
         packet(start=date(2026, 12, 1), end=date(2027, 1, 1)).manifest["forms"]["606"][
@@ -291,10 +259,13 @@ def test_year_boundary_requires_one_month_and_current_month_stays_dry_run():
     assert packet(captured_on=date(2026, 9, 30)).manifest["period_status"] == "DRY RUN"
 
 
-def test_partial_month_keeps_review_evidence_but_never_emits_monthly_txt():
+def test_partial_month_keeps_review_evidence_but_never_prepares_a_monthly_form():
     result = packet(end=date(2026, 9, 17))
     assert result.manifest["period_status"] == "DRY RUN"
-    assert not any(name.lower().endswith(".txt") for name in result.files)
+    assert all(
+        form["status"] != "prepared_candidate"
+        for form in result.manifest["forms"].values()
+    )
     assert result.manifest["reconciliation"]
 
 
@@ -302,7 +273,6 @@ def test_small_consumption_sale_is_summary_only_instead_of_no_operations():
     result = packet((practice_records()[-1],))
     assert result.manifest["forms"]["607"]["status"] == "summary_only"
     assert result.manifest["consumption_summary"]["count"] == 1
-    assert "dgii/DGII_F_607_199990013_202609.TXT" not in result.files
     empty = packet(())
     assert empty.manifest["forms"]["607"]["status"] == "no_operations"
 
@@ -319,10 +289,7 @@ def test_formatted_legacy_ids_share_identity_without_changing_source_facts():
     legacy = replace(first, facts=first.facts.model_copy(update={"fiscal": fiscal}))
     result = packet((legacy,))
     assert result.manifest["issues"] == []
-    assert (
-        "199990021|1|09|B0100000001"
-        in result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode()
-    )
+    assert result.rows["606"][0][:4] == ("199990021", "1", "09", "B0100000001")
     assert legacy.facts.fiscal.rnc.value == "199-99002-1"
     duplicate = replace(first, activity_id=str(UUID(int=77)))
     blocked = packet((legacy, duplicate))
@@ -346,7 +313,7 @@ def test_legacy_tax_precision_is_reported_without_rounding():
     result = packet(
         (replace(first, facts=first.facts.model_copy(update={"fiscal": fiscal})),)
     )
-    assert "dgii/DGII_F_606_199990013_202609.TXT" not in result.files
+    assert result.manifest["forms"]["606"]["status"] == "needs_review"
     assert any(
         issue["code"] == "fiscal_amount_precision_or_limit"
         for issue in result.manifest["issues"]
@@ -403,31 +370,32 @@ def period_packet():
                 (str(UUID(int=index + 100)),),
             )
         )
-    return payload, build_fiscal_packet(
-        tuple(records),
-        rnc=payload["filer_rnc"],
-        business_name=payload["business_name"],
-        start=date.fromisoformat(payload["start"]),
-        end=date.fromisoformat(payload["end"]),
-        captured_on=date.fromisoformat(payload["captured_on"]),
+    return Packet(
+        *fiscal_manifest(
+            tuple(records),
+            rnc=payload["filer_rnc"],
+            business_name=payload["business_name"],
+            start=date.fromisoformat(payload["start"]),
+            end=date.fromisoformat(payload["end"]),
+            captured_on=date.fromisoformat(payload["captured_on"]),
+        )
     )
 
 
-def test_seeded_month_annex_matches_reference_bytes():
-    """Detail lines keep the order of the supplied records.
+def test_seeded_month_rows_match_reference_lines():
+    """Rows keep the order of the supplied records.
 
-    The annex does not define a row order. The reference files are that entry order.
+    The annex does not define a row order. The reference lines are that entry order.
     """
     root = Path(__file__).parent / "fixtures"
-    payload, result = period_packet()
+    result = period_packet()
     assert result.manifest["issues"] == []
-    filer = payload["filer_rnc"]
     for form in ("606", "607"):
-        generated = result.files[f"dgii/DGII_F_{form}_{filer}_202609.TXT"]
-        assert generated == (root / f"period-202609-{form}.txt").read_bytes()
-    purchase = result.files[f"dgii/DGII_F_606_{filer}_202609.TXT"].decode().splitlines()
+        assert result.manifest["forms"][form]["status"] == "prepared_candidate"
+        reference = (root / f"period-202609-{form}.txt").read_text().splitlines()[1:]
+        assert [tuple(line.split("|")) for line in reference] == result.rows[form]
     for number in ("B0100009876", "B0400000310"):
-        fields = next(line.split("|") for line in purchase if f"|{number}|" in line)
+        fields = next(row for row in result.rows["606"] if number in row)
         assert (fields[6], fields[11], fields[17]) == ("", "0.00", "0.00")
 
 

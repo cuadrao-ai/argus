@@ -21,7 +21,6 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.dgii import PurchaseDeclaration, SalesDeclaration
 from argus.domain.business.contracts.facts import BusinessFactPatch
-from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
 from psycopg import Connection
 
 from tests import test_business_actions_postgres as business
@@ -198,7 +197,7 @@ def _report(world) -> dict:  # noqa: ANN001
 
 
 def _export(world) -> tuple[dict, list[dict], dict[str, str]]:  # noqa: ANN001
-    """The package's manifest, records.csv rows and DGII TXT files by form."""
+    """The package's manifest, records.csv rows and DGII form status by form."""
 
     with ZipFile(
         io.BytesIO(_get(world, "/business/exports", **EXPORT).content)
@@ -206,12 +205,9 @@ def _export(world) -> tuple[dict, list[dict], dict[str, str]]:  # noqa: ANN001
         rows = list(
             csv.DictReader(io.StringIO(zipped.read("records.csv").decode("utf-8-sig")))
         )
-        files = {
-            form: zipped.read(name).decode()
-            for form in FORM.values()
-            if (name := f"dgii/DGII_F_{form}_{FILER}_202609.TXT") in zipped.namelist()
-        }
-        return json.loads(zipped.read("manifest.json")), rows, files
+        manifest = json.loads(zipped.read("manifest.json"))
+    forms = manifest["dgii"]["forms"]
+    return manifest, rows, {form: forms[form]["status"] for form in FORM.values()}
 
 
 def _settle(world, activity: str, status: str, method: str) -> dict:  # noqa: ANN001
@@ -393,19 +389,19 @@ def test_an_unpaid_purchase_reads_everywhere_and_forma_de_pago_stays_blank(world
     assert row["export_missing"] == "expense_type_missing"
     assert row["export_missing_several"] is True
 
-    manifest, rows, files = _export(world)
+    manifest, rows, forms = _export(world)
     assert [(item["Forma de pago"], item["Pago"]) for item in rows] == [("", "pendiente")]
     [canonical] = manifest["records"]
     assert canonical["funding"] == "unknown"
     assert canonical["account_ids"] == ""
-    assert files == {}
+    assert forms["606"] == "needs_review"
 
     _declare(world, draft, category="02")
     assert _report(world)["export_missing"] == "payment_method_missing"
     assert _report(world)["export_missing_several"] is False
     assert _month(world)["dgii_forms"]["606"] == "needs_review"
     assert _ids(_month(world)["missing_payment_form"]) == [activity]
-    assert _export(world)[2] == {}
+    assert _export(world)[2]["606"] == "needs_review"
 
     settled = _settle(world, activity, "pagado", "efectivo")
     assert settled["status"] == "pagado"
@@ -426,20 +422,17 @@ def test_an_unpaid_purchase_reads_everywhere_and_forma_de_pago_stays_blank(world
     month = _month(world)
     assert month["dgii_forms"]["606"] == "prepared_candidate"
     assert month["missing_payment_form"] == []
-    _, rows, files = _export(world)
+    _, rows, forms = _export(world)
     assert [item["Forma de pago"] for item in rows] == ["01"]
-    header, line = files["606"].strip().split("\r\n")
-    columns = dict(
-        zip((name for name, _ in PURCHASE_COLUMNS), line.split("|"), strict=True)
-    )
-    assert header.startswith("606|")
-    assert columns["payment_method"] == "01"
-    assert columns["ncf"] == "B0100000021"
+    assert forms["606"] == "prepared_candidate"
+    [line] = routes.dgii_file(world, "purchase")
+    assert (line["Forma de Pago"], line["NCF"]) == ("01 - EFECTIVO", "B0100000021")
 
 
-def test_the_606_txt_waits_for_the_last_missing_fact_of_the_month(world) -> None:  # noqa: ANN001
+def test_the_606_waits_for_the_last_missing_fact_of_the_month(world) -> None:  # noqa: ANN001
     """Two approved purchases with no 606 data: a finished one does not release
-    the month. The TXT ships when the last missing fact lands, with both lines."""
+    the month. The 606 is prepared when the last missing fact lands, with both
+    lines."""
 
     _fiscal_profile(world)
     first, _ = _recorded(world, "expense", "B0100000031")
@@ -447,17 +440,16 @@ def test_the_606_txt_waits_for_the_last_missing_fact_of_the_month(world) -> None
 
     _declare(world, first, category="02", payment_method="01")
     assert _month(world)["dgii_forms"]["606"] == "needs_review"
-    assert _export(world)[2] == {}
+    assert _export(world)[2]["606"] == "needs_review"
 
     _declare(world, second, category="02")
     assert _month(world)["dgii_forms"]["606"] == "needs_review"
-    assert _export(world)[2] == {}
+    assert _export(world)[2]["606"] == "needs_review"
 
     _declare(world, second, payment_method="03")
     assert _month(world)["dgii_forms"]["606"] == "prepared_candidate"
-    names = [name for name, _ in PURCHASE_COLUMNS]
-    lines = _export(world)[2]["606"].strip().split("\r\n")[1:]
-    written = [dict(zip(names, line.split("|"), strict=True))["ncf"] for line in lines]
+    assert _export(world)[2]["606"] == "prepared_candidate"
+    written = [line["NCF"] for line in routes.dgii_file(world, "purchase")]
     assert sorted(written) == ["B0100000031", "B0100000032"]
 
 
@@ -503,10 +495,12 @@ def test_an_unpaid_sale_reads_everywhere_and_is_collected(world) -> None:  # noq
     row = _report(world)
     assert row["money_kind"] == "income" and row["funding_key"] is None
 
-    manifest, rows, files = _export(world)
+    manifest, rows, forms = _export(world)
     assert [item["Pago"] for item in rows] == ["pendiente"]
     assert manifest["records"][0]["funding"] == "unknown"
-    assert "B0100000031" in files["607"]
+    assert forms["607"] == "prepared_candidate"
+    [line] = routes.dgii_file(world, "sale")
+    assert line["Número Comprobante Fiscal"] == "B0100000031"
 
     settled = _settle(world, activity, "cobrado", "transferencia")
     assert (settled["document_kind"], settled["status"]) == ("invoice", "cobrado")
@@ -534,7 +528,7 @@ def test_a_sale_with_no_payment_split_holds_the_607_with_nothing_invented(world)
         for name in ("cash", "bank", "card", "credit", "gift", "barter", "other_payment")
     )
     assert _month(world)["dgii_forms"]["607"] == "needs_review"
-    assert _export(world)[2] == {}
+    assert _export(world)[2]["607"] == "needs_review"
 
 
 def test_a_purchase_in_dollars_keeps_its_currency_with_no_account(world) -> None:  # noqa: ANN001

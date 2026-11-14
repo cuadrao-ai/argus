@@ -308,7 +308,7 @@ text. Paths are under `src/argus/` unless they start with `web/`.
 | `domain/business/month_close.py:145-161` | `in_606`, `in_607` ignore the document currency | c, f | PR 4 |
 | `domain/business/month_close.py:311-334,415-419` and `api/business_month_close_schemas.py:72,109-110` | gates `missing_rnc`, `missing_ncf`, skip for `sin_comprobante` | d | PR 5, `marks` with `blocks_close` |
 | `web/lib/business-month-close.ts:157-174,229-281,405-412,489-507,918-931` | client gate union, NCF regexes, `rncPresent`, client fallback blockers | d, g | PR 5, deleted; the server's steps render |
-| `domain/business/dgii_columns.py`, `dgii_form.py`, `dgii_export.py:46-411` | 606 and 607 formats, workbook, manifest | e | PR 5, produced only where `exports` lists them |
+| `domain/business/dgii_columns.py`, `dgii_form.py`, `dgii_export.py:46-411` | 606 and 607 formats, manifest | e | PR 5, produced only where `exports` lists them |
 | `domain/business/actions/service.py:427-455`, `actions/marks.py:19-61`, `api/routers/business_drafts.py:147-157` | `decide_606`, `include_606` marks | e | PR 5, refused with `business_606_not_applicable` where 606 is absent |
 | `api/routers/business_fiscal.py:28-31` | `/fiscal-profile/fields` returns 606 and 607 field lists | e | PR 3, returns the country's forms |
 | `domain/business/contracts/facts.py:223-224`, `actions/facts.py:34`, `actions/captures.py:55`, `actions/mutations.py:816-821` | only DOP may default, and only a DOP default may be overridden | f | PR 4, `Space.currency` is the only default |
@@ -322,7 +322,6 @@ text. Paths are under `src/argus/` unless they start with `web/`.
 | `web/components/business-app/FiscalDeclarationEditor.tsx:17-77` | 606 or 607 choice, rnc, ncf, itbis mapping, 606-only refund block, raw server labels | g | PR 3 |
 | `web/components/business-app/ReceiptRecordFacts.tsx:13,114-118`, `receipt-fact-rows.ts:101`, `ReceiptReadingState.tsx:26-27` | fixed fiscal rows rnc, ncf, ecf, itbis | g | PR 3 |
 | `web/components/business-app/business-ui.tsx:189-208` and `BusinessInboxPanel.tsx:71` | `sin_comprobante` and `missing_ncf` chips computed on the web | g | PR 3, server `marks` |
-| `web/components/business-app/ExportRecordsPanel.tsx:70-77,223-228` | one calendar month, "606 and 607 for the DGII" | g | PR 5 |
 | `domain/ingestion/documents/extractor.py:58-88` and `models.py:81-104` | reader prompt and field descriptions name RNC, NCF, e-CF, ITBIS | h | scorecard item, see below |
 | `agent_runtime/business/interpretation.py:80-96,179` | "the domain alone supplies its unverified default currency", "never add fiscal facts" | h | PR 4 reads the Business currency without touching the text; a change needs a scorecard |
 
