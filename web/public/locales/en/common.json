@@ -3947,7 +3947,11 @@
       "close": {
         "action": "Close business",
         "consequences": "When you close, members lose access immediately. You have 30 days to reopen. After that, we delete everything and it cannot be recovered.",
+        "continue": "Continue",
+        "continue_without": "Continue without downloading",
         "download": "Download receipts",
+        "missing_one": "You still have {{count}} period to download.",
+        "missing_other": "You still have {{count}} periods to download.",
         "title": "Close this business",
         "warning": "The law requires your business to keep its receipts for 10 years. Download them before closing, because Cuadrao will not keep them for you."
       },
@@ -3989,9 +3993,16 @@
       },
       "export": {
         "complete": "All downloads have started. Check your browser's downloads.",
+        "download": "Download",
+        "downloaded": "Downloaded",
         "empty": "There are no records or receipts to download.",
         "failed": "We couldn't start all downloads. Retry to continue.",
-        "preparing": "Preparing downloads…"
+        "originals_one": "{{n}} original file",
+        "originals_other": "{{n}} original files",
+        "package": "Each download is a ZIP with the originals (photos and PDFs) and the records in Excel and CSV.",
+        "preparing": "Preparing downloads…",
+        "records_one": "{{n}} record",
+        "records_other": "{{n}} records"
       },
       "member_closed": "{{businessName}} is closed. To request copies of receipts, contact the business owner.",
       "name_confirmation": "Enter the business name to confirm.",

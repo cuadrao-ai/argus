@@ -15,13 +15,13 @@ const tree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8
 if (execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).trim()) throw new Error("Exact-head evidence requires a clean tracked tree");
 const output = resolve(process.env.EVIDENCE_OUTPUT ?? "../temp/1222-sofia/lifecycle-evidence");
 mkdirSync(output, { recursive: true });
-const allCases = ["owner-datos", "close-download", "close-confirm", "close-uncertain", "transfer-picker", "accept-confirm", "accept-uncertain", "owner-closed", "member-closed", "closed-banner", "switcher", "deletion-owned", "deletion-closed"];
+const allCases = ["owner-datos", "close-download", "close-downloaded", "close-confirm", "close-uncertain", "transfer-picker", "accept-confirm", "accept-uncertain", "owner-closed", "member-closed", "closed-banner", "switcher", "deletion-owned", "deletion-closed"];
 const cases = process.env.EVIDENCE_CASE ? allCases.filter(state => state === process.env.EVIDENCE_CASE) : allCases;
 if (!cases.length) throw new Error("Unknown evidence case");
 const owner = { space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", name: "Colmado Rosa", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true };
 const client = { ...owner, space_id: "49767c9c-9f8a-4af7-82e3-bcc065e09a19", grant_id: "b3acd38c-2e99-49aa-888f-4ee3a6268066", name: "Taller Sol", role: "accountant", capabilities: ["read", "prepare"] };
 const closed = { ...owner, closed_at: "2026-10-21T17:45:00Z", reopen_until: "2026-11-20T17:45:00Z" };
-const owned = { ...owner, member_count: 3, reopen_until: closed.reopen_until, export_windows: [{ start: "2025-01-01", end: "2025-12-31" }, { start: "2026-01-01", end: "2026-10-21" }], members: [
+const owned = { ...owner, member_count: 3, reopen_until: closed.reopen_until, export_windows: [{ start: "2025-01-01", end: "2025-12-31", record_count: 1204, original_count: 987 }, { start: "2026-01-01", end: "2026-10-21", record_count: 310, original_count: 255 }], members: [
   { grant_id: "4100626b-f480-4249-97bd-04bdc03f1a15", name: "Rosa Pérez", eligible: true, reason: null },
   { grant_id: "3200626b-f480-4249-97bd-04bdc03f1a15", name: "Ana López", eligible: false, reason: "email_unconfirmed" },
   { grant_id: "2100626b-f480-4249-97bd-04bdc03f1a15", name: "Luis Díaz", eligible: false, reason: "owns_open_business" },
@@ -47,6 +47,7 @@ try {
       const method = route.request().method();
       calls.push({ path, method, key: route.request().headers()["idempotency-key"] ?? null });
       if (path.includes("/accept") || path.endsWith("/close")) return route.fulfill({ status: 503, json: { code: "internal_error", request_id: "4ea79978-ce17-4853-b232-b2a72f4c9ce7" } });
+      if (path === "exports") return route.fulfill({ contentType: "application/zip", body: "synthetic zip" });
       if (path === "ownership-transfers") return route.fulfill({ json: { transfers: state.startsWith("accept-") ? [transfer] : [] } });
       if (path === "owned-spaces") return route.fulfill({ json: { spaces: state === "owner-closed" ? [] : [owned] } });
       if (path === "closed-spaces") return route.fulfill({ json: { spaces: state === "owner-closed" ? [closed] : [] } });
@@ -76,12 +77,17 @@ try {
       await page.goto(`${baseURL}/biz${query}`);
       await page.addStyleTag({ content: FREEZE_CSS });
       if (state === "owner-datos") { await expect(page.getByTestId("business-lifecycle-controls")).toBeVisible(); await expect(page.getByTestId("business-profile-preview").getByRole("heading", { name: owner.name })).toBeVisible(); await page.getByTestId("business-lifecycle-controls").scrollIntoViewIfNeeded(); }
-      if (state === "close-download") await expect(page.getByRole("button", { name: "Descargar comprobantes", exact: true })).toBeVisible();
-      if (state === "close-confirm" || state === "close-uncertain") {
-        await page.getByRole("button", { name: "Cerrar negocio", exact: true }).click();
-        const alert = page.getByRole("alertdialog"); await expect(alert).toContainText("3"); await expect(alert).toContainText("hora de RD");
-        expect(calls.filter(call => call.method === "POST")).toHaveLength(0);
-        if (state === "close-uncertain") { await alert.getByRole("textbox").fill(owner.name); await alert.getByRole("button", { name: "Cerrar negocio", exact: true }).click(); await expect(alert.getByRole("alert")).toBeVisible(); }
+      if (state.startsWith("close-")) {
+        const dialog = page.getByRole("dialog");
+        await expect(dialog.getByRole("button", { name: "Descargar comprobantes", exact: true })).toBeVisible();
+        await expect(dialog).toContainText("ene – dic 2025"); await expect(dialog).toContainText("1,204 registros · 987 originales");
+        if (state === "close-downloaded") { await dialog.getByRole("button", { name: "Descargar: ene – dic 2025", exact: true }).click(); await expect(dialog.getByTestId("business-close-period").first()).toHaveAttribute("data-status", "downloaded"); }
+        if (state === "close-confirm" || state === "close-uncertain") {
+          await dialog.getByRole("button", { name: "Continuar sin descargar", exact: true }).click();
+          await expect(dialog).toContainText("3 miembros"); await expect(dialog).toContainText("hora de RD"); await expect(dialog).toContainText("Te falta descargar 2 períodos.");
+          expect(calls.filter(call => call.method === "POST")).toHaveLength(0);
+          if (state === "close-uncertain") { await dialog.getByRole("textbox").fill(owner.name); await dialog.getByRole("button", { name: "Cerrar negocio", exact: true }).click(); await expect(dialog.getByRole("alert")).toBeVisible(); }
+        }
       }
       if (state === "transfer-picker") { await expect(page.getByRole("radio", { name: /Rosa Pérez/ })).toBeVisible(); await expect(page.getByRole("radio", { name: /Ana López/ })).toBeDisabled(); }
       if (state.startsWith("accept-")) {
@@ -118,7 +124,7 @@ try {
         await page.screenshot({ path: resolve(output, detail), fullPage: true });
         evidence.push({ file: detail, sha256: createHash("sha256").update(readFileSync(resolve(output, detail))).digest("hex"), state: "transfer-confirmation", width, theme, posts: calls.filter(call => call.method === "POST").length });
       }
-      if (state === "close-uncertain") { await page.getByRole("alertdialog").getByRole("button", { name: "Cerrar negocio", exact: true }).click(); await expect.poll(() => calls.filter(call => call.path.endsWith("/close")).length).toBe(2); const keys = calls.filter(call => call.path.endsWith("/close")).map(call => call.key); expect(keys[0]).toBeTruthy(); expect(keys[1]).toBe(keys[0]); }
+      if (state === "close-uncertain") { await page.getByRole("dialog").getByRole("button", { name: "Cerrar negocio", exact: true }).click(); await expect.poll(() => calls.filter(call => call.path.endsWith("/close")).length).toBe(2); const keys = calls.filter(call => call.path.endsWith("/close")).map(call => call.key); expect(keys[0]).toBeTruthy(); expect(keys[1]).toBe(keys[0]); }
       if (state === "accept-uncertain") { await page.getByRole("button", { name: "Actualizar", exact: true }).click(); await expect(page.getByRole("button", { name: "Aceptar transferencia", exact: true })).toBeVisible(); expect(calls.filter(call => call.path.endsWith("/accept"))).toHaveLength(1); }
       expect(unexpected, "all requests stay local").toEqual([]);
       evidence.push({ file, sha256: createHash("sha256").update(readFileSync(resolve(output, file))).digest("hex"), state, width, theme, posts: calls.filter(call => call.method === "POST").length, retryKeys: state === "close-uncertain" ? calls.filter(call => call.path.endsWith("/close")).map(call => call.key!) : undefined });

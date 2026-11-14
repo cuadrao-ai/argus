@@ -38,7 +38,8 @@ const ownedBusiness = z.object({
   space_id: z.uuid(), name: z.string().nullable(), grant_id: z.uuid(),
   member_count: z.number().int().nonnegative(),
   reopen_until: z.iso.datetime({ offset: true }),
-  export_windows: z.array(z.object({ start: z.iso.date(), end: z.iso.date() })),
+  // The counts are the server's: what each period's download lists.
+  export_windows: z.array(z.object({ start: z.iso.date(), end: z.iso.date(), record_count: z.number().int().nonnegative(), original_count: z.number().int().nonnegative() })),
   members: z.array(transferMember),
 });
 export type OwnedBusiness = z.infer<typeof ownedBusiness>;

@@ -53,6 +53,10 @@ class ExportWindow(BaseModel):
 
     start: date
     end: date
+    #: Records dated in the window: the download's ``manifest.json`` ``records``.
+    record_count: int
+    #: Original files the download lists: its ``manifest.json`` ``sources``.
+    original_count: int
 
 
 class OwnedBusiness(BaseModel):

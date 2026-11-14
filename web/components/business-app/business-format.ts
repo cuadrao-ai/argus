@@ -121,6 +121,25 @@ export function formatShortDay(day: string, locale: string, now = new Date()): s
   return shortDate(date, locale, now);
 }
 
+/**
+ * A span of days as "ene" to "dic 2025", or "ene" to "21 oct 2026": the month
+ * alone where the span starts on its first day or ends on its last, and the
+ * year once when both ends share it. `to` is null when one label says it all.
+ */
+export function formatDaySpan(from: string, to: string, locale: string): { from: string; to: string | null } {
+  const day = (value: string) => new Date(`${value.slice(0, 10)}T00:00:00Z`);
+  const [start, end] = [day(from), day(to)];
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return { from, to };
+  const label = (date: Date, withDay: boolean, withYear: boolean) =>
+    new Intl.DateTimeFormat(locale, { timeZone: "UTC", month: "short", ...(withDay ? { day: "numeric" as const } : {}), ...(withYear ? { year: "numeric" as const } : {}) }).format(date);
+  const startsMonth = start.getUTCDate() === 1;
+  const endsMonth = new Date(end.getTime() + DAY_MS).getUTCDate() === 1;
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
+  if (sameMonth && ((startsMonth && endsMonth) || start.getTime() === end.getTime())) return { from: label(end, !endsMonth || !startsMonth, true), to: null };
+  return { from: label(start, !startsMonth, !sameYear), to: label(end, !endsMonth, true) };
+}
+
 /** "hace 15 minutos", "ayer", "hace 3 días" under seven days; "12 oct" from then on. */
 export function formatRelativeTime(iso: string | null, locale: string, now = new Date()): string {
   if (!iso) return "";

@@ -47,14 +47,16 @@ test("owned preview preserves server counts, deadline, export windows and every 
   const business = {
     space_id: spaceId, name: "Taller Luna", grant_id: "ee9c4550-1fe4-4e95-8fc2-8984d11e50f2",
     member_count: 5, reopen_until: "2026-11-20T17:45:00Z",
-    export_windows: [{ start: "2024-01-01", end: "2024-12-31" }, { start: "2025-01-01", end: "2025-12-31" }],
+    export_windows: [{ start: "2024-01-01", end: "2024-12-31", record_count: 12, original_count: 9 }, { start: "2025-01-01", end: "2025-12-31", record_count: 0, original_count: 0 }],
     members: reasons.map((reason) => ({ grant_id: crypto.randomUUID(), name: "Rosa", eligible: reason === null, reason })),
   };
   globalThis.fetch = async () => Response.json({ spaces: [business] });
   assert.deepEqual(await getOwnedBusinessSpaces(), [business]);
   for (const changed of [
     { member_count: -1 }, { reopen_until: "not-a-date" },
-    { export_windows: [{ start: "2025-02-30", end: "2025-03-01" }] },
+    { export_windows: [{ start: "2025-02-30", end: "2025-03-01", record_count: 1, original_count: 1 }] },
+    { export_windows: [{ start: "2025-01-01", end: "2025-03-01" }] },
+    { export_windows: [{ start: "2025-01-01", end: "2025-03-01", record_count: -1, original_count: 1 }] },
     { members: [{ ...business.members[0], eligible: false, reason: null }] },
   ]) {
     globalThis.fetch = async () => Response.json({ spaces: [{ ...business, ...changed }] });

@@ -4280,7 +4280,11 @@
       "close": {
         "action": "Cerrar negocio",
         "consequences": "Al cerrar, los miembros pierden acceso de inmediato. Tienes 30 días para reabrirlo. Después, borramos todo y no se puede recuperar.",
+        "continue": "Continuar",
+        "continue_without": "Continuar sin descargar",
         "download": "Descargar comprobantes",
+        "missing_one": "Te falta descargar {{count}} período.",
+        "missing_other": "Te falta descargar {{count}} períodos.",
         "title": "Cerrar este negocio",
         "warning": "La ley obliga a tu negocio a guardar sus comprobantes por 10 años. Descárgalos antes de cerrar, porque Cuadrao no los guardará por ti."
       },
@@ -4322,9 +4326,16 @@
       },
       "export": {
         "complete": "Se iniciaron todas las descargas. Revisa las descargas de tu navegador.",
+        "download": "Descargar",
+        "downloaded": "Descargado",
         "empty": "No hay registros ni comprobantes para descargar.",
         "failed": "No pudimos iniciar todas las descargas. Reintenta para continuar.",
-        "preparing": "Preparando las descargas…"
+        "originals_one": "{{n}} original",
+        "originals_other": "{{n}} originales",
+        "package": "Cada descarga es un ZIP con los originales (fotos y PDF) y los registros en Excel y CSV.",
+        "preparing": "Preparando las descargas…",
+        "records_one": "{{n}} registro",
+        "records_other": "{{n}} registros"
       },
       "member_closed": "{{businessName}} está cerrado. Para pedir copias de los comprobantes, contacta al dueño del negocio.",
       "name_confirmation": "Escribe el nombre del negocio para confirmar.",
