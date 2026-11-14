@@ -187,7 +187,8 @@ function ReceptionWorkspace() {
   };
   const clear = () => { applyFilters(emptyReceptionFilters()); setQuery(""); setPeriod(periodRange("all")); };
   const narrowed = !!queryText || period.key !== "all" || filters.channels.length > 0 || filters.senders.length > 0;
-  const tabEmpty = view === "all" ? null : view;
+  // Ver todo leads to Todo, so it shows only when the server's list gives Todo a row; else the tab shows Todo's first run.
+  const tabEmpty = view === "all" || !rows.some(row => receptionMatches(row, "all")) ? null : view;
   const empty = narrowed ? { kind: "filtered" as const, title: word("empty"), body: word("empty_help"), action: { label: word("clear"), run: clear } }
     : view === "eliminados" ? { kind: "done" as const, title: t("business.document_delete.empty_title"), body: t("business.document_delete.empty_body") }
     : tabEmpty ? { kind: "done" as const, title: word(`placeholder.empty_${tabEmpty}`), body: word(`placeholder.empty_${tabEmpty}_help`), action: { label: t("business.inbox.see_all"), run: () => chooseTab("all") } }
