@@ -11469,6 +11469,13 @@ export's one caller in the app. Each record keeps its own currency and exact
 amount, and a closed
 Business still cannot be exported.
 
+Each window also carries `record_count` (issue 2144), so the close dialog
+says how many records a download holds without inventing a number. It is the
+records dated in the window, the length of that download's `manifest.json`
+`records`, and it comes from the export's own selection (`select_window`), so
+the preview and the ZIP cannot disagree. The windows carry no count of
+original files.
+
 `GET /business/spaces` adds `closed_spaces: [{space_id, name, grant_id, role,
 closed_at, reopen_until}]`. It lists each closed Business where the caller's
 grant is otherwise live. A revoked or expired grant lists nothing there, so a

@@ -3944,17 +3944,19 @@
     "lifecycle": {
       "close": {
         "action": "Close business",
-        "consequences": "When you close, members lose access immediately. You have 30 days to reopen. After that, we delete everything and it cannot be recovered.",
-        "download": "Download receipts",
+        "confirmation": "Type <strong>{{businessName}}</strong> to confirm.",
+        "continue": "Continue",
+        "continue_without": "Continue without downloading",
+        "download": "Download copy",
         "title": "Close this business",
-        "warning": "The law requires your business to keep its receipts for 10 years. Download them before closing, because Cuadrao will not keep them for you."
+        "title_named": "Close <strong>{{businessName}}</strong>",
+        "warning": "After you close, you have 30 days to reopen this business. After that, it's deleted and can't be recovered. Download a copy before you continue."
       },
-      "close_alert_title": "Close {{businessName}}?",
+      "close_alert_title": "Close <strong>{{businessName}}</strong>?",
       "close_preview": {
         "member_count_one": "1 member loses access when you close.",
         "member_count_other": "{{count}} members lose access when you close.",
-        "member_count_zero": "No members lose access when you close.",
-        "reopen_until": "If you close it now, you can reopen it before {{purgeDate}} at {{purgeTime}} (Dominican Republic time)."
+        "reopen_until": "You can reopen it until {{purgeDate}}."
       },
       "closed_group": "Closed businesses",
       "closed_owner": "To download receipts, you must first reopen the business.",
@@ -3986,10 +3988,14 @@
         "withdraw_uncertain": "We couldn't confirm withdrawal. Refresh to check the result."
       },
       "export": {
-        "complete": "All downloads have started. Check your browser's downloads.",
+        "download": "Download",
+        "downloaded": "Downloaded",
         "empty": "There are no records or receipts to download.",
         "failed": "We couldn't start all downloads. Retry to continue.",
-        "preparing": "Preparing downloads…"
+        "package": "The copy includes your records in Excel and CSV and, when possible, the file for each document.",
+        "preparing": "Preparing downloads…",
+        "records_one": "{{n}} record",
+        "records_other": "{{n}} records"
       },
       "member_closed": "{{businessName}} is closed. To request copies of receipts, contact the business owner.",
       "name_confirmation": "Enter the business name to confirm.",

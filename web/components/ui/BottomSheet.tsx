@@ -90,7 +90,7 @@ type BottomSheetProps = {
   isOpen: boolean;
   onClose: () => void;
   /** Accessible name for the sheet, rendered as its heading unless hidden. */
-  title: string;
+  title: ReactNode;
   /** A small mark before the heading, such as a channel's logo; decorative, the title names the sheet. */
   titleIcon?: ReactNode;
   /** Accessible name for the close control. */

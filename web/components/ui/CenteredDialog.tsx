@@ -15,9 +15,11 @@ import styles from "./centered-dialog.module.css";
  */
 
 type CenteredDialogProps = {
-  title: string;
+  title: ReactNode;
   closeLabel: string;
   onClose: () => void;
+  /** False while the task cannot be left, such as a request in flight: back, Escape, the scrim and close all wait. */
+  dismissible?: boolean;
   /** Where focus lands on open; the close control otherwise. */
   initialFocusRef?: RefObject<HTMLElement | null>;
   returnFocusRef?: RefObject<HTMLElement | null>;
@@ -26,7 +28,7 @@ type CenteredDialogProps = {
   children: ReactNode;
 };
 
-function DesktopSurface({ title, closeLabel, onClose, initialFocusRef, returnFocusRef, footer, testId, children }: CenteredDialogProps) {
+function DesktopSurface({ title, closeLabel, onClose, dismissible = true, initialFocusRef, returnFocusRef, footer, testId, children }: CenteredDialogProps) {
   const overlayId = useId();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -35,11 +37,12 @@ function DesktopSurface({ title, closeLabel, onClose, initialFocusRef, returnFoc
   // so closing finds the control that opened the dialog rather than that field.
   const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
   const openerRef = useRef(opener);
-  useModalSurface({ isOpen: true, overlayId, containerRef: panelRef, onDismiss: onClose, initialFocusRef: initialFocusRef ?? closeRef, returnFocusRef: returnFocusRef ?? openerRef });
+  const close = () => { if (dismissible) onClose(); };
+  useModalSurface({ isOpen: true, overlayId, containerRef: panelRef, onDismiss: close, canDismiss: () => dismissible, initialFocusRef: initialFocusRef ?? closeRef, returnFocusRef: returnFocusRef ?? openerRef });
 
   return (
     <div className={`fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-8 dark:bg-black/60 ${styles.scrim}`}>
-      <button type="button" tabIndex={-1} aria-label={closeLabel} className="absolute inset-0 cursor-default" onClick={onClose} />
+      <button type="button" tabIndex={-1} aria-label={closeLabel} className="absolute inset-0 cursor-default" onClick={close} />
       <div
         ref={panelRef}
         role="dialog"
@@ -54,7 +57,7 @@ function DesktopSurface({ title, closeLabel, onClose, initialFocusRef, returnFoc
             ref={closeRef}
             type="button"
             aria-label={closeLabel}
-            onClick={onClose}
+            onClick={close}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/60 transition-colors hover:bg-black/5 hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -72,9 +75,9 @@ const DesktopDialog = withViewportPortal(DesktopSurface);
 export default function CenteredDialog(props: CenteredDialogProps) {
   const { isBelowDesktop } = useResponsiveLayout();
   if (!isBelowDesktop) return <DesktopDialog {...props} />;
-  const { title, closeLabel, onClose, initialFocusRef, returnFocusRef, footer, children } = props;
+  const { title, closeLabel, onClose, dismissible, initialFocusRef, returnFocusRef, footer, children } = props;
   return (
-    <AdaptivePanel title={title} closeLabel={closeLabel} onClose={onClose} initialFocusRef={initialFocusRef} returnFocusRef={returnFocusRef} footer={footer} width="lg">
+    <AdaptivePanel title={title} closeLabel={closeLabel} onClose={onClose} dismissible={dismissible} initialFocusRef={initialFocusRef} returnFocusRef={returnFocusRef} footer={footer} width="lg">
       {children}
     </AdaptivePanel>
   );
