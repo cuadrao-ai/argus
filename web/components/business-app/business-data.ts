@@ -42,6 +42,8 @@ export type BusinessDataSource = Readonly<{
   workspace: () => Promise<BusinessWorkspaceInfo>;
   receiptActivity?: typeof api.getReceiptActivity;
   receiptPage?: typeof api.getBusinessReceiptPage;
+  /** The Bandeja page only when the Business's lists changed since the version named; null when they did not. */
+  receiptChanges?: typeof api.getBusinessReceiptChanges;
   receiptReading?: typeof api.getReceiptReading;
   setReceiptReading?: typeof api.setReceiptReading;
   /** The selected Business's setup steps, for whoever may manage it. */
@@ -116,6 +118,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   workspace: api.getBusinessWorkspace,
   receiptActivity: api.getReceiptActivity,
   receiptPage: api.getBusinessReceiptPage,
+  receiptChanges: api.getBusinessReceiptChanges,
   receiptReading: api.getReceiptReading,
   setReceiptReading: api.setReceiptReading,
   setup: getBusinessSetup,
@@ -238,6 +241,7 @@ export function withBusinessSpace(
     workspace: after(source.workspace),
     receiptActivity: source.receiptActivity ? after(source.receiptActivity) : undefined,
     receiptPage: source.receiptPage ? after(source.receiptPage) : undefined,
+    receiptChanges: source.receiptChanges ? after(source.receiptChanges) : undefined,
     receiptReading: source.receiptReading ? after(source.receiptReading) : undefined,
     setup: source.setup ? after(source.setup) : undefined,
     setReceiptReading: source.setReceiptReading,

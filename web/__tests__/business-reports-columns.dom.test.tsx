@@ -33,7 +33,7 @@ test("an old saved URL shows the server's upgrade: the net amount before the tot
   await page.click(document.querySelector('[data-column-setting="fiscal_number"] input'));
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
   assert.deepEqual(renderedColumnKeys(), [...expectedColumns, "fiscal_number"]);
-  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.reloaded();
   await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
   assert.deepEqual(renderedColumnKeys(), [...expectedColumns, "fiscal_number"]);
   const restored = restoreReportLocation(new URLSearchParams(window.location.search)).request;
@@ -68,7 +68,7 @@ test("server layout changes render, saved views retain the effective layout, and
   assert.deepEqual((page.fixture.views[0].recipe as { presentation: unknown }).presentation, chosen);
   const fresh = { ...recordedReportAnswer.presentation, hidden: ["attachment" as const, "funding" as const], density: 56 as const };
   page.fixture.controls.presentation = fresh;
-  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.reloaded();
   await page.settle(() => !renderedColumnKeys().includes("attachment"));
   await page.click(page.button("Vistas: Mi diseño")); await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Mi diseño"));
   await page.settle(() => renderedColumnKeys()[0] === "funding");

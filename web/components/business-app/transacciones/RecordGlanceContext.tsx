@@ -6,3 +6,6 @@ import type { RecordRow } from "./transacciones-model";
 export const RecordGlanceContext = createContext<((row: RecordRow) => void) | null>(null);
 
 export const RecordEvidenceContext = createContext<((row: RecordRow) => void) | null>(null);
+
+/** The keys of the rows that just arrived on their own; a row marks itself for a moment. */
+export const RecordArrivalsContext = createContext<ReadonlySet<string>>(new Set());

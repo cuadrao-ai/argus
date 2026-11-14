@@ -80,7 +80,6 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
       if (done()) return;
     }
   };
-  const updateButton = () => [...host.querySelectorAll("button")].find((button) => button.textContent === "Actualizar lista") ?? null;
   const noteRows = () => receptionRows(host).filter((row) => row.dataset.kind === "note").length;
   const text = (selector: string) => host.querySelector(selector)?.textContent ?? null;
   // Inicio's Necesita atención counts everything waiting in the Bandeja, the sidebar's one server count.
@@ -90,7 +89,7 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
   const choose = (key: "attention" | "listos" | "all") => act(async () => segment(key)!.click());
   await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && host.querySelector('[data-testid="home-month-body"][data-state="ready"]') !== null);
   await settle(() => reviewCount() !== null);
-  return { act, root, host, settle, text, rows, noteRows, updateButton, segment, choose, reviewCount, api: () => api!, source };
+  return { act, root, host, settle, text, rows, noteRows, segment, choose, reviewCount, api: () => api!, source };
 }
 
 describe("the Bandeja and the Resumen on one saved state", () => {
@@ -122,11 +121,11 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       page.api().reload();
     });
     // The note row comes from the notes list, the number from the server's next count.
-    await page.settle(() => page.segment("attention")?.textContent === `Necesitan atención${SAMPLE.attention + 1}` && page.updateButton() !== null);
+    await page.settle(() => page.segment("attention")?.textContent === `Necesitan atención${SAMPLE.attention + 1}`);
     assert.equal(page.reviewCount(), String(SAMPLE.total + 1));
     assert.equal(page.text('[data-testid="business-inbox-count"]'), String(SAMPLE.total + 1));
-    await page.act(async () => page.updateButton()!.click());
     await page.choose("attention");
+    await page.settle(() => page.noteRows() === 2);
     assert.equal(page.noteRows(), 2, "the sample's own note and this one");
     assert.equal(page.rows(), SAMPLE.attention + 1);
     await page.act(async () => page.root.unmount());

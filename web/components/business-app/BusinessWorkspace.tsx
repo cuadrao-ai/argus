@@ -111,6 +111,10 @@ type Records = {
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
   receiptActivity?: ReceiptActivityCounts | null;
+  /** The version of the Business's lists that `inbox` and `receiptActivity` came with; the change check sends it back. Null until the server names one. */
+  listVersion?: string | null;
+  /** Counts the times the change check brought something new; a list that follows it reads itself again. */
+  listChanges?: number;
   /** Saved notes, newest first; null until loaded or after a failed load. A notes outage never hides receipts, and never reads as no notes. */
   notes: BusinessCapture[] | null;
   notesFailure?: LoadFailure | null;
@@ -233,6 +237,7 @@ const EMPTY_RECORDS: Records = {
   overview: null,
   inbox: null,
   receiptActivity: null,
+  listVersion: null,
   notes: null,
   notesFailure: null,
   notesTruncated: false,
@@ -529,7 +534,7 @@ function BusinessWorkspaceContent({
     ]))
       .then(([workspace, overview, page]) => {
         if (cancelled) return;
-        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, overview, inbox: page.items, receiptActivity: page.activity, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
+        setRecords((current) => ({ ...current, workspace, workspaceGrant: chosenGrant, overview, inbox: page.items, receiptActivity: page.activity, listVersion: "version" in page ? page.version : null, error: false, refused: false, closed: false, serverReference: null, failureReference: null }));
         reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {
@@ -584,12 +589,16 @@ function BusinessWorkspaceContent({
 
   useReceiptInboxRefresh({
     source,
-    active: !onRecord && panel.kind === "inbox" && bridge?.currentView !== "chat",
+    // Both lists follow one check, also behind a record opened from them.
+    active: !onRecord && (panel.kind === "inbox" || panel.kind === "transactions" || ((panel.kind === "receipt" || panel.kind === "draft") && panel.list !== undefined)) && bridge?.currentView !== "chat",
     reading: !onRecord && (records.receiptActivity?.reading_count ?? 0) > 0,
     businessKey: chosenGrant,
+    known: records.listVersion ?? null,
+    epoch: revision,
     onRefresh: (page) => {
       if (onRecord) return;
-      setRecords((value) => ({ ...value, inbox: page.items, receiptActivity: page.activity }));
+      // The items, the counts and their version change together, so the next check names what the screen shows.
+      if (page) setRecords((value) => ({ ...value, inbox: page.items, receiptActivity: page.activity, listVersion: page.version ?? null, listChanges: (value.listChanges ?? 0) + 1 }));
       // A long read outlasts the email poll; each receipt refresh asks again while an email is still moving.
       if (emailDeliveries.items && !emailDeliveries.refreshing && emailDeliveriesNeedRefresh(emailDeliveries.items)) emailDeliveries.refresh();
     },

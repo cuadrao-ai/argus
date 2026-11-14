@@ -31,9 +31,9 @@ import RecordsSettingsPreview from "./RecordsSettingsPreview";
 import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
-import { RecordsRefreshButton } from "./RecordsRefreshButton";
 import { RecordsAnnotationsPreview } from "./RecordsAnnotationsPreview";
-import { RecordEvidenceContext, RecordGlanceContext } from "./RecordGlanceContext";
+import { RecordArrivalsContext, RecordEvidenceContext, RecordGlanceContext } from "./RecordGlanceContext";
+import { useListArrivals } from "../foundation/list-arrivals";
 import { focusKey, focusRequest } from "./records-focus";
 import { recordRowKey } from "./records-row-preview";
 import type { RecordRow } from "./transacciones-model";
@@ -102,7 +102,7 @@ export default function BusinessReportsPanel() {
 
 export function ConnectedBusinessReports({ scope, transport, initial, defaultCurrency }: { defaultCurrency: RecordsCurrency; scope: ReportScope; transport?: ReportingTransport; initial?: ReportRequest }) {
   const { t } = useTransaccionesWords();
-  const { panel, openPanel, revision } = useBusiness();
+  const { panel, openPanel, revision, records } = useBusiness();
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
   const { userId, businessId, grantId } = scope;
   const scopeKey = `${userId}:${businessId}`;
@@ -151,6 +151,19 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   useEffect(() => {
     if (previousRevision.current !== revision) { previousRevision.current = revision; void controller.refresh(); }
   }, [revision, controller]);
+  // The Business's one change check says when something changed; the table reads itself again without leaving the screen.
+  const arrivals = useListArrivals(screen, "data-record-key");
+  const { hold, arrived } = arrivals;
+  const quiet = useRef(false);
+  useEffect(() => { const stop = controller.subscribe(() => { if (quiet.current) hold(); }); return () => { stop(); }; }, [controller, hold]);
+  const listChanges = records.listChanges ?? 0;
+  const seenChanges = useRef(listChanges);
+  useEffect(() => {
+    if (seenChanges.current === listChanges) return;
+    seenChanges.current = listChanges;
+    quiet.current = true;
+    void controller.refreshQuietly().then(arrived).finally(() => { quiet.current = false; });
+  }, [listChanges, controller, arrived]);
   useEffect(() => {
     if (state.load.kind === "ready" && state.request.schema_version === 1 && state.load.answer.overview && state.load.answer.effective_sort) {
       void controller.load(reportRequestSchema.parse({ ...state.request, schema_version: 2 }));
@@ -183,7 +196,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const views = state.views.kind === "ready" ? state.views.items : [];
   const viewProblem = state.viewOperation.kind === "failed" ? state.viewOperation.problem : state.views.kind === "failed" ? state.views.problem : null;
   const uncertain = state.viewOperation.kind === "failed" && state.viewOperation.problem.kind === "uncertain";
-  const problem = (failure: ReportFailure, retry: () => void): ReactNode => <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(`${REPORTING}${failure.kind === "access" ? "access_unavailable" : failure.kind === "version" ? "view_changed" : failure.kind === "uncertain" ? "uncertain_view" : "unavailable"}`)}{failure.kind !== "access" && failure.kind !== "conflict" ? <button type="button" className={quietButtonClass} onClick={retry}>{t(`${REPORTING}${failure.kind === "uncertain" ? "retry" : "refresh"}`)}</button> : null}{failure.requestId ? <ReferenceCode reference={failure.requestId} /> : null}</p>;
+  const problem = (failure: ReportFailure, retry: () => void): ReactNode => <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(`${REPORTING}${failure.kind === "access" ? "access_unavailable" : failure.kind === "version" ? "view_changed" : failure.kind === "uncertain" ? "uncertain_view" : "unavailable"}`)}{failure.kind !== "access" && failure.kind !== "conflict" ? <button type="button" className={quietButtonClass} onClick={retry}>{t(`${REPORTING}${failure.kind === "version" ? "refresh" : "retry"}`)}</button> : null}{failure.requestId ? <ReferenceCode reference={failure.requestId} /> : null}</p>;
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null);
   // A write that resolves late applies its view only if no view was chosen since it started.
   const viewChoices = useRef(0);
@@ -317,10 +330,10 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
       ]} />
       <RecordsTypeTabs value={filter.kind} onChange={(kind) => recipe({ filters: { ...state.request.filters, record_families: [kind === "venta" ? "sale" : "purchase"] } }, false)} />
       <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} fiscalCount={overview?.needs_fiscal_data ?? null} selected={filters.fiscal_data === "missing" ? ["fiscal"] : []} loading={state.load.kind === "loading"} onChoose={toggleFiscal} />
-      <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{!phone ? <RecordsRefreshButton busy={state.load.kind === "loading"} onRefresh={() => void controller.refresh()} /> : null}{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: savedViews }} />
-      {state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : state.load.kind !== "ready" || !preferences || probePending ? (preferences ? <RecordsLoadingPreview preferences={preferences} density={preferences.density} /> : <FullscreenLoading />) : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
+      <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: savedViews }} />
+      {state.load.kind === "failed" ? <div className={cardClass}>{problem(probeAccessFailure ?? state.load.problem, () => { void controller.refresh(); })}</div> : state.load.kind !== "ready" || !preferences || probePending ? (preferences ? <RecordsLoadingPreview preferences={preferences} density={preferences.density} /> : <FullscreenLoading />) : probeFailure ? <div className={cardClass}>{problem(probeFailure, () => { void controller.refresh(); })}</div> : <RecordArrivalsContext.Provider value={arrivals.fresh}><RecordGlanceContext.Provider value={open}><RecordEvidenceContext.Provider value={open}>
         <RecordsPagePreview records={rows} preferences={preferences} onSortChange={() => undefined} density={preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: state.load.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
-      </RecordEvidenceContext.Provider></RecordGlanceContext.Provider>}
+      </RecordEvidenceContext.Provider></RecordGlanceContext.Provider></RecordArrivalsContext.Provider>}
     </section>
     {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={reviewDgiiPending} onClose={() => setExporting(null)} /> : null}
   </PullToRefresh></RecordsAnnotationsPreview>;

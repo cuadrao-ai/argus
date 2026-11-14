@@ -81,7 +81,7 @@ test("six cards show report scope and only fiscal applies its stage", async () =
 test("a server without the fiscal count leaves the action unknown", async () => {
   const page = await mount();
   page.fixture.controls.overview = { needs_review: 0, ready_for_export: 126 };
-  await page.click(document.querySelector('[data-testid="records-refresh"]'));
+  await page.reloaded();
   await page.settle(() => document.querySelector<HTMLButtonElement>('[data-overview-filter="fiscal"]')?.disabled === true);
   assert.equal(document.querySelector('[data-overview-filter="exported"]'), null);
 });
@@ -242,31 +242,71 @@ test("older v1 servers keep query usable and leave unsupported overview unavaila
   assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
 });
 
-test("desktop shows a refresh control that reloads the query and holds a busy state until it answers", async () => {
-  const page = await mount();
-  const control = () => document.querySelector<HTMLButtonElement>('[data-testid="records-refresh"]')!;
-  assert.ok(control());
-  assert.equal(control().getAttribute('aria-label'), 'Actualizar registros');
-  assert.equal(control().disabled, false);
-  const live = globalThis.fetch;
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => { release = resolve; });
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/reports/query') ? gate.then(() => live(input, init)) : live(input, init)) as typeof fetch;
-  const before = page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).length;
-  await page.click(control());
-  assert.equal(control().disabled, true);
-  assert.equal(control().getAttribute('aria-busy'), 'true');
-  await page.click(control());
-  release();
-  await page.settle(() => !control().disabled);
-  assert.equal(control().getAttribute('aria-busy'), 'false');
-  assert.equal(page.fixture.calls.filter((call) => call.path.endsWith('/reports/query')).length - before, 1);
-  globalThis.fetch = live;
+const arrivedKeys = () => [...document.querySelectorAll('[data-record-key][data-arrived="true"]')].map((row) => row.getAttribute("data-record-key"));
+const drawnRows = () => document.querySelectorAll("tbody tr[data-record-key]").length;
+
+test("Registros reads itself again when the change check brings something new: the new row is marked, the table stays drawn and focus stays", async () => {
+  let arrived = false;
+  const newcomer = fixtureId(9100);
+  const page = await mount({ queryAnswer: async (_request, answer) => {
+    if (!arrived) return answer;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    return { ...answer, items: [{ ...answer.items[0], row_id: newcomer }, ...answer.items.slice(0, -1)] };
+  } });
+  for (const width of [1440, 390]) assert.equal(document.querySelector('[data-testid="records-refresh"]'), null, `no refresh control at ${width}`);
+  const before = drawnRows();
+  const queries = () => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length;
+  const asked = queries();
+  const held = document.querySelector<HTMLElement>("tbody tr[data-record-key]:nth-child(3)")!;
+  held.focus();
+  arrived = true;
+  await page.listChanged();
+  assert.equal(drawnRows(), before, "the rows stay on screen while the new answer is on its way");
+  await page.settle(() => arrivedKeys().length > 0);
+  assert.deepEqual(arrivedKeys(), [newcomer]);
+  assert.equal(document.querySelector("tbody tr[data-record-key]")?.getAttribute("data-record-key"), newcomer);
+  assert.equal(queries() - asked, 1);
+  assert.equal(document.activeElement, held, "the row that had focus keeps it");
+  await page.rerender();
+  assert.equal(queries() - asked, 1, "nothing asks again until the next change");
 });
 
-test("the phone keeps the pull gesture and gets no toolbar refresh control", async () => {
-  await mount({ width: 390 });
-  assert.equal(document.querySelector('[data-testid="records-refresh"]'), null);
+test("a change check that finds the same records leaves the table as it is", async () => {
+  const page = await mount();
+  await page.listChanged();
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  await page.rerender();
+  assert.deepEqual(arrivedKeys(), []);
+  assert.ok(drawnRows() > 0);
+});
+
+test("a failed re-read keeps the rows shown and stays quiet", async () => {
+  const page = await mount();
+  const before = drawnRows();
+  const live = globalThis.fetch;
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith("/reports/query") ? Promise.resolve(Response.json({ code: "internal_error" }, { status: 500 })) : live(input, init)) as typeof fetch;
+  try {
+    await page.listChanged();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    await page.rerender();
+  } finally { globalThis.fetch = live; }
+  assert.equal(drawnRows(), before);
+  assert.equal(document.querySelector('[role="alert"]'), null);
+});
+
+test("a failed read of Registros still offers Reintentar", async () => {
+  const page = await mount();
+  const live = globalThis.fetch;
+  let down = true;
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => down && String(input).endsWith("/reports/query") ? Promise.resolve(Response.json({ code: "internal_error" }, { status: 500 })) : live(input, init)) as typeof fetch;
+  try {
+    await page.reloaded();
+    await page.settle(() => page.button("Reintentar") !== undefined);
+    assert.equal(drawnRows(), 0);
+    down = false;
+    await page.click(page.button("Reintentar"));
+    await page.settle(() => drawnRows() > 0);
+  } finally { globalThis.fetch = live; }
 });
 
 test("view conflicts keep the unsaved name and require current version readback before another save", async () => {

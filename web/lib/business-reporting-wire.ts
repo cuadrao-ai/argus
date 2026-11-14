@@ -181,6 +181,35 @@ export function createBusinessReportController(scope: ReportScope, initial = def
       return controller.load(request);
     },
     refresh: () => controller.load(),
+    /**
+     * Reads the same request again while the table stays drawn, and answers the rows that were not there before.
+     * A failed read keeps the rows shown: the next change check asks again.
+     */
+    async refreshQuietly(): Promise<readonly string[]> {
+      if (state.load.kind !== "ready") return [];
+      const shown = state.load.answer;
+      const report = state.request;
+      queryAbort?.abort();
+      const abort = new AbortController();
+      queryAbort = abort;
+      const version = ++queryVersion;
+      const currentGeneration = generation;
+      const superseded = () => abort.signal.aborted || version !== queryVersion || currentGeneration !== generation || state.request !== report;
+      try {
+        const answer = await transport.query(scope, report, abort.signal);
+        if (superseded() || answer.page !== report.page || answer.page_size !== report.page_size || answer.items.length > report.page_size) return [];
+        // A page the records no longer have opens the last one that exists.
+        if (report.page > Math.max(1, answer.page_count)) { await controller.load({ ...report, page: Math.max(1, answer.page_count) }); return []; }
+        publish({ load: { kind: "ready", answer }, missingAnchor: state.anchor !== null && !answer.items.some((row) => row.row_id === state.anchor) });
+        const before = new Set(shown.items.map((row) => row.row_id));
+        return answer.items.filter((row) => !before.has(row.row_id)).map((row) => row.row_id);
+      } catch (error) {
+        if (superseded()) return [];
+        const problem = reportFailure(error);
+        if (problem.kind === "access") revoke(problem);
+        return [];
+      }
+    },
     rememberAnchor: (rowId: string | null) => publish({ anchor: rowId, missingAnchor: false }),
     async listViews() {
       const currentGeneration = generation;

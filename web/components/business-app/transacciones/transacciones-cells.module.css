@@ -27,3 +27,7 @@ button.noteButton { min-height:44px; line-height:44px; }
   .emptyActionDash { visibility:hidden; }
   .emptyActionIcon { visibility:visible; }
 }
+
+/* A record that just arrived: marked for a moment, then it fades back. The tint sits over each cell's own background. */
+.arrival > td { transition:box-shadow 600ms ease; }
+.arrival[data-arrived=true] > td { box-shadow:inset 0 0 0 999px color-mix(in srgb,var(--cuadrao-green) 12%,transparent); }

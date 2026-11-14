@@ -69,5 +69,8 @@ export async function mountConnectedReport(options: { onAdd?: () => void; defaul
   const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || label === "Filtros" && button.textContent?.startsWith("Filtros") || button.getAttribute("aria-label") === label);
   const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => { await act(async () => { const prototype = element instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); }); };
   if (options.waitForAnswer !== false) await settle(() => document.querySelector(`[data-report-schema="${options.legacy ? 1 : 2}"] [data-testid="records-count"]`) !== null);
-  return { fixture, settle, click, button, type, downloads, opened, context, rerender, reloads: () => reloads, dismissedGuides, guideRequests };
+  // What the workspace does after an action (a reload) and when its change check brings something new.
+  const reloaded = async () => { context.revision += 1; await rerender(); };
+  const listChanged = async () => { const records = context.records as { listChanges?: number }; records.listChanges = (records.listChanges ?? 0) + 1; await rerender(); };
+  return { fixture, settle, click, button, type, downloads, opened, context, rerender, reloaded, listChanged, reloads: () => reloads, dismissedGuides, guideRequests };
 }

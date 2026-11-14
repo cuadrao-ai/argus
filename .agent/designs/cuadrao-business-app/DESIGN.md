@@ -1670,7 +1670,13 @@ chips. OR within groups, AND between groups. Top state views share that same
 filter; multiple states show Vista combinada. Arrival dates reuse the calendar
 and default to all dates. Pagination reuses Registros' exact footer, 25/50/100,
 with current-page selection and count without navigation when only one page fits.
-New arrivals wait for explicit refresh. Returning from detail preserves position.
+Bandeja and Registros update on their own, by one rule. A new row lands at the
+top with a short highlight that fades by itself. There is no "new items" bar and
+no refresh control on either screen. Nothing the person is doing moves: the first
+row in view stays where it is, rows already shown keep their order, and selected
+rows, an open record and keyboard focus are kept by record, never by position.
+A failed read still offers Reintentar. A phone keeps the pull gesture. Returning
+from detail preserves position.
 
 Narrow Bandeja adapts to a compact list instead of compressing desktop columns.
 Use the Registros bordered-list treatment, document identity first, quiet amount,

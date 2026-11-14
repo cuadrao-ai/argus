@@ -28,6 +28,8 @@
 .row:hover,.row:has(:focus-visible) { background:color-mix(in srgb,var(--fg) 3%,transparent); }
 .row[data-selected=true],.row[data-checked=true] { background:color-mix(in srgb,var(--cuadrao-green) 7%,transparent); }
 .row[data-selected=true] { box-shadow:inset 3px 0 var(--cuadrao-green); }
+/* A row that just arrived: marked for a moment, then it fades back. */
+.row[data-arrived=true] { background:color-mix(in srgb,var(--cuadrao-green) 12%,transparent); transition-duration:600ms; }
 .identity { display:flex; align-items:center; gap:10px; min-width:0; width:100%; min-height:44px; padding:6px 12px 6px 16px; text-align:left; border-radius:4px; }
 .documentIcon { position:relative; display:grid; place-items:center; width:22px; height:28px; flex-shrink:0; color:var(--muted); }
 .documentText { position:relative; min-width:0; }
@@ -157,7 +159,6 @@
 @container reception (max-width:819px) { .row > .checkbox { grid-column:1; grid-row:1; width:28px; } }
 
 
-.updateNotice { display:flex; align-items:center; flex-wrap:wrap; gap:12px; font-size:14px; padding:0 0 12px; color:var(--muted); }
 
 .toolbar > :not(.search):not(.bulkSlot) { flex-shrink:0; }
 .toolbar button { white-space:nowrap; }
