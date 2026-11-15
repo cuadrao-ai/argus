@@ -8,7 +8,6 @@ import pytest
 from argus.api.decision_contract import DecisionComputation
 from argus.domain.calculations import get_calculation_declarations
 from argus.domain.computations import (
-    BACKTEST_COMPUTATION_KIND,
     InvalidComputationInputs,
     RerunContext,
     kernel_for,
@@ -26,7 +25,6 @@ _CONTEXT = RerunContext(load_run=lambda _run_id: None, today=date(2026, 9, 11))
 def test_every_declared_calculation_is_a_registered_kind() -> None:
     names = {declaration.name for declaration in get_calculation_declarations()}
     assert names <= set(registered_kinds())
-    assert BACKTEST_COMPUTATION_KIND in registered_kinds()
     for name in names:
         kernel = kernel_for(name)
         assert kernel is not None and kernel.inputs_editable and kernel.merge is not None

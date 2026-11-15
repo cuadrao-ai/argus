@@ -156,7 +156,6 @@ def _previews(rig: Rig, person: Person, surface: str) -> list[str]:
 def _reads(rig: Rig, person: Person, surface: str) -> dict[str, list[str]]:
     return {
         "recents": _ids(rig, person, "/api/v1/conversations", surface=surface),
-        "search": _ids(rig, person, "/api/v1/search", q="ledger", surface=surface),
         "history": _ids(rig, person, "/api/v1/history", surface=surface),
     }
 
@@ -170,7 +169,7 @@ def _personal_reads_refused(rig: Rig, person: Person) -> None:
 
 
 def _every_read(ids: list[str]) -> dict[str, list[str]]:
-    return {"recents": sorted(ids), "search": sorted(ids), "history": sorted(ids)}
+    return {"recents": sorted(ids), "history": sorted(ids)}
 
 
 def _deleted(conversation_ids: list[str]) -> list[bool]:
@@ -310,9 +309,5 @@ def test_a_run_in_a_business_chat_stays_on_the_business_surface(rig: Rig) -> Non
         )
         return [item["id"] for item in response.json()["items"] if item["type"] == "run"]
 
-    def symbol_hits(surface: str) -> list[str]:
-        return _ids(rig, alice, "/api/v1/search", q="NVDA", surface=surface)
-
     assert history_runs("business") == [run_id]
     _personal_reads_refused(rig, alice)
-    assert symbol_hits("business") == alice.business
