@@ -15,6 +15,21 @@ type RecoveryOptions = {
 };
 type AccessOutcome = "allowed" | "missing" | "error";
 
+export async function classifyBusinessIdentity(
+  check: () => Promise<{ data: { user: { id: string; is_anonymous?: boolean } | null }; error: unknown } | null | undefined>,
+  expectedUserId?: string,
+): Promise<AccessOutcome> {
+  try {
+    const identity = await check();
+    if (!identity || identity.error) return "error";
+    if (!identity.data.user || identity.data.user.is_anonymous) return "missing";
+    if (expectedUserId !== undefined && identity.data.user.id !== expectedUserId) return "error";
+    return "allowed";
+  } catch {
+    return "error";
+  }
+}
+
 export function createSessionRecovery({ initialOwner = null, allowAnonymous = false, onIdentityChange, verifyAccess }: RecoveryOptions = {}) {
   let state: SessionRecoveryState = initialOwner
     ? { kind: "same-owner", userId: initialOwner, scope: 0, busy: false }
