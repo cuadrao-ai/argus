@@ -7,7 +7,10 @@ from zipfile import ZipFile
 
 import pytest
 from argus.domain.business.contracts.actions import ReviewDraft
-from argus.domain.business.contracts.dgii import PurchaseDeclaration, PurchaseReview
+from argus.domain.business.contracts.dgii import (
+    PurchaseDeclarationInput,
+    PurchaseReview,
+)
 from argus.domain.business.contracts.facts import BusinessFactPatch, Unknown
 from argus.domain.business.dgii_line import reason
 from argus.domain.business.purchase_review import apply_purchase, derived_amount
@@ -455,7 +458,7 @@ class TestReviewChecklist:
 
         declared = {
             name: field
-            for name, field in PurchaseDeclaration.model_fields.items()
+            for name, field in PurchaseDeclarationInput.model_fields.items()
             if name != "form"
         }
         assert set(PurchaseReview.model_fields) == set(declared)

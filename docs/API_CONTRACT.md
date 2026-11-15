@@ -8538,6 +8538,37 @@ HTTP request already sent. Model/composition/send unknown outcomes retain the
 existing no-blind-retry rule. Business checkpoint persistence remains disabled
 pending proof of its authorization and deletion lifecycle.
 
+### Business accepted dates (#2175, part 1)
+
+`src/argus/domain/business/accepted_dates.py` owns acceptance at fresh input:
+`PastBusinessDate` accepts the inclusive interval from ten calendar years before
+`ledger.today()` through that Dominican day. The leap-day floor clamps to
+February 28. `DueDate` uses the same floor with no future ceiling. Query filters
+are not record input and keep their existing behavior.
+
+Receipt fact patches and typed purchases, payment/withholding declarations,
+settlement updates, invoice writes and normalized bank imports use these types.
+Stored declarations, QR evidence, read purchases and response projections remain
+readable even when an old date would no longer be accepted as fresh input.
+`covered_through` is a derived response value, not a writable date field.
+
+| Refusal code | Meaning | Metadata |
+| --- | --- | --- |
+| `business_date_after_today` | A past-event date is later than the Dominican day. | `min_date`, `today` |
+| `business_date_before_minimum` | A date precedes the accepted floor. | `min_date`, `today` |
+
+Request validation returns HTTP 422 with the code in
+`context.errors[].type`, the field path in `loc`, and bounds in `ctx`.
+Bank import refusals carry the code and `context.{field,min_date,today}`.
+The web renders those bounds; it does not calculate another rolling range.
+The two locale files own the refusal sentences.
+
+An out-of-range receipt read remains evidence on the draft. Its `occurred_on`
+blocker carries the same code and `min_date`/`today`, and its list anchor is null.
+The dossier asks for correction and retains the upload-year shortcut. Approval
+requires that correction; the read itself succeeds. No extraction prompt changes.
+Amounts remain outside this change (#2176).
+
 ### Business document deletion and restore
 
 `POST /business/drafts/{draft_id}/delete` and

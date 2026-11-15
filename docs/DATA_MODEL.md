@@ -3480,6 +3480,33 @@ boundary proposal is approved.
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
 
+### Business date floor (#2175)
+
+`supabase/migrations/20261115060328_business_dates_floor.sql` owns the fixed
+stored-date floor. Its CHECK constraints require dates on or after 2000-01-01
+on newly written current values; they are all added `NOT VALID`.
+
+| Table | Current dates checked |
+| --- | --- |
+| `business_bank_line_outcomes` | `applied_settled_on` |
+| `business_bank_lines` | `occurred_on` |
+| `business_document_settlements` | `settled_on` |
+| `business_draft_revisions` | `after_due_on` |
+| `business_invoice_revisions` | Nonempty `data.issued_on`, `data.due_on` |
+| `financial_import_events` | Business `anchor_on`, person-stated `facts.occurred_on`; resolution `due_on`, `dgii.paid_on`, `dgii.withheld_on` |
+
+Null dates remain unknown. Other products' imports are unaffected. Prior values
+in correction history and raw reader evidence are retained, including a wrong
+year: correcting a record must not erase or refuse its history. A read date
+outside the application range remains review evidence with a null list anchor
+and a correction blocker. Response models continue to read old stored dates.
+
+The application range has one separate owner, `accepted_dates.py`, which uses
+the Dominican business day. No rolling date expression is stored in a CHECK.
+This migration performs no cleanup or validation scan. Validation requires a
+later approved operation, after read-only counts find no older affected rows;
+no hosted count or migration application was performed for this change.
+
 ### Business name prompt
 
 `spaces.business_name_prompt_seen_at` recorded the first owner visit that

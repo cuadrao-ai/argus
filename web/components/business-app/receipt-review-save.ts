@@ -1,3 +1,4 @@
+import { businessDateMessage } from "@/lib/business-date-errors";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier, BusinessFactPatch, BusinessMontosReview } from "@/lib/business-dossier";
@@ -116,7 +117,7 @@ export function useReviewAutosave({ source, draftId, dossier, fields, label, onS
       return { message: t("business.dossier.placeholder.save_stale", "This record changed while you edited. You're seeing the current version; your change is still here."), reference, retry: true, unknown: false };
     }
     if (status === 401 || status === 403 || status === 404 || code === "permission_denied") { onLost(reference); return null; }
-    if (status && status >= 400 && status < 500) return { message: refused(row, code), reference, retry: false, unknown: false };
+    if (status && status >= 400 && status < 500) return { message: businessDateMessage(error, t, label(row)) ?? refused(row, code), reference, retry: false, unknown: false };
     attempts.current[row] = { change: attempt.change, base, key };
     return { message: t("business.dossier.placeholder.save_lost", { field: label(row), defaultValue: "We couldn't confirm that {{field}} was saved. Approval is paused." }), reference, retry: true, unknown: true };
   };

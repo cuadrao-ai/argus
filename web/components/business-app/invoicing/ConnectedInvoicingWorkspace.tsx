@@ -1,4 +1,6 @@
 "use client";
+
+import { businessDateMessage } from "@/lib/business-date-errors";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, Search, SlidersHorizontal } from "lucide-react";
@@ -65,7 +67,7 @@ function CommandStatus({ state, retry, reload }: { state: CommandState; retry: (
   const terminal = state.failure === "unavailable" || state.failure === "refused";
   const message = state.failure === "refused" ? t([`business.invoicing.refused_${state.command?.kind ?? "request"}`, "business.invoicing.refused"]) : t(`business.invoicing.${state.failure}`);
   return <div role="alert" className={styles.notice}>
-    <p>{message}</p>
+    <p>{businessDateMessage(state.problem, t) ?? message}</p>
     {terminal ? <p>{t("auth.business_unavailable.body", { supportEmail })}</p> : null}
     {state.reference ? <ReferenceCode reference={state.reference} /> : null}
     {state.retryable ? <button type="button" className={quietButtonClass} onClick={retry}>{t("business.invoicing.retry")}</button> : state.failure === "conflict" ? <button type="button" className={quietButtonClass} onClick={reload}>{t("business.invoicing.reload")}</button> : null}

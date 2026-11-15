@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -15,6 +14,7 @@ from pydantic import (
     model_validator,
 )
 
+from argus.domain.business.accepted_dates import PastBusinessDate
 from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
@@ -303,7 +303,7 @@ class TypedPurchase(Contract):
     supplier or description."""
 
     amount: Money
-    occurred_on: date
+    occurred_on: PastBusinessDate
 
 
 #: The longest note a person writes, typed or on a record, in characters.

@@ -1,3 +1,4 @@
+import { businessDateMessage } from "@/lib/business-date-errors";
 import type { BusinessDossier, BusinessFactField } from "@/lib/business-dossier";
 
 export type AttentionItem = {
@@ -18,6 +19,8 @@ export function dossierAttention(dossier: Pick<BusinessDossier, "blockers" | "re
   if (dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return [];
   return dossier.blockers.map((blocker, index) => {
     const label = blocker.field ? t(`business.dossier.field.${blocker.field}`, blocker.field) : null;
+    const dateMessage = businessDateMessage(blocker, t, label ?? undefined);
+    if (dateMessage) return { key: `blocker-${blocker.code}-${index}`, field: blocker.field, text: dateMessage };
     const reason = blocker.code === "fact_required" && label ? null
       : t(blocker.code === "possible_duplicate" ? "business.attention.duplicate" : `business.dossier.blocker.${blocker.code}`, "") || t("business.dossier.blocker_fallback", "This record needs further review before approval.");
     return { key: `blocker-${blocker.code}-${index}`, field: blocker.field, text: [reason, label].filter(Boolean).join(" · ") };
