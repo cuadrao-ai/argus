@@ -951,13 +951,6 @@ Use the replay to identify the macro-pattern and make one coherent fix.
 Docker is optional for this step unless the production release path moves to
 container images; prefer the local smoke gate plus canary replay first.
 
-Before treating local UI changes as launch-ready, also run the browser recovery
-spec against the local app/API environment:
-
-```bash
-cd web && bun run test:e2e e2e/chat-action-recovery.spec.ts --project=chromium
-```
-
 Only send the app URL to testers after API deploy-status, app deploy-status,
 the documents worker deploy commit, local smoke, warmup, both canary surfaces,
 and the release manifest all pass against the intended candidate commit.
