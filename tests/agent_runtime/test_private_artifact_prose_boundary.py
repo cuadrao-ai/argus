@@ -75,7 +75,6 @@ def root_prose_reader_paths() -> list[Path]:
                 ROOT / name
                 for name in (
                     "src/argus/api/routers/history.py",
-                    "src/argus/api/routers/search.py",
                     "src/argus/api/conversation_previews.py",
                     "src/argus/domain/conversation_previews.py",
                     "src/argus/domain/run_dossiers.py",
