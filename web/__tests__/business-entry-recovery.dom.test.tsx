@@ -8,6 +8,8 @@ import * as navigation from "next/navigation";
 import * as flags from "@/lib/private-alpha-flags";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
+import { createServerClient } from "@supabase/ssr";
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
 
 type Identity = { data: { user: { id: string; is_anonymous?: boolean } | null }; error: Error | null };
 let check: () => Promise<Identity>;
@@ -95,6 +97,24 @@ test("authenticated entry admits the workspace after the server check", async ()
     assert.equal(page.host.querySelector('[data-testid="session-recovery-screen"]'), null);
     assert.equal(checks, 1);
   } finally { await page.close(); }
+});
+
+test("the real SDK response with an empty cookie store redirects a signed-out visitor to login", async () => {
+  let requests = 0;
+  const client = createServerClient("http://127.0.0.1:54321", "placeholder", {
+    cookies: { getAll: () => [], setAll: () => {} },
+    global: { fetch: async () => { requests += 1; throw new Error("Unexpected network request"); } },
+  });
+  const response = await client.auth.getUser();
+  assert.equal(response.data.user, null);
+  assert.ok(isAuthSessionMissingError(response.error));
+  check = async () => response;
+  await assert.rejects(entry({ receipt: "receipt_1" }), (error: unknown) => {
+    assert.match((error as { digest: string }).digest, /return_to=%2Fbiz%3Freceipt%3Dreceipt_1&auth=login/);
+    return true;
+  });
+  assert.equal(checks, 1);
+  assert.equal(requests, 0);
 });
 
 test("login keeps only the safe Business destination and allowed state", async () => {

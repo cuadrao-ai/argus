@@ -1,4 +1,4 @@
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { isAuthSessionMissingError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { observeBrowserAuth } from "./browser-auth-generation";
 import { getSupabaseClient } from "./supabase-client";
 
@@ -21,12 +21,13 @@ export async function classifyBusinessIdentity(
 ): Promise<AccessOutcome> {
   try {
     const identity = await check();
+    if (isAuthSessionMissingError(identity?.error)) return "missing";
     if (!identity || identity.error) return "error";
     if (!identity.data.user || identity.data.user.is_anonymous) return "missing";
     if (expectedUserId !== undefined && identity.data.user.id !== expectedUserId) return "error";
     return "allowed";
-  } catch {
-    return "error";
+  } catch (error) {
+    return isAuthSessionMissingError(error) ? "missing" : "error";
   }
 }
 
