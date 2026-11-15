@@ -37,7 +37,9 @@ def test_the_feed_answers_with_no_activity_setting_in_the_environment(
 ):
     for name in [name for name in os.environ if "ACTIVITY" in name.upper()]:
         monkeypatch.delenv(name)
-    assert not [key for key in alice.get("/workspace").json() if key.startswith("activity")]
+    assert not [
+        key for key in alice.get("/workspace").json() if key.startswith("activity")
+    ]
     page = alice.get("/activity")
     assert (page.status_code, page.json()) == (
         200,
@@ -128,3 +130,20 @@ def test_the_last_calendar_day_is_refused_as_a_range_end(alice: Owner):
         assert refused.headers["cache-control"] == "no-store"
     assert _get(alice, {"from": "9999-12-31"}).status_code == 200
     assert _get(alice, {"to": "9999-12-30"}).status_code == 200
+
+
+def test_a_query_is_part_of_the_filter_set_a_cursor_continues(alice: Owner):
+    item = project(row({"action": "review_draft"}))
+    issued = encode_cursor(item, ActivityFilters(q="Lucía"))
+    for q in ("Lucía", "  Lucía "):
+        assert _get(alice, {"cursor": issued, "q": q}).status_code == 200
+    for params in ({"cursor": issued}, {"cursor": issued, "q": "Carlos"}):
+        refused = _get(alice, params)
+        assert (refused.status_code, refused.json()["code"]) == (
+            422,
+            "invalid_cursor",
+        ), params
+    unqueried = encode_cursor(item, NONE)
+    assert _get(alice, {"cursor": unqueried, "q": "  "}).status_code == 200
+    too_long = _get(alice, {"q": "a" * 513})
+    assert (too_long.status_code, too_long.json()["code"]) == (422, "validation_error")

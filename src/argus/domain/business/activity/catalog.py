@@ -25,7 +25,7 @@ from argus.domain.business.contracts.authority import ActorKind
 from argus.domain.business.roles import BusinessRole
 
 Audience = Literal["member", "manager"]
-Path = tuple[str, ...]
+Path = tuple[str | int, ...]
 Detail = Literal["role", "personal", "include"]
 
 
@@ -61,6 +61,9 @@ _PLANNED_DRAFT = (
     "draft",
     (("outcome", "draft_id"), ("command", "draft", "draft_id")),
 )
+#: A write on the legacy receipt surface lists what it changed: the drafts,
+#: then the uploads. The feed query leads the first to its receipt.
+_SUBJECT = ("receipt", (("command", "subjects", 0),))
 _GRANT = ("grant", (("command", "grant_id"),))
 _INVITE = ("invite", (("command", "invite_id"),))
 
@@ -89,9 +92,9 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "resolve_duplicate": ActionSpec("documents", "reviews", object=_DRAFT),
         "edit_current_note": ActionSpec("records", "edits", object=_DRAFT),
         "append_supporting_file": ActionSpec("documents", "files", object=_DRAFT),
-        "receipt_upload": ActionSpec("documents", "uploads"),
-        "receipt_review": ActionSpec("records", "reviews"),
-        "receipt_confirm": ActionSpec("records", "approvals"),
+        "receipt_upload": ActionSpec("documents", "uploads", object=_SUBJECT),
+        "receipt_review": ActionSpec("records", "reviews", object=_SUBJECT),
+        "receipt_confirm": ActionSpec("records", "approvals", object=_SUBJECT),
         "set_business_rnc": ActionSpec("business", "settings"),
         "set_business_legal_name": ActionSpec("business", "settings"),
         "business_propose_activity": ActionSpec(
@@ -124,6 +127,10 @@ DERIVED: Mapping[str, ActionSpec] = MappingProxyType(
     }
 )
 ACTIONS: Mapping[str, ActionSpec] = MappingProxyType({**CATALOG, **DERIVED})
+#: Actions that name a subject of the legacy receipt surface, not yet a receipt.
+LEGACY: frozenset[str] = frozenset(
+    name for name, spec in CATALOG.items() if spec.object is _SUBJECT
+)
 
 #: A read or a look-up: not a change, so no page lists it.
 READ_MARKS: frozenset[str] = frozenset(
@@ -248,7 +255,10 @@ def _detail(row: EventRow, detail: Detail) -> dict[str, Any]:
 
 def _at(value: Any, path: Path) -> Any:
     for step in path:
-        if not isinstance(value, Mapping):
+        if isinstance(step, int):
+            value = value[step] if isinstance(value, list) and step < len(value) else None
+        elif isinstance(value, Mapping):
+            value = value.get(step)
+        else:
             return None
-        value = value.get(step)
     return value
