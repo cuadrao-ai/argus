@@ -2461,7 +2461,66 @@
         "set_business_legal_name": "confirmed the business legal name",
         "set_business_rnc": "updated the business RNC",
         "settle_remainder": "settled a record's remainder"
-      }
+      },
+      "am": "a.m.",
+      "areas": {
+        "business": "Business",
+        "documents": "Documents",
+        "invoicing": "Invoicing",
+        "records": "Records"
+      },
+      "cols": {
+        "area": "Area",
+        "record": "Record",
+        "time": "Time",
+        "what": "What happened",
+        "who": "Who"
+      },
+      "error_body": "Your records are fine. Try again in a moment.",
+      "error_title": "We could not load the activity",
+      "extractor_name": "Cuadrao",
+      "filtered_body": "There is activity outside this date or these filters.",
+      "filtered_title": "Nothing matches these filters",
+      "filters": {
+        "action": "Action",
+        "all": "All dates",
+        "area": "Area",
+        "clear": "Clear filters",
+        "clear_group": "Clear",
+        "date": "Date",
+        "month": "Last 30 days",
+        "person": "Person",
+        "remove": "Remove filter:",
+        "title": "Filters",
+        "today": "Today",
+        "week": "Last 7 days"
+      },
+      "first_run_body": "When someone uploads, reviews or approves something in this business, you will see it here.",
+      "first_run_title": "No activity yet",
+      "former_member": "Former member",
+      "go_home": "Go to Home",
+      "groups": {
+        "access": "Access",
+        "approvals": "Approvals",
+        "edits": "Record changes",
+        "files": "Attachments",
+        "invoices": "Invoices",
+        "other": "Other",
+        "reading": "Reading",
+        "reviews": "Reviews",
+        "settings": "Business details",
+        "uploads": "Uploads"
+      },
+      "load_more": "Load more",
+      "load_more_failed": "We couldn't load more activity.",
+      "managers_only": "Only owners and admins see this",
+      "no_actor": "Actor not recorded",
+      "no_record": "no data",
+      "pm": "p.m.",
+      "record_placeholder": "-",
+      "retry": "Try again",
+      "unmark_personal": "moved an expense back to the business",
+      "via_chat": "from chat"
     },
     "bank": {
       "empty": {
@@ -2525,22 +2584,10 @@
     "export": {
       "start": "From",
       "end": "Through",
-      "access_error": "This export isn't available with your current access.",
       "limit_error": "This export exceeds a package limit. Choose a shorter period.",
-      "error": "The export could not be downloaded. Check your access and try again.",
-      "preview": "Downloads are available in the connected Business view.",
       "action": "Export",
-      "preparing": "Preparing your file…",
-      "done": "Done. Find the ZIP in your downloads.",
       "range": "{{from}} to {{to}}",
-      "range_invalid": "Choose between 1 and 366 days.",
-      "other_dates": "Other dates",
       "pick_end": "Now pick the last day",
-      "includes": "Includes",
-      "records": "Records",
-      "records_detail": "Excel and CSV",
-      "originals": "Originals",
-      "originals_detail": "Photos and PDFs of each receipt",
       "filename": {
         "dgii": "DGII",
         "mixed": "Purchases and sales",
@@ -2549,16 +2596,7 @@
         "sales": "Sales",
         "to": "to"
       },
-      "fiscal": "606 and 607",
-      "fiscal_detail": "For the DGII",
-      "included": "Included",
-      "fiscal_month_only": "Whole month only",
-      "fiscal_checking": "Checking…",
-      "fiscal_profile": "Name and RNC on the 606",
-      "form_needs_review": "Needs review",
-      "form_no_aplica": "Does not apply",
-      "form_no_operations": "No operations",
-      "form_summary_only": "Summary only"
+      "form_no_aplica": "Does not apply"
     },
     "terms": {
       "calculated_hint": "Calculated: Total − ITBIS",
@@ -2878,7 +2916,6 @@
         },
         "pending_contract": "This feature is not connected yet.",
         "refresh": "Refresh",
-        "refresh_records": "Refresh records",
         "reload": "Reload",
         "retry": "Retry",
         "unavailable": "This feature is not available right now.",
@@ -3318,10 +3355,9 @@
       "title": "Expenses",
       "no_merchant": "Expense",
       "detail_title": "Saved expense",
+      "gone": "That expense is no longer here",
       "no_receipt": "No receipt attached",
       "recorded_on": "Recorded on {{when}}",
-      "detail_error": "We couldn't open this expense. Try again.",
-      "retry": "Try again",
       "account_unknown": "Unknown"
     },
     "guide_cards": {
@@ -3388,10 +3424,12 @@
       "channel_web": "Uploaded",
       "pm": "PM",
       "read": "Read",
+      "reason": { "business_rnc_set": "Your business issued it" },
       "received": "Received",
       "rnc_verified": "RNC verified",
       "set": "{{field}}: {{after}}",
-      "title": "History"
+      "title": "History",
+      "via_cuadrao": "{{name}} via Cuadrao"
     },
     "reading": {
       "line": "Reading your receipt…",
@@ -3906,17 +3944,19 @@
     "lifecycle": {
       "close": {
         "action": "Close business",
-        "consequences": "When you close, members lose access immediately. You have 30 days to reopen. After that, we delete everything and it cannot be recovered.",
-        "download": "Download receipts",
+        "confirmation": "Type <strong>{{businessName}}</strong> to confirm.",
+        "continue": "Continue",
+        "continue_without": "Continue without downloading",
+        "download": "Download copy",
         "title": "Close this business",
-        "warning": "The law requires your business to keep its receipts for 10 years. Download them before closing, because Cuadrao will not keep them for you."
+        "title_named": "Close <strong>{{businessName}}</strong>",
+        "warning": "After you close, you have 30 days to reopen this business. After that, it's deleted and can't be recovered. Download a copy before you continue."
       },
-      "close_alert_title": "Close {{businessName}}?",
+      "close_alert_title": "Close <strong>{{businessName}}</strong>?",
       "close_preview": {
         "member_count_one": "1 member loses access when you close.",
         "member_count_other": "{{count}} members lose access when you close.",
-        "member_count_zero": "No members lose access when you close.",
-        "reopen_until": "If you close it now, you can reopen it before {{purgeDate}} at {{purgeTime}} (Dominican Republic time)."
+        "reopen_until": "You can reopen it until {{purgeDate}}."
       },
       "closed_group": "Closed businesses",
       "closed_owner": "To download receipts, you must first reopen the business.",
@@ -3948,10 +3988,14 @@
         "withdraw_uncertain": "We couldn't confirm withdrawal. Refresh to check the result."
       },
       "export": {
-        "complete": "All downloads have started. Check your browser's downloads.",
+        "download": "Download",
+        "downloaded": "Downloaded",
         "empty": "There are no records or receipts to download.",
         "failed": "We couldn't start all downloads. Retry to continue.",
-        "preparing": "Preparing downloads…"
+        "package": "The copy includes your records in Excel and CSV and, when possible, the file for each document.",
+        "preparing": "Preparing downloads…",
+        "records_one": "{{n}} record",
+        "records_other": "{{n}} records"
       },
       "member_closed": "{{businessName}} is closed. To request copies of receipts, contact the business owner.",
       "name_confirmation": "Enter the business name to confirm.",
@@ -4410,8 +4454,6 @@
       "intake_pending": "Intake in progress",
       "list_label": "Received content",
       "loading": "Loading content",
-      "new_arrivals_one": "There is 1 new item.",
-      "new_arrivals_other": "There are {{count}} new items.",
       "next_action": "Next action",
       "no_file": "No attached file",
       "open_file": "Open original: {{name}}",
@@ -4473,9 +4515,7 @@
       "status_reason": "Reason",
       "text_intake": "Text entry",
       "unseen": "Unseen",
-      "update_list": "Update list",
       "views": "Inbox views",
-      "visible_information": "Visible information",
       "without_file": "No file"
     },
 
@@ -4488,7 +4528,7 @@
       "email_original": "This is the email itself. Its attachment is the receipt to review.",
       "source": "Original receipt",
       "download": "Download",
-      "error": "This receipt isn't available. It may have been removed.",
+      "gone": "That receipt is no longer here",
       "retry": "Read again",
       "retry_consent": "Trying again sends this receipt to our AI provider.",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",
@@ -4732,6 +4772,8 @@
       "profile_discard": "Discard changes",
       "profile_discard_detail": "Changes to this section have not been saved.",
       "profile_discard_title": "Discard changes?",
+      "profile_drafts_retyped_one": "1 draft moved to Sales: your business issued it",
+      "profile_drafts_retyped_other": "{{count}} drafts moved to Sales: your business issued them",
       "profile_email": "Business email",
       "profile_error_email": "Enter a valid email address.",
       "profile_error_length_one": "Use {{count}} character or fewer.",

@@ -9,6 +9,7 @@ let cleanup = async () => {};
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 1000 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 afterEach(async () => {
   await cleanup(); cleanup = async () => {};
+  window.localStorage.clear();
   (await import("@/components/business-app/foundation/toasts")).clearToasts();
   (await import("@/components/layout/overlayStack")).resetOverlayStack();
   document.body.innerHTML = "";
@@ -44,7 +45,6 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   const chosen: GrantedSpace = { space_id: "count-business", grant_id: "count-grant", name: "Negocio sintético", role, capabilities: !prepare ? ["read"] : role === "owner" ? ["read", "prepare", "approve"] : ["read", "prepare"], permissions: permissions ?? (role === "owner" ? OWNER_PERMISSIONS : EDITOR_PERMISSIONS), access_seen: true };
   let uploads = 0;
   let reloads = 0;
-  let exports = 0;
   const opened: BusinessPanelState[] = [];
   let context: BusinessContextValue = { receivingChannels: { email: { available: true }, whatsapp: { available: true } },
     userId: "count-person", source: { ...source, receiptPage: async () => ({ items: receipts, activity: globalActivity }), ...(receiptsOnly ? { captures: async () => ({ items: [], has_more: false }) } : {}), ...(markRead ? { markReceiptRead: markRead } : {}), ...(approveListos ? { approveListos } : {}) },
@@ -52,7 +52,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
     spaces: [chosen], chosen, chooseBusiness: () => {}, markAccessSeen: async () => {}, lostAccess: false, clearLostAccess: () => {}, revision: 0, reload: () => { reloads++; }, refresh: async () => "updated",
     period: { key: "all", from: "", to: null }, setPeriod: () => {}, panel: { kind: "inbox" }, openPanel: next => opened.push(next),
     actions: { create: role === "owner" && prepare ? [{ id: "upload_receipt", label: "Agregar", icon: Plus, run: () => { uploads++; } }] : [], composer: [], starterEntries: [] },
-    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, openExport: () => { exports++; }, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
+    bridge: null, attachedReceipt: null, clearAttachedReceipt: () => {}, emailRefresh: { refresh: () => {}, refreshing: false, stalled: false }, retrySources: () => {},
   };
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   const render = () => act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>{bar ? <header data-testid="top-bar"><BusinessHeader home={false} name={null} title="Bandeja" screen="inbox" /></header> : null}<Inbox /></BusinessContext.Provider></I18nextProvider>); });
@@ -65,7 +65,7 @@ async function mount({ width = 1440, role = "owner", prepare = true, permissions
   const badge = (key: string) => tab(key)?.querySelector("span")?.textContent;
   const row = (name: string) => [...host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')].find(element => element.textContent?.includes(name));
   const remount = async () => { await act(async () => root.unmount()); const again = createRoot(host); await act(async () => { again.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Inbox /></BusinessContext.Provider></I18nextProvider>); }); cleanup = async () => { await act(async () => again.unmount()); host.remove(); }; await settle(() => host.querySelector('[data-testid="reception-row"]') !== null); };
-  return { host, context, opened, remount, uploads: () => uploads, exports: () => exports, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await settle(() => host.textContent?.includes("Actualizar lista") === true); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
+  return { host, context, opened, remount, uploads: () => uploads, reloads: () => reloads, click, tab, badge, row, act, settle, async changeArrivals() { receipts = [...receipts.filter(receipt => receipt.id !== "review-receipt"), { ...receipts[0], id: "new-receipt", merchant: "Recibo sin admitir" }]; context = { ...context, revision: context.revision + 1 }; await render(); await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); }); }, async demote(id: string) { receipts = receipts.map(receipt => receipt.id === id ? { ...receipt, bandeja_group: { group: "attention" as const, reason: "missing_ncf", draft_id: receipt.bandeja_group?.draft_id ?? null, version: 9 } } : receipt); context = { ...context, revision: context.revision + 1 }; await render(); } };
 }
 
 const rows = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="reception-row"]')];
@@ -256,7 +256,7 @@ test("the state column is Estado with the tag on Todos, Motivo with the plain re
   assert.equal(heading("Motivo"), true, "every row here needs attention, so the column names why");
   assert.equal(estado(), false);
   await page.click(page.host.querySelector<HTMLButtonElement>('button[aria-label="Opciones de vista"]'));
-  const columns = [...document.querySelectorAll('section[aria-label="Información visible"] li')].map(item => item.textContent);
+  const columns = [...document.querySelectorAll('section[aria-label="Columnas"] li')].map(item => item.textContent);
   assert.ok(columns.some(text => text?.startsWith("Motivo")), "the settings name the column as the header does");
   assert.ok(!columns.some(text => text?.startsWith("Estado")));
   assert.equal(row().querySelector('[data-testid="status-pill"]'), null, "no tag where the tab already says it");
@@ -315,6 +315,30 @@ test("a WhatsApp receipt shows no sender instead of one inferred from its mercha
   const sender = row.querySelector('[data-testid="reception-sender"]');
   assert.equal(sender?.getAttribute("data-known"), "false");
   assert.equal(sender?.getAttribute("aria-label"), "Remitente no disponible");
+});
+
+test("with Canal, Adjunto and Remitente apart, a row's cells and focus stops come in the order its columns show", async () => {
+  window.localStorage.setItem("cuadrao:bandeja_columns:v1", JSON.stringify({ order: ["source", "file", "sender", "status", "arrival", "amount", "currency"], hidden: ["amount", "currency"], density: "amplio" }));
+  const own = ["scrollWidth", "clientWidth"].map(key => [key, Object.getOwnPropertyDescriptor(HTMLElement.prototype, key)] as const);
+  Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => 200 });
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 100 });
+  try {
+    const page = await mount({ tweak: receipts => receipts.map(receipt => receipt.id === "review-receipt" ? { ...receipt, channel: "email" as const, email_delivery_ids: ["email-estacion"] } : receipt) });
+    const row = page.row("Recibo admitido")!;
+    const place = (node: Element) => Number((node.closest<HTMLElement>('[style*="--col"]')?.style.getPropertyValue("--col")) || 0);
+    const inOrder = (places: number[]) => places.every((value, index) => index === 0 || places[index - 1] <= value);
+    const cells = [...row.querySelectorAll<HTMLElement>('[style*="--col"]')].map(place);
+    assert.ok(inOrder(cells), `cells by place: ${cells.join(",")}`);
+    assert.equal(row.querySelector('[data-testid="reception-sender"]')?.getAttribute("tabindex"), "0", "a cut-off sender takes focus");
+    assert.ok(row.querySelector('[data-testid="reception-original"]'), "Adjunto holds a focusable file button");
+    const stops = [...row.querySelectorAll('button, input, a[href], [tabindex]:not([tabindex="-1"])')].map(place);
+    assert.ok(inOrder(stops), `focus stops by place: ${stops.join(",")}`);
+  } finally {
+    for (const [key, descriptor] of own) {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, key, descriptor);
+      else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[key];
+    }
+  }
 });
 
 const box = (page: Awaited<ReturnType<typeof mount>>, name: string) => page.row(name)?.querySelector<HTMLInputElement>('input[type="checkbox"]') ?? null;
@@ -398,10 +422,9 @@ test("a new receipt or a poll leaves the selection alone, and a row that stops b
   await page.click(box(page, "Listo uno"));
   await page.click(box(page, "Listo dos"));
   await page.changeArrivals();
-  await page.settle(() => [...page.host.querySelectorAll("button")].some(button => button.textContent === "Actualizar lista"));
   assert.equal(box(page, "Listo uno")?.checked, true);
-  await page.click([...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Actualizar lista"));
-  assert.equal(box(page, "Listo dos")?.checked, true, "bringing the new row in keeps it too");
+  assert.equal(box(page, "Listo dos")?.checked, true, "the row that came in on its own leaves both checked");
+  assert.equal([...page.host.querySelectorAll("button")].some(button => button.textContent === "Actualizar lista"), false);
   await page.demote("listo-dos");
   await page.settle(() => !page.row("Listo dos"));
   assert.match(page.host.querySelector('[role="region"]')?.textContent ?? "", /1 seleccionado/);
@@ -457,4 +480,90 @@ test("the keyboard reaches the tabs by arrow and a Listos box by Tab order", asy
   await page.act(async () => { tabs.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })); });
   assert.equal(document.activeElement, page.tab("listos"));
   assert.ok(box(page, "Listo uno")?.tabIndex !== -1);
+});
+
+const headings = (page: Awaited<ReturnType<typeof mount>>) => [...page.host.querySelectorAll<HTMLElement>("#reception-list [data-column]")].sort((a, b) => Number(a.style.getPropertyValue("--col")) - Number(b.style.getPropertyValue("--col"))).map(cell => cell.dataset.column);
+const setting = (key: string) => document.querySelector<HTMLElement>(`[data-column-setting="${key}"]`);
+const columnBox = (key: string) => setting(key)?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+
+const cells = (page: Awaited<ReturnType<typeof mount>>) => [...page.row("Recibo admitido")!.children].map(cell => cell.className);
+const DEFAULT_HEADINGS = ["document", "file", "source", "status", "arrival"];
+
+test("Bandeja's column menu is the Registros menu: Contenido and the action hold their places and are no rows, every other column is a box", async () => {
+  const page = await mount();
+  await settings(page);
+  const keys = [...document.querySelectorAll<HTMLElement>("[data-column-setting]")].map(row => row.dataset.columnSetting);
+  assert.deepEqual(keys, ["file", "source", "sender", "amount", "currency", "status", "arrival"]);
+  for (const key of keys) {
+    assert.ok(columnBox(key!), `${key} is a box`);
+    assert.equal(columnBox(key!)?.disabled, false, `${key} can hide`);
+    assert.equal(setting(key!)?.querySelectorAll("button").length, 3, `${key} moves up, down and by its handle`);
+  }
+  assert.equal(document.querySelector('[role="dialog"] svg.lucide-lock-keyhole'), null);
+  for (const fixed of ["Contenido", "Siguiente acción"]) assert.equal(document.querySelector('[role="dialog"]')?.textContent?.includes(fixed), false, `${fixed} is not in the menu`);
+  assert.deepEqual(headings(page), DEFAULT_HEADINGS);
+  assert.match(cells(page)[0], /identity/, "Contenido is the row's first cell");
+});
+
+test("Bandeja refuses to hide the last menu column a tab shows, Estado does not count on Listos, and Contenido stays drawn", async () => {
+  const page = await mount();
+  await settings(page);
+  for (const key of ["file", "source"]) await page.click(columnBox(key));
+  assert.deepEqual(headings(page), ["document", "status", "arrival"]);
+  assert.equal(columnBox("arrival")?.disabled, true, "Listos would keep no menu column: Estado is not drawn there");
+  assert.equal(columnBox("status")?.disabled, false);
+  await page.click(columnBox("arrival"));
+  assert.deepEqual(headings(page), ["document", "status", "arrival"]);
+  await page.click(columnBox("status"));
+  assert.deepEqual(headings(page), ["document", "arrival"]);
+  assert.equal(columnBox("arrival")?.disabled, true);
+  assert.match(cells(page)[0], /identity/);
+});
+
+test("Bandeja keeps a reorder and a hidden column across a remount, with Contenido first and the cells in the same order as the titles", async () => {
+  const page = await mount();
+  await settings(page);
+  const up = () => setting("arrival")!.querySelector<HTMLButtonElement>("button");
+  while (!up()!.disabled) await page.click(up());
+  await page.click(columnBox("file"));
+  const expected = ["document", "arrival", "source", "status"];
+  assert.deepEqual(headings(page), expected);
+  assert.match(cells(page)[0], /identity/, "Contenido stays first");
+  assert.match(cells(page)[1], /arrival/);
+  assert.match(cells(page).at(-1)!, /rowActions/, "the actions stay last");
+  await page.remount();
+  assert.deepEqual(headings(page), expected);
+  await settings(page);
+  await page.click([...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button => button.textContent === "Restaurar valores iniciales"));
+  assert.deepEqual(headings(page), DEFAULT_HEADINGS);
+});
+
+test("a layout kept before Contenido held its place loads with Contenido first and shown", async () => {
+  window.localStorage.setItem("cuadrao:bandeja_columns:v1", JSON.stringify({ order: ["arrival", "status", "document", "file", "source", "sender", "amount", "currency"], hidden: ["document", "sender", "amount", "currency"], density: "amplio" }));
+  const page = await mount();
+  assert.deepEqual(headings(page), ["document", "arrival", "status", "file", "source"], "the other choices are kept");
+  assert.match(cells(page)[0], /identity/);
+  assert.ok(page.row("Recibo admitido")?.textContent?.includes("Recibo admitido"));
+});
+
+test("Bandeja keeps a hidden column, a reorder and the row height on screen when the device refuses to read or keep them", async () => {
+  const { getItem, setItem } = Storage.prototype;
+  const refuse = () => { throw new DOMException("blocked", "SecurityError"); };
+  Storage.prototype.getItem = refuse;
+  Storage.prototype.setItem = refuse;
+  try {
+    const page = await mount();
+    await settings(page);
+    await page.click(columnBox("file"));
+    assert.deepEqual(headings(page), ["document", "source", "status", "arrival"], "the hidden column leaves");
+    await page.click(setting("arrival")!.querySelector<HTMLButtonElement>("button"));
+    assert.deepEqual(headings(page), ["document", "source", "arrival", "status"], "the moved column moves");
+    await page.click([...document.querySelectorAll<HTMLElement>('[role="dialog"] button')].find(button => button.textContent === "Altura de filas"));
+    const height = (name: string) => [...document.querySelectorAll("label")].find(label => label.textContent === name)!.querySelector("input")!;
+    await page.click(height("Compacto"));
+    assert.equal(height("Compacto").checked, true, "the chosen row height holds");
+  } finally {
+    Storage.prototype.getItem = getItem;
+    Storage.prototype.setItem = setItem;
+  }
 });

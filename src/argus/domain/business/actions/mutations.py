@@ -42,6 +42,7 @@ from argus.domain.business.contracts.dgii import (
     PurchaseReview,
     SalePaymentSplit,
 )
+from argus.domain.business.contracts.dossier import RevisionReason
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
@@ -57,6 +58,7 @@ from argus.domain.business.document_type import (
     TYPE_OF_KIND,
     DocumentType,
     direction,
+    issuer_tax_id,
     kind_disagrees,
     kind_follows_type,
     require_type_kind,
@@ -141,6 +143,7 @@ def save_revision(
     document_type: DocumentType | None = None,
     document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
+    reason: RevisionReason | None = None,
 ) -> Applied:
     if before is None and isinstance(after.legal_tip, Unknown) and after.legal_tip.origin is None:
         after = after.model_copy(update={"legal_tip": Unknown(origin="matched", source_ids=source_ids)})
@@ -214,8 +217,8 @@ def save_revision(
     tx.rows(
         "insert into public.business_draft_revisions"
         " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,"
-        "before_dgii,after_dgii,before_due_on,after_due_on)"
-        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "before_dgii,after_dgii,before_due_on,after_due_on,reason)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -231,6 +234,7 @@ def save_revision(
             else None,
             before_due_on,
             after_due_on,
+            reason,
         ),
     )
     return Applied(outcome="applied", draft_id=event.id, version=event.version)
@@ -249,8 +253,10 @@ def revise(
     purchase: PurchaseReview | None = None,
     payment_split: SalePaymentSplit | None = None,
     document_type: DocumentType | None = None,
+    document_type_detected: bool = False,
     due_on: DueOnInput | None = None,
     montos: MontosReview | None = None,
+    reason: RevisionReason | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     named_type = document_type is not None
@@ -387,7 +393,9 @@ def revise(
             purchase,
         ),
         document_type=document_type,
+        document_type_detected=document_type_detected,
         due_on=due_on,
+        reason=reason,
     )
 
 
@@ -725,10 +733,9 @@ def _read_document_type(
         return previous.get("document_type", "recibo"), previous.get(
             "document_type_detected", False
         )
-    if batch.dgii_qr is not None:
-        issuer = batch.dgii_qr.rnc_emisor
-    else:
-        issuer = batch.receipt.rnc if batch.receipt is not None else None
+    issuer = issuer_tax_id(
+        batch.dgii_qr, batch.receipt.rnc if batch.receipt is not None else None
+    )
     own = business_tax_id(tx)
     document_type, detected = resolved_document_type(draft.document_type, issuer, own)
     if detected:

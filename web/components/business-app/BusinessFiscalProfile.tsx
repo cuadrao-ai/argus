@@ -55,6 +55,8 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const [kind, setKind] = useState<TaxIdType>("rnc");
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);
+  // The server's count of drafts the last save moved to Ventas.
+  const [retyped, setRetyped] = useState(0);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -115,6 +117,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
     if (!profile || busy || !checks.submit()) return;
     setBusy(true);
     setSaved(false);
+    setRetyped(0);
     setProblem(null);
     // Saving is the confirmation: the number first, then the registry's name for it.
     const confirmed = confirming && legal ? { name: legal.name, taxId: { type: kind, value: digits } } : null;
@@ -122,7 +125,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
     try {
       let next = profile;
       if (!unchanged) {
-        next = await write(
+        const answer = await write(
           {
             name: name.trim(),
             previous_name: profile.name,
@@ -131,7 +134,9 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
           },
           randomId(),
         );
+        next = answer;
         setProfile(next);
+        setRetyped(answer.retyped_drafts ?? 0);
         setName(next.name ?? "");
         setKind(next.tax_id?.type ?? kind);
         setValue(next.tax_id?.value ?? "");
@@ -177,7 +182,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const numberHint = t(kind === "rnc" ? "business.dgii.tax_id_hint_rnc" : "business.dgii.tax_id_hint_cedula");
   const taxIdTitle = profile?.tax_id?.type === "cedula" ? t("business.dgii.tax_id_cedula", "Cédula") : t("business.dgii.tax_id_rnc", "RNC");
   const saveButton = <button type="submit" form={`${base}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full rounded-item`} disabled={busy || (unchanged && !confirming)}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
-  const status = <p role="status" className={`${saved ? "" : "sr-only"} text-[14px] text-[#56635e] dark:text-white/70`}>{saved ? t("business.settings.profile_details_saved") : ""}</p>;
+  const status = <p role="status" className={`${saved ? "" : "sr-only"} text-[14px] text-[#56635e] dark:text-white/70`}>{saved ? t("business.settings.profile_details_saved") : ""}{saved && retyped > 0 ? <span data-testid="profile-drafts-retyped"> {t("business.settings.profile_drafts_retyped", { count: retyped })}</span> : null}</p>;
   const confirmLine = confirming ? <p data-testid="legal-name-confirm" className="text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t(`business.dgii.legal_name.confirm_on_save_${kind}`, { business: businessName })}</p> : null;
   const actions = footerTarget === undefined ? <div className="flex flex-col gap-2 pt-2">{confirmLine}<div className="flex min-h-11 flex-wrap items-center gap-3">{saveButton}{status}</div></div> : <div className="flex flex-col gap-2">{status}{confirmLine}{saveButton}</div>;
   return (

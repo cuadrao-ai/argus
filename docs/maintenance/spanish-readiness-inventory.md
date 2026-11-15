@@ -4,20 +4,16 @@
 
 This inventory assesses the Argus application for Spanish localization readiness. It identifies hardcoded English strings and language/locale handling gaps across the frontend UI, backend deterministic copy, and LLM language contracts.
 
-**Decision:** Spanish is included in the private-alpha CI/CD SOTA launch
-candidate behind `NEXT_PUBLIC_ENABLE_SPANISH=true`. This is a controlled
-private-alpha launch, not a broad-market localization-completeness claim. The
-current work stabilizes translation keys, static UI coverage,
-confirmation-card state handling, language-aware runtime normalization,
-structured recovery metadata, bilingual canary coverage, and focused browser
-smoke evidence for the live chat/backtest spine.
+**Decision (2026-11-13):** English and Spanish are always available in every
+build. `web/lib/language-features.ts` owns the language list and defaults;
+language availability needs no deployment variable. The findings below retain
+historical readiness context and do not gate Spanish availability.
 
 **Runtime-state normalization update:** `codex/private-alpha-readiness` adds a
 shared `resolution_provenance` normalizer for workflow snapshots, public runtime
 payloads, interpreter patches, and LLM interpreter capability validation. This
-addresses the known dict-shaped provenance crash class. Spanish exposure now
-depends on the private-alpha release gate staying green, including live canary
-and browser smoke evidence.
+addresses the known dict-shaped provenance crash class. Bilingual canary and
+browser smoke evidence remain quality checks, without gating Spanish availability.
 
 **Interpreter schema update:** `codex/private-alpha-readiness` now asks the LLM
 to accept any user language while returning canonical Argus machine values, plus
@@ -76,7 +72,7 @@ instead of durable English prose as the behavior contract. The user-facing
 fallback copy is centralized and localized for English and Spanish, and the
 frontend hydrates retry controls from metadata instead of matching message text.
 This is covered by the private-alpha gate with live English and Spanish canary
-evidence. Keep Spanish exposure tied to that gate; if future runtime regressions
+evidence. Keep bilingual quality coverage; if future runtime regressions
 appear, capture them as focused issues instead of reverting to a broad
 language-disable posture.
 
@@ -97,7 +93,7 @@ The findings are grouped by category:
 | **Backend API Errors** | `src/argus/api/routers/conversations.py` | Hardcoded HTTP exception details: `"Conversation not found."`, `"Strategy not found."` | Medium | Product decision | Implement error code system (e.g., `error_code="CONVERSATION_NOT_FOUND"`) that frontend maps to `t()`. |
 | **Backend Results** | `src/argus/domain/benchmark_comparison.py` | User phrases generated in backend: `"Beat by {magnitude}"`, `"In line with benchmark"` | High | Product decision | Return structured data (e.g., `{ type: "beat_benchmark", value: magnitude }`) and localize in frontend. |
 | **LLM Prompts** | `src/argus/agent_runtime/stages/interpret.py` | System prompts: `"Supported-strategy facts:"`, `"Available short-lived context packet:"` | High | Codex-owned | Do not change. Treat as Codex-owned runtime contracts.|
-| **Runtime State Hydration** | `src/argus/agent_runtime/state/models.py`, `src/argus/agent_runtime/runtime.py`, `src/argus/agent_runtime/graph/workflow.py`, `src/argus/agent_runtime/stages/interpret.py`, `src/argus/agent_runtime/stages/interpret_types.py`, `src/argus/agent_runtime/llm_interpreter.py` | Dict-shaped `resolution_provenance` entries are normalized/deduped before durable snapshot carry-forward, public payload serialization, interpreter patches, and LLM interpreter capability validation. | Partially resolved | Codex-owned | Keep the regression tests and keep Spanish exposure gated by live bilingual canaries plus browser smoke. |
+| **Runtime State Hydration** | `src/argus/agent_runtime/state/models.py`, `src/argus/agent_runtime/runtime.py`, `src/argus/agent_runtime/graph/workflow.py`, `src/argus/agent_runtime/stages/interpret.py`, `src/argus/agent_runtime/stages/interpret_types.py`, `src/argus/agent_runtime/llm_interpreter.py` | Dict-shaped `resolution_provenance` entries are normalized/deduped before durable snapshot carry-forward, public payload serialization, interpreter patches, and LLM interpreter capability validation. | Partially resolved | Codex-owned | Keep the regression tests and retain live bilingual canaries plus browser smoke as quality coverage. |
 | **LLM Interpreter Metadata** | `src/argus/agent_runtime/llm_interpreter.py`, `src/argus/agent_runtime/llm_interpreter_types.py`, `src/argus/nlp/natural_time.py` | Structured interpretation now carries `language`, `date_range_raw_text`, `date_range_intent`, and `evidence_spans`; canonical temporal intent is resolved deterministically, bounded date evidence is resolved through the natural-time wrapper instead of month/date language tables inside runtime contracts, and focused audits can reconcile user-stated capital when the LLM preserved it in draft prose but omitted the canonical field. | Partially resolved | Codex-owned | Keep the canonical-intent, bounded-span, field-fidelity, and contract-boundary tests; track messy semantic-continuity regressions in #119. |
 | **Recovery Copy** | `src/argus/agent_runtime/recovery_messages.py`, `src/argus/api/routers/agent.py`, `web/lib/argus-api.ts`, `web/components/chat/ChatInterface.tsx` | Recoverable chat failures now persist typed recovery metadata, localized fallback copy, and structured retry metadata instead of making English prose the durable behavior contract. | Locally resolved | Codex-owned | Keep the recovery contract tests green and keep Spanish recovery inside the bilingual live canary gate. |
 
@@ -139,7 +135,7 @@ The findings are grouped by category:
 | `src/argus/agent_runtime/llm_interpreter.py`, `src/argus/domain/slot_normalizer.py`, `src/argus/domain/strategy_capabilities.py` | Post-LLM strategy and cadence values are expected to be canonical; localized wording stays in `evidence_spans` and prose. The capability registry keeps machine compatibility aliases only and no longer acts as an English or Spanish phrasebook. | Domain slot normalization | Partially resolved | Codex-owned | Add future languages through schema/prompt/test coverage and live QA, not by expanding capability phrase tables. |
 | `src/argus/nlp/natural_time.py`, `src/argus/agent_runtime/strategy_contract.py`, `src/argus/agent_runtime/run_field_contract.py` | Canonical interpreter temporal intent is resolved with deterministic date math; bounded date evidence is resolved with `dateparser` through the Argus natural-time wrapper. Runtime contracts consume canonical dates and no longer own month alias tables or month-year span parsers. | Natural time parsing | Partially resolved | Codex-owned | Feed only canonical intent or bounded spans; keep the boundary test that prevents date-language tables from returning to runtime contracts. |
 | `src/argus/agent_runtime/recovery_messages.py`, `src/argus/api/routers/agent.py`, `web/lib/argus-api.ts`, `web/components/chat/ChatInterface.tsx` | Runtime recovery carries stable `code`, `retryable`, `language`, and `retry_last_turn` metadata, while localized fallback copy is generated from a central catalog. | Recovery copy | Locally resolved | Codex-owned | Keep recovery behavior structured and language-aware; do not make English or Spanish prose the durable failure contract. |
-| `tests/agent_runtime/*` | Existing tests now include Spanish DCA, direct buy-and-hold/date repair, mixed-asset guardrail, approval, and latest-result follow-up transcripts that exercise the real structured interpreter conversion and runtime validation. | Coverage gap | Medium | Codex-owned | Add targeted messy-language semantic-continuity coverage for #119 while preserving the current live Spanish gate. |
+| `tests/agent_runtime/*` | Existing tests now include Spanish DCA, direct buy-and-hold/date repair, mixed-asset guardrail, approval, and latest-result follow-up transcripts that exercise the real structured interpreter conversion and runtime validation. | Coverage gap | Medium | Codex-owned | Add targeted messy-language semantic-continuity coverage for #119 while preserving bilingual quality coverage. |
 
 ### Artifact/result/status labels
 

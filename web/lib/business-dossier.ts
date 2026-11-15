@@ -62,6 +62,8 @@ export type BusinessDraftRevision = {
   source_ids: string[];
   turn_key: string | null;
   created_at: string;
+  /** Why the server made a revision no person and no read made. */
+  reason?: "business_rnc_set" | null;
 };
 
 export type BusinessRecordContext = {

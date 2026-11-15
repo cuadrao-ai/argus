@@ -2461,7 +2461,66 @@
         "set_business_legal_name": "confirmó la razón social del negocio",
         "set_business_rnc": "actualizó el RNC del negocio",
         "settle_remainder": "saldó el resto de un registro"
-      }
+      },
+      "am": "a.m.",
+      "areas": {
+        "business": "Negocio",
+        "documents": "Documentos",
+        "invoicing": "Facturación",
+        "records": "Registros"
+      },
+      "cols": {
+        "area": "Área",
+        "record": "Registro",
+        "time": "Hora",
+        "what": "Qué pasó",
+        "who": "Quién"
+      },
+      "error_body": "Tus registros están bien. Inténtalo de nuevo en un momento.",
+      "error_title": "No pudimos cargar la actividad",
+      "extractor_name": "Cuadrao",
+      "filtered_body": "Hay actividad fuera de esta fecha o de estos filtros.",
+      "filtered_title": "Nada coincide con estos filtros",
+      "filters": {
+        "action": "Acción",
+        "all": "Todas las fechas",
+        "area": "Área",
+        "clear": "Limpiar filtros",
+        "clear_group": "Limpiar",
+        "date": "Fecha",
+        "month": "Últimos 30 días",
+        "person": "Persona",
+        "remove": "Quitar filtro:",
+        "title": "Filtros",
+        "today": "Hoy",
+        "week": "Últimos 7 días"
+      },
+      "first_run_body": "Cuando alguien suba, revise o apruebe algo en este negocio, lo verás aquí.",
+      "first_run_title": "Todavía no hay actividad",
+      "former_member": "Exmiembro",
+      "go_home": "Ir a Inicio",
+      "groups": {
+        "access": "Accesos",
+        "approvals": "Aprobaciones",
+        "edits": "Cambios en registros",
+        "files": "Adjuntos",
+        "invoices": "Facturas",
+        "other": "Otros",
+        "reading": "Lecturas",
+        "reviews": "Revisiones",
+        "settings": "Datos del negocio",
+        "uploads": "Subidas"
+      },
+      "load_more": "Cargar más",
+      "load_more_failed": "No pudimos cargar más actividad.",
+      "managers_only": "Solo lo ven dueños y administradores",
+      "no_actor": "Actor no registrado",
+      "no_record": "sin dato",
+      "pm": "p.m.",
+      "record_placeholder": "-",
+      "retry": "Reintentar",
+      "unmark_personal": "devolvió un gasto al negocio",
+      "via_chat": "desde el chat"
     },
     "bank": {
       "empty": {
@@ -2525,22 +2584,10 @@
     "export": {
       "start": "Desde",
       "end": "Hasta",
-      "access_error": "La exportación no está disponible con tu acceso actual.",
       "limit_error": "La exportación supera un límite del paquete. Elige un período más corto.",
-      "error": "No se pudo descargar la exportación. Revisa tu acceso e inténtalo de nuevo.",
-      "preview": "Las descargas están disponibles en la vista conectada del negocio.",
       "action": "Exportar",
-      "preparing": "Preparando tu archivo…",
-      "done": "Listo. Busca el ZIP en tus descargas.",
       "range": "{{from}} al {{to}}",
-      "range_invalid": "Elige entre 1 y 366 días.",
-      "other_dates": "Otras fechas",
       "pick_end": "Ahora elige el último día",
-      "includes": "Incluye",
-      "records": "Registros",
-      "records_detail": "Excel y CSV",
-      "originals": "Originales",
-      "originals_detail": "Fotos y PDF de cada recibo",
       "filename": {
         "dgii": "DGII",
         "mixed": "Compras y ventas",
@@ -2549,16 +2596,7 @@
         "sales": "Ventas",
         "to": "a"
       },
-      "fiscal": "606 y 607",
-      "fiscal_detail": "Para la DGII",
-      "included": "Incluido",
-      "fiscal_month_only": "Solo por mes completo",
-      "fiscal_checking": "Revisando…",
-      "fiscal_profile": "Nombre y RNC del 606",
-      "form_needs_review": "Por revisar",
-      "form_no_aplica": "No aplica",
-      "form_no_operations": "Sin operaciones",
-      "form_summary_only": "Solo resumen"
+      "form_no_aplica": "No aplica"
     },
     "terms": {
       "calculated_hint": "Calculado: Total − ITBIS",
@@ -2878,7 +2916,6 @@
         },
         "pending_contract": "Esta función aún no está conectada.",
         "refresh": "Actualizar",
-        "refresh_records": "Actualizar registros",
         "reload": "Recargar",
         "retry": "Reintentar",
         "unavailable": "Esta función no está disponible ahora.",
@@ -3354,10 +3391,9 @@
       "no_merchant": "Gasto",
       "title": "Gastos",
       "detail_title": "Gasto guardado",
+      "gone": "Ese gasto ya no está",
       "no_receipt": "Sin recibo adjunto",
       "recorded_on": "Registrado el {{when}}",
-      "detail_error": "No pudimos abrir este gasto. Reintenta.",
-      "retry": "Reintentar",
       "account_unknown": "Desconocida"
     },
     "guide_cards": {
@@ -3424,10 +3460,12 @@
       "channel_web": "Subido",
       "pm": "p.m.",
       "read": "Leído",
+      "reason": { "business_rnc_set": "Lo emitió tu negocio" },
       "received": "Recibido",
       "rnc_verified": "RNC verificado",
       "set": "{{field}}: {{after}}",
-      "title": "Historial"
+      "title": "Historial",
+      "via_cuadrao": "{{name}} vía Cuadrao"
     },
     "home": {
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",
@@ -4239,17 +4277,19 @@
     "lifecycle": {
       "close": {
         "action": "Cerrar negocio",
-        "consequences": "Al cerrar, los miembros pierden acceso de inmediato. Tienes 30 días para reabrirlo. Después, borramos todo y no se puede recuperar.",
-        "download": "Descargar comprobantes",
+        "confirmation": "Escribe <strong>{{businessName}}</strong> para confirmar.",
+        "continue": "Continuar",
+        "continue_without": "Continuar sin descargar",
+        "download": "Descargar copia",
         "title": "Cerrar este negocio",
-        "warning": "La ley obliga a tu negocio a guardar sus comprobantes por 10 años. Descárgalos antes de cerrar, porque Cuadrao no los guardará por ti."
+        "title_named": "Cerrar <strong>{{businessName}}</strong>",
+        "warning": "Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borra y no se puede recuperar. Descarga una copia antes de continuar."
       },
-      "close_alert_title": "¿Cerrar {{businessName}}?",
+      "close_alert_title": "¿Cerrar <strong>{{businessName}}</strong>?",
       "close_preview": {
         "member_count_one": "1 miembro pierde acceso al cerrar.",
         "member_count_other": "{{count}} miembros pierden acceso al cerrar.",
-        "member_count_zero": "Ningún miembro pierde acceso al cerrar.",
-        "reopen_until": "Si lo cierras ahora, podrás reabrirlo antes del {{purgeDate}} a las {{purgeTime}} (hora de RD)."
+        "reopen_until": "Podrás reabrirlo hasta el {{purgeDate}}."
       },
       "closed_group": "Cerrados",
       "closed_owner": "Para descargar comprobantes, primero debes reabrir el negocio.",
@@ -4281,10 +4321,14 @@
         "withdraw_uncertain": "No pudimos confirmar el retiro. Actualiza para comprobar el resultado."
       },
       "export": {
-        "complete": "Se iniciaron todas las descargas. Revisa las descargas de tu navegador.",
+        "download": "Descargar",
+        "downloaded": "Descargado",
         "empty": "No hay registros ni comprobantes para descargar.",
         "failed": "No pudimos iniciar todas las descargas. Reintenta para continuar.",
-        "preparing": "Preparando las descargas…"
+        "package": "La copia incluye tus registros en Excel y CSV y, cuando es posible, el archivo de cada documento.",
+        "preparing": "Preparando las descargas…",
+        "records_one": "{{n}} registro",
+        "records_other": "{{n}} registros"
       },
       "member_closed": "{{businessName}} está cerrado. Para pedir copias de los comprobantes, contacta al dueño del negocio.",
       "name_confirmation": "Escribe el nombre del negocio para confirmar.",
@@ -4507,8 +4551,6 @@
       "intake_pending": "Recepción en proceso",
       "list_label": "Contenido recibido",
       "loading": "Cargando contenido",
-      "new_arrivals_one": "Hay 1 elemento nuevo.",
-      "new_arrivals_other": "Hay {{count}} elementos nuevos.",
       "next_action": "Siguiente acción",
       "no_file": "Sin archivo adjunto",
       "open_file": "Abrir original: {{name}}",
@@ -4570,9 +4612,7 @@
       "status_reason": "Motivo",
       "text_intake": "Entrada de texto",
       "unseen": "No visto",
-      "update_list": "Actualizar lista",
       "views": "Vistas de Bandeja",
-      "visible_information": "Información visible",
       "without_file": "Sin archivo"
     },
 
@@ -4588,9 +4628,9 @@
       "currency": "Moneda",
       "date": "Fecha",
       "download": "Descargar",
-      "error": "Este recibo no está disponible. Puede que lo hayan quitado.",
       "evidence": "Lo que dice el recibo",
       "evidence_note": "Tus correcciones no cambian lo que se leyó del recibo. Un recibo guarda un gasto por su total.",
+      "gone": "Ese recibo ya no está",
       "merchant": "Comercio",
       "prepare": "Preparar con IA",
       "prepare_failed": "No pudimos iniciar la preparación. Tu recibo está guardado. Reintenta.",
@@ -4732,6 +4772,8 @@
       "profile_discard": "Descartar cambios",
       "profile_discard_detail": "Los cambios de esta sección no se han guardado.",
       "profile_discard_title": "¿Descartar los cambios?",
+      "profile_drafts_retyped_one": "1 borrador pasó a Ventas: lo emitió tu negocio",
+      "profile_drafts_retyped_other": "{{count}} borradores pasaron a Ventas: los emitió tu negocio",
       "profile_email": "Correo del negocio",
       "profile_error_email": "Escribe un correo electrónico válido.",
       "profile_error_length_one": "Usa {{count}} carácter o menos.",

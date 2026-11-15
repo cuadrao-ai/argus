@@ -105,7 +105,7 @@ def record_issues(
     def issue(code: str, field: str) -> None:
         issues.append({"code": code, "activity_id": record.activity_id, "field": field})
 
-    from argus.domain.business.dgii_line import confirmed_declaration
+    from argus.domain.business.dgii_line import REQUIRED_ZERO_606, confirmed_declaration
 
     declaration = confirmed_declaration(record)
     if declaration is None:
@@ -176,6 +176,8 @@ def record_issues(
         "income_perceived",
         *OPTIONAL_AMOUNTS,
     }
+    if isinstance(declaration, PurchaseDeclaration):
+        optional.update(REQUIRED_ZERO_606)
     original_sale = (
         next(
             (

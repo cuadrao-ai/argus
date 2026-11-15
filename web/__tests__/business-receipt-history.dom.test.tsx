@@ -188,3 +188,23 @@ test("a purchase retyped as a sale hides its earlier 606 answer", async () => {
   assert.equal(page.host.querySelector('[data-testid="history-606"]'), null);
   await page.close();
 });
+
+test("a draft the first Business RNC moved reads as a change through Cuadrao with its reason, not a second read", async () => {
+  const { default: ReceiptHistory } = await import("@/components/business-app/ReceiptHistory");
+  const sale = { ...facts("1200.00"), kind: known("income") } as unknown as BusinessFacts;
+  const history = [
+    revision(1, at(10, 9, 25), actor("Ana Peña", "extractor"), null, facts("1200.00")),
+    { ...revision(2, at(11, 8, 0), actor("Ana Peña", "extractor"), facts("1200.00"), sale), reason: "business_rnc_set" as const },
+  ];
+  const page = await render(<ReceiptHistory history={history} accounts={[]} documentType="venta" />);
+  const lines = [...page.host.querySelectorAll("li")].map((item) => [...item.querySelectorAll("p")].map((line) => line.textContent));
+  assert.deepEqual(lines, [
+    ["Actividad cambiada de Gasto a Ingreso", "Lo emitió tu negocio", "Ana Peña vía Cuadrao · 11/10, 8:00 a.m."],
+    ["Leído", "Ana Peña · 10/10, 9:25 a.m."],
+  ]);
+  const chips = page.host.querySelector('[data-testid="history-diff"]')!;
+  assert.deepEqual([chips.querySelector("del")?.textContent, chips.querySelector("ins")?.textContent], ["Gasto", "Ingreso"]);
+  assert.equal(page.host.querySelector('[data-testid="history-note"]')?.textContent, "Lo emitió tu negocio");
+  assert.ok(!(page.host.textContent ?? "").includes("Venta"));
+  await page.close();
+});

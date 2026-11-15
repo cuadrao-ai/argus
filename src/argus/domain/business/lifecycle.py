@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from psycopg import Connection
@@ -41,19 +42,40 @@ class LifecycleResult:
         return self.closed_at + REOPEN_WINDOW if self.closed_at is not None else None
 
 
-def export_windows(days: set[date]) -> list[dict[str, Any]]:
+def export_windows(
+    activities: Sequence[Mapping[str, Any]],
+    drafts: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
     """Consecutive periods the existing export accepts that, downloaded in
-    order, cover every recorded day through today; none without a record."""
-    from argus.domain.business.export import ExportPeriod
-    from argus.domain.business.ledger import today
+    order, cover every recorded day through today; none without a record.
+    Each carries the count of records its download lists, chosen by the
+    export's own selection."""
+    from argus.domain.business.contracts.facts import BusinessResolution, Known
+    from argus.domain.business.export import ExportPeriod, select_window
+    from argus.domain.business.ledger import occurred_on, today
 
+    days = {occurred_on(activity) for activity in activities}
+    for draft in drafts:
+        if draft["activity_id"] or draft["state"] not in {"open", "accepting"}:
+            continue
+        typed = (draft["resolution"] or {}).get("business")
+        facts = BusinessResolution.model_validate(typed).facts if typed else None
+        if facts is not None and isinstance(facts.occurred_on, Known):
+            days.add(facts.occurred_on.value)
     if not days:
         return []
     start, last, windows = min(days), max(max(days), today()), []
     while start <= last:
         # The export's own period type refuses a window it would not serve.
         period = ExportPeriod(start, min(start + timedelta(days=365), last))
-        windows.append({"start": period.start, "end": period.end})
+        chosen = select_window(activities, drafts, period)
+        windows.append(
+            {
+                "start": period.start,
+                "end": period.end,
+                "record_count": len(chosen.activity_ids),
+            }
+        )
         start = period.end + timedelta(days=1)
     return windows
 
@@ -130,7 +152,7 @@ class PostgresBusinessLifecycle:
                 now = db.execute("select clock_timestamp()").fetchone()[0]
             # History loads outside the owner and Business locks above.
             with self._pool.connection() as db:
-                days = self._recorded_days(db, space.space_id)
+                history = self._export_history(db, space.space_id)
             result.append(
                 {
                     "space_id": space.space_id,
@@ -138,17 +160,19 @@ class PostgresBusinessLifecycle:
                     "grant_id": space.grant_id,
                     "member_count": len(members),
                     "reopen_until": now + REOPEN_WINDOW,
-                    "export_windows": export_windows(days),
+                    "export_windows": export_windows(*history),
                     "members": members,
                 }
             )
         return tuple(result)
 
-    def _recorded_days(self, db: Connection, space_id: str) -> set[date]:
-        """Every day the Business export can select, read as it reads them: its
-        current activities and each unrecorded open draft's known date."""
-        from argus.domain.business.contracts.facts import BusinessResolution, Known
-        from argus.domain.business.ledger import occurred_on
+    def _export_history(
+        self, db: Connection, space_id: str
+    ) -> tuple[list[dict], list[dict]]:
+        """What the Business export selects from, read as it reads it: the
+        current activities and every draft."""
+        from psycopg.rows import dict_row
+
         from argus.domain.owner_scope import BusinessSpace
         from argus.domain.recording.canonical_groups import VisibleAccounts, load
         from argus.domain.recording.money_reads import current_activities
@@ -166,21 +190,15 @@ class PostgresBusinessLifecycle:
             scope=BusinessSpace(space_id),
         )
         visible = [s for s in canonical.records if s.account.user_id == custodian]
-        days = {
-            occurred_on(a)
-            for a in current_activities(VisibleAccounts(visible, canonical))
-        }
-        for (resolution,) in db.execute(
-            "select resolution from public.financial_import_events"
-            " where user_id=%s and owner_space_id=%s and activity_id is null"
-            " and state in ('open','accepting')",
-            (custodian, space_id),
-        ):
-            typed = (resolution or {}).get("business")
-            facts = BusinessResolution.model_validate(typed).facts if typed else None
-            if facts is not None and isinstance(facts.occurred_on, Known):
-                days.add(facts.occurred_on.value)
-        return days
+        activities = list(current_activities(VisibleAccounts(visible, canonical)))
+        with db.cursor(row_factory=dict_row) as cursor:
+            drafts = cursor.execute(
+                "select id,version,state,activity_id,resolution"
+                " from public.financial_import_events"
+                " where user_id=%s and owner_space_id=%s order by created_at,id",
+                (custodian, space_id),
+            ).fetchall()
+        return activities, drafts
 
     def closed_spaces(self, owner_id: str) -> tuple[LifecycleResult, ...]:
         with self._pool.connection() as connection:

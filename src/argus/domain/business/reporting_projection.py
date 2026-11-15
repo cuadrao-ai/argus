@@ -68,7 +68,7 @@ def current_marks(approved: FiscalRecord, draft: BusinessFacts | None) -> Busine
 
 def purchase_606(approved: FiscalRecord, marks: BusinessFacts) -> Purchase606 | None:
     """The 606 answers the export would carry for this record, from the same
-    declaration and admission rules, so Registros and the TXT never disagree.
+    declaration and admission rules, so Registros and the DGII summary never disagree.
     A suggested tipo de gasto nobody confirmed counts as missing, as in the export."""
 
     found = direction(approved.document_type)

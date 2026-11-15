@@ -76,15 +76,15 @@ def test_606_requires_ascii_receipt_identifier(fake, fiscal_number, digit_style)
     )
 
     result = packet((record,))
-    form = "dgii/DGII_F_606_199990013_202609.TXT"
     if digit_style == "ascii":
         assert result.manifest["issues"] == []
-        assert fiscal_number in result.files[form].decode("ascii")
+        assert result.manifest["forms"]["606"]["status"] == "prepared_candidate"
+        assert result.rows["606"][0][3] == fiscal_number
     else:
         assert "fiscal_ncf_malformed" in {
             issue["code"] for issue in result.manifest["issues"]
         }
-        assert form not in result.files
+        assert result.manifest["forms"]["606"]["status"] == "needs_review"
 
 
 def test_supplier_issue_date_check_requires_ascii(fiscal_number, digit_style):

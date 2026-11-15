@@ -199,6 +199,13 @@ class FiscalProfile(BaseModel):
     can_edit: bool
 
 
+class FiscalProfileSaved(FiscalProfile):
+    """The profile after a save, and how many open drafts that save moved to
+    Ventas. Only the save that stores the first tax id moves any."""
+
+    retyped_drafts: int = Field(ge=0)
+
+
 class RegistryRecord(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     rnc: str

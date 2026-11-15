@@ -10,7 +10,6 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
-import { RecordsExportButton } from "./RecordsExportButton";
 import { MonthCurrencyMenu } from "../MonthCurrencyMenu";
 import BusinessPeriodControl, { usePeriodLabel } from "../BusinessPeriodControl";
 import OutsidePeriodNote from "../OutsidePeriodNote";
@@ -61,7 +60,7 @@ export default function TransaccionesPanel() {
 
 function LegacyTransaccionesPanel() {
   const { t, locale } = useTransaccionesWords();
-  const { period, setPeriod, panel, records, chosen, openExport, source } = useBusiness();
+  const { period, setPeriod, panel, records, chosen, source } = useBusiness();
   const igualarOn = useIgualarEnabled();
   const periodLabel = usePeriodLabel();
   const { isBelowTablet: phone } = useResponsiveLayout();
@@ -180,7 +179,7 @@ function LegacyTransaccionesPanel() {
         </div> : null}
         {!igualar ? <RecordsTypeTabs value={filter.kind} onChange={(kind) => { if (kind === "venta") setPreviewFilters((current) => ({ ...current, expense_type: [] })); setFilter((current) => ({ ...current, kind })); }} /> : null}
         {!igualar && source.mode === "fixture" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview family={filter.kind === "venta" ? "sale" : "purchase"} loading={list.kind === "loading"} answer={sampleOverview?.answer} fiscalCount={sampleOverview?.fiscalCount ?? null} selected={previewFilters.fiscal_data === "missing" ? ["fiscal"] : []} onChoose={fiscalToggle.toggle} /> : null}
-        {!igualar ? <RecordsToolbar onViewRestore={fiscalToggle.clear} appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={changePreviewFilters} preferences={shownPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={previewChanged} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<><RecordsExportButton onExport={openExport} />{localPaging && shownPreferences ? <RecordsSettingsPreview value={shownPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
+        {!igualar ? <RecordsToolbar onViewRestore={fiscalToggle.clear} appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={changePreviewFilters} preferences={shownPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={previewChanged} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{localPaging && shownPreferences ? <RecordsSettingsPreview value={shownPreferences} onChange={setViewPreferences} onRestore={() => setViewPreferences(sampleRecordsPreferences())} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">

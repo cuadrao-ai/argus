@@ -398,6 +398,8 @@ describe("typed notes in the list", () => {
       panel: { kind: "inbox" },
       overrides: (fixture) => ({
         captures: async () => ({ items: NOTES }),
+        // The row's target is under test, not the draft's load: a draft the sample lacks would answer 404 and close.
+        dossier: () => new Promise(() => undefined),
         receiptPage: async (view) => {
           const shown = await fixture.receiptPage!(view);
           return { ...shown, activity: shown.activity && { ...shown.activity, bandeja_attention_count: 15 } };

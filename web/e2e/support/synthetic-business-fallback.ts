@@ -1,6 +1,7 @@
 import type { Request } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../../components/business-app/fixture-data";
 import { BUSINESS_GUIDE_CARD_IDS } from "../../lib/business-guide-api";
+import type { RegistryAnswer } from "../../lib/business-dgii";
 import { reportAnswerSchema, reportRequestSchema } from "../../lib/business-reports-api";
 import { monthCloseWire } from "./month-close-wire";
 import recordedAnswer from "../../test-fixtures/records-default-report-answer.json";
@@ -28,6 +29,17 @@ export async function fulfillSyntheticBusinessFallback(
   const url = new URL(request.url());
   const path = url.pathname.startsWith("/api/v1/business/") ? url.pathname.slice("/api/v1/business/".length) : null;
   const method = request.method();
+
+  if (path === "fiscal-profile/registry") {
+    if (method !== "POST" || url.search) throw new Error("Synthetic fiscal-profile/registry requires POST without query parameters");
+    const { tax_id } = request.postDataJSON() as Pick<RegistryAnswer, "tax_id">;
+    return route.fulfill({ json: {
+      tax_id,
+      verification: "sin_verificar",
+      record: null,
+      checked_at: "2026-10-21T17:45:00Z",
+    } satisfies RegistryAnswer });
+  }
 
   const guide = path?.match(/^guide-cards\/([^/]+)(\/dismiss)?$/);
   if (guide && BUSINESS_GUIDE_CARD_IDS.some(id => id === guide[1])) {

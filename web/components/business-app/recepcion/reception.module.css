@@ -19,6 +19,8 @@
 .list > .columns,.list > ul { min-width:var(--table-min-width); }
 .list ul { list-style:none; margin:0; padding:0; }
 .columns,.row { display:grid; grid-template-columns:var(--columns); align-items:center; column-gap:0; }
+/* Each cell stands where the person put its column: `--col` is its place. The box and Contenido have none, so they stay first. */
+.columns > *,.row > * { order:var(--col,0); }
 .columns { min-height:40px; padding:0; color:var(--muted); font-size:14px; font-weight:500; border-bottom:1px solid var(--line); }
 .columns > span { font-size:13px; }
 .columns > span,.sender,.channel,.state,.arrival,.rowAction,.amountCell,.currencyCell { padding-left:var(--cell-x); padding-right:var(--cell-x); }
@@ -28,6 +30,9 @@
 .row:hover,.row:has(:focus-visible) { background:color-mix(in srgb,var(--fg) 3%,transparent); }
 .row[data-selected=true],.row[data-checked=true] { background:color-mix(in srgb,var(--cuadrao-green) 7%,transparent); }
 .row[data-selected=true] { box-shadow:inset 3px 0 var(--cuadrao-green); }
+/* A row that just arrived: a fuller wash than a selected row and without its bar, fading out by itself. The list sets how long. */
+.row[data-arrived=true] { --arrival-wash:color-mix(in srgb,var(--cuadrao-green) 20%,transparent); animation:arrival var(--arrival-highlight) ease-out; }
+@keyframes arrival { from,70% { background-color:var(--arrival-wash); } }
 .identity { display:flex; align-items:center; gap:10px; min-width:0; width:100%; min-height:44px; padding:6px 12px 6px 16px; text-align:left; border-radius:4px; }
 .documentIcon { position:relative; display:grid; place-items:center; width:22px; height:28px; flex-shrink:0; color:var(--muted); }
 .documentText { position:relative; min-width:0; }
@@ -36,7 +41,7 @@
 .secondary > :last-child { flex-shrink:0; }
 .filename { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .secondary > .filename:last-child { flex-shrink:1; }
-.source { display:contents; }
+.source { display:none; }
 .source[data-info=false] { display:none; }
 .combinedHeading,.mobileArrival { display:none; }
 .sender { display:block; min-width:0; font-size:14px; line-height:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -59,10 +64,10 @@
   .channelHeading,.senderHeading { display:none; }
   .combinedHeading { display:block; }
   .source { display:flex; flex-direction:column; gap:2px; min-width:0; padding:0 12px; }
+  .row > .channel,.row > .sender { display:none; }
   .source .sender,.source .channel { padding:0; }
   .list > .columns,.list > ul { min-width:var(--compact-min-width); }
-  .source .sender { order:0; }
-  .source .channel { order:1; font-size:12px; line-height:16px; }
+  .source .channel { font-size:12px; line-height:16px; }
   .columns,.row { column-gap:0; grid-template-columns:var(--compact-columns); }
   .tabs { gap:16px; }
   .topline { flex-wrap:wrap; gap:12px; }
@@ -90,17 +95,17 @@
   .secondary { flex-wrap:wrap; margin-top:2px; gap:4px 8px; }
   .source { grid-column:2 / -1; display:flex; flex-direction:row; flex-wrap:wrap; align-items:baseline; gap:2px 8px; min-width:0; }
   .source[data-info=false] { display:flex; }
-  .source .channel { order:1; font-size:13px; }
-  .source .sender { order:0; flex-basis:100%; font-size:13px; color:var(--muted); min-width:0; max-width:100%; white-space:normal; overflow:visible; overflow-wrap:anywhere; }
+  .source .channel { font-size:13px; }
+  .source .sender { flex-basis:100%; font-size:13px; color:var(--muted); min-width:0; max-width:100%; white-space:normal; overflow:visible; overflow-wrap:anywhere; }
   .source .sender[data-known=false] { display:none; }
-  .source .mobileArrival { display:inline; order:2; color:var(--muted); font-size:12px; }
+  .source .mobileArrival { display:inline; color:var(--muted); font-size:12px; }
   .source .mobileArrival::before { content:"·"; margin-right:8px; }
   .arrival { display:none; }
   .state { grid-column:2; min-height:36px; }
   :is(.rowAction,.rowActions) { grid-column:3; justify-content:flex-end; min-height:44px; margin:-4px 0; }
 
 }
-@media (prefers-reduced-motion:reduce) { .row { transition:none; } }
+@media (prefers-reduced-motion:reduce) { .row { transition:none; } .row[data-arrived=true] { animation:none; background:var(--arrival-wash); } }
 
 /* The locked status pairs, softer than Registros' workflow tags. Readiness stays neutral. */
 .tagAttention { --workflow-ink:#9e2f39; background:#f6dfe0; }
@@ -157,7 +162,6 @@
 @container reception (max-width:819px) { .row > .checkbox { grid-column:1; grid-row:1; width:28px; } }
 
 
-.updateNotice { display:flex; align-items:center; flex-wrap:wrap; gap:12px; font-size:14px; padding:0 0 12px; color:var(--muted); }
 
 .toolbar > :not(.search):not(.bulkSlot) { flex-shrink:0; }
 .toolbar button { white-space:nowrap; }
@@ -267,4 +271,11 @@
   .purgeLead { display:inline; }
   .deletedActions { flex-basis:100%; justify-content:flex-start; margin:4px -8px 0; padding:0; }
   .deletedActions .trashAction { margin-left:auto; }
+}
+/* A phone's card has no column order: every piece keeps its place in the card. */
+@container reception (max-width:819px) {
+  .columns > *,.row > * { order:0; }
+  .row > .source { order:1; }
+  .row > .state { order:2; }
+  .row > :is(.rowAction,.rowActions) { order:3; }
 }

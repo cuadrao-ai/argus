@@ -3,7 +3,6 @@ import fs from "fs";
 import path from "path";
 
 describe("Spanish UI Smoke Harness", () => {
-  const originalEnv = process.env.NEXT_PUBLIC_ENABLE_SPANISH;
   const webRoot = path.resolve(__dirname, "..");
   const esLocalePath = path.join(webRoot, "public/locales/es-419/common.json");
   const enLocalePath = path.join(webRoot, "public/locales/en/common.json");
@@ -279,32 +278,25 @@ describe("Spanish UI Smoke Harness", () => {
     }
   });
 
-  test("Spanish feature flag enables es-419", () => {
+  test("English and Spanish are offered with no language environment configuration", () => {
     const probe = `
-      import { ENABLED_LANGUAGE_CODES, ENABLED_LANGUAGES, SPANISH_ENABLED } from "./lib/language-features.ts";
-      if (!SPANISH_ENABLED) throw new Error("Spanish flag did not enable Spanish");
-      if (!ENABLED_LANGUAGE_CODES.includes("es-419")) throw new Error("Spanish code missing");
+      import { ENABLED_LANGUAGE_CODES, ENABLED_LANGUAGES, landingLanguageChoices } from "./lib/language-features.ts";
+      import { receiptLanguageFromAcceptLanguage } from "./lib/receipt-copy.ts";
+      if (receiptLanguageFromAcceptLanguage("es-DO,es;q=0.9,en;q=0.8") !== "es-419") throw new Error("Spanish receipt language missing");
+      if (receiptLanguageFromAcceptLanguage("en;q=1,es;q=0.8") !== "en") throw new Error("English receipt preference ignored");
+      if (JSON.stringify(ENABLED_LANGUAGE_CODES) !== JSON.stringify(["en", "es-419"])) throw new Error("Both language codes must be available");
       if (!ENABLED_LANGUAGES.some((language) => language.code === "es-419")) throw new Error("Spanish option missing");
+      if (landingLanguageChoices("en")[0]?.code !== "es-419") throw new Error("Spanish choice missing");
+      if (landingLanguageChoices("es-419")[0]?.code !== "en") throw new Error("English choice missing");
     `;
-
-    try {
-      process.env.NEXT_PUBLIC_ENABLE_SPANISH = "true";
-      const result = Bun.spawnSync({
-        cmd: ["bun", "-e", probe],
-        cwd: webRoot,
-        env: { ...process.env, NEXT_PUBLIC_ENABLE_SPANISH: "true" },
-        stderr: "pipe",
-        stdout: "pipe",
-      });
-
-      expect(result.exitCode, result.stderr.toString()).toBe(0);
-    } finally {
-      if (originalEnv === undefined) {
-        delete process.env.NEXT_PUBLIC_ENABLE_SPANISH;
-      } else {
-        process.env.NEXT_PUBLIC_ENABLE_SPANISH = originalEnv;
-      }
-    }
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, "--no-env-file", "-e", probe],
+      cwd: webRoot,
+      env: { PATH: process.env.PATH ?? "", NODE_ENV: "test" },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    expect(result.exitCode, result.stderr.toString()).toBe(0);
   });
 
   test("I18n provider keeps the document language in sync", () => {

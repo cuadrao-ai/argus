@@ -20,41 +20,22 @@ file.
   remains the primary preference.
 - Frontend i18next resources live in `web/public/locales/<language>/common.json`.
 - Enabled frontend languages are defined in `web/lib/language-features.ts`.
-- Spanish is registered behind `NEXT_PUBLIC_ENABLE_SPANISH`. For the private
-  alpha CI/CD SOTA candidate, this flag is enabled only after bilingual canary
-  and focused browser smoke evidence pass; future languages should follow the
-  same explicit gate.
+- English and Spanish are always available. The Business build defaults to
+  Spanish; other builds default to English. Account and device choices retain
+  their existing precedence.
 
 ## Current Spanish Readiness Decision
 
-Spanish is included in the private-alpha launch candidate once the release gate
-has bilingual canary evidence and a focused live browser smoke. It is still a
-controlled private-alpha launch, not a claim that every future-language shape is
-complete.
-
-Keep `NEXT_PUBLIC_ENABLE_SPANISH` enabled in production-like Render
-environments only while all of these remain true:
-
-- Spanish static UI smoke for the private-alpha surfaces.
-- Spanish production-parity chat QA covering at least one multi-turn
-  clarification and confirmation flow plus a direct supported prompt that
-  carries shorthand capital into the canonical confirmation card.
-- Spanish result/job/retry/recovery surfaces render without English happy-path
-  or failure copy leaking into the user-facing transcript.
-- A live or local QA canary verifies that structured runtime state survives
-  continuation turns without depending on translated labels as executable truth.
-
-Previously, the known blocker was runtime-state normalization in Spanish
-continuation flows. The private-alpha CI/CD SOTA candidate now requires Spanish
-canary evidence plus a focused live browser smoke before tester exposure. Track
-remaining natural-language continuity gaps as language-agnostic runtime debt
-rather than disabling Spanish by default.
+English and Spanish are always on in every environment. Language availability
+is owned by `web/lib/language-features.ts` and needs no deployment variable.
+Continue testing locale key parity, language selection, and localized rendering;
+track remaining language correctness gaps without disabling Spanish.
 
 ## Frontend Responsibilities
 
 - Add the locale directory and keep JSON key/placeholder parity with `en`.
-- Add the language to `ALL_LANGUAGES` and gate it with an explicit public feature
-  flag until release-ready.
+- Add a release-ready language to `ALL_LANGUAGES`, the source of available
+  frontend languages.
 - Use `localeForLanguage()` or an equivalent central helper for formatting.
 - Keep static UI strings in i18next. Avoid new hardcoded fallbacks unless they
   are temporary and tracked.
@@ -101,7 +82,7 @@ rather than disabling Spanish by default.
 
 ## Release Checklist
 
-Before enabling a language flag in Render:
+Before adding another supported language:
 
 - Locale JSON is valid and has key/placeholder parity with `en`.
 - Static UI smoke covers landing/auth, chat, settings/profile, confirmation cards,
@@ -113,7 +94,8 @@ Before enabling a language flag in Render:
 - Supported messy prompt QA confirms canonical fields survive the LLM pass and
   post-interpretation audits without phrase gates or chip-specific shortcuts.
 - Live canary passes before inviting users in that language.
-- Rollback is simple: turn the public language flag off without a migration.
+- Roll back a new language by reverting its registration and related changes.
+  English and Spanish remain available.
 
 ## Ownership
 

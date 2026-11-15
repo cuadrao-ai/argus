@@ -2,7 +2,6 @@
 approved, and the approval writes the 606 declaration from the stored facts."""
 
 import io
-import json
 from datetime import date, datetime, timedelta, timezone
 from hashlib import sha256
 from uuid import UUID, uuid4
@@ -27,6 +26,7 @@ from faker import Faker
 from psycopg.types.json import Jsonb
 
 from tests import test_business_actions_postgres as shared
+from tests.test_business_dgii_postgres import handover_dgii
 from tests.test_business_spaces_migration_postgres import connection
 
 users = shared.users
@@ -235,12 +235,11 @@ def booked(service, context) -> list[tuple]:
 
 
 def lines_606(service, context) -> tuple[list[str], list[dict]]:
-    blob = export_package(service.authority, context, SEPTEMBER, InMemorySourceObjects())
-    with ZipFile(io.BytesIO(blob)) as archive:
-        issues = json.loads(archive.read("manifest.json"))["dgii"]["issues"]
-        name = f"dgii/DGII_F_606_{FILER}_202609.TXT"
-        text = archive.read(name).decode() if name in archive.namelist() else ""
-    return [line for line in text.split("\r\n")[1:] if line], issues
+    """Each 606 row of September with its values joined by ``|``, and the DGII
+    summary's issues."""
+
+    manifest, rows = handover_dgii(service, context, SEPTEMBER)
+    return ["|".join(row) for row in rows["606"]], manifest["issues"]
 
 
 def saved_declaration(**changes):
@@ -667,7 +666,10 @@ def test_failed_money_write_keeps_the_saved_declaration(actions, monkeypatch):
     failed = approve(service, context, draft, approved)
 
     assert failed.outcome == "invalid_input", failed
-    assert service.dossier(context, draft).dgii.model_dump(mode="json") == {**saved, "itbis": "180.00"}
+    assert service.dossier(context, draft).dgii.model_dump(mode="json") == {
+        **saved,
+        "itbis": "180.00",
+    }
     assert revisions(service, draft)[-1]["version"] == approved
 
 
@@ -766,7 +768,10 @@ def test_failed_money_write_puts_back_the_declaration_the_approval_filled(
     assert reopened.dgii.model_dump(mode="json") == {**blank, "itbis": "180.00"}
     filled, undone = revisions(service, draft)[-2:]
     assert (filled["dgii"]["id_type"], filled["dgii"]["payment_method"]) == ("1", "02")
-    assert (undone["version"], undone["dgii"]) == (reopened.version, {**blank, "itbis": "180.00"})
+    assert (undone["version"], undone["dgii"]) == (
+        reopened.version,
+        {**blank, "itbis": "180.00"},
+    )
 
 
 def test_reapproval_rebuilds_a_declaration_the_clear_missed(actions, monkeypatch):

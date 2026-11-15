@@ -20,7 +20,7 @@ from argus.domain.business.contracts.facts import (
     Known,
     personal_mark_admits,
 )
-from argus.domain.business.dgii_export import build_fiscal_packet
+from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.document_type import SALE, direction
 from argus.domain.business.ledger import occurred_on
@@ -128,6 +128,62 @@ class ExportSnapshot:
     settlements: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class WindowSelection:
+    """What one period's export holds, before any original is read."""
+
+    activity_ids: frozenset[UUID]
+    #: Drafts whose linked sources the archive lists.
+    draft_ids: frozenset[UUID]
+    unresolved: tuple[dict[str, Any], ...]
+
+
+def select_window(
+    activities: Sequence[Mapping[str, Any]],
+    drafts: Sequence[Mapping[str, Any]],
+    period: ExportPeriod,
+) -> WindowSelection:
+    """The records dated in the period, and the drafts whose sources go with
+    them: each selected record's own, every open draft dated in the period and
+    every open draft with no known date."""
+    from argus.domain.business.contracts.facts import BusinessResolution, Known
+
+    activity_ids = frozenset(
+        UUID(str(a["activity_id"]))
+        for a in activities
+        if period.start <= occurred_on(a) <= period.end
+    )
+    unresolved = []
+    selected_drafts = set()
+    for draft in drafts:
+        if draft["activity_id"] in activity_ids:
+            selected_drafts.add(draft["id"])
+        if draft["activity_id"] or draft["state"] not in {"open", "accepting"}:
+            continue
+        typed = (draft["resolution"] or {}).get("business")
+        facts = BusinessResolution.model_validate(typed).facts if typed else None
+        day = (
+            facts.occurred_on.value
+            if facts and isinstance(facts.occurred_on, Known)
+            else None
+        )
+        if day is not None and not period.start <= day <= period.end:
+            continue
+        selected_drafts.add(draft["id"])
+        unresolved.append(
+            {
+                "draft_id": str(draft["id"]),
+                "version": draft["version"],
+                "review_state": draft["state"],
+                "occurred_on": _text(day) or None,
+                "reason": "draft_not_prepared"
+                if facts is None
+                else ("date_unknown" if day is None else "not_recorded"),
+            }
+        )
+    return WindowSelection(activity_ids, frozenset(selected_drafts), tuple(unresolved))
+
+
 def _text(value: Any) -> str:
     if value is None:
         return ""
@@ -227,7 +283,7 @@ def sheet_rows(
 ) -> list[dict[str, str]]:
     """Each recorded row as the accountant reads it: supplier and fiscal facts
     from the approved revision, the 606 answer from its declaration, the
-    fiscal packet's disposition and the month-close settlement. Net amount
+    DGII summary's disposition and the month-close settlement. Net amount
     comes from the same owner as review and monthly figures."""
 
     approved = {str(UUID(str(record.activity_id))): record for record in records}
@@ -351,45 +407,11 @@ def _xlsx(
     return output.getvalue()
 
 
-@dataclass(frozen=True)
-class ExportArchive:
-    content: bytes
-    #: The DGII period the packet names, YYYYMM.
-    period: str
-    #: ``(activity_id, form)`` for each line a TXT in the archive carries.
-    lines: tuple[tuple[str, str], ...]
-
-
-def exported_lines(manifest: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
-    """The lines the packet's TXT files carry: each reconciliation line placed
-    on a form whose TXT was prepared. A form held back for review ships no
-    TXT, so none of its lines count as exported."""
-
-    prepared = {
-        form
-        for form, shape in manifest["forms"].items()
-        if shape["status"] == "prepared_candidate"
-    }
-    return tuple(
-        (item["activity_id"], item["disposition"])
-        for item in manifest["reconciliation"]
-        if item["disposition"] in prepared
-    )
-
-
 def build_archive(
     snapshot: ExportSnapshot,
     read_original: Callable[[ExportSource], bytes | None],
     registry: RncRegistry | None = None,
 ) -> bytes:
-    return build_export(snapshot, read_original, registry).content
-
-
-def build_export(
-    snapshot: ExportSnapshot,
-    read_original: Callable[[ExportSource], bytes | None],
-    registry: RncRegistry | None = None,
-) -> ExportArchive:
     rows = record_rows(snapshot)
     included = {UUID(row["activity_id"]) for row in rows}
     pending = {UUID(str(row["draft_id"])) for row in snapshot.unresolved}
@@ -466,7 +488,7 @@ def build_export(
                         size_bytes=len(content),
                     )
             entries.append(entry)
-        fiscal = build_fiscal_packet(
+        dgii, _lines = fiscal_manifest(
             snapshot.fiscal_records,
             rnc=snapshot.business_rnc,
             business_name=snapshot.business_name,
@@ -478,7 +500,7 @@ def build_export(
         sheet = sheet_rows(
             rows,
             snapshot.fiscal_records,
-            fiscal.manifest["reconciliation"],
+            dgii["reconciliation"],
             snapshot.settlements,
         )
         business, personal = personal_handoff(
@@ -493,8 +515,6 @@ def build_export(
         archive.writestr("records.csv", csv_bytes)
         archive.writestr("personal.csv", personal_bytes)
         archive.writestr("records.xlsx", xlsx_bytes)
-        for name, content in fiscal.files.items():
-            archive.writestr(name, content)
         archive.writestr("unresolved.csv", _csv(snapshot.unresolved, UNRESOLVED_COLUMNS))
         manifest = {
             "schema_version": 1,
@@ -506,7 +526,7 @@ def build_export(
             },
             "captured_at": snapshot.captured_at.isoformat(),
             "records": rows,
-            "dgii": fiscal.manifest,
+            "dgii": dgii,
             "unresolved_drafts": list(snapshot.unresolved),
             "unresolved_scope": "Open or accepting drafts dated in the period, plus all undated drafts; never included as recorded money.",
             "unresolved_in_money_totals": False,
@@ -522,10 +542,6 @@ def build_export(
                 "records.csv": hashlib.sha256(csv_bytes).hexdigest(),
                 "personal.csv": hashlib.sha256(personal_bytes).hexdigest(),
                 "records.xlsx": hashlib.sha256(xlsx_bytes).hexdigest(),
-                **{
-                    name: hashlib.sha256(content).hexdigest()
-                    for name, content in fiscal.files.items()
-                },
             },
         }
         archive.writestr(
@@ -534,11 +550,7 @@ def build_export(
         )
     if len(output.getvalue()) > MAX_TOTAL_BYTES + 5 * 1024 * 1024:
         raise ExportLimit("export_archive_limit")
-    return ExportArchive(
-        output.getvalue(),
-        fiscal.manifest["period"],
-        exported_lines(fiscal.manifest),
-    )
+    return output.getvalue()
 
 
 def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
@@ -546,7 +558,6 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
     from psycopg.rows import dict_row
 
     from argus.domain.business.authority import ActionError, authorize
-    from argus.domain.business.contracts.facts import BusinessResolution, Known
     from argus.domain.business.dgii_snapshot import fiscal_snapshot
     from argus.domain.business.month_close_store import read_settlements
     from argus.domain.business.transactions import lock_owner
@@ -600,11 +611,6 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
             )
             if len(activities) > MAX_ROWS:
                 raise ExportLimit("export_record_limit")
-            activity_ids = {
-                UUID(a["activity_id"])
-                for a in activities
-                if period.start <= occurred_on(a) <= period.end
-            }
             cursor.execute(
                 "select id,version,state,activity_id,resolution from public.financial_import_events"
                 " where user_id=%s and owner_space_id=%s order by created_at,id limit %s",
@@ -613,34 +619,8 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
             drafts = cursor.fetchall()
             if len(drafts) > MAX_ROWS:
                 raise ExportLimit("export_draft_limit")
-            unresolved = []
-            selected_drafts = set()
-            for draft in drafts:
-                if draft["activity_id"] in activity_ids:
-                    selected_drafts.add(draft["id"])
-                if draft["activity_id"] or draft["state"] not in {"open", "accepting"}:
-                    continue
-                typed = draft["resolution"].get("business")
-                facts = BusinessResolution.model_validate(typed).facts if typed else None
-                day = (
-                    facts.occurred_on.value
-                    if facts and isinstance(facts.occurred_on, Known)
-                    else None
-                )
-                if day is not None and not period.start <= day <= period.end:
-                    continue
-                selected_drafts.add(draft["id"])
-                unresolved.append(
-                    {
-                        "draft_id": str(draft["id"]),
-                        "version": draft["version"],
-                        "review_state": draft["state"],
-                        "occurred_on": _text(day) or None,
-                        "reason": "draft_not_prepared"
-                        if facts is None
-                        else ("date_unknown" if day is None else "not_recorded"),
-                    }
-                )
+            chosen = select_window(activities, drafts, period)
+            unresolved, selected_drafts = chosen.unresolved, chosen.draft_ids
             cursor.execute(
                 "select s.id,s.kind,s.text_content,s.connection_id,d.draft,d.source_sha256,"
                 " array_agg(distinct l.draft_id) as draft_ids,"
@@ -730,10 +710,10 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                     )
         downloads.append(source)
 
-    # The declarations are read, the TXT built and its lines recorded under the
+    # The declarations are read and the records sheet built under the
     # Business's one owner lock, the lock every 606 write takes, so one file
-    # reads one state: a write lands before this read and the TXT carries it, or
-    # it waits and the next export carries it.
+    # reads one state: a write lands before this read and the sheet carries it,
+    # or it waits and the next download carries it.
     # Read committed, so the reads after the lock see what committed before it.
     with authority.pool.connection() as connection, connection.transaction():
         lock_owner(connection, context.owner_id)
@@ -826,23 +806,10 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                     cursor, context.owner_id, str(context.actor.space_id)
                 ),
             )
-            result = build_export(
+            content = build_archive(
                 snapshot,
                 original,
                 registry_from_config("dgii", postgres_rnc_fetch(lookup)),
             )
-            # What this file contained. A record stays open after a download.
-            for activity_id, form in result.lines:
-                cursor.execute(
-                    "insert into public.business_dgii_export_lines"
-                    " (space_id,activity_id,form,period,actor_id) values (%s,%s,%s,%s,%s)",
-                    (
-                        context.actor.space_id,
-                        activity_id,
-                        form,
-                        result.period,
-                        context.actor.actor_id,
-                    ),
-                )
             authorize(connection, context.actor, context.grant_id).require("export")
-            return result.content
+            return content
