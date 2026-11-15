@@ -4,7 +4,7 @@ import { useDelayedPending } from "../business-skeletons";
 import skeleton from "../business-skeletons.module.css";
 import { COLUMNS, CELL, PIN_CLASS, RECORDS_TITLE } from "./TransaccionesTable";
 import { recordsMinimumWidth, visibleRecordsColumns, type RecordsViewPreferences } from "./records-view-preferences";
-import { DENSITY_ROW_PX, type Density } from "./table-density";
+import { DEFAULT_DENSITY, DENSITY_ROW_PX, type Density } from "./table-density";
 import { useTransaccionesWords } from "./transacciones-words";
 import page from "./records-page.module.css";
 import styles from "./records-loading-preview.module.css";
@@ -16,7 +16,7 @@ export function RecordsLoadingBar({ className = "", overview = false }: { classN
 }
 
 /** Pending slots follow the same column owner and narrow container as the loaded ledger. */
-export default function RecordsLoadingPreview({ density, preferences }: { density: Density; preferences?: RecordsViewPreferences }) {
+export default function RecordsLoadingPreview({ density = DEFAULT_DENSITY, preferences }: { density?: Density; preferences?: RecordsViewPreferences }) {
   const { t } = useTransaccionesWords();
   const visible = useDelayedPending(true);
   const columns = preferences ? visibleRecordsColumns(preferences) : COLUMNS;

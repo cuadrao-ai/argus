@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, setSystemTime, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
+import { SKELETON_DELAY_MS } from "@/components/business-app/business-skeletons";
 import { reportFiltersForUi, reportFiltersFromUi } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
 import { reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
@@ -35,6 +36,26 @@ test("connected pages, full count, accent search and filtered overview use real 
 });
 
 const overviewCards = () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="records-overview-preview"] [data-overview-filter]')];
+
+for (const width of [1440, 390]) test(`Registros first load keeps its layout and row skeleton at ${width}px instead of the full-screen loader`, async () => {
+  let release!: () => void;
+  const queryGate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ width, queryGate, waitForAnswer: false });
+  try {
+    await pause(SKELETON_DELAY_MS + 20);
+    const skeleton = document.querySelector('[data-testid="transacciones-loading"]');
+    assert.ok(skeleton, "Registros draws its own pending rows before preferences arrive");
+    assert.equal(skeleton.getAttribute("role"), "status");
+    assert.equal(skeleton.querySelectorAll("tbody tr").length, 8);
+    assert.equal(skeleton.querySelectorAll("li").length, 8);
+    assert.ok(document.querySelector('[data-testid="records-overview-preview"]'));
+    assert.ok(document.querySelector('input[type="search"]'));
+    assert.equal(document.querySelector('[data-testid="fullscreen-loading"]'), null);
+    await act(async () => release());
+    await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
+    assert.equal(document.querySelector('[data-testid="transacciones-loading"]'), null);
+  } finally { await act(async () => release()); }
+});
 
 test("Total stays static without requests, filters or navigation", async () => {
   const page = await mount();
@@ -900,7 +921,9 @@ test("a valid URL currency wins over the server default and keeps its explicit a
 
 test("the connected entry waits for the current grant workspace before sending any report query", async () => {
   const page = await mount({ topLevel: true, defaultCurrency: "USD", grantId: fixtureId(3100), workspaceGrant: fixtureId(3101), waitForAnswer: false });
-  await pause(30);
+  await pause(SKELETON_DELAY_MS + 20);
+  assert.ok(document.querySelector('[data-testid="transacciones-loading"]'), "workspace loading uses the Registros skeleton");
+  assert.equal(document.querySelector('[data-testid="fullscreen-loading"]'), null);
   assert.equal(sentFilters(page).length, 0);
   page.context.records.workspaceGrant = fixtureId(3100);
   await page.rerender();
