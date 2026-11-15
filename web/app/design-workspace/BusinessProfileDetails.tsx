@@ -5,42 +5,52 @@ import {createPortal} from "react-dom";
 import {useTranslation} from "react-i18next";
 import {ErrorSummary,FormField} from "@/components/ui/FormField";
 import {primaryButtonClass,secondaryButtonClass} from "@/components/business-app/business-ui";
-import {refusedFields} from "@/lib/business-profile-api";
+import {refusedFields,type DetailsCheck} from "@/lib/business-profile-api";
 import {normalizeBusinessProvidedDetails,providedDetailFields,providedDetailLimits,type BusinessProvidedDetails,type ProvidedDetailField} from "./businessProfilePreviewState";
 
-/** What the server said about one typed value. The form holds no format rule of its own. */
-type Answer = {value:string;code:string|null};
-type Refused = Partial<Record<ProvidedDetailField,string>>;
+/** What the server said about one typed value, and the form it saves an accepted one in. The form holds no format rule of its own. */
+type Answer = {value:string;code:string|null;savedForm:string};
+type Check = (typed:Partial<BusinessProvidedDetails>,signal:AbortSignal)=>Promise<DetailsCheck>;
+const isAbout = (answer:Answer,value:string) => answer.value === value || (!answer.code && answer.savedForm === value);
 const errorCopy: Record<string,string> = {invalid_business_email:"profile_error_email",invalid_business_website:"profile_error_website",invalid_business_phone_empty:"profile_error_phone_empty",invalid_business_phone_length:"profile_error_phone_length",invalid_business_phone_format:"profile_error_phone_format",invalid_business_phone_region:"profile_error_phone_region",string_too_long:"profile_error_length"};
 const formatCopy: Partial<Record<ProvidedDetailField,string>> = {email:"profile_format_email",website:"profile_format_website",phone:"profile_format_phone_placeholder"};
 const FIXING_DELAY_MS = 300;
 
 /** Asks the server about one field at a time. A newer question for a field drops the older one. */
-function useServerAnswers(onCheck:((typed:Partial<BusinessProvidedDetails>,signal:AbortSignal)=>Promise<Refused>)|undefined) {
+function useServerAnswers(onCheck:Check|undefined,onAnswer:(field:ProvidedDetailField,answer:Answer)=>void) {
   const [answers,setAnswers] = useState<Partial<Record<ProvidedDetailField,Answer>>>({});
   const asking = useRef<Partial<Record<ProvidedDetailField,{stop:AbortController;timer:ReturnType<typeof setTimeout>}>>>({});
   const stop = useCallback(()=>{for(const ask of Object.values(asking.current)){ask.stop.abort();clearTimeout(ask.timer);}},[]);
   useEffect(()=>stop,[stop]);
-  const ask = (field:ProvidedDetailField,value:string,delay=0) => {
+  const ask = (field:ProvidedDetailField,value:string,delay=0,left=false) => {
     if(!onCheck)return;
     const previous=asking.current[field];previous?.stop.abort();clearTimeout(previous?.timer);
     const controller=new AbortController();
     const timer=setTimeout(()=>{
       // No answer shows nothing here; Save asks the same rules again.
-      void onCheck({[field]:value},controller.signal).then(refused=>{if(!controller.signal.aborted)setAnswers(was=>({...was,[field]:{value,code:refused[field]??null}}));},()=>{});
+      void onCheck({[field]:value},controller.signal).then(({refused,savedForm})=>{
+        if(controller.signal.aborted)return;
+        const answer={value,code:refused[field]??null,savedForm:savedForm[field]??value};
+        setAnswers(was=>({...was,[field]:answer}));
+        if(left)onAnswer(field,answer);
+      },()=>{});
     },delay);
     asking.current[field]={stop:controller,timer};
   };
   return {answers,setAnswers,ask,stop};
 }
 
-export default function BusinessProfileDetails({saved,canEdit,onSave,onCheck,onSaved,group="all",onDirtyChange,initialDraft,onDraftChange,footerTarget}:{saved:BusinessProvidedDetails;canEdit:boolean;onSave:(details:BusinessProvidedDetails)=>BusinessProvidedDetails|Promise<BusinessProvidedDetails>;onCheck?:(typed:Partial<BusinessProvidedDetails>,signal:AbortSignal)=>Promise<Refused>;onSaved?:()=>void;group?:"all"|"contact"|"presence";onDirtyChange?:(dirty:boolean)=>void;initialDraft?:BusinessProvidedDetails|null;onDraftChange?:(draft:BusinessProvidedDetails)=>void;footerTarget?:HTMLElement|null}) {
+export default function BusinessProfileDetails({saved,canEdit,onSave,onCheck,onSaved,group="all",onDirtyChange,initialDraft,onDraftChange,footerTarget}:{saved:BusinessProvidedDetails;canEdit:boolean;onSave:(details:BusinessProvidedDetails)=>BusinessProvidedDetails|Promise<BusinessProvidedDetails>;onCheck?:Check;onSaved?:()=>void;group?:"all"|"contact"|"presence";onDirtyChange?:(dirty:boolean)=>void;initialDraft?:BusinessProvidedDetails|null;onDraftChange?:(draft:BusinessProvidedDetails)=>void;footerTarget?:HTMLElement|null}) {
   const {t} = useTranslation();
   const [draft,setDraft] = useState(initialDraft ?? saved);
   useEffect(()=>{onDraftChange?.(draft);},[draft,onDraftChange]);
   const [feedback,setFeedback] = useState<"saved"|"failed"|"conflict"|null>(null);
   const [saving,setSaving] = useState(false);
-  const {answers,setAnswers,ask,stop:stopAsking} = useServerAnswers(onCheck);
+  // A left phone shows the server's saved form, unless it was typed again before the answer came.
+  const showSavedForm = useCallback((field:ProvidedDetailField,answer:Answer)=>{
+    if(field === "phone" && !answer.code)setDraft(current=>current[field] === answer.value ? {...current,[field]:answer.savedForm} : current);
+  },[]);
+  const {answers,setAnswers,ask,stop:stopAsking} = useServerAnswers(onCheck,showSavedForm);
   const [attempt,setAttempt] = useState(0);
   const form = useRef<HTMLFormElement>(null);
   const mounted = useRef(true);
@@ -64,7 +74,7 @@ export default function BusinessProfileDetails({saved,canEdit,onSave,onCheck,onS
   const fields = (names:ProvidedDetailField[]) => names.map(field=>{
     const format = formatCopy[field];
     const answer = answers[field];
-    const success = format && draft[field] && answer && !answer.code && answer.value === draft[field] ? t(`business.settings.${format}`) : undefined;
+    const success = format && draft[field] && answer && !answer.code && isAbout(answer,draft[field]) ? t(`business.settings.${format}`) : undefined;
     const reserveMessages = format ? [...Object.keys(errorCopy).filter(code=>code.startsWith(`invalid_business_${field}`)).map(code=>t(`business.settings.${errorCopy[code]}`)),t("business.settings.profile_error_length",{count:providedDetailLimits[field]}),t(`business.settings.${format}`)] : [];
     return <FormField key={field} id={`${id}-${field}`} name={`profile-${field}`}
       label={t(`business.settings.profile_${field}`)} placeholder={t(`business.settings.profile_placeholder_${field}`)}
@@ -73,7 +83,7 @@ export default function BusinessProfileDetails({saved,canEdit,onSave,onCheck,onS
       autoComplete={field === "email" ? "email" : field === "website" ? "url" : field === "phone" ? "tel" : field === "address" ? "street-address" : field === "province" ? "address-level1" : field === "municipality" ? "address-level2" : "off"}
       autoCapitalize={format ? "none" : undefined} spellCheck={format ? false : undefined}
       maxLength={providedDetailLimits[field]} error={errorOf(field)} success={success} reserveMessages={reserveMessages}
-      onBlur={()=>{if(draft[field] !== saved[field] && draft[field] !== answer?.value)ask(field,draft[field]);}}
+      onBlur={()=>{if(answer && isAbout(answer,draft[field]))showSavedForm(field,answer);else if(draft[field] !== saved[field])ask(field,draft[field],0,true);}}
       onChange={event=>{const value=event.target.value;setDraft(current=>({...current,[field]:value}));setFeedback(null);if(answer?.code)ask(field,value,FIXING_DELAY_MS);}} />;
   });
   const saveButton = <button style={footerTarget === undefined ? undefined : {borderRadius:"var(--radius-item)"}} type="submit" form={`${id}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full`} disabled={unchanged || saving}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
@@ -93,7 +103,7 @@ export default function BusinessProfileDetails({saved,canEdit,onSave,onCheck,onS
       catch(error) {
         if(!mounted.current)return;
         const refused=refusedFields(error),refusedHere=visibleFields.filter(field=>refused[field]);
-        if(refusedHere.length){setAnswers(was=>({...was,...Object.fromEntries(refusedHere.map(field=>[field,{value:draft[field],code:refused[field]}]))}));setAttempt(count=>count+1);}
+        if(refusedHere.length){setAnswers(was=>({...was,...Object.fromEntries(refusedHere.map(field=>[field,{value:draft[field],code:refused[field],savedForm:draft[field]}]))}));setAttempt(count=>count+1);}
         else setFeedback(error&&typeof error==="object"&&"status" in error&&error.status===409?"conflict":"failed");
       }
       finally {if(mounted.current)setSaving(false);}

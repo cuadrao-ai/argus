@@ -14,19 +14,19 @@ beforeAll(()=>{GlobalRegistrator.register({url:"http://localhost/biz"});(globalT
 afterEach(()=>{document.body.innerHTML="";});
 afterAll(async()=>{await GlobalRegistrator.unregister();});
 type Refused=Partial<Record<keyof BusinessProvidedDetails,string>>;
-/** A stand-in for the server: the test names which values it refuses, and with which code. */
-const serverRefusing=(refusals:Record<string,string>)=>{
+/** A stand-in for the server: the test names which values it refuses, with which code, and the saved form of the ones it accepts. */
+const serverRefusing=(refusals:Record<string,string>,forms:Record<string,string>)=>{
  const asked:Partial<BusinessProvidedDetails>[]=[];
  const refusedOf=(typed:Partial<BusinessProvidedDetails>):Refused=>Object.fromEntries(Object.entries(typed).filter(([,value])=>refusals[value]).map(([field,value])=>[field,refusals[value]]));
- return {asked,refusedOf,check:async(typed:Partial<BusinessProvidedDetails>)=>{asked.push(typed);return refusedOf(typed);}};
+ return {asked,refusedOf,check:async(typed:Partial<BusinessProvidedDetails>)=>{asked.push(typed);const refused=refusedOf(typed);return {refused,savedForm:Object.keys(refused).length?{}:Object.fromEntries(Object.entries(typed).map(([field,value])=>[field,forms[value]??value]))};}};
 };
 const settle=(ms=5)=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,ms));});
-async function mount({locale="es-419",refusals,fails=false,closes=false}:{locale?:string;refusals?:Record<string,string>;fails?:boolean;closes?:boolean}={}){
+async function mount({locale="es-419",refusals,forms={},saved={},fails=false,closes=false}:{locale?:string;refusals?:Record<string,string>;forms?:Record<string,string>;saved?:Partial<BusinessProvidedDetails>;fails?:boolean;closes?:boolean}={}){
  const {default:BusinessProfileDetails}=await import("../app/design-workspace/BusinessProfileDetails");
  const messages=locale==="en" ? (await import("../public/locales/en/common.json")).default : (await import("../public/locales/es-419/common.json")).default;
  const i18n=i18next.createInstance();await i18n.init({lng:locale,resources:{[locale]:{translation:messages}}});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);const writes:BusinessProvidedDetails[]=[];
- const server=refusals?serverRefusing(refusals):null;let closed=0;
+ const server=refusals?serverRefusing(refusals,forms):null;let closed=0;
  const onSave=(details:BusinessProvidedDetails)=>{
   if(fails)throw new Error("quota");
   const refused=server?.refusedOf(details)??{};
@@ -34,7 +34,7 @@ async function mount({locale="es-419",refusals,fails=false,closes=false}:{locale
   const next=normalizeBusinessProvidedDetails(details);writes.push(next);return next;
  };
  const render=(saved=normalizeBusinessProvidedDetails({}))=>act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessProfileDetails saved={saved} canEdit onCheck={server?.check} onSaved={closes?()=>{closed+=1;}:undefined} onSave={onSave}/></I18nextProvider>));
- await render();
+ await render(normalizeBusinessProvidedDetails(saved));
  const field=(name:string)=>host.querySelector<HTMLInputElement>(`[name="profile-${name}"]`)!;
  const note=(name:string)=>document.getElementById(`${field(name).id}-note`)?.textContent;
  const type=(name:string,value:string)=>act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(field(name),value);field(name).dispatchEvent(new Event("input",{bubbles:true}));});
@@ -58,6 +58,41 @@ test("a field that is left shows the server's answer, then is asked again while 
   await form.type("phone","abc 123");await settle(340);expect(form.field("phone").getAttribute("aria-invalid")).toBe("true");
   await form.type("phone","809-555-0142");await settle(340);
   expect(form.server!.asked.at(-1)).toEqual({phone:"809-555-0142"});expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();expect(form.note("phone")).toBe(i18nText("es-419","profile_format_phone_placeholder"));
+ }finally{await form.close();}
+});
+const SERVER_FORMS={"8095550142":"+1 809 555 0142","(809) 555-0142":"+1 809 555 0142","example.com":"https://example.com"};
+test("a valid phone that is left shows the server's form; typing asks nothing and no other field is rewritten",async()=>{
+ const form=await mount({refusals:{},forms:SERVER_FORMS});try{
+  await form.type("phone","8095550142");expect(form.server!.asked).toEqual([]);expect(form.field("phone").value).toBe("8095550142");
+  await form.blur("phone");expect(form.server!.asked).toEqual([{phone:"8095550142"}]);
+  expect(form.field("phone").value).toBe("+1 809 555 0142");expect(form.note("phone")).toBe(i18nText("es-419","profile_format_phone_placeholder"));
+  await form.blur("phone");expect(form.server!.asked).toHaveLength(1);
+  await form.type("website","example.com");await form.blur("website");expect(form.field("website").value).toBe("example.com");
+  await form.save();expect(form.writes.at(-1)!.phone).toBe("+1 809 555 0142");
+ }finally{await form.close();}
+});
+test("a phone typed in another shape than the saved one goes back to the saved form when left, with nothing to save",async()=>{
+ const form=await mount({refusals:{},forms:SERVER_FORMS,saved:{phone:"+1 809 555 0142"}});try{
+  const save=form.host.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  await form.type("phone","(809) 555-0142");expect(save.disabled).toBe(false);
+  await form.blur("phone");expect(form.field("phone").value).toBe("+1 809 555 0142");expect(save.disabled).toBe(true);
+ }finally{await form.close();}
+});
+test("a phone fixed after an error keeps what is typed until the field is left, then shows the server's form without asking again",async()=>{
+ const form=await mount({refusals:{"809555":"invalid_business_phone_length"},forms:SERVER_FORMS});try{
+  await form.type("phone","809555");await form.blur("phone");expect(form.field("phone").getAttribute("aria-invalid")).toBe("true");
+  await form.type("phone","8095550142");await settle(340);
+  expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();expect(form.field("phone").value).toBe("8095550142");
+  const asked=form.server!.asked.length;await form.blur("phone");
+  expect(form.field("phone").value).toBe("+1 809 555 0142");expect(form.server!.asked).toHaveLength(asked);
+ }finally{await form.close();}
+});
+test("a late answer does not overwrite what was typed after the field was left",async()=>{
+ const form=await mount({refusals:{},forms:SERVER_FORMS});try{
+  await form.type("phone","8095550142");
+  await act(async()=>{form.field("phone").focus();form.field("phone").blur();});
+  await form.type("phone","80955501");await settle();
+  expect(form.field("phone").value).toBe("80955501");
  }finally{await form.close();}
 });
 test.each([

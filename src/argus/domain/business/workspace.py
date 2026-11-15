@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 from pydantic_core import PydanticCustomError
 
-from argus.domain.business.phone import PhoneRefusal, PhoneRefused, national_phone
+from argus.domain.business.phone import PhoneRefusal, PhoneRefused, display_phone
 from argus.domain.business.workspace_images import Appearance, DefaultAppearance
 
 
@@ -37,6 +37,15 @@ class BusinessDetails(BaseModel):
     def clear_null(cls, value: object) -> object:
         return "" if value is None else value
 
+    @field_validator("phone")
+    @classmethod
+    def phone_format(cls, value: str) -> str:
+        """A valid phone reads in its one form. Text from before the rule reads as saved."""
+        try:
+            return display_phone(value)
+        except PhoneRefused:
+            return value
+
 
 PHONE_REFUSAL_CODES = frozenset(
     f"invalid_business_phone_{reason}" for reason in get_args(PhoneRefusal)
@@ -60,14 +69,13 @@ class BusinessDetailsInput(BusinessDetails):
     @field_validator("phone")
     @classmethod
     def phone_format(cls, value: str) -> str:
-        """A phone is saved as 809-555-0142. An empty one clears the field."""
+        """A phone is saved as +1 809 555 0142. An empty one clears the field."""
         if not value:
             return value
         try:
-            national = national_phone(value)
+            return display_phone(value)
         except PhoneRefused as refused:
             raise _refused(f"invalid_business_phone_{refused.reason}") from None
-        return f"{national[:3]}-{national[3:6]}-{national[6:]}"
 
     @field_validator("website", mode="before")
     @classmethod

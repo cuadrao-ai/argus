@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from argus.domain.business.phone import PhoneRefused, national_phone
+from argus.domain.business.phone import PhoneRefused, display_phone, national_phone
 from argus.domain.business.phone_area_codes import PHONE_AREA_CODES
 
 CASES = json.loads(Path(__file__).with_name("phone_rule_cases.json").read_text())
@@ -11,11 +11,10 @@ CASES = json.loads(Path(__file__).with_name("phone_rule_cases.json").read_text()
 @pytest.mark.parametrize("case", CASES, ids=lambda case: repr(case["input"]))
 def test_the_phone_rule_answers_each_agreed_case(case):
     try:
-        national_phone(case["input"])
-        result = "valid"
+        answer = {"result": "valid", "display": display_phone(case["input"])}
     except PhoneRefused as refused:
-        result = refused.reason
-    assert result == case["result"]
+        answer = {"result": refused.reason}
+    assert answer == {key: case[key] for key in case if key != "input"}
 
 
 def test_the_agreed_cases_cover_every_answer():

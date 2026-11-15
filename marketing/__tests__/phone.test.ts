@@ -5,9 +5,10 @@ import agreedCases from "./phone-rule-cases.generated.json";
 describe("phone input", () => {
   test("answers each case the server's rule answers, the same way", () => {
     expect(agreedCases.length).toBeGreaterThan(0);
-    for (const { input, result } of agreedCases) {
-      const check = checkPhone(input);
-      expect([input, check.status === "invalid" ? check.reason : check.status]).toEqual([input, result]);
+    for (const agreed of agreedCases) {
+      const check = checkPhone(agreed.input);
+      const answer = check.status === "valid" ? { result: "valid", display: check.display } : { result: check.status === "invalid" ? check.reason : check.status };
+      expect({ input: agreed.input, ...answer }).toEqual(agreed);
     }
   });
 

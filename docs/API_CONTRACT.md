@@ -9835,8 +9835,11 @@ person starts their space, every route below except POST `/space` answers 404
   national digits, or eleven with `+1` or `1` in front. The national number
   matches `[2-9]XX[2-9]XXXXXX` and its area code is a geographic, in-service code
   of either country (`src/argus/domain/business/phone_area_codes.py`). Any other
-  character is dropped. A number is saved and returned as `809-555-0142`. There
-  is no rule for other countries. Saving does not verify these facts or activate invoicing.
+  character is dropped. A number has one form, `+1 809 555 0142`, owned by
+  `display_phone` in `src/argus/domain/business/phone.py`: it is saved and
+  returned in that form, and a valid number saved in another form (such as
+  `809-555-0142`) is returned in it too. There is no rule for other countries.
+  Saving does not verify these facts or activate invoicing.
 - The server is the only owner of the email, website and phone rules; clients
   hold no copy. A PATCH whose only failures are detail fields returns
   `422 invalid_business_details` with `context.field_errors`, a map from each
@@ -9846,13 +9849,15 @@ person starts their space, every route below except POST `/space` answers 404
   `invalid_business_phone_format` or `invalid_business_phone_region` (another
   country or an unassigned area code).
   Nothing is saved. Any other body failure keeps the general `422 validation_error`.
-  A detail saved before a rule existed is still returned by GET as saved, and it
-  does not block a PATCH that leaves that field out.
+  A detail saved before a rule existed that does not pass it is still returned
+  by GET as saved, and it does not block a PATCH that leaves that field out.
 - POST `/api/v1/business/profile-details/check` applies the same rules to the
   detail keys in its body and saves nothing. It takes any subset of the seven
   detail keys and needs a signed-in Business person. It returns 200 with those
-  keys in their saved form, or the same `422 invalid_business_details` answer.
-  The web calls it when a field is left. Responses are no-store.
+  keys in their saved form (a valid phone as `+1 809 555 0142`, a website with
+  its scheme), or the same `422 invalid_business_details` answer. The web calls
+  it when a field is left and shows the returned phone in the field; it holds
+  no phone formatter. Responses are no-store.
 - Appearance is `{kind: "default"}`, `{kind: "avatar", token, mark}`, or
   `{kind: "image", asset_id, crop}`. Avatar tokens are `ocean`, `ember`, `gold`,
   `slate`, `teal`, `indigo`, `plum`; mark is `initials` or `icon`. Crop is

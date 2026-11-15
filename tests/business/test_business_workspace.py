@@ -65,14 +65,15 @@ def test_invalid_emails_are_refused(email):
 @pytest.mark.parametrize(
     "typed,saved",
     [
-        ("8095550142", "809-555-0142"),
-        ("(829) 555-0142", "829-555-0142"),
-        (" 849 555 0142 ", "849-555-0142"),
-        ("809.555.0142", "809-555-0142"),
-        ("+1 (809) 555-0142", "809-555-0142"),
-        ("1-809-555-0142", "809-555-0142"),
-        ("+1 212 555 0100", "212-555-0100"),
-        ("2125550100", "212-555-0100"),
+        ("8095550142", "+1 809 555 0142"),
+        ("(809) 555-0142", "+1 809 555 0142"),
+        ("+1 809-555-0142", "+1 809 555 0142"),
+        ("(829) 555-0142", "+1 829 555 0142"),
+        (" 849 555 0142 ", "+1 849 555 0142"),
+        ("809.555.0142", "+1 809 555 0142"),
+        ("1-809-555-0142", "+1 809 555 0142"),
+        ("+1 212 555 0100", "+1 212 555 0100"),
+        ("2125550100", "+1 212 555 0100"),
         ("", ""),
         ("   ", ""),
     ],
@@ -115,6 +116,11 @@ def test_a_phone_saved_before_the_rule_still_reads_and_leaves_other_saves_alone(
     )
     assert saved.details.phone == "abc 12"
     assert saved.details.website == "https://colmado.example"
+
+
+@pytest.mark.parametrize("stored", ["809-555-0142", "8095550142", "+1 809 555 0142"])
+def test_a_phone_saved_in_an_older_form_reads_in_the_one_display_form(stored):
+    assert BusinessDetails.model_validate({"phone": stored}).phone == "+1 809 555 0142"
 
 
 def test_memory_concurrent_commands_and_legacy_name_revision():

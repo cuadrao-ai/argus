@@ -309,10 +309,12 @@ def test_profile_save_refuses_bad_details_with_one_error_per_field(biz):
 @pytest.mark.parametrize(
     "typed,saved",
     [
-        ("(809) 555-0142", "809-555-0142"),
-        ("+1 829 555 0142", "829-555-0142"),
-        ("8495550142", "849-555-0142"),
-        ("+1 212 555 0100", "212-555-0100"),
+        ("8095550142", "+1 809 555 0142"),
+        ("(809) 555-0142", "+1 809 555 0142"),
+        ("+1 809-555-0142", "+1 809 555 0142"),
+        ("+1 829 555 0142", "+1 829 555 0142"),
+        ("8495550142", "+1 849 555 0142"),
+        ("+1 212 555 0100", "+1 212 555 0100"),
     ],
 )
 def test_profile_save_keeps_a_valid_phone_in_one_form(biz, typed, saved):
@@ -374,7 +376,10 @@ def test_details_check_answers_with_the_save_rules_and_saves_nothing(biz):
         json={"phone": "+1 (809) 555-0142", "website": "shop.example"},
     )
     assert accepted.status_code == 200, accepted.text
-    assert accepted.json() == {"phone": "809-555-0142", "website": "https://shop.example"}
+    assert accepted.json() == {
+        "phone": "+1 809 555 0142",
+        "website": "https://shop.example",
+    }
     refused = biz.post(check, headers=AUTH, json={"phone": "abc 12", "email": "a@host"})
     assert refused.status_code == 422, refused.text
     assert refused.json()["code"] == "invalid_business_details"

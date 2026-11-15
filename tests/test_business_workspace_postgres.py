@@ -143,7 +143,14 @@ def test_phone_is_saved_in_one_form_and_a_row_from_before_the_rule_still_works(
         SaveWorkspace(expected_revision=0, details={"phone": "+1 (829) 555-0142"}),
         "phone",
     )
-    assert saved.details.phone == "829-555-0142"
+    assert saved.details.phone == "+1 829 555 0142"
+    with psycopg.connect(shared.DSN) as db:
+        db.execute(
+            "update public.spaces set business_provided_details="
+            "business_provided_details || %s::jsonb where id=%s",
+            ('{"phone": "829-555-0142"}', first.id),
+        )
+    assert store.read_workspace(actor, first.id).details.phone == "+1 829 555 0142"
     with psycopg.connect(shared.DSN) as db:
         db.execute(
             "update public.spaces set business_provided_details="

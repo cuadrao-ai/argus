@@ -33,3 +33,9 @@ def national_phone(raw: str) -> str:
     if national[:3] not in PHONE_AREA_CODES:
         raise PhoneRefused("region")
     return national
+
+
+def display_phone(raw: str) -> str:
+    """The one form a valid phone is saved and shown in: +1 809 555 0142."""
+    national = national_phone(raw)
+    return f"+1 {national[:3]} {national[3:6]} {national[6:]}"

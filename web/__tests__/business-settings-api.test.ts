@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { acceptBusinessInvitation, changeBusinessRole, getBusinessDirectory, inviteBusinessMembers, revokeBusinessAccessGrant } from "@/lib/business-api";
 import { setChosenGrant } from "@/lib/business-grant";
-import { businessAppearanceState,createBusinessCommand, getBusinessProfile,publishBusinessAppearance,saveBusinessProfile } from "@/lib/business-profile-api";
+import { businessAppearanceState,checkBusinessDetails,createBusinessCommand, getBusinessProfile,publishBusinessAppearance,saveBusinessProfile } from "@/lib/business-profile-api";
 
 const originalFetch = globalThis.fetch;
 const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
@@ -28,6 +28,15 @@ test("profile saves send the exact revision, key and selected Owner grant", asyn
   expect(new Headers(calls[1].headers).get("X-Business-Grant")).toBe("grant-2");
   expect(new Headers(calls[1].headers).get("Idempotency-Key")).toBe("save-1");
   expect(JSON.parse(String(calls[1].body))).toEqual({ expected_revision: 3, details: { address: "Calle Sol" } });
+});
+test("a details check answers with the server's saved form, or with the code for each refused field", async () => {
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  const sent: unknown[] = [];
+  globalThis.fetch = async (_url, init) => { sent.push(JSON.parse(String(init!.body))); return Response.json({ phone: "+1 809 555 0142" }); };
+  expect(await checkBusinessDetails({ phone: "8095550142" })).toEqual({ refused: {}, savedForm: { phone: "+1 809 555 0142" } });
+  expect(sent).toEqual([{ phone: "8095550142" }]);
+  globalThis.fetch = async () => Response.json({ code: "invalid_business_details", context: { field_errors: { phone: "invalid_business_phone_length" } } }, { status: 422 });
+  expect(await checkBusinessDetails({ phone: "809555" })).toEqual({ refused: { phone: "invalid_business_phone_length" }, savedForm: {} });
 });
 test("appearance failure retries the same new Business without another create", async () => {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";

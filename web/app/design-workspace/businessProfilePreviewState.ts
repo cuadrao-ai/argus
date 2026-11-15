@@ -64,7 +64,7 @@ export function seedProfilePreview(storage: StorageLike, businessId: string) {
   if(saved.profileFixtureVersion === 1) return false;
   saved.profileFixtureVersion = 1;
   saved.businessDetails = {...object(saved.businessDetails),enteredRnc:"131245678"};
-  saved.businessProvidedDetails = normalizeBusinessProvidedDetails({address:"Calle El Conde 101",province:"Distrito Nacional",municipality:"Santo Domingo",phone:"809-555-0142"});
+  saved.businessProvidedDetails = normalizeBusinessProvidedDetails({address:"Calle El Conde 101",province:"Distrito Nacional",municipality:"Santo Domingo",phone:"+1 809 555 0142"});
   storage.setItem(invitationStorageKeys(businessId).guide, JSON.stringify(saved));
   return true;
 }

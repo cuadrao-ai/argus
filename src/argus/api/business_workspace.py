@@ -178,7 +178,10 @@ def create_additional_business(
 def check_business_details(
     response: Response, body: BusinessDetailsInput
 ) -> BusinessDetailsInput:
-    """Answers with the save rules for the fields sent. Saves nothing."""
+    """Answers with the fields sent, each in its saved form. Saves nothing.
+
+    A valid phone comes back as `+1 809 555 0142`.
+    """
     response.headers.update(NO_STORE)
     return body
 

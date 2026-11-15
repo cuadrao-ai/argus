@@ -5763,7 +5763,10 @@ paths:
       tags:
       - financial-accounts
       - business
-      description: Answers with the save rules for the fields sent. Saves nothing.
+      description: 'Answers with the fields sent, each in its saved form. Saves nothing.
+
+
+        A valid phone comes back as `+1 809 555 0142`.'
       parameters:
       - name: X-Business-Grant
         in: header
