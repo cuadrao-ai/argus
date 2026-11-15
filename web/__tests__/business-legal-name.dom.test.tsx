@@ -16,7 +16,7 @@ type Reply=(call:Call)=>Response;
 
 let previousFetch:typeof fetch,previousAuth:string|undefined;
 beforeAll(()=>{GlobalRegistrator.register({url:"http://localhost/biz",settings:{navigation:{disableChildFrameNavigation:true}}});(globalThis as {IS_REACT_ACT_ENVIRONMENT?:boolean}).IS_REACT_ACT_ENVIRONMENT=true;previousFetch=globalThis.fetch;previousAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;process.env.NEXT_PUBLIC_MOCK_AUTH="true";});
-afterEach(()=>{document.body.innerHTML="";window.localStorage.clear();globalThis.fetch=previousFetch;});
+afterEach(async()=>{(await import("../components/business-app/foundation/toasts")).clearToasts();document.body.innerHTML="";window.localStorage.clear();globalThis.fetch=previousFetch;});
 afterAll(async()=>{if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;await GlobalRegistrator.unregister();});
 
 const answer=(value:string,verification:RegistryAnswer["verification"],name=LONG_NAME,status="ACTIVO"):RegistryAnswer=>({tax_id:{type:"rnc",value},verification,record:verification==="sin_verificar"?null:{rnc:value,name,trade_name:null,status,file_date:"2026-10-20"},checked_at:"2026-11-09T12:00:00Z"});
