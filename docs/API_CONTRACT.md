@@ -9363,10 +9363,19 @@ and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
 changes, the two derived events and `other`), so the client can mark it.
 
-`object` is `{kind: draft|grant|invite, id, label, purged}` when the action names one
-and the server knows its id, else `null`. `label` is a human name for the
+`object` is `{kind: draft|receipt|grant|invite, id, label, purged}` when the action names one
+and the server knows its id, else `null`. It is the one thing the row is about,
+and the client opens it from `kind` and `id` alone: a `draft` is a record
+(`GET /business/drafts/{id}/dossier`), a `receipt` is an uploaded document
+(`GET /business/receipts/{id}`); a `grant` and an `invite` open nothing.
+`receipt_upload`, `receipt_review` and `receipt_confirm` name the one receipt
+their first stored subject answers to: an upload that holds a document, or a
+draft of the legacy receipt surface read from exactly one upload. A subject
+that is no receipt of this Business names nothing (`object: null`).
+`delete_document` and `restore_document` name the receipt the same way when
+their draft was read from one upload, else the draft. `label` is a human name for the
 object from a record the reader may read, else `null`: a draft's counterparty
-when it is known, a grant's person by their current profile label. An invite
+when it is known, a receipt's file name, a grant's person by their current profile label. An invite
 names only an email, so its label is always `null`. `purged` is `true` when a
 document purge removed the draft or upload, read from the purge record; its
 `label` is then always `null`. It is `false` otherwise. No amount, email or other
@@ -9397,6 +9406,15 @@ AND'ed. An unknown value is 422 `validation_error`. An `area` or
 `action_group` filter matches catalog actions only, so `other` never matches
 a filter, for any reader.
 
+`q` (optional, at most 512 characters; blank is no query) keeps the rows whose
+actor `display_name` or object `label` holds the query, read as the Business
+search reads a record: every word, accents and case aside. It reads only what
+the row shows this reader, never an action name, an id or a stored command, and
+it is AND'ed with the other filters. One answer scans a bounded stretch of the
+history, so with `q` a page may hold fewer than `limit` items, or none, and
+still carry a `next_cursor`; the client follows it until it is `null`. `q` does
+not narrow `actors`.
+
 `actors` lists, on the first page only (`null` on a cursor page), every actor
 with at least one row the reader may see under the `from`, `to`, `area` and
 `action_group` filters (the `actor` filter does not narrow it), as
@@ -9426,7 +9444,7 @@ within this one and reveals nothing of the other.
 The order is `occurred_at` descending with a stable tie-break, so a page does
 not move when a newer row lands: a cursor taken before new activity continues
 from the same row. A cursor is bound to the filter set that issued it: sent
-with any other `from`, `to`, `actor`, `area` or `action_group`, or one the feed
+with any other `from`, `to`, `actor`, `area`, `action_group` or `q`, or one the feed
 did not issue, it is 422 `invalid_cursor`. The in-memory app keeps no ledger:
 the read answers 200 with `items` empty, `next_cursor` null and `actors` empty
 once the caller's Business exists. A missing, foreign, revoked or expired

@@ -886,7 +886,11 @@ paths:
 
         only for a reader who may manage. Values of one filter are OR''ed, filters
 
-        are AND''ed, and a cursor continues only the filter set that issued it.'
+        are AND''ed, and a cursor continues only the filter set that issued it. With
+
+        `q`, a page may hold fewer rows than `limit`, or none, and still carry a
+
+        `next_cursor`: follow it until it is null.'
       parameters:
       - name: limit
         in: query
@@ -974,6 +978,16 @@ paths:
               type: string
             maxItems: 9
           - type: 'null'
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          description: Words the actor's name or the object's label must hold.
+        description: Words the actor's name or the object's label must hold.
       - name: X-Business-Grant
         in: header
         required: false
