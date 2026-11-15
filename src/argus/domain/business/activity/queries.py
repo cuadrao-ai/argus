@@ -19,6 +19,7 @@ from psycopg.rows import dict_row
 
 from argus.domain.business import search
 from argus.domain.business.activity.catalog import (
+    LEGACY,
     EventRow,
     project,
     visibility,
@@ -295,12 +296,10 @@ class _Read:
         rows = self.cursor.fetchall()
         page = rows[:limit]
         _fill_names(self.cursor, self.space_id, page)
-        items = _purged(
+        items = _receipt_targets(
             self.cursor,
             self.space_id,
-            _document_targets(
-                self.cursor, self.space_id, tuple(project(row) for row in page)
-            ),
+            _purged(self.cursor, self.space_id, tuple(project(row) for row in page)),
         )
         labels = _labels(self.cursor, self.space_id, items)
         return tuple(with_labels(item, labels) for item in items), len(rows) > limit
@@ -328,36 +327,57 @@ class _Read:
         return tuple(found), scanned
 
 
-def _document_targets(
+#: A draft of the legacy receipt surface read from one upload, and an upload
+#: that holds a document, each with the receipt it answers to.
+_RECEIPTS = """
+    select e.id, min(o.connection_id::text) as receipt_id
+    from public.financial_import_events e
+    join public.financial_import_observations o
+      on o.event_id = e.id and o.user_id = e.user_id
+    where e.owner_space_id = %(space_id)s and e.id = any(%(ids)s)
+      and not (e.resolution ? 'business')
+    group by e.id having count(distinct o.connection_id) = 1
+    union all
+    select c.id, c.id::text
+    from public.financial_source_connections c
+    join public.financial_document_extractions d
+      on d.connection_id = c.id and d.user_id = c.user_id
+    where c.owner_space_id = %(space_id)s and c.id = any(%(ids)s)
+"""
+
+
+def _leads_to_a_receipt(item: ActivityItem) -> bool:
+    if item.object is None or item.object.purged:
+        return False
+    return item.action in LEGACY or (
+        item.action in ("delete_document", "restore_document")
+        and item.object.kind == "draft"
+    )
+
+
+def _receipt_targets(
     cursor, space_id: UUID, items: tuple[ActivityItem, ...]
 ) -> tuple[ActivityItem, ...]:
-    ids = [
-        item.object.id
-        for item in items
-        if item.action in ("delete_document", "restore_document")
-        and item.object is not None
-        and item.object.kind == "draft"
-    ]
+    """A document change that names a draft, and a write on the legacy receipt
+    surface, lead to the one receipt the subject answers to. A legacy subject
+    that is no receipt of this Business names nothing."""
+
+    ids = sorted({item.object.id for item in items if _leads_to_a_receipt(item)})
     if not ids:
         return items
-    cursor.execute(
-        "select e.id,min(o.connection_id::text) as receipt_id from public.financial_import_events e"
-        " join public.financial_import_observations o on o.event_id=e.id and o.user_id=e.user_id"
-        " where e.owner_space_id=%s and e.id=any(%s) and not (e.resolution ? 'business')"
-        " group by e.id having count(distinct o.connection_id)=1",
-        (space_id, ids),
-    )
-    targets = {row["id"]: row["receipt_id"] for row in cursor.fetchall()}
-    return tuple(
-        item.model_copy(
-            update={"object": ActivityObject(kind="receipt", id=targets[item.object.id])}
-        )
-        if item.action in ("delete_document", "restore_document")
-        and item.object is not None
-        and item.object.id in targets
-        else item
-        for item in items
-    )
+    cursor.execute(_RECEIPTS, {"space_id": space_id, "ids": ids})
+    receipts = {row["id"]: row["receipt_id"] for row in cursor.fetchall()}
+
+    def led(item: ActivityItem) -> ActivityItem:
+        if not _leads_to_a_receipt(item):
+            return item
+        receipt = receipts.get(item.object.id)
+        if receipt is not None:
+            named = ActivityObject(kind="receipt", id=receipt)
+            return item.model_copy(update={"object": named})
+        return item.model_copy(update={"object": None}) if item.action in LEGACY else item
+
+    return tuple(led(item) for item in items)
 
 
 def _purged(

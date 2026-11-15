@@ -153,14 +153,9 @@ export default function ActivityDraft() {
     return relative === capitalize(short) ? relative : `${relative} · ${short}`;
   };
   const time = (iso: string) => { const d = new Date(iso); const h = d.getHours(); return `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")} ${h < 12 ? c.am : c.pm}`; };
-  // A purged document is "un documento" on every entry: no name and nothing to open.
   const open = (item: DraftItem) => {
     const target = activityTarget(item);
-    if (target) return () => openPanel(target);
-    if (live || item.object?.purged) return undefined;
-    if (item.object?.kind === "draft") return () => openPanel({ kind: "draft", draftId: item.object!.id, list: "transactions" });
-    // Grants, invites and invoices have no record screen to open yet (MISSING: link target); they stay plain, never a generic destination.
-    return undefined;
+    return target ? () => openPanel(target) : undefined;
   };
 
   const filterOptions = {

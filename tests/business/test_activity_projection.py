@@ -222,8 +222,40 @@ def test_every_typed_ledger_action_has_a_catalog_decision():
         ),
         ({"action": "change_role", "grant_id": str(DRAFT)}, None, ("grant", DRAFT)),
         ({"action": "review_draft", "draft_id": "not-a-uuid"}, None, None),
-        ({"action": "receipt_review", "subjects": [str(DRAFT)]}, None, None),
-        ({"action": "receipt_upload", "subjects": [str(DRAFT)]}, None, None),
+        (
+            {"action": "receipt_upload", "subjects": [str(DRAFT)]},
+            None,
+            ("receipt", DRAFT),
+        ),
+        (
+            {"action": "receipt_review", "subjects": [str(DRAFT), str(uuid4())]},
+            None,
+            ("receipt", DRAFT),
+        ),
+        (
+            {"action": "receipt_confirm", "subjects": [str(DRAFT)]},
+            None,
+            ("receipt", DRAFT),
+        ),
+        ({"action": "receipt_upload", "subjects": []}, None, None),
+        ({"action": "receipt_upload"}, None, None),
+        ({"action": "receipt_confirm", "subjects": ["not-a-uuid"]}, None, None),
+    ],
+    ids=[
+        "outcome-draft-wins",
+        "command-draft",
+        "planned-draft",
+        "planned-draft-not-made",
+        "planned-ask",
+        "invite",
+        "grant",
+        "draft-id-not-a-uuid",
+        "upload-names-its-receipt",
+        "legacy-review-first-subject",
+        "legacy-confirm-first-subject",
+        "upload-without-subjects",
+        "upload-without-a-subject-list",
+        "legacy-subject-not-a-uuid",
     ],
 )
 def test_the_object_is_the_server_owned_id_when_one_is_known(
@@ -510,6 +542,15 @@ def test_the_feed_names_an_erased_member_as_the_departure_rewrite_does():
         ("carlos", False),
         ("review", False),
         (str(DRAFT), False),
+    ],
+    ids=[
+        "name-without-accent",
+        "name-in-capitals",
+        "label-words",
+        "name-and-label",
+        "another-person",
+        "action-name",
+        "object-id",
     ],
 )
 def test_a_query_reads_who_and_the_named_object_as_the_business_search_reads(

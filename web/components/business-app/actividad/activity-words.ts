@@ -21,11 +21,17 @@ export function activityPhrase(t: TFunction, item: Pick<Row, "action" | "object"
   return t([`business.activity_feed.actions.${item.action}`, "business.activity_feed.actions.other"], { document });
 }
 
-/** Where a row leads: a deleted document to Eliminados, a restored one to itself. Nothing opens a purged document. */
+/**
+ * Where a row leads, for the Actividad screen and the search window alike: the receipt or the record the server
+ * names. A deleted document leads to Eliminados, and a restored one opens beside the Bandeja it returned to. A purged
+ * document, an access change and a row that names nothing lead nowhere.
+ */
 export function activityTarget(item: Pick<Row, "action" | "object">): BusinessPanelState | null {
-  if (item.object?.purged) return null;
+  const object = item.object;
+  if (object?.purged) return null;
   if (item.action === "delete_document") return { kind: "inbox", view: "eliminados" };
-  if (item.action === "restore_document" && item.object?.kind === "receipt") return { kind: "receipt", receiptId: item.object.id, list: "inbox" };
-  if (item.action === "restore_document" && item.object?.kind === "draft") return { kind: "draft", draftId: item.object.id, list: "inbox" };
+  const list = item.action === "restore_document" ? { list: "inbox" as const } : {};
+  if (object?.kind === "receipt") return { kind: "receipt", receiptId: object.id, ...list };
+  if (object?.kind === "draft") return { kind: "draft", draftId: object.id, ...list };
   return null;
 }

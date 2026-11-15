@@ -9352,10 +9352,19 @@ and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
 changes, the two derived events and `other`), so the client can mark it.
 
-`object` is `{kind: draft|grant|invite, id, label, purged}` when the action names one
-and the server knows its id, else `null`. `label` is a human name for the
+`object` is `{kind: draft|receipt|grant|invite, id, label, purged}` when the action names one
+and the server knows its id, else `null`. It is the one thing the row is about,
+and the client opens it from `kind` and `id` alone: a `draft` is a record
+(`GET /business/drafts/{id}/dossier`), a `receipt` is an uploaded document
+(`GET /business/receipts/{id}`); a `grant` and an `invite` open nothing.
+`receipt_upload`, `receipt_review` and `receipt_confirm` name the one receipt
+their first stored subject answers to: an upload that holds a document, or a
+draft of the legacy receipt surface read from exactly one upload. A subject
+that is no receipt of this Business names nothing (`object: null`).
+`delete_document` and `restore_document` name the receipt the same way when
+their draft was read from one upload, else the draft. `label` is a human name for the
 object from a record the reader may read, else `null`: a draft's counterparty
-when it is known, a grant's person by their current profile label. An invite
+when it is known, a receipt's file name, a grant's person by their current profile label. An invite
 names only an email, so its label is always `null`. `purged` is `true` when a
 document purge removed the draft or upload, read from the purge record; its
 `label` is then always `null`. It is `false` otherwise. No amount, email or other
