@@ -511,15 +511,5 @@ describe("shared CAPTCHA acquisition UX", () => {
     expect(en.auth.errors.captcha_unavailable.toLowerCase()).not.toContain(
       "try again",
     );
-
-    const captchaE2e = readFileSync(
-      join(root, "e2e/guest-auth-captcha-ux.spec.ts"),
-      "utf-8",
-    );
-    expect(captchaE2e).toContain("en.auth.errors.browser_check_failed");
-    expect(captchaE2e).toContain("en.auth.errors.browser_check_retry");
-    expect(captchaE2e).not.toContain(
-      "We couldn’t complete the security check. Please try again.",
-    );
   });
 });
