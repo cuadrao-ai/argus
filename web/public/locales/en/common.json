@@ -2852,7 +2852,7 @@
             "billed_amount_zero": "The services or goods amount is missing",
             "credit_note_payment_form": "A credit note uses payment method 06",
             "credit_note_reference": "Check the receipt it modifies",
-            "credit_note_too_late": "[placeholder] Credit note is dated too far from its purchase",
+            "credit_note_too_late": "Check the credit note's date.",
             "date_in_future": "The receipt date is in the future",
             "date_too_old": "The date is not valid for this NCF",
             "duplicate_document": "This NCF is already recorded this month",

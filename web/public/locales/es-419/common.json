@@ -2852,7 +2852,7 @@
             "billed_amount_zero": "Falta el monto de servicios o bienes",
             "credit_note_payment_form": "Una nota de crédito usa forma de pago 06",
             "credit_note_reference": "Revisa el comprobante que modifica",
-            "credit_note_too_late": "[placeholder] business.transactions.layout.workflow.missing.credit_note_too_late",
+            "credit_note_too_late": "Revisa la fecha de la nota de crédito.",
             "date_in_future": "La fecha del comprobante es futura",
             "date_too_old": "La fecha no es válida para este NCF",
             "duplicate_document": "Este NCF ya está registrado este mes",
