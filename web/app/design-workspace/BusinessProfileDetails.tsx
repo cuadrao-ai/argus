@@ -16,15 +16,17 @@ const errorCopy: Record<string,string> = {invalid_business_email:"profile_error_
 const formatCopy: Partial<Record<ProvidedDetailField,string>> = {email:"profile_format_email",website:"profile_format_website",phone:"profile_format_phone_placeholder"};
 const FIXING_DELAY_MS = 300;
 
-/** Asks the server about one field at a time. A newer question for a field drops the older one. */
+/** Asks the server about one field at a time. A newer question or an edit drops the older one, so an answer is always about the text in the field. */
 function useServerAnswers(onCheck:Check|undefined,onAnswer:(field:ProvidedDetailField,answer:Answer)=>void) {
   const [answers,setAnswers] = useState<Partial<Record<ProvidedDetailField,Answer>>>({});
   const asking = useRef<Partial<Record<ProvidedDetailField,{stop:AbortController;timer:ReturnType<typeof setTimeout>}>>>({});
   const stop = useCallback(()=>{for(const ask of Object.values(asking.current)){ask.stop.abort();clearTimeout(ask.timer);}},[]);
   useEffect(()=>stop,[stop]);
+  const drop = (field:ProvidedDetailField) => {const pending=asking.current[field];pending?.stop.abort();clearTimeout(pending?.timer);};
+  const forget = (field:ProvidedDetailField) => {drop(field);setAnswers(was=>was[field] ? {...was,[field]:undefined} : was);};
   const ask = (field:ProvidedDetailField,value:string,delay=0,left=false) => {
     if(!onCheck)return;
-    const previous=asking.current[field];previous?.stop.abort();clearTimeout(previous?.timer);
+    drop(field);
     const controller=new AbortController();
     const timer=setTimeout(()=>{
       // No answer shows nothing here; Save asks the same rules again.
@@ -37,7 +39,7 @@ function useServerAnswers(onCheck:Check|undefined,onAnswer:(field:ProvidedDetail
     },delay);
     asking.current[field]={stop:controller,timer};
   };
-  return {answers,setAnswers,ask,stop};
+  return {answers,setAnswers,ask,drop,forget,stop};
 }
 
 export default function BusinessProfileDetails({saved,canEdit,onSave,onCheck,onSaved,group="all",onDirtyChange,initialDraft,onDraftChange,footerTarget}:{saved:BusinessProvidedDetails;canEdit:boolean;onSave:(details:BusinessProvidedDetails)=>BusinessProvidedDetails|Promise<BusinessProvidedDetails>;onCheck?:Check;onSaved?:()=>void;group?:"all"|"contact"|"presence";onDirtyChange?:(dirty:boolean)=>void;initialDraft?:BusinessProvidedDetails|null;onDraftChange?:(draft:BusinessProvidedDetails)=>void;footerTarget?:HTMLElement|null}) {
@@ -50,7 +52,7 @@ export default function BusinessProfileDetails({saved,canEdit,onSave,onCheck,onS
   const showSavedForm = useCallback((field:ProvidedDetailField,answer:Answer)=>{
     if(field === "phone" && !answer.code)setDraft(current=>current[field] === answer.value ? {...current,[field]:answer.savedForm} : current);
   },[]);
-  const {answers,setAnswers,ask,stop:stopAsking} = useServerAnswers(onCheck,showSavedForm);
+  const {answers,setAnswers,ask,drop,forget,stop:stopAsking} = useServerAnswers(onCheck,showSavedForm);
   const [attempt,setAttempt] = useState(0);
   const form = useRef<HTMLFormElement>(null);
   const mounted = useRef(true);
@@ -84,7 +86,7 @@ export default function BusinessProfileDetails({saved,canEdit,onSave,onCheck,onS
       autoCapitalize={format ? "none" : undefined} spellCheck={format ? false : undefined}
       maxLength={providedDetailLimits[field]} error={errorOf(field)} success={success} reserveMessages={reserveMessages}
       onBlur={()=>{if(answer && isAbout(answer,draft[field]))showSavedForm(field,answer);else if(draft[field] !== saved[field])ask(field,draft[field],0,true);}}
-      onChange={event=>{const value=event.target.value;setDraft(current=>({...current,[field]:value}));setFeedback(null);if(answer?.code)ask(field,value,FIXING_DELAY_MS);}} />;
+      onChange={event=>{const value=event.target.value;setDraft(current=>({...current,[field]:value}));setFeedback(null);if(value === saved[field])forget(field);else if(answer?.code)ask(field,value,FIXING_DELAY_MS);else drop(field);}} />;
   });
   const saveButton = <button style={footerTarget === undefined ? undefined : {borderRadius:"var(--radius-item)"}} type="submit" form={`${id}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full`} disabled={unchanged || saving}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
   const status = <p role={feedback === "failed"||feedback === "conflict" ? "alert" : "status"} className={`${feedback ? "" : "sr-only"} text-[14px] ${feedback === "failed"||feedback === "conflict" ? "text-[#9e2f39] dark:text-[#ec9aa0]" : "text-[#56635e] dark:text-white/70"}`}>{feedback ? t(feedback==="conflict"?"identity.business_profile_conflict":`business.settings.profile_details_${feedback}`) : ""}</p>;

@@ -15,18 +15,18 @@ afterEach(()=>{document.body.innerHTML="";});
 afterAll(async()=>{await GlobalRegistrator.unregister();});
 type Refused=Partial<Record<keyof BusinessProvidedDetails,string>>;
 /** A stand-in for the server: the test names which values it refuses, with which code, and the saved form of the ones it accepts. */
-const serverRefusing=(refusals:Record<string,string>,forms:Record<string,string>)=>{
- const asked:Partial<BusinessProvidedDetails>[]=[];
+const serverRefusing=(refusals:Record<string,string>,forms:Record<string,string>,held:boolean)=>{
+ const asked:Partial<BusinessProvidedDetails>[]=[];const waiting:(()=>void)[]=[];
  const refusedOf=(typed:Partial<BusinessProvidedDetails>):Refused=>Object.fromEntries(Object.entries(typed).filter(([,value])=>refusals[value]).map(([field,value])=>[field,refusals[value]]));
- return {asked,refusedOf,check:async(typed:Partial<BusinessProvidedDetails>)=>{asked.push(typed);const refused=refusedOf(typed);return {refused,savedForm:Object.keys(refused).length?{}:Object.fromEntries(Object.entries(typed).map(([field,value])=>[field,forms[value]??value]))};}};
+ return {asked,refusedOf,answer:()=>act(async()=>{for(const release of waiting.splice(0))release();}),check:async(typed:Partial<BusinessProvidedDetails>)=>{asked.push(typed);if(held)await new Promise<void>(resolve=>{waiting.push(resolve);});const refused=refusedOf(typed);return {refused,savedForm:Object.keys(refused).length?{}:Object.fromEntries(Object.entries(typed).map(([field,value])=>[field,forms[value]??value]))};}};
 };
 const settle=(ms=5)=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,ms));});
-async function mount({locale="es-419",refusals,forms={},saved={},fails=false,closes=false}:{locale?:string;refusals?:Record<string,string>;forms?:Record<string,string>;saved?:Partial<BusinessProvidedDetails>;fails?:boolean;closes?:boolean}={}){
+async function mount({locale="es-419",refusals,forms={},saved={},fails=false,closes=false,held=false}:{locale?:string;refusals?:Record<string,string>;forms?:Record<string,string>;saved?:Partial<BusinessProvidedDetails>;fails?:boolean;closes?:boolean;held?:boolean}={}){
  const {default:BusinessProfileDetails}=await import("../app/design-workspace/BusinessProfileDetails");
  const messages=locale==="en" ? (await import("../public/locales/en/common.json")).default : (await import("../public/locales/es-419/common.json")).default;
  const i18n=i18next.createInstance();await i18n.init({lng:locale,resources:{[locale]:{translation:messages}}});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);const writes:BusinessProvidedDetails[]=[];
- const server=refusals?serverRefusing(refusals,forms):null;let closed=0;
+ const server=refusals?serverRefusing(refusals,forms,held):null;let closed=0;
  const onSave=(details:BusinessProvidedDetails)=>{
   if(fails)throw new Error("quota");
   const refused=server?.refusedOf(details)??{};
@@ -85,6 +85,26 @@ test("a phone fixed after an error keeps what is typed until the field is left, 
   expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();expect(form.field("phone").value).toBe("8095550142");
   const asked=form.server!.asked.length;await form.blur("phone");
   expect(form.field("phone").value).toBe("+1 809 555 0142");expect(form.server!.asked).toHaveLength(asked);
+ }finally{await form.close();}
+});
+test.each([["",true],["",false],["12345",true]])("an answer still on its way when the saved value %p is typed back never marks it refused (request sent: %p)",async(savedPhone,sent)=>{
+ const form=await mount({refusals:{"abc 12":"invalid_business_phone_length","12345":"invalid_business_phone_length"},saved:{phone:savedPhone},held:true});try{
+  await form.type("phone","abc 12");
+  await act(async()=>{form.field("phone").focus();form.field("phone").blur();});
+  if(sent){await settle();expect(form.server!.asked).toEqual([{phone:"abc 12"}]);}
+  await form.type("phone",savedPhone);await settle();await form.server!.answer();await settle();
+  expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();expect(form.note("phone")).toBe("");
+  await form.blur("phone");await form.server!.answer();await settle();
+  expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();expect(form.server!.asked).toHaveLength(sent?1:0);
+ }finally{await form.close();}
+});
+test("an error stops showing as soon as the saved value is typed back, and the saved value is not asked about",async()=>{
+ const form=await mount({refusals:{"abc 12":"invalid_business_phone_length","12345":"invalid_business_phone_length"},saved:{phone:"12345"}});try{
+  await form.type("phone","abc 12");await form.blur("phone");expect(form.field("phone").getAttribute("aria-invalid")).toBe("true");
+  await form.type("phone","12345");
+  expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();
+  await settle(340);await form.blur("phone");
+  expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();expect(form.server!.asked).toEqual([{phone:"abc 12"}]);
  }finally{await form.close();}
 });
 test("a late answer does not overwrite what was typed after the field was left",async()=>{
