@@ -572,6 +572,31 @@ def test_a_credit_number_approved_as_an_expense_refuses_a_refund_claim(actions):
     )
 
 
+def test_registros_loads_a_row_whose_payment_year_was_mistyped(actions):  # noqa: ANN001
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    service, context, _ = actions
+    PostgresSpaceStore(service.authority.pool).rename(
+        context.owner_id, dgii.PRACTICE_NAME
+    )
+    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    cash = account_funding(cash_account(service, context))
+    draft_id, version = captured(service, context, "B0100000041", cash)
+    view = approved(service, context, draft_id, version)
+    outcome = declared(
+        service, context, draft_id, view.version, category="02", paid_on="0026-09-05"
+    )
+    assert outcome.outcome == "applied", outcome
+
+    answer = read_report(service.authority, context, ReportRequest())
+
+    assert [(row.draft_id, row.stage, row.export_missing) for row in answer.items] == [
+        (str(draft_id), "needs_fiscal_data", "payment_before_invoice")
+    ]
+
+
 def test_a_record_that_takes_no_606_refuses_the_606_write(actions):  # noqa: ANN001
     """An income carries a 607 or nothing. It reads declaration_editable false,
     open or approved, and a 606 write on it is refused with a clear code
