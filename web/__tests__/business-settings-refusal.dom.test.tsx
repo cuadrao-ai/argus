@@ -16,7 +16,7 @@ const denied=(status=403)=>Response.json({code:"permission_denied"},{status});
 const unavailable=()=>Response.json({code:"unavailable"},{status:503});
 const originalFetch=globalThis.fetch,originalAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;
 beforeAll(()=>{GlobalRegistrator.register({url:"http://localhost/biz",settings:{navigation:{disableChildFrameNavigation:true}}});(globalThis as {IS_REACT_ACT_ENVIRONMENT?:boolean}).IS_REACT_ACT_ENVIRONMENT=true;});
-afterEach(()=>{globalThis.fetch=originalFetch;if(originalAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=originalAuth;document.body.innerHTML="";});
+afterEach(async()=>{(await import("../components/business-app/foundation/toasts")).clearToasts();globalThis.fetch=originalFetch;if(originalAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=originalAuth;document.body.innerHTML="";});
 afterAll(async()=>GlobalRegistrator.unregister());
 
 async function mount(kind:"profile"|"access"){

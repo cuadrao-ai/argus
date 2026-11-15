@@ -1,5 +1,5 @@
+// Generated from src/argus/domain/business/phone_area_codes.py by scripts/sync_phone_rule.py. Do not edit.
 // Source: https://reports.nanpa.com/public/npa_report.csv (File Date 10/23/2026).
-// Refresh: python3 marketing/scripts/sync-contact-phone-area-codes.py [--input path/to/npa_report.csv]
 // Geographic, in-service area codes assigned to US or DOMINICAN REPUBLIC.
 export const CONTACT_PHONE_AREA_CODES = new Set([
   "201", "202", "203", "205", "206", "207", "208", "209", "210", "212", "213", "214", "215", "216", "217", "218", "219", "220", "223", "224",

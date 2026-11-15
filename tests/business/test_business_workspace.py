@@ -4,7 +4,12 @@ from uuid import uuid4
 import pytest
 from argus.domain.business.access import InMemoryAccessStore
 from argus.domain.business.spaces import InMemorySpaceStore
-from argus.domain.business.workspace import BusinessDetails, SaveWorkspace, WorkspaceError
+from argus.domain.business.workspace import (
+    BusinessDetails,
+    BusinessDetailsInput,
+    SaveWorkspace,
+    WorkspaceError,
+)
 from pydantic import ValidationError
 
 
@@ -39,16 +44,83 @@ def test_detail_limits_apply_after_trimming(field, limit):
     ],
 )
 def test_invalid_websites_are_refused(website):
-    with pytest.raises(ValidationError):
-        BusinessDetails(website=website)
+    with pytest.raises(ValidationError) as refused:
+        BusinessDetailsInput(website=website)
+    assert [error["type"] for error in refused.value.errors()] == [
+        "invalid_business_website"
+    ]
 
 
 @pytest.mark.parametrize(
     "email", ["name", "a@host", "a b@host.example", "a@@host.example"]
 )
 def test_invalid_emails_are_refused(email):
-    with pytest.raises(ValidationError):
-        BusinessDetails(email=email)
+    with pytest.raises(ValidationError) as refused:
+        BusinessDetailsInput(email=email)
+    assert [error["type"] for error in refused.value.errors()] == [
+        "invalid_business_email"
+    ]
+
+
+@pytest.mark.parametrize(
+    "typed,saved",
+    [
+        ("8095550142", "+1 809 555 0142"),
+        ("(809) 555-0142", "+1 809 555 0142"),
+        ("+1 809-555-0142", "+1 809 555 0142"),
+        ("(829) 555-0142", "+1 829 555 0142"),
+        (" 849 555 0142 ", "+1 849 555 0142"),
+        ("809.555.0142", "+1 809 555 0142"),
+        ("1-809-555-0142", "+1 809 555 0142"),
+        ("+1 212 555 0100", "+1 212 555 0100"),
+        ("2125550100", "+1 212 555 0100"),
+        ("", ""),
+        ("   ", ""),
+    ],
+)
+def test_dominican_and_united_states_phones_are_saved_in_one_form(typed, saved):
+    assert BusinessDetailsInput(phone=typed).phone == saved
+
+
+@pytest.mark.parametrize(
+    "phone,reason",
+    [
+        ("abc", "empty"),
+        ("809-555-014", "length"),
+        ("+1 809 555 01420", "length"),
+        ("809-155-0142", "format"),
+        ("+44 20 7946 0958", "region"),
+        ("+34 912 345 678", "region"),
+        ("211-555-0142", "region"),
+        ("416-555-0142", "region"),
+    ],
+)
+def test_a_refused_phone_carries_its_reason(phone, reason):
+    with pytest.raises(ValidationError) as refused:
+        BusinessDetailsInput(phone=phone)
+    assert [error["type"] for error in refused.value.errors()] == [
+        f"invalid_business_phone_{reason}"
+    ]
+
+
+def test_a_phone_saved_before_the_rule_still_reads_and_leaves_other_saves_alone():
+    store = InMemorySpaceStore()
+    first, _ = store.create("owner", "First")
+    store._details[first.id] = BusinessDetails(phone="abc 12")
+    assert store.read_workspace("owner", first.id).details.phone == "abc 12"
+    saved = store.save_workspace(
+        "owner",
+        first.id,
+        SaveWorkspace(expected_revision=0, details={"website": "colmado.example"}),
+        "website",
+    )
+    assert saved.details.phone == "abc 12"
+    assert saved.details.website == "https://colmado.example"
+
+
+@pytest.mark.parametrize("stored", ["809-555-0142", "8095550142", "+1 809 555 0142"])
+def test_a_phone_saved_in_an_older_form_reads_in_the_one_display_form(stored):
+    assert BusinessDetails.model_validate({"phone": stored}).phone == "+1 809 555 0142"
 
 
 def test_memory_concurrent_commands_and_legacy_name_revision():
