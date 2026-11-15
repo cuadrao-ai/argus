@@ -209,8 +209,9 @@ def add_core_middleware_and_handlers(app: FastAPI) -> None:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        # The web names a downloaded file the way the server named it.
-        expose_headers=["Content-Disposition", "Retry-After", "X-Request-Id"],
+        # The web names a downloaded file the way the server named it, and
+        # sends a list's ETag back to ask whether it changed.
+        expose_headers=["Content-Disposition", "ETag", "Retry-After", "X-Request-Id"],
     )
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)

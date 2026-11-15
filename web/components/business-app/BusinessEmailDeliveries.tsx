@@ -1,21 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowLeft, ChevronRight, FileText, Mail, RefreshCw } from "lucide-react";
+import { useEffect, useEffectEvent, useState } from "react";
+import { ArrowLeft, ChevronRight, CircleAlert, FileText, Mail, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake, BusinessEmailPart } from "@/lib/business-email";
-import { businessReceivingAddress } from "@/lib/business-email";
+import { businessReceivingAddress, emailDeliveriesNeedRefresh } from "@/lib/business-email";
+import { recordGone, referenceCode } from "@/lib/failure-screen";
 import { useReceivingChannels } from "./business-context";
 import { useBusiness } from "./BusinessWorkspace";
 import { useRecordTray } from "./record-tray";
+import { POLL_MS, POLLS } from "./useEmailDeliveries";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatBusinessName, formatRelativeTime } from "./business-format";
 import { Settle } from "./business-skeletons";
 import { canManageBusiness, cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { CopyButton, useCopyLabels, WrappingAddress } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
+import { showToast } from "./foundation/toasts";
 import BusinessEmailAliasPreview, {useReceptionPreview} from "@/app/design-workspace/BusinessEmailAliasPreview";
 import { resolveLanguage } from "@/lib/language-features";
 
@@ -267,15 +271,43 @@ export function useEmailWords() {
 /**
  * One email as a record: beside the Bandeja on a desktop, the whole page with
  * a way back on a phone. It reads the workspace's emails, so it opens from a
- * Bandeja row, a receipt's Ver correo and an old link alike.
+ * Bandeja row, a receipt's Ver correo and an old link alike. The workspace
+ * lists only the newest emails, so one it does not list is asked for by id.
  */
 export function EmailRecord({ emailId }: { emailId: string }) {
   const { t, i18n } = useTranslation();
   const { records, source, openPanel, emailRefresh } = useBusiness();
   const words = useEmailWords();
   const tray = useRecordTray();
-  const delivery = records.emails?.find((item) => item.id === emailId) ?? null;
-  const known = records.emails !== null || Boolean(records.emailsFailure);
+  const listed = records.emails?.find((item) => item.id === emailId) ?? null;
+  const unlisted = !listed && (records.emails !== null || Boolean(records.emailsFailure));
+  const [asked, setAsked] = useState<{ status: "loading" } | { status: "ready"; data: BusinessEmailDelivery } | { status: "failed"; reference: string }>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  // An email that is gone closes onto the Bandeja, so a dead link never leaves a panel that cannot load.
+  const onLookupFailed = useEffectEvent((error: unknown) => {
+    if (!recordGone(error)) {
+      setAsked({ status: "failed", reference: referenceCode(error) });
+      return;
+    }
+    openPanel({ kind: "inbox" });
+    showToast({ kind: "info", text: t("business.email.not_found", "We couldn't find this email.") });
+  });
+  // An email still moving is asked for again a few times, as the list does; a retry asks afresh with the panel kept.
+  useEffect(() => {
+    if (!unlisted) return undefined;
+    let current = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let polls = 0;
+    setAsked((value) => value.status === "ready" ? value : { status: "loading" });
+    const ask = () => source.emailDelivery(emailId).then((data) => {
+      if (!current) return;
+      setAsked({ status: "ready", data });
+      if (emailDeliveriesNeedRefresh([data]) && polls++ < POLLS) timer = setTimeout(() => void ask(), POLL_MS);
+    }).catch((error: unknown) => { if (current) onLookupFailed(error); });
+    void ask();
+    return () => { current = false; clearTimeout(timer); };
+  }, [emailId, source, unlisted, attempt]);
+  const delivery = listed ?? (unlisted && asked.status === "ready" ? asked.data : null);
   return (
     <section data-testid="email-record" aria-labelledby="email-record-title">
       {tray ? null : (
@@ -294,12 +326,19 @@ export function EmailRecord({ emailId }: { emailId: string }) {
             delivery={delivery}
             inbox={records.inbox}
             loadDetail={source.emailDelivery}
-            retryDelivery={async (id) => { await source.retryEmailDelivery(id); emailRefresh.refresh(); }}
+            retryDelivery={async (id) => { await source.retryEmailDelivery(id); emailRefresh.refresh(); if (unlisted) setAttempt((value) => value + 1); }}
             openReceipt={(id) => openPanel({ kind: "receipt", receiptId: id, list: "inbox" })}
           />
         </>
-      ) : known ? (
-        <p role="alert" className="text-[14px] text-[#56635e] dark:text-white/70">{records.emailsFailure ? t("business.empty.email_error", "We couldn't load your emails") : t("business.email.not_found", "We couldn't find this email.")}</p>
+      ) : unlisted && asked.status === "failed" ? (
+        <section className={cardClass} data-testid="email-load-error">
+          <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
+            <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+            {t("common.refresh_failed", "We couldn't update.")}
+          </p>
+          <div className="mt-1 text-[#9e2f39] dark:text-[#ec9aa0]"><ReferenceCode reference={asked.reference} /></div>
+          <button type="button" className={`${secondaryButtonClass} mt-4`} onClick={() => setAttempt((value) => value + 1)}>{t("common.retry", "Retry")}</button>
+        </section>
       ) : (
         <Settle pending layout="rows" rows={3} />
       )}

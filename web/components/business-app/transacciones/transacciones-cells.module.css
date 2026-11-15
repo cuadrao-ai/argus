@@ -3,6 +3,8 @@
 .detail:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:2px; border-radius:4px; }
 .workflow { display:inline-flex; align-items:center; max-width:100%; border-radius:999px; padding:3px 8px; color:var(--workflow-ink,#422f29); font-size:12px; font-weight:500; line-height:1.4; white-space:nowrap; }
 :global(.dark) .workflow { color:var(--workflow-ink,#f8eee7); }
+/* An Estado chip wider than its column cuts with an ellipsis; it never spills past its pill or widens the table. */
+.stage { display:inline-block; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; }
 .noteButton { display:block; width:100%; padding:0; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:inherit; }
 button.noteButton { min-height:44px; line-height:44px; }
 .noteButton:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:2px; border-radius:4px; }
@@ -25,3 +27,9 @@ button.noteButton { min-height:44px; line-height:44px; }
   .emptyActionDash { visibility:hidden; }
   .emptyActionIcon { visibility:visible; }
 }
+
+/* A record that just arrived: a wash that fades out by itself. It sits over each cell's own background, and the list sets how long. */
+.arrival[data-arrived=true] > td { --arrival-wash:color-mix(in srgb,var(--cuadrao-green) 20%,transparent); animation:arrival var(--arrival-highlight) ease-out; }
+@keyframes arrival { from,70% { box-shadow:inset 0 0 0 999px var(--arrival-wash); } }
+.arrival[data-arrived=true]:focus-visible > td { animation:none; }
+@media (prefers-reduced-motion:reduce) { .arrival[data-arrived=true] > td { animation:none; box-shadow:inset 0 0 0 999px var(--arrival-wash); } }

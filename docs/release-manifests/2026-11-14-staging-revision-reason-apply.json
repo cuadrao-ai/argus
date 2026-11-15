@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-11-14-revision-reason",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "26acdc218c8c9fb3df2e713b65d7eec706c21f61",
+  "versions_sha256": "2abcba5d8f29b6d9342c8fdd21a1edd37f71d9f6df24055be86f46dc2c38bf16",
+  "issued_at": "2026-11-14T22:41:00Z",
+  "expires_at": "2026-11-16T22:41:00Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas approved on 2026-11-14 (\"Yes, start both\") applying the revision reason migration (20261114103519, PR 2128) to staging before the staging deploy of integration 26acdc218c8c9fb3df2e713b65d7eec706c21f61. Standing rule 2026-10-21: staging skedzwocnmrhfigiwyzi only, committed record, dry run first. Does not authorize production."
+}

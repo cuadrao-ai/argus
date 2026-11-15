@@ -188,8 +188,7 @@ def _form_statuses(
 ) -> tuple[dict[str, str], dict, frozenset[str], dict[str, tuple[str, ...]]]:
     """Each form's status word, its foreign-currency count, the activities it
     holds for a missing Forma de Pago, and what each held activity is missing
-    in the export's words, all read from the summary the export packet
-    writes."""
+    in the export's words, all read from the one DGII summary."""
 
     with connection.cursor(row_factory=dict_row) as cursor:
         records, rnc, name = fiscal_snapshot(cursor, context, activities)

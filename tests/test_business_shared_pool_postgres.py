@@ -336,18 +336,19 @@ def test_async_logo_uploads_keep_distinct_borrowed_connections(management, monke
         ready, arrivals = asyncio.Event(), 0
 
         async def read_upload(_request):
-            nonlocal arrivals
-            arrivals += 1
-            if arrivals == 2:
-                ready.set()
-            await asyncio.wait_for(ready.wait(), timeout=2)
             return "image/png", image.getvalue()
 
         monkeypatch.setattr(business_logo, "read_image_upload", read_upload)
 
         async def run():
+            nonlocal arrivals
+            upload = await business_logo._read_logo_upload(request)
             with contextmanager(require_business_management)(request, context) as guarded:
-                result = await business_logo.put_logo(request, guarded)
+                arrivals += 1
+                if arrivals == 2:
+                    ready.set()
+                await asyncio.wait_for(ready.wait(), timeout=2)
+                result = await business_logo.put_logo(request, upload, guarded)
                 assert result["id"] == context.scope.owner.space_id
                 return guarded.connection
 

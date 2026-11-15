@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from psycopg import Connection
 
 from argus.api.business import BusinessContext, require_business_management
@@ -82,9 +82,20 @@ def _payload(
     return space_payload(space, connection=connection)
 
 
+async def _read_logo_upload(request: Request) -> tuple[str, bytes] | HTTPException:
+    try:
+        return await read_image_upload(request)
+    except HTTPException as error:
+        # Keep permission and service-availability errors ahead of upload errors.
+        return error
+
+
 @router.put("/logo", response_model=BusinessSpaceInfo, responses=_RESPONSES)
 async def put_logo(
     request: Request,
+    # Dependencies resolve in declaration order: finish the bounded body read
+    # before the management guard acquires the shared connection and grant lock.
+    upload: Annotated[tuple[str, bytes] | HTTPException, Depends(_read_logo_upload)],
     context: Annotated[
         BusinessContext, Depends(require_business_management, scope="function")
     ],
@@ -95,7 +106,9 @@ async def put_logo(
 
     _require_manager(request, context)
     images = require_profile_images(request, connection=context.connection)
-    media_type, content = await read_image_upload(request)
+    if isinstance(upload, HTTPException):
+        raise upload
+    media_type, content = upload
     space_id = context.scope.owner.space_id
     try:
         images.replace(business(space_id), content, media_type)

@@ -104,13 +104,9 @@
   }
 }
 
-.footerBarWithCredits > a:last-of-type {
-  margin-left: 0;
-}
 .footerCredits {
   display: flex;
   align-items: center;
-  margin-left: auto;
   color: var(--fmute);
   font-size: 14px;
   white-space: nowrap;
@@ -131,7 +127,7 @@
   display: block;
   width: max-content;
   padding-left: 16px;
-  clip-path: inset(0 0 0 100%);
+  clip-path: inset(0 100% 0 0);
   transition: clip-path 500ms ease-out;
 }
 .footerCredits:hover .footerCreditReveal {

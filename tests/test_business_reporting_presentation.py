@@ -30,7 +30,14 @@ def test_default_presentation_has_net_tax_and_gross_visible():
     assert (
         presentation.hidden
         == HIDDEN_COLUMNS
-        == ("fiscal_number", "expense_type", "payment_form", "funding")
+        == (
+            "counterparty",
+            "fiscal_number",
+            "note",
+            "attachment",
+            "payment_form",
+            "funding",
+        )
     )
 
 
@@ -49,24 +56,24 @@ def test_legacy_category_order_upgrades_in_place():
         "note",
         "attachment",
         "funding",
-        "fiscal_number",
+        "counterparty_id",
         "itbis_amount",
+        "fiscal_number",
     )
     assert presentation.hidden == (
         "expense_type",
         "payment_form",
-        "fiscal_number",
+        "counterparty_id",
         "itbis_amount",
+        "fiscal_number",
     )
     assert presentation.density == 40
 
 
 def test_current_order_is_not_rewritten():
-    order = list(reversed(TABLE_COLUMNS[1:]))
-    presentation = Presentation.model_validate(
-        {"order": ["counterparty", *order], "hidden": []}
-    )
-    assert presentation.order == ("counterparty", *order)
+    order = tuple(reversed(TABLE_COLUMNS))
+    presentation = Presentation.model_validate({"order": order, "hidden": []})
+    assert presentation.order == order
     assert presentation.hidden == ()
 
 
@@ -80,10 +87,13 @@ def test_category_is_no_longer_a_column():
 def test_legacy_order_with_no_hidden_key_hides_forma_de_pago_once():
     presentation = Presentation.model_validate({"order": LEGACY_ORDER})
     assert presentation.hidden == (
+        "counterparty",
         "fiscal_number",
-        "expense_type",
+        "note",
+        "attachment",
         "payment_form",
         "funding",
+        "counterparty_id",
         "itbis_amount",
     )
 
@@ -109,18 +119,19 @@ def test_query_returns_backend_default_presentation(version):
     assert [
         key for key in answer.presentation.order if key not in answer.presentation.hidden
     ] == [
-        "counterparty",
+        "counterparty_id",
         "date",
+        "expense_type",
         "net_amount",
         "itbis_amount",
         "gross_amount",
         "stage",
-        "note",
-        "attachment",
     ]
     assert answer.presentation.hidden == (
+        "counterparty",
         "fiscal_number",
-        "expense_type",
+        "note",
+        "attachment",
         "payment_form",
         "funding",
     )
@@ -138,7 +149,7 @@ def test_query_preserves_explicit_layout_without_changing_fingerprint():
     )
     observed_at = datetime(2026, 11, 6, tzinfo=timezone.utc)
     presentation = Presentation(
-        order=("counterparty", *reversed(TABLE_COLUMNS[1:])), hidden=(), density=40
+        order=tuple(reversed(TABLE_COLUMNS)), hidden=(), density=40
     )
     answer = run_query(
         identity, (), ReportRequestV2(presentation=presentation), observed_at
@@ -189,13 +200,14 @@ def test_saved_order_appends_fiscal_columns_hidden_without_moving_existing_colum
     )
     expected = [key for key in order if key not in {"currency", "family"}]
     expected.insert(expected.index("gross_amount"), "net_amount")
-    assert presentation.order == (*expected, "fiscal_number", "itbis_amount")
-    assert presentation.hidden == ("date", "fiscal_number", "itbis_amount")
+    added = ("counterparty_id", "itbis_amount", "fiscal_number")
+    assert presentation.order == (*expected, *added)
+    assert presentation.hidden == ("date", *added)
     assert presentation.density == 56
 
 
 def test_selected_fiscal_columns_stay_visible_and_keep_their_order():
-    order = ("counterparty", *reversed(TABLE_COLUMNS[1:]))
+    order = tuple(reversed(TABLE_COLUMNS))
     presentation = Presentation(order=order, hidden=())
     assert presentation.order == order
     assert presentation.hidden == ()
@@ -217,7 +229,7 @@ def test_partial_fiscal_upgrade_preserves_selected_column(selected, missing):
     "invalid",
     [
         {"order": [*TABLE_COLUMNS, "fiscal_number"]},
-        {"order": [*TABLE_COLUMNS[1:], "counterparty"]},
+        {"hidden": list(TABLE_COLUMNS)},
         {"order": [*TABLE_COLUMNS, "unknown"]},
         {"hidden": ["fiscal_number", "fiscal_number"]},
         {"hidden": ["unknown"]},
@@ -228,33 +240,6 @@ def test_partial_fiscal_upgrade_preserves_selected_column(selected, missing):
 def test_fiscal_migration_keeps_presentation_validation(invalid):
     with pytest.raises(ValidationError):
         Presentation.model_validate(invalid)
-
-
-def test_default_columns_keep_fiscal_numbers_and_itbis_next_to_their_related_columns():
-    assert TABLE_COLUMNS == (
-        "counterparty",
-        "fiscal_number",
-        "date",
-        "net_amount",
-        "itbis_amount",
-        "gross_amount",
-        "stage",
-        "note",
-        "attachment",
-        "expense_type",
-        "payment_form",
-        "funding",
-    )
-    assert [key for key in TABLE_COLUMNS if key not in HIDDEN_COLUMNS] == [
-        "counterparty",
-        "date",
-        "net_amount",
-        "itbis_amount",
-        "gross_amount",
-        "stage",
-        "note",
-        "attachment",
-    ]
 
 
 def test_removed_stored_columns_are_dropped_from_order_and_hidden():

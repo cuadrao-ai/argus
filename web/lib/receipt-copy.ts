@@ -1,7 +1,7 @@
 import enCommon from "@/public/locales/en/common.json";
 import esCommon from "@/public/locales/es-419/common.json";
 import { createInstance } from "i18next";
-import { SPANISH_ENABLED, type ArgusLanguage } from "./language-features";
+import type { ArgusLanguage } from "./language-features";
 
 /**
  * Server-side copy for the public receipt route.
@@ -22,7 +22,7 @@ const COPY: Record<ArgusLanguage, ReceiptCopy> = {
 export function receiptLanguageFromAcceptLanguage(
   header: string | null | undefined,
 ): ArgusLanguage {
-  if (!SPANISH_ENABLED || !header) return "en";
+  if (!header) return "en";
   const preferred = header
     .split(",")
     .map((entry) => {

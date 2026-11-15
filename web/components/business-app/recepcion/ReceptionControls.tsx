@@ -1,19 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { LockKeyhole, Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import RecordsPreviewPopover from "../transacciones/RecordsPreviewPopover";
-import { DENSITIES, type Density } from "../transacciones/table-density";
-import controlStyles from "../transacciones/records-filter-preview.module.css";
+import RecordsSettingsPreview from "../transacciones/RecordsSettingsPreview";
+import { defaultReceptionPreferences, receptionLayout, type ReceptionPreferences } from "./reception-columns";
 import type { ReceptionView } from "./reception-model";
 import styles from "./reception.module.css";
-
-export type ReceptionPreferences = { density: Density; source: boolean; sender: boolean; arrival: boolean; amount: boolean; currency: boolean };
-export const defaultReceptionPreferences = (): ReceptionPreferences => ({ density: "amplio", source: true, sender: false, arrival: true, amount: false, currency: false });
-/** Every row on Necesitan atención needs attention, so there the state column names why. */
-export const statusColumnWord = (view: ReceptionView) => view === "attention" ? "status_reason" : "status";
 
 export function ReceptionSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const { t } = useTranslation();
@@ -21,25 +13,5 @@ export function ReceptionSearch({ value, onChange }: { value: string; onChange: 
 }
 
 export function ReceptionSettings({ value, view, onChange }: { value: ReceptionPreferences; view: ReceptionView; onChange: (value: ReceptionPreferences) => void }) {
-  const { t } = useTranslation();
-  return <RecordsPreviewPopover iconOnly label={t("business.transactions.density.options")} icon={<SlidersHorizontal size={18} aria-hidden="true" />} width={440}>
-    {() => <ReceptionSettingsBody value={value} view={view} onChange={onChange} />}
-  </RecordsPreviewPopover>;
+  return <RecordsSettingsPreview cards value={receptionLayout(value, view)} onChange={({ order, hidden, density }) => onChange({ order, hidden, density })} onRestore={() => onChange(defaultReceptionPreferences())} />;
 }
-
-function ReceptionSettingsBody({ value, view, onChange }: { value: ReceptionPreferences; view: ReceptionView; onChange: (value: ReceptionPreferences) => void }) {
-  const { t } = useTranslation();
-  const [tab, setTab] = useState<"columns" | "height">("columns");
-  const word = (key: string) => t(`business.transactions.layout.settings.${key}`);
-  const label = (key: string) => t(key === "currency" ? "business.transactions.columns.moneda" : `business.reception_preview.${key === "status" ? statusColumnWord(view) : key}`);
-  return <div className={controlStyles.settings}>
-    <SegmentedControl label={t("business.transactions.density.options")} value={tab} onChange={setTab} segments={(["columns", "height"] as const).map(key => ({ key, label: key === "columns" ? t("business.reception_preview.visible_information") : word(key) }))} fill />
-    {tab === "columns" ? <section aria-label={t("business.reception_preview.visible_information")}>
-      <ul className={controlStyles.columnList}>{(["document", "file", "source", "sender", "amount", "currency", "status", "arrival", "next_action"] as const).map(key => <li key={key} className={controlStyles.columnRow}>
-        {key === "source" || key === "sender" || key === "arrival" || key === "amount" || key === "currency" ? <label className={controlStyles.choice}><input type="checkbox" checked={value[key]} onChange={() => onChange({ ...value, [key]: !value[key] })} /><span>{label(key)}</span></label> : <div className={controlStyles.requiredColumn}><LockKeyhole size={16} aria-hidden="true" /><span>{label(key)}<small className={controlStyles.required}>{word(key === "document" ? "fixed" : "required")}</small></span></div>}
-      </li>)}</ul>
-    </section> : <section aria-label={word("height")}>{DENSITIES.map(density => <label className={controlStyles.choice} key={density}><input type="radio" name="reception-density" checked={value.density === density} onChange={() => onChange({ ...value, density })} /><span>{t(`business.transactions.density.${density}`)}</span></label>)}</section>}
-    <div className={controlStyles.settingsFooter}><button type="button" className={controlStyles.clear} onClick={() => onChange(defaultReceptionPreferences())}>{word("restore")}</button></div>
-  </div>;
-}
-

@@ -8,11 +8,14 @@ import { createFixtureBusinessDataSource } from "@/components/business-app/fixtu
 import { setChosenGrant } from "@/lib/business-grant";
 import { reportAnswerSchema, reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest, type RecordsCurrency } from "@/lib/business-reports-api";
 import { createBusinessReportHttpFixture, fixtureId } from "../fixtures/business-report-http-fixture";
-import type { recordedReportAnswer } from "../fixtures/recorded-report-answer";
+import { recordedReportAnswer } from "../fixtures/recorded-report-answer";
 import { translate, type TestLanguage } from "./i18n-instance";
 
 let cleanup = async () => {};
 export const unmountConnectedReport = () => cleanup();
+
+/** The default table hides the name, Notas and Adjunto. Tests that work on those cells mount a table whose server layout shows them. */
+export const mountAnnotatedReport: typeof mountConnectedReport = (options = {}) => mountConnectedReport({ presentation: { ...recordedReportAnswer.presentation, hidden: recordedReportAnswer.presentation.hidden.filter((key) => key !== "counterparty" && key !== "note" && key !== "attachment") }, ...options });
 
 export async function mountConnectedReport(options: { onAdd?: () => void; defaultCurrency?: RecordsCurrency; workspaceFailure?: "error" | "refused" | "missing_default"; viewRecipe?: ReportRequest; topLevel?: boolean; grantId?: string; workspaceGrant?: string | null; readOnly?: boolean; large?: boolean; legacy?: boolean; initial?: ReportRequest; width?: number; queryGate?: Promise<void>; queryAnswer?: (request: ReportRequest, answer: ReportAnswer) => ReportAnswer | Promise<ReportAnswer>; waitForAnswer?: boolean; language?: TestLanguage; presentation?: typeof recordedReportAnswer.presentation; role?: string; edit?: (records: ReportRecord[]) => void; waiting?: number | null; dismissedGuides?: string[]; guideDismissGate?: Promise<void>; viewWriteGate?: () => Promise<void> | undefined } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: options.width ?? 1440, height: 900 });
@@ -66,5 +69,10 @@ export async function mountConnectedReport(options: { onAdd?: () => void; defaul
   const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || label === "Filtros" && button.textContent?.startsWith("Filtros") || button.getAttribute("aria-label") === label);
   const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => { await act(async () => { const prototype = element instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); }); };
   if (options.waitForAnswer !== false) await settle(() => document.querySelector(`[data-report-schema="${options.legacy ? 1 : 2}"] [data-testid="records-count"]`) !== null);
-  return { fixture, settle, click, button, type, downloads, opened, context, rerender, reloads: () => reloads, dismissedGuides, guideRequests };
+  // What the workspace does after an action (a reload), and after a change check that brought nothing or something new.
+  const reloaded = async () => { context.revision += 1; await rerender(); };
+  const lists = context.records as { listChanges?: number; listChecks?: number };
+  const listChecked = async () => { lists.listChecks = (lists.listChecks ?? 0) + 1; await rerender(); };
+  const listChanged = async () => { lists.listChanges = (lists.listChanges ?? 0) + 1; await listChecked(); };
+  return { fixture, settle, click, button, type, downloads, opened, context, rerender, reloaded, listChanged, listChecked, reloads: () => reloads, dismissedGuides, guideRequests };
 }

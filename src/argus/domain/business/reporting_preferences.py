@@ -17,11 +17,10 @@ from pydantic import (
 from argus.domain.business.contracts.dgii import ExpenseType
 from argus.domain.business.reporting_columns import (
     HIDDEN_COLUMNS,
-    PINNED_COLUMNS,
-    REQUIRED_COLUMNS,
     TABLE_COLUMNS,
     Family,
     TableColumn,
+    every_table_shows_one,
 )
 from argus.domain.recording.currency import normalize_currency, parse_minor_units
 from argus.domain.recording.errors import RecordingInputError
@@ -146,7 +145,7 @@ Sort = Literal[
 
 def _current_columns(value: Any) -> Any:
     """Upgrade a stored or linked layout to today's columns. A column the
-    layout does not name joins it at the end, hidden unless it is required.
+    layout does not name joins it at the end, hidden.
     Tipo de gasto, Forma de pago and the net amount keep their shipped places."""
 
     if not isinstance(value, dict) or not isinstance(value.get("order"), list):
@@ -171,7 +170,7 @@ def _current_columns(value: Any) -> Any:
     for key in TABLE_COLUMNS:
         if key not in order:
             order.append(key)
-            if key not in hidden and key not in REQUIRED_COLUMNS:
+            if key not in hidden:
                 hidden.append(key)
     return {**value, "order": order, "hidden": hidden}
 
@@ -188,18 +187,12 @@ class Presentation(Contract):
 
     @model_validator(mode="after")
     def canonical_columns(self) -> Presentation:
-        if (
-            len(self.order) != len(TABLE_COLUMNS)
-            or set(self.order) != set(TABLE_COLUMNS)
-            or self.order[: len(PINNED_COLUMNS)] != PINNED_COLUMNS
-        ):
-            raise ValueError("all table columns occur once; pinned columns lead")
-        if len(set(self.hidden)) != len(self.hidden) or set(self.hidden) & (
-            REQUIRED_COLUMNS
-        ):
-            raise ValueError(
-                "required columns cannot be hidden; hidden columns are unique"
-            )
+        if len(self.order) != len(TABLE_COLUMNS) or set(self.order) != set(TABLE_COLUMNS):
+            raise ValueError("all table columns occur once")
+        if len(set(self.hidden)) != len(self.hidden):
+            raise ValueError("hidden columns are unique")
+        if not every_table_shows_one(set(self.order) - set(self.hidden)):
+            raise ValueError("every table keeps one column shown")
         return self
 
 

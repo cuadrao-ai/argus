@@ -3,7 +3,7 @@ import type { Purchase606, RecordsCurrency } from "./business-reports-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
-import { apiFetch, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
+import { apiFetch, apiFetchIfChanged, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
 import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
@@ -185,17 +185,7 @@ export type ReceiptDetail = ReceiptSummary & {
   missing_fields: (keyof ReceiptReviewFields)[];
 };
 
-export function businessExportPeriodValid(start: string, end: string): boolean {
-  const date = (value: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000-")) return NaN;
-    const parsed = Date.parse(`${value}T00:00:00Z`);
-    return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value ? parsed : NaN;
-  };
-  const days = (date(end) - date(start)) / 86_400_000;
-  return days >= 0 && days <= 365;
-}
-
-export async function fetchBusinessExport(draftId: string | undefined, start: string, end: string, signal?: AbortSignal, expectedGrant = getChosenGrant()): Promise<Blob> {
+export async function fetchBusinessExport(start: string, end: string, signal?: AbortSignal, expectedGrant = getChosenGrant()): Promise<Blob> {
   const generation = browserAuthGeneration();
   const grant = expectedGrant;
   const requireScope = () => {
@@ -206,7 +196,6 @@ export async function fetchBusinessExport(draftId: string | undefined, start: st
   const authHeaders = await authenticatedRequestHeaders();
   requireScope();
   const query = new URLSearchParams({ start, end });
-  if (draftId) query.set("draft_id", draftId);
   const response = await fetch(`${CUADRAO_API_BASE_URL}/business/exports?${query}`, {
     headers: argusApiRequestHeaders(undefined, authHeaders, grant), credentials: "include", cache: "no-store", signal,
   });
@@ -631,8 +620,18 @@ export function approveBusinessListos(items: readonly ListoItem[], idempotencyKe
   return apiFetch("/business/drafts/approve-listos", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ items }) });
 }
 
-export function getBusinessReceiptPage(view: "inbox" | "all", signal?: AbortSignal): Promise<{ items: ReceiptSummary[]; activity: ReceiptActivityCounts }> {
-  return apiFetch(`/business/receipts?view=${view}`, { signal });
+/** `version` names the Business's lists as this answer saw them; null when the server sent none. */
+export type ReceiptPage = { items: ReceiptSummary[]; activity: ReceiptActivityCounts; version?: string | null };
+
+export async function getBusinessReceiptPage(view: "inbox" | "all", signal?: AbortSignal): Promise<ReceiptPage> {
+  const answer = await apiFetchIfChanged<ReceiptPage>(`/business/receipts?view=${view}`, null, { signal });
+  return { ...answer!.body, version: answer!.version };
+}
+
+/** The Bandeja page when the Business's lists changed since `known`; null when they did not. */
+export async function getBusinessReceiptChanges(known: string | null, signal?: AbortSignal): Promise<ReceiptPage | null> {
+  const answer = await apiFetchIfChanged<ReceiptPage>("/business/receipts?view=inbox", known, { signal });
+  return answer && { ...answer.body, version: answer.version };
 }
 
 export async function listBusinessReceipts(

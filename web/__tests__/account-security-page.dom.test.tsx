@@ -262,7 +262,7 @@ describe("account security", () => {
     }
   });
 
-  test("each session choice says what it does, and signing out everywhere is red and confirms first", async () => {
+  test("each session choice says what it does, and signing out everywhere is quiet and confirms first", async () => {
     const page = await mount();
     try {
       for (const [name, line] of [
@@ -273,7 +273,11 @@ describe("account security", () => {
         const describedBy = page.button(name).getAttribute("aria-describedby");
         assert.equal(document.getElementById(describedBy ?? "")?.textContent, line);
       }
-      assert.match(page.button("Cerrar todas las sesiones").className, /text-\[#9e2f39\]/);
+      assert.equal(
+        page.button("Cerrar todas las sesiones").className,
+        page.button("Cerrar otras sesiones").className,
+        "all-session sign-out reuses the same quiet styling as the other session action",
+      );
       await page.press("Cerrar todas las sesiones");
       assert.deepEqual(calls, [], "nothing signs out before the confirm");
       const dialog = document.querySelector('[role="alertdialog"]');

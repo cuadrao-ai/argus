@@ -70,9 +70,10 @@ CalendarDate = Annotated[date, BeforeValidator(_calendar_date)]
     response_class=Response,
     responses={
         200: {
+            "description": "The close-Business handover package: the original receipts under `originals/`, `records.csv`, `records.xlsx`, `personal.csv`, `unresolved.csv` and `manifest.json`. It carries no DGII file.",
             "content": {
                 "application/zip": {"schema": {"type": "string", "format": "binary"}}
-            }
+            },
         },
         403: {"description": "The live grant does not permit reading this Business."},
         404: {"description": "The Business or canonical draft anchor is unavailable."},

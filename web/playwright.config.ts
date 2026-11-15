@@ -31,7 +31,6 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       NEXT_PUBLIC_MOCK_AUTH: mockAuth,
-      NEXT_PUBLIC_ENABLE_SPANISH: "true",
       NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED: "true",
       NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP: "true",
       NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: businessPilot,

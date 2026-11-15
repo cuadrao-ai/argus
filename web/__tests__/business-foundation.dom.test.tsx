@@ -39,9 +39,9 @@ describe("status is an icon, a word, and a color", () => {
     const { StatusPill } = await import("@/components/business-app/foundation/StatusPill");
     const page = await render(
       <>
-        <StatusPill status="confirmed" />
-        <StatusPill status="needs_attention" />
-        <StatusPill status="saved" />
+        <StatusPill tag="approved" />
+        <StatusPill tag="attention" />
+        <StatusPill tag="listo" />
       </>,
     );
     const pills = [...page.host.querySelectorAll<HTMLElement>('[data-testid="status-pill"]')];

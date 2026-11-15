@@ -1038,21 +1038,48 @@ def mark_receipt_read(
         raise _problem(request, error) from None
 
 
-@router.get("/receipts", response_model=ReceiptPage)
+@router.get(
+    "/receipts",
+    response_model=ReceiptPage,
+    responses={
+        304: {
+            "description": "The Business's lists have not changed since the "
+            "version named in `If-None-Match`. No body."
+        }
+    },
+)
 def list_receipts(
     request: Request,
+    response: Response,
     view: Literal["inbox", "all"] = "inbox",
+    if_none_match: Annotated[
+        str | None,
+        Header(
+            description="The `ETag` of an earlier answer. When the Business's "
+            "lists still have that version the answer is 304 with no body."
+        ),
+    ] = None,
     context: BusinessContext = Depends(require_business),  # noqa: B008
-) -> dict[str, Any]:
+) -> Any:
     try:
+        from argus.api import business_list_version as versions
         from argus.api.business_receipt_activity import counts
         from argus.domain.business.receipts import CLOSED
 
+        version = versions.stored_version(context)
+        if version and versions.unchanged(if_none_match, version):
+            return versions.not_modified(version)
         items = receipt_summaries(context, "all")
         activity = counts(context, items)
         if view == "inbox":
             items = [item for item in items if item["status"] not in CLOSED]
-        return {"items": items, "activity": activity}
+        answer = {"items": items, "activity": activity}
+        if version is None:
+            version = versions.answer_version(context, answer)
+            if versions.unchanged(if_none_match, version):
+                return versions.not_modified(version)
+        response.headers["ETag"] = versions.etag(version)
+        return answer
     except Exception as error:
         raise _problem(request, error) from None
 

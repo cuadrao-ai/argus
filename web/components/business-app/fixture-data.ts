@@ -716,7 +716,7 @@ export function createFixtureBusinessDataSource(
     saveFiscalProfile: async (input) => {
       await delay();
       fiscalProfile = { ...fiscalProfile, name: input.name || fiscalProfile.name, tax_id: input.tax_id };
-      return structuredClone(fiscalProfile);
+      return { ...structuredClone(fiscalProfile), retyped_drafts: 0 };
     },
     createEmailAddress: async () => {
       await delay();

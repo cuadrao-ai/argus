@@ -70,7 +70,7 @@ export default function AdaptivePanel({
   bare = false,
   children,
 }: {
-  title: string;
+  title: ReactNode;
   /**
    * No header bar: only a close X at the top right, and the title kept for assistive technology. The content
    * carries its own visible heading (the setup guide's centered ring and title).
@@ -165,7 +165,7 @@ export default function AdaptivePanel({
 const EXPANDED_WIDTH: DrawerBounds = { preferred: 1200, min: 720, maxVw: 88 };
 
 type DrawerProps = {
-  title: string;
+  title: ReactNode;
   titleIcon?: ReactNode;
   summary?: ReactNode;
   headerSize: "default" | "large";

@@ -55,7 +55,7 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   assert.match(dialogText(), /Exportar compras/);
   assert.match(dialogText(), /1 filtro · 63 registros · 3 monedas/);
   assert.equal(downloadButton()!.textContent!.trim(), "Exportar 63 registros");
-  assert.match(dialogText(), /Columnas de tu tabla \(8\)/);
+  assert.match(dialogText(), /Columnas de tu tabla \(9\)/);
   const [sent] = previews(page).map((call) => call.body as { report: ReportRequest }).slice(-1);
   assert.equal(sent.report.filters.q, "proveedor");
   assert.deepEqual(sent.report.filters.currencies, ["DOP"]);
@@ -66,7 +66,7 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
   const [body] = exports(page);
-  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty", "date", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "note", "attachment"], currencies: "all", format: "csv" });
+  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "payment_form"], currencies: "all", format: "csv" });
   assert.equal(body.report.filters.q, "proveedor");
   assert.equal(panel(), null, "the panel closes once the file is saved");
 });
@@ -117,7 +117,7 @@ test("Exportar registros from search opens Registros and its export dialog, not 
   assert.match(workspace, /const exportRegistros = useCallback\(\(\) => openRecordsExport\(openPanel\)/);
 });
 
-test("Editar chooses columns in the table's order inside the same panel, with Contraparte and Moneda locked", async () => {
+test("Editar chooses columns in the table's order inside the same panel, with Contraparte and Moneda locked and Forma de pago last and checked", async () => {
   const page = await mount();
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
@@ -125,23 +125,25 @@ test("Editar chooses columns in the table's order inside the same panel, with Co
   assert.equal(document.querySelectorAll('[role="dialog"]').length, 1, "a sub-view, not a second modal");
   const boxes = () => [...document.querySelectorAll<HTMLInputElement>('[data-testid="records-export-columns"] input[type="checkbox"]')];
   const labels = () => [...document.querySelectorAll('[data-testid="records-export-columns"] label')].map((label) => label.textContent);
-  assert.deepEqual(labels(), ["Contraparte", "NCF", "Fecha", "Monto sin ITBIS", "ITBIS", "Total", "Moneda", "Estado", "Notas", "Adjunto", "Tipo de gasto", "Forma de pago", "Cuenta"]);
-  assert.equal(boxes()[0].disabled, true);
-  assert.equal(boxes()[6].checked && boxes()[6].disabled, true, "Moneda is locked on with every currency");
-  await act(async () => boxes()[1].click());
+  assert.deepEqual(labels(), ["RNC o Cédula", "Contraparte", "Fecha", "Tipo de gasto", "Monto sin ITBIS", "ITBIS", "Total", "Moneda", "Estado", "NCF", "Notas", "Adjunto", "Cuenta", "Forma de pago"]);
+  assert.equal(boxes()[1].checked && boxes()[1].disabled, true, "the name stays in the file though the table hides it");
+  assert.equal(boxes()[7].checked && boxes()[7].disabled, true, "Moneda is locked on with every currency");
+  assert.equal(boxes()[13].checked && !boxes()[13].disabled, true, "Forma de pago is offered checked");
+  assert.deepEqual(boxes().map((box) => box.checked), [true, true, true, true, true, true, true, true, true, false, false, false, false, true]);
+  await act(async () => boxes()[9].click());
   await act(async () => boxes()[8].click());
   await page.click(page.button("Listo"));
-  await page.settle(() => /Columnas personalizadas \(8\)/.test(dialogText()));
+  await page.settle(() => /Columnas personalizadas \(9\)/.test(dialogText()));
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
   await page.click(page.button("Usar las de mi tabla"));
   await page.click(page.button("Exportar compras"));
-  await page.settle(() => /Columnas de tu tabla \(8\)/.test(dialogText()));
+  await page.settle(() => /Columnas de tu tabla \(9\)/.test(dialogText()));
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
-  await act(async () => boxes()[1].click());
+  await act(async () => boxes()[9].click());
   await page.click(page.button("Listo"));
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
-  assert.deepEqual(exports(page)[0].columns, ["counterparty", "fiscal_number", "date", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "note", "attachment"]);
+  assert.deepEqual(exports(page)[0].columns, ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "fiscal_number", "payment_form"]);
 });
 
 test("Formato DGII counts only tab and period, shows the server's notices and Revisar applies the fiscal filter", async () => {
@@ -429,5 +431,5 @@ test("Registros renders distinct server net, ITBIS and Total columns and its car
   assert.equal(card.querySelector(".cuadrao-amount")?.getAttribute("aria-label"), "DOP 80.00");
   assert.equal(card.querySelector("button"), null);
   await open(page);
-  assert.match(dialogText(), /Columnas de tu tabla \(8\)/);
+  assert.match(dialogText(), /Columnas de tu tabla \(9\)/);
 });

@@ -4089,7 +4089,9 @@ paths:
           a live grant on a closed Business answers 403 business_closed.
       responses:
         '200':
-          description: Successful Response
+          description: 'The close-Business handover package: the original receipts under `originals/`,
+            `records.csv`, `records.xlsx`, `personal.csv`, `unresolved.csv` and `manifest.json`.
+            It carries no DGII file.'
           content:
             application/zip:
               schema:
@@ -4397,7 +4399,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FiscalProfile'
+                $ref: '#/components/schemas/FiscalProfileSaved'
         '422':
           description: Validation Error
           content:
@@ -5926,6 +5928,17 @@ paths:
           - all
           type: string
           default: inbox
+      - name: if-none-match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The `ETag` of an earlier answer. When the Business's lists still have
+            that version the answer is 304 with no body.
+        description: The `ETag` of an earlier answer. When the Business's lists still have
+          that version the answer is 304 with no body.
       - name: X-Business-Grant
         in: header
         required: false
@@ -5950,6 +5963,9 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '304':
+          description: The Business's lists have not changed since the version named in `If-None-Match`.
+            No body.
         '422':
           description: Validation Error
           content:
@@ -20956,6 +20972,11 @@ components:
           - type: string
             format: date
           - type: 'null'
+        reason:
+          anyOf:
+          - type: string
+            const: business_rnc_set
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -21693,16 +21714,17 @@ components:
         key:
           type: string
           enum:
+          - counterparty_id
           - counterparty
-          - fiscal_number
           - date
+          - expense_type
           - net_amount
           - itbis_amount
           - gross_amount
           - stage
+          - fiscal_number
           - note
           - attachment
-          - expense_type
           - payment_form
           - funding
           - currency
@@ -21753,10 +21775,13 @@ components:
         end:
           type: string
           format: date
+        record_count:
+          type: integer
       type: object
       required:
       - start
       - end
+      - record_count
       description: 'One period for ``GET /business/exports``; in order, the windows cover
 
         the Business''s whole recorded history through today.'
@@ -22359,6 +22384,36 @@ components:
       - previous_name
       - tax_id
       - previous_tax_id
+    FiscalProfileSaved:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        tax_id:
+          anyOf:
+          - $ref: '#/components/schemas/TaxId'
+          - type: 'null'
+        legal_name:
+          anyOf:
+          - $ref: '#/components/schemas/LegalName'
+          - type: 'null'
+        can_edit:
+          type: boolean
+        retyped_drafts:
+          type: integer
+          minimum: 0.0
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - tax_id
+      - legal_name
+      - can_edit
+      - retyped_drafts
+      description: 'The profile after a save, and how many open drafts that save moved to
+
+        Ventas. Only the save that stores the first tax id moves any.'
     FiscalReportTotal:
       properties:
         currency:
@@ -28116,16 +28171,17 @@ components:
           items:
             type: string
             enum:
+            - counterparty_id
             - counterparty
-            - fiscal_number
             - date
+            - expense_type
             - net_amount
             - itbis_amount
             - gross_amount
             - stage
+            - fiscal_number
             - note
             - attachment
-            - expense_type
             - payment_form
             - funding
           type: array
@@ -28133,16 +28189,17 @@ components:
           items:
             type: string
             enum:
+            - counterparty_id
             - counterparty
-            - fiscal_number
             - date
+            - expense_type
             - net_amount
             - itbis_amount
             - gross_amount
             - stage
+            - fiscal_number
             - note
             - attachment
-            - expense_type
             - payment_form
             - funding
           type: array
@@ -29829,16 +29886,17 @@ components:
           items:
             type: string
             enum:
+            - counterparty_id
             - counterparty
-            - fiscal_number
             - date
+            - expense_type
             - net_amount
             - itbis_amount
             - gross_amount
             - stage
+            - fiscal_number
             - note
             - attachment
-            - expense_type
             - payment_form
             - funding
             - currency
@@ -30188,35 +30246,38 @@ components:
         key:
           type: string
           enum:
+          - counterparty_id
           - counterparty
-          - fiscal_number
           - date
+          - expense_type
           - net_amount
           - itbis_amount
           - gross_amount
           - stage
+          - fiscal_number
           - note
           - attachment
-          - expense_type
           - payment_form
           - funding
         label_key:
           type: string
-        required:
-          type: boolean
-        pinned:
-          type: boolean
         shown:
           type: boolean
+        families:
+          items:
+            type: string
+            enum:
+            - sale
+            - purchase
+          type: array
       additionalProperties: false
       type: object
       required:
       - key
       - label_key
-      - required
-      - pinned
       - shown
-      description: One column the table offers, with the rules the web draws it by.
+      - families
+      description: One column the table offers. The person can hide or move any of them.
     ReportFilters:
       properties:
         q:

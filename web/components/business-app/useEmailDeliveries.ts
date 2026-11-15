@@ -5,8 +5,8 @@ import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/bu
 import type { BusinessDataSource } from "./business-data";
 import { loadFailure, type LoadFailure } from "./bandeja-sources";
 
-const POLL_MS = 5000;
-const POLLS = 6;
+export const POLL_MS = 5000;
+export const POLLS = 6;
 
 export type EmailDeliveries = Readonly<{
   /** Newest first as the server lists them; null until the first answer for this business. */

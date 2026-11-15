@@ -193,6 +193,7 @@ export function withLocalBusinessPreview(
     captures: async () => ({ items: [], has_more: false }),
     receiptActivity: async () => blankActivity,
     receiptPage: async () => ({ items: [], activity: blankActivity }),
+    receiptChanges: undefined,
     search: async () => emptySearch,
     searchMore: async () => emptySearch,
     searchRecents: async () => [],

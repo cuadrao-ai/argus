@@ -165,10 +165,10 @@ def test_an_approved_typed_purchase_counts_and_stays_out_of_the_606(world) -> No
     }
     assert report[TEXT]["fiscal_classification"] == "no_comprobante"
 
-    manifest, rows, files = _export(world)
+    manifest, rows, forms = _export(world)
     assert TEXT in [row["Proveedor"] for row in rows]
-    assert TEXT not in files["606"]
-    assert len(files["606"].splitlines()) == 2
+    assert forms["606"] == "prepared_candidate"
+    assert manifest["dgii"]["forms"]["606"]["record_count"] == 1
     typed = next(
         item
         for item in manifest["dgii"]["reconciliation"]
@@ -362,7 +362,9 @@ def test_a_suggestion_never_crosses_businesses(people) -> None:  # noqa: ANN001
 
     assert _suggested_type(_purchase(people, people.bob, "B0100000103")) is None
     assert (
-        _suggested_type(_purchase(people, people.bob, "B0100000104", grant=people.grant_c))
+        _suggested_type(
+            _purchase(people, people.bob, "B0100000104", grant=people.grant_c)
+        )
         is None
     )
 
@@ -414,21 +416,17 @@ def test_a_split_written_after_approval_ships_the_607_and_stays_open_after_expor
     assert _money_rows(world) == money
     assert _month(world)["dgii_forms"]["607"] == "prepared_candidate"
 
-    files = _export(world)[2]
-    assert "|1180.00|" in files["607"]
+    labels = dict(SALES_COLUMNS)
+    assert _export(world)[2]["607"] == "prepared_candidate"
+    (line,) = routes.dgii_file(world, "sale")
+    assert line[labels["cash"]] == "1180.00"
     exported = _dossier(world, draft)
     assert exported["payment_split_editable"] is True
     assert _suggested_type(exported) is None
     edited = _split(world, draft, exported["version"], cash="1000.00", card="180.00")
     assert edited.status_code == 200, edited.text
-    line = dict(
-        zip(
-            [name for name, _ in SALES_COLUMNS],
-            _export(world)[2]["607"].split("\r\n")[1].split("|"),
-            strict=True,
-        )
-    )
-    assert (line["cash"], line["card"]) == ("1000.00", "180.00")
+    (line,) = routes.dgii_file(world, "sale")
+    assert (line[labels["cash"]], line[labels["card"]]) == ("1000.00", "180.00")
 
 
 def test_each_write_changes_only_the_buckets_it_names(world) -> None:  # noqa: ANN001
@@ -483,7 +481,7 @@ def test_a_sale_with_no_declaration_gets_the_split_and_nothing_else(world) -> No
         if name not in {"form", "bank"} and value is not None
     } == {"billed_amount": "1180.00"}
     assert _month(world)["dgii_forms"]["607"] != "prepared_candidate"
-    assert _export(world)[2] == {}
+    assert _export(world)[2]["607"] == "no_aplica"
     assert (
         len(
             world.client.post(

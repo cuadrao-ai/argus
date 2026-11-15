@@ -73,6 +73,8 @@ async function mount({ change, overrides = {}, receipt = {}, until = "footer" }:
   return { host, act, settle, footer, button, close: () => act(async () => { root.unmount(); host.remove(); }) };
 }
 
+const LISTO = { group: "listo", reason: null, draft_id: null, version: null } as const;
+
 const noDate: Change = (dossier) => {
   dossier.facts.occurred_on = { state: "unknown", value: null, origin: null, verified: false, source_ids: [] };
   dossier.blockers = [{ code: "fact_required", field: "occurred_on" }];
@@ -81,7 +83,7 @@ const noDate: Change = (dossier) => {
 
 describe("the receipt detail's top block", () => {
   test("supplier, total and status come first, with no business name or revision number", async () => {
-    const page = await mount();
+    const page = await mount({ receipt: { bandeja_group: LISTO } });
     // One header: the supplier is its title, and the block under it holds the total and the status.
     const top = page.host.querySelector('[data-testid="receipt-top-block"]')!;
     assert.equal(page.host.querySelector("#receipt-review-title")?.textContent, "Ferretería La Esquina");
@@ -95,8 +97,8 @@ describe("the receipt detail's top block", () => {
 
   test("the status word is the list's: a confirmed receipt reads Aprobado, not the server's status name", async () => {
     for (const draft_id of [dossierFixtureIds.fiscal, null]) {
-      for (const [status, word] of [["review_ready", "Listo para revisar"], ["confirmed", "Aprobado"]] as const) {
-        const page = await mount({ receipt: { status, draft_id }, until: "top" });
+      for (const [status, bandeja_group, word] of [["review_ready", LISTO, "Listo para revisar"], ["confirmed", null, "Aprobado"]] as const) {
+        const page = await mount({ receipt: { status, bandeja_group, draft_id }, until: "top" });
         assert.equal(page.host.querySelector('[data-testid="receipt-top-block"] [data-testid="status-pill"]')?.textContent, word, `${status} ${draft_id ? "with" : "without"} a draft`);
         await page.close();
       }
@@ -226,7 +228,7 @@ describe("a receipt that will not load", () => {
       ...fixture,
       receipt: async (id, signal) => {
         calls += 1;
-        if (calls === 1) throw Object.assign(new Error("gone"), { status: 404 });
+        if (calls === 1) throw Object.assign(new Error("down"), { status: 500 });
         return fixture.receipt(id, signal);
       },
     };
@@ -239,7 +241,7 @@ describe("a receipt that will not load", () => {
     for (let i = 0; i < 40 && !host.querySelector('[data-testid="receipt-load-error"]'); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     const error = host.querySelector('[data-testid="receipt-load-error"]')!;
     const alert = error.querySelector('[role="alert"]')!;
-    assert.equal(alert.textContent, "Este recibo no está disponible. Puede que lo hayan quitado.");
+    assert.equal(alert.textContent, "No pudimos actualizar.");
     assert.match(alert.className, /text-\[#9e2f39\]/);
     assert.ok(alert.querySelector(".lucide-circle-alert"));
     const retry = [...error.querySelectorAll("button")].find((item) => item.textContent === "Reintentar")!;

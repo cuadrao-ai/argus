@@ -133,6 +133,7 @@ cd marketing && bun run lint && bun run typecheck && bun test && bun run build
 - Every pull request description opens with the Merge Danger block in `.github/pull_request_template.md`.
   Its `Door:` value is exactly `one-way` or `two-way`. Put no other lines between its fields: the
   checker (`scripts/ci/check_pr_body.py`) reads any extra line as part of the field above.
+- The body also carries an issue reference (`Closes|Fixes|Refs #N`, anywhere on a line) and a `Pilot flow:` line, checked by `scripts/ci/check_pr_body.py`. Bot authors are exempt.
 - Hotspot files need the lead's `landing-next` label, and a pull request over about 800 non-test lines needs `size-approved`.
 - Merge `codex/private-alpha-next` in before the last push. Never rebase a published branch.
 - Attach visual evidence on the pull request, or upload it with actions/upload-artifact. Do not commit it. Capture it at the exact head.

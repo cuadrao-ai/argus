@@ -163,7 +163,7 @@ export type MonthCloseFigures = {
   documents_in_bandeja: number | null;
 };
 
-/** The export packet's own status words. Only `prepared_candidate` means the ZIP carries the form's TXT. */
+/** The DGII summary's own status words. Only `prepared_candidate` means every line of the form is ready. */
 export const DGII_FORM_STATUSES = ["no_aplica", "needs_review", "summary_only", "no_operations", "prepared_candidate"] as const;
 export type DgiiFormStatus = (typeof DGII_FORM_STATUSES)[number];
 /** A word this web does not know yet is null for that form: unknown. */

@@ -29,12 +29,12 @@ function serverLayout(presentation: ReportPresentation): ReportPresentation {
   const hidden = presentation.hidden.filter((key) => key !== "family" && key !== "currency").map(rename);
   if (!order.includes("payment_form") && order.includes("expense_type")) { order.splice(order.indexOf("expense_type") + 1, 0, "payment_form"); hidden.push("payment_form"); }
   if (!order.includes("net_amount")) order.splice(order.includes("gross_amount") ? order.indexOf("gross_amount") : order.length, 0, "net_amount");
-  for (const { key, required } of recordedReportAnswer.columns) if (!order.includes(key)) { order.push(key); if (!required && !hidden.includes(key)) hidden.push(key); }
+  for (const { key } of recordedReportAnswer.columns) if (!order.includes(key)) { order.push(key); if (!hidden.includes(key)) hidden.push(key); }
   return { ...presentation, order, hidden };
 }
-/** The columns the server answers: the recorded specs in the layout's order, Compras-only ones dropped on Ventas. */
+/** The columns the server answers: the recorded specs in the layout's order, for the tab's family. */
 function serverColumns(presentation: ReportPresentation, sale: boolean): ReportColumn[] {
-  return presentation.order.flatMap((key) => recordedReportAnswer.columns.filter((column) => column.key === key && !(sale && (key === "expense_type" || key === "payment_form"))).map((column) => ({ ...column, shown: !presentation.hidden.includes(key) })));
+  return presentation.order.flatMap((key) => recordedReportAnswer.columns.filter((column) => column.key === key && column.families.includes(sale ? "sale" : "purchase")).map((column) => ({ ...column, shown: !presentation.hidden.includes(key) })));
 }
 function latestMonth(rows: readonly ReportRecord[]) {
   const newest = rows.flatMap((row) => row.report_date ?? []).sort().at(-1) ?? "2026-10-26";
@@ -101,7 +101,11 @@ export function createBusinessReportHttpFixture() {
       const report = reportRequestSchema.parse((body as { report: unknown }).report);
       const presentation = serverLayout(report.schema_version === 2 && report.presentation ? report.presentation : controls.presentation);
       const sale = report.filters.record_families[0] === "sale";
-      const fileColumns = (all: boolean) => serverColumns(presentation, sale).flatMap(({ key, label_key, pinned, shown }) => [{ key, label_key, required: pinned, shown }, ...all && key === "gross_amount" ? [{ key: "currency", label_key: "business.transactions.columns.moneda", required: true, shown: true }] : []]);
+      // The server's file rules: the name is always in, and Forma de pago is offered checked and goes last while the table hides it.
+      const fileColumns = (all: boolean) => {
+        const listed = serverColumns(presentation, sale).flatMap(({ key, label_key, shown }) => [{ key, label_key, required: key === "counterparty", shown: shown || key === "counterparty" || key === "payment_form", last: key === "payment_form" && !shown }, ...all && key === "gross_amount" ? [{ key: "currency", label_key: "business.transactions.columns.moneda", required: true, shown: true, last: false }] : []]);
+        return [...listed.filter((column) => !column.last), ...listed.filter((column) => column.last)].map(({ key, label_key, required, shown }) => ({ key, label_key, required, shown }));
+      };
       const selection = (rows: ReportRecord[], all = false) => ({ record_count: rows.length, currencies: [...new Set(rows.flatMap((row) => row.currency ? [row.currency] : []))].sort(), columns: fileColumns(all) });
       const bounded = report.filters.amount_min !== null || report.filters.amount_max !== null;
       const family = records.filter((row) => row.family === report.filters.record_families[0]);

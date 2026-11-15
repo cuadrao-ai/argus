@@ -52,6 +52,8 @@ function columnDefaults(source: string, filename: string): string[] {
 }
 const skippedDirectories = new Set(["node_modules", ".git", ".turbo", "out", "build", "dist", "coverage", "playwright-report", "test-results", "__tests__", "e2e"]);
 const recordedFixture = path.join(root, "test-fixtures/records-default-report-answer.json");
+/** Bandeja's columns are the web's: it joins receipts, notes and emails on the screen, and no server report names them. Their one home is this file. */
+const bandejaColumns = path.join(root, "components/business-app/recepcion/reception-columns.ts");
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const filename = path.join(directory, entry.name);
@@ -68,7 +70,7 @@ function jsonColumnDefaults(value: unknown): unknown[] {
 }
 test("web contains validation catalogues but no table default column arrays", () => {
   const violations = sourceFiles(root).flatMap((filename) => {
-    if (filename === recordedFixture) return [];
+    if (filename === recordedFixture || filename === bandejaColumns) return [];
     const source = readFileSync(filename, "utf8");
     const found = filename.endsWith(".json") ? jsonColumnDefaults(JSON.parse(source)) : columnDefaults(source, filename);
     return found.map((value) => `${path.relative(root, filename)}: ${JSON.stringify(value)}`);
@@ -81,12 +83,12 @@ test("the web's column keys are the contract's: the openapi Presentation and Rep
 });
 test("the web validates a layout's shape only and keeps no column rule of its own", () => {
   assert.equal(reportPresentationSchema.safeParse({ order: ["date", "counterparty", "category"], hidden: ["counterparty"], density: 48 }).success, true);
-  const ruled = { ...recordedReportAnswer, columns: recordedReportAnswer.columns.map((column) => ({ ...column, required: column.key === "note", pinned: false })) };
-  assert.deepEqual(reportAnswerSchema.parse(ruled).columns, ruled.columns);
+  const reversed = { ...recordedReportAnswer, columns: [...recordedReportAnswer.columns].reverse().map((column) => ({ ...column, shown: !column.shown })) };
+  assert.deepEqual(reportAnswerSchema.parse(reversed).columns, reversed.columns);
 });
 test("authority guard rejects renamed literal defaults and order derived from a catalogue", () => {
   for (const source of [
-    'const required = { counterparty: true, gross_amount: true };',
+    'const alwaysInFile = { counterparty: true, payment_form: true };',
     'const startingColumns = ["counterparty", "date", "gross_amount"];',
     'const layout = () => ({ order: RECORDS_PREVIEW_COLUMNS.map(column => column.key), hidden: ["funding"] });',
     'const schema = z.object({ order: z.array(key).default([...REPORT_PRESENTATION_KEYS]) });',
