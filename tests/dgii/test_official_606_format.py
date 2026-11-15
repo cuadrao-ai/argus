@@ -42,18 +42,17 @@ def synthetic():
         for name in (
             "services_amount",
             "goods_amount",
-            "itbis_withheld",
-            "itbis_proportionality",
             "income_withheld",
             "selective_tax",
             "other_taxes",
-            "legal_tip",
         )
     }
     base = Decimal(amounts["services_amount"]) + Decimal(amounts["goods_amount"])
     tax = (base * Decimal("0.18")).quantize(Decimal("0.01"))
     amounts["itbis_cost"] = f"{tax / 3:.2f}"
     amounts["itbis_withheld"] = f"{tax / 2:.2f}"
+    amounts["itbis_proportionality"] = f"{tax / 4:.2f}"
+    amounts["legal_tip"] = f"{base / 20:.2f}"
     gross = (
         base
         + tax
@@ -200,12 +199,14 @@ def test_optional_blanks_and_zeroes_keep_their_positions(synthetic, value):
             "legal_tip": value,
         }
     )
-    gross = f"{Decimal(d.services_amount) + Decimal(record.facts.fiscal.itbis.value):.2f}"
+    tax = f"{Decimal(d.services_amount) * Decimal('0.18'):.2f}"
+    gross = f"{Decimal(d.services_amount) + Decimal(tax):.2f}"
     facts = record.facts.model_copy(
         update={
             "amount": record.facts.amount.model_copy(update={"value": gross}),
             "fiscal": record.facts.fiscal.model_copy(
                 update={
+                    "itbis": record.facts.fiscal.itbis.model_copy(update={"value": tax}),
                     "ncf": record.facts.fiscal.ncf.model_copy(
                         update={
                             "value": "B01" + record.facts.fiscal.ncf.value[3:],

@@ -1,4 +1,4 @@
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { isAuthSessionMissingError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { observeBrowserAuth } from "./browser-auth-generation";
 import { getSupabaseClient } from "./supabase-client";
 
@@ -14,6 +14,22 @@ type RecoveryOptions = {
   verifyAccess?: (userId: string, signal: AbortSignal) => Promise<AccessOutcome>;
 };
 type AccessOutcome = "allowed" | "missing" | "error";
+
+export async function classifyBusinessIdentity(
+  check: () => Promise<{ data: { user: { id: string; is_anonymous?: boolean } | null }; error: unknown } | null | undefined>,
+  expectedUserId?: string,
+): Promise<AccessOutcome> {
+  try {
+    const identity = await check();
+    if (isAuthSessionMissingError(identity?.error)) return "missing";
+    if (!identity || identity.error) return "error";
+    if (!identity.data.user || identity.data.user.is_anonymous) return "missing";
+    if (expectedUserId !== undefined && identity.data.user.id !== expectedUserId) return "error";
+    return "allowed";
+  } catch (error) {
+    return isAuthSessionMissingError(error) ? "missing" : "error";
+  }
+}
 
 export function createSessionRecovery({ initialOwner = null, allowAnonymous = false, onIdentityChange, verifyAccess }: RecoveryOptions = {}) {
   let state: SessionRecoveryState = initialOwner

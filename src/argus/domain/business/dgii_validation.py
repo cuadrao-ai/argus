@@ -8,6 +8,7 @@ from decimal import Decimal
 from argus.domain.business.amount_inheritance import inherits
 from argus.domain.business.contracts.dgii import (
     MONEY_LIMIT,
+    MONEY_PATTERN,
     DgiiDeclaration,
     PurchaseDeclaration,
     SalesDeclaration,
@@ -162,7 +163,7 @@ def record_issues(
     tax = fact_value(record, "itbis")
     if tax is None:
         issue("fiscal_fact_required", "itbis")
-    elif re.fullmatch(r"(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?", tax) is None:
+    elif re.fullmatch(MONEY_PATTERN, tax) is None:
         issue("fiscal_amount_precision_or_limit", "itbis")
     optional = {
         "itbis",

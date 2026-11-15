@@ -8,6 +8,7 @@ them. An ITBIS flag only warns.
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from argus.domain.business.contracts.dgii import (
@@ -15,6 +16,7 @@ from argus.domain.business.contracts.dgii import (
 )
 from argus.domain.business.contracts.dossier import ReviewFlag
 from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.dgii_606_rules import itbis_limit
 from argus.domain.business.fiscal_identity import (
     cedula_check_digit_ok,
     identity_digits,
@@ -28,21 +30,19 @@ from argus.domain.business.purchase_review import (
 )
 from argus.domain.business.rnc_registry import RncRegistry, UnknownRncRegistry
 
-ITBIS_RATE = Decimal("0.18")
-ITBIS_TOLERANCE = Decimal("1.00")
 CHECK_DIGIT = {9: rnc_check_digit_ok, 11: cedula_check_digit_ok}
 
 
-def _known(fact: object) -> str | None:
+def _known(fact: object) -> str | date | None:
     return fact.value if isinstance(fact, Known) else None
 
 
-def itbis_too_high(total: Decimal, itbis: Decimal) -> bool:
-    """ITBIS above 18% of the pre-tax amount, plus 1.00 in the receipt's own
-    currency. A lower ITBIS (16%, exempt items) is never flagged."""
+def itbis_too_high(total: Decimal, itbis: Decimal, on: date | None = None) -> bool:
+    """ITBIS above the ceiling the 606 holds a row for, read on the pre-tax
+    amount. A lower ITBIS (16%, exempt items) is never flagged."""
 
     base = net_amount(total=str(total), itbis=str(itbis))
-    return itbis > Decimal(base.amount) * ITBIS_RATE + ITBIS_TOLERANCE
+    return itbis > itbis_limit(Decimal(base.amount), on)
 
 
 def review_flags(
@@ -71,7 +71,7 @@ def review_flags(
     if (
         total is not None
         and itbis is not None
-        and itbis_too_high(Decimal(total), Decimal(itbis))
+        and itbis_too_high(Decimal(total), Decimal(itbis), _known(facts.occurred_on))
     ):
         flags.append(ReviewFlag(code="itbis_high", field="itbis", confirm=False))
     net = net_amount(facts, declaration)

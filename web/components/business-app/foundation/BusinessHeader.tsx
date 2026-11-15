@@ -5,7 +5,7 @@ import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { HeaderSearch } from "./HeaderSearch";
 import BusinessAddMenu from "../BusinessAddMenu";
-import { SEARCHABLE_LISTS, useLendingList, useListSearchLoan } from "./list-search";
+import { SEARCHABLE_LISTS, useListSearchLoan, useScopedList } from "./list-search";
 import styles from "./business-header.module.css";
 import { HomeHeading } from "./HomeHeading";
 import { BUSINESS_CANVAS_MAX } from "./business-canvas";
@@ -87,27 +87,28 @@ function StableSearch({ onOpen, field, scoped = false }: { onOpen: () => void; f
 /**
  * On a list (Bandeja, Registros, a Facturación section) the bar's search button carries the list's scope, and the
  * filter it applied: "En Bandeja · colmado". It opens the one search window, scoped to that list and holding that
- * filter; the × clears the list's filter. A screen whose list lends no query (a phone, or no list) keeps the plain
- * button.
+ * filter; the × clears the list's filter. Actividad has no filter, so its button carries only "En Actividad". A
+ * screen with no scope (a list that lends no query on a phone, or no list) keeps the plain button.
  */
 function ScopedSearch({ screen, onOpen }: { screen?: string; onOpen: (query?: string) => void }) {
   const { t } = useTranslation();
-  const list = useLendingList(screen);
+  const list = useScopedList(screen);
   const loan = useListSearchLoan(list);
-  if (!list || !loan) return <StableSearch onOpen={onOpen} />;
+  if (!list || (!loan && SEARCHABLE_LISTS[list].ownQuery !== false)) return <StableSearch onOpen={onOpen} />;
+  const query = loan?.query ?? "";
   const place = t(SEARCHABLE_LISTS[list].place);
   const scopeLabel = t("business.search.scoped_label", { place, defaultValue: "Search {{place}}" });
   const command = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
   const field = (
     <div className={styles.scopedField} data-testid="scoped-search">
-      <button type="button" data-testid="scoped-search-open" onClick={() => onOpen(loan.query)} aria-label={loan.query ? `${scopeLabel}: ${loan.query}` : scopeLabel} aria-keyshortcuts={command ? "Meta+K" : "Control+K"} className={`${styles.scopedButton} rounded-full`}>
+      <button type="button" data-testid="scoped-search-open" onClick={() => onOpen(query)} aria-label={query ? `${scopeLabel}: ${query}` : scopeLabel} aria-keyshortcuts={command ? "Meta+K" : "Control+K"} className={`${styles.scopedButton} rounded-full`}>
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span className={`${styles.scopePill} rounded-mark`}>{t("business.search.scope_in", { place, defaultValue: "In {{place}}" })}</span>
-        <span className={`${styles.scopedText} ${loan.query ? styles.scopedQuery : ""}`}>{loan.query || t("common.search", "Search")}</span>
-        {loan.query ? null : <kbd aria-hidden="true" className={`${styles.scopedKbd} rounded-mark`}>{command ? "⌘K" : "Ctrl K"}</kbd>}
+        <span className={`${styles.scopedText} ${query ? styles.scopedQuery : ""}`}>{query || t("common.search", "Search")}</span>
+        {query ? null : <kbd aria-hidden="true" className={`${styles.scopedKbd} rounded-mark`}>{command ? "⌘K" : "Ctrl K"}</kbd>}
       </button>
-      {loan.query ? <button type="button" data-testid="scoped-search-clear" aria-label={t("business.search.clear_filter", { place, defaultValue: "Clear the {{place}} search" })} onClick={() => loan.setQuery("")} className={`${styles.scopedClear} rounded-full`}><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+      {loan && query ? <button type="button" data-testid="scoped-search-clear" aria-label={t("business.search.clear_filter", { place, defaultValue: "Clear the {{place}} search" })} onClick={() => loan.setQuery("")} className={`${styles.scopedClear} rounded-full`}><X className="h-4 w-4" aria-hidden="true" /></button> : null}
     </div>
   );
-  return <StableSearch onOpen={() => onOpen(loan.query)} field={field} scoped />;
+  return <StableSearch onOpen={() => onOpen(query)} field={field} scoped />;
 }

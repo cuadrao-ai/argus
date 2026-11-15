@@ -44,3 +44,13 @@ test("an unmapped or absent code never shows the raw code", async () => {
   assert.equal(await badge("en", { export_missing: "fiscal_unheard_of" }), "A detail is missing");
   assert.equal(await badge("es-419", { export_missing: null }), "Falta un dato");
 });
+
+test("the badge says any word the server sends that the locale has", async () => {
+  for (const lng of ["es-419", "en"] as const) {
+    const words: Record<string, string> = (await import(`@/public/locales/${lng}/common.json`)).default.business.transactions.layout.workflow.missing;
+    assert.notEqual(words.itbis_over_limit, words.detail_missing);
+    assert.equal(await badge(lng, { export_missing: "itbis_over_limit" }), words.itbis_over_limit);
+    await cleanup();
+  }
+  assert.equal(await badge("es-419", { export_missing: "several" }), "Falta un dato");
+});

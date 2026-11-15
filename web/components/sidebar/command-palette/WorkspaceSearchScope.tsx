@@ -19,6 +19,8 @@ export function useWorkspaceSearchScope(search: WorkspaceSearch | null) {
     const { groups, actions } = scope;
     return {
       ...search,
+      // The scope narrows the results, so removing it is a new search of the text already typed.
+      identity: JSON.stringify([search.identity, groups]),
       find: async (text: string) => (await search.find(text)).filter((group) => groups.includes(group.id)),
       shortcuts: search.shortcuts.flatMap((group) => (group.id === "actions" ? [{ ...group, hits: group.hits.filter((hit) => actions.includes(hit.id)) }] : [])),
     };

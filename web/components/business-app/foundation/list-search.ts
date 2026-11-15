@@ -9,19 +9,21 @@ import { omnisearchEnabled } from "@/lib/private-alpha-flags";
  * position, each Facturación section's in that section. While the list is on screen it lends the query and its setter
  * here, and the top bar's search button and the search window read and write through the loan. No loan, no scope.
  */
-export type SearchableList = "inbox" | "transactions" | "invoices" | "customers" | "schedules";
+export type SearchableList = "inbox" | "transactions" | "invoices" | "customers" | "schedules" | "activity";
 
 /**
  * Each list's screen (the panel it sits on), the locale key that names it in "En <lista>", and the search results
  * and actions its scoped window keeps. Facturación's sections are three lists on one screen, one on show at a time;
- * the Business search finds none of their records, so their scope offers only "Filtrar <lista> por …".
+ * the Business search finds none of their records, so their scope offers only "Filtrar <lista> por …". Actividad
+ * has no query of its own (`ownQuery: false`): its screen alone scopes the search, to the rows the server finds.
  */
-export const SEARCHABLE_LISTS: Readonly<Record<SearchableList, { screen: string; place: string; groups: readonly string[]; actions: readonly string[] }>> = {
+export const SEARCHABLE_LISTS: Readonly<Record<SearchableList, { screen: string; place: string; groups: readonly string[]; actions: readonly string[]; ownQuery?: false }>> = {
   inbox: { screen: "inbox", place: "business.nav.inbox", groups: ["receipts", "email_deliveries", "email_senders"], actions: ["add", "copy_forward"] },
   transactions: { screen: "transactions", place: "business.nav.transactions", groups: ["expenses", "ventas", "captures"], actions: ["add", "export"] },
   invoices: { screen: "invoicing", place: "business.invoicing_preview.invoices_tab", groups: [], actions: [] },
   customers: { screen: "invoicing", place: "business.invoicing_preview.customers_tab", groups: [], actions: [] },
   schedules: { screen: "invoicing", place: "business.invoicing_preview.schedules_tab", groups: [], actions: [] },
+  activity: { screen: "activity", place: "business.nav.activity", groups: ["activity"], actions: [], ownQuery: false },
 };
 
 /**
@@ -70,14 +72,19 @@ export function useLendListSearch(list: SearchableList, loan: Loan | null) {
   useLayoutEffect(() => () => { if (loans.delete(list)) emit(); }, [list]);
 }
 
-function lendingOn(screen: string | undefined): SearchableList | null {
+const LISTS = Object.keys(SEARCHABLE_LISTS) as SearchableList[];
+
+function scopedOn(screen: string | undefined): SearchableList | null {
   for (const list of loans.keys()) if (SEARCHABLE_LISTS[list].screen === screen) return list;
-  return null;
+  return LISTS.find((list) => SEARCHABLE_LISTS[list].ownQuery === false && SEARCHABLE_LISTS[list].screen === screen) ?? null;
 }
 
-/** The list on `screen` that lends its query now; re-renders only when that changes, not on every keystroke. */
-export function useLendingList(screen: string | undefined): SearchableList | null {
-  return useSyncExternalStore(subscribe, () => lendingOn(screen), () => null);
+/**
+ * The list the search on `screen` starts scoped to: the one that lends its query now, or the screen's list with no
+ * query of its own. Re-renders only when that changes, not on every keystroke.
+ */
+export function useScopedList(screen: string | undefined): SearchableList | null {
+  return useSyncExternalStore(subscribe, () => scopedOn(screen), () => null);
 }
 
 /** The bar's side: the lent query of `list`, or null when that list is not lending one. */

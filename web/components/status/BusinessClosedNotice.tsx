@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CuadraoLockup } from "@/components/CuadraoLockup";
+import { primaryButtonClass } from "@/components/business-app/business-ui";
+import { FOCUS_RING } from "@/components/business-app/foundation/presentation";
 import { leaveSession } from "@/lib/logout-flow";
 import { logoutFromApi } from "@/lib/argus-api";
 import { businessPilotEnabled } from "@/lib/private-alpha-flags";
@@ -15,7 +18,7 @@ function closedBody(body: string) {
     <>
       {body.slice(0, at)}
       <a
-        className="font-medium underline decoration-black/25 underline-offset-4 dark:decoration-white/30"
+        className={`rounded-mark font-medium underline decoration-black/25 underline-offset-4 dark:decoration-white/30 ${FOCUS_RING}`}
         href={`mailto:${supportEmail}`}
       >
         {supportEmail}
@@ -47,17 +50,20 @@ export function BusinessClosedNotice({
     });
   };
   return (
-    <div data-testid="business-home-closed" className="w-full max-w-sm text-center">
-      <h2 className="text-[16px] font-medium tracking-wide">{t("auth.business_unavailable.title")}</h2>
-      <p className="mt-3 text-[16px] tracking-wide">{closedBody(String(t("auth.business_unavailable.body", { supportEmail })))}</p>
+    <div data-testid="business-home-closed" className="w-full max-w-md text-center text-[var(--segment-text-strong)]">
+      <h1 className="mb-[34px] select-none" aria-label="Cuadrao">
+        <CuadraoLockup width={268} className="max-w-full align-top" />
+      </h1>
+      <h2 className="font-display text-[26px] font-medium leading-tight tracking-tight">{t("auth.business_unavailable.title")}</h2>
+      <p className="mt-[13px] text-[16px] leading-relaxed text-[var(--segment-text)]">{closedBody(String(t("auth.business_unavailable.body", { supportEmail })))}</p>
       <button
         type="button"
-        className="font-display mt-6 flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium !text-[var(--cuadrao-cream)] transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:bg-white dark:focus-visible:ring-white"
+        className={`${primaryButtonClass} mt-[21px] w-full`}
         onClick={signOut}
       >
         {t("auth.business_unavailable.sign_out")}
       </button>
-      {signOutFailed ? <p className="mt-3" role="alert">{t("settings.logout_error")}</p> : null}
+      {signOutFailed ? <p className="mt-[13px] text-[16px] leading-relaxed" role="alert">{t("settings.logout_error")}</p> : null}
     </div>
   );
 }

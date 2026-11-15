@@ -107,7 +107,10 @@ def test_owner_purge_removes_the_document_and_keeps_one_nameless_entry(
     older = [item for item in feed.items if item.action != "purge_document"]
     assert {"receipt_upload", "delete_document"} <= {item.action for item in older}
     named = [item.object for item in older if item.object is not None]
-    assert {item.action for item in older if item.object is not None} >= {"delete_document"}
+    assert {item.action for item in older if item.object is not None} >= {
+        "delete_document",
+        "receipt_upload",
+    }
     for gone in named:
         assert gone.model_dump(mode="json") == {
             "kind": gone.kind,

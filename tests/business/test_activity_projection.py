@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from datetime import date, datetime, timedelta, timezone
 from types import UnionType
@@ -29,6 +30,7 @@ from argus.domain.business.activity.queries import (
     decode_cursor,
     encode_cursor,
     fingerprint,
+    holds,
 )
 from argus.domain.business.annotations import NoteCommand
 from argus.domain.business.contracts.actions import Command
@@ -40,6 +42,7 @@ from argus.domain.business.contracts.activity import (
 )
 from argus.domain.business.fiscal_profile import FiscalProfileChange, LegalNameChange
 from argus.domain.business.roles import BusinessRole
+from argus.domain.business.search import parse
 from argus.domain.business.supporting_files import SupportingCommand
 from argus.domain.business.transactions import LegacyAction
 from pydantic import ValidationError
@@ -219,8 +222,40 @@ def test_every_typed_ledger_action_has_a_catalog_decision():
         ),
         ({"action": "change_role", "grant_id": str(DRAFT)}, None, ("grant", DRAFT)),
         ({"action": "review_draft", "draft_id": "not-a-uuid"}, None, None),
-        ({"action": "receipt_review", "subjects": [str(DRAFT)]}, None, None),
-        ({"action": "receipt_upload", "subjects": [str(DRAFT)]}, None, None),
+        (
+            {"action": "receipt_upload", "subjects": [str(DRAFT)]},
+            None,
+            ("receipt", DRAFT),
+        ),
+        (
+            {"action": "receipt_review", "subjects": [str(DRAFT), str(uuid4())]},
+            None,
+            ("receipt", DRAFT),
+        ),
+        (
+            {"action": "receipt_confirm", "subjects": [str(DRAFT)]},
+            None,
+            ("receipt", DRAFT),
+        ),
+        ({"action": "receipt_upload", "subjects": []}, None, None),
+        ({"action": "receipt_upload"}, None, None),
+        ({"action": "receipt_confirm", "subjects": ["not-a-uuid"]}, None, None),
+    ],
+    ids=[
+        "outcome-draft-wins",
+        "command-draft",
+        "planned-draft",
+        "planned-draft-not-made",
+        "planned-ask",
+        "invite",
+        "grant",
+        "draft-id-not-a-uuid",
+        "upload-names-its-receipt",
+        "legacy-review-first-subject",
+        "legacy-confirm-first-subject",
+        "upload-without-subjects",
+        "upload-without-a-subject-list",
+        "legacy-subject-not-a-uuid",
     ],
 )
 def test_the_object_is_the_server_owned_id_when_one_is_known(
@@ -495,3 +530,58 @@ def test_the_feed_names_an_erased_member_as_the_departure_rewrite_does():
         {"actor_id": "old", "display_name": "Ana"}, "old", "custody", "alias"
     )
     assert rewritten["display_name"] == custody_graph.ERASED_NAME == queries.ERASED_NAME
+
+
+@pytest.mark.parametrize(
+    ("q", "found"),
+    [
+        ("lucia", True),
+        ("PEÑA", True),
+        ("ferreteria esquina", True),
+        ("lucía ferretería", True),
+        ("carlos", False),
+        ("review", False),
+        (str(DRAFT), False),
+    ],
+    ids=[
+        "name-without-accent",
+        "name-in-capitals",
+        "label-words",
+        "name-and-label",
+        "another-person",
+        "action-name",
+        "object-id",
+    ],
+)
+def test_a_query_reads_who_and_the_named_object_as_the_business_search_reads(
+    q: str, found: bool
+):
+    item = with_labels(
+        project(
+            row(
+                {"action": "review_draft", "draft_id": str(DRAFT)},
+                display_name="Lucía Peña",
+            )
+        ),
+        {("draft", DRAFT): "Ferretería La Esquina"},
+    )
+    assert holds(parse(q), item) is found
+
+
+def test_a_query_finds_nothing_in_a_row_that_names_no_one_and_nothing():
+    item = project(row({"action": "receipt_upload"}, display_name=None))
+    assert not holds(parse("ana"), item)
+
+
+def test_a_blank_query_is_no_query_and_a_query_is_trimmed():
+    assert ActivityFilters(q="   ") == NONE
+    assert ActivityFilters(q=" Lucía ").q == "Lucía"
+
+
+def test_a_cursor_issued_before_the_feed_took_a_query_still_continues():
+    before = json.dumps(
+        {"since": None, "until": None, "actors": [], "areas": [], "groups": []},
+        sort_keys=True,
+    )
+    assert fingerprint(NONE) == hashlib.sha256(before.encode()).hexdigest()[:16]
+    assert fingerprint(ActivityFilters(q="Lucía")) != fingerprint(NONE)

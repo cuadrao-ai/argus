@@ -77,7 +77,7 @@ import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/bu
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
 import { canAddRecords, canManageBusiness, quietButtonClass } from "./business-ui";
-import { applyListSearch, useLendingList } from "./foundation/list-search";
+import { applyListSearch, SEARCHABLE_LISTS, useScopedList } from "./foundation/list-search";
 import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, publishBusinessAppearance } from "@/lib/business-profile-api";
 
@@ -708,8 +708,9 @@ function BusinessWorkspaceContent({
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
   // The list on screen lends its query (wide screens with bar search); the search then starts scoped to it.
-  const scopedList = useLendingList(panel.kind);
-  const listScope = useMemo(() => (scopedList ? { list: scopedList, apply: (query: string) => applyListSearch(scopedList, query) } : null), [scopedList]);
+  // Actividad has no query to lend, so its scope has nothing to filter the screen by.
+  const scopedList = useScopedList(panel.kind);
+  const listScope = useMemo(() => (scopedList ? { list: scopedList, apply: SEARCHABLE_LISTS[scopedList].ownQuery === false ? undefined : (query: string) => applyListSearch(scopedList, query) } : null), [scopedList]);
   const businessSearch = useBusinessSearch({
     source,
     accounts: records.workspace?.accounts ?? NO_ACCOUNTS,

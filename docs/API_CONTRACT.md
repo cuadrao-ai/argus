@@ -9076,10 +9076,20 @@ purchases the 606 holds until a person sets Forma de Pago, marked paid or not,
 each with `payment_form` null; it adds no `reasons` code and does not read into
 `closed`) and `missing_fiscal_data` (every document the 606 or 607 holds this
 month, as a document line plus `missing`, the export's own words for what it
-still needs, first fix first: `expense_type_missing`, `rnc_missing`,
-`rnc_invalid`, `ncf_invalid`, `date_missing`, `ncf_missing`,
-`payment_method_missing` or `detail_missing`, the same words Registros shows as
-`export_missing`) and `missing_fiscal_rows` (those documents counted for
+still needs, first fix first, a missing value before a wrong one:
+`expense_type_missing`, `rnc_missing`, `rnc_invalid`, `ncf_invalid`,
+`date_missing`, `ncf_missing`, `payment_method_missing`,
+`payment_date_missing`, `duplicate_document`, `own_rnc_required`,
+`billed_amount_zero`, `itbis_cost_over_itbis`, `payment_after_month`,
+`credit_note_reference`, `credit_note_too_late`, `credit_note_payment_form`,
+`modified_ncf_not_allowed`, `modified_ncf_invalid`, `date_in_future`,
+`date_too_old`, `payment_date_in_future`, `payment_before_invoice`,
+`itbis_over_limit`, `itbis_proportionality_over_itbis`,
+`itbis_withheld_over_itbis`, `tip_over_limit`,
+`purchase_receipt_needs_cedula`, `minor_expense_has_itbis` or
+`detail_missing`, the same words Registros shows as `export_missing`. The
+server may add a word; a client shows `detail_missing` for one it has no text
+for) and `missing_fiscal_rows` (those documents counted for
 Inicio's "Faltan datos fiscales" rows as `{family, currency, count,
 by_currency}`, Compras then Ventas: one row per family, split by currency only
 when that family's held documents span more than one, so each row opens exactly
@@ -9281,8 +9291,9 @@ computed on every read from the stored facts; nothing is written. `rnc_check_dig
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
 a present NCF or e-CF that is not B plus 10 digits or E plus 12. Both have
 `confirm: true`. `itbis_high` (field `itbis`, `confirm: false`) is an ITBIS above
-18% of the total minus the ITBIS plus 1.00 in the receipt's own currency, in
-decimal math; a lower ITBIS is never flagged. The RNC and NCF stay exactly as
+18% of the total minus the ITBIS, rounded to cents half to even, plus 0.55 in
+the receipt's own currency (16% for a receipt dated before 2013), in decimal
+math; a lower ITBIS is never flagged. The rate and the 0.55 are the ones the 606 holds an approved row for. The RNC and NCF stay exactly as
 read. While a `confirm` flag stands, the approve request without
 `approve_anyway: true` is refused with 422 `approval_confirmation_required` and
 `context.flags` lists those codes. Send `approve_anyway: true` with a new
@@ -9352,10 +9363,19 @@ and empty until invoice events carry an actor. `other` has `area: null`.
 `restricted` is `true` on a row only a reader who may manage sees (the access
 changes, the two derived events and `other`), so the client can mark it.
 
-`object` is `{kind: draft|grant|invite, id, label, purged}` when the action names one
-and the server knows its id, else `null`. `label` is a human name for the
+`object` is `{kind: draft|receipt|grant|invite, id, label, purged}` when the action names one
+and the server knows its id, else `null`. It is the one thing the row is about,
+and the client opens it from `kind` and `id` alone: a `draft` is a record
+(`GET /business/drafts/{id}/dossier`), a `receipt` is an uploaded document
+(`GET /business/receipts/{id}`); a `grant` and an `invite` open nothing.
+`receipt_upload`, `receipt_review` and `receipt_confirm` name the one receipt
+their first stored subject answers to: an upload that holds a document, or a
+draft of the legacy receipt surface read from exactly one upload. A subject
+that is no receipt of this Business names nothing (`object: null`).
+`delete_document` and `restore_document` name the receipt the same way when
+their draft was read from one upload, else the draft. `label` is a human name for the
 object from a record the reader may read, else `null`: a draft's counterparty
-when it is known, a grant's person by their current profile label. An invite
+when it is known, a receipt's file name, a grant's person by their current profile label. An invite
 names only an email, so its label is always `null`. `purged` is `true` when a
 document purge removed the draft or upload, read from the purge record; its
 `label` is then always `null`. It is `false` otherwise. No amount, email or other
@@ -9386,6 +9406,15 @@ AND'ed. An unknown value is 422 `validation_error`. An `area` or
 `action_group` filter matches catalog actions only, so `other` never matches
 a filter, for any reader.
 
+`q` (optional, at most 512 characters; blank is no query) keeps the rows whose
+actor `display_name` or object `label` holds the query, read as the Business
+search reads a record: every word, accents and case aside. It reads only what
+the row shows this reader, never an action name, an id or a stored command, and
+it is AND'ed with the other filters. One answer scans a bounded stretch of the
+history, so with `q` a page may hold fewer than `limit` items, or none, and
+still carry a `next_cursor`; the client follows it until it is `null`. `q` does
+not narrow `actors`.
+
 `actors` lists, on the first page only (`null` on a cursor page), every actor
 with at least one row the reader may see under the `from`, `to`, `area` and
 `action_group` filters (the `actor` filter does not narrow it), as
@@ -9415,7 +9444,7 @@ within this one and reveals nothing of the other.
 The order is `occurred_at` descending with a stable tie-break, so a page does
 not move when a newer row lands: a cursor taken before new activity continues
 from the same row. A cursor is bound to the filter set that issued it: sent
-with any other `from`, `to`, `actor`, `area` or `action_group`, or one the feed
+with any other `from`, `to`, `actor`, `area`, `action_group` or `q`, or one the feed
 did not issue, it is 422 `invalid_cursor`. The in-memory app keeps no ledger:
 the read answers 200 with `items` empty, `next_cursor` null and `actors` empty
 once the caller's Business exists. A missing, foreign, revoked or expired
@@ -9831,7 +9860,33 @@ person starts their space, every route below except POST `/space` answers 404
   Empty values read as `""`. Address does not require province/municipality.
   Optional email must have a basic email shape. Websites without a scheme gain
   `https://`; only HTTP(S), a dotted hostname, no whitespace and no userinfo are
-  accepted. Saving does not verify these facts or activate invoicing.
+  accepted. A phone is a Dominican Republic or United States number: ten
+  national digits, or eleven with `+1` or `1` in front. The national number
+  matches `[2-9]XX[2-9]XXXXXX` and its area code is a geographic, in-service code
+  of either country (`src/argus/domain/business/phone_area_codes.py`). Any other
+  character is dropped. A number has one form, `+1 809 555 0142`, owned by
+  `display_phone` in `src/argus/domain/business/phone.py`: it is saved and
+  returned in that form, and a valid number saved in another form (such as
+  `809-555-0142`) is returned in it too. There is no rule for other countries.
+  Saving does not verify these facts or activate invoicing.
+- The server is the only owner of the email, website and phone rules; clients
+  hold no copy. A PATCH whose only failures are detail fields returns
+  `422 invalid_business_details` with `context.field_errors`, a map from each
+  refused detail field to one code: `invalid_business_email`,
+  `invalid_business_website`, `string_too_long`, or for a phone
+  `invalid_business_phone_empty` (no digits), `invalid_business_phone_length`,
+  `invalid_business_phone_format` or `invalid_business_phone_region` (another
+  country or an unassigned area code).
+  Nothing is saved. Any other body failure keeps the general `422 validation_error`.
+  A detail saved before a rule existed that does not pass it is still returned
+  by GET as saved, and it does not block a PATCH that leaves that field out.
+- POST `/api/v1/business/profile-details/check` applies the same rules to the
+  detail keys in its body and saves nothing. It takes any subset of the seven
+  detail keys and needs a signed-in Business person. It returns 200 with those
+  keys in their saved form (a valid phone as `+1 809 555 0142`, a website with
+  its scheme), or the same `422 invalid_business_details` answer. The web calls
+  it when a field is left and shows the returned phone in the field; it holds
+  no phone formatter. Responses are no-store.
 - Appearance is `{kind: "default"}`, `{kind: "avatar", token, mark}`, or
   `{kind: "image", asset_id, crop}`. Avatar tokens are `ocean`, `ember`, `gold`,
   `slate`, `teal`, `indigo`, `plum`; mark is `initials` or `icon`. Crop is
@@ -10883,7 +10938,23 @@ accept path recorded.
   and supported known monetary/document effects. A credit's document adjustment
   must pass the existing fiscal source validation. It does not mean paid,
   fiscally valid or government accepted. `needs_fiscal_data` is a recorded row
-  whose month's 606 or 607 names something missing (`export_missing`).
+  whose month's 606 or 607 holds it: `export_missing` names the first value
+  that is missing or that DGII's tools reject, in the month close's
+  `missing_fiscal_data` words, and `export_missing_several` is true when there
+  is more than one. After the verdict a `ready_for_export` purchase is a 606
+  row that passes every rule of the 606 rule table
+  (`src/argus/domain/business/dgii_606_rules.py`): the ITBIS ceiling (18% of
+  Total Monto Facturado plus Impuesto Selectivo al Consumo, rounded to cents
+  half to even, plus 0.55; 16% for an invoice dated before 2013) and
+  ITBIS not above the total; ITBIS Retenido and ITBIS sujeto a
+  Proporcionalidad not above the ITBIS; Propina Legal not above 10% of the
+  total, unrounded; no invoice or payment date after today, the Dominican
+  calendar day; an invoice date the
+  comprobante's series existed on (B from 2018-05, E from 2019-01, B17 and E47
+  from 2019-04); a payment date not before the invoice date; an NCF and NCF
+  modificado whose sequence is not 0; a cédula on a B11; and no ITBIS on a B13
+  or E43. The verdict is computed on each read, so a rule applies to every
+  row from the moment it deploys.
   `exported` is a recorded row with a line in `business_dgii_export_lines`; it
   carries `export_line` true. No download writes that table now, so the stage
   is history: rows marked before the DGII TXT was retired keep it, and no new

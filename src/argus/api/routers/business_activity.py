@@ -64,11 +64,20 @@ def activity_page(
     ] = None,
     area: Annotated[list[Area] | None, Query(max_length=4)] = None,
     action_group: Annotated[list[ActionGroup] | None, Query(max_length=9)] = None,
+    q: Annotated[
+        str | None,
+        Query(
+            max_length=512,
+            description="Words the actor's name or the object's label must hold.",
+        ),
+    ] = None,
 ):
     """Who changed what and when in the working Business: applied ledger rows,
     newest first. Access changes, and an action the feed does not know yet, list
     only for a reader who may manage. Values of one filter are OR'ed, filters
-    are AND'ed, and a cursor continues only the filter set that issued it."""
+    are AND'ed, and a cursor continues only the filter set that issued it. With
+    `q`, a page may hold fewer rows than `limit`, or none, and still carry a
+    `next_cursor`: follow it until it is null."""
 
     response.headers.update(NO_STORE)
     try:
@@ -78,6 +87,7 @@ def activity_page(
             actors=tuple(actor or ()),
             areas=tuple(area or ()),
             groups=tuple(action_group or ()),
+            q=q,
         )
     except ValidationError:
         raise problem(
