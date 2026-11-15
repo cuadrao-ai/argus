@@ -27,6 +27,9 @@ def database():
     assert urlparse(dsn).hostname in {"127.0.0.1", "localhost", "::1"}
     schema = "dates_" + uuid4().hex
     with psycopg.connect(dsn) as db, db.transaction(force_rollback=True):
+        for role in ("anon", "authenticated", "service_role"):
+            if not db.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (role,)).fetchone():
+                db.execute(f"CREATE ROLE {role}")
         db.execute(f"CREATE SCHEMA {schema}")
         for name, field in [
             ("business_bank_lines", "occurred_on"),
@@ -123,3 +126,11 @@ def test_grandfathered_metadata_updates_keep_dates_but_date_changes_fail(table, 
         db.execute(query, (value("2000-01-01"),))
         with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
             db.execute(f"INSERT INTO {schema}.{table} (id,{column}) VALUES (2,%s)", (value("0026-10-05"),))
+
+
+@pytest.mark.parametrize("role", ["anon", "authenticated"])
+def test_storage_floor_function_is_not_client_executable(role):
+    with database() as (db, schema):
+        db.execute(migration().replace("public.", schema + "."))
+        assert not db.execute("SELECT has_function_privilege(%s,%s,'EXECUTE')", (role, f"{schema}.enforce_business_date_floor()")).fetchone()[0]
+        assert db.execute("SELECT has_function_privilege('service_role',%s,'EXECUTE')", (f"{schema}.enforce_business_date_floor()",)).fetchone()[0]

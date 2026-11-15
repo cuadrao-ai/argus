@@ -47,6 +47,9 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.enforce_business_date_floor() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.enforce_business_date_floor() TO service_role;
+
 CREATE TRIGGER business_bank_lines_date_floor
 AFTER INSERT OR UPDATE ON public.business_bank_lines
 FOR EACH ROW EXECUTE FUNCTION public.enforce_business_date_floor('occurred_on');

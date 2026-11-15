@@ -590,16 +590,18 @@ def test_registros_loads_a_row_whose_payment_year_was_mistyped(actions):  # noqa
     )
     assert outcome.outcome == "applied", outcome
 
-    # Seed pre-migration evidence without sending an invalid fresh date through
-    # review. The guard is restored in the same transaction, before the read.
+    # The report's declaration owner is the latest fiscal revision, not the
+    # mutable draft. Seed its historical bad date and restore immutability
+    # within the same transaction before reading it.
     with service.authority.pool.connection() as db, db.transaction():
-        db.execute("alter table public.financial_import_events disable trigger business_import_dates_floor")
-        db.execute(
-            "update public.financial_import_events set resolution=jsonb_set("
-            "resolution,'{business,dgii,paid_on}',to_jsonb(%s::text)) where id=%s",
-            ("0026-09-05", draft_id),
+        db.execute("alter table public.business_draft_revisions disable trigger business_revision_immutable")
+        seeded = db.execute(
+            "update public.business_draft_revisions set after_dgii=jsonb_set("
+            "after_dgii,'{paid_on}',to_jsonb(%s::text)) where draft_id=%s and version=%s",
+            ("0026-09-05", draft_id, outcome.version),
         )
-        db.execute("alter table public.financial_import_events enable trigger business_import_dates_floor")
+        assert seeded.rowcount == 1
+        db.execute("alter table public.business_draft_revisions enable trigger business_revision_immutable")
 
     answer = read_report(service.authority, context, ReportRequest())
 

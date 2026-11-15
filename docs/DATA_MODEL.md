@@ -3484,7 +3484,8 @@ Proven by `tests/test_whatsapp_intake_postgres.py`.
 
 `supabase/migrations/20261115060328_business_dates_floor.sql` owns the fixed
 stored-date floor. Its `enforce_business_date_floor()` function requires dates
-on or after 2000-01-01 for inserts and changed date values. Six AFTER row triggers
+on or after 2000-01-01 for inserts and changed date values. Client roles have no
+EXECUTE grant on this function; the server role does. Six AFTER row triggers
 call that owner. They compare each date with OLD on updates, including the update
 selected by an upsert. Unchanged grandfathered dates remain editable through
 metadata changes such as delete/restore; changing one date does not revalidate
