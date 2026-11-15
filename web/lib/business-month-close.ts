@@ -90,11 +90,11 @@ export type MonthCloseDocument = {
   sin_comprobante?: boolean;
   /** The server's `ncf_malformed` list names this document: it has an NCF or e-CF, not in the B or E series format. */
   ncf_malformed?: boolean;
-  /** What the 606 or 607 still needs before it carries this document, first fix first, in the export's words. Absent when the server did not say; empty never occurs. */
-  missing?: readonly FiscalMissingCode[];
+  /** What the 606 or 607 still needs before it carries this document, first fix first, in the server's own words: the ones Registros shows. The locale owns their text; a word it lacks reads as `detail_missing`. Absent when the server did not say; empty never occurs. */
+  missing?: readonly string[];
 };
 
-/** The export's own words for what a held document needs, first fix first: the same words Registros shows. */
+/** The sample books' words for what a held document needs, first fix first. The server's list is open. */
 export const FISCAL_MISSING_CODES = ["expense_type_missing", "rnc_missing", "rnc_invalid", "ncf_invalid", "date_missing", "ncf_missing", "payment_method_missing", "detail_missing"] as const;
 export type FiscalMissingCode = (typeof FISCAL_MISSING_CODES)[number];
 
@@ -551,7 +551,7 @@ function dayInMonth(monthStart: Date, day: number): string {
   return `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on" | "currency"> & { day: number; dueDay: number | null; currency?: string };
+type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on" | "currency" | "missing"> & { day: number; dueDay: number | null; currency?: string; missing?: readonly FiscalMissingCode[] };
 
 function sample(monthStart: Date, input: SampleInput, now: Date): MonthCloseDocument {
   const { day, dueDay, currency = "DOP", missing: named, ...document } = input;
@@ -810,7 +810,7 @@ type WireLine = {
   /** Present when the server sends the document's fiscal facts; older servers omit them. */
   fiscal?: { rnc: string | null; ncf: string | null; ecf: string | null; sin_comprobante: boolean };
   /** Present on a `missing_fiscal_data` line. */
-  missing?: FiscalMissingCode[];
+  missing?: string[];
 };
 
 const CURRENCY_CODE = /^[A-Z]{3}$/;
@@ -846,10 +846,10 @@ function readWireLine(value: unknown): WireLine {
   };
 }
 
-/** The export's words for one held line. A word this web does not know still names a fix, so it reads as `detail_missing`. */
-function readMissing(value: unknown): FiscalMissingCode[] {
+/** The export's words for one held line, kept as sent: the server may add a word. */
+function readMissing(value: unknown): string[] {
   if (!Array.isArray(value) || value.length === 0 || !value.every((code) => typeof code === "string")) throw new MonthCloseError("unavailable", "month close missing data is unknown");
-  return [...new Set(value.map((code) => ((FISCAL_MISSING_CODES as readonly string[]).includes(code) ? code : "detail_missing") as FiscalMissingCode))];
+  return [...new Set(value as string[])];
 }
 
 function wireDocument(line: WireLine, ncfMalformed = false): MonthCloseDocument {

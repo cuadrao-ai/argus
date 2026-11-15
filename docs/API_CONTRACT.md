@@ -9081,7 +9081,7 @@ still needs, first fix first, a missing value before a wrong one:
 `date_missing`, `ncf_missing`, `payment_method_missing`,
 `payment_date_missing`, `duplicate_document`, `own_rnc_required`,
 `billed_amount_zero`, `itbis_cost_over_itbis`, `payment_after_month`,
-`credit_note_reference`, `credit_note_payment_form`,
+`credit_note_reference`, `credit_note_too_late`, `credit_note_payment_form`,
 `modified_ncf_not_allowed`, `modified_ncf_invalid`, `date_in_future`,
 `date_too_old`, `payment_date_in_future`, `payment_before_invoice`,
 `itbis_over_limit`, `itbis_proportionality_over_itbis`,
@@ -9291,9 +9291,9 @@ computed on every read from the stored facts; nothing is written. `rnc_check_dig
 match and that the DGII register does not list. `ncf_malformed` (field `ncf`) is
 a present NCF or e-CF that is not B plus 10 digits or E plus 12. Both have
 `confirm: true`. `itbis_high` (field `itbis`, `confirm: false`) is an ITBIS above
-18% of the total minus the ITBIS plus 0.55 in the receipt's own currency (16%
-for a receipt dated before 2013), in decimal math; a lower ITBIS is never
-flagged. The rate and the 0.55 are the ones the 606 holds an approved row for. The RNC and NCF stay exactly as
+18% of the total minus the ITBIS, rounded to cents half to even, plus 0.55 in
+the receipt's own currency (16% for a receipt dated before 2013), in decimal
+math; a lower ITBIS is never flagged. The rate and the 0.55 are the ones the 606 holds an approved row for. The RNC and NCF stay exactly as
 read. While a `confirm` flag stands, the approve request without
 `approve_anyway: true` is refused with 422 `approval_confirmation_required` and
 `context.flags` lists those codes. Send `approve_anyway: true` with a new
@@ -10900,10 +10900,12 @@ accept path recorded.
   is more than one. After the verdict a `ready_for_export` purchase is a 606
   row that passes every rule of the 606 rule table
   (`src/argus/domain/business/dgii_606_rules.py`): the ITBIS ceiling (18% of
-  Total Monto Facturado plus Impuesto Selectivo al Consumo, plus 0.55) and
+  Total Monto Facturado plus Impuesto Selectivo al Consumo, rounded to cents
+  half to even, plus 0.55; 16% for an invoice dated before 2013) and
   ITBIS not above the total; ITBIS Retenido and ITBIS sujeto a
   Proporcionalidad not above the ITBIS; Propina Legal not above 10% of the
-  total; no invoice or payment date after today; an invoice date the
+  total, unrounded; no invoice or payment date after today, the Dominican
+  calendar day; an invoice date the
   comprobante's series existed on (B from 2018-05, E from 2019-01, B17 and E47
   from 2019-04); a payment date not before the invoice date; an NCF and NCF
   modificado whose sequence is not 0; a cédula on a B11; and no ITBIS on a B13

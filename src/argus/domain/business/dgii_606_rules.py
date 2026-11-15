@@ -12,12 +12,13 @@ person sees ``message_key``.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Literal
+
+from argus.domain.business.fiscal_identity import normalized_ncf
 
 Line = Mapping[str, str]
 
@@ -53,7 +54,7 @@ _ITBIS_TOLERANCE = Decimal("0.55")
 _ITBIS_RATE = Decimal("0.18")
 _ITBIS_RATE_BEFORE_2013 = Decimal("0.16")
 _TIP_RATE = Decimal("0.10")
-_NCF = re.compile(r"(?:B[0-9]{10}|E[0-9]{12})")
+_CENT = Decimal("0.01")
 #: The first invoice date DGII takes for each comprobante, most specific first.
 _SERIES_START = (
     (("B17", "E47"), date(2019, 4, 1)),
@@ -63,10 +64,13 @@ _SERIES_START = (
 
 
 def itbis_limit(base: Decimal, on: date | None = None) -> Decimal:
-    """The most ITBIS DGII accepts on a taxable base for an invoice dated ``on``."""
+    """The most ITBIS DGII accepts on a taxable base for an invoice dated ``on``.
+
+    Measured on DGII's pre-validator: it rounds the rate's share of the base
+    to cents, half to even, and takes up to 0.55 above that."""
 
     rate = _ITBIS_RATE_BEFORE_2013 if on and on < date(2013, 1, 1) else _ITBIS_RATE
-    return base * rate + _ITBIS_TOLERANCE
+    return (base * rate).quantize(_CENT, ROUND_HALF_EVEN) + _ITBIS_TOLERANCE
 
 
 def _amount(line: Line, name: str) -> Decimal:
@@ -80,8 +84,7 @@ def _day(line: Line, name: str) -> date | None:
 def _number(line: Line, name: str) -> str | None:
     """The NCF in a cell when it is well formed. A malformed one is another rule's."""
 
-    value = line[name].strip().upper()
-    return value if _NCF.fullmatch(value) else None
+    return normalized_ncf(line[name])
 
 
 def _has(name: str) -> Condition:
@@ -241,6 +244,8 @@ RULES: tuple[Rule, ...] = (
             "Detalle:Linea:<n> El ITBIS Retenido no puede ser Mayor que el ITBIS Facturado "
         ),
     ),
+    # Measured on DGII's pre-validator: the 10% is not rounded, so a tip of
+    # exactly 10% passes and one cent above 10% of 1234.57 does not.
     Rule(
         id="tip_over_limit",
         dgii_ref="E9",

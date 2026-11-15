@@ -306,12 +306,12 @@ def test_a_record_the_old_approval_left_blank_takes_the_whole_606(actions):  # n
         "id_type": "1",
         "category": "02",
         "payment_method": "01",
-        "services_amount": "880.00",
+        "services_amount": "990.00",
         "itbis_proportionality": "30.00",
         "itbis_cost": "20.00",
-        "selective_tax": "10.00",
-        "other_taxes": "10.00",
-        "legal_tip": "100.00",
+        "selective_tax": "7.00",
+        "other_taxes": "1.00",
+        "legal_tip": "2.00",
     }
     added = declared(service, context, draft_id, view.version, **chosen)
     assert added.outcome == "applied", added

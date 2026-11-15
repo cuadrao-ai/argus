@@ -8,10 +8,10 @@ import unicodedata
 from dataclasses import asdict, replace
 from datetime import date, datetime, timedelta
 from typing import Literal
-from zoneinfo import ZoneInfo
 
 from argus.domain.business.contracts.facts import InheritedValue, personal_mark_admits
 from argus.domain.business.country import DEFAULT_COUNTRY
+from argus.domain.business.ledger import business_day
 from argus.domain.business.reporting import (
     FiscalAmount,
     ReportIdentity,
@@ -277,7 +277,7 @@ def resolve_period(
     records: tuple[ReportRecord, ...] | list[ReportRecord],
     observed_at: datetime,
 ) -> ResolvedPeriod:
-    today = observed_at.astimezone(ZoneInfo(CALENDAR)).date()
+    today = business_day(observed_at)
     start, end = period.from_date, period.to_date
     if period.kind == "this_month":
         start, end = _whole_month(today)

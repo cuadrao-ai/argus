@@ -401,6 +401,12 @@ NAMED = (
         record(ncf="B0300000123", modified_ncf="B0200000001"),
     ),
     held(
+        "B04 dated more than 30 days after its purchase",
+        "fiscal_credit_tax_treatment_required",
+        "credit_note_too_late",
+        *credit(occurred=date(2026, 11, 5)),
+    ),
+    held(
         "B04 not paid as a nota de crédito",
         "fiscal_credit_payment_code_required",
         "credit_note_payment_form",
@@ -669,4 +675,7 @@ class TestRegistrosAndTheExcelAgree:
                 case.word,
             )
             assert number not in written
-        assert len(lines) == sum(item.stage == "ready_for_export" for item in judged)
+        assert len(lines) == sum(
+            item.stage == "ready_for_export" and start <= item.report_date <= end
+            for item in judged
+        )

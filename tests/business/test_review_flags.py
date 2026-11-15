@@ -149,6 +149,10 @@ class TestItbisRate:
         assert codes(facts(amount="0.75", itbis="0.58")) == []
         assert codes(facts(amount="0.76", itbis="0.59")) == ["itbis_high"]
 
+    def test_the_warning_rounds_the_18_percent_as_the_606_does(self):
+        assert codes(facts(amount="118.59", itbis="18.56")) == []
+        assert codes(facts(amount="118.60", itbis="18.57")) == ["itbis_high"]
+
     def test_an_invoice_before_2013_uses_16_percent(self):
         view = facts(amount="1170", itbis="170")
         assert codes(view) == []
