@@ -1,0 +1,15 @@
+{
+  "id": "production-apply-2026-11-14-revision-reason",
+  "project_ref": "lgdhvepyrzbnscqssgqq",
+  "hosts": [
+    "db.lgdhvepyrzbnscqssgqq.supabase.co",
+    "aws-1-us-east-2.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "b69135d1ae47c3f994f4cfa547de4b4696ac8ce3",
+  "versions_sha256": "2abcba5d8f29b6d9342c8fdd21a1edd37f71d9f6df24055be86f46dc2c38bf16",
+  "issued_at": "2026-11-15T00:37:22Z",
+  "expires_at": "2026-11-17T00:37:22Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas approved on 2026-11-14 (\"approved\") applying the revision reason migration (20261114103519, PR 2128) to production lgdhvepyrzbnscqssgqq only, before the production promotion of integration b69135d1ae47c3f994f4cfa547de4b4696ac8ce3. Staging has had it since its record (PR 2162). Dry run first."
+}
