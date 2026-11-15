@@ -158,11 +158,23 @@ def _auth_client_factory(url: str, key: str) -> AuthClientFactory:
     """
     auth_url = f"{url.rstrip('/')}/auth/v1"
     headers = {"apiKey": key, "Authorization": f"Bearer {key}"}
+
+    def limit_password_login(request: httpx.Request) -> None:
+        if (
+            request.method == "POST"
+            and request.url.copy_with(query=None) == httpx.URL(f"{auth_url}/token")
+            and request.url.params.get("grant_type") == "password"
+        ):
+            request.extensions["timeout"] = httpx.Timeout(
+                LOGIN_PROVIDER_TIMEOUT_SECONDS
+            ).as_dict()
+
     refuse_cookies = http.cookiejar.DefaultCookiePolicy(allowed_domains=[])
     http_client = httpx.Client(
         http2=False,
         timeout=120,
         cookies=http.cookiejar.CookieJar(policy=refuse_cookies),
+        event_hooks={"request": [limit_password_login]},
     )
 
     def build() -> SyncGoTrueClient:
@@ -472,6 +484,7 @@ class SupabaseGateway(
         return int(result.data or 0)
 
     def login(self, email: str, password: str, captcha_token: str) -> dict[str, Any]:
+        # HTTP timeouts bound individual I/O waits; retain the total wait limit.
         return complete_password_login(
             lambda: self._auth().sign_in_with_password(
                 {
