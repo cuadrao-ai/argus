@@ -175,7 +175,7 @@ test("the chat palette's X still only clears the text", async () => {
 
 const change = (id: string, who: string, action: string, label?: string) => ({ id, occurred_at: "2026-11-10T14:00:00Z", actor: { display_name: who, kind: "member" as const }, action, object: label ? { kind: "draft" as const, id: `draft-${id}`, label } : null });
 const ACCOUNT: BusinessSearchResult = { ...NONE, accounts: [{ id: "account-1", nickname: "Cuenta de Lucía", type: "checking", currency: "DOP" }] };
-const rows = () => [...document.querySelectorAll('[data-testid="workspace-search-results"] :is([data-testid="workspace-hit-static"], [data-workspace-hit]:not([data-row-action]))')].map((row) => row.textContent ?? "");
+const rows = () => [...document.querySelectorAll('[data-testid="workspace-search-results"] [data-workspace-group] :is([data-testid="workspace-hit-static"], [data-workspace-hit]:not([data-group-reveal], [data-group-load]))')].map((row) => row.textContent ?? "");
 const removeChip = () => act(async () => document.querySelector<HTMLButtonElement>('[data-testid="workspace-search-scope"] button')!.click());
 
 test("Actividad's window opens with its chip and lists the rows the server matched, with no list to filter", async () => {
