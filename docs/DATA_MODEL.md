@@ -3483,8 +3483,14 @@ Proven by `tests/test_whatsapp_intake_postgres.py`.
 ### Business date floor (#2175)
 
 `supabase/migrations/20261115060328_business_dates_floor.sql` owns the fixed
-stored-date floor. Its CHECK constraints require dates on or after 2000-01-01
-on newly written current values; they are all added `NOT VALID`.
+stored-date floor. Its `enforce_business_date_floor()` function requires dates
+on or after 2000-01-01 for inserts and changed date values. Six AFTER row triggers
+call that owner. They compare each date with OLD on updates, including the update
+selected by an upsert. Unchanged grandfathered dates remain editable through
+metadata changes such as delete/restore; changing one date does not revalidate
+another unchanged date in the same JSON object. A newly inserted row or a changed
+date below the floor raises SQLSTATE 23514. A CHECK with `NOT VALID` cannot express
+this distinction, because it still checks every updated row.
 
 | Table | Current dates checked |
 | --- | --- |
@@ -3502,10 +3508,10 @@ outside the application range remains review evidence with a null list anchor
 and a correction blocker. Response models continue to read old stored dates.
 
 The application range has one separate owner, `accepted_dates.py`, which uses
-the Dominican business day. No rolling date expression is stored in a CHECK.
-This migration performs no cleanup or validation scan. Validation requires a
-later approved operation, after read-only counts find no older affected rows;
-no hosted count or migration application was performed for this change.
+the Dominican business day. No rolling date expression is stored in the database guard.
+This migration performs no cleanup or validation scan. It does not certify
+historical rows as valid. No hosted count or migration application was performed
+for this change.
 
 ### Business name prompt
 

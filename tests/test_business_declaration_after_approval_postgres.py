@@ -586,9 +586,20 @@ def test_registros_loads_a_row_whose_payment_year_was_mistyped(actions):  # noqa
     draft_id, version = captured(service, context, "B0100000041", cash)
     view = approved(service, context, draft_id, version)
     outcome = declared(
-        service, context, draft_id, view.version, category="02", paid_on="0026-09-05"
+        service, context, draft_id, view.version, category="02", paid_on="2026-09-05"
     )
     assert outcome.outcome == "applied", outcome
+
+    # Seed pre-migration evidence without sending an invalid fresh date through
+    # review. The guard is restored in the same transaction, before the read.
+    with service.authority.pool.connection() as db, db.transaction():
+        db.execute("alter table public.financial_import_events disable trigger business_import_dates_floor")
+        db.execute(
+            "update public.financial_import_events set resolution=jsonb_set("
+            "resolution,'{business,dgii,paid_on}',to_jsonb(%s::text)) where id=%s",
+            ("0026-09-05", draft_id),
+        )
+        db.execute("alter table public.financial_import_events enable trigger business_import_dates_floor")
 
     answer = read_report(service.authority, context, ReportRequest())
 

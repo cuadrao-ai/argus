@@ -18,6 +18,7 @@ from argus.domain.business.actions.facts import (
     reviewed_amount_facts,
     validate_facts,
 )
+from argus.domain.business.actions.fiscal import validate_changed_dates
 from argus.domain.business.amount_inheritance import (
     INHERITANCE,
     draft_is_paid,
@@ -373,6 +374,7 @@ def revise(
         if not takes_payment_split(current_type):
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         declared = apply_payment_split(current, payment_split)
+    validate_changed_dates(stored, declared)
     return save_revision(
         tx,
         event,

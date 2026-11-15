@@ -465,6 +465,7 @@ class Refused(Contract):
     existing_record_id: UUID | None = None
     # The review flags an approval_confirmation_required refusal names.
     flags: tuple[str, ...] = ()
+    context: dict[str, str] | None = None
 
     @model_serializer(mode="wrap")
     def omit_absent_record(
@@ -473,6 +474,8 @@ class Refused(Contract):
         payload = handler(self)
         if self.existing_record_id is None:
             payload.pop("existing_record_id", None)
+        if self.context is None:
+            payload.pop("context", None)
         if not self.flags:
             payload.pop("flags", None)
         return payload

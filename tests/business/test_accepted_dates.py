@@ -22,7 +22,6 @@ def past_inputs(day):
     return [
         (BusinessFactPatch, {"occurred_on": {"state": "known", "value": day}}),
         (TypedPurchase, {"amount": "10", "occurred_on": day}),
-        (PurchaseReview, {"paid_on": day}),
         (SettlementUpdate, {"status": "pagado", "settled_on": day, "payment_method": "efectivo"}),
     ]
 
@@ -119,10 +118,15 @@ def test_fiscal_review_boundary_and_saved_declarations(day, code, form, field):
     declaration = {name: None for name, info in model.model_fields.items() if info.is_required()}
     declaration.update(form=form, **{field: day})
     assert model.model_validate(declaration)  # Old evidence is still readable.
-    with pytest.raises(ValidationError) as raised:
-        FiscalReview.model_validate({"fiscal": {"rnc": None, "ncf": None, "itbis": None}, "declaration": declaration})
-    assert raised.value.errors()[0]["type"] == code
-    assert field in raised.value.errors()[0]["loc"]
+    from argus.domain.business.actions.fiscal import validate_changed_dates
+    from argus.domain.business.authority import ActionError
+
+    submitted = FiscalReview.model_validate({"fiscal": {"rnc": None, "ncf": None, "itbis": None}, "declaration": declaration})
+    with pytest.raises(ActionError) as raised:
+        validate_changed_dates(None, submitted.declaration)
+    assert raised.value.code == code
+    assert raised.value.result.context["field"] == field
+    assert raised.value.result.context["min_date"] == "2016-11-15"
 
 
 def test_leap_day_floor_clamps_to_february_28(freeze_new_york_clock):
@@ -158,20 +162,26 @@ def test_bank_api_refusal_keeps_context():
     assert response.detail["context"]["min_date"] == "2016-11-15"
 
 
-def test_fiscal_review_revalidates_a_stored_model_instance():
+def test_fiscal_review_input_accepts_a_stored_model_with_a_current_date():
     from argus.domain.business.contracts.dgii import FiscalInput, FiscalReview
     from argus.domain.business.purchase_review import apply_purchase
 
     declaration = apply_purchase(None, PurchaseReview(paid_on="2026-11-15"))
-    assert FiscalReview(fiscal=FiscalInput(rnc=None, ncf=None, itbis=None), declaration=declaration).declaration.paid_on == date(2026, 11, 15)
+    saved = FiscalReview(fiscal=FiscalInput(rnc=None, ncf=None, itbis=None), declaration=declaration)
+    assert ReviewDraft(version=1, dgii=saved).dgii.declaration.paid_on == date(2026, 11, 15)
 
 
 @pytest.mark.parametrize("field", ["paid_on", "withheld_on", "settled_on", "issued_on", "due_on"])
 @pytest.mark.parametrize("day", ["2016-11-14", "2016-11-15", "2026-11-15", "2026-11-16"])
 def test_date_inputs_keep_the_problem_envelope_at_every_http_edge(field, day):
-    from argus.api.app_setup import validation_exception_handler
+    from argus.api.app_setup import http_exception_handler, validation_exception_handler
+    from argus.api.business_drafts import action_problem
+    from argus.domain.business.actions.fiscal import validate_changed_dates
+    from argus.domain.business.authority import ActionError
     from argus.domain.business.contracts.dgii import FiscalReview, SalesDeclaration
     from argus.domain.business.contracts.invoicing import InvoiceWrite
+    from argus.domain.business.purchase_review import apply_purchase
+    from fastapi import HTTPException, Request
     from fastapi.exceptions import RequestValidationError
 
     if field == "paid_on":
@@ -186,8 +196,17 @@ def test_date_inputs_keep_the_problem_envelope_at_every_http_edge(field, day):
         model, payload = InvoiceWrite, {"data": {field: day}}
     app = FastAPI()
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)
 
-    def accept(body):
+    def accept(body, request: Request):
+        request.state.request_id = "date-test"
+        try:
+            if field == "paid_on":
+                validate_changed_dates(None, apply_purchase(None, body))
+            elif field == "withheld_on":
+                validate_changed_dates(None, body.declaration)
+        except ActionError as error:
+            raise action_problem(request, error.result) from None
         return body
 
     accept.__annotations__["body"] = model
@@ -197,8 +216,118 @@ def test_date_inputs_keep_the_problem_envelope_at_every_http_edge(field, day):
     assert response.status_code == (422 if refused else 200)
     if refused:
         problem = response.json()
+        code = "business_date_before_minimum" if day < "2016-11-15" else "business_date_after_today"
+        if field in {"paid_on", "withheld_on"}:
+            assert problem["code"] == code
+            assert problem["context"] == {"field": field, "min_date": "2016-11-15", "today": "2026-11-15"}
+            return
         assert problem["code"] == "validation_error"
         error = problem["context"]["errors"][0]
         assert error["type"] == ("business_date_before_minimum" if day < "2016-11-15" else "business_date_after_today")
         assert field in error["loc"]
         assert error["ctx"]["min_date"] == "2016-11-15"
+
+
+@pytest.mark.parametrize("form,field", [("606", "paid_on"), ("607", "withheld_on")])
+@pytest.mark.parametrize("day", ["0026-09-05", "2010-01-01", "2026-11-16"])
+def test_amount_preview_keeps_unchanged_legacy_dates(form, field, day):
+    from argus.domain.business.actions.amounts_preview import preview_amounts
+    from argus.domain.business.contracts.amounts import AmountsPreviewRequest
+    from argus.domain.business.contracts.dgii import PurchaseDeclaration, SalesDeclaration
+    from argus.domain.business.contracts.facts import BusinessResolution
+
+    from tests.business.test_montos import receipt
+
+    model = PurchaseDeclaration if form == "606" else SalesDeclaration
+    values = {name: None for name, info in model.model_fields.items() if info.is_required()}
+    values.update(form=form, **{field: day})
+    resolution = BusinessResolution(facts=receipt("1180", "180", "1000"), dgii=model.model_validate(values))
+    before = resolution.model_dump()
+    result = preview_amounts(resolution, AmountsPreviewRequest(version=1, itbis={"state": "known", "value": "200"}), paid=False)
+    assert result.net_amount.amount == "1000"
+    assert resolution.model_dump() == before
+
+
+@pytest.mark.parametrize("form,field", [("606", "paid_on"), ("607", "withheld_on")])
+def test_submitting_a_stored_fiscal_model_still_checks_its_date(form, field):
+    from argus.domain.business.contracts.dgii import (
+        FiscalReview,
+        PurchaseDeclaration,
+        SalesDeclaration,
+    )
+
+    model = PurchaseDeclaration if form == "606" else SalesDeclaration
+    values = {name: None for name, info in model.model_fields.items() if info.is_required()}
+    values.update(form=form, **{field: "0026-09-05"})
+    saved = FiscalReview(fiscal={"rnc": None, "ncf": None, "itbis": None}, declaration=model.model_validate(values))
+    from argus.domain.business.actions.fiscal import validate_changed_dates
+    from argus.domain.business.authority import ActionError
+
+    submitted = ReviewDraft(version=1, dgii=saved)
+    with pytest.raises(ActionError) as raised:
+        validate_changed_dates(None, submitted.dgii.declaration)
+    assert raised.value.code == "business_date_before_minimum"
+
+
+@pytest.mark.parametrize("form,field,partial", [("606", "paid_on", False), ("607", "withheld_on", False), ("606", "paid_on", True)])
+@pytest.mark.parametrize("day", ["0026-09-05", "2010-01-01", "2026-11-16"])
+def test_review_changes_other_fields_without_revalidating_saved_dates(monkeypatch, form, field, day, partial):
+    from argus.domain.business.contracts.dgii import (
+        FiscalReview,
+        PurchaseDeclaration,
+        SalesDeclaration,
+    )
+
+    from tests.business.test_document_type_direction import _event, _facts, _review
+
+    model = PurchaseDeclaration if form == "606" else SalesDeclaration
+    values = {name: None for name, info in model.model_fields.items() if info.is_required()}
+    values.update(form=form, **{field: day})
+    saved = model.model_validate(values)
+    event = _event("recibo" if form == "606" else "venta", _facts(kind="expense" if form == "606" else "income"))
+    event.resolution["business"]["dgii"] = saved.model_dump(mode="json")
+    if partial:
+        request = ReviewDraft(version=event.version, purchase=PurchaseReview(paid_on=day, category="02"))
+        result = _review(monkeypatch, event, None, purchase=request.purchase)
+    else:
+        request = ReviewDraft(version=event.version, dgii=FiscalReview(
+            fiscal={"rnc": None, "ncf": None, "itbis": "200"}, declaration=saved,
+        ))
+        result = _review(monkeypatch, event, None, fiscal_review=request.dgii)
+    assert result["dgii"][field] == day
+
+
+@pytest.mark.parametrize("form,field,partial", [("606", "paid_on", False), ("607", "withheld_on", False), ("606", "paid_on", True)])
+@pytest.mark.parametrize("day,refused", [("0026-09-06", True), ("2010-01-01", True), ("2026-11-16", True), ("2026-11-15", False), (None, False)])
+def test_review_validates_actual_date_changes(monkeypatch, form, field, partial, day, refused):
+    from argus.domain.business.authority import ActionError
+    from argus.domain.business.contracts.dgii import (
+        FiscalReview,
+        PurchaseDeclaration,
+        SalesDeclaration,
+    )
+
+    from tests.business.test_document_type_direction import _event, _facts, _review
+
+    model = PurchaseDeclaration if form == "606" else SalesDeclaration
+    values = {name: None for name, info in model.model_fields.items() if info.is_required()}
+    values.update(form=form, **{field: "0026-09-05"})
+    saved = model.model_validate(values)
+    event = _event("recibo" if form == "606" else "venta", _facts(kind="expense" if form == "606" else "income"))
+    event.resolution["business"]["dgii"] = saved.model_dump(mode="json")
+    if partial:
+        request = ReviewDraft(version=event.version, purchase=PurchaseReview(paid_on=day))
+        inputs = {"purchase": request.purchase}
+    else:
+        values[field] = day
+        request = ReviewDraft(version=event.version, dgii=FiscalReview(
+            fiscal={"rnc": None, "ncf": None, "itbis": None}, declaration=model.model_validate(values),
+        ))
+        inputs = {"fiscal_review": request.dgii}
+    if refused:
+        with pytest.raises(ActionError) as raised:
+            _review(monkeypatch, event, None, **inputs)
+        assert raised.value.code == ("business_date_after_today" if day == "2026-11-16" else "business_date_before_minimum")
+        assert raised.value.result.context["field"] == field
+    else:
+        assert _review(monkeypatch, event, None, **inputs)["dgii"][field] == day

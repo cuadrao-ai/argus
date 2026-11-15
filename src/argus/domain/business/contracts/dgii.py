@@ -16,7 +16,6 @@ from pydantic import (
     field_validator,
 )
 
-from argus.domain.business.accepted_dates import PastBusinessDate
 from argus.domain.business.space_name import GivenName
 
 MONEY_PATTERN = r"^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$"
@@ -109,7 +108,7 @@ class PurchaseReview(BaseModel):
     itbis: Money | None = None
     category: ExpenseType | None = None
     category_suggested: bool = False
-    paid_on: PastBusinessDate | None = None
+    paid_on: date | None = None
     services_amount: Money | None = None
     goods_amount: Money | None = None
     itbis_withheld: Money | None = None
@@ -171,32 +170,11 @@ DgiiDeclaration = Annotated[
 ]
 
 
-class PurchaseDeclarationInput(PurchaseDeclaration):
-    """Fresh fiscal input; saved declarations remain readable outside the range."""
-
-    paid_on: PastBusinessDate | None
-
-
-class SalesDeclarationInput(SalesDeclaration):
-    withheld_on: PastBusinessDate | None
-
-
-def _declaration_input(value: object) -> object:
-    return value.model_dump() if isinstance(value, PurchaseDeclaration | SalesDeclaration) else value
-
-
-FiscalDeclarationInput = Annotated[
-    PurchaseDeclarationInput | SalesDeclarationInput,
-    Field(discriminator="form"),
-    BeforeValidator(_declaration_input),
-]
-
-
 class FiscalReview(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     fiscal: FiscalInput
-    declaration: FiscalDeclarationInput
+    declaration: DgiiDeclaration
 
 
 class TaxId(BaseModel):

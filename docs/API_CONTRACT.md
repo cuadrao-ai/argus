@@ -8227,8 +8227,14 @@ pending proof of its authorization and deletion lifecycle.
 February 28. `DueDate` uses the same floor with no future ceiling. Query filters
 are not record input and keep their existing behavior.
 
-Receipt fact patches and typed purchases, payment/withholding declarations,
-settlement updates, invoice writes and normalized bank imports use these types.
+Receipt fact patches and typed purchases, settlement updates, invoice writes
+and normalized bank imports use these types. Fiscal reviews accept date shapes
+at the request boundary, then compare payment/withholding dates with the stored
+declaration inside the authorized review transaction. Only changed values use
+the accepted range; clearing a date is allowed. Both full fiscal reviews and
+partial purchase reviews preserve unchanged legacy dates when other fields are
+edited. Internal previews likewise retain saved declarations without validating
+them as fresh input.
 Stored declarations, QR evidence, read purchases and response projections remain
 readable even when an old date would no longer be accepted as fresh input.
 `covered_through` is a derived response value, not a writable date field.
@@ -8240,7 +8246,9 @@ readable even when an old date would no longer be accepted as fresh input.
 
 Request validation returns HTTP 422 with the code in
 `context.errors[].type`, the field path in `loc`, and bounds in `ctx`.
-Bank import refusals carry the code and `context.{field,min_date,today}`.
+Bank import and changed fiscal-date refusals carry the code and
+`context.{field,min_date,today}`. Fiscal refusal metadata is retained in the
+action receipt, including an idempotent replay.
 The web renders those bounds; it does not calculate another rolling range.
 The two locale files own the refusal sentences.
 
