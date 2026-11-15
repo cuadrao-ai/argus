@@ -4,6 +4,8 @@ import BusinessApp from "@/components/business-app/BusinessApp";
 import { DevModeBadge } from "@/components/ui/DevModeBadge";
 import { businessOnlyWebEnabled, businessPilotEnabled } from "@/lib/private-alpha-flags";
 import { authLoginPathFromSearch, businessShellEntry, signedInHomePath } from "@/lib/landing-intent";
+import { classifyBusinessIdentity } from "@/lib/session-recovery";
+import { BusinessEntryRecovery } from "@/components/status/BusinessEntryRecovery";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,10 +25,12 @@ export default async function BusinessPage({
   const transferId = typeof search.transfer === "string" ? search.transfer : undefined;
   const lifecycle: { action: "close" | "transfer"; spaceId: string } | undefined = (search.lifecycle === "close" || search.lifecycle === "transfer") && typeof search.business === "string" ? { action: search.lifecycle, spaceId: search.business } : undefined;
   if (process.env.NEXT_PUBLIC_MOCK_AUTH !== "true") {
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.getUser();
-    // A guest session is an anonymous Supabase user; Business has no guest mode.
-    if (error || !data.user || data.user.is_anonymous) {
+    const outcome = await classifyBusinessIdentity(async () => {
+      const supabase = await createClient();
+      return supabase.auth.getUser();
+    });
+    if (outcome === "error") return <BusinessEntryRecovery />;
+    if (outcome === "missing") {
       redirect(authLoginPathFromSearch(search, "/biz"));
     }
   }

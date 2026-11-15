@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useBusiness } from "../BusinessWorkspace";
 import type { RecordRow } from "./transacciones-model";
@@ -15,15 +16,17 @@ const TONE: Record<PreviewWorkflow, string> = { review: palette.review, fiscal: 
 export default function RecordWorkflowBadge({ row }: { row: RecordRow }) {
   const { chosen } = useBusiness();
   const { t } = useTransaccionesWords();
+  const { i18n } = useTranslation();
   const metadata = row.report ? row.report.stage ? { workflow: WORKFLOW_OF_STAGE[row.report.stage], missing: row.report } : null : previewRecordMetadata(row, chosen?.space_id ?? null);
   if (!metadata) return <Unknown meaning={t("business.transactions.layout.workflow.unknown")} />;
-  const label = metadata.workflow === "fiscal" ? t(missingKey(metadata.missing ?? {})) : t(`business.transactions.layout.workflow.${metadata.workflow}`);
+  const label = metadata.workflow === "fiscal" ? t(missingKey(metadata.missing ?? {}, (key) => i18n.exists(key))) : t(`business.transactions.layout.workflow.${metadata.workflow}`);
   return <Tooltip content={label} side="top"><span data-record-workflow={metadata.workflow} className={`${styles.workflow} ${styles.stage} ${TONE[metadata.workflow]}`}>{label}</span></Tooltip>;
 }
 
-const MISSING = new Set(["expense_type_missing", "rnc_missing", "rnc_invalid", "ncf_invalid", "ncf_missing", "date_missing", "payment_method_missing"]);
-
-function missingKey(report: { export_missing?: string | null; export_missing_several?: boolean }): string {
-  const code = report.export_missing_several ? "several" : MISSING.has(report.export_missing ?? "") ? report.export_missing : "detail_missing";
-  return `business.transactions.layout.workflow.missing.${code}`;
+/** The server names what holds the row; the locale owns its words. A word the locale lacks reads as a detail missing, never a raw code. */
+function missingKey(report: { export_missing?: string | null; export_missing_several?: boolean }, known: (key: string) => boolean): string {
+  const path = "business.transactions.layout.workflow.missing";
+  if (report.export_missing_several) return `${path}.several`;
+  const key = `${path}.${report.export_missing}`;
+  return report.export_missing && report.export_missing !== "several" && known(key) ? key : `${path}.detail_missing`;
 }

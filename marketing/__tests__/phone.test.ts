@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { checkPhone, cleanPhoneInput } from "../components/phone";
+import agreedCases from "./phone-rule-cases.generated.json";
 
 describe("phone input", () => {
+  test("answers each case the server's rule answers, the same way", () => {
+    expect(agreedCases.length).toBeGreaterThan(0);
+    for (const agreed of agreedCases) {
+      const check = checkPhone(agreed.input);
+      const answer = check.status === "valid" ? { result: "valid", display: check.display } : { result: check.status === "invalid" ? check.reason : check.status };
+      expect({ input: agreed.input, ...answer }).toEqual(agreed);
+    }
+  });
+
   test("cleaning keeps digits and a leading plus", () => {
     expect(cleanPhoneInput(" (809) 555-0123 ext")).toBe("8095550123");
     expect(cleanPhoneInput("+1 (809) 555-0123")).toBe("+18095550123");

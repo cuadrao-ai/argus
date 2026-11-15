@@ -272,3 +272,120 @@ def test_workspace_supplies_records_default_separate_from_business_currency(biz)
     assert response.status_code == 200, response.text
     assert response.json()["currency"] == "CAD"
     assert response.json()["records_default_currency"] == "DOP"
+
+
+def _profile(biz):
+    first = biz.post(BASE + "/space", headers=AUTH, json={"name": "Colmado"}).json()
+    return BASE + f"/spaces/{first['id']}/profile"
+
+
+def test_profile_save_refuses_bad_details_with_one_error_per_field(biz):
+    path = _profile(biz)
+    refused = biz.patch(
+        path,
+        headers={**AUTH, "Idempotency-Key": str(uuid4())},
+        json={
+            "expected_revision": 0,
+            "details": {
+                "address": "Calle Sol 10",
+                "phone": "abc 12",
+                "email": "a@host",
+                "website": "javascript:bad",
+                "province": "x" * 81,
+            },
+        },
+    )
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "invalid_business_details"
+    assert refused.json()["context"]["field_errors"] == {
+        "phone": "invalid_business_phone_length",
+        "email": "invalid_business_email",
+        "website": "invalid_business_website",
+        "province": "string_too_long",
+    }
+    assert biz.get(path, headers=AUTH).json()["details"]["address"] == ""
+
+
+@pytest.mark.parametrize(
+    "typed,saved",
+    [
+        ("8095550142", "+1 809 555 0142"),
+        ("(809) 555-0142", "+1 809 555 0142"),
+        ("+1 809-555-0142", "+1 809 555 0142"),
+        ("+1 829 555 0142", "+1 829 555 0142"),
+        ("8495550142", "+1 849 555 0142"),
+        ("+1 212 555 0100", "+1 212 555 0100"),
+    ],
+)
+def test_profile_save_keeps_a_valid_phone_in_one_form(biz, typed, saved):
+    path = _profile(biz)
+    answer = biz.patch(
+        path,
+        headers={**AUTH, "Idempotency-Key": str(uuid4())},
+        json={"expected_revision": 0, "details": {"phone": typed}},
+    )
+    assert answer.status_code == 200, answer.text
+    assert answer.json()["details"]["phone"] == saved
+    assert biz.get(path, headers=AUTH).json()["details"]["phone"] == saved
+
+
+def test_profile_save_keeps_the_contract_error_for_other_fields(biz):
+    refused = biz.patch(
+        _profile(biz),
+        headers={**AUTH, "Idempotency-Key": str(uuid4())},
+        json={"expected_revision": 0, "name": "", "details": {"phone": "abc 12"}},
+    )
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "validation_error"
+
+
+REFUSED_PHONES = [
+    ("abc", "empty"),
+    ("809-555-014", "length"),
+    ("809-155-0142", "format"),
+    ("+44 20 7946 0958", "region"),
+    ("211-555-0142", "region"),
+]
+
+
+@pytest.mark.parametrize("phone,reason", REFUSED_PHONES)
+def test_the_save_and_the_check_refuse_the_same_phone_for_the_same_reason(
+    biz, phone, reason
+):
+    path = _profile(biz)
+    refusal = {"phone": f"invalid_business_phone_{reason}"}
+    checked = biz.post(BASE + "/profile-details/check", headers=AUTH, json={"phone": phone})
+    saved = biz.patch(
+        path,
+        headers={**AUTH, "Idempotency-Key": str(uuid4())},
+        json={"expected_revision": 0, "details": {"phone": phone}},
+    )
+    for answer in (checked, saved):
+        assert answer.status_code == 422, answer.text
+        assert answer.json()["code"] == "invalid_business_details"
+        assert answer.json()["context"]["field_errors"] == refusal
+    assert biz.get(path, headers=AUTH).json()["details"]["phone"] == ""
+
+
+def test_details_check_answers_with_the_save_rules_and_saves_nothing(biz):
+    path = _profile(biz)
+    check = BASE + "/profile-details/check"
+    accepted = biz.post(
+        check,
+        headers=AUTH,
+        json={"phone": "+1 (809) 555-0142", "website": "shop.example"},
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json() == {
+        "phone": "+1 809 555 0142",
+        "website": "https://shop.example",
+    }
+    refused = biz.post(check, headers=AUTH, json={"phone": "abc 12", "email": "a@host"})
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "invalid_business_details"
+    assert refused.json()["context"]["field_errors"] == {
+        "phone": "invalid_business_phone_length",
+        "email": "invalid_business_email",
+    }
+    assert biz.get(path, headers=AUTH).json()["revision"] == 0
+    assert biz.post(check, json={"phone": "809-555-0142"}).status_code in {401, 403}

@@ -576,6 +576,52 @@ def test_a_recorded_expense_without_an_ncf_needs_fiscal_data(actions):
     assert (result.overview.needs_fiscal_data, result.overview.exported) == (1, 0)
 
 
+def test_registros_judges_the_invoice_date_by_the_dominican_day(actions, monkeypatch):
+    from datetime import datetime, timezone
+
+    from argus.domain.business import reporting_store
+    from argus.domain.business.fiscal_profile import set_profile
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    from tests.test_business_declaration_after_approval_postgres import (
+        FILER,
+        account_funding,
+        approved,
+        captured,
+        declared,
+    )
+    from tests.test_business_dgii_postgres import PRACTICE_NAME, filer_change
+
+    service, context, _ = actions
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, PRACTICE_NAME)
+    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    funding = account_funding(cash_account(service, context))
+    drafts = {}
+    for day, ncf in (("2026-09-03", "B0100000031"), ("2026-09-04", "B0100000032")):
+        draft, version = captured(service, context, ncf, funding, occurred_on=day)
+        view = approved(service, context, draft, version)
+        outcome = declared(service, context, draft, view.version, category="02")
+        assert outcome.outcome == "applied", outcome
+        drafts[str(draft)] = day
+    # 8:30 pm in Santo Domingo on the 3rd; the UTC date is already the 4th.
+    evening = datetime(2026, 9, 4, 0, 30, tzinfo=timezone.utc)
+    recorded = reporting_store._recorded
+    monkeypatch.setattr(
+        reporting_store,
+        "_recorded",
+        lambda *args: replace(recorded(*args), observed_at=evening),
+    )
+    answer = read_report(service.authority, context, ReportRequest())
+    assert {
+        drafts[row.draft_id]: (row.stage, row.export_missing) for row in answer.items
+    } == {
+        "2026-09-03": ("ready_for_export", None),
+        "2026-09-04": ("needs_fiscal_data", "date_in_future"),
+    }
+
+
 def test_each_card_counts_its_stage_and_its_filter_matches_it(actions):
     from argus.domain.business.fiscal_profile import set_profile
     from argus.domain.business.reporting_query import ReportRequest

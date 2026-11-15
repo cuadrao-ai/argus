@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
-from typing import Annotated
+from typing import Annotated, get_args
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic_core import PydanticCustomError
 
+from argus.domain.business.phone import PhoneRefusal, PhoneRefused, display_phone
 from argus.domain.business.workspace_images import Appearance, DefaultAppearance
 
 
@@ -18,6 +20,8 @@ class WorkspaceError(ValueError):
 
 
 class BusinessDetails(BaseModel):
+    """The saved details. A row saved before a rule existed may not pass it."""
+
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
     address: str = Field(default="", max_length=200)
@@ -33,12 +37,45 @@ class BusinessDetails(BaseModel):
     def clear_null(cls, value: object) -> object:
         return "" if value is None else value
 
+    @field_validator("phone")
+    @classmethod
+    def phone_format(cls, value: str) -> str:
+        """A valid phone reads in its one form. Text from before the rule reads as saved."""
+        try:
+            return display_phone(value)
+        except PhoneRefused:
+            return value
+
+
+PHONE_REFUSAL_CODES = frozenset(
+    f"invalid_business_phone_{reason}" for reason in get_args(PhoneRefusal)
+)
+
+
+def _refused(code: str) -> PydanticCustomError:
+    return PydanticCustomError(code, code)
+
+
+class BusinessDetailsInput(BusinessDetails):
+    """Details a person typed. The only owner of the email, website and phone rules."""
+
     @field_validator("email")
     @classmethod
     def email_format(cls, value: str) -> str:
         if value and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
-            raise ValueError("invalid_business_email")
+            raise _refused("invalid_business_email")
         return value
+
+    @field_validator("phone")
+    @classmethod
+    def phone_format(cls, value: str) -> str:
+        """A phone is saved as +1 809 555 0142. An empty one clears the field."""
+        if not value:
+            return value
+        try:
+            return display_phone(value)
+        except PhoneRefused as refused:
+            raise _refused(f"invalid_business_phone_{refused.reason}") from None
 
     @field_validator("website", mode="before")
     @classmethod
@@ -62,7 +99,7 @@ class BusinessDetails(BaseModel):
         except ValueError:
             valid = False
         if not valid:
-            raise ValueError("invalid_business_website")
+            raise _refused("invalid_business_website")
         return value
 
 
@@ -76,7 +113,7 @@ class SaveWorkspace(BaseModel):
         ]
         | None
     ) = None
-    details: BusinessDetails | None = None
+    details: BusinessDetailsInput | None = None
     appearance: Appearance | None = None
 
     @field_validator("name", mode="before")

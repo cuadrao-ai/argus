@@ -306,12 +306,12 @@ def test_a_record_the_old_approval_left_blank_takes_the_whole_606(actions):  # n
         "id_type": "1",
         "category": "02",
         "payment_method": "01",
-        "services_amount": "880.00",
+        "services_amount": "990.00",
         "itbis_proportionality": "30.00",
         "itbis_cost": "20.00",
-        "selective_tax": "10.00",
-        "other_taxes": "10.00",
-        "legal_tip": "100.00",
+        "selective_tax": "7.00",
+        "other_taxes": "1.00",
+        "legal_tip": "2.00",
     }
     added = declared(service, context, draft_id, view.version, **chosen)
     assert added.outcome == "applied", added
@@ -570,6 +570,116 @@ def test_a_credit_number_approved_as_an_expense_refuses_a_refund_claim(actions):
         "invalid_input",
         "recorded_correction_unsupported",
     )
+
+
+def test_registros_loads_a_row_whose_payment_year_was_mistyped(actions):  # noqa: ANN001
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    service, context, _ = actions
+    PostgresSpaceStore(service.authority.pool).rename(
+        context.owner_id, dgii.PRACTICE_NAME
+    )
+    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    cash = account_funding(cash_account(service, context))
+    draft_id, version = captured(service, context, "B0100000041", cash)
+    view = approved(service, context, draft_id, version)
+    outcome = declared(
+        service, context, draft_id, view.version, category="02", paid_on="0026-09-05"
+    )
+    assert outcome.outcome == "applied", outcome
+
+    answer = read_report(service.authority, context, ReportRequest())
+
+    assert [(row.draft_id, row.stage, row.export_missing) for row in answer.items] == [
+        (str(draft_id), "needs_fiscal_data", "payment_before_invoice")
+    ]
+
+
+#: An amount a receipt can hold and no 606 cell can: 30 whole digits.
+BEYOND = "123456789012345678901234567890"
+
+
+def test_a_receipt_with_a_total_beyond_the_606_limit_opens_to_be_corrected(actions):  # noqa: ANN001
+    service, context, _ = actions
+    cash = account_funding(cash_account(service, context))
+    draft_id, version = captured(
+        service, context, "B0100000042", cash, amount=BEYOND, itbis="1"
+    )
+
+    view = service.dossier(context, draft_id)
+    refused = service.approve(
+        context,
+        draft_id,
+        ApproveExpense(version=version, action="record_expense"),
+        str(uuid4()),
+    )
+
+    assert view.facts.amount.value == BEYOND
+    assert (refused.outcome, refused.code) == ("invalid_input", "amount_out_of_range")
+    corrected = service.review(
+        context,
+        draft_id,
+        ReviewDraft(
+            version=view.version,
+            facts=BusinessFactPatch.model_validate(
+                {"amount": {"state": "known", "value": "1180.00"}}
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert corrected.outcome == "applied", corrected
+    recorded = approved(service, context, draft_id, corrected.version)
+    assert recorded.review_state == "accepted"
+
+
+def read_itbis(service, context, draft_id, itbis):  # noqa: ANN001
+    """Seed the ITBIS as a read stores it: any amount of up to 40 characters,
+    where a person types at most the 606's own limit."""
+
+    with service.authority.pool.connection() as db:
+        db.execute("set local session_replication_role=replica")
+        db.execute(
+            "update public.financial_import_events set resolution=jsonb_set(resolution,"
+            "'{business,facts,fiscal,itbis,value}',to_jsonb(%s::text))"
+            " where id=%s and owner_space_id=%s",
+            (itbis, draft_id, context.actor.space_id),
+        )
+        db.execute(
+            "update public.business_draft_revisions set after_facts=jsonb_set(after_facts,"
+            "'{fiscal,itbis,value}',to_jsonb(%s::text)) where draft_id=%s and space_id=%s",
+            (itbis, draft_id, context.actor.space_id),
+        )
+
+
+def test_a_read_itbis_beyond_the_606_limit_is_held_in_registros_and_the_606(actions):  # noqa: ANN001
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    service, context, _ = actions
+    PostgresSpaceStore(service.authority.pool).rename(
+        context.owner_id, dgii.PRACTICE_NAME
+    )
+    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    cash = account_funding(cash_account(service, context))
+    draft_id, version = captured(
+        service, context, "B0100000043", cash, blank_declaration(category="02")
+    )
+    read_itbis(service, context, draft_id, BEYOND)
+
+    opened = service.dossier(context, draft_id)
+    approved(service, context, draft_id, version)
+    answer = read_report(service.authority, context, ReportRequest())
+    _, lines = rows_606(service, context)
+
+    assert opened.facts.fiscal.itbis.value == BEYOND
+    assert [flag.code for flag in opened.review_flags] == ["itbis_high"]
+    assert [(row.draft_id, row.stage, row.export_missing) for row in answer.items] == [
+        (str(draft_id), "needs_fiscal_data", "detail_missing")
+    ]
+    assert lines == []
 
 
 def test_a_record_that_takes_no_606_refuses_the_606_write(actions):  # noqa: ANN001

@@ -106,6 +106,20 @@ describe("ncf_malformed marks the documents the server names", () => {
   });
 });
 
+describe("a held document keeps the export's own words", () => {
+  const held = receiptLine("act-held", "Ferretería La Esquina", "B0100000042");
+
+  test("a word newer than this web stays the server's word, first fix first, once each", () => {
+    const words = ["payment_method_missing", "itbis_over_limit", "tip_over_limit", "itbis_over_limit", "a_word_from_a_newer_server"];
+    const snapshot = readMonthCloseWire(month("2026-10", { closed: false, missing_fiscal_data: [{ ...held, missing: words }] }));
+    expect(snapshot.documents.map((document) => [document.id, document.missing])).toEqual([[held.activity_id, ["payment_method_missing", "itbis_over_limit", "tip_over_limit", "a_word_from_a_newer_server"]]]);
+  });
+
+  test.each([[[]], [[7]], ["itbis_over_limit"]])("a held line that does not say what is missing is refused: %j", (missing) => {
+    expect(() => readMonthCloseWire(month("2026-10", { closed: false, missing_fiscal_data: [{ ...held, missing }] }))).toThrow();
+  });
+});
+
 describe("the net follows net_result_final", () => {
   test("false withholds the figure and says how many documents of that currency are left to mark", () => {
     const [figures] = readMonthCloseWire(month("2026-10")).figures;

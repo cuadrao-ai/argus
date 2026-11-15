@@ -839,9 +839,14 @@ def test_bandeja_registros_and_the_export_agree_on_the_form(
     assert _dossier(web, draft)["document_type"] == document_type
     sale = document_type == "venta"
     assert _editors(web, draft) == (not sale, sale)
-    # The declaration's base plus ITBIS must equal the recorded total.
+    # The declaration's base plus ITBIS must equal the recorded total, and a
+    # purchase is paid on or after its invoice date.
+    purchase = {
+        **PURCHASE_606,
+        "declaration": {**PURCHASE_606["declaration"], "paid_on": "2026-09-16"},
+    }
     kind, amount, fiscal = (
-        ("income", "2360.00", SALE_607) if sale else ("expense", "1180.00", PURCHASE_606)
+        ("income", "2360.00", SALE_607) if sale else ("expense", "1180.00", purchase)
     )
     reviewed = _review(
         web, draft, {"facts": _facts(kind, amount, "2026-09-16", account), "dgii": fiscal}

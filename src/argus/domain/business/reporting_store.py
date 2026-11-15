@@ -24,7 +24,7 @@ from argus.domain.business.authority import (
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.dgii_snapshot import fiscal_snapshot
 from argus.domain.business.dgii_validation import FiscalRecord
-from argus.domain.business.ledger import occurred_on
+from argus.domain.business.ledger import business_day, occurred_on
 from argus.domain.business.month_close import Settlement
 from argus.domain.business.reporting import ReportIdentity, ReportRow
 from argus.domain.business.reporting_query import (
@@ -455,7 +455,7 @@ def _projected(
         verdicts = line_verdicts(
             tuple(record.approved for record in snapshot.records),
             rnc=filer_identity,
-            captured_on=snapshot.observed_at.date(),
+            captured_on=business_day(snapshot.observed_at),
             registry=rnc_snapshot,
         )
     exported = frozenset(

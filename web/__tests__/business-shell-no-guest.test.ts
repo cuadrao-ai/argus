@@ -3,11 +3,19 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { guestLandingHref, sessionAdmitted } from "../lib/landing-entry";
 import { guestAutoPickAllowed } from "../components/chat/useInitialChatSession";
+import { classifyBusinessIdentity } from "../lib/session-recovery";
 
 const root = join(import.meta.dir, "..");
 const source = (path: string) => readFileSync(join(root, path), "utf-8");
 
 describe("Business has no guest mode", () => {
+  test.each([
+    ["missing", null],
+    ["anonymous", { id: "guest", is_anonymous: true }],
+  ] as const)("the shared Business identity guard refuses a %s user", async (_kind, user) => {
+    expect(await classifyBusinessIdentity(async () => ({ data: { user }, error: null }))).toBe("missing");
+  });
+
   test("a guest session is admitted on a consumer build and treated as signed out on a Business build; registered accounts enter either way", () => {
     expect(sessionAdmitted("guest", false)).toBe(true);
     expect(sessionAdmitted("guest", true)).toBe(false);
@@ -32,7 +40,8 @@ describe("Business has no guest mode", () => {
     expect(rootPage).toContain("if (!sessionAdmitted(meResponse.account_kind, businessPilotEnabled)) {");
     expect(rootPage.indexOf("await logoutFromApi().catch(() => undefined);")).toBeGreaterThan(rootPage.indexOf("if (!sessionAdmitted("));
     const bizPage = source("app/biz/page.tsx");
-    expect(bizPage).toContain("if (error || !data.user || data.user.is_anonymous) {");
+    expect(bizPage).toContain("await classifyBusinessIdentity(");
+    expect(bizPage).toMatch(/if \(outcome === "missing"\)\s*\{\s*redirect\(authLoginPathFromSearch/);
     const hook = source("components/chat/useInitialChatSession.ts");
     expect(hook).toContain('meResponse?.account_kind === "guest" && guestAutoPickAllowed(surface)');
     const guard = source("components/chat/ConversationShellGuard.tsx");

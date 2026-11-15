@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { isLeavingSession } from "@/lib/logout-flow";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { synchronizeBusinessAccount } from "@/lib/business-grant";
-import { createSessionRecovery, type SessionRecoveryState } from "@/lib/session-recovery";
+import { classifyBusinessIdentity, createSessionRecovery, type SessionRecoveryState } from "@/lib/session-recovery";
 import FullscreenLoading, { FullscreenLoadingBoundary } from "@/components/FullscreenLoading";
 import { SessionRecoveryScreen } from "@/components/status/SessionRecoveryScreen";
 import { SessionRecoveryContext, useSessionRecoveryState } from "@/components/status/session-recovery-context";
@@ -31,10 +31,8 @@ type LifecycleHome = "workspace" | "closed" | "member_closed" | "unavailable";
 type DirectoryState = { scope: SessionRecoveryState; attempt: number; home: LifecycleHome; closed: ClosedGrantedSpace[] };
 
 async function verifyBusinessAccess(userId: string, signal: AbortSignal): Promise<"allowed" | "missing" | "error"> {
-  const identity = await getSupabaseClient()?.auth.getUser();
-  if (!identity || identity.error) return "error";
-  if (!identity.data.user) return "missing";
-  if (identity.data.user.id !== userId || identity.data.user.is_anonymous) return "error";
+  const outcome = await classifyBusinessIdentity(async () => getSupabaseClient()?.auth.getUser(), userId);
+  if (outcome !== "allowed") return outcome;
   signal.throwIfAborted();
   await getBusinessDirectory(signal, userId);
   return "allowed";

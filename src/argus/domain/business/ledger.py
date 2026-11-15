@@ -37,17 +37,22 @@ def kind_activities(
     return [item for item in activities if item["kind"] == kind]
 
 
-def today() -> date:
-    """The Business day: the one clock's instant, read in the recording time zone.
+def business_day(at: datetime) -> date:
+    """The Business day of an instant: Santo Domingo's calendar, never the
+    host's, the browser's or UTC's."""
 
-    The instant comes from the clock every "today" derives from, so a frozen
-    clock freezes this day too; the calendar is Santo Domingo's, never the
-    host's or the browser's."""
-
-    from argus.domain.clock import new_york_now
     from argus.domain.recording.records import DEFAULT_TIME_ZONE
 
-    return new_york_now().astimezone(ZoneInfo(DEFAULT_TIME_ZONE)).date()
+    return at.astimezone(ZoneInfo(DEFAULT_TIME_ZONE)).date()
+
+
+def today() -> date:
+    """The Business day now. The instant comes from the clock every "today"
+    derives from, so a frozen clock freezes this day too."""
+
+    from argus.domain.clock import new_york_now
+
+    return business_day(new_york_now())
 
 
 def expenses(
