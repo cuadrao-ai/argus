@@ -61,6 +61,7 @@ class ReportFilters(Contract):
     q: str = Field(default="", max_length=200)
     period: Period = Period()
     record_families: tuple[Family, ...] = ()
+    ready: bool | None = None
     review_stages: tuple[Stage, ...] = ()
     fiscal_data: FiscalData | None = None
     has_document: bool | None = None

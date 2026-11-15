@@ -7,6 +7,7 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from loguru import logger
 from pydantic import TypeAdapter
 
 from argus.domain.business.amount_inheritance import document_is_paid, inheritance_state
@@ -21,7 +22,12 @@ from argus.domain.business.contracts.facts import (
     personal_mark_admits,
 )
 from argus.domain.business.dgii_codes import EXPENSE_TYPES, PAYMENT_FORMS
-from argus.domain.business.dgii_line import confirmed_declaration
+from argus.domain.business.dgii_export import LineAssessment
+from argus.domain.business.dgii_line import (
+    DETAIL_MISSING,
+    confirmed_declaration,
+    missing_items,
+)
 from argus.domain.business.dgii_validation import (
     FiscalRecord,
     fact_value,
@@ -319,31 +325,79 @@ def project(
     )
 
 
+# Fiscal reasons keep missing_items' order; distinct blocker reasons follow
+# in this table's order. Account details have no separate word in Registros.
+_BLOCKER_MISSING = {
+    "possible_duplicate": "duplicate_document",
+    "fact_required": DETAIL_MISSING,
+    "activity_kind_unsupported": DETAIL_MISSING,
+    "business_funding_unsupported": DETAIL_MISSING,
+    "business_record_not_found": DETAIL_MISSING,
+    "import_currency_mismatch": DETAIL_MISSING,
+    "account_ineligible": DETAIL_MISSING,
+    "business_category_unsupported": DETAIL_MISSING,
+    "amount_positive_required": DETAIL_MISSING,
+    "business_allocation_unsupported": DETAIL_MISSING,
+    "business_questions_unresolved": DETAIL_MISSING,
+    "business_draft_not_open": DETAIL_MISSING,
+}
+
+
+def readiness(
+    row: ReportRecord, assessment: LineAssessment | None
+) -> tuple[bool, tuple[str, ...]]:
+    """Current data completeness, independent of export history and rate holds."""
+
+    missing: tuple[str, ...] = ()
+    if assessment is not None and assessment.issues is not None:
+        issues = [
+            issue
+            for issue in assessment.issues
+            if issue["code"] != "fiscal_conversion_required"
+        ]
+        if issues or not assessment.issues:
+            missing = missing_items(assessment.record, issues)
+    missing += tuple(
+        reason
+        for blocker, reason in _BLOCKER_MISSING.items()
+        if blocker in row.workflow_blockers
+    )
+    for blocker in dict.fromkeys(row.workflow_blockers):
+        if blocker not in _BLOCKER_MISSING:
+            logger.warning("Unmapped reporting blocker {}: {}", blocker, DETAIL_MISSING)
+            missing += (DETAIL_MISSING,)
+    if row.technical_state:
+        missing += (DETAIL_MISSING,)
+    missing = tuple(dict.fromkeys(missing))
+    return not missing, missing
+
+
 def with_export_verdicts(
     rows: tuple[ReportRecord, ...],
-    verdicts: dict[str, tuple[str, ...] | None],
+    verdicts: dict[str, LineAssessment],
     exported: frozenset[str],
 ) -> tuple[ReportRecord, ...]:
     """Current fiscal data uses the current verdict. Export stage separately
     keeps the history of downloaded lines."""
 
     def judged(row: ReportRecord) -> ReportRecord:
+        identifier = row.linked_activity_ids[0]
+        assessment = verdicts.get(identifier)
+        ready, missing = readiness(row, assessment)
+        row = row.model_copy(update={"ready": ready, "missing": missing})
         if row.stage != "ready_for_export":
             return row
-        identifier = row.linked_activity_ids[0]
-        if identifier in verdicts:
+        if assessment is not None:
             row = row.model_copy(
                 update={
-                    "fiscal_data": "complete"
-                    if verdicts[identifier] is None
-                    else "missing"
+                    "fiscal_data": "complete" if assessment.missing is None else "missing"
                 }
             )
         if identifier in exported:
             return row.model_copy(update={"stage": "exported", "export_line": True})
-        if identifier not in verdicts:
+        if assessment is None:
             return row
-        missing = verdicts[identifier]
+        missing = assessment.missing
         if missing is None:
             return row.model_copy(update={"export_line": True})
         return row.model_copy(

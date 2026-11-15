@@ -420,7 +420,7 @@ def _projected(
             )
         )
     from argus.domain.business.contracts.dgii import PurchaseDeclaration
-    from argus.domain.business.dgii_export import fiscal_form, line_verdicts
+    from argus.domain.business.dgii_export import fiscal_form, line_assessments
     from argus.domain.business.dgii_line import confirmed_declaration
     from argus.domain.business.dgii_validation import fact_value
     from argus.domain.business.fiscal_identity import identity_digits
@@ -452,7 +452,7 @@ def _projected(
         rnc_snapshot = RncRegistrySnapshot(
             {digits: registry.lookup(digits) for digits in sorted(identities)}
         )
-        verdicts = line_verdicts(
+        verdicts = line_assessments(
             tuple(record.approved for record in snapshot.records),
             rnc=filer_identity,
             captured_on=business_day(snapshot.observed_at),

@@ -3,6 +3,7 @@ from __future__ import annotations
 import calendar
 import re
 from collections import Counter
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
@@ -390,19 +391,32 @@ def fiscal_manifest(
     return manifest, rows
 
 
-def line_verdicts(
+@dataclass(frozen=True)
+class LineAssessment:
+    """The current line's source and issues, before their codes become words.
+    None means a line on the form; a tuple means the form holds it."""
+
+    record: FiscalRecord
+    issues: tuple[dict, ...] | None
+
+    @property
+    def missing(self) -> tuple[str, ...] | None:
+        return (
+            None if self.issues is None else missing_items(self.record, list(self.issues))
+        )
+
+
+def line_assessments(
     records: tuple[FiscalRecord, ...],
     *,
     rnc: str | None,
     captured_on: date,
     registry: RncRegistry | None = None,
-) -> dict[str, tuple[str, ...] | None]:
-    """For each record the export would report, None when its month's 606 or
-    607 carries it as a line, else what is missing, first fix first. Records the export
-    leaves out by rule (Personal, no fiscal number, B02 summary) are absent."""
+) -> dict[str, LineAssessment]:
+    """Preserve each month's issues for Registros; rule-excluded rows are absent."""
 
     by_id = {record.activity_id: record for record in records}
-    verdicts: dict[str, tuple[str, ...] | None] = {}
+    verdicts: dict[str, LineAssessment] = {}
     months = {(record.occurred_on.year, record.occurred_on.month) for record in records}
     for year, month in months:
         manifest, _rows = fiscal_manifest(
@@ -414,27 +428,51 @@ def line_verdicts(
             captured_on=captured_on,
             registry=registry,
         )
-        verdicts.update(manifest_verdicts(manifest, by_id))
+        verdicts.update(manifest_assessments(manifest, by_id))
     return verdicts
 
 
-def manifest_verdicts(
-    manifest: dict, by_id: dict[str, FiscalRecord]
+def line_verdicts(
+    records: tuple[FiscalRecord, ...],
+    *,
+    rnc: str | None,
+    captured_on: date,
+    registry: RncRegistry | None = None,
 ) -> dict[str, tuple[str, ...] | None]:
-    """One manifest's verdict per record it reconciles: None for a line on its
-    form, else what is missing, first fix first. The one reading of the
-    manifest that Registros and the month close share."""
+    """The existing export verdict: None for a line, otherwise missing words."""
 
-    verdicts: dict[str, tuple[str, ...] | None] = {}
+    return {
+        identifier: assessment.missing
+        for identifier, assessment in line_assessments(
+            records, rnc=rnc, captured_on=captured_on, registry=registry
+        ).items()
+    }
+
+
+def manifest_assessments(
+    manifest: dict, by_id: dict[str, FiscalRecord]
+) -> dict[str, LineAssessment]:
+    """The one reading of manifest issues shared by Registros and month close."""
+
+    verdicts: dict[str, LineAssessment] = {}
     for item in manifest["reconciliation"]:
         identifier = item["activity_id"]
         if item["disposition"] in COLUMNS:
-            verdicts[identifier] = None
+            verdicts[identifier] = LineAssessment(by_id[identifier], None)
         elif item["disposition"] == "needs_review":
             issues = [
                 issue
                 for issue in manifest["issues"]
                 if issue["activity_id"] == identifier
             ]
-            verdicts[identifier] = missing_items(by_id[identifier], issues)
+            verdicts[identifier] = LineAssessment(by_id[identifier], tuple(issues))
     return verdicts
+
+
+def manifest_verdicts(
+    manifest: dict, by_id: dict[str, FiscalRecord]
+) -> dict[str, tuple[str, ...] | None]:
+    return {
+        identifier: assessment.missing
+        for identifier, assessment in manifest_assessments(manifest, by_id).items()
+    }
