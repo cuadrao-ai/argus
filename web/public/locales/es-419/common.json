@@ -4277,17 +4277,19 @@
     "lifecycle": {
       "close": {
         "action": "Cerrar negocio",
-        "consequences": "Al cerrar, los miembros pierden acceso de inmediato. Tienes 30 días para reabrirlo. Después, borramos todo y no se puede recuperar.",
-        "download": "Descargar comprobantes",
+        "confirmation": "Escribe <strong>{{businessName}}</strong> para confirmar.",
+        "continue": "Continuar",
+        "continue_without": "Continuar sin descargar",
+        "download": "Descargar copia",
         "title": "Cerrar este negocio",
-        "warning": "La ley obliga a tu negocio a guardar sus comprobantes por 10 años. Descárgalos antes de cerrar, porque Cuadrao no los guardará por ti."
+        "title_named": "Cerrar <strong>{{businessName}}</strong>",
+        "warning": "Al cerrar, tendrás 30 días para reabrir este negocio. Después, se borra y no se puede recuperar. Descarga una copia antes de continuar."
       },
-      "close_alert_title": "¿Cerrar {{businessName}}?",
+      "close_alert_title": "¿Cerrar <strong>{{businessName}}</strong>?",
       "close_preview": {
         "member_count_one": "1 miembro pierde acceso al cerrar.",
         "member_count_other": "{{count}} miembros pierden acceso al cerrar.",
-        "member_count_zero": "Ningún miembro pierde acceso al cerrar.",
-        "reopen_until": "Si lo cierras ahora, podrás reabrirlo antes del {{purgeDate}} a las {{purgeTime}} (hora de RD)."
+        "reopen_until": "Podrás reabrirlo hasta el {{purgeDate}}."
       },
       "closed_group": "Cerrados",
       "closed_owner": "Para descargar comprobantes, primero debes reabrir el negocio.",
@@ -4319,10 +4321,14 @@
         "withdraw_uncertain": "No pudimos confirmar el retiro. Actualiza para comprobar el resultado."
       },
       "export": {
-        "complete": "Se iniciaron todas las descargas. Revisa las descargas de tu navegador.",
+        "download": "Descargar",
+        "downloaded": "Descargado",
         "empty": "No hay registros ni comprobantes para descargar.",
         "failed": "No pudimos iniciar todas las descargas. Reintenta para continuar.",
-        "preparing": "Preparando las descargas…"
+        "package": "La copia incluye tus registros en Excel y CSV y, cuando es posible, el archivo de cada documento.",
+        "preparing": "Preparando las descargas…",
+        "records_one": "{{n}} registro",
+        "records_other": "{{n}} registros"
       },
       "member_closed": "{{businessName}} está cerrado. Para pedir copias de los comprobantes, contacta al dueño del negocio.",
       "name_confirmation": "Escribe el nombre del negocio para confirmar.",
