@@ -1,11 +1,7 @@
 import { expect, type Page } from "@playwright/test";
-import path from "node:path";
 import { FREEZE_CSS, installBreakpointFixture, type Account, type Language } from "./breakpoint-fixture";
 
 export type Cell = { width: number; account: Account; language: Language; theme?: "dark" | "light"; motion?: "on" };
-export const AUDIT_DIR = process.env.ARGUS_MENU_AUDIT_DIR
-  ? path.resolve(process.env.ARGUS_MENU_AUDIT_DIR)
-  : path.resolve(__dirname, "../../../docs/reports/evidence/menu-settings-width-contract/audit");
 export const AUDIT_CELLS: Cell[] = (["guest", "registered"] as Account[]).flatMap((account) => [
   ...[390, 720, 900, 1024, 1280].map((width): Cell => ({ width, account, language: "en", theme: "dark" })),
   { width: 390, account, language: "es-419", theme: "light" },
