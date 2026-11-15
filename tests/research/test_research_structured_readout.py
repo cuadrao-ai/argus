@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from typing import Literal
 
 import pytest
 from argus.domain.research.config import RESEARCH_CONFIG_SPECS
@@ -12,7 +13,7 @@ from argus.domain.research.perplexity_agent import (
     PerplexityAgentClient,
     StructuredAgentLimits,
 )
-from argus.domain.result_readout_grounding import ResultReadoutDraft as Draft
+from pydantic import BaseModel, ConfigDict
 
 from tests.research.conftest import (
     RecordingTransport,
@@ -21,6 +22,21 @@ from tests.research.conftest import (
     request_body,
     search_results_item,
 )
+
+
+class Figure(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    fact_key: str
+    value: float | str
+
+
+class Draft(BaseModel):
+    """Caller-owned fixture for the generic structured response transport."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    language: Literal["en", "es-419"]
+    text: str
+    figures: list[Figure]
 
 
 @pytest.fixture

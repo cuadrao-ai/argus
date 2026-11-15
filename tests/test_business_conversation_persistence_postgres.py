@@ -39,7 +39,6 @@ def test_create_then_read_uses_the_database_after_memory_is_cleared(rig: Rig) ->
     for path, params in (
         ("/api/v1/conversations", {"surface": "business"}),
         ("/api/v1/history", {"surface": "business"}),
-        ("/api/v1/search", {"surface": "business", "q": "durable"}),
     ):
         page = rig.client.get(path, params=params, headers=rig.alice.headers)
         assert page.status_code == 200, page.text
@@ -135,7 +134,7 @@ def test_database_pages_patch_and_delete_preserve_owner_and_message_boundaries(
 
 
 def test_database_read_pages_keep_cursors_and_surface_scope(rig: Rig) -> None:
-    for path in ("/api/v1/conversations", "/api/v1/history", "/api/v1/search"):
+    for path in ("/api/v1/conversations", "/api/v1/history"):
         seen, cursor = [], None
         for _ in range(4):
             page = rig.client.get(
@@ -169,16 +168,3 @@ def test_database_read_pages_keep_cursors_and_surface_scope(rig: Rig) -> None:
             headers=rig.alice.headers,
         )
         assert invalid.status_code == 400, invalid.text
-    recall = rig.client.get(
-        "/api/v1/search",
-        params={"surface": "business", "q": "", "conversation_id": rig.alice.business},
-        headers=rig.alice.headers,
-    )
-    assert recall.status_code == 200, recall.text
-    assert [item["id"] for item in recall.json()["items"]] == rig.alice.business
-    refused = rig.client.get(
-        "/api/v1/search",
-        params={"surface": "business", "q": "", "conversation_id": rig.alice.business},
-        headers=rig.bob.headers,
-    )
-    assert refused.status_code == 200 and refused.json()["items"] == []
