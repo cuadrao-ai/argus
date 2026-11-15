@@ -350,12 +350,15 @@ def readiness(
 
     missing: tuple[str, ...] = ()
     if assessment is not None and assessment.issues is not None:
+        complete = (
+            assessment.readiness_issues
+            if assessment.readiness_issues is not None
+            else assessment.issues
+        )
         issues = [
-            issue
-            for issue in assessment.issues
-            if issue["code"] != "fiscal_conversion_required"
+            issue for issue in complete if issue["code"] != "fiscal_conversion_required"
         ]
-        if issues or not assessment.issues:
+        if issues or not complete:
             missing = missing_items(assessment.record, issues)
     missing += tuple(
         reason

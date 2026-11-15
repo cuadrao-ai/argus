@@ -3,7 +3,7 @@ from __future__ import annotations
 import calendar
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 
@@ -129,6 +129,30 @@ def rule_issues(record: FiscalRecord, *, today: date) -> list[dict]:
     ]
 
 
+def _collect_issues(
+    record: FiscalRecord,
+    originals: dict[str, FiscalRecord],
+    *,
+    rnc: str | None,
+    end: date,
+    captured_on: date,
+    registry: RncRegistry,
+) -> list[dict]:
+    return (
+        record_issues(record, originals, filer_identity=rnc, period_end=end)
+        + hard_rejects(record, registry)
+        + rule_issues(record, today=captured_on)
+    )
+
+
+def _missing_ncf_issue(record: FiscalRecord) -> dict:
+    return {
+        "code": "fiscal_fact_required",
+        "activity_id": record.activity_id,
+        "field": "ncf",
+    }
+
+
 def fiscal_manifest(
     records: tuple[FiscalRecord, ...],
     *,
@@ -198,11 +222,13 @@ def fiscal_manifest(
     )
 
     def collect(subject: FiscalRecord) -> list[dict]:
-        found = record_issues(subject, originals, filer_identity=rnc, period_end=end)
-        return (
-            found
-            + hard_rejects(subject, registry)
-            + rule_issues(subject, today=captured_on)
+        return _collect_issues(
+            subject,
+            originals,
+            rnc=rnc,
+            end=end,
+            captured_on=captured_on,
+            registry=registry,
         )
 
     for record in selected:
@@ -256,13 +282,7 @@ def fiscal_manifest(
                 item.update(disposition="excluded", reason="no_fiscal_number")
             else:
                 item["reason"] = "fiscal_fact_required"
-                issues.append(
-                    {
-                        "code": "fiscal_fact_required",
-                        "activity_id": record.activity_id,
-                        "field": "ncf",
-                    }
-                )
+                issues.append(_missing_ncf_issue(record))
             continue
         if form == "606" and ncf_type(ncf) == "02":
             item.update(
@@ -398,6 +418,9 @@ class LineAssessment:
 
     record: FiscalRecord
     issues: tuple[dict, ...] | None
+    # The manifest can stop at a missing NCF. Readiness still needs every fix;
+    # legacy export fields continue to read only the manifest's issues.
+    readiness_issues: tuple[dict, ...] | None = None
 
     @property
     def missing(self) -> tuple[str, ...] | None:
@@ -415,20 +438,44 @@ def line_assessments(
 ) -> dict[str, LineAssessment]:
     """Preserve each month's issues for Registros; rule-excluded rows are absent."""
 
+    registry = registry or UnknownRncRegistry()
     by_id = {record.activity_id: record for record in records}
     verdicts: dict[str, LineAssessment] = {}
     months = {(record.occurred_on.year, record.occurred_on.month) for record in records}
     for year, month in months:
+        end = date(year, month, calendar.monthrange(year, month)[1])
         manifest, _rows = fiscal_manifest(
             records,
             rnc=rnc,
             business_name="",
             start=date(year, month, 1),
-            end=date(year, month, calendar.monthrange(year, month)[1]),
+            end=end,
             captured_on=captured_on,
             registry=registry,
         )
-        verdicts.update(manifest_assessments(manifest, by_id))
+        for identifier, assessment in manifest_assessments(manifest, by_id).items():
+            record = assessment.record
+            if assessment.issues is not None and not (
+                fact_value(record, "ecf") or fact_value(record, "ncf")
+            ):
+                complete = _collect_issues(
+                    record,
+                    by_id,
+                    rnc=rnc,
+                    end=end,
+                    captured_on=captured_on,
+                    registry=registry,
+                )
+                # An absent number needs entering, not repairing. Other fiscal
+                # issues still come from the same validators as the export.
+                assessment = replace(
+                    assessment,
+                    readiness_issues=(
+                        _missing_ncf_issue(record),
+                        *(issue for issue in complete if issue["field"] != "ncf"),
+                    ),
+                )
+            verdicts[identifier] = assessment
     return verdicts
 
 

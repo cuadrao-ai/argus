@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import date
 
 import pytest
+from argus.domain.business.contracts.facts import Unknown
 from argus.domain.business.dgii_export import fiscal_manifest, line_assessments
 from argus.domain.business.dgii_line import reason
 from argus.domain.business.reporting_file import (
@@ -185,6 +186,77 @@ def test_currency_only_is_ready_but_never_becomes_a_dgii_line(
     )
 
 
+@pytest.mark.parametrize("currency", ["DOP", "USD"])
+def test_missing_ncf_keeps_all_readiness_reasons_and_legacy_export(
+    approved_rows, currency
+):
+    original = approved_rows[0]
+    ncf_only = replace(
+        original,
+        currency=currency,
+        facts=original.facts.model_copy(
+            update={"fiscal": original.facts.fiscal.model_copy(update={"ncf": Unknown()})}
+        ),
+    )
+    subject = replace(
+        ncf_only,
+        declaration=ncf_only.declaration.model_copy(
+            update={"category": None, "payment_method": None}
+        ),
+    )
+    [row] = judge((subject,))
+    assert row.ready is False
+    assert row.missing == (
+        "expense_type_missing",
+        "ncf_missing",
+        "payment_method_missing",
+    )
+    if currency == "DOP":
+        assert (
+            row.stage,
+            row.fiscal_data,
+            row.export_missing,
+            row.export_missing_several,
+        ) == ("needs_fiscal_data", "missing", "ncf_missing", False)
+    assert row.export_line is False
+
+    def export(record):
+        manifest, lines = fiscal_manifest(
+            (record,),
+            rnc="199990013",
+            business_name="",
+            start=date(2026, 9, 1),
+            end=date(2026, 9, 30),
+            captured_on=CAPTURED,
+        )
+        [projected] = judge((record,))
+        dataset = source(projected, approved={record.activity_id: record})
+        result = build_file(
+            dataset, RecordsExport(report=report(), mode="dgii", format="csv")
+        )
+        assert result.row_count == 0
+        assert lines["606"] == []
+        return manifest, result.content, summarize_export(dataset, report()).dgii
+
+    before, before_file, before_preview = export(ncf_only)
+    after, after_file, after_preview = export(subject)
+    assert after_file == before_file
+    assert after_preview == before_preview
+    if currency == "DOP":
+        assert (
+            after["issues"]
+            == before["issues"]
+            == [
+                {
+                    "code": "fiscal_fact_required",
+                    "field": "ncf",
+                    "activity_id": subject.activity_id,
+                }
+            ]
+        )
+        assert after["reconciliation"] == before["reconciliation"]
+
+
 def test_unmapped_blocker_logs_and_cannot_look_ready(approved_rows):
     subject = approved_rows[0]
     projected = rows((subject,))[0].model_copy(
@@ -255,8 +327,6 @@ def test_rows_left_out_by_rule_are_ready(approved_rows, excluded):
     elif excluded == "b02":
         subject = with_ncf(subject, "B0200000001")
     else:
-        from argus.domain.business.contracts.facts import Unknown
-
         subject = replace(
             subject,
             facts=subject.facts.model_copy(
