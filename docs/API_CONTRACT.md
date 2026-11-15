@@ -9831,17 +9831,20 @@ person starts their space, every route below except POST `/space` answers 404
   Empty values read as `""`. Address does not require province/municipality.
   Optional email must have a basic email shape. Websites without a scheme gain
   `https://`; only HTTP(S), a dotted hostname, no whitespace and no userinfo are
-  accepted. A phone is a Dominican number (area code 809, 829 or 849 plus seven
-  digits, with an optional `+1` or `1` in front) or a foreign number that starts
-  with `+` and its country code (8 to 15 digits; exactly 11 when the country code
-  is 1). Spaces, hyphens and parentheses are accepted and dropped. A Dominican
-  number is saved and returned as `809-555-0142`, a foreign one as `+` and its
-  digits. Saving does not verify these facts or activate invoicing.
+  accepted. A phone is a Dominican Republic or United States number: ten
+  national digits, or eleven with `+1` or `1` in front. The national number
+  matches `[2-9]XX[2-9]XXXXXX` and its area code is a geographic, in-service code
+  of either country (`src/argus/domain/business/phone_area_codes.py`). Any other
+  character is dropped. A number is saved and returned as `809-555-0142`. There
+  is no rule for other countries. Saving does not verify these facts or activate invoicing.
 - The server is the only owner of the email, website and phone rules; clients
   hold no copy. A PATCH whose only failures are detail fields returns
   `422 invalid_business_details` with `context.field_errors`, a map from each
   refused detail field to one code: `invalid_business_email`,
-  `invalid_business_phone`, `invalid_business_website` or `string_too_long`.
+  `invalid_business_website`, `string_too_long`, or for a phone
+  `invalid_business_phone_empty` (no digits), `invalid_business_phone_length`,
+  `invalid_business_phone_format` or `invalid_business_phone_region` (another
+  country or an unassigned area code).
   Nothing is saved. Any other body failure keeps the general `422 validation_error`.
   A detail saved before a rule existed is still returned by GET as saved, and it
   does not block a PATCH that leaves that field out.

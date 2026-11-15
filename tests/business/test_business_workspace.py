@@ -66,43 +66,39 @@ def test_invalid_emails_are_refused(email):
     "typed,saved",
     [
         ("8095550142", "809-555-0142"),
-        ("809-555-0142", "809-555-0142"),
         ("(829) 555-0142", "829-555-0142"),
         (" 849 555 0142 ", "849-555-0142"),
-        ("+1 809 555 0142", "809-555-0142"),
+        ("809.555.0142", "809-555-0142"),
         ("+1 (809) 555-0142", "809-555-0142"),
         ("1-809-555-0142", "809-555-0142"),
-        ("+34 912 345 678", "+34912345678"),
-        ("+1 212 555 0100", "+12125550100"),
+        ("+1 212 555 0100", "212-555-0100"),
+        ("2125550100", "212-555-0100"),
         ("", ""),
+        ("   ", ""),
     ],
 )
-def test_phones_are_saved_in_one_form(typed, saved):
+def test_dominican_and_united_states_phones_are_saved_in_one_form(typed, saved):
     assert BusinessDetailsInput(phone=typed).phone == saved
 
 
 @pytest.mark.parametrize(
-    "phone",
+    "phone,reason",
     [
-        "abc 12",
-        "555-0142",
-        "809-555-014",
-        "809-555-01420",
-        "212-555-0100",
-        "809.555.0142",
-        "809 555 0142 ext 3",
-        "+1 809 555 014",
-        "+0 912 345 678",
-        "+34 12",
-        "+",
-        "809+5550142",
+        ("abc", "empty"),
+        ("809-555-014", "length"),
+        ("+1 809 555 01420", "length"),
+        ("809-155-0142", "format"),
+        ("+44 20 7946 0958", "region"),
+        ("+34 912 345 678", "region"),
+        ("211-555-0142", "region"),
+        ("416-555-0142", "region"),
     ],
 )
-def test_invalid_phones_are_refused(phone):
+def test_a_refused_phone_carries_its_reason(phone, reason):
     with pytest.raises(ValidationError) as refused:
         BusinessDetailsInput(phone=phone)
     assert [error["type"] for error in refused.value.errors()] == [
-        "invalid_business_phone"
+        f"invalid_business_phone_{reason}"
     ]
 
 

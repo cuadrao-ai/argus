@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import re
-from typing import Annotated
+from typing import Annotated, get_args
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 from pydantic_core import PydanticCustomError
 
+from argus.domain.business.phone import PhoneRefusal, PhoneRefused, national_phone
 from argus.domain.business.workspace_images import Appearance, DefaultAppearance
 
 
@@ -37,7 +38,9 @@ class BusinessDetails(BaseModel):
         return "" if value is None else value
 
 
-DOMINICAN_AREA_CODES = frozenset({"809", "829", "849"})
+PHONE_REFUSAL_CODES = frozenset(
+    f"invalid_business_phone_{reason}" for reason in get_args(PhoneRefusal)
+)
 
 
 def _refused(code: str) -> PydanticCustomError:
@@ -57,21 +60,14 @@ class BusinessDetailsInput(BusinessDetails):
     @field_validator("phone")
     @classmethod
     def phone_format(cls, value: str) -> str:
-        """A Dominican number is saved as 809-555-0142, a foreign one as + and its digits."""
+        """A phone is saved as 809-555-0142. An empty one clears the field."""
         if not value:
             return value
-        if not re.fullmatch(r"\+?[\d ()-]+", value):
-            raise _refused("invalid_business_phone")
-        digits = re.sub(r"\D", "", value)
-        local = digits[1:] if len(digits) == 11 and digits[0] == "1" else digits
-        if len(local) == 10 and local[:3] in DOMINICAN_AREA_CODES:
-            return f"{local[:3]}-{local[3:6]}-{local[6:]}"
-        foreign = value[0] == "+" and (
-            len(digits) == 11 if digits[:1] == "1" else 8 <= len(digits) <= 15
-        )
-        if not foreign or digits[0] == "0":
-            raise _refused("invalid_business_phone")
-        return "+" + digits
+        try:
+            national = national_phone(value)
+        except PhoneRefused as refused:
+            raise _refused(f"invalid_business_phone_{refused.reason}") from None
+        return f"{national[:3]}-{national[3:6]}-{national[6:]}"
 
     @field_validator("website", mode="before")
     @classmethod

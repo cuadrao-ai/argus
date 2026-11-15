@@ -51,20 +51,35 @@ test("the form holds no email, website or phone rule: without a server answer it
  }finally{await form.close();}
 });
 test("a field that is left shows the server's answer, then is asked again while it is being fixed",async()=>{
- const form=await mount({refusals:{"abc 12":"invalid_business_phone","abc 123":"invalid_business_phone"}});try{
+ const form=await mount({refusals:{"abc 12":"invalid_business_phone_length","abc 123":"invalid_business_phone_length"}});try{
   await form.type("phone","abc 12");expect(form.server!.asked).toEqual([]);expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();
   await form.blur("phone");expect(form.server!.asked).toEqual([{phone:"abc 12"}]);
-  expect(form.field("phone").getAttribute("aria-invalid")).toBe("true");expect(form.note("phone")).toBe(i18nText("es-419","profile_error_phone_placeholder"));
+  expect(form.field("phone").getAttribute("aria-invalid")).toBe("true");expect(form.note("phone")).toBe("Escribe los 10 dígitos de tu número, incluido el código de área.");
   await form.type("phone","abc 123");await settle(340);expect(form.field("phone").getAttribute("aria-invalid")).toBe("true");
   await form.type("phone","809-555-0142");await settle(340);
   expect(form.server!.asked.at(-1)).toEqual({phone:"809-555-0142"});expect(form.field("phone").getAttribute("aria-invalid")).toBeNull();expect(form.note("phone")).toBe(i18nText("es-419","profile_format_phone_placeholder"));
  }finally{await form.close();}
 });
+test.each([
+ ["es-419","abc","empty","Escribe tu número de teléfono."],
+ ["es-419","809-555-014","length","Escribe los 10 dígitos de tu número, incluido el código de área."],
+ ["es-419","809-155-0142","format","Revisa el código de área y los demás dígitos de tu número."],
+ ["es-419","+44 20 7946 0958","region","Usa un número de República Dominicana o Estados Unidos."],
+ ["en","abc","empty","Enter your phone number."],
+ ["en","809-555-014","length","Enter all 10 digits of your number, including the area code."],
+ ["en","809-155-0142","format","Check the area code and the remaining digits of your number."],
+ ["en","+44 20 7946 0958","region","Use a number from the Dominican Republic or the United States."],
+])("%s phone %s refused for %s shows that reason's message",async(locale,typed,reason,message)=>{
+ const form=await mount({locale,refusals:{[typed]:`invalid_business_phone_${reason}`}});try{
+  await form.type("phone",typed);await form.blur("phone");
+  expect(form.field("phone").getAttribute("aria-invalid")).toBe("true");expect(form.note("phone")).toBe(message);
+ }finally{await form.close();}
+});
 test("a refused save shows the server's error under each field, lists them, focuses the first and stays open",async()=>{
- const form=await mount({closes:true,refusals:{"a@host":"invalid_business_email","abc 12":"invalid_business_phone"}});try{
+ const form=await mount({closes:true,refusals:{"a@host":"invalid_business_email","abc 12":"invalid_business_phone_length"}});try{
   await form.type("address","Calle Sol 10");await form.type("email","a@host");await form.type("phone","abc 12");await form.save();
   expect(form.writes).toHaveLength(0);expect(form.closed()).toBe(0);
-  expect(form.note("email")).toBe("Escribe un correo electrónico válido.");expect(form.note("phone")).toBe(i18nText("es-419","profile_error_phone_placeholder"));
+  expect(form.note("email")).toBe("Escribe un correo electrónico válido.");expect(form.note("phone")).toBe("Escribe los 10 dígitos de tu número, incluido el código de área.");
   const summary=form.host.querySelector('[data-testid="form-error-summary"]')!;expect([...summary.querySelectorAll("a")].map(link=>link.textContent)).toEqual(["Correo del negocio","Teléfono o WhatsApp"]);
   await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));expect(document.activeElement).toBe(form.field("email"));expect(form.field("address").value).toBe("Calle Sol 10");
   await form.type("email","hola@ejemplo.com");await form.type("phone","809-555-0142");await settle(340);await form.save();

@@ -25,6 +25,7 @@ from argus.domain.business.country import CountryCode
 from argus.domain.business.lifecycle import BusinessLifecycleError
 from argus.domain.business.memberships import MembershipError
 from argus.domain.business.workspace import (
+    PHONE_REFUSAL_CODES,
     BusinessDetails,
     BusinessDetailsInput,
     SaveWorkspace,
@@ -35,9 +36,9 @@ from argus.domain.profile_images.objects import ProfileImageStorageUnavailable
 
 DETAIL_CODES = {
     "invalid_business_email",
-    "invalid_business_phone",
     "invalid_business_website",
     "string_too_long",
+    *PHONE_REFUSAL_CODES,
 }
 
 
@@ -88,7 +89,9 @@ DETAILS_REFUSED = {
     422: {
         "description": "`invalid_business_details` when only detail fields failed: "
         "`context.field_errors` maps each refused field to `invalid_business_email`, "
-        "`invalid_business_phone`, `invalid_business_website` or `string_too_long`. "
+        "`invalid_business_website`, `string_too_long`, or for a phone "
+        "`invalid_business_phone_empty`, `invalid_business_phone_length`, "
+        "`invalid_business_phone_format` or `invalid_business_phone_region`. "
         "`validation_error` for any other body failure."
     }
 }

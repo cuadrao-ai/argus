@@ -11,7 +11,7 @@ import {normalizeBusinessProvidedDetails,providedDetailFields,providedDetailLimi
 /** What the server said about one typed value. The form holds no format rule of its own. */
 type Answer = {value:string;code:string|null};
 type Refused = Partial<Record<ProvidedDetailField,string>>;
-const errorCopy: Record<string,string> = {invalid_business_email:"profile_error_email",invalid_business_website:"profile_error_website",invalid_business_phone:"profile_error_phone_placeholder",string_too_long:"profile_error_length"};
+const errorCopy: Record<string,string> = {invalid_business_email:"profile_error_email",invalid_business_website:"profile_error_website",invalid_business_phone_empty:"profile_error_phone_empty",invalid_business_phone_length:"profile_error_phone_length",invalid_business_phone_format:"profile_error_phone_format",invalid_business_phone_region:"profile_error_phone_region",string_too_long:"profile_error_length"};
 const formatCopy: Partial<Record<ProvidedDetailField,string>> = {email:"profile_format_email",website:"profile_format_website",phone:"profile_format_phone_placeholder"};
 const FIXING_DELAY_MS = 300;
 
@@ -65,7 +65,7 @@ export default function BusinessProfileDetails({saved,canEdit,onSave,onCheck,onS
     const format = formatCopy[field];
     const answer = answers[field];
     const success = format && draft[field] && answer && !answer.code && answer.value === draft[field] ? t(`business.settings.${format}`) : undefined;
-    const reserveMessages = format ? [t(`business.settings.${errorCopy[`invalid_business_${field}`]}`),t("business.settings.profile_error_length",{count:providedDetailLimits[field]}),t(`business.settings.${format}`)] : [];
+    const reserveMessages = format ? [...Object.keys(errorCopy).filter(code=>code.startsWith(`invalid_business_${field}`)).map(code=>t(`business.settings.${errorCopy[code]}`)),t("business.settings.profile_error_length",{count:providedDetailLimits[field]}),t(`business.settings.${format}`)] : [];
     return <FormField key={field} id={`${id}-${field}`} name={`profile-${field}`}
       label={t(`business.settings.profile_${field}`)} placeholder={t(`business.settings.profile_placeholder_${field}`)}
       value={draft[field]} disabled={!canEdit || saving}

@@ -5797,9 +5797,10 @@ paths:
             live grant does not allow this.'
         '422':
           description: '`invalid_business_details` when only detail fields failed: `context.field_errors`
-            maps each refused field to `invalid_business_email`, `invalid_business_phone`,
-            `invalid_business_website` or `string_too_long`. `validation_error` for any other
-            body failure.'
+            maps each refused field to `invalid_business_email`, `invalid_business_website`,
+            `string_too_long`, or for a phone `invalid_business_phone_empty`, `invalid_business_phone_length`,
+            `invalid_business_phone_format` or `invalid_business_phone_region`. `validation_error`
+            for any other body failure.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -7896,9 +7897,10 @@ paths:
             live grant does not allow this.'
         '422':
           description: '`invalid_business_details` when only detail fields failed: `context.field_errors`
-            maps each refused field to `invalid_business_email`, `invalid_business_phone`,
-            `invalid_business_website` or `string_too_long`. `validation_error` for any other
-            body failure.'
+            maps each refused field to `invalid_business_email`, `invalid_business_website`,
+            `string_too_long`, or for a phone `invalid_business_phone_empty`, `invalid_business_phone_length`,
+            `invalid_business_phone_format` or `invalid_business_phone_region`. `validation_error`
+            for any other body failure.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
