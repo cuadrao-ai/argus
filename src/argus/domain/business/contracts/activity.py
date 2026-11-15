@@ -134,6 +134,13 @@ class ActivityFilters(Contract):
     actors: tuple[ActorId, ...] = ()
     areas: tuple[Area, ...] = ()
     groups: tuple[ActionGroup, ...] = ()
+    #: Words the actor's name or the object's label must hold; blank is none.
+    q: str | None = None
+
+    @field_validator("q", mode="after")
+    @classmethod
+    def trimmed(cls, value: str | None) -> str | None:
+        return (value or "").strip() or None
 
     @field_validator("actors", "areas", "groups", mode="after")
     @classmethod

@@ -12,6 +12,7 @@ import { searchKindGroups } from "./business-search-groups";
 import { formatDay } from "./business-format";
 import type { BusinessPanelState } from "./BusinessWorkspace";
 import { copyText } from "./foundation/CopyButton";
+import { activitySearchGroup } from "./actividad/activity-search";
 import { SEARCHABLE_LISTS, type SearchableList } from "./foundation/list-search";
 import { showToast } from "./foundation/toasts";
 import { useReceiptStateWord } from "./receipt-state-word";
@@ -51,7 +52,7 @@ export function useBusinessSearch({
   /** The export permission, as the server grants it; a member without it is not offered Exportar. */
   canExport: boolean;
   openExport: () => void;
-  /** The list on screen that lends its query (Bandeja, Registros, a Facturación section): the search starts scoped to it. */
+  /** The list on screen the search starts scoped to: one that lends its query (Bandeja, Registros, a Facturación section), or Actividad. */
   listScope?: { list: SearchableList; apply?: (query: string) => void } | null;
   adaptive?: boolean;
   emailAvailable?: boolean;
@@ -142,7 +143,9 @@ export function useBusinessSearch({
         close: t("common.close", "Close"),
       },
       find: async (query) => {
-        const [records, captures] = await Promise.allSettled([source.search(query), source.captures(query)]);
+        // Actividad's rows are searched only from its screen; without its scope they join the Business's results.
+        const searchActivity = listScope?.list === "activity" ? source.searchActivity : undefined;
+        const [records, captures, activity] = await Promise.allSettled([source.search(query), source.captures(query), searchActivity?.(query)]);
         if (records.status === "rejected") throw records.reason;
         const kinds = searchKindGroups({ t, locale, source, accounts, openPanel, stateWord }, query, records.value);
         const notes: WorkspaceSearchGroup = {
@@ -160,7 +163,10 @@ export function useBusinessSearch({
             open: () => openPanel({ kind: "draft", draftId: note.draft_id, list: "inbox" }),
           })) : [],
         };
-        return [kinds.expenses, kinds.ventas, kinds.receipts, notes, kinds.accounts, kinds.email_deliveries, ...(emailAvailable ? [kinds.email_senders] : [])];
+        return [
+          kinds.expenses, kinds.ventas, kinds.receipts, notes, kinds.accounts, kinds.email_deliveries, ...(emailAvailable ? [kinds.email_senders] : []),
+          ...(searchActivity ? [activitySearchGroup({ t, locale, openPanel }, activity.status === "fulfilled" ? activity.value ?? null : null, (cursor) => searchActivity(query, cursor))] : []),
+        ];
       },
     };
   }, [emailAvailable, accounts, actions.create, adaptive, canExport, forwardAddress, listScope, locale, openExport, openPanel, canAdd, recentsServer, scope, source, stateWord, t]);

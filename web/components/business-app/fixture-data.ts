@@ -11,6 +11,7 @@ import type { FiscalProfile } from "@/lib/business-dgii";
 import { normalizeSearchText } from "@/lib/search-text";
 import { projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
 import type { BusinessDataSource } from "./business-data";
+import { sampleActivityFeed } from "./actividad/activity-sample";
 import { createFixtureSearch, SAMPLE_VENTAS } from "./search-fixtures";
 import { sampleSetup } from "./inicio/setup-fixture";
 
@@ -701,6 +702,10 @@ export function createFixtureBusinessDataSource(
       return served(replace({ ...current, status: "confirmed", expense_id: expenseId }));
     },
     ...search,
+    searchActivity: async (query) => {
+      await delay();
+      return { items: sampleActivityFeed().filter((item) => matches(query, [item.actor?.display_name, item.object?.label].join(" "))), next_cursor: null };
+    },
     setup: async () => {
       await delay();
       return sampleSetup();

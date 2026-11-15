@@ -11,12 +11,15 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone
+from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from psycopg.rows import dict_row
 
+from argus.domain.business import search
 from argus.domain.business.activity.catalog import (
+    LEGACY,
     EventRow,
     project,
     visibility,
@@ -164,12 +167,22 @@ _GRANT_LABELS = """
 """
 
 
+#: A read with a query scans this many rows a statement, this many statements.
+_SCAN_ROWS = 500
+_SCAN_READS = 4
+
+
 def fingerprint(filters: ActivityFilters) -> str:
-    canonical = json.dumps(filters.model_dump(mode="json"), sort_keys=True)
+    # Without a query the set reads as it did before the feed took one, so a
+    # cursor issued then still continues.
+    dumped = filters.model_dump(mode="json", exclude=None if filters.q else {"q"})
+    canonical = json.dumps(dumped, sort_keys=True)
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
 def encode_cursor(item: ActivityItem, filters: ActivityFilters) -> str:
+    """The place after ``item`` in the filter set's page order."""
+
     raw = f"{item.occurred_at.isoformat()}|{item.id}|{fingerprint(filters)}".encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
@@ -232,69 +245,139 @@ def read_activity(
             "until": until,
         }
         with connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(
-                _PAGE,
-                {
-                    **scope,
-                    "actors": list(filters.actors) or None,
-                    "before_at": before.occurred_at if before else None,
-                    "before_id": before.id if before else None,
-                    "limit": limit + 1,
-                },
-            )
-            rows = cursor.fetchall()
+            read = _Read(cursor, context.actor.space_id, scope, filters)
             facets = None
             if before is None:
                 cursor.execute(_FACETS, scope)
                 facets = cursor.fetchall()
-            page = rows[:limit]
-            _fill_names(cursor, context.actor.space_id, page + (facets or []))
-            items = _purged(
-                cursor,
-                context.actor.space_id,
-                _document_targets(
-                    cursor, context.actor.space_id, tuple(project(row) for row in page)
-                ),
-            )
-            labels = _labels(cursor, context.actor.space_id, items)
-    items = tuple(with_labels(item, labels) for item in items)
+                _fill_names(cursor, context.actor.space_id, facets)
+            if filters.q:
+                items, last = read.matching(search.parse(filters.q), before, limit)
+            else:
+                items, more = read.page(before, limit)
+                last = items[-1] if more else None
     return ActivityPage(
         items=items,
-        next_cursor=encode_cursor(items[-1], filters) if len(rows) > limit else None,
+        next_cursor=None if last is None else encode_cursor(last, filters),
         actors=None if facets is None else _facet(facets),
     )
 
 
-def _document_targets(
+def holds(query: search.SearchQuery, item: ActivityItem) -> bool:
+    """The query's words are in what the row says of who and of which object,
+    read as the Business search reads a record."""
+
+    said = (item.actor and item.actor.display_name, item.object and item.object.label)
+    return search.matches(query, " ".join(part for part in said if part))
+
+
+@dataclass(frozen=True)
+class _Read:
+    cursor: Any
+    space_id: UUID
+    scope: dict[str, Any]
+    filters: ActivityFilters
+
+    def page(
+        self, before: Cursor | ActivityItem | None, limit: int
+    ) -> tuple[tuple[ActivityItem, ...], bool]:
+        """The next ``limit`` rows as the reader sees them, and whether more follow."""
+
+        self.cursor.execute(
+            _PAGE,
+            {
+                **self.scope,
+                "actors": list(self.filters.actors) or None,
+                "before_at": before.occurred_at if before else None,
+                "before_id": before.id if before else None,
+                "limit": limit + 1,
+            },
+        )
+        rows = self.cursor.fetchall()
+        page = rows[:limit]
+        _fill_names(self.cursor, self.space_id, page)
+        items = _receipt_targets(
+            self.cursor,
+            self.space_id,
+            _purged(self.cursor, self.space_id, tuple(project(row) for row in page)),
+        )
+        labels = _labels(self.cursor, self.space_id, items)
+        return tuple(with_labels(item, labels) for item in items), len(rows) > limit
+
+    def matching(
+        self, query: search.SearchQuery, before: Cursor | None, limit: int
+    ) -> tuple[tuple[ActivityItem, ...], ActivityItem | None]:
+        """The next ``limit`` rows that hold the query, and the row to continue
+        after when more may follow. One read scans a bounded stretch of the
+        history, so a page may come short, or empty, with a row to continue
+        after: the reader follows it to the end."""
+
+        found: list[ActivityItem] = []
+        scanned: ActivityItem | None = None
+        for _ in range(_SCAN_READS):
+            items, more = self.page(scanned or before, _SCAN_ROWS)
+            for item in items:
+                if holds(query, item):
+                    if len(found) == limit:
+                        return tuple(found), found[-1]
+                    found.append(item)
+            if not more:
+                return tuple(found), None
+            scanned = items[-1]
+        return tuple(found), scanned
+
+
+#: A draft of the legacy receipt surface read from one upload, and an upload
+#: that holds a document, each with the receipt it answers to.
+_RECEIPTS = """
+    select e.id, min(o.connection_id::text) as receipt_id
+    from public.financial_import_events e
+    join public.financial_import_observations o
+      on o.event_id = e.id and o.user_id = e.user_id
+    where e.owner_space_id = %(space_id)s and e.id = any(%(ids)s)
+      and not (e.resolution ? 'business')
+    group by e.id having count(distinct o.connection_id) = 1
+    union all
+    select c.id, c.id::text
+    from public.financial_source_connections c
+    join public.financial_document_extractions d
+      on d.connection_id = c.id and d.user_id = c.user_id
+    where c.owner_space_id = %(space_id)s and c.id = any(%(ids)s)
+"""
+
+
+def _leads_to_a_receipt(item: ActivityItem) -> bool:
+    if item.object is None or item.object.purged:
+        return False
+    return item.action in LEGACY or (
+        item.action in ("delete_document", "restore_document")
+        and item.object.kind == "draft"
+    )
+
+
+def _receipt_targets(
     cursor, space_id: UUID, items: tuple[ActivityItem, ...]
 ) -> tuple[ActivityItem, ...]:
-    ids = [
-        item.object.id
-        for item in items
-        if item.action in ("delete_document", "restore_document")
-        and item.object is not None
-        and item.object.kind == "draft"
-    ]
+    """A document change that names a draft, and a write on the legacy receipt
+    surface, lead to the one receipt the subject answers to. A legacy subject
+    that is no receipt of this Business names nothing."""
+
+    ids = sorted({item.object.id for item in items if _leads_to_a_receipt(item)})
     if not ids:
         return items
-    cursor.execute(
-        "select e.id,min(o.connection_id::text) as receipt_id from public.financial_import_events e"
-        " join public.financial_import_observations o on o.event_id=e.id and o.user_id=e.user_id"
-        " where e.owner_space_id=%s and e.id=any(%s) and not (e.resolution ? 'business')"
-        " group by e.id having count(distinct o.connection_id)=1",
-        (space_id, ids),
-    )
-    targets = {row["id"]: row["receipt_id"] for row in cursor.fetchall()}
-    return tuple(
-        item.model_copy(
-            update={"object": ActivityObject(kind="receipt", id=targets[item.object.id])}
-        )
-        if item.action in ("delete_document", "restore_document")
-        and item.object is not None
-        and item.object.id in targets
-        else item
-        for item in items
-    )
+    cursor.execute(_RECEIPTS, {"space_id": space_id, "ids": ids})
+    receipts = {row["id"]: row["receipt_id"] for row in cursor.fetchall()}
+
+    def led(item: ActivityItem) -> ActivityItem:
+        if not _leads_to_a_receipt(item):
+            return item
+        receipt = receipts.get(item.object.id)
+        if receipt is not None:
+            named = ActivityObject(kind="receipt", id=receipt)
+            return item.model_copy(update={"object": named})
+        return item.model_copy(update={"object": None}) if item.action in LEGACY else item
+
+    return tuple(led(item) for item in items)
 
 
 def _purged(

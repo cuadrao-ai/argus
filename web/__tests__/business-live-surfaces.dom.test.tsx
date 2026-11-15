@@ -89,7 +89,7 @@ const item = (id: string, name: string, action: string, minutesAgo: number) => (
 });
 
 describe("Actividad on a live Business", () => {
-  test("lists the feed as it is: no filters, no Registro column, no record links, then Cargar más", async () => {
+  test("lists the feed as it is: no filters, no Registro column, then Cargar más", async () => {
     feed = async (cursor) => cursor
       ? { items: [item("a3", "Carlos Méndez", "receipt_upload", 300)], next_cursor: null }
       : { items: [item("a1", "Lucía Peña", "approve_expense", 5), item("a2", "Lucía Peña", "a_new_action", 40)], next_cursor: "c-2" };
@@ -102,7 +102,7 @@ describe("Actividad on a live Business", () => {
       const headers = [...(page.host.querySelector('[data-testid="business-activity-draft"] [class*="h-12"]')?.children ?? [])].map((cell) => cell.textContent);
       assert.deepEqual(headers, ["Quién", "Qué pasó", "Área", "Hora"], "no Registro column until the feed names records");
       assert.equal([...page.host.querySelectorAll("button")].some((button) => button.textContent?.includes("Filtros")), false);
-      assert.equal(page.host.querySelector('[data-testid="business-activity-draft"] li button'), null, "rows open nothing");
+      assert.equal(page.host.querySelectorAll('[data-testid="business-activity-draft"] li button').length, 2, "each row opens the record it names");
       const more = [...page.host.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Cargar más");
       assert.ok(more, "Cargar más while the feed has a next cursor");
       await page.click(more);
@@ -146,6 +146,72 @@ for (const action of ["delete_document", "restore_document"] as const) {
     } finally { await page.close(); }
   });
 }
+
+const activityRow = (page: { host: HTMLElement }, words: string) => [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="business-activity-draft"] li button')].find((button) => button.textContent?.includes(words));
+
+describe("an Actividad row opens what it is about", () => {
+  test("an upload opens its receipt", async () => {
+    feed = async () => ({ items: [{ ...item("upload", "Lucía Peña", "receipt_upload", 5), object: { kind: "receipt", id: "rcpt-blurry", label: "IMG_2209.jpg" } }], next_cursor: null });
+    const page = await mount("view=activity");
+    try {
+      await page.settle(() => Boolean(activityRow(page, "subió un documento")));
+      const row = activityRow(page, "subió un documento");
+      assert.ok(row, "the upload row is a button");
+      await page.click(row);
+      await page.settle(() => !!document.querySelector('[data-testid="receipt-original-source"]'));
+      assert.ok(document.querySelector('[data-testid="receipt-original-source"]'), "the receipt opened");
+    } finally { await page.close(); }
+  });
+
+  test("an approval opens its record", async () => {
+    const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+    const asked: string[] = [];
+    const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource({ chatAvailable: true });
+    feed = async () => ({ items: [{ ...item("approval", "Lucía Peña", "approve_expense", 5), object: { kind: "draft", id: dossierFixtureIds.ready, label: "Ferretería La Esquina" } }], next_cursor: null });
+    const page = await mount("view=activity", { dossier: (id: string) => { asked.push(id); return fixture.dossier(id); } });
+    try {
+      await page.settle(() => Boolean(activityRow(page, "aprobó un gasto")));
+      const row = activityRow(page, "aprobó un gasto");
+      assert.ok(row, "the approval row is a button");
+      await page.click(row);
+      await page.settle(() => asked.length > 0 && !!document.querySelector('[data-testid="receipt-top-block"]'));
+      assert.deepEqual([...new Set(asked)], [dossierFixtureIds.ready], "the record the row names is the one read");
+      assert.ok(document.querySelector('[data-testid="receipt-top-block"]'), "the record opened");
+    } finally { await page.close(); }
+  });
+
+  test("a row that names no document or record stays plain", async () => {
+    feed = async () => ({ items: [
+      { ...item("role", "Lucía Peña", "change_role", 5), object: { kind: "grant", id: "grant-1", label: "Ana Editora" } },
+      { ...item("invite", "Lucía Peña", "invite_access", 6), object: { kind: "invite", id: "invite-1" } },
+      { ...item("rnc", "Lucía Peña", "set_business_rnc", 7), object: null },
+      { ...item("upload", "Lucía Peña", "receipt_upload", 8), object: null },
+    ], next_cursor: null });
+    const page = await mount("view=activity");
+    try {
+      await page.settle(() => page.host.textContent?.includes("cambió un rol") === true);
+      assert.equal(page.host.querySelectorAll('[data-testid="business-activity-draft"] li').length, 4);
+      assert.equal(page.host.querySelectorAll('[data-testid="business-activity-draft"] li button').length, 0);
+    } finally { await page.close(); }
+  });
+
+  test("a row whose receipt the server no longer has closes it with the receipt's own notice", async () => {
+    const { clearToasts } = await import("@/components/business-app/foundation/toasts");
+    clearToasts();
+    feed = async () => ({ items: [{ ...item("upload", "Lucía Peña", "receipt_upload", 5), object: { kind: "receipt", id: "rcpt-gone", label: "factura.pdf" } }], next_cursor: null });
+    const page = await mount("view=activity", { receipt: async () => { throw Object.assign(new Error("receipt_not_found"), { status: 404, code: "receipt_not_found" }); } });
+    try {
+      await page.settle(() => Boolean(activityRow(page, "subió un documento")));
+      await page.click(activityRow(page, "subió un documento")!);
+      const notices = () => [...document.querySelectorAll('[data-testid="toast-viewport"] > *')].map((toast) => toast.textContent ?? "");
+      await page.settle(() => notices().length > 0);
+      assert.equal(notices().length, 1, "one notice");
+      assert.ok(notices()[0].includes("Ese recibo ya no está"), notices()[0]);
+      assert.equal(document.querySelector('[data-testid="receipt-load-error"]'), null, "no dead panel");
+      assert.equal(document.querySelector('[data-testid="side-drawer"]'), null, "no record tray");
+    } finally { clearToasts(); await page.close(); }
+  });
+});
 
 for (const [action, words] of [["purge_document", "borró definitivamente un documento."], ["expire_document", "borró definitivamente un documento después de 7 días en Eliminados."]] as const) {
   test(`Actividad shows ${action} with no name and no link`, async () => {

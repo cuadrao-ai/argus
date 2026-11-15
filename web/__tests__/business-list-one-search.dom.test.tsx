@@ -28,7 +28,7 @@ afterEach(async () => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-type Screen = "inbox" | "invoicing";
+type Screen = "inbox" | "invoicing" | "activity";
 
 async function mount(screen: Screen, list: (parts: { act: typeof import("react").act }) => Promise<ReactNode>, { width }: { width: number }) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
@@ -103,6 +103,14 @@ test("Bandeja at a wide width shows only the bar's search, scoped to Bandeja", a
   await page.settle(() => page.host.querySelector('[data-testid="reception-row"]') !== null);
   assert.deepEqual(page.searches(), { bar: 1, own: 0 });
   assert.ok(page.scope()?.startsWith("En Bandeja"));
+});
+
+test("Actividad at a wide width shows the bar's search scoped to Actividad, with no filter of its own to clear", async () => {
+  barSearch(true);
+  const page = await mount("activity", async () => <p>Actividad</p>, { width: 1440 });
+  assert.deepEqual(page.searches(), { bar: 1, own: 0 });
+  assert.ok(page.scope()?.startsWith("En Actividad"));
+  assert.equal(page.host.querySelector('[data-testid="scoped-search-clear"]'), null);
 });
 
 test("each Facturación section at a wide width shows only the bar's search, scoped to that section's own query", async () => {
