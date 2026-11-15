@@ -77,7 +77,6 @@ def root_prose_reader_paths() -> list[Path]:
                     "src/argus/api/routers/history.py",
                     "src/argus/api/conversation_previews.py",
                     "src/argus/domain/conversation_previews.py",
-                    "src/argus/domain/run_dossiers.py",
                 )
             ),
         }
@@ -112,16 +111,6 @@ def test_root_prose_has_only_exact_generic_transcript_readers() -> None:
     )
 
 
-@pytest.mark.parametrize("field", sorted(ARTIFACT_ROOT_PROSE_FIELDS))
-def test_root_prose_fallback_mutation_is_detected_in_real_reader(field: str) -> None:
-    path = ROOT / "src/argus/domain/run_dossiers.py"
-    mutated = (
-        path.read_text()
-        + f"\ndef leaked_template(message):\n    return message.get('{field}') or ''\n"
-    )
-    assert root_reader_inventory({path: mutated}) != root_reader_inventory()
-
-
 def test_single_reader_boundary_blanks_the_shared_root_registry() -> None:
     tree = ast.parse((ROOT / "src/argus/api/artifact_presentation.py").read_text())
     boundary = next(
@@ -143,8 +132,6 @@ def test_single_reader_boundary_blanks_the_shared_root_registry() -> None:
         and node.value.value == ""
         for node in ast.walk(loops[0])
     )
-
-
 
 
 @pytest.mark.parametrize(

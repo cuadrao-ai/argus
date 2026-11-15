@@ -32,16 +32,6 @@
       "entries": 478,
       "chars": 7124,
       "sha256": "2406d8c7f59925bc5f1ac98f9943cc6242ecd0100b81eace183428d4ed5e6f88"
-    },
-    "src/argus/domain/result_readout_grounding.py": {
-      "entries": 8,
-      "chars": 2027,
-      "sha256": "f859530d37b777307d33937ebd1a956b731348fb9bcbe4b0e856a4bbd87e794a"
-    },
-    "src/argus/domain/result_readout_sources.py": {
-      "entries": 1,
-      "chars": 409,
-      "sha256": "5e0bb9699040b6a9ce3c13bfc9885a2a84235535d35b7affb3c0e361adf8e15b"
     }
   },
   "scoped_measurements": {

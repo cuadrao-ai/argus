@@ -2258,22 +2258,11 @@ The canonical backtest config used by the engine for execution and reproducibili
   only the bounds the card carries.
 - The `unsupported_starting_capital` recovery offers the nearest accepted
   amount: the minimum for an amount under it, the maximum for one over it.
-- **Result money precision:** the result card decides once, from the run's
-  portfolio peak, how many decimals its money shows and stores the answer as
-  `conversation_result_card.currency_fraction_digits`: `2` when the peak is
-  under `currency_cents_below` (`web/argus_display_contract/result_display_policy.json`,
-  1,000), otherwise the policy's `currency_fraction_digits` (`0`). The card
-  rows, the web hero, details, equity chart and exploration summary, and the
-  readout facts all read that stored value and round half up
-  (`currency_rounding_mode: halfExpand`), with or without a chart, so a $10 run
-  reads `$10.00 -> $12.05`. A card stored before the field existed reads whole
-  dollars. New cards also carry numeric `profit`, taken directly from the run's
-  `metrics.aggregate.performance.profit` and rounded half up at the card's
-  stored precision. The web renders this gain or loss; it never subtracts
-  rounded start/end row text. Older cards without `profit` show the return
-  percentage alone in the hero detail.
-- > [!NOTE]
-  > Starting capital is simulation capital only. It does not imply real brokerage trading or account balance. The global default is `$1,000` for runnable drafts. DCA/recurring-buy contribution amounts are strategy-specific user inputs and remain separate from default starting capital.
+- **Retired result money display:** backend result-card generation and its money
+  formatter were removed in #2001. Retained web result cards still read their
+  stored `currency_fraction_digits` and `profit`; the web formatter continues to
+  use `web/argus_display_contract/result_display_policy.json` until the chat-shell
+  retirement. Business search and receipt amounts do not use this policy.
 
 ### DCA / Recurring-Buy Capital Semantics
 
