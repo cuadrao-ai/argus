@@ -11,7 +11,9 @@ from argus.domain.business.contracts.dgii import (
     MONEY_PATTERN,
     PurchaseDeclaration,
     amount_or_zero,
+    date_cell,
     money_text,
+    period_text,
 )
 from argus.domain.business.contracts.facts import (
     is_sin_comprobante,
@@ -79,7 +81,7 @@ def line_values(record: FiscalRecord) -> tuple[str, ...]:
         if value is None and declaration.form == "606" and name in REQUIRED_ZERO_606:
             value = "0.00"
         if isinstance(value, date):
-            value = value.strftime("%Y%m%d")
+            value = date_cell(value)
         elif value is not None and name not in {
             "rnc",
             "ncf",
@@ -112,7 +114,7 @@ def rule_issues(record: FiscalRecord, *, today: date) -> list[dict]:
         zip((name for name, _ in COLUMNS["606"]), line_values(record), strict=True)
     )
     context = dgii_606_rules.Context(
-        today=today, period=record.occurred_on.strftime("%Y%m")
+        today=today, period=period_text(record.occurred_on)
     )
     return [
         {
@@ -158,7 +160,7 @@ def fiscal_manifest(
         and end.day == calendar.monthrange(end.year, end.month)[1]
         and end < captured_on
     )
-    period = start.strftime("%Y%m")
+    period = period_text(start)
     totals = {
         name: Decimal(0)
         for name in (

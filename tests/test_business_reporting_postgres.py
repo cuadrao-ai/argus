@@ -622,6 +622,39 @@ def test_registros_judges_the_invoice_date_by_the_dominican_day(actions, monkeyp
     }
 
 
+def test_registros_loads_a_row_whose_payment_year_was_mistyped(actions):
+    from argus.domain.business.fiscal_profile import set_profile
+    from argus.domain.business.reporting_query import ReportRequest
+    from argus.domain.business.reporting_store import read_report
+    from argus.domain.business.spaces import PostgresSpaceStore
+
+    from tests.test_business_declaration_after_approval_postgres import (
+        FILER,
+        account_funding,
+        approved,
+        captured,
+        declared,
+    )
+    from tests.test_business_dgii_postgres import PRACTICE_NAME, filer_change
+
+    service, context, _ = actions
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, PRACTICE_NAME)
+    set_profile(service.authority, context, filer_change(FILER), "rnc")
+    funding = account_funding(cash_account(service, context))
+    draft, version = captured(service, context, "B0100000041", funding)
+    view = approved(service, context, draft, version)
+    outcome = declared(
+        service, context, draft, view.version, category="02", paid_on="0026-09-05"
+    )
+    assert outcome.outcome == "applied", outcome
+
+    answer = read_report(service.authority, context, ReportRequest())
+
+    assert [(row.draft_id, row.stage, row.export_missing) for row in answer.items] == [
+        (str(draft), "needs_fiscal_data", "payment_before_invoice")
+    ]
+
+
 def test_each_card_counts_its_stage_and_its_filter_matches_it(actions):
     from argus.domain.business.fiscal_profile import set_profile
     from argus.domain.business.reporting_query import ReportRequest

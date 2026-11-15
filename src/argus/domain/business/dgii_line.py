@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from datetime import date
 
-from argus.domain.business.contracts.dgii import PurchaseDeclaration, amount_or_zero
+from argus.domain.business.contracts.dgii import (
+    PurchaseDeclaration,
+    amount_or_zero,
+    printed_date,
+)
 from argus.domain.business.dgii_606_rules import RULES
 from argus.domain.business.dgii_validation import FiscalRecord, fact_value, ncf_type
 from argus.domain.business.document_type import direction
@@ -190,7 +194,7 @@ def _dated(record: RncRecord, locale: str) -> str:
     if record.file_date is None:
         filed = ""
     else:
-        filed = record.file_date.strftime("%d/%m/%Y")
+        filed = printed_date(record.file_date)
     if locale == "en":
         if filed:
             return f"The DGII lists this RNC as «{estado}» in the register of {filed}."

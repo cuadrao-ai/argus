@@ -19,7 +19,13 @@ from zipfile import ZipFile
 
 import pytest
 from argus.domain.business import dgii_606_rules, export, ledger
-from argus.domain.business.contracts.dgii import PurchaseDeclaration
+from argus.domain.business.contracts.dgii import (
+    PurchaseDeclaration,
+    cell_date,
+    date_cell,
+    period_text,
+    printed_date,
+)
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     FiscalFacts,
@@ -117,6 +123,22 @@ def record(
         facts,
         declaration,
         (str(SOURCE),),
+    )
+
+
+class LinuxDate(date):
+    """A date as the Linux server formats it: ``%Y`` leaves a year below 1000
+    unpadded. macOS pads it, so a plain date hides the difference there."""
+
+    def strftime(self, pattern: str) -> str:
+        return super().strftime(pattern.replace("%Y", str(self.year)))
+
+
+def paid(subject: FiscalRecord, on: date) -> FiscalRecord:
+    """The record paid ``on``, the date kept as given."""
+
+    return replace(
+        subject, declaration=subject.declaration.model_copy(update={"paid_on": on})
     )
 
 
@@ -222,6 +244,19 @@ HELD = (
         "payment_before_invoice",
         "payment_before_invoice",
         record(paid_on=date(2026, 10, 4)),
+    ),
+    # A year typed short is held by its date, on Linux as on macOS.
+    held(
+        "F2 payment year 0026",
+        "payment_before_invoice",
+        "payment_before_invoice",
+        paid(record(), LinuxDate(26, 10, 5)),
+    ),
+    held(
+        "B5 invoice year 0026",
+        "invoice_date_before_series",
+        "date_too_old",
+        record(occurred=LinuxDate(26, 10, 5), itbis="160.00"),
     ),
     # E1, E2: DGII's ITBIS ceiling.
     held(
@@ -577,6 +612,24 @@ class TestTheTable:
     )
     def test_the_itbis_ceiling_rounds_the_rate_to_cents_half_to_even(self, base, limit):
         assert itbis_limit(Decimal(base)) == Decimal(limit)
+
+
+class TestADateCell:
+    @pytest.mark.parametrize("year", (26, 999, 1000, 2026))
+    def test_the_year_has_four_digits_on_every_platform(self, year):
+        day = LinuxDate(year, 10, 5)
+        assert (date_cell(day), period_text(day), printed_date(day)) == (
+            f"{year:04d}1005",
+            f"{year:04d}10",
+            f"05/10/{year:04d}",
+        )
+
+    @pytest.mark.parametrize("year", (26, 999, 1000, 2026))
+    def test_the_rules_read_back_the_date_the_file_writes(self, year):
+        assert cell_date(date_cell(LinuxDate(year, 10, 5))) == date(year, 10, 5)
+
+    def test_an_empty_cell_has_no_date(self):
+        assert cell_date("") is None
 
 
 #: 8:30 pm in Santo Domingo on 2026-10-09; the UTC date is already the 10th.

@@ -247,5 +247,30 @@ def money_text(value: Decimal) -> str:
     return format(value, ".2f")
 
 
+def date_cell(value: date) -> str:
+    """A date as a 606 or 607 cell, ``YYYYMMDD``. The one place a date becomes
+    DGII text: ``strftime`` leaves a year below 1000 unpadded on Linux."""
+
+    return f"{value.year:04d}{value.month:02d}{value.day:02d}"
+
+
+def cell_date(text: str) -> date | None:
+    """The date ``date_cell`` wrote, or None for an empty cell."""
+
+    return date(int(text[:4]), int(text[4:6]), int(text[6:])) if text else None
+
+
+def period_text(value: date) -> str:
+    """The month a date is filed in, ``YYYYMM``."""
+
+    return date_cell(value)[:6]
+
+
+def printed_date(value: date) -> str:
+    """A date as a person reads it, ``DD/MM/YYYY``."""
+
+    return f"{value.day:02d}/{value.month:02d}/{value.year:04d}"
+
+
 def amount_or_zero(value: str | None) -> Decimal:
     return Decimal("0" if value is None else value)

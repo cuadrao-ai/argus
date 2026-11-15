@@ -24,6 +24,7 @@ import xlsxwriter
 from pydantic import model_validator
 
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
+from argus.domain.business.contracts.dgii import printed_date
 from argus.domain.business.dgii_codes import TOOL_LABELS
 from argus.domain.business.dgii_columns import COLUMNS
 from argus.domain.business.dgii_export import line_values
@@ -460,7 +461,7 @@ def _csv(headers: Sequence[str], rows: Sequence[Sequence[Cell]]) -> bytes:
         if isinstance(value, Decimal):
             return str(value)
         if isinstance(value, date):
-            return value.strftime("%d/%m/%Y")
+            return printed_date(value)
         return spreadsheet_cell(value)
 
     buffer = io.StringIO(newline="")

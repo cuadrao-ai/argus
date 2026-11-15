@@ -14,10 +14,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Literal
 
+from argus.domain.business.contracts.dgii import cell_date
 from argus.domain.business.fiscal_identity import normalized_ncf
 
 Line = Mapping[str, str]
@@ -78,7 +79,7 @@ def _amount(line: Line, name: str) -> Decimal:
 
 
 def _day(line: Line, name: str) -> date | None:
-    return datetime.strptime(line[name], "%Y%m%d").date() if line[name] else None
+    return cell_date(line[name])
 
 
 def _number(line: Line, name: str) -> str | None:
