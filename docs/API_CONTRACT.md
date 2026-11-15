@@ -10533,6 +10533,11 @@ accept path recorded.
   defaulting to `["purchase"]`, and normalizes old empty or both-type selections
   to that screen default. Its selected type scopes the table, all six cards,
   expanded Total and export. Malformed or unknown values are rejected.
+  The nullable `ready` filter accepts true (ready), false (missing data), or null
+  (all). It reads each row's `ready` verdict from `readiness` in
+  `reporting_projection.py`; `overview.not_ready` counts false verdicts over
+  the same filtered rows before pagination. Search, period, family, currency
+  and every other filter apply to that count too.
   The nullable `fiscal_data` filter accepts `complete`, `missing` or null (all).
   Each row's `fiscal_data` comes from its current 606/607 verdict, independently
   of downloads. `complete` means the current report carries a complete fiscal line;
@@ -10622,7 +10627,22 @@ accept path recorded.
   whose month's 606 or 607 holds it: `export_missing` names the first value
   that is missing or that DGII's tools reject, in the month close's
   `missing_fiscal_data` words, and `export_missing_several` is true when there
-  is more than one. After the verdict a `ready_for_export` purchase is a 606
+  is more than one.
+  Independently of these legacy fields, every row carries `ready` and `missing`,
+  the full ordered list of reason keys. `readiness` is their one owner. Fiscal
+  reasons and their order come from `missing_items` in `dgii_line.py`, reading
+  the original issues preserved by `dgii_export.py`. Distinct blocker reasons
+  follow in the projection's blocker-table order; repeated reasons appear once.
+  Unmapped blockers yield `detail_missing` and log a warning. Technical failures
+  also yield `detail_missing`. Blocker rows and old exported rows receive the
+  current verdict; export history cannot make missing data ready. Rows excluded
+  by a fiscal rule are ready unless they have a blocker or technical failure.
+  `fiscal_conversion_required` alone leaves a complete foreign-currency row
+  ready. Other fiscal issues still make it not ready, with their usual reasons.
+  This does not change `fiscal_data`, `export_line`, the export dialog, or the
+  606/607 files: a foreign-currency row still waits for a rate. All legacy fields
+  remain available and the web continues to read them in this additive slice.
+  After the export verdict a `ready_for_export` purchase is a 606
   row that passes every rule of the 606 rule table
   (`src/argus/domain/business/dgii_606_rules.py`): the ITBIS ceiling (18% of
   Total Monto Facturado plus Impuesto Selectivo al Consumo, rounded to cents
@@ -10867,12 +10887,14 @@ accept path recorded.
   `test_recorded_preview_answer_matches_backend`, `records-default-authority.test.ts`
   and `business-reports-connected.dom.test.tsx` enforce these boundaries.
 
-  Every report answer adds `overview` with `needs_review`, `needs_fiscal_data`,
+  Every report answer adds `overview` with `not_ready`, `needs_review`, `needs_fiscal_data`,
   `ready_for_export`, `exported` and `export_lines` counts from the authorized
   projection. `needs_fiscal_data` counts rows whose current `fiscal_data` is
   `missing`, matching every table filter, including search, fiscal choice and
   legacy review stages, before pagination. A row can count here while its
-  historical stage is `exported`. The Fiscal card renders this count. The other overview counts remain scoped to
+  historical stage is `exported`. The Fiscal card still renders this legacy count.
+  `not_ready` uses the row readiness predicate and every table filter before
+  pagination, including the `ready` filter. The other overview counts remain scoped to
   Business and period only. The Bandeja line reads `pending_review_count` from
   receipt activity, never this answer.
   Literal search ignores case and accents, and covers counterparty, current note,

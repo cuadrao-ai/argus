@@ -188,7 +188,14 @@ def test_recorded_preview_answer_matches_backend():
         Path(__file__).resolve().parents[1]
         / "web/test-fixtures/records-default-report-answer.json"
     )
-    assert json.loads(fixture.read_text()) == answer.model_dump(mode="json")
+    # The web still reads the old contract in this server-only slice. Its
+    # preview keeps those fields; the opaque fingerprint may change with schema.
+    recorded = json.loads(fixture.read_text())
+    current = answer.model_dump(mode="json", exclude={"overview": {"not_ready"}})
+    assert answer.overview.not_ready == 0
+    assert recorded.pop("fingerprint")
+    assert current.pop("fingerprint")
+    assert recorded == current
 
 
 def test_saved_order_appends_fiscal_columns_hidden_without_moving_existing_columns():

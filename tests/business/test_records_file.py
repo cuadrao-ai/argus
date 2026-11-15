@@ -17,7 +17,7 @@ import pytest
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.facts import Unknown
 from argus.domain.business.dgii_codes import LABELS
-from argus.domain.business.dgii_export import fiscal_manifest, line_verdicts
+from argus.domain.business.dgii_export import fiscal_manifest, line_assessments
 from argus.domain.business.reporting import ReportIdentity
 from argus.domain.business.reporting_file import (
     RecordsExport,
@@ -135,7 +135,7 @@ def books(*, exported_then_duplicated: bool = False) -> ExportSource:
     exported = (
         frozenset({purchase.activity_id}) if exported_then_duplicated else frozenset()
     )
-    verdicts = line_verdicts(records, rnc=FILER, captured_on=NOW.date())
+    verdicts = line_assessments(records, rnc=FILER, captured_on=NOW.date())
     rows = tuple(
         ReportRecord(
             row_id=f"activity:{record.activity_id}",
