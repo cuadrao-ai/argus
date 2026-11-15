@@ -182,12 +182,14 @@ test("live Datos shows the server's confirmed legal name and its checklist item,
  }finally{await confirmed.close();globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;}
 });
 
-async function savedProfilePage({address = "", optional = false, registry, locale = "es-419", refuse = {}}: {address?: string; optional?: boolean; registry?: "missing" | "listed" | "failed" | "recover"; locale?: string; refuse?: Record<string,string>} = {}) {
+async function savedProfilePage({address = "", optional = false, registry, locale = "es-419", refuse = {}, holdFiscalSave = false}: {address?: string; optional?: boolean; registry?: "missing" | "listed" | "failed" | "recover"; locale?: string; refuse?: Record<string,string>; holdFiscalSave?: boolean} = {}) {
   const previousFetch = globalThis.fetch;
   const previousAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   let details = {address, email: optional ? "team@example.com" : "", phone: optional ? "809-555-0100" : "", website: optional ? "https://example.com" : "", description: optional ? "Synthetic business" : ""};
   let finishSave: (() => void) | undefined;
+  let finishFiscalSave: (() => void) | undefined;
+  const patches: Record<string,string>[] = [];
   let finishLookup: (() => void) | undefined;
   const registryRequests: unknown[] = [];
   const profile = () => ({space_id:"55555555-5555-4555-8555-555555555555",name:"La Palma",country:"DO",currency:"DOP",revision:1,details,appearance:{kind:"default"},image:null});
@@ -201,11 +203,17 @@ async function savedProfilePage({address = "", optional = false, registry, local
     if(String(url).endsWith("/profile")) {
       if(init?.method === "PATCH") {
         const patch = JSON.parse(String(init.body));
+        patches.push(patch.details);
         let answer: Response | null = null;
         await new Promise<void>(resolve => {finishSave = () => {answer = refused(patch.details); if(!answer) details = {...details, ...patch.details}; resolve();};});
         if(answer) return answer;
       }
       return Response.json(profile());
+    }
+    if(String(url).endsWith("/business/fiscal-profile") && init?.method === "PATCH" && holdFiscalSave) {
+      const input = JSON.parse(String(init.body));
+      await new Promise<void>(resolve => {finishFiscalSave = resolve;});
+      return Response.json({name:input.name,tax_id:input.tax_id,legal_name:null,can_edit:true,retyped_drafts:0});
     }
     if(String(url).endsWith("/business/fiscal-profile")) return Response.json({name:"La Palma",tax_id:{type:"rnc",value:"131245678"},legal_name:registry ? null : {value:"Taller Palma de Ejemplo SRL",confirmed_at:"2026-11-09T12:00:00Z"},can_edit:true});
     if(String(url).endsWith("/business/fiscal-profile/registry")) {
@@ -220,12 +228,46 @@ async function savedProfilePage({address = "", optional = false, registry, local
   };
   const {lookupRegistry,setLegalName} = await import("../lib/business-dgii");
   const page = await mount(locale, true, registry ? {lookupRegistry,saveLegalName:setLegalName} : {});
-  return {...page, registryRequests, registrySettled: () => act(async () => finishLookup?.()), saved: () => act(async () => finishSave?.()), close: async () => {
+  return {...page, registryRequests, patches, registrySettled: () => act(async () => finishLookup?.()), saved: () => act(async () => finishSave?.()), fiscalSaved: () => act(async () => finishFiscalSave?.()), close: async () => {
     await page.close();
     globalThis.fetch = previousFetch;
     if(previousAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousAuth;
   }};
 }
+
+test.each([
+  ["Ubicación y contacto","profile-address","Calle Sol 10",{address:"Calle Sol 10"}],
+  ["Presencia del negocio","profile-description","Taller de ejemplo",{description:"Taller de ejemplo"}],
+] as const)("%s saves only the fields that changed, so a saved value the rules now refuse does not block another field", async (section, name, typed, sent) => {
+  const page = await savedProfilePage({optional:true, refuse:{"809-555-0100":"invalid_business_phone_region","https://example.com":"invalid_business_website"}});
+  try {
+    await page.click(page.button(section));
+    await page.type(name, typed);
+    await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+    await page.saved();
+    expect(page.patches).toEqual([sent]);
+    expect(document.querySelector('[data-testid="side-drawer"]')).toBeNull();
+    expect(page.button(section).textContent).toContain(typed);
+    expect(await shownToasts()).toEqual(["Datos guardados."]);
+  } finally {await page.close();}
+});
+
+test("an identity save that ends after its panel was left does not close the panel open now or drop its draft", async () => {
+  const page = await savedProfilePage({holdFiscalSave:true});
+  try {
+    await page.click(page.button("Identidad y datos fiscales"));
+    await page.type("business-name", "La Palma actualizada");
+    await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+    await page.click(page.button("Ubicación y contacto"));
+    await page.click(document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!);
+    await page.type("profile-address", "Calle Sol 10");
+    await page.fiscalSaved();
+    expect(document.querySelector<HTMLInputElement>('[name="profile-address"]')?.value).toBe("Calle Sol 10");
+    expect(await shownToasts()).toEqual([]);
+    await page.click(page.button("Presencia del negocio"));
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+  } finally {await page.close();}
+});
 
 test("the profile counts only basic saved facts and optional rows do not ask for completion", async () => {
   const page = await savedProfilePage();

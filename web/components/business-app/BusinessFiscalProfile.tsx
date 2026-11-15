@@ -64,6 +64,8 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const [attempt, setAttempt] = useState(0);
   // One key per number being confirmed, so a retry after a failed second step replays instead of writing twice.
   const confirmKey = useRef<{ key: string; id: string } | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   // The workspace's source owns the read, so the sample business answers with its own name and RNC.
   const read = workspace?.source.fiscalProfile ?? getFiscalProfile;
   const write = workspace?.source.saveFiscalProfile ?? setFiscalProfile;
@@ -153,6 +155,8 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
         setProfile(next);
         confirmKey.current = null;
       }
+      // A save that ends after this form was left still saved; it must not act on the panel open now.
+      if (!mounted.current) return;
       checks.reset();
       setSaved(true);
       onSaved?.();
