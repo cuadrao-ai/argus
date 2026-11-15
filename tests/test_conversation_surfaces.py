@@ -114,7 +114,7 @@ def _personal_record() -> str:
     return item.id
 
 
-@pytest.mark.parametrize("path", ["/conversations", "/history", "/search?q=ledger"])
+@pytest.mark.parametrize("path", ["/conversations", "/history"])
 def test_business_is_the_default_and_personal_rows_stay_hidden(client, path):
     _start_space(ALICE)
     personal = _personal_record()
@@ -180,7 +180,7 @@ def test_another_person_cannot_read_business_conversations(client):
     _start_space(ALICE)
     _start_space(BOB)
     business = _create(client, ALICE, "Shop ledger", surface="business")
-    for path in ("/conversations", "/history", "/search?q=ledger"):
+    for path in ("/conversations", "/history"):
         assert _listed(client, BOB, "/api/v1" + path) == []
     assert (
         client.get(
@@ -194,7 +194,6 @@ def test_business_surface_needs_flag_and_started_space(client, monkeypatch):
     calls = (
         ("POST", "/conversations", {}),
         ("GET", "/conversations", None),
-        ("GET", "/search?q=ledger", None),
         ("GET", "/history", None),
         ("DELETE", "/conversations", None),
     )

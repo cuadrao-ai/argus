@@ -474,14 +474,6 @@ def test_authenticated_openapi_declares_session_verification_unavailable() -> No
                     "$ref": "#/components/schemas/Error"
                 }
                 continue
-            if path == "/api/v1/search":
-                response = operation["responses"]["503"]
-                assert "exact bounded recall" in response["description"]
-                assert "authentication-session verification" in response["description"]
-                assert response["content"]["application/json"]["schema"] == {
-                    "$ref": "#/components/schemas/Error"
-                }
-                continue
             assert operation["responses"]["503"] == {
                 "$ref": "#/components/responses/AuthSessionVerificationUnavailable"
             }

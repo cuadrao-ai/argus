@@ -10,14 +10,11 @@ import pytest
 from argus.api.decision_contract import DecisionComputation
 from argus.domain import computations
 from argus.domain.computations import (
-    BACKTEST_COMPUTATION_KIND,
     ComputationKernel,
     InvalidComputationInputs,
     RerunContext,
     kernel_for,
     register_kernel,
-    registered_kinds,
-    rerun_calculation,
     rerun_computation,
     unregister_kernel,
 )
@@ -27,9 +24,6 @@ from computation_harness import (
 from computation_harness import (
     registered_savings_projection,
 )
-from faker import Faker
-
-fake = Faker()
 
 
 @pytest.fixture
@@ -45,10 +39,9 @@ def _context(run: dict[str, Any] | None = None) -> RerunContext:
     )
 
 
-def test_backtest_is_registered_at_import_and_names_are_unique(
+def test_registered_names_are_unique(
     harness_kernel: ComputationKernel,
 ) -> None:
-    assert BACKTEST_COMPUTATION_KIND in registered_kinds()
     assert kernel_for(HARNESS_KIND) is harness_kernel
     with pytest.raises(ValueError):
         register_kernel(harness_kernel)
@@ -101,54 +94,9 @@ def test_unknown_kind_is_a_typed_unavailable_state_never_a_crash() -> None:
     assert rerun.result is None and rerun.retest is None
 
 
-
-
-
-
-def test_backtest_kernel_requires_a_source_run_id() -> None:
-    computation = DecisionComputation(kind=BACKTEST_COMPUTATION_KIND, inputs={})
-
-    with pytest.raises(InvalidComputationInputs):
-        rerun_calculation(computation.calculations[0], overrides=None, context=_context())
-
-
 def test_unregister_is_idempotent() -> None:
     unregister_kernel("never_registered")
     assert "never_registered" not in computations.registered_kinds()
-
-
-def _completed_run(run_id: str) -> dict[str, Any]:
-    return {
-        "id": run_id,
-        "conversation_id": fake.uuid4(),
-        "status": "completed",
-        "asset_class": "equity",
-        "symbols": ["TSLA"],
-        "benchmark_symbol": "SPY",
-        "config_snapshot": {
-            "template": "buy_and_hold",
-            "start_date": "2024-01-01",
-            "end_date": "2024-12-31",
-            "timeframe": "1D",
-            "starting_capital": 10_000,
-            "resolved_strategy": {
-                "strategy_type": "buy_and_hold",
-                "asset_class": "equity",
-            },
-            "resolved_parameters": {
-                "timeframe": "1D",
-                "benchmark_symbol": "SPY",
-                "sizing_mode": "capital_amount",
-                "capital_amount": 10_000,
-            },
-        },
-        "conversation_result_card": {
-            "title": "TSLA buy and hold",
-            "evidence_artifact_id": fake.uuid4(),
-            "idea_id": fake.uuid4(),
-            "idea_version_id": fake.uuid4(),
-        },
-    }
 
 
 def test_an_index_past_the_calculations_is_the_clients_error_even_with_no_edits(

@@ -18,7 +18,6 @@ from argus.api.conversation_surface import (
 from argus.api.dependencies import current_user, problem, require_account_capability
 from argus.api.pagination import decode_cursor, encode_cursor, invalid_cursor_problem
 from argus.api.routers.history import history
-from argus.api.routers.search import search
 from argus.api.schemas import (
     BulkConversationDeleteResponse,
     Conversation,
@@ -29,7 +28,6 @@ from argus.api.schemas import (
     PaginatedConversations,
     PaginatedHistory,
     PaginatedMessages,
-    PaginatedSearch,
     User,
 )
 from argus.domain.owner_scope import PERSONAL, OwnerScope, space_id, surface_of
@@ -58,8 +56,6 @@ router = APIRouter(
 router.add_api_route(
     "/history", history, methods=["GET"], response_model=PaginatedHistory
 )
-
-router.add_api_route("/search", search, methods=["GET"], response_model=PaginatedSearch)
 
 
 def _remember(
