@@ -258,13 +258,13 @@ export default function LandingPage() {
       >
         <SettingsMenu />
 
-        <div data-auth-logo="true" className="flex flex-grow items-center justify-center group-data-[auth-split=true]/auth:pb-[34px] group-data-[auth-split=true]/auth:pt-16 min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24">
+        {!homeClosed ? <div data-auth-logo="true" className="flex flex-grow items-center justify-center group-data-[auth-split=true]/auth:pb-[34px] group-data-[auth-split=true]/auth:pt-16 min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24">
           <h1 className="z-10 max-w-full select-none" aria-label="Cuadrao">
             <CuadraoLockup width={268} />
           </h1>
-        </div>
+        </div> : null}
 
-        <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4 min-[80rem]:group-data-[auth-split=true]/auth:justify-center min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24">
+        <div data-auth-brand={homeClosed ? undefined : "cuadrao"} className={homeClosed ? "relative z-10 flex w-full flex-1 flex-col items-center justify-center py-[55px]" : "relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4 min-[80rem]:group-data-[auth-split=true]/auth:justify-center min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24"}>
           {homeClosed ? (
             <BusinessClosedNotice navigate={leaveClosedHome} />
           ) : authMode === "intro" ? (

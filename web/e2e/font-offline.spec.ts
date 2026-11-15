@@ -44,8 +44,10 @@ test("renders bilingual text with local canonical font faces", async ({ page }, 
     bilingual.setAttribute("data-font-qa-sample", "true");
     document.body.appendChild(bilingual);
 
-    const bodyFaces = await document.fonts.load(`16px ${bodyFamily}`, sample);
-    const displayFaces = await document.fonts.load(`32px ${displayFamily}`, sample);
+    // Load the canonical faces. Loading the whole stack also tries the generated
+    // local fallback, which can be absent on a runner even when both WOFF2s load.
+    const bodyFaces = await document.fonts.load(`16px ${bodyFamily.split(",")[0]}`, sample);
+    const displayFaces = await document.fonts.load(`32px ${displayFamily.split(",")[0]}`, sample);
     const loadedFamilies = [...document.fonts]
       .filter((font) => font.status === "loaded")
       .map((font) => font.family);

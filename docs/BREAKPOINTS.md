@@ -32,50 +32,6 @@ the top bar, and tap targets in sheets are 44px.
 
 ## What is enforced
 
-`web/e2e/breakpoint-baselines.spec.ts` holds `toHaveScreenshot` baselines for
-legal pages, auth screens, and settings panels, at 390, 720, and 1024 in English
-dark, plus one crossed cell per surface at 390 in Spanish light. That crossed
-cell is where the two things most likely to break meet: the longest copy and the
-inverted theme.
-
-Run it with `bun run test:e2e:breakpoints`, and refresh baselines with
-`bun run test:e2e:breakpoints:update`. Use those rather than `bunx playwright`,
-which resolves the latest published version instead of the pinned one and would
-quietly re-render every baseline. Baselines are suffixed by
-platform, so a run on one OS never argues with another OS's committed set. The
-committed set is macOS. CI is Linux and does not run this spec yet; the same
-header says how to generate the Linux set before it does.
-
-## What is not enforced, and why
-
-Nothing under `web/components/chat/` is baselined. That surface is being
-rewritten, and a baseline committed against it is a baseline somebody
-regenerates instead of reads.
-
-Most of Argus is model output. An answer, a quick take, and a discovery summary
-differ every run and cannot be baselined at any width. Baselines are scoped to
-chrome: the frame around an answer, never the answer.
-
-Settings panels are captured as the panel element rather than the whole page.
-The settings sheet floats over the chat shell, so a full-page baseline would go
-red on every chat change for reasons that have nothing to do with settings.
-
-## Keeping the suite worth having
-
-A visual suite that cries wolf gets switched off, which is worse than not having
-one. Everything in the config exists to remove a reason for a false red: fixture
-data so no live content reaches a capture, a fixed timezone and locale because
-the allowance panel renders dates, `deviceScaleFactor: 1` so a retina laptop and
-a CI container rasterise the same, frozen animations and a hidden caret, and a
-per-pixel threshold that absorbs font antialiasing without absorbing a moved
-element.
-
-If a baseline goes red, read the diff before regenerating it. Regenerating a red
-baseline without reading it converts the suite into a rubber stamp.
-
-## Evidence
-
-`docs/evidence/breakpoint-audit/` holds a capture and the rendered text of every
-guest and signed-in surface at each band, produced by
-`web/e2e/breakpoint-audit.spec.ts`. Those specs assert nothing; they exist so a
-reviewer can read a surface instead of a claim about it.
+No visual baseline suite runs today. The macOS screenshot baselines and the
+breakpoint audit specs were deleted in #2053 because CI never ran them. A new
+baseline suite needs a CI job and Linux baselines before it lands.

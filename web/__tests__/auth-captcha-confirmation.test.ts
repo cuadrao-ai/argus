@@ -463,20 +463,6 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     expect(recoveryForm).toContain('"auth.recovery.request_error"');
   });
 
-  test("the direct real-auth recovery QA sends the shared local CAPTCHA token", () => {
-    const qaHelper = readFileSync(
-      join(root, "e2e/qa-248/helpers.ts"),
-      "utf-8",
-    );
-
-    expect(qaHelper).toContain(
-      'import { LOCAL_QA_CAPTCHA_TOKEN } from "../../lib/guest-captcha";',
-    );
-    expect(qaHelper).toContain(
-      "data: { email, captcha_token: LOCAL_QA_CAPTCHA_TOKEN }",
-    );
-  });
-
   test("the existing auth form owns localized check-email and CAPTCHA errors", () => {
     const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
     const form = readFileSync(

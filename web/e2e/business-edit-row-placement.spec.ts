@@ -23,7 +23,7 @@ async function box(locator: Locator) {
 const centerX = (found: { x: number; width: number }) => found.x + found.width / 2;
 
 async function pencilColumn(page: Page) {
-  const centers = await page.locator("[data-fact]:not(:has([data-row-open])) svg.lucide-pencil").evaluateAll((icons) => icons.map((icon) => {
+  const centers = await page.locator("[data-fact]:not(:has([data-row-open], [data-number-box])) svg.lucide-pencil").evaluateAll((icons) => icons.map((icon) => {
     const { left, width } = icon.getBoundingClientRect();
     return left + width / 2;
   }));
@@ -43,7 +43,6 @@ async function openRow(page: Page, key: string, label: string) {
 const ROWS = [
   { key: "rnc", label: "RNC" },
   { key: "fiscal_number", label: "NCF / e-CF" },
-  { key: "amount", label: "Monto" },
 ];
 
 test.describe("an open fact row", () => {
@@ -73,6 +72,38 @@ test.describe("an open fact row", () => {
         await expect(fact(page, key).locator("[data-row-open]")).toHaveCount(0);
         await expect(fact(page, key).getByRole("button", { name: `Editar detalles · ${label}`, exact: true })).toBeFocused();
       }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+  }
+
+  for (const width of [1280, 1024, 768, 390]) {
+    test(`keeps the amount number box and both action slots fixed at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await openFiscalRecord(page);
+      const row = fact(page, "amount");
+      const numberBox = row.locator("[data-number-box]");
+      const closed = await box(numberBox);
+      const closedHeight = (await box(row)).height;
+      const pencil = row.getByRole("button", { name: "Editar detalles · Total (con ITBIS)", exact: true });
+      const pencilBox = await box(pencil);
+      const { save, cancel, field } = await openRow(page, "amount", "Total (con ITBIS)");
+      const fieldBox = await box(field);
+      expect(fieldBox).toEqual(closed);
+      expect((await box(row)).height).toBe(closedHeight);
+      const saveBox = await box(save);
+      const cancelBox = await box(cancel);
+      expect(saveBox).toEqual(pencilBox);
+      expect(saveBox.x).toBeCloseTo(fieldBox.x + fieldBox.width, 0);
+      expect(cancelBox.x).toBeCloseTo(saveBox.x + saveBox.width, 0);
+      for (const action of [saveBox, cancelBox]) {
+        expect(action.y).toBeCloseTo(fieldBox.y, 0);
+        expect(action.width).toBeGreaterThanOrEqual(44);
+        expect(action.height).toBeGreaterThanOrEqual(44);
+      }
+      await page.keyboard.press("Escape");
+      await expect(row.locator("[data-row-open]")).toHaveCount(0);
+      await expect(pencil).toBeFocused();
+      expect(await box(numberBox)).toEqual(closed);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     });
   }
