@@ -8,7 +8,7 @@ import pytest
 from argus.api.main import app
 from argus.api.routers import auth as auth_router
 from argus.domain.login_browser_check import CaptchaVerificationError
-from argus.domain.supabase_gateway import SupabaseGateway
+from argus.domain.supabase_gateway import SupabaseGateway, _auth_client_factory
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
@@ -146,6 +146,69 @@ def test_a_stalled_provider_does_not_wait_out_the_client_and_returns_no_session(
             captcha_token="token",
         )
     assert time.monotonic() - started < 0.5
+
+
+@pytest.mark.parametrize("timeout_seconds", [0.02, 0.05])
+def test_stalled_login_ends_its_http_call_without_shortening_other_auth_calls(
+    monkeypatch: pytest.MonkeyPatch,
+    timeout_seconds: float,
+) -> None:
+    release = Event()
+    finished = Event()
+    login_timeouts: list[dict[str, float]] = []
+    other_timeouts: list[dict[str, float]] = []
+
+    def stalled_transport(request: httpx.Request) -> httpx.Response:
+        timeouts = request.extensions["timeout"]
+        if request.url.params.get("grant_type") != "password":
+            other_timeouts.append(timeouts)
+            return httpx.Response(200, json={})
+        assert request.url.path == "/auth/v1/token"
+        assert request.url.params["grant_type"] == "password"
+        login_timeouts.append(timeouts)
+        try:
+            # Model a socket read that waits until its configured timeout expires.
+            release.wait(timeouts["read"])
+            raise httpx.ReadTimeout("stalled read", request=request)
+        finally:
+            finished.set()
+
+    real_client = httpx.Client
+    clients: list[httpx.Client] = []
+
+    def http_client(**kwargs: Any) -> httpx.Client:
+        client = real_client(transport=httpx.MockTransport(stalled_transport), **kwargs)
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr("argus.domain.supabase_gateway.httpx.Client", http_client)
+    monkeypatch.setattr(
+        "argus.domain.supabase_gateway.LOGIN_PROVIDER_TIMEOUT_SECONDS", timeout_seconds
+    )
+    factory = _auth_client_factory("https://auth.example.test", "placeholder-key")
+    gateway = SupabaseGateway(client=MagicMock(), auth_client_factory=factory)
+    try:
+        factory().resend({"type": "signup", "email": _LOGIN_PAYLOAD["email"]})
+        started = time.monotonic()
+        with pytest.raises(CaptchaVerificationError):
+            gateway.login(**_LOGIN_PAYLOAD)
+        assert time.monotonic() - started < 0.5
+        assert finished.wait(0.2), "The HTTP call outlived the sign-in timeout."
+        assert login_timeouts == [httpx.Timeout(timeout_seconds).as_dict()]
+        factory().resend({"type": "signup", "email": _LOGIN_PAYLOAD["email"]})
+        # Other grants share the token endpoint but keep the general timeout.
+        clients[0].post(
+            "https://auth.example.test/auth/v1/token",
+            params={"grant_type": "refresh_token"},
+        )
+        assert other_timeouts == [httpx.Timeout(120).as_dict()] * 3
+        assert clients[0].timeout == httpx.Timeout(120)
+    finally:
+        release.set()
+        if login_timeouts:
+            assert finished.wait(1), "The test did not release its stalled HTTP call."
+        for client in clients:
+            client.close()
 
 
 def test_wrong_password_stays_a_login_failure() -> None:
