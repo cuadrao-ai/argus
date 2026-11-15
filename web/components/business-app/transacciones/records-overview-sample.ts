@@ -1,7 +1,7 @@
 import { minorToDecimal } from "@/lib/money-entry";
 import type { ReportAnswer, ReportFiscalTotal, ReportTotal } from "@/lib/business-reports-api";
 import type { BusinessDataSource } from "../business-data";
-import { exactMinor, matchesPreviewWorkflow, previewRecordMetadata, summarizePreviewRecords, type SettlementSummary } from "./records-results-preview";
+import { exactMinor, matchesPreviewFiscalData, previewRecordMetadata, summarizePreviewRecords, type SettlementSummary } from "./records-results-preview";
 import type { RecordRow } from "./transacciones-model";
 
 type FiscalSample = { currency: string; total: string; net: string; itbis: string; goods: string | null; services: string | null };
@@ -58,7 +58,7 @@ export function sampleRecordsOverview({ sourceMode, businessId, rows, kind }: { 
   }
   return {
     answer: { matching_count: selected.length, totals, fiscal_totals: fiscalTotals },
-    fiscalCount: selected.filter((row) => matchesPreviewWorkflow(row, businessId, ["fiscal"])).length,
+    fiscalCount: selected.filter((row) => matchesPreviewFiscalData(row, businessId, "missing")).length,
     summary: {
       currencies: totals.filter((line) => line.basis === "document_family_amount").map((line) => ({ currency: line.currency ?? "", total: line.amount, known: line.known_amount, settled: null, balance: null })),
       exclusions: summarizePreviewRecords(selected, businessId).excludedByKind[kind === "venta" ? "sales" : "expenses"],

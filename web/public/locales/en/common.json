@@ -2709,7 +2709,7 @@
           },
           "fiscal_data": {
             "all": "All",
-            "complete": "Complete",
+            "complete": "Ready",
             "missing": "Missing data"
           },
           "groups": {
@@ -2720,7 +2720,7 @@
             "counterparty": "Counterparty",
             "document": "Document type",
             "fiscal": "Fiscal type",
-            "fiscal_data": "Fiscal data",
+            "fiscal_data": "Status",
             "review": "Review"
           },
           "no_matches": "No options match this search.",
@@ -2744,7 +2744,7 @@
           "fiscal": {
             "description_purchase": "Complete them before the 606",
             "description_sale": "Complete them before the 607",
-            "title": "Missing fiscal data"
+            "title": "Missing data"
           },
           "goods": {
             "title": "Goods"
@@ -2836,6 +2836,10 @@
         },
         "workflow": {
           "exported": "Exported",
+          "not_ready": "Missing data",
+          "placeholder": {
+            "account_missing": "Account is missing"
+          },
           "ready": "Ready",
           "review": "To review",
           "unknown": "Status unavailable",

@@ -2709,7 +2709,7 @@
           },
           "fiscal_data": {
             "all": "Todos",
-            "complete": "Completos",
+            "complete": "Listo",
             "missing": "Faltan datos"
           },
           "groups": {
@@ -2720,7 +2720,7 @@
             "counterparty": "Contraparte",
             "document": "Tipo de documento",
             "fiscal": "Tipo fiscal",
-            "fiscal_data": "Datos fiscales",
+            "fiscal_data": "Estado",
             "review": "Revisión"
           },
           "no_matches": "No hay opciones con esa búsqueda.",
@@ -2744,7 +2744,7 @@
           "fiscal": {
             "description_purchase": "Complétalos antes del 606",
             "description_sale": "Complétalos antes del 607",
-            "title": "Faltan datos fiscales"
+            "title": "Faltan datos"
           },
           "goods": {
             "title": "Bienes"
@@ -2836,6 +2836,10 @@
         },
         "workflow": {
           "exported": "Exportado",
+          "not_ready": "Faltan datos",
+          "placeholder": {
+            "account_missing": "Falta la cuenta"
+          },
           "ready": "Listo",
           "review": "Por revisar",
           "unknown": "Estado no disponible",

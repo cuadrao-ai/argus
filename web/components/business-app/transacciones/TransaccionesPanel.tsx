@@ -30,7 +30,7 @@ import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
 import { emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment, type PreviewFilters } from "./records-filter-preview-model";
 import { useRecordPreviewSearch } from "./RecordsAnnotationsPreview";
-import { matchesPreviewFiscalData, matchesPreviewExpenseType, matchesPreviewPeriod, matchesPreviewWorkflow } from "./records-results-preview";
+import { matchesPreviewFiscalData, matchesPreviewExpenseType, matchesPreviewPeriod } from "./records-results-preview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { useFiscalStageToggle } from "./useFiscalStageToggle";
 import { sampleRecordsOverview } from "./records-overview-sample";
@@ -111,7 +111,6 @@ function LegacyTransaccionesPanel() {
     matchesPreviewAttachment(row.hasProof, previewFilters.attachment)
     && matchesPreviewAmount(row.money, previewFilters.amount)
     && matchesPreviewFiscalData(row, chosen?.space_id ?? null, previewFilters.fiscal_data)
-    && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review)
     && matchesPreviewExpenseType(row, chosen?.space_id ?? null, previewFilters.expense_type)) : selectionRecords;
   const visibleRecords = filteredRecords?.filter((row) =>
     localPaging ? matchesPreviewSearch(row, query) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) ?? null;
