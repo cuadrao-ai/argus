@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from argus.domain.business.contracts.facts import Unknown
@@ -255,6 +256,67 @@ def test_missing_ncf_keeps_all_readiness_reasons_and_legacy_export(
             ]
         )
         assert after["reconciliation"] == before["reconciliation"]
+
+
+@pytest.mark.parametrize("field", ["goods_amount", "services_amount"])
+def test_foreign_amount_mismatch_matches_dop_without_changing_export(
+    approved_rows, field
+):
+    original, good = approved_rows[:2]
+    mismatch = replace(
+        original,
+        declaration=original.declaration.model_copy(
+            update={field: str(Decimal(getattr(original.declaration, field) or "0") + 1)}
+        ),
+    )
+    usd = replace(mismatch, currency="USD")
+    [dop_row] = judge((mismatch,))
+    [usd_row] = judge((usd,), (rows((usd,))[0].model_copy(update={"currency": "USD"}),))
+    assert dop_row.ready is False
+    assert dop_row.missing == ("detail_missing",)
+    assert (usd_row.ready, usd_row.missing) == (dop_row.ready, dop_row.missing)
+    filtered = run((usd_row,), ReportFilters(period=SEPTEMBER, ready=False))
+    assert (filtered.matching_count, filtered.overview.not_ready) == (1, 1)
+
+    def export(subject):
+        records = (subject, good)
+        manifest, lines = fiscal_manifest(
+            records,
+            rnc="199990013",
+            business_name="",
+            start=date(2026, 9, 1),
+            end=date(2026, 9, 30),
+            captured_on=CAPTURED,
+        )
+        assessments = line_assessments(records, rnc="199990013", captured_on=CAPTURED)
+        assert assessments[subject.activity_id].issues == (
+            {
+                "code": "fiscal_conversion_required",
+                "activity_id": subject.activity_id,
+                "field": "currency",
+            },
+        )
+        projected = tuple(
+            row.model_copy(update={"currency": record.currency})
+            for row, record in zip(rows(records), records, strict=True)
+        )
+        judged = with_export_verdicts(projected, assessments, frozenset())
+        dataset = source(
+            *judged, approved={record.activity_id: record for record in records}
+        )
+        result = build_file(
+            dataset, RecordsExport(report=report(), mode="dgii", format="csv")
+        )
+        assert len(lines["606"]) == result.row_count == 1
+        return (
+            manifest,
+            lines,
+            result.content,
+            summarize_export(dataset, report()).dgii,
+            judged[0].model_dump(exclude={"ready", "missing"}),
+        )
+
+    assert export(usd) == export(replace(original, currency="USD"))
 
 
 def test_unmapped_blocker_logs_and_cannot_look_ready(approved_rows):

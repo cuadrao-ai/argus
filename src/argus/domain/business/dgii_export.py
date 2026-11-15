@@ -29,6 +29,7 @@ from argus.domain.business.dgii_line import (
     missing_items,
 )
 from argus.domain.business.dgii_validation import (
+    DECLARABLE_CURRENCY,
     FiscalRecord,
     declarable,
     fact_value,
@@ -418,7 +419,7 @@ class LineAssessment:
 
     record: FiscalRecord
     issues: tuple[dict, ...] | None
-    # The manifest can stop at a missing NCF. Readiness still needs every fix;
+    # Export holds can stop later checks. Readiness still needs every fix;
     # legacy export fields continue to read only the manifest's issues.
     readiness_issues: tuple[dict, ...] | None = None
 
@@ -455,26 +456,34 @@ def line_assessments(
         )
         for identifier, assessment in manifest_assessments(manifest, by_id).items():
             record = assessment.record
-            if assessment.issues is not None and not (
+            missing_ncf = not (
                 fact_value(record, "ecf") or fact_value(record, "ncf")
+            )
+            if assessment.issues is not None and (
+                missing_ncf or not declarable(record.currency)
             ):
-                complete = _collect_issues(
-                    record,
+                # Recheck the same amounts without the conversion hold masking
+                # consistency checks. This validation-only copy converts no
+                # money; the original record and export issues stay untouched.
+                checked = _collect_issues(
+                    replace(record, currency=DECLARABLE_CURRENCY),
                     by_id,
                     rnc=rnc,
                     end=end,
                     captured_on=captured_on,
                     registry=registry,
                 )
+                complete = assessment.issues + tuple(
+                    issue for issue in checked if issue not in assessment.issues
+                )
                 # An absent number needs entering, not repairing. Other fiscal
                 # issues still come from the same validators as the export.
-                assessment = replace(
-                    assessment,
-                    readiness_issues=(
+                if missing_ncf:
+                    complete = (
                         _missing_ncf_issue(record),
                         *(issue for issue in complete if issue["field"] != "ncf"),
-                    ),
-                )
+                    )
+                assessment = replace(assessment, readiness_issues=complete)
             verdicts[identifier] = assessment
     return verdicts
 
