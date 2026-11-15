@@ -35,7 +35,7 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.dgii_606_rules import RULES, Context, broken, itbis_limit
 from argus.domain.business.dgii_columns import PURCHASE_COLUMNS
 from argus.domain.business.dgii_export import fiscal_manifest, line_values, line_verdicts
-from argus.domain.business.dgii_line import MISSING_ORDER
+from argus.domain.business.dgii_line import DETAIL_MISSING, MISSING_ORDER
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.reporting_file import RecordsExport, build_file
 from argus.domain.business.reporting_projection import with_export_verdicts
@@ -47,6 +47,8 @@ from scripts import generate_records_file_words
 SOURCE = uuid4()
 TODAY = date(2026, 11, 14)
 PAID = date(2026, 10, 20)
+#: An amount a receipt can hold and no 606 cell can: 30 whole digits.
+BEYOND = "123456789012345678901234567890"
 
 
 def rnc(base: str) -> str:
@@ -490,7 +492,24 @@ ACCEPTED = (
     listo("B04 linked to its B01", *credit()),
 )
 
-CASES = HELD + NAMED + ACCEPTED
+# An amount no 606 cell holds is held by the line's own checks. Neither has a
+# named fix yet.
+BEYOND_A_CELL = (
+    held(
+        "a total no 606 cell holds",
+        "fiscal_invoice_total_conflict",
+        DETAIL_MISSING,
+        record(extra_gross=BEYOND),
+    ),
+    held(
+        "an ITBIS no 606 cell holds",
+        "fiscal_amount_precision_or_limit",
+        DETAIL_MISSING,
+        record(itbis=BEYOND),
+    ),
+)
+
+CASES = HELD + NAMED + BEYOND_A_CELL + ACCEPTED
 
 
 def verdict(case: Case):
@@ -527,7 +546,7 @@ def named(cases):
 
 
 class TestEveryRule:
-    @pytest.mark.parametrize("case", named(HELD + NAMED))
+    @pytest.mark.parametrize("case", named(HELD + NAMED + BEYOND_A_CELL))
     def test_a_row_dgii_rejects_is_held_with_its_reason(self, case):
         assert case.code in issue_codes(case)
         assert verdict(case) == (case.word,)
@@ -605,6 +624,20 @@ class TestTheTable:
         assert itbis_limit(Decimal("1000"), date(2012, 12, 31)) == Decimal("160.55")
         assert itbis_limit(Decimal("1000"), date(2013, 1, 1)) == Decimal("180.55")
         assert itbis_limit(Decimal("1000")) == Decimal("180.55")
+
+    @pytest.mark.parametrize(
+        ("cell", "held_by"),
+        [
+            ("billed_amount", []),
+            ("selective_tax", []),
+            ("itbis", ["itbis_over_cap", "itbis_over_total"]),
+        ],
+    )
+    def test_a_cell_beyond_the_606_limit_is_judged_not_raised(self, cell, held_by):
+        line = self.line(record()) | {cell: BEYOND}
+        assert [
+            rule.id for rule in broken(line, Context(today=TODAY, period="202610"))
+        ] == held_by
 
     @pytest.mark.parametrize(
         ("base", "limit"),

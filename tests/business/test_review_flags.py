@@ -9,10 +9,13 @@ from argus.domain.business.dgii_line import reason
 from argus.domain.business.month_close import summarize
 from argus.domain.business.review_flags import review_flags, unconfirmed
 from argus.domain.business.rnc_registry import RncRecord
+from loguru import logger
 
 from tests.business.test_month_close import DAY, document
 
 SOURCE = (uuid4(),)
+#: An amount a receipt can hold and no 606 cell can: 30 whole digits.
+BEYOND = "123456789012345678901234567890"
 
 
 def known(value):
@@ -158,6 +161,43 @@ class TestItbisRate:
         assert codes(view) == []
         old = view.model_copy(update={"occurred_on": known(date(2012, 12, 31))})
         assert codes(old) == ["itbis_high"]
+
+
+class TestAnAmountBeyondThe606Limit:
+    """A receipt holds an amount of up to 40 characters. The warning answers
+    for every one of them, so the receipt still opens to be corrected."""
+
+    @pytest.mark.parametrize(
+        ("amount", "itbis", "high"),
+        [
+            (BEYOND, "1", False),
+            (BEYOND, "61728394506172839450617283945", True),
+            ("1180", BEYOND, True),
+            ("9" * 40, "1", False),
+            ("1", "9" * 40, True),
+        ],
+        ids=[
+            "total-with-a-small-itbis",
+            "total-with-half-of-it-as-itbis",
+            "itbis-alone",
+            "longest-total",
+            "longest-itbis",
+        ],
+    )
+    def test_the_itbis_warning_answers_instead_of_raising(self, amount, itbis, high):
+        assert ("itbis_high" in codes(facts(amount=amount, itbis=itbis))) is high
+
+    def test_the_unrounded_ceiling_is_logged_without_the_amount(self):
+        seen: list[str] = []
+        sink = logger.add(seen.append, level="WARNING", format="{message}")
+        try:
+            codes(facts(amount="1180", itbis="180"))
+            assert seen == []
+            codes(facts(amount=BEYOND, itbis="1"))
+        finally:
+            logger.remove(sink)
+        assert len(seen) == 1
+        assert BEYOND[:8] not in seen[0]
 
 
 class TestCopy:

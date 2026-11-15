@@ -18,7 +18,9 @@ from datetime import date
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Literal
 
-from argus.domain.business.contracts.dgii import cell_date
+from loguru import logger
+
+from argus.domain.business.contracts.dgii import MONEY_LIMIT, cell_date
 from argus.domain.business.fiscal_identity import normalized_ncf
 
 Line = Mapping[str, str]
@@ -68,10 +70,21 @@ def itbis_limit(base: Decimal, on: date | None = None) -> Decimal:
     """The most ITBIS DGII accepts on a taxable base for an invoice dated ``on``.
 
     Measured on DGII's pre-validator: it rounds the rate's share of the base
-    to cents, half to even, and takes up to 0.55 above that."""
+    to cents, half to even, and takes up to 0.55 above that.
+
+    A base at or past ``MONEY_LIMIT`` fits no 606 cell, and its row is held
+    for the amount. Its share is left unrounded: rounding one with that many
+    digits raises."""
 
     rate = _ITBIS_RATE_BEFORE_2013 if on and on < date(2013, 1, 1) else _ITBIS_RATE
-    return (base * rate).quantize(_CENT, ROUND_HALF_EVEN) + _ITBIS_TOLERANCE
+    share = base * rate
+    if abs(base) >= MONEY_LIMIT:
+        logger.warning(
+            "ITBIS limit read on a base no 606 line holds: {} whole digits",
+            base.adjusted() + 1,
+        )
+        return share + _ITBIS_TOLERANCE
+    return share.quantize(_CENT, ROUND_HALF_EVEN) + _ITBIS_TOLERANCE
 
 
 def _amount(line: Line, name: str) -> Decimal:
