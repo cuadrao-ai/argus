@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from datetime import date
 
-from argus.domain.business.contracts.dgii import PurchaseDeclaration, amount_or_zero
+from argus.domain.business.contracts.dgii import (
+    PurchaseDeclaration,
+    amount_or_zero,
+    printed_date,
+)
+from argus.domain.business.dgii_606_rules import RULES
 from argus.domain.business.dgii_validation import FiscalRecord, fact_value, ncf_type
 from argus.domain.business.document_type import direction
 from argus.domain.business.fiscal_identity import (
@@ -86,19 +91,37 @@ COPY = {
 }
 
 
-# What a person fixes first for a record the 606/607 cannot carry yet. Copy
-# approved by Iris. Codes outside this table read as DETAIL_MISSING.
-MISSING_ORDER = (
-    "expense_type_missing",
-    "rnc_missing",
-    "rnc_invalid",
-    "ncf_invalid",
-    "date_missing",
-    "ncf_missing",
-    "payment_method_missing",
+# What a person fixes first for a record the 606/607 cannot carry yet: a
+# missing value, then a wrong one. Copy for the first seven approved by Iris.
+# Codes outside this table read as DETAIL_MISSING.
+MISSING_ORDER = tuple(
+    dict.fromkeys(
+        (
+            "expense_type_missing",
+            "rnc_missing",
+            "rnc_invalid",
+            "ncf_invalid",
+            "date_missing",
+            "ncf_missing",
+            "payment_method_missing",
+            "payment_date_missing",
+            "duplicate_document",
+            "own_rnc_required",
+            "billed_amount_zero",
+            "itbis_cost_over_itbis",
+            "payment_after_month",
+            "credit_note_reference",
+            "credit_note_too_late",
+            "credit_note_payment_form",
+            "modified_ncf_not_allowed",
+            *(rule.message_key for rule in RULES),
+        )
+    )
 )
 # Shown when an export issue code has no named fix yet. Never a raw code.
 DETAIL_MISSING = "detail_missing"
+#: The word for each issue raised outside the 606 rule table. A rule in the
+#: table carries its own.
 _MISSING = {
     ("fiscal_declaration_missing", "declaration"): "expense_type_missing",
     ("fiscal_fact_required", "category"): "expense_type_missing",
@@ -109,9 +132,28 @@ _MISSING = {
     ("fiscal_identity_type_mismatch", "id_type"): "rnc_invalid",
     ("fiscal_ncf_malformed", "ncf"): "ncf_invalid",
     ("fiscal_ncf_unsupported", "ncf"): "ncf_invalid",
+    ("fiscal_ncf_unsupported", "modified_ncf"): "modified_ncf_invalid",
     ("fiscal_activity_revision_changed", "occurred_on"): "date_missing",
     ("fiscal_fact_required", "ncf"): "ncf_missing",
     ("fiscal_fact_required", "payment_method"): "payment_method_missing",
+    ("fiscal_payment_date_required", "paid_on"): "payment_date_missing",
+    ("fiscal_withholding_payment_date_required", "paid_on"): "payment_date_missing",
+    ("fiscal_duplicate_document", "ncf"): "duplicate_document",
+    ("fiscal_supplier_must_match_filer", "rnc"): "own_rnc_required",
+    ("fiscal_billed_amount_must_be_positive", "billed_amount"): "billed_amount_zero",
+    ("fiscal_itbis_cost_exceeds_tax", "itbis_cost"): "itbis_cost_over_itbis",
+    ("fiscal_payment_date_after_period", "paid_on"): "payment_after_month",
+    ("fiscal_credit_settlement_required", "purchase_activity_id"): "credit_note_reference",
+    ("fiscal_credit_reference_conflict", "modified_ncf"): "credit_note_reference",
+    ("fiscal_credit_tax_treatment_required", "occurred_on"): "credit_note_too_late",
+    ("fiscal_credit_original_reporting_required", "modified_ncf"): "credit_note_reference",
+    ("fiscal_credit_original_unsupported", "modified_ncf"): "credit_note_reference",
+    ("fiscal_credit_payment_code_required", "payment_method"): "credit_note_payment_form",
+    ("fiscal_credit_reference_not_applicable", "modified_ncf"): "modified_ncf_not_allowed",
+    (
+        "fiscal_credit_reference_not_applicable",
+        "purchase_activity_id",
+    ): "modified_ncf_not_allowed",
 }
 
 
@@ -128,7 +170,10 @@ PAYMENT_FORM_ISSUES = frozenset(
 def missing_items(record: FiscalRecord, issues: list[dict]) -> tuple[str, ...]:
     """Every named fix the record needs, in MISSING_ORDER, or DETAIL_MISSING."""
     absent = identity_digits(fact_value(record, "rnc")) is None
-    found = [_MISSING.get((issue["code"], issue["field"])) for issue in issues]
+    found = [
+        issue.get("message_key") or _MISSING.get((issue["code"], issue["field"]))
+        for issue in issues
+    ]
     found = [
         "rnc_missing" if code == "rnc_invalid" and absent else code for code in found
     ]
@@ -149,7 +194,7 @@ def _dated(record: RncRecord, locale: str) -> str:
     if record.file_date is None:
         filed = ""
     else:
-        filed = record.file_date.strftime("%d/%m/%Y")
+        filed = printed_date(record.file_date)
     if locale == "en":
         if filed:
             return f"The DGII lists this RNC as «{estado}» in the register of {filed}."

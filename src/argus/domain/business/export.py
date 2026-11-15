@@ -23,7 +23,7 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.document_type import SALE, direction
-from argus.domain.business.ledger import occurred_on
+from argus.domain.business.ledger import business_day, occurred_on
 from argus.domain.business.month_close import document_settlement
 from argus.domain.business.purchase_review import net_amount
 from argus.domain.business.rnc_registry import (
@@ -494,7 +494,7 @@ def build_archive(
             business_name=snapshot.business_name,
             start=snapshot.period.start,
             end=snapshot.period.end,
-            captured_on=snapshot.captured_at.date(),
+            captured_on=business_day(snapshot.captured_at),
             registry=registry,
         )
         sheet = sheet_rows(

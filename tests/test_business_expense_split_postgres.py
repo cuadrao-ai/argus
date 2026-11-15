@@ -197,12 +197,12 @@ CASES = {
         (("fiscal_fact_required", "itbis"),),
     ),
     "itbis_above_the_total_for_a_moment": Case(
-        (step("pick", "09"), step("itbis", "700.00"), step("total", "800.00")),
-        ("", "100.00", "700.00"),
+        (step("pick", "09"), step("itbis", "700.00"), step("total", "4600.00")),
+        ("", "3900.00", "700.00"),
     ),
     "itbis_above_the_total_then_pick": Case(
-        (step("itbis", "700.00"), step("pick", "09"), step("total", "800.00")),
-        ("", "100.00", "700.00"),
+        (step("itbis", "700.00"), step("pick", "09"), step("total", "4600.00")),
+        ("", "3900.00", "700.00"),
     ),
     "itbis_left_above_the_total_stays_held": Case(
         (step("pick", "09"), step("itbis", "700.00")),
@@ -210,8 +210,8 @@ CASES = {
         (("fiscal_billed_amount_must_be_positive", "billed_amount"), CONFLICT),
     ),
     "tip_written_after_the_pick": Case(
-        (step("pick", "02"), step("tip", "30.00")),
-        ("270.00", "", "0.00"),
+        (step("pick", "02"), step("tip", "20.00")),
+        ("280.00", "", "0.00"),
     ),
     "mixed_split_a_person_typed_agrees": Case(
         (

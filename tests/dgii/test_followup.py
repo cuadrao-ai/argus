@@ -9,8 +9,12 @@ from pydantic import ValidationError
 from test_packet import packet, practice_records
 
 
-def changed(record, *, ncf=None, amount=None, tax=None, **declaration):
+def changed(record, *, ncf=None, amount=None, tax=None, rnc=None, **declaration):
     fiscal = record.facts.fiscal
+    if rnc is not None:
+        fiscal = fiscal.model_copy(
+            update={"rnc": fiscal.rnc.model_copy(update={"value": rnc})}
+        )
     if ncf is not None:
         field = "ecf" if ncf.startswith("E") else "ncf"
         fiscal = fiscal.model_copy(
@@ -81,6 +85,12 @@ def test_additional_purchase_document_types_are_exportable(code):
     number = ("E" + code + "0000000001") if int(code) > 30 else ("B" + code + "00000001")
     declaration = {"modified_ncf": "B0100000099"} if code in {"03", "33"} else {}
     filer = "199990021" if code in {"13", "17", "43", "47"} else "199990013"
+    if code in {"13", "43"}:
+        # A gasto menor carries no ITBIS.
+        declaration |= {"amount": "1000.00", "tax": "0"}
+    if code == "11":
+        # A comprobante de compras is issued to a person.
+        declaration |= {"rnc": "00100000009", "id_type": "2"}
     result = packet(
         (changed(practice_records()[0], ncf=number, **declaration),), rnc=filer
     )
@@ -387,16 +397,15 @@ def test_flagged_b02_purchase_stays_excluded_without_erasing_book_gross():
 def test_self_billed_purchase_identity_must_match_filer_without_rewriting_facts(
     number, filer, matching
 ):
+    supplier = filer if matching else "199990021"
     record = changed(
         practice_records()[0],
         ncf=number,
+        rnc=supplier,
+        amount="1000.00",
+        tax="0",
         id_type="2" if len(filer) == 11 and matching else "1",
     )
-    supplier = filer if matching else "199990021"
-    fiscal = record.facts.fiscal.model_copy(
-        update={"rnc": record.facts.fiscal.rnc.model_copy(update={"value": supplier})}
-    )
-    record = replace(record, facts=record.facts.model_copy(update={"fiscal": fiscal}))
     result = packet((record,), rnc=filer)
     assert (result.manifest["forms"]["606"]["status"] == "prepared_candidate") is matching
     assert record.facts.fiscal.rnc.value == supplier

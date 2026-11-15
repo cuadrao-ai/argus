@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from uuid import uuid4
 
 import pytest
@@ -8,10 +9,13 @@ from argus.domain.business.dgii_line import reason
 from argus.domain.business.month_close import summarize
 from argus.domain.business.review_flags import review_flags, unconfirmed
 from argus.domain.business.rnc_registry import RncRecord
+from loguru import logger
 
 from tests.business.test_month_close import DAY, document
 
 SOURCE = (uuid4(),)
+#: An amount a receipt can hold and no 606 cell can: 30 whole digits.
+BEYOND = "123456789012345678901234567890"
 
 
 def known(value):
@@ -123,11 +127,13 @@ class TestNcfFormat:
 
 
 class TestItbisRate:
+    """The warning reads the ceiling the 606 holds a row for: 18% plus 0.55."""
+
     def test_exactly_at_the_tolerance_is_not_flagged(self):
-        assert codes(facts(amount="1181.00", itbis="181.00")) == []
+        assert codes(facts(amount="1180.55", itbis="180.55")) == []
 
     def test_one_cent_over_the_tolerance_is_flagged_and_only_warns(self):
-        flagged = review_flags(facts(amount="1181.01", itbis="181.01"))
+        flagged = review_flags(facts(amount="1180.56", itbis="180.56"))
         assert [flag.code for flag in flagged] == ["itbis_high"]
         assert unconfirmed(flagged) == ()
 
@@ -135,16 +141,63 @@ class TestItbisRate:
         assert codes(facts(amount="1160", itbis="160")) == []
         assert codes(facts(amount="1000", itbis="0")) == []
 
-    def test_a_usd_receipt_uses_one_dollar_of_tolerance(self):
-        assert codes(facts(amount="119.00", currency="USD", itbis="19.00")) == []
-        assert codes(facts(amount="119.01", currency="USD", itbis="19.01")) == [
+    def test_a_usd_receipt_uses_the_tolerance_in_its_own_currency(self):
+        assert codes(facts(amount="118.55", currency="USD", itbis="18.55")) == []
+        assert codes(facts(amount="118.56", currency="USD", itbis="18.56")) == [
             "itbis_high"
         ]
 
     def test_cents_are_compared_exactly_not_as_floats(self):
         assert codes(facts(amount="0.3", itbis="0.1")) == []
-        assert codes(facts(amount="1.1", itbis="1.01")) == []
-        assert codes(facts(amount="1.1", itbis="1.02")) == ["itbis_high"]
+        assert codes(facts(amount="0.75", itbis="0.58")) == []
+        assert codes(facts(amount="0.76", itbis="0.59")) == ["itbis_high"]
+
+    def test_the_warning_rounds_the_18_percent_as_the_606_does(self):
+        assert codes(facts(amount="118.59", itbis="18.56")) == []
+        assert codes(facts(amount="118.60", itbis="18.57")) == ["itbis_high"]
+
+    def test_an_invoice_before_2013_uses_16_percent(self):
+        view = facts(amount="1170", itbis="170")
+        assert codes(view) == []
+        old = view.model_copy(update={"occurred_on": known(date(2012, 12, 31))})
+        assert codes(old) == ["itbis_high"]
+
+
+class TestAnAmountBeyondThe606Limit:
+    """A receipt holds an amount of up to 40 characters. The warning answers
+    for every one of them, so the receipt still opens to be corrected."""
+
+    @pytest.mark.parametrize(
+        ("amount", "itbis", "high"),
+        [
+            (BEYOND, "1", False),
+            (BEYOND, "61728394506172839450617283945", True),
+            ("1180", BEYOND, True),
+            ("9" * 40, "1", False),
+            ("1", "9" * 40, True),
+        ],
+        ids=[
+            "total-with-a-small-itbis",
+            "total-with-half-of-it-as-itbis",
+            "itbis-alone",
+            "longest-total",
+            "longest-itbis",
+        ],
+    )
+    def test_the_itbis_warning_answers_instead_of_raising(self, amount, itbis, high):
+        assert ("itbis_high" in codes(facts(amount=amount, itbis=itbis))) is high
+
+    def test_the_unrounded_ceiling_is_logged_without_the_amount(self):
+        seen: list[str] = []
+        sink = logger.add(seen.append, level="WARNING", format="{message}")
+        try:
+            codes(facts(amount="1180", itbis="180"))
+            assert seen == []
+            codes(facts(amount=BEYOND, itbis="1"))
+        finally:
+            logger.remove(sink)
+        assert len(seen) == 1
+        assert BEYOND[:8] not in seen[0]
 
 
 class TestCopy:
