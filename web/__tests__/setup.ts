@@ -137,7 +137,12 @@ await import("../lib/argus-api-transport");
 // (`receipt-activity`) or after registering their own DOM, so whichever came
 // first under `--randomize` decided for the rest. Importing it here against a
 // DOM, then removing the DOM, makes the answer the same for every order.
+const runtimeTimers = { queueMicrotask, setTimeout, clearTimeout };
 GlobalRegistrator.register({ url: "http://localhost" });
+// The imported scheduler keeps these functions after this temporary DOM closes.
+for (const [name, value] of Object.entries(runtimeTimers)) {
+  Object.defineProperty(globalThis, name, { configurable: true, writable: true, value });
+}
 await import("react-dom/client");
 await GlobalRegistrator.unregister();
 await preloadMockTargets();
