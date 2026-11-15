@@ -9,7 +9,8 @@ import { EXPENSE_TYPES, PAYMENT_FORMS } from "../dossier-fixtures";
 export type PreviewWorkflow = "review" | "fiscal" | "ready" | "exported";
 export type PreviewFinancialEligibility = "confirmed" | "unconfirmed" | "personal";
 /** `dgii606` mirrors a live row's `dgii_606`: null for a record the 606 never lists, absent when the sample says nothing. `missing` mirrors `export_missing` on a `fiscal` row. */
-export type PreviewRecordMetadata = { workflow: PreviewWorkflow; financialEligibility: PreviewFinancialEligibility; documentNumbers?: readonly string[]; dgii606?: Purchase606 | null; missing?: { export_missing: string; export_missing_several?: boolean } };
+/** MOCK (#2169): `missing.all` is every reason, first fix first. `excluded` and `note` are locale paths: why no 606 or 607 line carries the row, and a reason that does not hold it. */
+export type PreviewRecordMetadata = { workflow: PreviewWorkflow; financialEligibility: PreviewFinancialEligibility; documentNumbers?: readonly string[]; dgii606?: Purchase606 | null; missing?: { export_missing: string; export_missing_several?: boolean; all?: readonly string[] }; excluded?: string; note?: string };
 
 // This is a local illustration for the synthetic own Business, never a source adapter.
 // The sample's one copy of the DGII names lives in dossier-fixtures; live rows read the server's label.
@@ -19,16 +20,23 @@ const SERVICES = expenseType("02");
 const COST_OF_SALES = expenseType("09");
 const CARD = paymentForm("03");
 const TRANSFER = paymentForm("02");
+// MOCK (#2169): one sample sale per proposed case. The last two keep `exported`, which now reads by its verdict.
+const MOCK_SALES: readonly Partial<PreviewRecordMetadata>[] = [
+  { note: "business.transactions.layout.workflow.placeholder.note_sample" },
+  { excluded: "business.transactions.layout.workflow.placeholder.excluded_consumption" },
+  { workflow: "review" },
+  { workflow: "fiscal", missing: { export_missing: "rnc_missing", export_missing_several: true } },
+];
 const FIXTURE_METADATA: Readonly<Record<string, PreviewRecordMetadata>> = {
-  "gasto:exp-gas": { workflow: "fiscal", financialEligibility: "confirmed", dgii606: { expense_type: null, payment_form: TRANSFER }, missing: { export_missing: "expense_type_missing" } },
+  "gasto:exp-gas": { workflow: "fiscal", financialEligibility: "confirmed", dgii606: { expense_type: null, payment_form: TRANSFER }, missing: { export_missing: "expense_type_missing", export_missing_several: true, all: ["expense_type_missing", "itbis_over_limit", "payment_before_invoice"] } },
   "gasto:exp-hosting": { workflow: "exported", financialEligibility: "confirmed", documentNumbers: ["B0100000042"], dgii606: { expense_type: SERVICES, payment_form: CARD } },
-  "gasto:exp-imprenta": { workflow: "fiscal", financialEligibility: "confirmed", dgii606: { expense_type: COST_OF_SALES, payment_form: null }, missing: { export_missing: "payment_method_missing" } },
-  "gasto:exp-lunch": { workflow: "ready", financialEligibility: "personal", dgii606: null },
+  "gasto:exp-imprenta": { workflow: "fiscal", financialEligibility: "confirmed", dgii606: { expense_type: COST_OF_SALES, payment_form: CARD }, missing: { export_missing: "payment_before_invoice" } },
+  "gasto:exp-lunch": { workflow: "ready", financialEligibility: "personal", dgii606: null, excluded: "business.marks.personal_chip" },
   "venta:exp-gas": { workflow: "ready", financialEligibility: "confirmed", dgii606: null },
   "venta:exp-hosting": { workflow: "ready", financialEligibility: "unconfirmed", dgii606: null },
-  "venta:exp-lunch": { workflow: "ready", financialEligibility: "personal", dgii606: null },
+  "venta:exp-lunch": { workflow: "ready", financialEligibility: "personal", dgii606: null, excluded: "business.marks.personal_chip" },
   // The sample's own sales (search-fixtures): the two from late October already went out in an export.
-  ...Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`venta:venta-${index + 1}`, { workflow: index < 5 ? "ready" : "exported", financialEligibility: "confirmed", dgii606: null } satisfies PreviewRecordMetadata])),
+  ...Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`venta:venta-${index + 1}`, { workflow: index < 5 ? "ready" : "exported", financialEligibility: "confirmed", dgii606: null, ...MOCK_SALES[index] } satisfies PreviewRecordMetadata])),
 };
 export function previewRecordMetadata(row: RecordRow, businessId: string | null): PreviewRecordMetadata | null {
   return businessId === "fixture-space" ? FIXTURE_METADATA[`${row.kind}:${row.id}`] ?? null : null;

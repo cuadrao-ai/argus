@@ -2870,6 +2870,16 @@
             "payment_date_missing": "Payment date is missing",
             "purchase_receipt_needs_cedula": "A B11 needs the supplier's cédula",
             "tip_over_limit": "The tip is over 10%"
+          },
+          "placeholder": {
+            "fix": "To fix",
+            "excluded_purchase": "Not on the 606",
+            "excluded_sale": "Not on the 607",
+            "excluded_consumption": "Goes in the consumer summary",
+            "more": "{{reason}} and more",
+            "more_count": "{{reason}} +{{count}}",
+            "review_hint": "Open the record to review it",
+            "note_sample": "Check: the ITBIS looks low"
           }
         }
       },

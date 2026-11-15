@@ -12,7 +12,8 @@ export const RECORDS_COLUMN_LAYOUT: Record<ReportColumnKey, Layout> = {
   net_amount: { width: 136, align: "right" },
   itbis_amount: { width: 124, align: "right" },
   gross_amount: { width: 104, align: "right" },
-  stage: { width: 168, align: "left" },
+  // MOCK (#2169): Estado takes the width the other columns leave, at least 288px, so the reason has room.
+  stage: { width: null, align: "left" },
   fiscal_number: { width: 136, align: "left" },
   note: { width: 120, align: "left" },
   attachment: { width: 80, align: "right", endPin: true },

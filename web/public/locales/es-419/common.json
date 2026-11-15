@@ -2870,6 +2870,16 @@
             "payment_date_missing": "Falta la fecha de pago",
             "purchase_receipt_needs_cedula": "Un B11 necesita la cédula del proveedor",
             "tip_over_limit": "La propina pasa del 10%"
+          },
+          "placeholder": {
+            "fix": "Por corregir",
+            "excluded_purchase": "No va al 606",
+            "excluded_sale": "No va al 607",
+            "excluded_consumption": "Va en el resumen de consumo",
+            "more": "{{reason}} y más",
+            "more_count": "{{reason}} +{{count}}",
+            "review_hint": "Abre el registro para revisarlo",
+            "note_sample": "Revisa: el ITBIS parece bajo"
           }
         }
       },
