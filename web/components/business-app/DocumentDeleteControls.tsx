@@ -115,7 +115,7 @@ export function useDocumentDelete(target: DeleteDocumentTarget | null, { initial
 
 export function DeleteDocumentMenuItem({ disabled, onClick }: { disabled?: boolean; onClick: () => void }) {
   const { t } = useTranslation();
-  return <button type="button" data-testid="delete-document-menu" onClick={onClick} disabled={disabled} className={`flex min-h-11 w-full items-center gap-2 rounded-item px-3 text-left text-[14px] text-[#9e2f39] hover:bg-[#f6dfe0]/50 disabled:opacity-50 dark:text-[#ec9aa0] ${FOCUS_RING}`}><Trash2 size={16} aria-hidden="true" />{t("business.document_delete.menu")}</button>;
+  return <button type="button" data-testid="delete-document-menu" onClick={onClick} disabled={disabled} className={`flex min-h-11 w-full items-center gap-2 rounded-item px-3 text-left text-[14px] text-[#9e2f39] hover:bg-[#f6dfe0]/50 disabled:opacity-50 dark:text-[#ec9aa0] dark:hover:bg-[#ec9aa0]/10 ${FOCUS_RING}`}><Trash2 size={16} aria-hidden="true" />{t("business.document_delete.menu")}</button>;
 }
 
 /** The server's answer when the document was already purged: the row leaves on the next read. */
