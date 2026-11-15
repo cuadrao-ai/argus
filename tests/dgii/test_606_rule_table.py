@@ -15,9 +15,10 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
+from zipfile import ZipFile
 
 import pytest
-from argus.domain.business import dgii_606_rules
+from argus.domain.business import dgii_606_rules, export, ledger
 from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
@@ -241,6 +242,19 @@ HELD = (
         "itbis_over_limit",
         record(itbis="198.56", selective_tax="100.00"),
     ),
+    # Measured on DGII's pre-validator: the 18% is rounded to cents, half to even.
+    held(
+        "E1 measured: base 100.03, ITBIS 18.57",
+        "itbis_over_cap",
+        "itbis_over_limit",
+        record(base="100.03", itbis="18.57"),
+    ),
+    held(
+        "E1 a half cent rounds down to the even cent",
+        "itbis_over_cap",
+        "itbis_over_limit",
+        record(base="100.25", itbis="18.60"),
+    ),
     held(
         "E2 ITBIS above the total",
         "itbis_over_total",
@@ -271,6 +285,13 @@ HELD = (
         "tip_over_limit",
         "tip_over_limit",
         record(legal_tip="100.01"),
+    ),
+    # Measured on DGII's pre-validator: the 10% is not rounded.
+    held(
+        "E9 measured: total 1234.57, propina 123.46",
+        "tip_over_limit",
+        "tip_over_limit",
+        record(base="1234.57", itbis="0.00", legal_tip="123.46"),
     ),
     # G1, G2.
     held(
@@ -406,9 +427,22 @@ ACCEPTED = (
         "E1 ISC raises the base",
         record(itbis="198.55", selective_tax="100.00"),
     ),
+    listo("E1 measured: base 100.03, ITBIS 18.56", record(base="100.03", itbis="18.56")),
+    listo(
+        "E1 a half cent rounds down to the even cent",
+        record(base="100.25", itbis="18.59"),
+    ),
+    listo(
+        "E1 a half cent rounds up to the even cent",
+        record(base="100.75", itbis="18.69"),
+    ),
     listo("E6 proporcionalidad equal to ITBIS", record(itbis_proportionality="180.00")),
     listo("E8 retenido equal to ITBIS", record(itbis_withheld="180.00", paid_on=PAID)),
     listo("E9 propina exactly 10%", record(legal_tip="100.00")),
+    listo(
+        "E9 measured: total 1234.57, propina 123.45",
+        record(base="1234.57", itbis="0.00", legal_tip="123.45"),
+    ),
     listo("G1 B11 with a cédula", record(ncf="B1100000123", party=PERSON, id_type="2")),
     listo("G2 B13 with the own RNC and no ITBIS", own("B1300000123")),
     listo("G7 B03 modifies a B01", record(ncf="B0300000123", modified_ncf="B0100000001")),
@@ -530,6 +564,48 @@ class TestTheTable:
         assert itbis_limit(Decimal("1000"), date(2012, 12, 31)) == Decimal("160.55")
         assert itbis_limit(Decimal("1000"), date(2013, 1, 1)) == Decimal("180.55")
         assert itbis_limit(Decimal("1000")) == Decimal("180.55")
+
+    @pytest.mark.parametrize(
+        ("base", "limit"),
+        [("100.03", "18.56"), ("100.25", "18.59"), ("100.75", "18.69")],
+    )
+    def test_the_itbis_ceiling_rounds_the_rate_to_cents_half_to_even(self, base, limit):
+        assert itbis_limit(Decimal(base)) == Decimal(limit)
+
+
+#: 8:30 pm in Santo Domingo on 2026-10-09; the UTC date is already the 10th.
+EVENING = datetime(2026, 10, 10, 0, 30, tzinfo=timezone.utc)
+
+
+class TestTodayIsTheDominicanDay:
+    def test_the_business_day_of_an_instant_is_santo_domingos(self):
+        assert ledger.business_day(EVENING) == date(2026, 10, 9)
+
+    def test_the_handoff_holds_tomorrows_invoice_and_takes_todays(self):
+        tomorrow, today = (
+            record(ncf=f"B01000001{day:02d}", occurred=date(2026, 10, day))
+            for day in (10, 9)
+        )
+        archive = export.build_archive(
+            export.ExportSnapshot(
+                period=export.ExportPeriod(date(2026, 10, 1), date(2026, 10, 31)),
+                activities=(),
+                sources=(),
+                unresolved=(),
+                captured_at=EVENING,
+                fiscal_records=(tomorrow, today),
+                business_rnc=FILER,
+            ),
+            lambda _: None,
+        )
+        with ZipFile(io.BytesIO(archive)) as files:
+            issues = json.loads(files.read("manifest.json"))["dgii"]["issues"]
+        held_rows = [
+            (issue["activity_id"], issue["code"])
+            for issue in issues
+            if issue["activity_id"]
+        ]
+        assert held_rows == [(tomorrow.activity_id, "invoice_date_in_future")]
 
 
 class TestRegistrosAndTheExcelAgree:
