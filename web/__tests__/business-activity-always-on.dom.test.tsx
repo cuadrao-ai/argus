@@ -90,7 +90,11 @@ async function mount(answer: "now" | "hold", url = "/biz") {
   cleanups.push(async () => { await act(async () => root.unmount()); host.remove(); });
   return {
     act, host, settle,
-    navItems: () => [...host.querySelectorAll('[data-testid="business-sidebar-nav"] button')].map((node) => node.textContent?.trim() ?? ""),
+    navItems: () => [...host.querySelectorAll('[data-testid="business-sidebar-nav"] button')].map((node) => {
+      const label = node.cloneNode(true) as HTMLElement;
+      label.querySelectorAll('[aria-hidden="true"]').forEach((hint) => hint.remove());
+      return label.textContent?.trim() ?? "";
+    }),
     api: () => api!,
   };
 }

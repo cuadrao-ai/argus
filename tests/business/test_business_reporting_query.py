@@ -537,7 +537,10 @@ def test_counterparty_name_uses_latest_date_then_row_id_within_selected_family()
 def test_current_fiscal_data_does_not_depend_on_download_history(
     exported, verdict, expected
 ):
+    from argus.domain.business.dgii_export import LineAssessment
     from argus.domain.business.reporting_projection import with_export_verdicts
+
+    from tests.dgii.test_606_review_and_rnc import purchase
 
     # A projected row has no verdict until `with_export_verdicts` judges it.
     row = record(
@@ -546,7 +549,18 @@ def test_current_fiscal_data_does_not_depend_on_download_history(
         linked_activity_ids=("activity",),
         fiscal_data=None,
     )
-    verdicts = {} if verdict == "absent" else {"activity": verdict}
+    verdicts = (
+        {}
+        if verdict == "absent"
+        else {
+            "activity": LineAssessment(
+                purchase(),
+                None
+                if verdict is None
+                else ({"code": "fiscal_fact_required", "field": "ncf"},),
+            )
+        }
+    )
     [judged] = with_export_verdicts(
         (row,), verdicts, frozenset({"activity"}) if exported else frozenset()
     )
@@ -565,12 +579,17 @@ def test_current_fiscal_data_does_not_depend_on_download_history(
     [("needs_review", None), (None, "processing"), (None, "evidence_unavailable")],
 )
 def test_waiting_and_technical_rows_have_no_fiscal_choice(stage, technical):
+    from argus.domain.business.dgii_export import LineAssessment
     from argus.domain.business.reporting_projection import with_export_verdicts
+
+    from tests.dgii.test_606_review_and_rnc import purchase
 
     row = record(
         "row", stage=stage, technical_state=technical, linked_activity_ids=("activity",)
     )
-    [judged] = with_export_verdicts((row,), {"activity": None}, frozenset({"activity"}))
+    [judged] = with_export_verdicts(
+        (row,), {"activity": LineAssessment(purchase(), None)}, frozenset({"activity"})
+    )
     assert judged.fiscal_data is None
 
 

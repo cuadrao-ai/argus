@@ -30028,6 +30028,7 @@ components:
             needs_review: 0
             ready_for_export: 0
             needs_fiscal_data: 0
+            not_ready: 0
             exported: 0
             export_lines: 0
         effective_sort:
@@ -30198,6 +30199,10 @@ components:
             - purchase
           type: array
           default: []
+        ready:
+          anyOf:
+          - type: boolean
+          - type: 'null'
         review_stages:
           items:
             type: string
@@ -30307,6 +30312,10 @@ components:
             - purchase
           type: array
           default: []
+        ready:
+          anyOf:
+          - type: boolean
+          - type: 'null'
         review_stages:
           items:
             type: string
@@ -30409,6 +30418,9 @@ components:
         needs_fiscal_data:
           type: integer
           default: 0
+        not_ready:
+          type: integer
+          default: 0
         exported:
           type: integer
           default: 0
@@ -30417,7 +30429,7 @@ components:
           default: 0
       additionalProperties: false
       type: object
-      description: 'Fiscal count uses all table filters before pagination.
+      description: 'Readiness and fiscal counts use all table filters before pagination.
 
         Other counts cover the period''s recorded rows.'
     ReportRecipe-Input:
@@ -30606,6 +30618,14 @@ components:
             - sale
             - purchase
           - type: 'null'
+        ready:
+          type: boolean
+          default: false
+        missing:
+          items:
+            type: string
+          type: array
+          default: []
         stage:
           anyOf:
           - type: string
