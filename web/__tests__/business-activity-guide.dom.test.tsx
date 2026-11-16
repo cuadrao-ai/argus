@@ -27,8 +27,9 @@ beforeAll(() => {
     const guide = /\/business\/guide-cards\/([^/]+?)(\/dismiss)?$/.exec(String(input));
     if (!guide) throw new Error("Unavailable");
     guideRequests.push(`${init?.method ?? "GET"} ${guide[0]}`);
-    if (guide[2]) dismissed.add(guide[1]);
-    return Response.json({ dismissed: dismissed.has(guide[1]) });
+    if (!guide[2]) return Response.json({}, { status: 404 });
+    dismissed.add(guide[1]);
+    return Response.json({ dismissed: true });
   };
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
@@ -58,17 +59,21 @@ async function mount(query: string, language: keyof typeof LANGUAGES = "es-419")
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+  const { useShellAccount } = await import("./support/shell-account");
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: language, resources: { [language]: { translation: LANGUAGES[language] } }, interpolation: { escapeValue: false } });
   const source = { ...createFixtureBusinessDataSource({ chatAvailable: true }), mode: "live", spaces: async () => [OWN], spaceDirectory: async () => ({ spaces: [OWN], closed_spaces: [] }) };
-  const shell = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined };
+  const base = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined } as const;
+  // The person's account answered with what the server has saved for them.
+  const account = { member: "ana", dismissed: [...dismissed] };
   function Shell() {
     const workspace = useChatWorkspace();
+    const shell = useShellAccount(account, base);
     const connect = workspace?.onShellChange;
-    useEffect(() => { connect?.(shell as never); }, [connect]);
-    return <main>{workspace?.panel(shell as never)}</main>;
+    useEffect(() => { connect?.(shell); }, [connect, shell]);
+    return <main>{workspace?.panel(shell)}</main>;
   }
   const host = document.createElement("div");
   document.body.appendChild(host);
@@ -128,13 +133,15 @@ for (const language of ["es-419", "en"] as const) test(`Actividad shows its thre
       LOCKED[language].points,
     );
     await page.dismiss();
-    await page.settle(() => page.guide() === null);
-    assert.deepEqual(guideRequests, ["GET /business/guide-cards/actividad-intro", "POST /business/guide-cards/actividad-intro/dismiss"]);
+    assert.equal(page.guide(), null, "the guide leaves at once");
+    await page.settle(() => guideRequests.length === 1);
+    assert.deepEqual(guideRequests, ["POST /business/guide-cards/actividad-intro/dismiss"]);
   } finally { await page.close(); }
   const again = await mount("view=activity", language);
   try {
-    await again.settle(() => guideRequests.length === 3);
+    await again.settle(() => again.host.querySelector('[data-testid="business-activity-draft"]') !== null);
     assert.equal(again.guide(), null, "a dismissed guide stays hidden for the person");
+    assert.equal(guideRequests.length, 1, "and is not read again");
   } finally { await again.close(); }
 });
 
@@ -148,6 +155,6 @@ test("Bandeja keeps its three labeled points", async () => {
       [...page.guide()!.querySelectorAll("li")].map((item) => [item.querySelector("strong")?.textContent, item.querySelector("p")?.textContent]),
       [[copy.upload.label, copy.upload.body], [copy.review.label, copy.review.body], [copy.pending.label, copy.pending.body]],
     );
-    assert.deepEqual(guideRequests, ["GET /business/guide-cards/bandeja-intro"]);
+    assert.deepEqual(guideRequests, [], "no guide read");
   } finally { await page.close(); }
 });

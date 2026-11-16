@@ -9,6 +9,7 @@ import spanish from "@/public/locales/es-419/common.json";
 import { readFileSync } from "node:fs";
 import GuideCard from "@/components/business-app/foundation/GuideCard";
 import { BUSINESS_GUIDE_CARD_IDS } from "@/lib/business-guide-api";
+import { ShellAccount } from "./support/shell-account";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
@@ -17,34 +18,34 @@ beforeAll(() => {
 
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-type GuideRequest = { method: string; url: string; signal: AbortSignal | null | undefined; finish: (response: Response) => void };
+type GuideRequest = { method: string; url: string; finish: (response: Response) => void };
+type Start = { member?: string | null; dismissed?: string[] | null; pending?: boolean };
 
-type HoldProps = { onKnown?: (shown: boolean) => void; held?: boolean };
-
-async function mount(first: HoldProps = {}) {
+async function mount(start: Start = {}) {
   const originalFetch = globalThis.fetch;
   const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   const requests: GuideRequest[] = [];
   globalThis.fetch = (url, init) => new Promise<Response>(finish => {
-    requests.push({ method: init?.method ?? "GET", url: String(url), signal: init?.signal, finish });
+    requests.push({ method: init?.method ?? "GET", url: String(url), finish });
   });
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  const render = async (userId = "ana", hold: HoldProps = first) => {
+  const render = async ({ member = "ana", dismissed = [], pending = false }: Start = start) => {
     await act(async () => root.render(
       <I18nextProvider i18n={i18n}>
-        <GuideCard cardId="bandeja-intro" userId={userId} title="Del documento al registro"
-          points={[
-            { label: "Sube tus documentos", body: "Agrega fotos o PDF." },
-            { label: "Revisa y aprueba", body: "El documento pasa a Registros." },
-            { label: "Retoma lo pendiente", body: "Vuelve a la revisión." },
-          ]}
-          {...hold}
-        />
+        <ShellAccount member={member} dismissed={dismissed}>
+          <GuideCard cardId="bandeja-intro" pending={pending} title="Del documento al registro"
+            points={[
+              { label: "Sube tus documentos", body: "Agrega fotos o PDF." },
+              { label: "Revisa y aprueba", body: "El documento pasa a Registros." },
+              { label: "Retoma lo pendiente", body: "Vuelve a la revisión." },
+            ]}
+          />
+        </ShellAccount>
       </I18nextProvider>,
     ));
   };
@@ -58,7 +59,7 @@ async function mount(first: HoldProps = {}) {
   await render();
   return {
     render, host, requests, button,
-    guide: () => host.querySelector("section"),
+    guide: () => host.querySelector("section[aria-labelledby]"),
     alert: () => host.querySelector('[role="alert"]'),
     finish: async (index: number, response: Response) => {
       const request = requests[index];
@@ -76,97 +77,82 @@ async function mount(first: HoldProps = {}) {
 }
 
 const unavailable = () => Response.json({}, { status: 503, headers: { "X-Request-Id": "guide-server-123" } });
-const state = (dismissed: boolean) => Response.json({ dismissed });
+const saved = () => Response.json({ dismissed: true });
 
-test("the guide waits for the read and hides only after a confirmed save", async () => {
+test("the guide draws from the account without a read, hides at once on dismiss and saves once", async () => {
   const page = await mount();
   try {
-    assert.equal(page.guide(), null);
-    assert.equal(page.alert(), null);
-    assert.equal(page.requests[0]?.method, "GET");
-    assert.ok(page.requests[0]?.url.endsWith("/business/guide-cards/bandeja-intro"));
-    await page.finish(0, state(false));
     assert.equal(page.guide()?.querySelector("h3")?.textContent, "Del documento al registro");
     assert.deepEqual(
       [...page.host.querySelectorAll("li strong")].map(item => item.textContent),
       ["Sube tus documentos", "Revisa y aprueba", "Retoma lo pendiente"],
     );
+    assert.equal(page.requests.length, 0, "no guide read");
     await act(async () => page.button("Ocultar guía").click());
-    assert.equal(page.button("Ocultar guía").disabled, true);
-    assert.equal(page.requests[1]?.method, "POST");
-    assert.ok(page.requests[1]?.url.endsWith("/business/guide-cards/bandeja-intro/dismiss"));
-    await page.finish(1, state(true));
+    assert.equal(page.guide(), null, "the guide leaves at once");
+    assert.deepEqual(page.requests.map(request => request.method), ["POST"]);
+    assert.ok(page.requests[0]?.url.endsWith("/business/guide-cards/bandeja-intro/dismiss"));
+    await page.finish(0, saved());
     assert.equal(page.guide(), null);
+    assert.equal(page.requests.length, 1);
     assert.equal(localStorage.length, 0);
     assert.equal(sessionStorage.length, 0);
   } finally { await page.close(); }
 });
 
-test("read and save failures offer a retry without inventing guide state", async () => {
+test("a refused save brings the guide back with its reference and retry", async () => {
   const page = await mount();
   try {
+    await act(async () => page.button("Ocultar guía").click());
     await page.finish(0, unavailable());
-    assert.equal(page.guide(), null);
+    assert.ok(page.guide());
     assert.equal(page.alert()?.querySelector('[title="guide-server-123"]')?.getAttribute("title"), "guide-server-123");
     await act(async () => page.button("Reintentar").click());
-    await page.finish(1, state(false));
-    await act(async () => page.button("Ocultar guía").click());
-    await page.finish(2, state(false));
-    assert.ok(page.guide());
-    assert.ok(page.alert());
-    assert.equal(page.alert()?.querySelector("[data-reference-short]"), null);
-    await act(async () => page.button("Reintentar").click());
-    await page.finish(3, unavailable());
-    assert.ok(page.guide());
-    assert.ok(page.alert()?.querySelector('[title="guide-server-123"]'));
-    await act(async () => page.button("Reintentar").click());
-    await page.finish(4, state(true));
     assert.equal(page.guide(), null);
+    await page.finish(1, saved());
+    assert.equal(page.guide(), null);
+    assert.deepEqual(page.requests.map(request => request.method), ["POST", "POST"]);
   } finally { await page.close(); }
 });
 
-test("an earlier person's read or save cannot change a new person's guide", async () => {
-  const page = await mount();
-  try {
-    await page.render("beto");
-    assert.equal(page.requests[0]?.signal?.aborted, true);
-    await page.finish(0, state(false));
-    assert.equal(page.guide(), null);
-    await page.finish(1, state(false));
-    assert.ok(page.guide());
-    await act(async () => page.button("Ocultar guía").click());
-    await page.render("carla");
-    assert.equal(page.requests[2]?.signal?.aborted, true);
-    await page.finish(3, state(false));
-    await page.finish(2, state(true));
-    assert.ok(page.guide());
-    await page.render("beto");
-    assert.equal(page.guide(), null);
-    await page.finish(4, state(true));
-    assert.equal(page.guide(), null);
-  } finally { await page.close(); }
-});
-
-test("without onKnown or held the card draws as before; held, it reads, draws nothing and reports what it learned", async () => {
-  const plain = await mount();
-  try {
-    await plain.finish(0, state(false));
-    assert.ok(plain.guide(), "no new props: the card draws once its read says it was not dismissed");
-  } finally { await plain.close(); }
-  for (const [answer, shown] of [[() => state(false), true], [() => state(true), false], [unavailable, true]] as const) {
-    const known: boolean[] = [];
-    const onKnown = (value: boolean) => { known.push(value); };
-    const page = await mount({ onKnown, held: true });
+test("a dismissed or unknown guide draws nothing and asks nothing", async () => {
+  for (const start of [{ dismissed: ["bandeja-intro"] }, { dismissed: null }, { member: null }]) {
+    const page = await mount(start);
     try {
-      assert.equal(page.requests.length, 1, "held still reads");
-      await page.finish(0, answer());
-      assert.deepEqual(known, [shown]);
-      assert.equal(page.host.childElementCount, 0, "held draws nothing");
-      await page.render("ana", { onKnown, held: false });
-      assert.equal(page.requests.length, 1, "letting go draws what it read without a second read");
-      assert.equal(page.host.childElementCount > 0, shown);
+      assert.equal(page.host.childElementCount, 0, JSON.stringify(start));
+      await page.render({ ...start, pending: true });
+      assert.equal(page.host.childElementCount, 0, "no place either");
+      assert.equal(page.requests.length, 0);
     } finally { await page.close(); }
   }
+});
+
+test("pending, the guide holds its place with nothing in it, then draws in the same element", async () => {
+  const page = await mount({ pending: true });
+  try {
+    const place = page.host.querySelector("section");
+    assert.ok(place?.hasAttribute("data-guide-slot"));
+    assert.equal(place.getAttribute("aria-hidden"), "true");
+    assert.equal(page.guide(), null);
+    assert.ok([...place.children].every(child => (child as HTMLElement).style.visibility === "hidden"));
+    await page.render({ pending: false });
+    assert.equal(page.host.querySelector("section"), place, "the guide takes the place's element");
+    assert.equal(page.guide(), place);
+    assert.ok([...place.children].every(child => (child as HTMLElement).style.visibility === ""));
+    assert.equal(page.requests.length, 0);
+  } finally { await page.close(); }
+});
+
+test("an earlier person's refused save cannot change a new person's guide", async () => {
+  const page = await mount();
+  try {
+    await act(async () => page.button("Ocultar guía").click());
+    await page.render({ member: "beto", dismissed: ["bandeja-intro"] });
+    assert.equal(page.guide(), null, "beto dismissed it before");
+    await page.finish(0, unavailable());
+    assert.equal(page.guide(), null, "ana's refused save does not bring back beto's guide");
+    assert.equal(page.alert(), null);
+  } finally { await page.close(); }
 });
 
 /** The `card_id` enum the checked OpenAPI artifact declares under one guide-card path. */
@@ -184,7 +170,5 @@ function openApiCardIds(path: string): string[] {
 }
 
 test("the web knows exactly the guide card IDs the server declares", () => {
-  for (const path of ["/api/v1/business/guide-cards/{card_id}", "/api/v1/business/guide-cards/{card_id}/dismiss"]) {
-    assert.deepEqual([...BUSINESS_GUIDE_CARD_IDS].sort(), openApiCardIds(path).sort(), path);
-  }
+  assert.deepEqual([...BUSINESS_GUIDE_CARD_IDS].sort(), openApiCardIds("/api/v1/business/guide-cards/{card_id}/dismiss").sort());
 });

@@ -6,6 +6,7 @@ import { SKELETON_DELAY_MS } from "@/components/business-app/business-skeletons"
 import { fixtureId } from "./fixtures/business-report-http-fixture";
 import { keepOwnListSearch } from "./fixtures/own-list-search";
 import { mountAnnotatedReport as mount, unmountConnectedReport as cleanup } from "./support/business-reports-connected";
+import spanish from "@/public/locales/es-419/common.json";
 
 await keepOwnListSearch();
 
@@ -16,7 +17,6 @@ afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock ==
 
 const pause = (ms: number) => act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)); });
 const cardSlots = () => [...document.querySelectorAll<HTMLElement>('[data-testid="records-overview-preview"] [data-overview-card]')];
-const tableSkeletonShown = () => { const table = document.querySelector('[data-testid="transacciones-loading"]'); return table !== null && table.querySelector(".waiting") === null && table.querySelector(".shimmer") !== null; };
 
 /** Whether an element paints: the nearest hidden or visible style above it decides. */
 const seen = (node: Element | null | undefined) => {
@@ -75,18 +75,95 @@ for (const width of [1440, 390]) test(`Registros loading at ${width}px holds the
   assert.ok(pending.indexOf("tabs") < pending.indexOf("cards") && pending.indexOf("cards") < pending.indexOf("toolbar") && pending.indexOf("toolbar") < pending.indexOf("table"));
 });
 
-for (const dismissed of [false, true]) test(`a late guide read holds the skeleton, then the page draws once ${dismissed ? "without" : "with"} the guide`, async () => {
-  let answerGuide!: () => void;
-  const guideReadGate = new Promise<void>((resolve) => { answerGuide = resolve; });
-  const page = await mount({ topLevel: true, grantId: fixtureId(3100), guideReadGate, waitForAnswer: false, dismissedGuides: dismissed ? ["registros-intro"] : [] });
-  const guide = () => document.querySelector('[data-testid="transacciones"] > section[aria-labelledby]');
+const guideTitle = spanish.business.guide_cards.registros_intro.title;
+const guideSlot = (element: Element) => element.matches("[data-guide-slot]") ? "guide-slot" : element.matches("section[aria-labelledby]") && element.querySelector("h3")?.textContent === guideTitle ? "guide" : null;
+/** The page's slots in order, or null while the page is not painted. */
+const paintedSlots = () => {
+  const cards = document.querySelector('[data-testid="records-overview-preview"]');
+  if (!cards?.parentElement || !seen(cards)) return null;
+  return [...cards.parentElement.children].map((element) => guideSlot(element) ?? slotName(element));
+};
+
+for (const width of [1440, 390]) test(`Registros at ${width}px holds the guide's place from the first painted frame, and the guide takes it with nothing else moving`, async () => {
+  const frames: string[][] = [];
+  const record = () => { const slots = paintedSlots(); if (slots && JSON.stringify(frames.at(-1)) !== JSON.stringify(slots)) frames.push(slots); };
+  let release!: () => void;
+  const queryGate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ width, topLevel: true, grantId: fixtureId(3100), workspaceGrant: fixtureId(3101), queryGate, waitForAnswer: false, onCommit: record });
   try {
-    await pause(SKELETON_DELAY_MS + 100);
-    assert.equal(document.querySelector('[data-testid="records-count"]'), null, "the records answer alone does not draw the page");
-    assert.ok(tableSkeletonShown());
-  } finally { await act(async () => answerGuide()); }
-  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
-  assert.equal(guide() !== null, !dismissed, "the guide draws with the page or never");
+    await pause(SKELETON_DELAY_MS + 20);
+    record();
+    const slot = document.querySelector<HTMLElement>("[data-guide-slot]");
+    assert.ok(slot && seen(slot), "the guide's place is painted with the first frame");
+    assert.equal(slot.getAttribute("aria-hidden"), "true");
+    assert.ok([...slot.children].every((child) => (child as HTMLElement).style.visibility === "hidden"), "the place shows no text");
+    page.context.records.workspaceGrant = fixtureId(3100);
+    await page.rerender();
+  } finally { await act(async () => release()); }
+  await page.settle(() => document.querySelector('[data-report-schema="2"] [data-testid="records-count"]') !== null);
   await pause(50);
-  assert.equal(guide() !== null, !dismissed);
+  record();
+  assert.ok(frames.length >= 2, JSON.stringify(frames));
+  const [first] = frames;
+  assert.ok(first.indexOf("guide-slot") >= 0 && first.indexOf("guide-slot") < first.indexOf("tabs"), `the place sits above the tabs: ${first}`);
+  const asLoaded = (slots: string[]) => slots.map((name) => name === "guide-slot" ? "guide" : name);
+  for (const frame of frames) assert.deepEqual(asLoaded(frame), asLoaded(first), "only the guide's place changes, into the guide");
+  assert.deepEqual(frames.map((frame) => frame.includes("guide-slot") ? "place" : "guide"), ["place", "guide"], "the place turns into the guide once");
+  assert.equal(document.querySelector("[data-guide-slot]"), null);
+  assert.deepEqual(page.guideRequests, [], "no guide read");
+});
+
+for (const account of [{ name: "dismissed", dismissedGuides: ["registros-intro"] }, { name: "unknown", dismissedGuides: null }, { name: "never answered", member: null }] as const) test(`a ${account.name} guide has no place and no guide at any commit`, async () => {
+  const commits: boolean[] = [];
+  const guideAnywhere = () => document.querySelector("[data-guide-slot]") !== null || (document.body.textContent ?? "").includes(guideTitle);
+  let release!: () => void;
+  const queryGate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ topLevel: true, grantId: fixtureId(3100), workspaceGrant: fixtureId(3101), queryGate, waitForAnswer: false, onCommit: () => commits.push(guideAnywhere()), ...account });
+  try {
+    await pause(SKELETON_DELAY_MS + 20);
+    page.context.records.workspaceGrant = fixtureId(3100);
+    await page.rerender();
+  } finally { await act(async () => release()); }
+  if ("member" in account) {
+    await pause(50);
+    assert.ok(document.body.textContent?.includes(spanish.business.transactions.reporting.access_unavailable), "without an account Registros says access is unavailable");
+  } else await page.settle(() => document.querySelector('[data-report-schema="2"] [data-testid="records-count"]') !== null);
+  assert.ok(commits.length > 0);
+  assert.deepEqual(commits.filter(Boolean), []);
+  assert.equal(guideAnywhere(), false);
+});
+
+test("Registros asks no /me of its own: the person comes with the shell", async () => {
+  const page = await mount({ topLevel: true, grantId: fixtureId(3100), waitForAnswer: false });
+  await page.settle(() => document.querySelector('[data-report-schema="2"] [data-testid="records-count"]') !== null);
+  assert.deepEqual(page.meRequests, []);
+  assert.ok(page.fixture.calls.some((call) => call.path.endsWith("/reports/query")));
+});
+
+/** What the six cards show in one commit: nothing yet, their placeholder bars, an empty wait, or the numbers. */
+const cardFrame = () => {
+  const cards = cardSlots();
+  if (cards.length !== 6 || !cards.every(seen)) return "unseen";
+  if (cards.every((card) => seen(card.querySelector(".shimmer")))) return "bars";
+  if (cards.every((card) => card.querySelector(".shimmer") === null)) return "numbers";
+  return "empty";
+};
+
+test("the cards keep their placeholder bars at every commit from the first visible frame until the numbers, across the swap to the real page", async () => {
+  const frames: string[] = [];
+  const record = () => { const frame = cardFrame(); if (frames.at(-1) !== frame) frames.push(frame); };
+  let release!: () => void;
+  const queryGate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ topLevel: true, grantId: fixtureId(3100), workspaceGrant: fixtureId(3101), queryGate, waitForAnswer: false, onCommit: record });
+  try {
+    await pause(SKELETON_DELAY_MS + 20);
+    record();
+    page.context.records.workspaceGrant = fixtureId(3100);
+    await page.rerender();
+    await pause(50);
+  } finally { await act(async () => release()); }
+  await page.settle(() => document.querySelector('[data-report-schema="2"] [data-testid="records-count"]') !== null);
+  await pause(SKELETON_DELAY_MS + 50);
+  record();
+  assert.deepEqual(frames, ["unseen", "bars", "numbers"]);
 });

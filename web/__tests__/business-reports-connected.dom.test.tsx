@@ -81,26 +81,6 @@ for (const width of [1440, 390]) test(`Registros loading at ${width}px is its ow
   } finally { await act(async () => release()); }
 });
 
-test("the guide stays out of the skeleton, and the page draws with it once the server says it was not dismissed", async () => {
-  let answerGuide!: () => void;
-  const guideReadGate = new Promise<void>((resolve) => { answerGuide = resolve; });
-  let release!: () => void;
-  const queryGate = new Promise<void>((resolve) => { release = resolve; });
-  const page = await mount({ guideReadGate, queryGate, waitForAnswer: false });
-  const guide = () => document.querySelector('[data-testid="transacciones"] > section[aria-labelledby]');
-  try {
-    await pause(SKELETON_DELAY_MS + 20);
-    assert.ok(tableSkeletonShown());
-    assert.equal(guide(), null);
-    await act(async () => release());
-    await pause(100);
-    assert.equal(document.querySelector('[data-testid="records-count"]'), null, "the records answer alone does not draw the page");
-    assert.ok(tableSkeletonShown() && guide() === null, "the skeleton holds while the guide is unknown");
-  } finally { await act(async () => { release(); answerGuide(); }); }
-  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
-  assert.ok(guide(), "the guide draws in the same frame as the page");
-});
-
 test("Total stays static without requests, filters or navigation", async () => {
   const page = await mount();
   const calls = page.fixture.calls.length;
@@ -1118,25 +1098,4 @@ test("counterparty options never reuse the previous tab while its next request i
   finally { await act(async () => release()); }
   await page.settle(() => document.querySelector('[role="dialog"]')?.textContent?.includes("Cliente sintético") === true);
   assert.doesNotMatch(document.querySelector('[role="dialog"]')!.textContent!, /Proveedor sintético|Alias antiguo/);
-});
-
-test("Registros shows its own guide on both tabs and hides it only after the server confirms the dismissal", async () => {
-  let confirm = () => {};
-  const page = await mount({ dismissedGuides: ["bandeja-intro"], guideDismissGate: new Promise<void>((resolve) => { confirm = resolve; }) });
-  const guide = () => document.querySelector<HTMLElement>('[data-testid="transacciones"] > section[aria-labelledby]');
-  await page.settle(() => guide() !== null);
-  const copy = spanish.business.guide_cards.registros_intro;
-  assert.equal(guide()!.querySelector("h3")?.textContent, copy.title);
-  assert.deepEqual([...guide()!.querySelectorAll("li strong")].map((item) => item.textContent), [copy.browse.label, copy.find.label, copy.pending.label]);
-  assert.ok(guide()!.compareDocumentPosition(document.querySelector('[data-testid="records-overview-preview"]')!) & Node.DOCUMENT_POSITION_FOLLOWING);
-  await page.click(page.button("Ventas"));
-  await page.settle(() => page.button("Ventas")?.getAttribute("aria-selected") === "true");
-  assert.ok(guide());
-  await page.click(page.button("Ocultar guía"));
-  assert.ok(guide());
-  assert.equal(page.button("Ocultar guía")?.disabled, true);
-  await act(async () => confirm());
-  await page.settle(() => guide() === null);
-  assert.deepEqual(page.guideRequests, ["GET /business/guide-cards/registros-intro", "POST /business/guide-cards/registros-intro/dismiss"]);
-  assert.deepEqual([...page.dismissedGuides].sort(), ["bandeja-intro", "registros-intro"]);
 });

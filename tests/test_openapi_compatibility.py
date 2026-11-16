@@ -38,15 +38,13 @@ def test_generated_and_checked_artifacts_are_structurally_compatible(
 def test_business_guide_openapi_is_person_scoped_with_the_shared_outage(
     generated: dict,
 ) -> None:
-    base = "/api/v1/business/guide-cards/{card_id}"
-    for method, path in (("get", base), ("post", f"{base}/dismiss")):
-        operation = generated["paths"][path][method]
-        assert {parameter["name"] for parameter in operation["parameters"]} == {
-            "card_id"
-        }
-        assert operation["responses"]["503"] == {
-            "$ref": "#/components/responses/AuthSessionVerificationUnavailable"
-        }
+    operation = generated["paths"]["/api/v1/business/guide-cards/{card_id}/dismiss"][
+        "post"
+    ]
+    assert {parameter["name"] for parameter in operation["parameters"]} == {"card_id"}
+    assert operation["responses"]["503"] == {
+        "$ref": "#/components/responses/AuthSessionVerificationUnavailable"
+    }
 
 
 def test_prefix_appears_exactly_once_per_public_operation(

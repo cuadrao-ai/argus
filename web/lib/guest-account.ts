@@ -1,4 +1,5 @@
 import type { AvatarTheme } from "./avatar-theme";
+import type { BusinessGuideCardId } from "./business-guide-api";
 
 type LegacyOnboardingStage =
   | "language_selection"
@@ -70,6 +71,8 @@ export type UserResponse = {
   guest: GuestAccountSummary | null;
   capabilities: AccountCapabilities;
   public_account_access_enabled: boolean;
+  /** Guide cards this person dismissed; null when the server could not read them. */
+  dismissed_guide_cards?: BusinessGuideCardId[] | null;
 };
 
 export type GuestProfileProbeOutcome = "bootstrap_required" | "fail_closed";

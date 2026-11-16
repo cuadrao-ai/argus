@@ -4,9 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SlidersHorizontal } from "lucide-react";
-import { getMe } from "@/lib/argus-api";
 import { getChosenGrant } from "@/lib/business-grant";
-import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/browser-auth-generation";
+import { usePanelShell } from "@/components/chat/ChatWorkspace";
 import { isProgrammaticPop } from "@/lib/overlay-history";
 import { businessReportRow, liveReportingTransport, recipeFromRequest, recordsPresentationToReport, recordsSortToReport, reportFailure, reportPresentationToRecords, restoreReportLocation, writeReportLocation, type ReportFailure, type ReportingTransport, type ViewWriteResult } from "@/lib/business-reporting-wire";
 import { queryBusinessReport, recordsCurrencySchema, reportFiltersSchema, reportPeriodSchema, reportRequestSchema, type RecordsCurrency, type ReportAnswer, type ReportFilters, type ReportPeriod, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand } from "@/lib/business-reports-api";
@@ -91,11 +90,22 @@ function RecordsHeading() {
 /** Until the first wait has lasted the shared delay, the screen paints nothing, then all of its placeholders at once. */
 const unseen = (shown: boolean) => shown ? undefined : { visibility: "hidden" as const };
 
-/** Before the report can be asked, Registros is its own layout with pending values: the tabs, the overview cards, the toolbar, then the table. */
+/** The guide's place is known before the page draws: the person's account says whether it was dismissed. */
+function RecordsGuide({ pending }: { pending: boolean }) {
+  const { t } = useTransaccionesWords();
+  return <GuideCard cardId="registros-intro" pending={pending} title={t(`${GUIDE}title`)} points={[
+    { label: t(`${GUIDE}browse.label`), body: t(`${GUIDE}browse.body`) },
+    { label: t(`${GUIDE}find.label`), body: t(`${GUIDE}find.body`) },
+    { label: t(`${GUIDE}pending.label`), body: t(`${GUIDE}pending.body`) },
+  ]} />;
+}
+
+/** Before the report can be asked, Registros is its own layout with pending values: the guide's place, the tabs, the overview cards, the toolbar, then the table. */
 function RecordsPendingLayout({ family, shown }: { family: ReportFilters["record_families"][0]; shown: boolean }) {
   const { isBelowDesktop } = useResponsiveLayout();
   return <section className="pb-6" style={unseen(shown)}>
     <RecordsHeading />
+    <RecordsGuide pending />
     <RecordsTypeTabs value={family === "sale" ? "venta" : "gasto"} />
     <RecordsOverviewPreview family={family} fiscalCount={null} selected={[]} loading shown={shown} onChoose={() => undefined} />
     <RecordsToolbarPending options={<><RecordsExportButton pending />{isBelowDesktop ? null : <RecordsLoadingBar className={`${loading.control} ${loading.iconControl} !rounded-full`} />}</>} />
@@ -112,27 +122,20 @@ export function RecordsWorkspaceUnavailable() {
 export default function BusinessReportsPanel() {
   const { chosen, records, panel } = useBusiness();
   const focus = panel.kind === "transactions" ? panel.focus : undefined;
-  const [person, setPerson] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  // The shell renders its screens only after its account answers, so the person is known on the first render.
+  const person = usePanelShell()?.memberId ?? null;
   const { t } = useTransaccionesWords();
-  useEffect(() => {
-    let active = true;
-    const generation = browserAuthGeneration();
-    void getMe().then((me) => { requireBrowserAuthGeneration(generation); if (active) { setPerson(me.user.id); setFailed(false); } }).catch(() => { if (active) setFailed(true); });
-    return () => { active = false; };
-  }, [attempt]);
   const defaultCurrency = recordsCurrencySchema.safeParse(records.workspace?.records_default_currency);
   const connectedKey = person && chosen && records.workspaceGrant === getChosenGrant() && defaultCurrency.success ? `${person}:${chosen.space_id}:${getChosenGrant()}:${focusKey(focus)}` : null;
   // One wait from the first paint to the first answer, so the placeholders never restart when the report is asked.
   const [answered, setAnswered] = useState<string | null>(null);
   const firstLoadShown = useDelayedPending(connectedKey === null || answered !== connectedKey);
   const onFirstLoad = useCallback(() => setAnswered(connectedKey), [connectedKey]);
-  if (failed) return <div className={cardClass}><EmptyState kind="error" compact title={t(`${REPORTING}access_unavailable`)} action={{ label: t("common.retry"), run: () => { setFailed(false); setAttempt((value) => value + 1); } }} /></div>;
+  if (!person) return <div className={cardClass}><EmptyState kind="error" compact title={t(`${REPORTING}access_unavailable`)} /></div>;
   if ((!defaultCurrency.success || records.workspaceGrant !== getChosenGrant()) && (records.error || records.workspaceGrant === getChosenGrant() && records.workspace)) return <RecordsWorkspaceUnavailable />;
   // A focus another screen opened starts Registros on exactly that list.
   const initial = focus ? focusRequest(focus) : undefined;
-  if (!person || !chosen || connectedKey === null || !defaultCurrency.success) return <RecordsPendingLayout family={startingReport(person && chosen ? `${person}:${chosen.space_id}` : null, initial).request.filters.record_families[0]} shown={firstLoadShown} />;
+  if (!chosen || connectedKey === null || !defaultCurrency.success) return <RecordsPendingLayout family={startingReport(chosen ? `${person}:${chosen.space_id}` : null, initial).request.filters.record_families[0]} shown={firstLoadShown} />;
   const scope = { userId: person, businessId: chosen.space_id, grantId: getChosenGrant() };
   return <ConnectedBusinessReports key={connectedKey} scope={scope} defaultCurrency={defaultCurrency.data} initial={initial} firstLoadShown={firstLoadShown} onFirstLoad={onFirstLoad} />;
 }
@@ -203,11 +206,11 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
       arrived(landed);
     }).finally(() => { if (asked.current === listChanges) asked.current = null; });
   }, [listChanges, records.listChecks, controller, arrived]);
+  // A first-version answer from a server that has the current format is asked again in it, so it is not the answer yet.
+  const upgrading = state.load.kind === "ready" && state.request.schema_version === 1 && Boolean(state.load.answer.overview && state.load.answer.effective_sort);
   useEffect(() => {
-    if (state.load.kind === "ready" && state.request.schema_version === 1 && state.load.answer.overview && state.load.answer.effective_sort) {
-      void controller.load(reportRequestSchema.parse({ ...state.request, schema_version: 2 }));
-    }
-  }, [controller, state.load, state.request]);
+    if (upgrading) void controller.load(reportRequestSchema.parse({ ...state.request, schema_version: 2 }));
+  }, [controller, upgrading, state.request]);
   // A record that left the current view says so once, in a toast; nothing above the table moves.
   useEffect(() => {
     if (state.load.kind !== "ready" || !state.missingAnchor) return;
@@ -334,16 +337,13 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const probeAccessFailure = emptyProbe && "request" in emptyProbe && emptyProbe.request === state.request ? emptyProbe.accessFailure : undefined;
   const probePending = Boolean(probeAnswer && !probeResult);
   const probeFailure = typeof probeResult === "object" ? probeResult : undefined;
-  const answerPending = state.load.kind === "idle" || state.load.kind === "loading";
+  const answerPending = state.load.kind === "idle" || state.load.kind === "loading" || upgrading;
   // The table draws once the answer, its columns and any empty-list check are all in.
-  const table = state.load.kind === "ready" && preferences && !probePending ? { answer: state.load.answer, preferences } : null;
+  const table = state.load.kind === "ready" && !upgrading && preferences && !probePending ? { answer: state.load.answer, preferences } : null;
   const tablePending = state.load.kind !== "failed" && !table;
-  // The page draws once: the first wait also holds for the guide's read, so the guide never pushes a drawn page down.
-  const [guideKnown, setGuideKnown] = useState(false);
-  const onGuideKnown = useCallback(() => setGuideKnown(true), []);
   const [drawn, setDrawn] = useState(false);
-  if (!tablePending && guideKnown && !drawn) setDrawn(true);
-  const firstWait = (tablePending || !guideKnown) && !drawn;
+  if (!tablePending && !drawn) setDrawn(true);
+  const firstWait = tablePending && !drawn;
   const skeletonPending = tablePending || firstWait;
   const tableWaited = useDelayedPending(skeletonPending);
   const skeletonShown = skeletonPending && (tableWaited || firstLoadShown === true);
@@ -374,11 +374,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   return <RecordsAnnotationsPreview connected={{ scope, rows, refresh: controller.refresh, revoke: recheckAnnotationAccess }}><PullToRefresh onRefresh={async () => { await controller.refresh(); return controller.getSnapshot().load.kind === "ready" ? "updated" : "failed"; }}>
     <section ref={screen} tabIndex={-1} data-testid="transacciones" data-report-connected data-report-schema={state.request.schema_version} className="pb-6 outline-none" style={unseen(!firstWait || skeletonShown)}>
       <RecordsHeading />
-      <GuideCard cardId="registros-intro" userId={userId} held={firstWait} onKnown={onGuideKnown} title={t(`${GUIDE}title`)} points={[
-        { label: t(`${GUIDE}browse.label`), body: t(`${GUIDE}browse.body`) },
-        { label: t(`${GUIDE}find.label`), body: t(`${GUIDE}find.body`) },
-        { label: t(`${GUIDE}pending.label`), body: t(`${GUIDE}pending.body`) },
-      ]} />
+      <RecordsGuide pending={firstWait} />
       <RecordsTypeTabs value={filter.kind} onChange={(kind) => recipe({ filters: { ...state.request.filters, record_families: [kind === "venta" ? "sale" : "purchase"] } }, false)} />
       <RecordsOverviewPreview family={state.request.filters.record_families[0]} answer={answer} fiscalCount={overview?.needs_fiscal_data ?? null} selected={filters.fiscal_data === "missing" ? ["fiscal"] : []} loading={answerPending || firstWait} shown={skeletonShown} onChoose={toggleFiscal} />
       <RecordsToolbar filter={filter} onChange={changeFilter} period={selectedPeriod} setPeriod={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(typeof next === "string" ? periodRange(next) : next) } })} preferences={preferences} appliedPeriod={selectedPeriod} onPeriodChange={(next) => recipe({ filters: { ...state.request.filters, period: reportPeriodFromUi(next) } })} appliedFilters={filters} onFiltersChange={applyFilters} options={<>{toolbarAction}{currentFormat && preferences && state.load.kind === "ready" ? <RecordsSettingsPreview value={preferences} onChange={(next) => controller.setPresentation(recordsPresentationToReport(next))} onRestore={() => { void controller.restorePresentation(); }} /> : !isBelowDesktop ? <button type="button" className={quietButtonClass} disabled title={t(`${REPORTING}pending_contract`)} aria-label={t("business.transactions.density.options")}><SlidersHorizontal size={18} /></button> : null}</>} connected={{ reportPeriod: state.request.filters.period, catalogues: catalogues ?? { counterparties: [], expense_types: [], funding_sources: [] }, applyFilters, views: savedViews }} />
