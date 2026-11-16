@@ -278,8 +278,6 @@ async def test_with_the_agent_off_text_never_reaches_it_even_with_the_pilot_on(
         monkeypatch.setenv(key, value)
     monkeypatch.setenv("ARGUS_WHATSAPP_AGENT_ENABLED", "false")
     monkeypatch.setenv("ARGUS_WHATSAPP_OUTBOUND_ENABLED", "true")
-    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
-    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "true")
     touched = []
 
     class Pool:
@@ -312,9 +310,8 @@ async def test_with_the_agent_off_text_never_reaches_it_even_with_the_pilot_on(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("pilot", ["false", "true"])
-async def test_text_reaches_the_agent_only_while_the_worker_is_enabled(
-    monkeypatch, pilot
+async def test_text_reaches_the_enabled_agent_without_a_pilot_switch(
+    monkeypatch
 ):
     import httpx
     from argus.api.whatsapp import build_whatsapp
@@ -326,8 +323,6 @@ async def test_text_reaches_the_agent_only_while_the_worker_is_enabled(
 
     for key, value in ENV.items():
         monkeypatch.setenv(key, value)
-    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", pilot)
-    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", pilot)
     captured = []
 
     class Pool:
@@ -352,13 +347,9 @@ async def test_text_reaches_the_agent_only_while_the_worker_is_enabled(
         pool=Pool(),
     )
     message = TextMessage("wamid.X", ALICE_PHONE, datetime.now(timezone.utc), "hola")
-    if pilot == "false":
-        assert runtime.intake.capture_text(message) is False
-        assert captured == []
-    else:
-        with pytest.raises(RuntimeError):
-            runtime.intake.capture_text(message)
-        assert captured == ["touched"]
+    with pytest.raises(RuntimeError):
+        runtime.intake.capture_text(message)
+    assert captured == ["touched"]
     await client.aclose()
 
 

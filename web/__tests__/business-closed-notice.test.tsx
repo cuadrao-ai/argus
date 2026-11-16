@@ -6,11 +6,31 @@ import { Window } from "happy-dom";
 
 import { primaryButtonClass } from "@/components/business-app/business-ui";
 import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import BusinessPanel from "@/components/business-app/BusinessPanel";
+import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
+import { classifyFailure } from "@/lib/failure-screen";
 import { supportEmail } from "@/lib/support-email";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 
 describe("Business access-unavailable notice", () => {
+  test("an API 403 still renders the account refusal notice in the workspace", async () => {
+    const i18n = createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+    const context = {
+      panel: { kind: "overview" },
+      records: { closed: classifyFailure({ status: 403 }) === "closed" },
+    } as unknown as BusinessContextValue;
+    const html = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <BusinessContext.Provider value={context}><BusinessPanel /></BusinessContext.Provider>
+      </I18nextProvider>,
+    );
+    expect(html).toContain('data-testid="business-home-closed"');
+    expect(html).toContain(i18n.t("auth.business_unavailable.title"));
+    expect(html).toContain(i18n.t("auth.business_unavailable.sign_out"));
+  });
+
   test.each(["es-419", "en"])("%s keeps the selected locale and shared action", async (language) => {
     const i18n = createInstance();
     await i18n.init({

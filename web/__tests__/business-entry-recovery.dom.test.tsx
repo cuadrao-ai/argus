@@ -19,7 +19,7 @@ const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
 const identity = (user: Identity["data"]["user"] = null, error: Error | null = null): Identity => ({ data: { user }, error });
 
 mock.module("next/navigation", () => ({ ...navigation, useRouter: () => ({ refresh: () => refresh() }) }));
-mock.module("@/lib/private-alpha-flags", () => ({ ...flags, businessPilotEnabled: true, businessOnlyWebEnabled: true }));
+mock.module("@/lib/private-alpha-flags", () => ({ ...flags, businessOnlyWebEnabled: true }));
 mock.module("@/lib/supabase-server", () => ({ createClient: async () => ({ auth: { getUser: () => { checks += 1; return check(); } } }) }));
 mock.module("@/components/business-app/BusinessApp", () => ({ default: () => <div data-private-workspace>Private workspace</div> }));
 

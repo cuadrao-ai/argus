@@ -164,35 +164,6 @@ def prepared(alice: Owner) -> str:
     return uploaded.json()["id"]
 
 
-def test_flag_off_every_route_is_404_before_auth(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
-    monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
-    monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED", raising=False)
-    receipt = f"{BASE}/receipts/{uuid4()}"
-    calls = [
-        client.get(f"{BASE}/workspace"),
-        client.post(f"{BASE}/accounts", json={}),
-        client.post(f"{BASE}/receipts", content=b"x"),
-        client.get(f"{BASE}/receipts"),
-        client.get(receipt),
-        client.get(f"{receipt}/source"),
-        client.post(f"{receipt}/prepare"),
-        client.post(f"{receipt}/read", json={"completion_cursor": "0" * 64}),
-        client.post(f"{receipt}/confirm", json={}),
-        client.get(f"{BASE}/expenses"),
-        client.post(f"{BASE}/expenses", json={}),
-        client.get(f"{BASE}/overview"),
-        client.get(f"{BASE}/updates"),
-        client.get(f"{BASE}/search", params={"q": "x"}),
-        client.get(f"{BASE}/space"),
-        client.post(f"{BASE}/space", json={}),
-        client.patch(f"{BASE}/space", json={"name": "x"}),
-    ]
-    assert [(r.status_code, r.json()["code"]) for r in calls] == [
-        (404, "business_unavailable")
-    ] * 17
-    assert {r.headers["Cache-Control"] for r in calls} == {"no-store"}
-
-
 def test_document_intake_off_keeps_saved_receipts_and_owner_actions(
     alice: Owner, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -145,9 +145,7 @@ test("on a phone, Ajustes is a full screen whose sections replace the list and c
 
 test("Business Preferencias follows the workspace WhatsApp answer and ignores the old public flag", async () => {
   const { BusinessContext } = await import("@/components/business-app/business-context");
-  const pilot = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED;
   const whatsapp = process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
-  process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED = "true";
   delete process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
   const openPreferences = async (business: boolean, available?: boolean) => {
     for (const cleanup of cleanups.splice(0)) await cleanup();
@@ -181,8 +179,6 @@ test("Business Preferencias follows the workspace WhatsApp answer and ignores th
     await openPreferences(false);
     assert.ok(button("WhatsApp"));
   } finally {
-    if (pilot === undefined) delete process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED;
-    else process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED = pilot;
     if (whatsapp === undefined) delete process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED;
     else process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED = whatsapp;
   }

@@ -1,9 +1,8 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import BusinessApp from "@/components/business-app/BusinessApp";
 import { DevModeBadge } from "@/components/ui/DevModeBadge";
-import { businessOnlyWebEnabled, businessPilotEnabled } from "@/lib/private-alpha-flags";
-import { authLoginPathFromSearch, businessShellEntry, signedInHomePath } from "@/lib/landing-intent";
+import { authLoginPathFromSearch } from "@/lib/landing-intent";
 import { classifyBusinessIdentity } from "@/lib/session-recovery";
 import { BusinessEntryRecovery } from "@/components/status/BusinessEntryRecovery";
 
@@ -15,12 +14,6 @@ export default async function BusinessPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const shell = businessShellEntry({
-    pilot: businessPilotEnabled,
-    businessOnly: businessOnlyWebEnabled,
-  });
-  if ("closed" in shell) redirect(signedInHomePath());
-  if ("missing" in shell) notFound();
   const search = await searchParams;
   const transferId = typeof search.transfer === "string" ? search.transfer : undefined;
   const lifecycle: { action: "close" | "transfer"; spaceId: string } | undefined = (search.lifecycle === "close" || search.lifecycle === "transfer") && typeof search.business === "string" ? { action: search.lifecycle, spaceId: search.business } : undefined;

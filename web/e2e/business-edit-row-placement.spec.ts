@@ -2,7 +2,6 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { dossierFixtureIds } from "../components/business-app/dossier-fixtures";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
-const BUSINESS_BUILD = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED === "true";
 const fact = (page: Page, key: string) => page.locator(`[data-fact="${key}"]`);
 
 async function openFiscalRecord(page: Page) {
@@ -46,7 +45,6 @@ const ROWS = [
 ];
 
 test.describe("an open fact row", () => {
-  test.skip(!BUSINESS_BUILD, "Business build only");
 
   for (const width of [1280, 1024, 390]) {
     test(`keeps check and cross on the field's line with the cross in the pencil column at ${width}px`, async ({ page }) => {

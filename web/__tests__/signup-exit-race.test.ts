@@ -9,7 +9,7 @@ test("exit-race.tsx", () => {
     [process.execPath, "test", `${import.meta.dir}/fixtures/signup-email-code/exit-race.tsx`],
     {
       cwd: `${import.meta.dir}/..`,
-      env: { ...Object.fromEntries(inherited), NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true" },
+      env: Object.fromEntries(inherited),
     },
   );
   expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0);

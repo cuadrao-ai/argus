@@ -112,8 +112,6 @@ services:
         value: "false"
       - key: CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED
         value: "false"
-      - key: CUADRAO_BUSINESS_PILOT_ENABLED
-        value: "true"
       - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
         value: "true"
       - key: CUADRAO_DOCUMENT_UPLOADS_IN_FLIGHT
@@ -239,8 +237,6 @@ services:
       - key: CUADRAO_BUSINESS_EMAIL_DOMAIN
         sync: false
       - key: CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED
-        value: "true"
-      - key: CUADRAO_BUSINESS_PILOT_ENABLED
         value: "true"
       - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
         value: "true"
@@ -381,8 +377,6 @@ services:
         sync: false
       - key: NEXT_PUBLIC_MOCK_AUTH
         value: "false"
-      - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
-        value: "true"
       - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
         value: "true"
       - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED

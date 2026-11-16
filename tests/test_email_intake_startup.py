@@ -14,7 +14,6 @@ from loguru import logger
 
 FLAGS = {
     "CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED": "true",
-    "CUADRAO_BUSINESS_PILOT_ENABLED": "true",
     "CUADRAO_INGESTION_ENABLED": "true",
     "CUADRAO_DOCUMENT_EXTRACTION_ENABLED": "true",
     "CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED": "true",
@@ -89,7 +88,6 @@ def test_the_message_text_names_every_missing_condition_itself(world, monkeypatc
 def test_a_missing_runtime_piece_names_every_missing_condition(world, monkeypatch):  # noqa: ANN001
     app, records = world
     monkeypatch.setattr(intake, "documents_service", lambda: None)
-    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "True ")  # accepted
     monkeypatch.setenv("CUADRAO_DOCUMENT_EXTRACTION_ENABLED", "enabled")  # not accepted
     intake.start_email_intake(app)
     assert intake.email_intake() is None

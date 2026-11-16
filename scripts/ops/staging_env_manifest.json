@@ -170,14 +170,6 @@
           }
         },
         {
-          "name": "CUADRAO_BUSINESS_PILOT_ENABLED",
-          "kind": "plain",
-          "value": "true",
-          "production": {
-            "value": "true"
-          }
-        },
-        {
           "name": "CUADRAO_BUSINESS_BANK_MATCHING_ENABLED",
           "kind": "plain",
           "value": "true",
@@ -977,17 +969,6 @@
           "value": "skedzwocnmrhfigiwyzi",
           "production": {
             "value": "lgdhvepyrzbnscqssgqq"
-          }
-        },
-        {
-          "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED",
-          "kind": "plain",
-          "value": "true",
-          "production": {
-            "value": "true"
-          },
-          "local": {
-            "value": "true"
           }
         },
         {

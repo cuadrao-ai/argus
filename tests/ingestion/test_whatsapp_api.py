@@ -75,7 +75,6 @@ def test_registered_consent_read_is_absent_when_receiving_is_off(
     wa_client, consent_reads, monkeypatch, identities
 ):
     monkeypatch.setenv("ARGUS_WHATSAPP_INTAKE_ENABLED", "false")
-    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "false")
     response = wa_client.get("/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
     assert response.status_code == 404
     assert consent_reads == []
@@ -253,7 +252,7 @@ def test_flag_off_answers_404_everywhere(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    "flag", ["ARGUS_BUSINESS_PILOT_ENABLED", "ARGUS_WHATSAPP_INTAKE_ENABLED"]
+    "flag", ["ARGUS_WHATSAPP_INTAKE_ENABLED"]
 )
 def test_unlink_ends_the_link_and_unused_codes_while_off(
     wa_client: TestClient, monkeypatch, flag: str

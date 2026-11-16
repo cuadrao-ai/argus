@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { getMe, listConversations } from "@/lib/argus-api";
 import { commitShellLanguage } from "@/lib/language-features";
-import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { readActiveConversationRouteState } from "@/lib/chat-conversation-routing";
 import { currentAuthLoginPath } from "@/lib/landing-intent";
@@ -75,7 +74,7 @@ export function useInitialChatSession({
         } catch (error) {
           probeOutcome = guestProfileProbeOutcome(error);
         }
-        await commitShellLanguage(i18n, businessPilotEnabled, meResponse?.user?.language);
+        await commitShellLanguage(i18n, true, meResponse?.user?.language);
         if (cancelled) return;
         if (probeOutcome === null) {
           setProfileState("established");

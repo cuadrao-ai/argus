@@ -100,19 +100,6 @@ def test_linking_waits_for_the_space(wa_biz) -> None:  # noqa: ANN001
     assert client.delete("/api/v1/whatsapp/link", headers=alice.auth).status_code == 204
 
 
-def test_whatsapp_is_off_while_business_is_off(wa_biz, monkeypatch) -> None:  # noqa: ANN001
-    client, _ = wa_biz
-    monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED")
-    alice = Owner(client, ALICE)
-    responses = [
-        client.post("/api/v1/whatsapp/link-codes", headers=alice.auth),
-        post(client, fixture("image_message.json")),
-    ]
-    assert [(r.status_code, r.json()["code"]) for r in responses] == [
-        (404, "whatsapp_unavailable")
-    ] * 2
-
-
 def test_whatsapp_receipt_is_reviewed_and_confirmed_like_an_upload(
     wa_biz, identities
 ) -> None:  # noqa: ANN001

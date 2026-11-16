@@ -25,7 +25,6 @@ def test_staging_web_has_its_own_manual_integration_and_recovery_config():
         == "https://skedzwocnmrhfigiwyzi.supabase.co"
     )
     assert env["NEXT_PUBLIC_MOCK_AUTH"]["value"] == "false"
-    assert env["NEXT_PUBLIC_BUSINESS_PILOT_ENABLED"]["value"] == "true"
     assert env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] == {
         "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
         "sync": False,

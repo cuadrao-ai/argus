@@ -91,11 +91,11 @@ describe("onboarding strip-out: first use is ordinary chat", () => {
     const refreshEnd = chat.indexOf("const [messages, setMessages]", refreshStart);
     const refresh = chat.slice(refreshStart, refreshEnd);
     const languageApply = init.indexOf(
-      "await commitShellLanguage(i18n, businessPilotEnabled, meResponse?.user?.language)",
+      "await commitShellLanguage(i18n, true, meResponse?.user?.language)",
     );
     const establishedFlip = init.indexOf('setProfileState("established")');
     const refreshLanguageApply = refresh.indexOf(
-      "await commitShellLanguage(i18n, businessPilotEnabled, nextAccount.user.language)",
+      "await commitShellLanguage(i18n, true, nextAccount.user.language)",
     );
     const refreshEstablishedFlip = refresh.indexOf(
       'setProfileState("established")',

@@ -25,7 +25,6 @@ from argus.api.dependencies import problem
 from argus.api.documents import documents_service
 from argus.api.ingestion import IngestionContext, ingestion_hub, require_ingestion_context
 from argus.domain.business import analytics as business_analytics
-from argus.domain.business.config import business_pilot_enabled
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.config import (
@@ -388,8 +387,7 @@ def build_whatsapp(
             codec=reply_codec,
             transport=transport,
             clock=documents.hub.clock,
-            enabled=lambda: business_pilot_enabled()
-            and load_document_extraction_settings().enabled
+            enabled=lambda: load_document_extraction_settings().enabled
             and load_whatsapp_settings().intake_ready
             and load_whatsapp_settings().outbound_enabled,
             limit=settings.reply_daily_limit,
@@ -432,8 +430,7 @@ def build_whatsapp(
             actions=actions,
             runner=runner,
             consent=consent,
-            enabled=lambda: business_pilot_enabled()
-            and load_whatsapp_settings().intake_ready
+            enabled=lambda: load_whatsapp_settings().intake_ready
             and load_whatsapp_settings().agent_enabled
             and load_document_extraction_settings().enabled,
             send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
@@ -530,7 +527,6 @@ def whatsapp_receiving_available(scope: BusinessScope | None = None) -> bool:
     documents = documents_service()
     ready = bool(
         whatsapp_runtime() is not None
-        and business_pilot_enabled()
         and load_whatsapp_settings().intake_ready
         and load_document_extraction_settings().enabled
         and documents is not None
