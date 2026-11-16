@@ -228,6 +228,63 @@ class Flaky(documents.Extractor):
         return await super().extract(**kwargs)
 
 
+class Answered(documents.Extractor):
+    """The provider answers and the read still fails; ``kind`` says how."""
+
+    def __init__(self, kind: str) -> None:
+        super().__init__()
+        self.kind = kind
+
+    async def extract(self, **kwargs: Any) -> ExtractionBatch:
+        await documents.start_request(dict(kwargs))
+        self.calls += 1
+        error = DocumentExtractionError(FAILED)
+        error.read_failure = ReadFailure(self.kind)
+        raise error
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["permanent", "config"])
+async def test_a_probe_the_provider_answers_closes_the_row(pool, users, kind):
+    """A wrong answer, or a refused key, is still an answer: the probe's row
+    is cleared at once, not when the probe would have been given up."""
+    clock, extractor = documents.far_clock(), Answered(kind)
+    api = documents.instance(pool, clock, extractor)
+    breaker = PostgresReadBreaker(pool)
+    api.service.read_breaker = breaker
+    store, owner = api.service.store, users["owner"]
+    connection = await documents.capture(api.service, owner)
+    api.jobs.start(user_id=owner, connection_id=connection)
+    [attempt] = api.attempts(connection)
+    clock.now = open_breaker(breaker, clock.now) + COOLDOWN
+
+    assert await run_attempt(api.service, connection, attempt) == FAILED
+    draft = store.draft(user_id=owner, connection_id=connection)
+    assert (draft.status, draft.error_code) == ("needs_attention", FAILED)
+    assert extractor.calls == 1
+    assert state(pool) == BreakerState()
+    documents.forget(api.service, owner, connection)
+
+
+def test_a_probe_that_was_never_sent_gives_its_turn_back(pool, other_pool):
+    here, there = PostgresReadBreaker(pool), PostgresReadBreaker(other_pool)
+    opened = open_breaker(here)
+    after = opened + COOLDOWN
+    probing = here.admit(after)
+    # Only the probe that is out holds the turn.
+    there.unsent(after)
+    there.unsent(after, "given up")
+    assert state(pool).probe_id == probing.probe
+
+    there.unsent(after, probing.probe)
+    assert state(pool) == BreakerState(opened_at=opened), "open, cooldown unmoved"
+    following = there.admit(after)
+    assert following.until is None
+    assert following.probe not in (None, probing.probe)
+    here.unsent(after, probing.probe)
+    assert state(pool).probe_id == following.probe
+
+
 def rows(pool: ConnectionPool, connection: str) -> int:
     with pool.connection() as db:
         return db.execute(

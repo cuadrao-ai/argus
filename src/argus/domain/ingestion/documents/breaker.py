@@ -12,6 +12,12 @@ and the call reports its end with that id. A call admitted before the breaker
 opened, or a probe that was given up, carries no id or an old one: its late
 answer does not close the breaker and its late failure does not restart the
 cooldown.
+
+Every admitted call ends at the breaker once (``AdmittedCall``): it failed for
+now, the provider answered, or it was never sent. An answer is any end of a
+sent call that is not a failure for now, a wrong answer and a refused key
+included: the provider is up, so the probe's answer closes the breaker. A
+probe that was never sent gives its turn back, and the next read probes.
 """
 
 from __future__ import annotations
@@ -112,6 +118,15 @@ def succeeded(state: BreakerState, probe: str | None = None) -> BreakerState:
     return BreakerState() if _current_probe(state, probe) else state
 
 
+def unsent(state: BreakerState, probe: str | None = None) -> BreakerState:
+    """A call was admitted and never sent. The current probe gives its turn
+    back: the breaker stays open, its cooldown as it was, and the next read to
+    ask probes."""
+    if not _current_probe(state, probe):
+        return state
+    return replace(state, probe_at=None, probe_id=None)
+
+
 def _log(before: BreakerState, after: BreakerState) -> None:
     if before.opened_at is None and after.opened_at is not None:
         logger.error(
@@ -124,7 +139,10 @@ def _log(before: BreakerState, after: BreakerState) -> None:
     elif before.opened_at is not None and after.opened_at is None:
         logger.warning("document_read_breaker_closed")
     elif before.probe_at is not None and after.probe_at is None:
-        logger.error("document_read_breaker_probe_failed")
+        if after.opened_at == before.opened_at:
+            logger.warning("document_read_breaker_probe_unsent")
+        else:
+            logger.error("document_read_breaker_probe_failed")
     elif before.probe_at != after.probe_at:
         logger.warning("document_read_breaker_probe_sent")
 
@@ -144,6 +162,10 @@ class ReadBreaker(Protocol):
 
     def succeeded(self, now: datetime, probe: str | None = None) -> None:
         """The call admitted with ``probe`` answered."""
+        ...
+
+    def unsent(self, now: datetime, probe: str | None = None) -> None:
+        """The call admitted with ``probe`` was never sent."""
         ...
 
 
@@ -173,6 +195,10 @@ class InMemoryReadBreaker:
     def succeeded(self, now: datetime, probe: str | None = None) -> None:
         with self._lock:
             self._move(succeeded(self.state, probe))
+
+    def unsent(self, now: datetime, probe: str | None = None) -> None:
+        with self._lock:
+            self._move(unsent(self.state, probe))
 
 
 _COLUMNS = "failures, opened_at, probe_at, probe_id"
@@ -246,14 +272,18 @@ class PostgresReadBreaker:
         if probe is not None:
             self._apply(lambda state: succeeded(state, probe))
 
+    def unsent(self, now: datetime, probe: str | None = None) -> None:
+        if probe is not None:
+            self._apply(lambda state: unsent(state, probe))
+
 
 def ask_breaker(
     breaker: ReadBreaker | None, ask: str, now: datetime, *probe: str | None
 ) -> datetime | Admission | None:
     """Ask the breaker (``paused_until``, ``admit``) or tell it how the call
-    admitted with ``probe`` ended (``failed``, ``succeeded``). A breaker that
-    cannot be reached never stops a read: the failure is logged and the read
-    goes on."""
+    admitted with ``probe`` ended (``failed``, ``succeeded``, ``unsent``). A
+    breaker that cannot be reached never stops a read: the failure is logged
+    and the read goes on."""
     if breaker is None:
         return None
     try:
@@ -265,3 +295,23 @@ def ask_breaker(
             type(error).__name__,
         )
         return None
+
+
+class AdmittedCall:
+    """One call the breaker admitted, from its admission to its end. However
+    it ends, the breaker hears it once: an ``end`` after the first does
+    nothing. ``sent`` is set once nothing here can stop the call any more."""
+
+    def __init__(self, breaker: ReadBreaker | None, admission: Admission) -> None:
+        self._breaker, self._probe = breaker, admission.probe
+        self.sent = False
+        self._ended = False
+
+    def end(self, now: datetime, answered: bool) -> None:
+        """The call ended: the provider ``answered`` it or it failed for now.
+        A call that was never sent says so instead."""
+        if self._ended:
+            return
+        self._ended = True
+        ask = "unsent" if not self.sent else "succeeded" if answered else "failed"
+        ask_breaker(self._breaker, ask, now, self._probe)

@@ -104,6 +104,16 @@ def classify(error: BaseException) -> ReadFailure:
     return ReadFailure("permanent")
 
 
+def provider_answered(error: BaseException) -> bool:
+    """Whether a sent call that ended in ``error`` was answered. Only a
+    failure for now is the provider failing. Every other kind is an answer: a
+    refusal, an answer that came back wrong, and a refused key (401, 403). A
+    refused key is ours to fix and has its own alert; the provider answered
+    it, so it never counts toward opening the breaker and it closes the
+    breaker when the probe gets it."""
+    return classify(error).kind != "transient"
+
+
 def retry_wait(
     calls: int,
     waited: float,

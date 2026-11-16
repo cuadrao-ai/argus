@@ -26,6 +26,7 @@ from argus.domain.ingestion.connections import (
 from argus.domain.ingestion.contract import ImportCandidate, SourceKind, SourceRef
 from argus.domain.ingestion.documents.breaker import (
     Admission,
+    AdmittedCall,
     ReadBreaker,
     ask_breaker,
 )
@@ -39,6 +40,7 @@ from argus.domain.ingestion.documents.failures import (
     classify,
     held_back,
     next_take,
+    provider_answered,
 )
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
@@ -655,8 +657,13 @@ class DocumentsService:
 
         # Set once a provider call is admitted: only such a read is reported.
         provider_called = False
-        # The breaker's name for the last admitted call when it is the probe.
-        probe: str | None = None
+        # The last call the breaker admitted in this take.
+        call: AdmittedCall | None = None
+
+        async def ended(answered: bool) -> None:
+            if call is not None:
+                await asyncio.to_thread(call.end, self.hub.clock(), answered)
+
         read_started = read_ms = None
         try:
             business = self._canonical_business(connection_id, scope)
@@ -712,10 +719,9 @@ class DocumentsService:
                 )
 
                 async def before_request() -> None:
-                    nonlocal provider_called, calls_left, probe
-                    if provider_called:
-                        # Asked again in the same take: the call before timed out.
-                        await self._breaker("failed", probe)
+                    nonlocal provider_called, calls_left, call
+                    # Asked again in the same take: the call before timed out.
+                    await ended(False)
                     if calls_left <= 0:
                         raise DocumentServiceError("extraction_provider_failed")
                     if not self._reading_allowed(user_id, connection_id):
@@ -729,13 +735,14 @@ class DocumentsService:
                             attempt_id=attempt_id,
                         )
                     # Before anything is charged: a held read was never sent.
-                    admission = await self._breaker("admit") or Admission()
-                    probe = admission.probe
+                    admission = await self._admit()
                     if admission.until is not None:
                         raise held_back(
                             DocumentServiceError(READS_PAUSED),
                             admission.until - self.hub.clock(),
                         )
+                    # From here to the end of ``extract`` the call is out.
+                    call = AdmittedCall(self.read_breaker, admission)
                     if attempt_id is not None and not self.store.mark_provider_call(
                         user_id=user_id,
                         connection_id=connection_id,
@@ -751,22 +758,27 @@ class DocumentsService:
                         )
                         if refused is not None:
                             raise DocumentServiceError(refused)
-                    provider_called = True
+                    call.sent = provider_called = True
                     calls_left -= 1
 
                 read_started = time.monotonic()
-                batch = await self.extractor.extract(
-                    content=content,
-                    filename=draft.filename,
-                    media_type=draft.media_type,
-                    connection_id=connection_id,
-                    observed_at=self.hub.clock(),
-                    prepared=prepared,
-                    before_request=before_request,
-                )
+                # The one place an admitted call ends at the breaker: however
+                # ``extract`` returns, the call that is out is told once.
+                try:
+                    batch = await self.extractor.extract(
+                        content=content,
+                        filename=draft.filename,
+                        media_type=draft.media_type,
+                        connection_id=connection_id,
+                        observed_at=self.hub.clock(),
+                        prepared=prepared,
+                        before_request=before_request,
+                    )
+                except Exception as error:
+                    await ended(provider_answered(error))
+                    raise
+                await ended(True)
                 read_ms = _elapsed_ms(read_started)
-                if provider_called:
-                    await self._breaker("succeeded", probe)
                 batch = clean_extracted_text(batch)
                 self._validate(batch, connection_id)
                 if not self.store.save(
@@ -865,8 +877,6 @@ class DocumentsService:
                     code,
                 )
             failure = classify(error)
-            if failure.kind == "transient":
-                await self._breaker("failed", probe)
             requeue = next_take(
                 failure,
                 attempt_id,
@@ -922,9 +932,12 @@ class DocumentsService:
         finally:
             repo.release(connection_id=connection_id, holder=holder)
 
-    async def _breaker(self, ask: str, *probe: str | None) -> Admission | None:
-        return await asyncio.to_thread(
-            ask_breaker, self.read_breaker, ask, self.hub.clock(), *probe
+    async def _admit(self) -> Admission:
+        return (
+            await asyncio.to_thread(
+                ask_breaker, self.read_breaker, "admit", self.hub.clock()
+            )
+            or Admission()
         )
 
     def _canonical_business(self, connection_id: str, scope: OwnerScope) -> bool:

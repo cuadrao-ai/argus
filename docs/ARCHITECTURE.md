@@ -425,6 +425,18 @@ Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
   that id. A call sent before the breaker opened, or a probe that was given
   up, carries no id or an old one, so its late answer does not close the
   breaker and its late failure does not start the 5 minutes again.
+  Every admitted call ends at the breaker once, at one place
+  (`AdmittedCall` in `breaker.py`, ended where `extract` returns in
+  `service.py`). It has three ends. It failed for now: a failure.
+  The provider answered: every other end of a sent call, including an answer
+  that came back wrong, a refusal and a refused key (401, 403). It was never
+  sent (the read budget or a lost lease stopped it after the admission): the
+  probe gives its turn back, the breaker stays open and the next read probes.
+  `provider_answered` in `failures.py` owns the line between a failure and an
+  answer. A refused key is an answer: the provider is up, so the probe that
+  gets one closes the breaker, and it never counts toward opening it. The key
+  is ours to fix, and `document_read_config_alert` is its signal. A read the
+  breaker held back was not admitted and reports nothing.
   Every worker and every new deploy read the same row. A read
   the breaker holds back goes back to the queue and is charged no call, no
   wait and no read budget. The breaker has no timer of its own. It changes

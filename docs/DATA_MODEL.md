@@ -4041,7 +4041,8 @@ closed. `opened_at` is set while sends are stopped, and null while it is
 closed. `probe_at` is when the one probing read was sent, and it is null unless
 `opened_at` is set. `probe_id` names that probe and is set exactly when
 `probe_at` is: only the call that carries this id closes the breaker or starts
-its cooldown again. Migration `20261116063000_document_read_breaker.sql` adds
+its cooldown again. A probe that was admitted and never sent clears both and
+leaves `opened_at` as it was. Migration `20261116063000_document_read_breaker.sql` adds
 the table and its row. `src/argus/domain/ingestion/documents/breaker.py` owns
 the rules, and `config.py` beside it owns the numbers (5 failures in 120
 seconds, a 300-second cooldown). A closed breaker costs one single-row read
