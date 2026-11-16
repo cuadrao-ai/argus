@@ -3452,7 +3452,6 @@
       },
       "placeholder": {
         "dismiss": "Ocultar guía",
-        "read_failed": "No pudimos cargar la guía.",
         "save_failed": "No pudimos ocultar la guía."
       },
       "registros_intro": {

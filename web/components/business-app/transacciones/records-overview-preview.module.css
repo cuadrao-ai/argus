@@ -23,6 +23,8 @@
 .family + .family { margin-top:5px; }
 .moneyValue { min-width:0; font-size:44px; line-height:1.35; font-weight:500; font-variant-numeric:tabular-nums; letter-spacing:-.035em; overflow-wrap:anywhere; }
 .amount { white-space:normal; }
+.pending { position:relative; display:inline-block; width:1.5em; }
+.currency .pending { width:2.4em; }
 .amount sup { position:relative; top:-.22em; vertical-align:baseline; font-size:.65em; }
 .count { margin-top:auto; padding-top:24px; font-size:44px; font-weight:500; font-variant-numeric:tabular-nums; line-height:1; letter-spacing:-.035em; }
 .footer { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:8px; padding-top:10px; }

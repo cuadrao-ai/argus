@@ -24,6 +24,11 @@ function Heading({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
   return <span className={styles.heading}><Icon size={19} strokeWidth={1.7} aria-hidden="true" /><span>{title}</span></span>;
 }
 
+/** A pending value fills its slot with one line of the slot's own text, so the card keeps its loaded size; the bar sits over that line. */
+function Pending({ shown }: { shown: boolean }) {
+  return <span aria-hidden="true" className={styles.pending} style={{ visibility: shown ? "visible" : "hidden" }}>{"\u00a0"}<RecordsLoadingBar overview /></span>;
+}
+
 function ExactAmount({ amount, currency }: { amount: string; currency: string }) {
   const { locale } = useTransaccionesWords();
   const full = formatAmount(amount, currency, locale);
@@ -66,8 +71,8 @@ function MoneyCard({ metric, icon, answer, loading, showSkeleton, family }: { fa
   return <div className={`${styles.card} ${styles[metric]}`} data-overview-card={metric}>
     <Heading icon={icon} title={title} />
     <div className={styles.values}><div className={styles.currencyGroup} data-currency={line?.currency ?? undefined}>
-      {line ? <span className={styles.currency}>{line.currency ?? t("business.transactions.layout.results.no_currency")}</span> : null}
-      <div className={styles.family} data-family={family}><div className={styles.moneyValue}>{loading ? <span aria-hidden="true" style={{ visibility: showSkeleton ? "visible" : "hidden" }}><RecordsLoadingBar overview /></span> : <AmountValue line={line} />}</div></div>
+      <span className={styles.currency} data-overview-slot="currency">{loading ? <Pending shown={showSkeleton} /> : line ? line.currency ?? t("business.transactions.layout.results.no_currency") : "\u00a0"}</span>
+      <div className={styles.family} data-family={family}><div className={styles.moneyValue} data-overview-slot="amount">{loading ? <Pending shown={showSkeleton} /> : <AmountValue line={line} />}</div></div>
     </div></div>
     <div className={styles.footer}>
       <div className={styles.helpers}>{helpers(line)}</div>
@@ -78,7 +83,7 @@ function MoneyCard({ metric, icon, answer, loading, showSkeleton, family }: { fa
 
 function CountCard({ icon, title, value, helper, loading, showSkeleton, children }: { icon: LucideIcon; title: string; value: number | null; helper: string; loading: boolean; showSkeleton: boolean; children?: ReactNode }) {
   const { locale } = useTransaccionesWords();
-  return <><Heading icon={icon} title={title} /><span className={`${styles.count} font-display`}>{value !== null ? new Intl.NumberFormat(locale).format(value) : loading ? <span aria-hidden="true" style={{ visibility: showSkeleton ? "visible" : "hidden" }}><RecordsLoadingBar overview /></span> : <Unknown />}</span><span className={styles.footer}><span className={styles.helper}>{helper}</span>{children}</span></>;
+  return <><Heading icon={icon} title={title} /><span className={`${styles.count} font-display`} data-overview-slot="count">{value !== null ? new Intl.NumberFormat(locale).format(value) : loading ? <Pending shown={showSkeleton} /> : <Unknown />}</span><span className={styles.footer}><span className={styles.helper}>{helper}</span>{children}</span></>;
 }
 
 /** `shown` lets the screen carry one wait across its parts; without it the cards wait on their own. */

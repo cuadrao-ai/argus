@@ -1,6 +1,6 @@
 .waiting { visibility:hidden; }
 .bar { display:block; height:13px; max-width:100%; border-radius:4px; }
-.overview { height:32px; width:64px; }
+.overview { position:absolute; inset:22% 0; height:auto; }
 .right { margin-left:auto; }
 .counterparty { width:144px; }
 .counterparty_id { width:96px; }

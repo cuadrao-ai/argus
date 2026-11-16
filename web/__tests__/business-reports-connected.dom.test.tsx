@@ -899,8 +899,8 @@ test("a currency-filtered six-card answer clears old figures while loading and s
     await page.type(document.querySelector('input[type="search"]')!, "absent");
     assert.equal(document.querySelector('[data-testid="records-overview-preview"]')?.getAttribute("aria-busy"), "true");
     assert.deepEqual(shelfMoney(), [null, null, null, null]);
-    assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "");
-    assert.equal(fiscalCount(), "");
+    assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "\u00a0");
+    assert.equal(fiscalCount(), "\u00a0");
   } finally { await act(async () => release()); }
   await page.settle(() => document.querySelector('[data-empty-kind="no_results"]') !== null);
   assert.deepEqual(shelfMoney(), [null, null, null, null]);
