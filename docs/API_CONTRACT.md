@@ -8242,7 +8242,9 @@ returns 404 `business_document_purged`.
 
 Receipt summary, detail and dossier responses expose `deleted`,
 `delete_available` and `restore_available`. The deletion metadata contains
-`actor: {actor_id, display_name}`, `at`, `key`, and `previous_state: {state, group}`.
+`actor: {actor_id, display_name}`, `at`, `key`, and `previous_state: {state, group}`,
+plus `reason: "duplicate"` when the owner deleted it as a duplicate (absent
+for a plain delete).
 The previous group is `attention` or `listo`. For several generic read
 candidates, `previous_state.events` retains their IDs and prior states for
 restore under the document's one marker. Server availability uses the
@@ -8616,17 +8618,52 @@ undo cannot run, the next approval writes from that earlier declaration
 instead of keeping the failed approval's.
 
 `POST /business/drafts/{draft_id}/duplicate-resolution` takes
-`{version, other_draft_id, other_version, decision: "different_purchase"}` and
-`Idempotency-Key`. Both versions are strict positive integers. A live human
-with `prepare` may decide one existing receipt-fact duplicate pair in the same
+`{version, other_draft_id, other_version, decision}` and `Idempotency-Key`.
+`decision` is `different_purchase` or `same_purchase`. Both versions are
+strict positive integers. A live human with `prepare` may decide
+`different_purchase` for one existing receipt-fact duplicate pair in the same
 Business. The target must be open; the comparison may be open or accepted and
 is read-only. A stale version answers 409; a foreign or personal ID answers
 404 without disclosing its state. A bank or source-change warning cannot be
-cleared through this action. The returned `BusinessDossier` adds optional
-`duplicate_candidates: [{draft_id, version}]` (empty by default) for the
-remaining supported pairs; model-facing views omit this human control.
+cleared through this action.
 
-A successful decision adds one revision, source and action receipt and clears
+`same_purchase` deletes the target document as a duplicate. It is the
+owner's alone and follows every rule of
+`POST /business/drafts/{draft_id}/delete`: it needs `approve`, an open
+document that is not being read and shares no attachment, and it answers the
+same refusals. The pair must be a pending receipt-fact pair or share one
+supplier RNC and fiscal number; any other pair answers 422
+`duplicate_pair_not_available`. The document goes to Eliminados with
+`deleted.reason = "duplicate"`, restorable until the purge. The other
+document is not changed. It writes no revision. A repeat with the same key
+replays the result; a repeat with a new key on a document already deleted for
+this reason changes nothing. The Activity entry is `resolve_duplicate` with
+`decision`.
+
+The returned `BusinessDossier` carries `duplicate_candidates` (empty by
+default) for an open draft; model-facing views omit this human control. Each
+candidate is `{draft_id, version, basis, decisions, comparison}`:
+
+- `basis` says why the two look like one: `read_facts` (the read gave both the
+  same merchant, date, amount and currency) or `fiscal_number` (both purchases
+  carry one supplier RNC and fiscal number). `fiscal_number` wins when both
+  hold. A `fiscal_number` pair needs no `possible_duplicate` blocker.
+- `decisions` lists what this reader may decide now: `different_purchase` for
+  a pending `read_facts` pair with `prepare`, and `same_purchase` when
+  `delete_available` is true. A client offers no other decision.
+- `comparison` is `{document, other, differences, recommendation}`.
+  `document` is the reviewed draft and `other` the candidate, each
+  `{draft_id, counterparty, occurred_on, amount, currency, fiscal_number, file: {connection_id, filename, media_type} | null, received_at, approved_at}`
+  with null for an unknown value. `fiscal_number` is the NCF, else the e-CF
+  number. `differences` lists the fields that differ, of `counterparty`,
+  `occurred_on`, `amount`, `currency`, `fiscal_number` and `file` (the file is
+  compared by its stored digest); a field not listed is equal.
+  `recommendation` follows the fiscal number alone: `same_purchase` when both
+  carry the same one, `different_purchase` when they differ, null when either
+  has none. The server owns `differences` and `recommendation`; a client
+  renders them and computes neither.
+
+A successful `different_purchase` decision adds one revision, source and action receipt and clears
 only the selected pair. It creates no financial activity. The durable decision
 binds both normalized merchant/date/amount/currency keys, live import evidence,
 and attached source IDs, source hashes and saved extraction batches. Ordinary
@@ -9062,11 +9099,13 @@ document purge removed the draft or upload, read from the purge record; its
 `label` is then always `null`. It is `false` otherwise. No amount, email or other
 field of the command leaves the ledger.
 
-Three actions carry one typed field of the stored command, `null` elsewhere:
+Some actions carry one typed field of the stored command, `null` elsewhere:
 `role` (`owner|admin|editor|viewer`) on `grant_access`, `invite_access` and
 `change_role`; `personal` on `mark_personal` (`true`: marked personal; `false`:
 returned to the Business); `include` on `decide_606` (`true`: included in the
-606). The client localizes them.
+606); `decision` on `resolve_duplicate` (`different_purchase`, or
+`same_purchase`: the document was deleted as a duplicate). The client
+localizes them.
 
 Filters, all optional query parameters, narrow the page on the server:
 `from` and `to` (`YYYY-MM-DD`, calendar days in the Business time zone,
@@ -10633,6 +10672,9 @@ accept path recorded.
   reasons and their order come from `missing_items` in `dgii_line.py`, reading
   the original issues preserved by `dgii_export.py`. Distinct blocker reasons
   follow in the projection's blocker-table order; repeated reasons appear once.
+  The `possible_duplicate` blocker (a repeated read) yields its own word,
+  `possible_duplicate`; `duplicate_document` stays the fiscal number already
+  recorded.
   Unmapped blockers yield `detail_missing` and log a warning. Technical failures
   also yield `detail_missing`. Blocker rows and old exported rows receive the
   current verdict; export history cannot make missing data ready. Rows excluded

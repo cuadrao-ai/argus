@@ -15,6 +15,7 @@ from argus.domain.business.actions.dossier import (
     rnc_registry,
     workflow_blockers,
 )
+from argus.domain.business.actions.duplicate_comparison import fiscal_repeats
 from argus.domain.business.actions.refunds import refund_shaped
 from argus.domain.business.bandeja_group import (
     DraftStanding,
@@ -74,24 +75,6 @@ def _ecf_failed(resolution: BusinessResolution) -> bool:
     )
 
 
-def _repeated(tx: ActionTransaction, draft_ids: Sequence[UUID]) -> set[UUID]:
-    """Drafts that share a supplier RNC and comprobante with another purchase,
-    open or recorded, read from the columns the database's own index is built on."""
-
-    rows = tx.rows(
-        "select distinct me.id from public.financial_import_events me"
-        " join public.financial_import_events other on other.owner_space_id=me.owner_space_id"
-        " and other.business_rnc=me.business_rnc"
-        " and other.business_fiscal_number=me.business_fiscal_number"
-        " where me.owner_space_id=%s and me.id=any(%s) and other.id<>me.id"
-        " and other.state in ('open','accepting','accepted')"
-        " and me.business_kind is distinct from 'income'"
-        " and other.business_kind is distinct from 'income'",
-        (tx.context.actor.space_id, list(draft_ids)),
-    )
-    return {row["id"] for row in rows}
-
-
 def draft_standings(
     tx: ActionTransaction, events: Iterable[ImportEvent]
 ) -> dict[str, DraftStanding]:
@@ -104,7 +87,7 @@ def draft_standings(
     ids = list(drafts)
     questions = review_questions(tx, ids)
     attachments = _attachments(tx, ids)
-    repeated = _repeated(tx, ids)
+    repeated = fiscal_repeats(tx, ids)
     accounts = record_context(tx).accounts
     registry = rnc_registry(tx)
     found = {}

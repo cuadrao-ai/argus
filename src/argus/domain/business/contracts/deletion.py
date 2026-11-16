@@ -13,6 +13,9 @@ from argus.domain.business.contracts.facts import Contract
 PURGE_AFTER = timedelta(days=7)
 
 
+DeletionReason = Literal["duplicate"]
+
+
 class DeletingActor(Contract):
     actor_id: UUID
     display_name: str
@@ -31,6 +34,11 @@ class DeletedDocument(Contract):
     at: datetime
     key: str
     previous_state: PreviousDocumentState
+    #: Why it was deleted, when the person gave a reason by how they deleted
+    #: it. Absent for a plain delete.
+    reason: DeletionReason | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="before")
     @classmethod

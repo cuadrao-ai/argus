@@ -3532,7 +3532,10 @@ it is `financial_document_extractions.draft.status = dismissed` together with
 counts already load that document JSON. A linked draft does not copy its marker
 onto the receipt. A dismissed item without this marker is not deleted.
 
-The marker holds `{actor: {actor_id, display_name}, at, key, previous_state}`.
+The marker holds `{actor: {actor_id, display_name}, at, key, previous_state}`
+and an optional `reason`. The only reason is `duplicate`, written when the
+owner settles a possible repeat as the same purchase; a plain delete stores no
+`reason` key. It needs no migration: the marker is JSON.
 The actor uses the existing account-deletion identity shape, so departure replaces
 its ID with the Business alias and its name with `Exmiembro`. Delete and restore
 action receipts keep the existing `ActorProvenance` snapshot; restore removes the

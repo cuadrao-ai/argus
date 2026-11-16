@@ -2859,7 +2859,8 @@ paths:
             while the original result is unknown.'
         '422':
           description: '`business_document_not_deleted` outside Eliminados; `business_document_ambiguous`
-            for shared attachments; `business_document_purge_busy` while the Business changes custody.'
+            for shared attachments; `business_document_purge_busy` while the Business changes
+            custody.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -15833,6 +15834,13 @@ components:
           anyOf:
           - type: boolean
           - type: 'null'
+        decision:
+          anyOf:
+          - type: string
+            enum:
+            - different_purchase
+            - same_purchase
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -19059,6 +19067,70 @@ components:
       - household_id
       - state
       - replayed
+    ComparedDocument:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        counterparty:
+          anyOf:
+          - type: string
+          - type: 'null'
+        occurred_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+        fiscal_number:
+          anyOf:
+          - type: string
+          - type: 'null'
+        file:
+          anyOf:
+          - $ref: '#/components/schemas/ComparedFile'
+          - type: 'null'
+        received_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        approved_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      description: 'The main data of one document of a possible repeat, as its draft
+
+        holds it now. An unknown value is null.'
+    ComparedFile:
+      properties:
+        connection_id:
+          type: string
+          format: uuid
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        media_type:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - connection_id
+      - filename
+      - media_type
     ConditionalPayoff:
       properties:
         state:
@@ -20432,6 +20504,11 @@ components:
           type: string
         previous_state:
           $ref: '#/components/schemas/PreviousDocumentState'
+        reason:
+          anyOf:
+          - type: string
+            const: duplicate
+          - type: 'null'
         purge_at:
           type: string
           format: date-time
@@ -20912,11 +20989,61 @@ components:
         version:
           type: integer
           minimum: 1.0
+        basis:
+          type: string
+          enum:
+          - read_facts
+          - fiscal_number
+        decisions:
+          items:
+            type: string
+            enum:
+            - different_purchase
+            - same_purchase
+          type: array
+          default: []
+        comparison:
+          $ref: '#/components/schemas/DuplicateComparison'
       additionalProperties: false
       type: object
       required:
       - draft_id
       - version
+      - basis
+      - comparison
+    DuplicateComparison:
+      properties:
+        document:
+          $ref: '#/components/schemas/ComparedDocument'
+        other:
+          $ref: '#/components/schemas/ComparedDocument'
+        differences:
+          items:
+            type: string
+            enum:
+            - counterparty
+            - occurred_on
+            - amount
+            - currency
+            - fiscal_number
+            - file
+          type: array
+          default: []
+        recommendation:
+          anyOf:
+          - type: string
+            enum:
+            - different_purchase
+            - same_purchase
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - document
+      - other
+      description: 'The reviewed document beside the one it may repeat. The server owns
+
+        which values differ and what it recommends; a client renders both.'
     EcfCheck:
       properties:
         name:
@@ -30941,7 +31068,9 @@ components:
           minimum: 1.0
         decision:
           type: string
-          const: different_purchase
+          enum:
+          - different_purchase
+          - same_purchase
       additionalProperties: false
       type: object
       required:

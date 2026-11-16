@@ -11,7 +11,7 @@ from argus.domain.business.contracts.deletion import DeletedDocument
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.space_name import GivenName
 
-from .actions import ApprovalAction
+from .actions import ApprovalAction, DuplicateDecision
 from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
 from .dgii import DgiiDeclaration, ExpenseType, PaymentForm
@@ -180,9 +180,59 @@ class RefundCandidate(Contract):
     currency: str
 
 
+class ComparedFile(Contract):
+    connection_id: UUID
+    filename: str | None
+    media_type: str
+
+
+class ComparedDocument(Contract):
+    """The main data of one document of a possible repeat, as its draft
+    holds it now. An unknown value is null."""
+
+    draft_id: UUID
+    counterparty: str | None = None
+    occurred_on: date | None = None
+    amount: str | None = None
+    currency: str | None = None
+    #: The NCF, else the e-CF number.
+    fiscal_number: str | None = None
+    file: ComparedFile | None = None
+    received_at: datetime | None = None
+    approved_at: datetime | None = None
+
+
+ComparedField = Literal[
+    "counterparty", "occurred_on", "amount", "currency", "fiscal_number", "file"
+]
+
+
+class DuplicateComparison(Contract):
+    """The reviewed document beside the one it may repeat. The server owns
+    which values differ and what it recommends; a client renders both."""
+
+    document: ComparedDocument
+    other: ComparedDocument
+    differences: tuple[ComparedField, ...] = ()
+    #: By the fiscal number alone: ``same_purchase`` when both carry the same
+    #: one, ``different_purchase`` when they differ, null when either has none.
+    recommendation: DuplicateDecision | None = None
+
+
+#: Why two documents look like one: the read gave both the same merchant,
+#: date, amount and currency, or both carry one supplier RNC and fiscal number.
+DuplicateBasis = Literal["read_facts", "fiscal_number"]
+
+
 class DuplicateCandidate(Contract):
     draft_id: UUID
     version: int = Field(ge=1)
+    basis: DuplicateBasis
+    #: What this reader may decide for the pair now. ``same_purchase`` deletes
+    #: the reviewed document and is the owner's alone; ``different_purchase``
+    #: settles only a ``read_facts`` warning.
+    decisions: tuple[DuplicateDecision, ...] = ()
+    comparison: DuplicateComparison
 
 
 #: Where a suggested 606 answer came from: the last one a person gave for this

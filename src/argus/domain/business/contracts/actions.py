@@ -269,11 +269,16 @@ class DecideFiscalInclusionCommand(Contract):
     request: DecideFiscalInclusion
 
 
+DuplicateDecision = Literal["different_purchase", "same_purchase"]
+
+
 class ResolveDuplicate(Contract):
     version: int = Field(ge=1, strict=True)
     other_draft_id: UUID
     other_version: int = Field(ge=1, strict=True)
-    decision: Literal["different_purchase"]
+    #: ``same_purchase`` deletes the reviewed document as a duplicate and is
+    #: the owner's alone, like any delete.
+    decision: DuplicateDecision
 
 
 class ResolveDuplicateCommand(Contract):
