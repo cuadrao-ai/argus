@@ -2,7 +2,7 @@ from dataclasses import replace
 from datetime import date
 
 from argus.domain.business.contracts.facts import Unknown
-from argus.domain.business.dgii_export import fiscal_manifest, line_verdicts
+from argus.domain.business.dgii_export import fiscal_manifest, line_assessments
 from argus.domain.business.dgii_line import first_missing, missing_items, reason
 from argus.domain.business.reporting_projection import with_export_verdicts
 from argus.domain.business.reporting_query import ReportFilters
@@ -85,7 +85,7 @@ def rows(records):
 
 
 def verdicts(records):
-    return line_verdicts(
+    return line_assessments(
         records, rnc="199990013", captured_on=CAPTURED, registry=MapRegistry({})
     )
 
