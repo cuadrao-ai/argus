@@ -73,7 +73,7 @@ try {
         if (path === "consent") return fulfillAcceptedBusinessConsent(route);
         if (path === "month-close") {
           const original = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
-          const wire = { ...original, missing_fiscal_rows: state === "inicio-receipts-tasks" ? [{ family: "purchase", currency: "DOP", count: 3, by_currency: false }] : [], currencies: original.currencies.map((block) => ({ ...block, itbis_charged: "8730.00", itbis_charged_minor: 873000, documents_counted: 4, documents_total: 4, documents_in_bandeja: 0 })) };
+          const wire = { ...original, missing_fiscal_rows: state === "inicio-receipts-tasks" ? [{ family: "purchase", currency: "DOP", count: 17, by_currency: false }] : [], not_ready_rows: state === "inicio-receipts-tasks" ? [{ family: "purchase", currency: "DOP", count: 3, by_currency: false }] : [], currencies: original.currencies.map((block) => ({ ...block, itbis_charged: "8730.00", itbis_charged_minor: 873000, documents_counted: 4, documents_total: 4, documents_in_bandeja: 0 })) };
           return route.fulfill({ json: { ...wire, cuentas_por_cobrar: [], currencies: wire.currencies.map((block) => ({ ...block, net_result_final: true, by_status: { invoices: { pendiente: { count: 0, before_itbis_minor: 0 }, cobrado: { count: 1, before_itbis_minor: 5000000 } }, receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } } })) } });
         }
         if (path === "invitations") return route.fulfill({ json: [] });

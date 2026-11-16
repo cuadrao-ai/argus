@@ -49,7 +49,7 @@ export default function RecordsPagePreview({ records, density, resetKey, rowRef,
   const selected = RECORDS_SORT_OPTIONS.find(({ key, direction }) => key === result.effectiveSort.key && direction === result.effectiveSort.direction)!;
   const showNotice = result.amountSortBlocked || attemptedAmount && !result.amountSortAvailable;
   const label = t("business.transactions.pagination.range", { from: result.from, to: result.to, count: result.count });
-  return <div ref={container} className={styles.container} data-testid="records-page-preview">
+  return <div ref={container} className={styles.container} data-testid="records-page-preview" data-surface-block="table">
     <div ref={surface} className={styles.surface}>
       {showNotice ? <p id={noticeId} className={styles.sortNotice} role="status">{word(result.amountSortBlocked ? "amount_fallback" : "amount_requires_currency")}</p> : null}
       {narrow ? <div className={styles.sort}><ToolbarPicker label={word("sort")} value={word(selected.label)}>

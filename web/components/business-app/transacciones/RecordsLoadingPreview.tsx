@@ -23,7 +23,7 @@ export default function RecordsLoadingPreview({ density = DEFAULT_DENSITY, prefe
   const delayed = useDelayedPending(true);
   const visible = shown ?? delayed;
   const columns = preferences ? visibleRecordsColumns(preferences) : null;
-  return <div className={page.container} role="status" aria-label={t("common.loading")} data-testid="transacciones-loading">
+  return <div className={page.container} role="status" aria-label={t("common.loading")} data-testid="transacciones-loading" data-surface-block="table">
     <div aria-hidden="true" className={visible ? undefined : styles.waiting}>
       <div className={styles.table}>
         <div className="argus-thin-scrollbar relative max-h-[calc(100dvh-15rem)] min-h-[16rem] overflow-auto rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
