@@ -382,6 +382,45 @@ is the only reader, and it runs the sweep. The API records the read and never
 starts, imports or wakes a reader, so a burst of reads cannot hold up its
 health check.
 
+### When a receipt read fails
+
+Designed 2026-11-15 with the founder, build pending #2192. The design is sized
+for pilot scale. It replaces today's rule. Today a read makes at most two
+provider calls, and the second runs only after a timeout (`PROVIDER_CALLS_PER_READ` in
+`src/argus/domain/ingestion/documents/config.py`). Any other failure sends the
+receipt to Necesitan atención at once. What the person sees lives in
+[the Business web app design](../.agent/designs/cuadrao-business-app/DESIGN.md#when-a-read-fails).
+
+- **Transient or permanent.** The worker retries a timeout, an interrupted read,
+  a 5xx answer and a 429 answer. After a 429 it waits at least the
+  `Retry-After` time. It fails fast on an unreadable or unsupported file, a
+  missing source file and a file that is not a receipt. It also fails fast on an
+  auth or configuration error (401, 403, a missing model or key), and that error
+  alerts the team, because the fault is ours, not the receipt's.
+- **Bounded, jittered backoff.** One read gets at most 4 attempts in total,
+  today's 2 included. The wait between attempts grows exponentially, with
+  jitter. The total wait has a hard cap of about 10 minutes.
+- **Dead letter.** When the attempts run out, the receipt goes to Necesitan
+  atención with its reason. That tab is the dead letter, and people already
+  work it. The worker logs the final error with the document id. There is no
+  separate dead-letter queue.
+- **Circuit breaker.** When the provider fails across several reads in a short
+  window (for example 5 failures in 2 minutes), the worker stops all sends for a
+  cooldown (for example 5 minutes). Then one read probes the provider. The
+  breaker state lives in the database, so every worker and every new deploy
+  read the same state. A read that waits on an open breaker is not charged an
+  attempt.
+- **Idempotent writes.** Each extraction write is keyed by the document. A retry
+  overwrites the earlier result and never adds a second one. #2067 made the read
+  hash stable. The build checks the existing write paths and tests them.
+- **Escalation, not blind retries.** A read that returns a wrong answer is not
+  retried. The review checks catch it. When the automatic attempts run out, the
+  next step belongs to the person, as the web design says. A second model is out
+  of scope until it has its own receipt scorecard.
+- **Concurrency unchanged.** The worker keeps 3 reads at a time (`max_reads=3`),
+  and uploads keep 3 in flight. The breaker sits in front of those shared read
+  slots.
+
 ---
 # 7. Communication Protocols
 
