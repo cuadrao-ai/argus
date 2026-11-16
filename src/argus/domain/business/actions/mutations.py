@@ -10,6 +10,7 @@ from loguru import logger
 from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter, ValidationError
 
+from argus.domain.business.accepted_dates import reader_date_reason
 from argus.domain.business.actions import plans, sources
 from argus.domain.business.actions.facts import (
     facts_of,
@@ -17,6 +18,7 @@ from argus.domain.business.actions.facts import (
     reviewed_amount_facts,
     validate_facts,
 )
+from argus.domain.business.actions.fiscal import validate_changed_dates
 from argus.domain.business.amount_inheritance import (
     INHERITANCE,
     draft_is_paid,
@@ -211,7 +213,11 @@ def save_revision(
         document_type_detected=document_type_detected,
         due_on=after_due_on,
     ).model_dump(mode="json")
-    event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
+    day = after.occurred_on.value
+    if reader_date_reason(day) is not None:
+        logger.info("business_post_read_rule draft_id={} rule=read_date_review", event.id)
+        day = None
+    event = replace(event, resolution=resolution, anchor_on=day)
     tx.imports.put_event(event)
     sources.attach(tx, event.id, source_ids)
     tx.rows(
@@ -368,6 +374,7 @@ def revise(
         if not takes_payment_split(current_type):
             raise ActionError("invalid_input", "fiscal_direction_unsupported")
         declared = apply_payment_split(current, payment_split)
+    validate_changed_dates(stored, declared)
     return save_revision(
         tx,
         event,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from argus.domain.business.accepted_dates import reader_date_reason
 from argus.domain.business.contracts.dossier import AccountChoice, Blocker
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
@@ -36,6 +37,9 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
         for name in ("kind", "amount", "currency", "occurred_on")
         if not isinstance(getattr(facts, name), Known)
     ]
+    reason = reader_date_reason(facts.occurred_on.value)
+    if reason is not None:
+        result.append(Blocker(code=reason.code, field="occurred_on", min_date=reason.min_date, today=reason.today))
     if refund_shaped(facts) and not isinstance(facts.funding, Known):
         # A purchase or a sale records with no payment answer. A credit note
         # stays with the account it returns money to.

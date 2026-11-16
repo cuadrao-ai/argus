@@ -51,6 +51,8 @@ router = APIRouter(prefix="/bank", tags=["business-bank"])
 
 _MAX_BYTES = 2 * 1024 * 1024
 _STATUSES = {
+    "business_date_after_today": 422,
+    "business_date_before_minimum": 422,
     "business_permission_denied": 403,
     "one_account": 409,
     "layout_not_ready": 422,
@@ -143,6 +145,7 @@ def bank_problem(request: Request, error: BankMatchingError) -> Exception:
         request,
         status_code=status,
         code=error.code,
+        context=error.context,
         title="Bank matching",
         detail=error.code,
         headers=NO_STORE,

@@ -3480,6 +3480,47 @@ boundary proposal is approved.
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
 
+### Business date floor (#2175)
+
+`supabase/migrations/20261115060328_business_dates_floor.sql` owns the fixed
+stored-date floor. Its `enforce_business_date_floor()` function requires dates
+on or after 2000-01-01 for inserts and changed date values. Client roles have no
+EXECUTE grant on this function; the server role does. Six AFTER row triggers
+call that owner. They compare each date with OLD on updates, including the update
+selected by an upsert. Unchanged grandfathered dates remain editable through
+metadata changes such as delete/restore; changing one date does not revalidate
+another unchanged date in the same JSON object. `business_draft_revisions` and
+`business_invoice_revisions` append one row per edit and copy unchanged dates
+forward, so an insert there has no OLD. Their triggers pass `previous_by=draft_id`
+or `previous_by=invoice_id`, and the function compares the new row with the same
+parent's latest earlier revision. It reads that revision only when a date is below
+the floor. A note or another field saved on a record with a grandfathered date
+therefore succeeds; a first revision, or a date that differs from the previous
+revision, is new input. A newly inserted row or a changed
+date below the floor raises SQLSTATE 23514. A CHECK with `NOT VALID` cannot express
+this distinction, because it still checks every updated row.
+
+| Table | Current dates checked |
+| --- | --- |
+| `business_bank_line_outcomes` | `applied_settled_on` |
+| `business_bank_lines` | `occurred_on` |
+| `business_document_settlements` | `settled_on` |
+| `business_draft_revisions` | `after_due_on` |
+| `business_invoice_revisions` | Nonempty `data.issued_on`, `data.due_on` |
+| `financial_import_events` | Business `anchor_on`, person-stated `facts.occurred_on`; resolution `due_on`, `dgii.paid_on`, `dgii.withheld_on` |
+
+Null dates remain unknown. Other products' imports are unaffected. Prior values
+in correction history and raw reader evidence are retained, including a wrong
+year: correcting a record must not erase or refuse its history. A read date
+outside the application range remains review evidence with a null list anchor
+and a correction blocker. Response models continue to read old stored dates.
+
+The application range has one separate owner, `accepted_dates.py`, which uses
+the Dominican business day. No rolling date expression is stored in the database guard.
+This migration performs no cleanup or validation scan. It does not certify
+historical rows as valid. No hosted count or migration application was performed
+for this change.
+
 ### Business name prompt
 
 `spaces.business_name_prompt_seen_at` recorded the first owner visit that

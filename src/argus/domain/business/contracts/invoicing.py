@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from argus.domain.business.accepted_dates import DueDate, PastBusinessDate
 from argus.domain.business.fiscal_sandbox.contracts import FiscalOperation, Strict
 
 Currency = Literal["DOP", "USD", "EUR"]
@@ -82,9 +83,19 @@ class InvoiceDraft(Strict):
         return self
 
 
+class InvoiceDateInput(Strict):
+    issued_on: PastBusinessDate | None
+    due_on: DueDate | None
+
+
 class InvoiceWrite(Strict):
     data: InvoiceDraft
     expected_version: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def accepted_dates(self) -> InvoiceWrite:
+        InvoiceDateInput(issued_on=self.data.issued_on or None, due_on=self.data.due_on or None)
+        return self
 
 
 class InvoicePrepare(Strict):
