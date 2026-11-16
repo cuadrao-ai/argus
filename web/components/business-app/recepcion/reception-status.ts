@@ -55,6 +55,7 @@ export const BANDEJA_REASON_KEY: Readonly<Record<string, string>> = {
   personal: "business.marks.personal_chip",
   read_budget_day: `${ATTENTION}.read_budget_day`,
   read_budget_month: `${ATTENTION}.read_budget_month`,
+  read_deadline_passed: `${ATTENTION}.read_deadline_passed`,
   review_flag: `${ATTENTION}.check_details`,
   sale: "business.search.badge_venta",
   several_purchases: `${ATTENTION}.several_purchases`,

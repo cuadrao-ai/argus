@@ -445,13 +445,14 @@ class PostgresDocumentStore:
                 "and (d.draft->>'source_available')::boolean "
                 "and d.draft->>'status'='queued' "
                 "and d.preparation_job->>'dispatched_at' is null "
+                "and coalesce((d.preparation_job->>'not_before')::timestamptz <= %s, true) "
                 "and (d.preparation_job->>'draft_version')::integer="
                 "(d.draft->>'version')::integer "
                 "order by d.created_at, d.connection_id limit 1 "
                 "for update of d skip locked) "
                 "returning pulled.connection_id::text, "
                 "pulled.preparation_job->>'attempt_id'",
-                (now, now),
+                (now, now, now),
             ).fetchone()
         return (row[0], row[1]) if row else None
 
@@ -526,7 +527,9 @@ class PostgresDocumentStore:
             marked = connection.execute(
                 "update public.financial_document_extractions set preparation_job="
                 "preparation_job || jsonb_build_object('provider_call_started_at', "
-                "%s::timestamptz) where connection_id=%s and user_id=%s "
+                "%s::timestamptz, 'provider_calls', "
+                "coalesce((preparation_job->>'provider_calls')::integer, 0) + 1) "
+                "where connection_id=%s and user_id=%s "
                 "and preparation_job->>'attempt_id' = %s returning connection_id",
                 (now, connection_id, user_id, attempt_id),
             ).fetchone()

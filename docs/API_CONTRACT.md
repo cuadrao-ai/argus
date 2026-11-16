@@ -10465,7 +10465,11 @@ accept path recorded.
   the day or the month was spent before this read could start; `error_code`
   is `business_read_budget_day` or `business_read_budget_month`, the receipt
   is saved unread with `preparable: true`, and a consented `/prepare` reads it
-  once the budget allows) or `other`. `error_code` stays the precise cause.
+  once the budget allows), `read_deadline_passed` (the read waited 6 hours
+  from the upload, or from the owner's own ask, with the reading service
+  unavailable; `error_code` is `document_read_deadline_passed`, the receipt
+  did not fail, `preparable` is true, and this reason never counts against
+  the owner's own retries) or `other`. `error_code` stays the precise cause.
   Nothing is retried automatically because of it.
 - The Business read budget counts every provider read a Business starts,
   whichever channel the receipt came from (web, email, WhatsApp, `/prepare`,

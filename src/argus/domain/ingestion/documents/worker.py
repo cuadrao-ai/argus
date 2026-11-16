@@ -2,7 +2,9 @@
 
 Only ``python -m workflows.document_worker`` runs one; the API never does. Every
 worker pulls from the same rows through ``store.pull``, which holds
-``max_reads`` across every puller. A stop takes no new read, gives reads in
+``max_reads`` across every puller. While the read breaker is open a pulled
+read goes straight back to the queue, so the breaker sits in front of those
+shared slots. A stop takes no new read, gives reads in
 flight ``drain_seconds`` to finish and cancels the rest, which releases their
 leases for the next boot's sweep.
 """
@@ -11,9 +13,11 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from datetime import datetime
 
 from loguru import logger
 
+from argus.domain.ingestion.documents.breaker import ask_breaker
 from argus.domain.ingestion.documents.config import (
     CANCEL_SECONDS,
     DocumentJobSettings,
@@ -21,6 +25,7 @@ from argus.domain.ingestion.documents.config import (
 )
 from argus.domain.ingestion.documents.jobs import (
     PreparationJobs,
+    hold_back,
     run_attempt,
     sweep_forever,
 )
@@ -73,12 +78,10 @@ class DocumentWorker:
         if not load_document_extraction_settings().enabled:
             return False
         found = False
-        store, clock = self.service.store, self.service.hub.clock
+        clock = self.service.hub.clock
         while len(self.reads) < self.settings.max_reads and not stop.is_set():
             try:
-                pulled = await asyncio.to_thread(
-                    store.pull, now=clock(), cap=self.settings.max_reads
-                )
+                pulled = await asyncio.to_thread(self._take, clock())
             except Exception as error:
                 capture_exception(error, job="document_read_pull")
                 logger.warning(
@@ -92,6 +95,17 @@ class DocumentWorker:
             self.reads.add(read)
             read.add_done_callback(self.reads.discard)
         return found
+
+    def _take(self, now: datetime) -> tuple[str, str] | None:
+        """The next read to run. The breaker is asked only once a read was
+        pulled, so an idle worker never reads it. A read pulled while it is
+        open is put back to wait, unsent and uncharged."""
+        store = self.service.store
+        while (pulled := store.pull(now=now, cap=self.settings.max_reads)) is not None:
+            until = ask_breaker(self.service.read_breaker, "paused_until", now)
+            if until is None or not hold_back(self.service, *pulled, until):
+                return pulled
+        return None
 
     async def _read(self, connection_id: str, attempt_id: str) -> str:
         outcome = await run_attempt(self.service, connection_id, attempt_id)

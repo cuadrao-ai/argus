@@ -161,6 +161,21 @@ test("each tab lists the server's group, and a row says only what the server sai
   } finally { await page.close(); }
 });
 
+test("a read past its deadline says it did not finish, and a stopped read still says it stopped", async () => {
+  const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
+  const blurry = await fixture.receipt("rcpt-blurry");
+  const failed = (id: string, filename: string, reason: string): ReceiptSummary => ({ ...blurry, id, filename, preparable: true, bandeja_group: { group: "attention", reason, draft_id: null, version: null }, activity: { state: "read_failed", unread: false, completion_cursor: null } });
+  const items = [failed("r-deadline", "sin-terminar.jpg", "read_deadline_passed"), failed("r-stopped", "detenida.jpg", "interrupted")];
+  const page = await mount({ receiptPage: async () => ({ items, activity: none }) });
+  const reason = (name: string) => receptionRows(page.host).find((item) => item.textContent?.includes(name))?.querySelector('[data-testid="reception-reason"]')?.textContent ?? null;
+  try {
+    await page.settle(() => receptionRows(page.host).length === 2);
+    await page.act(async () => receptionTab(page.host, "attention")!.click());
+    assert.equal(reason("sin-terminar.jpg"), "La lectura no terminó");
+    assert.equal(reason("detenida.jpg"), "La lectura se detuvo");
+  } finally { await page.close(); }
+});
+
 test("each tab has its own empty state, with no Ver todo, and the Todos tab leads back to the list", async () => {
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const done = { ...(await fixture.receipt("rcpt-confirmed")) };
