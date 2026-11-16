@@ -92,6 +92,8 @@ for (const command of [true, false]) {
     const view = await mount(command);
     await view.dispatch("keydown", view.primary);
     assert.equal(view.hints().length, 4);
+    await act(async () => view.host.querySelector("button")!.focus());
+    assert.equal(view.hints().length, 4, "moving focus to navigation keeps held hints visible");
     await act(async () => view.host.querySelector("input")!.focus());
     assert.equal(view.hints().length, 0);
     await act(async () => view.host.querySelector("input")!.blur());

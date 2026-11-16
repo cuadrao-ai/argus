@@ -27,7 +27,6 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
     };
     const focus = () => {
       setTyping(isWorkspaceTypingTarget(document.activeElement));
-      setModifierHeld(false);
     };
     const hide = () => setModifierHeld(false);
     document.addEventListener("keydown", update);
