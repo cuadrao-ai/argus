@@ -10,11 +10,12 @@ from __future__ import annotations
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Literal
 
 import httpx
+from loguru import logger
 
 from argus.domain.ingestion.documents.config import (
     MAX_PROVIDER_CALLS,
@@ -22,6 +23,7 @@ from argus.domain.ingestion.documents.config import (
     RETRY_FACTOR,
     RETRY_MAX_WAIT_SECONDS,
 )
+from argus.domain.ingestion.documents.models import PreparationJob
 from argus.llm.openrouter_transport import timed_out
 
 # transient: the provider may answer next time (a timeout, an interrupted
@@ -115,3 +117,41 @@ def retry_wait(
     step = RETRY_BASE_SECONDS * RETRY_FACTOR ** max(calls - 1, 0)
     wait = max(step / 2 + rand() * step / 2, asked or 0.0)
     return wait if waited + wait <= RETRY_MAX_WAIT_SECONDS else None
+
+
+def next_take(
+    failure: ReadFailure,
+    attempt_id: str | None,
+    job_of: Callable[[], PreparationJob | None],
+) -> Requeue | None:
+    """The next take of a worker's read that failed for now, or ``None`` when
+    the failure ends it. Only a take the queue recorded (``attempt_id``) can
+    wait in the queue."""
+    if attempt_id is None:
+        return None
+    if failure.kind == "paused":
+        return Requeue(failure.wait_seconds or 0.0, charged=False)
+    if failure.kind != "transient":
+        return None
+    job = job_of()
+    if job is None or job.attempt_id != attempt_id:
+        return None
+    wait = retry_wait(job.provider_calls, job.retry_waited, failure.wait_seconds)
+    return None if wait is None else Requeue(wait, charged=True)
+
+
+def held_back(error: Exception, wait: timedelta) -> Exception:
+    """Mark ``error`` as a read the breaker held back, asking again after
+    ``wait``."""
+    error.read_failure = ReadFailure("paused", max(wait.total_seconds(), 0.0))
+    return error
+
+
+def alert_config(connection_id: str, code: str, error: BaseException) -> None:
+    """The alert for a failure that is ours: one error log under one tag."""
+    logger.error(
+        CONFIG_ALERT + " connection_id={} code={} http_status={}",
+        connection_id,
+        code,
+        getattr(getattr(error, "response", None), "status_code", None),
+    )

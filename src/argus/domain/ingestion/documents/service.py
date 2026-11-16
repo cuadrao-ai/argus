@@ -9,7 +9,7 @@ import unicodedata
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import partial
 from typing import TYPE_CHECKING, Protocol
 
@@ -24,18 +24,17 @@ from argus.domain.ingestion.connections import (
     SourceConnection,
 )
 from argus.domain.ingestion.contract import ImportCandidate, SourceKind, SourceRef
-from argus.domain.ingestion.documents.breaker import ReadBreaker
+from argus.domain.ingestion.documents.breaker import ReadBreaker, ask_breaker
 from argus.domain.ingestion.documents.config import (
     MAX_PROVIDER_CALLS,
     PROVIDER_CALLS_PER_READ,
 )
 from argus.domain.ingestion.documents.failures import (
-    CONFIG_ALERT,
     READS_PAUSED,
-    ReadFailure,
-    Requeue,
+    alert_config,
     classify,
-    retry_wait,
+    held_back,
+    next_take,
 )
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
@@ -123,13 +122,6 @@ class DocumentServiceError(RuntimeError):
         self.code, self.retryable = code, retryable
 
 
-def reads_paused(wait: timedelta) -> DocumentServiceError:
-    """The breaker held this read back; it asks again after ``wait``."""
-    error = DocumentServiceError(READS_PAUSED)
-    error.read_failure = ReadFailure("paused", max(wait.total_seconds(), 0.0))
-    return error
-
-
 def stored_filename(filename: str) -> str:
     """Without control or format characters (bidi overrides included), so a
     stored name can neither break a log line nor disguise its extension."""
@@ -182,8 +174,7 @@ class DocumentsService:
         # Reads a Business may start today and this month, charged just before
         # the provider is reached, whichever channel the receipt came from.
         self.read_budget = read_budget
-        # Holds every send back while the provider keeps failing.
-        self.read_breaker = read_breaker
+        self.read_breaker = read_breaker  # Stops sends while the provider fails.
         # An app with a Postgres pool never falls back to legacy Business
         # delivery; without a pool there is no canonical wiring to require.
         self.business_preparation_required = business_preparation_required
@@ -731,11 +722,12 @@ class DocumentsService:
                             holder=holder,
                             attempt_id=attempt_id,
                         )
-                    # Before the attempt and the budget are charged: a read
-                    # the breaker holds back was never sent.
+                    # Before anything is charged: a held read was never sent.
                     until = await self._breaker("admit")
                     if until is not None:
-                        raise reads_paused(until - self.hub.clock())
+                        raise held_back(
+                            DocumentServiceError(READS_PAUSED), until - self.hub.clock()
+                        )
                     if attempt_id is not None and not self.store.mark_provider_call(
                         user_id=user_id,
                         connection_id=connection_id,
@@ -867,14 +859,13 @@ class DocumentsService:
             failure = classify(error)
             if failure.kind == "transient":
                 await self._breaker("failed")
-            requeue = self._requeue(failure, attempt_id, user_id, connection_id)
+            requeue = next_take(
+                failure,
+                attempt_id,
+                partial(self.store.job, user_id=user_id, connection_id=connection_id),
+            )
             if failure.kind == "config":
-                logger.error(
-                    CONFIG_ALERT + " connection_id={} code={} http_status={}",
-                    connection_id,
-                    code,
-                    getattr(getattr(error, "response", None), "status_code", None),
-                )
+                alert_config(connection_id, code, error)
             try:
                 withdrawn = code == "document_reading_not_allowed"
                 # A withdrawn permission or a spent budget is not a failure:
@@ -885,8 +876,27 @@ class DocumentsService:
                     # puller writes its next take once the lease is released.
                     error.requeue = requeue
                 else:
-                    self._settle_failure(
-                        user_id, draft, holder, code, failure, withdrawn, unread
+                    if not unread:
+                        logger.warning(
+                            "document_read_failed connection_id={} code={} kind={}",
+                            *(connection_id, code, failure.kind),
+                        )
+                    if draft.source_available:
+                        self._update(
+                            user_id,
+                            draft,
+                            holder=holder,
+                            status="saved" if unread else "needs_attention",
+                            error_code=None if withdrawn else code,
+                            **({"consent": False} if unread else {}),
+                            source_available=code != "document_source_unavailable",
+                        )
+                    repo.record_failure(
+                        connection_id=connection_id,
+                        holder=holder,
+                        code=code,
+                        status="error",
+                        now=self.hub.clock(),
                     )
             except (ConnectionNotFound, DocumentServiceError):
                 pass
@@ -904,82 +914,10 @@ class DocumentsService:
         finally:
             repo.release(connection_id=connection_id, holder=holder)
 
-    def _settle_failure(
-        self,
-        user_id: str,
-        draft: DocumentDraft,
-        holder: str,
-        code: str,
-        failure: ReadFailure,
-        withdrawn: bool,
-        unread: bool,
-    ) -> None:
-        """End this read where the person sees it: unread again, or in
-        Necesitan atención with its reason."""
-        connection_id = draft.connection_id
-        if not unread:
-            logger.warning(
-                "document_read_failed connection_id={} code={} kind={}",
-                connection_id,
-                code,
-                failure.kind,
-            )
-        if draft.source_available:
-            self._update(
-                user_id,
-                draft,
-                holder=holder,
-                status="saved" if unread else "needs_attention",
-                error_code=None if withdrawn else code,
-                **({"consent": False} if unread else {}),
-                source_available=code != "document_source_unavailable",
-            )
-        self.hub.connections.record_failure(
-            connection_id=connection_id,
-            holder=holder,
-            code=code,
-            status="error",
-            now=self.hub.clock(),
-        )
-
-    def _requeue(
-        self,
-        failure: ReadFailure,
-        attempt_id: str | None,
-        user_id: str,
-        connection_id: str,
-    ) -> Requeue | None:
-        """The next take of a worker's read that failed for now, or ``None``
-        when the failure ends it. Only a take the queue recorded can wait in
-        the queue."""
-        if attempt_id is None:
-            return None
-        if failure.kind == "paused":
-            return Requeue(failure.wait_seconds or 0.0, charged=False)
-        if failure.kind != "transient":
-            return None
-        job = self.store.job(user_id=user_id, connection_id=connection_id)
-        if job is None or job.attempt_id != attempt_id:
-            return None
-        wait = retry_wait(job.provider_calls, job.retry_waited, failure.wait_seconds)
-        return None if wait is None else Requeue(wait, charged=True)
-
     async def _breaker(self, ask: str) -> datetime | None:
-        """Ask the breaker, or tell it how a call ended. A breaker that cannot
-        be reached never stops a read."""
-        if self.read_breaker is None:
-            return None
-        try:
-            return await asyncio.to_thread(
-                getattr(self.read_breaker, ask), self.hub.clock()
-            )
-        except Exception as error:
-            logger.warning(
-                "document_read_breaker_unavailable ask={} failure_mode={}",
-                ask,
-                type(error).__name__,
-            )
-            return None
+        return await asyncio.to_thread(
+            ask_breaker, self.read_breaker, ask, self.hub.clock()
+        )
 
     def _canonical_business(self, connection_id: str, scope: OwnerScope) -> bool:
         """A Business receipt takes the canonical bridge when it is wired.

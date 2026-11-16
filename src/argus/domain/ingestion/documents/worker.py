@@ -17,6 +17,7 @@ from datetime import datetime
 
 from loguru import logger
 
+from argus.domain.ingestion.documents.breaker import ask_breaker
 from argus.domain.ingestion.documents.config import (
     CANCEL_SECONDS,
     DocumentJobSettings,
@@ -101,24 +102,10 @@ class DocumentWorker:
         open is put back to wait, unsent and uncharged."""
         store = self.service.store
         while (pulled := store.pull(now=now, cap=self.settings.max_reads)) is not None:
-            until = self._paused_until(now)
+            until = ask_breaker(self.service.read_breaker, "paused_until", now)
             if until is None or not hold_back(self.service, *pulled, until):
                 return pulled
         return None
-
-    def _paused_until(self, now: datetime) -> datetime | None:
-        breaker = self.service.read_breaker
-        if breaker is None:
-            return None
-        try:
-            return breaker.paused_until(now)
-        except Exception as error:
-            # A breaker that cannot be reached never stops a read.
-            logger.warning(
-                "document_read_breaker_unavailable ask=paused_until failure_mode={}",
-                type(error).__name__,
-            )
-            return None
 
     async def _read(self, connection_id: str, attempt_id: str) -> str:
         outcome = await run_attempt(self.service, connection_id, attempt_id)

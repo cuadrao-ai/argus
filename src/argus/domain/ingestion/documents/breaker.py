@@ -207,3 +207,22 @@ class PostgresReadBreaker:
     def succeeded(self, now: datetime) -> None:
         if self._load().opened_at is not None:
             self._apply(succeeded)
+
+
+def ask_breaker(
+    breaker: ReadBreaker | None, ask: str, now: datetime
+) -> datetime | None:
+    """Ask the breaker (``paused_until``, ``admit``) or tell it how a call
+    ended (``failed``, ``succeeded``). A breaker that cannot be reached never
+    stops a read: the failure is logged and the read goes on."""
+    if breaker is None:
+        return None
+    try:
+        return getattr(breaker, ask)(now)
+    except Exception as error:
+        logger.warning(
+            "document_read_breaker_unavailable ask={} failure_mode={}",
+            ask,
+            type(error).__name__,
+        )
+        return None
