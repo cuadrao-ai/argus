@@ -93,7 +93,7 @@ export default function RecordsOverviewPreview({ family, answer, fiscalCount, se
   const showSkeleton = loading && (shown ?? delayed);
   const current = loading ? undefined : answer;
   const fiscalActive = selected.length === 1 && selected[0] === "fiscal";
-  return <div data-testid="records-overview-preview" className={styles.overview} aria-busy={loading}>
+  return <div data-testid="records-overview-preview" data-surface-block="overview" className={styles.overview} aria-busy={loading}>
     <div className={styles.cards}>
       {METRICS.slice(0, 2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} family={family} icon={metric.icon} answer={current} loading={loading} showSkeleton={showSkeleton} />)}
       <div className={`${styles.card} ${styles.quantity}`} data-overview-card="quantity"><CountCard icon={Hash} title={t(`${PREFIX}quantity.title`)} value={current?.matching_count ?? null} loading={loading} showSkeleton={showSkeleton} helper={t(`${PREFIX}quantity_helper_placeholder`)} /></div>

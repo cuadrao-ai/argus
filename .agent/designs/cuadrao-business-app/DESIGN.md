@@ -1177,6 +1177,21 @@ These three states look different:
 
 A month with no receipts is not a closed month at RD$0.00. Unknown is never shown as zero.
 
+### Loading views
+
+This rule holds for every surface. A surface's loading view is that surface
+rendered with its data still pending: the same components in the same positions,
+so nothing moves when data arrives.
+
+- The loading view never invents what the server owns: column names, labels, and
+  whether a card or a guide shows. Those stay placeholder bars until the server answers.
+- Visibility the server owns comes with the first page's data, as `/me` carries guide
+  dismissals. A block that will show holds its place while pending; a block that will
+  not show never takes one.
+- Each main block carries `data-surface-block` on the component both views share.
+  `web/__tests__/surface-loading-parity.dom.test.tsx` fails when a covered surface's
+  loading view has a missing, extra or reordered block.
+
 ### Entry into Home
 
 Keep the sign-in button busy while checking credentials. During Business startup,
@@ -1189,8 +1204,8 @@ The loader uses the destination canvas in each theme. Its bar is indeterminate
 unless progress is measured. Reduced motion shows a static indicator. Announce
 loading once per episode with a polite status; do not move or trap keyboard focus.
 Consent prompts and actionable errors replace loading as soon as they are known.
-Once Home can render its structure, any remaining data placeholders stay inside
-their final positions. Unknown values remain distinct from zero.
+Once Home can render its structure, it follows [Loading views](#loading-views).
+Unknown values remain distinct from zero.
 
 ### Growing lists
 
