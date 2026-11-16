@@ -319,6 +319,7 @@ jobs:
             e2e/font-offline.spec.ts \
             e2e/menu-settings-auth-regression.spec.ts \
             e2e/receipt-navigation-scope.spec.ts \
+            e2e/receipt-pdf-viewer.spec.ts \
             e2e/records-export-notices.spec.ts
           NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
 
