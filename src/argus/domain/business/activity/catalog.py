@@ -8,9 +8,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, get_args
 from uuid import UUID
 
+from argus.domain.business.contracts.actions import DuplicateDecision
 from argus.domain.business.contracts.activity import (
     ActionGroup,
     ActivityActor,
@@ -26,7 +27,7 @@ from argus.domain.business.roles import BusinessRole
 
 Audience = Literal["member", "manager"]
 Path = tuple[str | int, ...]
-Detail = Literal["role", "personal", "include"]
+Detail = Literal["role", "personal", "include", "decision"]
 
 
 class EventRow(TypedDict):
@@ -89,7 +90,9 @@ CATALOG: Mapping[str, ActionSpec] = MappingProxyType(
         "settle_remainder": ActionSpec("records", "edits", object=_DRAFT),
         "mark_personal": ActionSpec("records", "edits", object=_DRAFT, detail="personal"),
         "decide_606": ActionSpec("records", "approvals", object=_DRAFT, detail="include"),
-        "resolve_duplicate": ActionSpec("documents", "reviews", object=_DRAFT),
+        "resolve_duplicate": ActionSpec(
+            "documents", "reviews", object=_DRAFT, detail="decision"
+        ),
         "edit_current_note": ActionSpec("records", "edits", object=_DRAFT),
         "append_supporting_file": ActionSpec("documents", "files", object=_DRAFT),
         "receipt_upload": ActionSpec("documents", "uploads", object=_SUBJECT),
@@ -150,6 +153,7 @@ _DETAILS: Mapping[Detail, Path] = MappingProxyType(
         "role": ("command", "business_role"),
         "personal": ("command", "request", "personal"),
         "include": ("command", "request", "include"),
+        "decision": ("command", "request", "decision"),
     }
 )
 
@@ -250,6 +254,8 @@ def _detail(row: EventRow, detail: Detail) -> dict[str, Any]:
             return {"role": BusinessRole(value)}
         except ValueError:
             return {}
+    if detail == "decision":
+        return {"decision": value} if value in get_args(DuplicateDecision) else {}
     return {detail: value} if isinstance(value, bool) else {}
 
 

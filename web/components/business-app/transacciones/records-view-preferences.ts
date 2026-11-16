@@ -2,7 +2,7 @@ import type { ReportColumn, ReportColumnKey } from "@/lib/business-reports-api";
 import { type RecordsSort } from "./records-pagination";
 import type { Density } from "./table-density";
 
-type Layout = { width: number | null; align: "left" | "right"; endPin?: true; chipWidth?: number };
+type Layout = { width: number | null; align: "left" | "right"; endPin?: true };
 /** How each server column draws. The server says which columns the table offers and their names. Attachment pins right while it is last. */
 export const RECORDS_COLUMN_LAYOUT: Record<ReportColumnKey, Layout> = {
   counterparty_id: { width: 128, align: "left" },
@@ -12,7 +12,7 @@ export const RECORDS_COLUMN_LAYOUT: Record<ReportColumnKey, Layout> = {
   net_amount: { width: 136, align: "right" },
   itbis_amount: { width: 124, align: "right" },
   gross_amount: { width: 104, align: "right" },
-  stage: { width: 168, align: "left", chipWidth: 120 },
+  stage: { width: 168, align: "left" },
   missing: { width: 240, align: "left" },
   fiscal_number: { width: 136, align: "left" },
   note: { width: 120, align: "left" },

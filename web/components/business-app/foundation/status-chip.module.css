@@ -1,0 +1,4 @@
+.workflow { display:inline-flex; align-items:center; max-width:100%; border-radius:999px; padding:3px 8px; color:var(--workflow-ink,#422f29); font-size:12px; font-weight:500; line-height:1.4; white-space:nowrap; }
+:global(.dark) .workflow { color:var(--workflow-ink,#f8eee7); }
+/* A fixed-width chip wider than its column cuts with an ellipsis; it never spills past its pill or widens the table. */
+.stage { display:inline-block; box-sizing:border-box; text-align:center; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; }

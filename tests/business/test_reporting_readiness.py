@@ -355,7 +355,7 @@ def test_blocker_and_fiscal_reasons_are_ordered_and_deduplicated(approved_rows):
     [judged] = judge((subject,), (row,))
     assert judged.missing == (
         "expense_type_missing",
-        "duplicate_document",
+        "possible_duplicate",
         "detail_missing",
     )
     assert judged.ready is False

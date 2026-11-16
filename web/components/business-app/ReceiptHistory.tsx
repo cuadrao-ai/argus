@@ -97,6 +97,12 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
     // A revision the server made for a stated reason is a change like any other, made through Cuadrao for the person who caused it.
     const who = revision.reason ? t("business.history.via_cuadrao", { name: revision.actor.display_name }) : revision.actor.display_name;
     const start = events.length;
+    if (revision.duplicate) {
+      const { other_counterparty: counterparty, other_filename: filename } = revision.duplicate;
+      const other = [counterparty, filename].filter(Boolean).join(", ") || t("business.receipts.duplicate_resolution.documents.other");
+      events.push({ id: `${revision.version}-duplicate`, at, line: t(`business.history.duplicate.${revision.duplicate.decision}`, { other }), who });
+      continue;
+    }
     if (!revision.reason && revision.actor.actor_kind === "extractor") {
       events.push({ id: `read-${revision.version}`, at, line: t("business.history.read", "Read"), who });
       continue;

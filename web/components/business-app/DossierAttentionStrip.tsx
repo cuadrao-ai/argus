@@ -3,7 +3,8 @@
 import { CircleAlert } from "lucide-react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
-import type { AttentionItem } from "./dossier-attention";
+import { secondaryButtonClass } from "./business-ui";
+import { DUPLICATE_KEYS, type AttentionItem } from "./dossier-attention";
 
 type AttentionField = NonNullable<AttentionItem["field"]>;
 
@@ -27,28 +28,57 @@ function goToField(from: HTMLElement | null, field: AttentionField, onOpen?: (ro
   }
 }
 
-export default function DossierAttentionStrip({ items, onOpen }: {
+const TEXT = "text-[14px] leading-5 text-[#172b26] dark:text-white";
+
+/** The "Parece repetido" entry: its lead when other items share the box, then each document's line with Comparar. */
+function DuplicateEntry({ item, lead, onCompare, compareDisabled }: {
+  item: AttentionItem;
+  lead: boolean;
+  onCompare?: (otherId: string) => void;
+  compareDisabled: boolean;
+}) {
+  const { t } = useTranslation();
+  if (!lead && !item.duplicates?.length) return null;
+  return (
+    <li data-testid="duplicate-entry" className="space-y-1 px-2 py-1">
+      {lead ? <p className={`font-medium ${TEXT}`}>{item.text}</p> : null}
+      {item.duplicates?.map((line) => (
+        <div key={line.draftId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p data-testid="duplicate-basis" className={`min-w-0 flex-1 basis-48 ${TEXT}`}>{line.text}</p>
+          {onCompare ? <button type="button" data-compare={line.draftId} className={secondaryButtonClass} disabled={compareDisabled} onClick={() => onCompare(line.draftId)}>{t(`${DUPLICATE_KEYS}.compare`)}</button> : null}
+        </div>
+      ))}
+    </li>
+  );
+}
+
+export default function DossierAttentionStrip({ items, onOpen, onCompare, compareDisabled = false }: {
   items: readonly AttentionItem[];
   /** Absent for someone who cannot edit the record now. */
   onOpen?: (row: AttentionField) => void;
+  /** Opens the compare view for a document the duplicate item lists. */
+  onCompare?: (otherId: string) => void;
+  compareDisabled?: boolean;
 }) {
   const { t } = useTranslation();
   if (!items.length) return null;
+  // The duplicate alone titles the box with its own words, so it never says "needed to approve" for a pair that blocks nothing.
+  const alone = items.length === 1 && items[0].duplicates ? items[0] : null;
   return (
     <section data-testid="dossier-attention" aria-labelledby="dossier-attention-title" className="rounded-surface border border-[#e6c9a8] bg-[#fdf6ec] px-4 py-3 dark:border-[#6b5235] dark:bg-[#2a241c]">
       <h3 id="dossier-attention-title" className="flex items-center gap-2 text-[14px] font-medium leading-5 text-[#172b26] dark:text-white">
         <CircleAlert className="h-4 w-4 shrink-0 text-[#9a5b13] dark:text-[#e8b26f]" aria-hidden="true" />
-        {t("business.dossier.placeholder.blocks_title", "Needed to approve")}
+        {alone ? alone.text : t("business.dossier.placeholder.blocks_title", "Needed to approve")}
       </h3>
       <ul className="-mx-2 mt-1.5">
-        {items.map((item) => (
+        {items.map((item) => item.duplicates ? <DuplicateEntry key={item.key} item={item} lead={!alone} onCompare={onCompare} compareDisabled={compareDisabled} /> : (
           <li key={item.key} data-field={item.field ?? undefined}>
             {item.field ? (
               <button type="button" onClick={(event) => goToField(event.currentTarget, item.field!, onOpen)} className="min-h-8 w-full rounded-item px-2 py-1 text-left text-[14px] leading-5 text-[#172b26] underline-offset-2 hover:bg-black/[0.04] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white dark:hover:bg-white/[0.06]">
                 {item.text}
               </button>
             ) : (
-              <p className="px-2 py-1 text-[14px] leading-5 text-[#172b26] dark:text-white">{item.text}</p>
+              <p className={`px-2 py-1 ${TEXT}`}>{item.text}</p>
             )}
           </li>
         ))}

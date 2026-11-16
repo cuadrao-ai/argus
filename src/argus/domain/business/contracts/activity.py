@@ -10,6 +10,7 @@ from uuid import UUID
 
 from pydantic import BeforeValidator, StringConstraints, field_validator, model_validator
 
+from argus.domain.business.contracts.actions import DuplicateDecision
 from argus.domain.business.contracts.authority import ActorKind
 from argus.domain.business.contracts.facts import Contract
 from argus.domain.business.roles import BusinessRole
@@ -108,6 +109,8 @@ class ActivityItem(Contract):
     role: BusinessRole | None = None
     personal: bool | None = None
     include: bool | None = None
+    #: How a possible repeat was settled; ``same_purchase`` deleted the document.
+    decision: DuplicateDecision | None = None
 
 
 class ActivityFacetActor(Contract):

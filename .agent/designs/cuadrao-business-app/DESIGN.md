@@ -1448,8 +1448,9 @@ does it.
 6. **Before Listos: same comprobante.** A purchase with the same supplier RNC
    and NCF as another open or approved purchase stays out of Listos. It shows in
    Necesitan atención as "Parece repetido". This layer does not close Aprobar.
-   Only a `possible_duplicate` mark does. Owner: `_repeated` in
-   `src/argus/domain/business/actions/listos.py`.
+   Only a `possible_duplicate` mark does. Owner: `same_comprobante` in
+   `src/argus/domain/business/actions/fiscal.py`, read through
+   `repeated_purchases`.
 7. **At approval: same comprobante already approved.** The server refuses a
    purchase whose supplier RNC and NCF or e-CF match an approved purchase. A
    database unique index backs the check. The dossier says "Ya registraste este
@@ -1473,8 +1474,17 @@ FlujoComparar). It changes layer 5 only. Every other layer stays as it is.
    why (same comercio, fecha and total) and one button, Comparar. The box has no
    decision buttons. Más does not change.
 2. Comparar turns the same panel into a compare view. It shows a recommendation
-   line and a diff of the main data only: comercio, fecha, total, moneda, NCF and
-   archivo, each row marked Igual or Diferente. Both documents show in the
+   line and a split diff of the main data only: comercio, fecha, total, moneda
+   and NCF. There is no Archivo row: the column heads name the files and the
+   previews show them. Each column head shows its document's file name, with a
+   smaller line under it. Left: "Este · {canal} · {fecha de subida}". Right:
+   "{Guardado antes | Aprobado} · {canal} · {fecha}". The server gives the
+   channel, the date and the state. The marker sits on the left, right after
+   the field name. Only a Diferente row gets a chip: the shared fixed-width
+   status chip (`web/components/business-app/foundation/StatusChip.tsx`, the
+   same chip as Estado in Registros) in the amber tone of Faltan datos, and the
+   row keeps its amber tint. A matching row gets a quiet check, read as
+   "Igual". Nothing marks a row on the right. Both documents show in the
    existing preview, with rotate, zoom, full screen and open original.
 3. The NCF decides the recommendation. A different NCF means two purchases, so
    "Son compras distintas" is the primary action. The same NCF means the same
