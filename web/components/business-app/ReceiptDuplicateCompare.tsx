@@ -10,6 +10,7 @@ import { randomId } from "@/lib/random-id";
 import { dangerButtonClass, dangerConfirmButtonClass, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
+import { showToast } from "./foundation/toasts";
 import { DUPLICATE_KEYS as KEYS } from "./dossier-attention";
 
 /**
@@ -18,17 +19,27 @@ import { DUPLICATE_KEYS as KEYS } from "./dossier-attention";
  */
 export function useDuplicateCompare(dossier: BusinessDossier | null) {
   const [shown, setShown] = useState<{ draftId: string; otherId: string } | null>(null);
+  // Where focus lands once the review is back: the first enabled match, in order.
+  const focusAfter = useRef<string[]>([]);
+  useEffect(() => {
+    if (shown || !focusAfter.current.length) return;
+    const targets = focusAfter.current;
+    focusAfter.current = [];
+    for (const selector of targets) {
+      const target = Array.from(document.querySelectorAll<HTMLElement>(selector)).find((item) => !item.matches(":disabled"));
+      if (target) { target.focus(); return; }
+    }
+  }, [shown]);
+  const close = (targets: string[]) => { focusAfter.current = targets; setShown(null); };
   const candidate = shown && dossier?.draft_id === shown.draftId && dossier.review_state === "open"
     ? dossier.duplicate_candidates?.find((item) => item.draft_id === shown.otherId) ?? null
     : null;
   return {
     candidate,
     open: (otherId: string) => { if (dossier) setShown({ draftId: dossier.draft_id, otherId }); },
-    back: () => {
-      const otherId = shown?.otherId;
-      setShown(null);
-      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-compare="${otherId}"]`)?.focus());
-    },
+    back: () => close([`[data-compare="${shown?.otherId}"]`]),
+    /** A decision kept the document: the review's main action, else what the top box still asks. */
+    settled: () => close(["[data-review-primary]", '[data-testid="dossier-attention"] button']),
   };
 }
 
@@ -68,6 +79,7 @@ export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBa
   busy?: boolean;
   onBack: () => void;
   onBusyChange: (busy: boolean) => void;
+  /** The decision kept the document; the compare view is done. */
   onChanged: (next: BusinessDossier) => void;
   /** The reviewed document went to Eliminados. */
   onDeleted: (gone: BusinessDossier) => void;
@@ -103,7 +115,10 @@ export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBa
       const next = await resolveBusinessDuplicate(command.draftId, command.version, command.otherId, command.otherVersion, decision, command.key);
       request.current = null;
       if (next.deleted) onDeleted(next);
-      else onChanged(next);
+      else {
+        showToast({ kind: "success", text: t(`${KEYS}.marked_different`) });
+        onChanged(next);
+      }
     } catch (error) {
       const code = error !== null && typeof error === "object" && "code" in error ? error.code : null;
       setProblem(code === "stale_version" || code === "duplicate_evidence_changed" ? t("business.dossier.stale") : t("business.dossier.refused"));

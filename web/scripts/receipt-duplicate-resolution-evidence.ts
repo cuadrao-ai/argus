@@ -137,6 +137,9 @@ try {
           if (state === "success") {
             await expect(view).toHaveCount(0);
             await expect(box).toHaveCount(0);
+            await expect(page.getByText("[PENDIENTE COPY] Marcado como compras distintas.", { exact: true })).toBeVisible();
+            // Funding still blocks Aprobar, so focus goes to what the top box still asks.
+            await expect(strip.locator('[data-field="funding"] button')).toBeFocused();
             await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
             await expect(page.getByText("Cómo se pagó", { exact: true }).first()).toBeVisible();
           }

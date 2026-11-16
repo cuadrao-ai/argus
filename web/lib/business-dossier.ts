@@ -98,6 +98,8 @@ export type BusinessDraftRevision = {
   created_at: string;
   /** Why the server made a revision no person and no read made. */
   reason?: "business_rnc_set" | null;
+  /** The person's duplicate decision this revision records, with the other document as the server reads it now. */
+  duplicate?: { decision: "different_purchase"; other_draft_id: string; other_counterparty: string | null; other_filename: string | null } | null;
 };
 
 export type BusinessRecordContext = {

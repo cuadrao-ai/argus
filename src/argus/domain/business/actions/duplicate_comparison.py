@@ -3,21 +3,26 @@ both, which of it differs, and what the fiscal numbers recommend."""
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
 from argus.domain.business.actions.facts import facts_of
+from argus.domain.business.contracts.actions import ResolveDuplicateCommand
 from argus.domain.business.contracts.dossier import (
     ComparedDocument,
     ComparedField,
     ComparedFile,
     DuplicateComparison,
+    DuplicateRevision,
+    SourceEvidence,
+    WebActionSource,
 )
 from argus.domain.business.contracts.facts import FiscalFacts, Known
 from argus.domain.business.duplicates import recommendation, same_value
 from argus.domain.business.transactions import ActionTransaction
-from argus.domain.ingestion.reconcile.model import ImportEvent
+from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 _VALUES: tuple[ComparedField, ...] = (
     "counterparty",
@@ -57,12 +62,9 @@ def _known(fact: object) -> Any:
     return fact.value if isinstance(fact, Known) else None
 
 
-def _document(
-    tx: ActionTransaction, event: ImportEvent, approvals: list[dict[str, Any]]
-) -> tuple[ComparedDocument, Any]:
-    """The document and the digest of its file, which never leaves the server."""
+def _first_file(tx: ActionTransaction, draft_id: str) -> dict[str, Any] | None:
+    """The document's first attached file, with the digest of its bytes."""
 
-    facts = facts_of(event)
     files = tx.rows(
         "select s.connection_id,s.received_at,d.draft->>'filename' as filename,"
         "d.draft->>'media_type' as media_type,"
@@ -72,15 +74,55 @@ def _document(
         " join public.financial_document_extractions d on d.connection_id=s.connection_id"
         " where l.space_id=%s and l.draft_id=%s and s.kind='attachment'"
         " order by s.received_at,s.id limit 1",
-        (tx.context.actor.space_id, event.id),
+        (tx.context.actor.space_id, draft_id),
     )
+    return files[0] if files else None
+
+
+def duplicate_revisions(
+    tx: ActionTransaction, sources: Sequence[SourceEvidence]
+) -> dict[UUID, DuplicateRevision]:
+    """By web action source, the different-purchase decisions it recorded, each
+    naming the other document by its merchant and file as they read now."""
+
+    found: dict[UUID, DuplicateRevision] = {}
+    for source in sources:
+        if not isinstance(source, WebActionSource):
+            continue
+        command = json.loads(source.text)
+        if command.get("action") != "resolve_duplicate":
+            continue
+        request = ResolveDuplicateCommand.model_validate(command).request
+        if request.decision != "different_purchase":
+            continue
+        other_id = str(request.other_draft_id)
+        try:
+            counterparty = _known(facts_of(tx.imports.event(other_id)).counterparty)
+        except EventNotFound:
+            counterparty = None
+        file = _first_file(tx, other_id)
+        found[source.id] = DuplicateRevision(
+            decision=request.decision,
+            other_draft_id=request.other_draft_id,
+            other_counterparty=counterparty,
+            other_filename=file and file["filename"],
+        )
+    return found
+
+
+def _document(
+    tx: ActionTransaction, event: ImportEvent, approvals: list[dict[str, Any]]
+) -> tuple[ComparedDocument, Any]:
+    """The document and the digest of its file, which never leaves the server."""
+
+    facts = facts_of(event)
+    file = _first_file(tx, event.id)
     received = tx.rows(
         "select min(s.received_at) as at from public.business_draft_sources l"
         " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
         " where l.space_id=%s and l.draft_id=%s",
         (tx.context.actor.space_id, event.id),
     )
-    file = files[0] if files else None
     amount = _known(facts.amount)
     fiscal = facts.fiscal or FiscalFacts()
     return (

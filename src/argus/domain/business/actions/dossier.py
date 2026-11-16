@@ -7,7 +7,10 @@ from uuid import UUID
 from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
-from argus.domain.business.actions.duplicate_comparison import compare, fiscal_repeats
+from argus.domain.business.actions.duplicate_comparison import (
+    compare,
+    duplicate_revisions,
+)
 from argus.domain.business.actions.facts import facts_of
 from argus.domain.business.actions.fiscal import RememberedField, last_choice
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
@@ -174,7 +177,10 @@ def duplicate_candidates(
 ) -> tuple[DuplicateCandidate, ...]:
     """The documents this open draft may repeat, each with why and what the
     reader may decide. ``pending`` are the read-facts warnings still open; a
-    shared RNC and fiscal number is the stronger reason when both hold."""
+    shared RNC and fiscal number is the stronger reason when both hold. A pair
+    settled as different purchases is neither, until its evidence changes."""
+
+    from argus.domain.business.actions.duplicate_resolution import fiscal_pairs
 
     if event.state != "open":
         return ()
@@ -184,7 +190,7 @@ def duplicate_candidates(
     )
     read = pending if warned else ()
     draft_id = UUID(event.id)
-    fiscal = tuple(str(i) for i in fiscal_repeats(tx, [draft_id]).get(draft_id, ()))
+    fiscal = tuple(str(i) for i in fiscal_pairs(tx, [event]).get(draft_id, ()))
     candidates = []
     for other_id in dict.fromkeys((*read, *fiscal)):
         try:
@@ -339,7 +345,18 @@ def dossier(
         tx, event, facts, context.accounts, questions
     )
     approvals = approval_receipts(tx, event)
-    revisions = tuple(DraftRevision.model_validate(row) for row in history)
+    decided = duplicate_revisions(tx, evidence)
+    revisions = tuple(
+        DraftRevision.model_validate(
+            {
+                **row,
+                "duplicate": next(
+                    (decided[i] for i in row["source_ids"] if i in decided), None
+                ),
+            }
+        )
+        for row in history
+    )
 
     def approved_revision(reviewed: int) -> int:
         [row] = tx.rows(

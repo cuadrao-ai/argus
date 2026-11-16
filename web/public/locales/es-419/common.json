@@ -3481,6 +3481,7 @@
       "changed_female": "{{field}} cambiada de {{before}} a {{after}}",
       "channel_email": "Correo",
       "channel_web": "Subido",
+      "duplicate": { "different_purchase": "[PENDIENTE COPY] Marcado como compra distinta de {{other}}" },
       "pm": "p.m.",
       "read": "Leído",
       "reason": { "business_rnc_set": "Lo emitió tu negocio" },
@@ -4535,6 +4536,7 @@
           "fiscal_number": "NCF",
           "occurred_on": "Fecha"
         },
+        "marked_different": "[PENDIENTE COPY] Marcado como compras distintas.",
         "no_file": "[PENDIENTE COPY] Este documento no tiene archivo.",
         "recommendation": {
           "different_purchase": "Mismo comercio, fecha, total y moneda. El NCF es distinto: probablemente son dos compras distintas.",

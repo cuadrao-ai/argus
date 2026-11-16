@@ -100,6 +100,16 @@ class ReviewQuestion(Contract):
 RevisionReason = Literal["business_rnc_set"]
 
 
+class DuplicateRevision(Contract):
+    """The revision a person's duplicate decision wrote, read from the command
+    its web action source recorded; the other document as it reads now."""
+
+    decision: Literal["different_purchase"]
+    other_draft_id: UUID
+    other_counterparty: str | None = None
+    other_filename: str | None = None
+
+
 class DraftRevision(Contract):
     draft_id: UUID
     version: int = Field(ge=1)
@@ -116,6 +126,7 @@ class DraftRevision(Contract):
     before_due_on: date | None = None
     after_due_on: date | None = None
     reason: RevisionReason | None = None
+    duplicate: DuplicateRevision | None = None
 
 
 class Blocker(Contract):

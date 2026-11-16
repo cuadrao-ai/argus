@@ -20982,6 +20982,10 @@ components:
           - type: string
             const: business_rnc_set
           - type: 'null'
+        duplicate:
+          anyOf:
+          - $ref: '#/components/schemas/DuplicateRevision'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -21055,6 +21059,30 @@ components:
       description: 'The reviewed document beside the one it may repeat. The server owns
 
         which values differ and what it recommends; a client renders both.'
+    DuplicateRevision:
+      properties:
+        decision:
+          type: string
+          const: different_purchase
+        other_draft_id:
+          type: string
+          format: uuid
+        other_counterparty:
+          anyOf:
+          - type: string
+          - type: 'null'
+        other_filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - decision
+      - other_draft_id
+      description: 'The revision a person''s duplicate decision wrote, read from the command
+
+        its web action source recorded; the other document as it reads now.'
     EcfCheck:
       properties:
         name:

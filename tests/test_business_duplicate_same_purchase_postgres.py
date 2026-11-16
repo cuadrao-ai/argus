@@ -276,3 +276,74 @@ def test_the_route_answers_the_deleted_dossier_with_its_reason(actions):
     assert body["deleted"]["reason"] == "duplicate"
     assert body["restore_available"] is True
     assert body["duplicate_candidates"] == []
+
+
+def _total(service, draft_id, amount: str) -> None:
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_import_events set resolution ="
+            " jsonb_set(resolution, '{business,facts,amount,value}', %s) where id=%s",
+            (Jsonb(amount), str(draft_id)),
+        )
+
+
+def _repeated(service, context, *draft_ids):
+    """Whether the Bandeja rule still calls each draft a repeated comprobante."""
+
+    from argus.domain.business.actions.listos import draft_standings
+    from argus.domain.business.transactions import transaction
+
+    with transaction(service.authority, context) as tx:
+        events = [tx.imports.event(str(draft_id)) for draft_id in draft_ids]
+        standings = draft_standings(tx, events)
+    return {draft_id: standings[str(draft_id)].repeated for draft_id in draft_ids}
+
+
+@pytest.mark.owner_acts
+@pytest.mark.parametrize("shared_ncf", [False, True])
+def test_a_pair_settled_as_different_purchases_leaves_the_review(actions, shared_ncf):
+    service, context, _ = actions
+    first, second = _pair(actions)
+    if shared_ncf:
+        for draft_id in (first, second):
+            _fiscal_identity(service, draft_id, "131246753", "B0100000077")
+    [candidate] = service.dossier(context, second).duplicate_candidates
+    assert candidate.decisions == ("different_purchase", "same_purchase")
+    kept = service.resolve_duplicate(
+        context,
+        second,
+        _same_purchase(service, context, second, first).model_copy(
+            update={"decision": "different_purchase"}
+        ),
+        str(uuid4()),
+    )
+    assert kept.outcome == "applied", kept
+    *earlier, decided = service.dossier(context, second).history
+    assert [revision.duplicate for revision in earlier] == [None] * len(earlier)
+    assert decided.duplicate is not None
+    assert decided.duplicate.model_dump() == {
+        "decision": "different_purchase",
+        "other_draft_id": first,
+        "other_counterparty": "Synthetic shop",
+        "other_filename": "foto.txt",
+    }
+    assert decided.after == decided.before
+    for draft_id in (second, first):
+        view = service.dossier(context, draft_id)
+        assert view.duplicate_candidates == ()
+        assert "possible_duplicate" not in {b.code for b in view.blockers}
+    assert service.dossier(context, second).approval_available is True
+    assert _repeated(service, context, first, second) == {first: False, second: False}
+    refused = service.resolve_duplicate(
+        context, second, _same_purchase(service, context, second, first), str(uuid4())
+    )
+    assert refused.code == "duplicate_pair_not_available", refused
+    if shared_ncf:
+        _total(service, first, "300.00")
+        [back] = service.dossier(context, second).duplicate_candidates
+        assert (back.draft_id, back.basis, back.decisions) == (
+            first,
+            "fiscal_number",
+            ("same_purchase",),
+        )
+        assert _repeated(service, context, first, second) == {first: True, second: True}

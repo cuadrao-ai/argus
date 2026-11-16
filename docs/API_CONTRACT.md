@@ -8671,8 +8671,8 @@ owner's alone and follows every rule of
 `POST /business/drafts/{draft_id}/delete`: it needs `approve`, an open
 document that is not being read and shares no attachment, and it answers the
 same refusals. The pair must be a pending receipt-fact pair or share one
-supplier RNC and fiscal number; any other pair answers 422
-`duplicate_pair_not_available`. The document goes to Eliminados with
+supplier RNC and fiscal number and not be settled as different purchases;
+any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
 `deleted.reason = "duplicate"`, restorable until the purge. The other
 document is not changed. It writes no revision. A repeat with the same key
 replays the result; a repeat with a new key on a document already deleted for
@@ -8687,6 +8687,10 @@ candidate is `{draft_id, version, basis, decisions, comparison}`:
   same merchant, date, amount and currency) or `fiscal_number` (both purchases
   carry one supplier RNC and fiscal number). `fiscal_number` wins when both
   hold. A `fiscal_number` pair needs no `possible_duplicate` blocker.
+  A pair settled with `different_purchase` is no candidate on either side,
+  whatever its basis, until either document's read facts, live evidence or
+  attached files change. Bandeja's repeated-comprobante reason follows the
+  same rule.
 - `decisions` lists what this reader may decide now: `different_purchase` for
   a pending `read_facts` pair with `prepare`, and `same_purchase` when
   `delete_available` is true. A client offers no other decision.
@@ -8703,7 +8707,12 @@ candidate is `{draft_id, version, basis, decisions, comparison}`:
   renders them and computes neither.
 
 A successful `different_purchase` decision adds one revision, source and action receipt and clears
-only the selected pair. It creates no financial activity. The durable decision
+only the selected pair. That revision's `history` entry carries
+`duplicate: {decision: "different_purchase", other_draft_id, other_counterparty, other_filename}`,
+read from the command its web action source recorded, with the other
+document's merchant and first file name as they read now (null when unknown).
+Every other entry carries `duplicate: null`. The web shows that entry as one
+Historial line and never infers it from the facts. It creates no financial activity. The durable decision
 binds both normalized merchant/date/amount/currency keys, live import evidence,
 and attached source IDs, source hashes and saved extraction batches. Ordinary
 review and unchanged preparation retry preserve it; changed facts or attached

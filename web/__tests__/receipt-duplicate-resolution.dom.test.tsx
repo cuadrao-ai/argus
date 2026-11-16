@@ -436,3 +436,92 @@ test("in the review panel the one Parece repetido sits in the top box with Compa
     globalThis.fetch = oldFetch;
   }
 });
+
+for (const outcome of ["settled", "failed"] as const) {
+  test(`in the review panel, Son compras distintas ${outcome === "settled" ? "returns to the review with a toast, no amber entry and Aprobar ready" : "that fails keeps the compare view and retries with the same key"}`, async () => {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("@/public/locales/es-419/common.json")).default;
+    const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
+    const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+    const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+    const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
+    const { clearToasts, useToasts } = await import("@/components/business-app/foundation/toasts");
+    const { default: Review } = await import("@/components/business-app/ReceiptDossierReview");
+    const fixture = await createFixtureBusinessDataSource().dossier(dossierFixtureIds.ready);
+    const dossier: BusinessDossier = {
+      ...fixture, draft_id: "draft-new", version: 7, review_state: "open",
+      capabilities: ["read", "prepare", "approve"],
+      blockers: [{ code: "possible_duplicate", field: null }],
+      approval_available: false,
+      duplicate_candidates: [candidate({})],
+    };
+    const settled: BusinessDossier = { ...dossier, version: 8, blockers: [], approval_available: true, duplicate_candidates: [] };
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const decisions: RequestInit[] = [];
+    const oldFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/business/drafts/draft-new/dossier")) return Response.json(dossier);
+      if (path.endsWith("/business/drafts/draft-new/duplicate-resolution")) {
+        decisions.push(init ?? {});
+        if (outcome === "failed") throw new Error("Synthetic offline transport");
+        return Response.json(settled);
+      }
+      return Response.json({ code: "not_found" }, { status: 404 });
+    }) as typeof fetch;
+    const context = {
+      source: liveBusinessDataSource,
+      reload: () => undefined,
+      records: { inbox: [], notes: [], notesError: false, notesTruncated: false, error: false, workspace: null },
+      openPanel: () => undefined,
+      actions: { create: [] },
+      panel: { kind: "inbox" },
+      revision: 0,
+    } as unknown as BusinessContextValue;
+    function Toasts() { return <p data-testid="toasts">{useToasts().map((toast) => toast.text).join("|")}</p>; }
+    clearToasts();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const settle = async () => { for (let turn = 0; turn < 5; turn += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); }); };
+    const button = (name: string) => Array.from(host.querySelectorAll<HTMLButtonElement>("button")).find((item) => item.textContent?.trim() === name);
+    try {
+      await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Review draftId="draft-new" /><Toasts /></BusinessContext.Provider></I18nextProvider>); });
+      await settle();
+      assert.ok(button("Aprobar")?.disabled, "the duplicate blocks Aprobar before the decision");
+      await act(async () => { button("Comparar")?.click(); });
+      await settle();
+      await act(async () => { button("Son compras distintas")?.click(); });
+      await settle();
+      const toasts = () => host.querySelector('[data-testid="toasts"]')?.textContent;
+      if (outcome === "settled") {
+        assert.equal(host.querySelector('[data-testid="duplicate-compare"]'), null, "the compare view closed");
+        assert.equal(host.querySelector('[data-testid="duplicate-entry"]'), null, "no amber Parece repetido entry");
+        assert.equal(repeats(host.querySelector('[data-testid="dossier-attention"]')), 0);
+        assert.equal(toasts(), "[PENDIENTE COPY] Marcado como compras distintas.");
+        const approve = button("Aprobar");
+        assert.ok(approve && !approve.disabled, "Aprobar is ready");
+        assert.equal(document.activeElement, approve, "focus is on the review's main action");
+        assert.equal(decisions.length, 1);
+      } else {
+        assert.ok(host.querySelector('[data-testid="duplicate-compare"]'), "the compare view stays");
+        assert.ok(host.querySelector('[data-testid="duplicate-compare"] ~ * [role="alert"], [role="alert"]'));
+        assert.equal(toasts(), "");
+        await act(async () => { button("Son compras distintas")?.click(); });
+        await settle();
+        assert.equal(decisions.length, 2);
+        assert.deepEqual(decisions[0].headers, decisions[1].headers);
+        assert.equal(decisions[0].body, decisions[1].body);
+      }
+    } finally {
+      await act(async () => { root.unmount(); });
+      host.remove();
+      clearToasts();
+      globalThis.fetch = oldFetch;
+    }
+  });
+}
