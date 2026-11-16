@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tests import test_business_actions_postgres as shared
+from tests.business.test_records_export_filename import one_stem
 from tests.test_business_dgii_postgres import cash_account
 from tests.test_business_reporting_postgres import record_expense, viewer_context
 
@@ -174,6 +175,9 @@ def test_dgii_export_formats_the_same_606_records_and_ignores_other_filters(
     card = query(http, filters=month)["overview"]["needs_fiscal_data"]
     unrelated = {**month, "q": "nothing matches this", "has_document": True}
     summary = preview(http, unrelated)["dgii"]
+    assert (
+        one_stem(summary.pop("filenames")) == f"{PRACTICE_NAME} - Compras 2026-09 - DGII"
+    )
     assert summary == {
         "form": "606",
         "currency": "DOP",

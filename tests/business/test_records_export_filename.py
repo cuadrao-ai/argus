@@ -3,6 +3,7 @@ web can offer that name before the file exists."""
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from types import SimpleNamespace
 from urllib.parse import unquote
@@ -20,6 +21,19 @@ from fastapi.testclient import TestClient
 from tests.business.test_records_file import books, row, source
 
 BUSINESS = "Café Unión"
+#: Each name ends with the minute the records were read, in the Business calendar.
+MINUTE = r"\d{4}-\d{2}-\d{2} \d{4}"
+
+
+def one_stem(filenames: dict[str, str]) -> str:
+    """The stem an offered Excel and CSV name share, without its read minute.
+    Two reads can fall in different minutes, so callers compare this stem."""
+    assert set(filenames) == {"xlsx", "csv"}
+    stem = filenames["csv"].removesuffix(".csv")
+    assert filenames == {"xlsx": f"{stem}.xlsx", "csv": f"{stem}.csv"}
+    named = re.fullmatch(rf"(.+) - {MINUTE}", stem)
+    assert named, stem
+    return named[1]
 
 
 @pytest.fixture
