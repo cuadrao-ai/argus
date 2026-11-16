@@ -7,7 +7,10 @@ from zipfile import ZipFile
 
 import pytest
 from argus.domain.business.contracts.actions import ReviewDraft
-from argus.domain.business.contracts.dgii import PurchaseDeclaration, PurchaseReview
+from argus.domain.business.contracts.dgii import (
+    PurchaseDeclaration,
+    PurchaseReview,
+)
 from argus.domain.business.contracts.facts import BusinessFactPatch, Unknown
 from argus.domain.business.dgii_line import reason
 from argus.domain.business.purchase_review import apply_purchase, derived_amount

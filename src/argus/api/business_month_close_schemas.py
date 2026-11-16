@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from argus.domain.business.accepted_dates import PastBusinessDate
+
 
 class _Wire(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -25,7 +27,7 @@ def _settlement() -> Any:  # noqa: ANN401
 
 class SettlementUpdate(_Wire):
     status: str
-    settled_on: date | None = None
+    settled_on: PastBusinessDate | None = None
     payment_method: str | None = None
 
 

@@ -25,12 +25,15 @@ class ActionError(Exception):
         code: str,
         existing_record_id: UUID | None = None,
         flags: tuple[str, ...] = (),
+        *,
+        context: dict[str, str] | None = None,
     ) -> None:
         self.result = Refused(
             outcome=outcome,
             code=code,
             existing_record_id=existing_record_id,
             flags=flags,
+            context=context,
         )
         self.code = code
         super().__init__(code)

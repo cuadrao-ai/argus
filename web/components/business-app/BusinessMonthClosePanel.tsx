@@ -1,4 +1,6 @@
 "use client";
+
+import { businessDateMessage } from "@/lib/business-date-errors";
 import { LOCAL_BUSINESS_PREFIX } from "@/lib/business-grant";
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -517,7 +519,7 @@ function BusinessMonthCloseContent({
             }
           : current,
       );
-      setWorkProblems((current) => new Map(current).set(documentId, { kind: document.kind, name: nameOf(document, t), text: t("business.month_close.mark_failed", "We couldn't save that change. The status is back to what it was."), retry: () => void mark(document) }));
+      setWorkProblems((current) => new Map(current).set(documentId, { kind: document.kind, name: nameOf(document, t), text: businessDateMessage(error, t, locale) ?? t("business.month_close.mark_failed", "We couldn't save that change. The status is back to what it was."), retry: () => void mark(document) }));
       settle(documentId);
       return;
     }

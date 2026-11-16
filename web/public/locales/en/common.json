@@ -2217,6 +2217,10 @@
     }
   },
   "business": {
+    "accepted_dates": {
+      "business_date_after_today": "{{field}} can't be after today.",
+      "business_date_before_minimum": "{{field}} can't be more than 10 years old. Use {{min_date}} or a later date."
+    },
     "date_range": {
       "complete_dates": "Complete both dates",
       "confirm": "Confirm period",
