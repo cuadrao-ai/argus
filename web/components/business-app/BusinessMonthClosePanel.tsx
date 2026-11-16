@@ -456,7 +456,7 @@ function BusinessMonthCloseContent({
       (next) => {
         if (generation.current !== request) return;
         setCurrentMonth(next.today?.slice(0, 7) ?? seed);
-        setSnapshot(preview === "empty" ? { ...next, documents: [], figures: [], fiscal_rows: [] } : next);
+        setSnapshot(preview === "empty" ? { ...next, documents: [], figures: [], fiscal_rows: [], not_ready_rows: [] } : next);
         setPhase("ready");
       },
       (error: unknown) => {
@@ -574,7 +574,7 @@ function BusinessMonthCloseContent({
     if (scopeKey === null || !snapshot?.month) return;
     const request = ++generation.current;
     const [next] = await Promise.all([client.load(snapshot.month, scopeKey).catch(() => null), readOpenItems()]);
-    if (next && generation.current === request) setSnapshot(preview === "empty" ? { ...next, documents: [], figures: [], fiscal_rows: [] } : next);
+    if (next && generation.current === request) setSnapshot(preview === "empty" ? { ...next, documents: [], figures: [], fiscal_rows: [], not_ready_rows: [] } : next);
   }
 
   function clearWorkProblem(documentId: string) {
@@ -985,10 +985,10 @@ function BusinessMonthCloseContent({
         currency={cardCurrency}
         net={net}
         firstDay={snapshot !== null && snapshot.earliest_month === null}
-        fiscalRows={(snapshot?.fiscal_rows ?? []).filter((row) => row.currency === cardCurrency)}
+        notReadyRows={(snapshot?.not_ready_rows ?? []).filter((row) => row.currency === cardCurrency)}
         openBandeja={openBandeja}
         // Registros lists only the currencies it can show one at a time; a row in another keeps its count and no Ver.
-        openFiscal={(row) => (openRecords && range && recordsCurrencySchema.safeParse(row.currency).success ? () => openRecords({ family: row.family, currency: row.currency, ...range, fiscal_data: "missing" }) : null)}
+        openNotReady={(row) => (openRecords && range && recordsCurrencySchema.safeParse(row.currency).success ? () => openRecords({ family: row.family, currency: row.currency, ...range, ready: false }) : null)}
         label={label}
         locale={locale}
       />

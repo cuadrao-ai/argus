@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Literal
 
 from psycopg.errors import CheckViolation, UniqueViolation
@@ -24,14 +25,21 @@ from argus.domain.business.dgii_export import (
 from argus.domain.business.dgii_line import PAYMENT_FORM_ISSUES
 from argus.domain.business.dgii_snapshot import fiscal_snapshot
 from argus.domain.business.month_close import (
+    FAMILY,
     IMPLICIT,
     PAYMENT_METHODS,
     Settlement,
+    fiscal_rows,
     month_period,
     open_items,
     project_documents,
     set_document_status,
     summarize,
+)
+from argus.domain.business.reporting_query import (
+    ReportRecord,
+    ReportRequestV2,
+    matching_records,
 )
 from argus.domain.business.rnc_registry import postgres_rnc_fetch, registry_from_config
 
@@ -109,6 +117,10 @@ def read_month(
     today = ledger.today()
     with _session(authority, context, "read") as (connection, auth):
         documents, by_id = _collect(authority, connection, auth.context)
+        from argus.domain.business.reporting_store import _projected
+
+        snapshot, records, _registry = _projected(authority, auth.context, connection)
+        readiness = not_ready_rows(records, month, snapshot.observed_at)
         forms, foreign, no_payment_form, missing = _form_statuses(
             connection, auth.context, tuple(by_id.values()), start, end, today
         )
@@ -122,6 +134,29 @@ def read_month(
         missing,
         settlement,
         bandeja,
+        readiness,
+    )
+
+
+def not_ready_rows(
+    records: tuple[ReportRecord, ...], month: str, observed_at: datetime
+) -> list[dict]:
+    """Inicio counts the exact Registros readiness selection in each tab/currency."""
+
+    start, end = month_period(month)
+    request = ReportRequestV2(
+        filters={
+            "period": {"kind": "custom", "from_date": start, "to_date": end},
+            "ready": False,
+        }
+    )
+    roles = {family: role for role, family in FAMILY.items()}
+    return fiscal_rows(
+        [
+            {"document_kind": roles[row.family], "currency": row.currency}
+            for row in matching_records(records, request, observed_at)
+            if row.family in roles and row.currency
+        ]
     )
 
 
@@ -166,6 +201,7 @@ def month_close(  # noqa: ANN001
     missing: Mapping[str, Sequence[str]] | None = None,
     settlement: bool = True,
     bandeja: Mapping[str, int] | None = None,
+    readiness: list[dict] | None = None,
 ) -> dict:
     """The month-close answer. Without ``settlement`` it names no payment
     method either: a method is only what a cobrado or pagado mark carries."""
@@ -174,6 +210,7 @@ def month_close(  # noqa: ANN001
     return {
         "month": month,
         "today": today,
+        "not_ready_rows": readiness or [],
         **({"payment_methods": list(PAYMENT_METHODS)} if settlement else {}),
         "dgii_forms": forms,
         "dgii_foreign_currency": foreign or foreign_currency({}),

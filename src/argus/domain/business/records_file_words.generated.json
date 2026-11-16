@@ -45,10 +45,10 @@
     "business.transactions.columns.notas": "Notes",
     "business.transactions.columns.rnc_cedula": "RNC or ID",
     "business.transactions.layout.column_attachment": "Attachment",
+    "business.transactions.layout.column_reason": "Reason",
     "business.transactions.layout.column_state": "Status",
     "business.transactions.layout.overview.purchases": "Purchases",
     "business.transactions.layout.overview.sales": "Sales",
-    "business.transactions.layout.workflow.exported": "Exported",
     "business.transactions.layout.workflow.missing": {
       "billed_amount_zero": "The services or goods amount is missing",
       "credit_note_payment_form": "A credit note uses payment method 06",
@@ -81,8 +81,8 @@
       "several": "Fiscal details missing",
       "tip_over_limit": "The tip is over 10%"
     },
+    "business.transactions.layout.workflow.not_ready": "Missing data",
     "business.transactions.layout.workflow.ready": "Ready",
-    "business.transactions.layout.workflow.review": "To review",
     "common.no": "No",
     "common.yes": "Yes"
   },
@@ -132,10 +132,10 @@
     "business.transactions.columns.notas": "Notas",
     "business.transactions.columns.rnc_cedula": "RNC o Cédula",
     "business.transactions.layout.column_attachment": "Adjunto",
+    "business.transactions.layout.column_reason": "Motivo",
     "business.transactions.layout.column_state": "Estado",
     "business.transactions.layout.overview.purchases": "Compras",
     "business.transactions.layout.overview.sales": "Ventas",
-    "business.transactions.layout.workflow.exported": "Exportado",
     "business.transactions.layout.workflow.missing": {
       "billed_amount_zero": "Falta el monto de servicios o bienes",
       "credit_note_payment_form": "Una nota de crédito usa forma de pago 06",
@@ -168,8 +168,8 @@
       "several": "Faltan datos fiscales",
       "tip_over_limit": "La propina pasa del 10%"
     },
+    "business.transactions.layout.workflow.not_ready": "Faltan datos",
     "business.transactions.layout.workflow.ready": "Listo",
-    "business.transactions.layout.workflow.review": "Por revisar",
     "common.no": "No",
     "common.yes": "Sí"
   }

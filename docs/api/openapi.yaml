@@ -21639,6 +21639,7 @@ components:
           - itbis_amount
           - gross_amount
           - stage
+          - missing
           - fiscal_number
           - note
           - attachment
@@ -21660,6 +21661,8 @@ components:
       - shown
     ExportPreview:
       properties:
+        not_ready:
+          type: integer
         table:
           $ref: '#/components/schemas/TableExport'
         dgii:
@@ -21667,6 +21670,7 @@ components:
       additionalProperties: false
       type: object
       required:
+      - not_ready
       - table
       - dgii
     ExportPreviewRequest:
@@ -26672,6 +26676,10 @@ components:
           items:
             $ref: '#/components/schemas/FiscalDataRow'
           type: array
+        not_ready_rows:
+          items:
+            $ref: '#/components/schemas/FiscalDataRow'
+          type: array
         cuentas_por_cobrar:
           anyOf:
           - items:
@@ -28070,6 +28078,7 @@ components:
             - itbis_amount
             - gross_amount
             - stage
+            - missing
             - fiscal_number
             - note
             - attachment
@@ -28088,6 +28097,7 @@ components:
             - itbis_amount
             - gross_amount
             - stage
+            - missing
             - fiscal_number
             - note
             - attachment
@@ -29785,6 +29795,7 @@ components:
             - itbis_amount
             - gross_amount
             - stage
+            - missing
             - fiscal_number
             - note
             - attachment
@@ -30146,6 +30157,7 @@ components:
           - itbis_amount
           - gross_amount
           - stage
+          - missing
           - fiscal_number
           - note
           - attachment

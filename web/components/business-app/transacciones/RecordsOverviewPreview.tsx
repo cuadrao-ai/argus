@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { Banknote, ClipboardList, FileSearch, Filter, Hash, Package, Wallet, type LucideIcon } from "lucide-react";
 import type { ReportAnswer, ReportFiscalTotal, ReportTotal } from "@/lib/business-reports-api";
 import { formatAmount } from "../business-format";
-import type { CardFilter, ReviewFilter } from "./records-filter-preview-model";
 import { useTransaccionesWords } from "./transacciones-words";
 import { useDelayedPending } from "../business-skeletons";
 import { RecordsLoadingBar } from "./RecordsLoadingPreview";
@@ -83,16 +82,16 @@ function CountCard({ icon, title, value, helper, loading, children }: { icon: Lu
   return <><Heading icon={icon} title={title} /><span className={`${styles.count} font-display`}>{value !== null ? new Intl.NumberFormat(locale).format(value) : loading ? <span aria-hidden="true" style={{ visibility: showSkeleton ? "visible" : "hidden" }}><RecordsLoadingBar overview /></span> : <Unknown />}</span><span className={styles.footer}><span className={styles.helper}>{helper}</span>{children}</span></>;
 }
 
-export default function RecordsOverviewPreview({ family, answer, fiscalCount, selected, onChoose, loading = false }: { family: "sale" | "purchase"; answer?: ShelfAnswer; fiscalCount: number | null; loading?: boolean; selected: readonly ReviewFilter[]; onChoose: (value: CardFilter) => void }) {
+export default function RecordsOverviewPreview({ family, answer, notReadyCount, selected, onChoose, loading = false }: { family: "sale" | "purchase"; answer?: ShelfAnswer; notReadyCount: number | null; loading?: boolean; selected: boolean; onChoose: () => void }) {
   const { t } = useTransaccionesWords();
   const current = loading ? undefined : answer;
-  const fiscalActive = selected.length === 1 && selected[0] === "fiscal";
+  const fiscalActive = selected;
   return <div data-testid="records-overview-preview" className={styles.overview} aria-busy={loading}>
     <div className={styles.cards}>
       {METRICS.slice(0, 2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} family={family} icon={metric.icon} answer={current} loading={loading} />)}
       <div className={`${styles.card} ${styles.quantity}`} data-overview-card="quantity"><CountCard icon={Hash} title={t(`${PREFIX}quantity.title`)} value={current?.matching_count ?? null} loading={loading} helper={t(`${PREFIX}quantity_helper_placeholder`)} /></div>
       {METRICS.slice(2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} family={family} icon={metric.icon} answer={current} loading={loading} />)}
-      <button type="button" data-overview-card="fiscal" data-overview-filter="fiscal" aria-pressed={fiscalActive} disabled={fiscalCount === null || loading || fiscalCount === 0 && !fiscalActive} onClick={() => onChoose("fiscal")} className={`${styles.card} ${styles.fiscal} ${styles.action}`}><CountCard icon={FileSearch} title={t(`${PREFIX}fiscal.title`)} value={loading ? null : fiscalCount} loading={loading} helper={t(`${PREFIX}fiscal.description_${family}`)}><Filter size={19} fill={fiscalActive ? "currentColor" : "none"} aria-hidden="true" /></CountCard></button>
+      <button type="button" data-overview-card="fiscal" data-overview-filter="fiscal" aria-pressed={fiscalActive} disabled={notReadyCount === null || loading || notReadyCount === 0 && !fiscalActive} onClick={onChoose} className={`${styles.card} ${styles.fiscal} ${styles.action}`}><CountCard icon={FileSearch} title={t("business.transactions.layout.workflow.not_ready")} value={loading ? null : notReadyCount} loading={loading} helper={t(`${PREFIX}fiscal.description`)}><Filter size={19} fill={fiscalActive ? "currentColor" : "none"} aria-hidden="true" /></CountCard></button>
     </div>
   </div>;
 }

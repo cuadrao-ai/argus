@@ -57,17 +57,17 @@ export type HomeMonthCardProps = {
   net: MonthCloseNetDisplay;
   /** No approved document ever: the figures read RD$ 0, muted, and the footer says when they fill. */
   firstDay: boolean;
-  /** The server's "Faltan datos fiscales" rows in the shown currency, one per Registros tab. */
-  fiscalRows: readonly MonthCloseFiscalRow[];
+  /** The server's "Faltan datos" rows in the shown currency, one per Registros tab. */
+  notReadyRows: readonly MonthCloseFiscalRow[];
   /** Opens the Bandeja; absent for someone who may not prepare. */
   openBandeja?: () => void;
-  /** What a fiscal row's Ver opens: Registros on that tab with "Faltan datos fiscales"; null offers no Ver. */
-  openFiscal?: (row: MonthCloseFiscalRow) => (() => void) | null;
+  /** What a not-ready row's Ver opens: Registros on that tab with "Faltan datos"; null offers no Ver. */
+  openNotReady?: (row: MonthCloseFiscalRow) => (() => void) | null;
   label?: string;
   locale: string;
 };
 
-export function HomeMonthCard({ switcher, currencyMenu, state, error, block, currency, net, firstDay, fiscalRows, openBandeja, openFiscal, label, locale }: HomeMonthCardProps) {
+export function HomeMonthCard({ switcher, currencyMenu, state, error, block, currency, net, firstDay, notReadyRows, openBandeja, openNotReady, label, locale }: HomeMonthCardProps) {
   const { t } = useTranslation();
   const loading = state === "loading";
   // A month with no document in this currency is a real zero; only the first day reads muted.
@@ -100,12 +100,12 @@ export function HomeMonthCard({ switcher, currencyMenu, state, error, block, cur
           {openBandeja ? <>{" · "}<button type="button" data-testid="home-month-bandeja-open" className={LINK} onClick={openBandeja}>{t("business.inicio.month.review")}</button></> : null}
         </p>
       ) : null}
-      {fiscalRows.map((fiscal) => {
-        const open = openFiscal?.(fiscal) ?? null;
+      {notReadyRows.map((fiscal) => {
+        const open = openNotReady?.(fiscal) ?? null;
         return (
           <p key={fiscal.family} data-testid="home-month-fiscal" data-family={fiscal.family}>
             {/* With both tabs held, each line names its tab, so two lines never read alike. */}
-            <Term label={t(fiscalRows.length > 1 ? `business.inicio.month.fiscal_${fiscal.family === "purchase" ? "purchases" : "sales"}` : "business.inicio.month.fiscal", { count: fiscal.count })} definition={t("business.inicio.month.terms.fiscal")} />
+            <Term label={t(notReadyRows.length > 1 ? `business.inicio.month.fiscal_${fiscal.family === "purchase" ? "purchases" : "sales"}` : "business.inicio.month.fiscal", { count: fiscal.count })} definition={t("business.inicio.month.terms.fiscal")} />
             {open ? <>{" · "}<button type="button" data-testid="home-month-fiscal-open" className={LINK} onClick={open}>{t("business.inicio.month.see")}</button></> : null}
           </p>
         );

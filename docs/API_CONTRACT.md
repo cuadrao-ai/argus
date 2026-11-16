@@ -8771,10 +8771,15 @@ still needs, first fix first, a missing value before a wrong one:
 `detail_missing`, the same words Registros shows as `export_missing`. The
 server may add a word; a client shows `detail_missing` for one it has no text
 for) and `missing_fiscal_rows` (those documents counted for
-Inicio's "Faltan datos fiscales" rows as `{family, currency, count,
+the legacy fiscal rows as `{family, currency, count,
 by_currency}`, Compras then Ventas: one row per family, split by currency only
 when that family's held documents span more than one, so each row opens exactly
-the Registros list it counts). `filing_ready` is removed. Each currency block
+the Registros list it counts). `not_ready_rows` uses the same row shape and
+ordering for Inicio's "Faltan datos" line, but its counts come from the current
+report projection and `ready: false` selection in the requested month. Each
+row opens Registros with that month, family, currency and `ready: false`;
+its count matches `overview.not_ready` for that selection. Legacy fiscal
+lists remain unchanged. `filing_ready` is removed. Each currency block
 carries `documents_counted`, `documents_total` and `documents_in_bandeja`
 (ints): of the month's documents in that currency, from the same list as the
 figures, how many the figures count, how many there are in all (approved ones
@@ -10747,18 +10752,22 @@ accept path recorded.
   (`counterparty`): the file holds it even while the table hides it. `default` is
   Forma de pago on Compras: it is offered checked while the table hides it, and
   then it is the last column. The modal renders this list.
+  The top-level `not_ready` counts false readiness verdicts with every request
+  filter, including search, currency and `ready`, before pagination. It equals
+  the same report's `overview.not_ready`; both use `reporting_query.count_not_ready`.
+  The dialog's "Faltan datos" notice
+  reads this count; its Revisar action preserves the current filters and sets
+  `ready: false`.
   `dgii` counts by the tab and period only, whatever the other filters say:
   `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
   currency (`DOP`), `record_count` the records whose
   current `fiscal_data` is `complete` (a line on its month's form),
   `pending_count` every record the form holds back, the two counts below,
-  `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing` (the
-  Faltan datos fiscales card for the same tab, period and DOP), and
+  `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing`, and
   `pending_rate_count` with `pending_rate_currencies` the foreign-currency
   records the form holds until they have a rate. No count is computed on the web.
-  The notice's Revisar queries exactly those records: the tab, the period,
-  `currency` and `fiscal_data: missing`, with every other filter and the search
-  cleared. `rnc_warning_count` counts exported purchase rows with an inactive
+  These form inclusion and rate counts remain separate from report readiness.
+  `rnc_warning_count` counts exported purchase rows with an inactive
   or unverified RNC, and `rnc_supplier_count` counts their unique normalized
   supplier identities. `rnc_suppliers` groups those rows by normalized `rnc`,
   with `name` (registry name, else projected counterparty), `estado` (raw registry
@@ -10855,11 +10864,16 @@ accept path recorded.
   layout, including when the original request omitted it. Explicit saved layouts
   keep their order, hidden columns and density. A column a saved or linked
   layout does not name joins it at the end, hidden. The
-  net amount instead joins just before the total, shown.
+  net amount instead joins just before the total, shown; `missing` (Motivo)
+  joins just after `stage`, shown.
 
   `presentation.order` contains each supported table key once, in any order.
   The default visible order is `counterparty_id` (RNC o Cédula), date, expense
-  type, net amount, ITBIS, total, stage. The name, fiscal number, note,
+  type, net amount, ITBIS, total, stage, missing. `stage` renders the fixed-width
+  Listo/Faltan datos chip from `ready`. `missing` renders the first ordered
+  reason and +N for remaining reasons, blank when ready; the full list is
+  available on hover and in the open record. The table export renders the
+  same two columns using locale-owned words. The name, fiscal number, note,
   attachment, payment form and account are hidden by default.
   Expense type and payment form are offered and rendered only on Compras.
   `family` and `currency` are removed from table order and hidden keys when reading
@@ -10892,7 +10906,8 @@ accept path recorded.
   projection. `needs_fiscal_data` counts rows whose current `fiscal_data` is
   `missing`, matching every table filter, including search, fiscal choice and
   legacy review stages, before pagination. A row can count here while its
-  historical stage is `exported`. The Fiscal card still renders this legacy count.
+  historical stage is `exported`. The Faltan datos card renders `not_ready`
+  and applies `ready: false` when selected.
   `not_ready` uses the row readiness predicate and every table filter before
   pagination, including the `ready` filter. The other overview counts remain scoped to
   Business and period only. The Bandeja line reads `pending_review_count` from

@@ -178,6 +178,7 @@ def test_on_the_month_close_is_unchanged() -> None:
     assert on == {
         "month": "2026-10",
         "today": DAY,
+        "not_ready_rows": [],
         "payment_methods": list(PAYMENT_METHODS),
         "dgii_forms": STANDING,
         "dgii_foreign_currency": foreign_currency({}),

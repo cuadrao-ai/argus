@@ -2657,6 +2657,7 @@
         "clear": "Limpiar filtros",
         "clear_search": "Limpiar búsqueda",
         "column_attachment": "Adjunto",
+        "column_reason": "Motivo",
         "column_state": "Estado",
         "column_type": "Tipo",
         "count_one": "{{count}} registro",
@@ -2721,9 +2722,11 @@
             "document": "Tipo de documento",
             "fiscal": "Tipo fiscal",
             "fiscal_data": "Datos fiscales",
+            "ready": "Estado",
             "review": "Revisión"
           },
           "no_matches": "No hay opciones con esa búsqueda.",
+          "ready": {"all": "Todos"},
           "record": "Registro",
           "remove": "Quitar filtro",
           "search": "Buscar…",
@@ -2742,6 +2745,7 @@
             "title": "Ya exportados"
           },
           "fiscal": {
+            "description": "Complétalos antes de declarar",
             "description_purchase": "Complétalos antes del 606",
             "description_sale": "Complétalos antes del 607",
             "title": "Faltan datos fiscales"
@@ -2836,6 +2840,7 @@
         },
         "workflow": {
           "exported": "Exportado",
+          "not_ready": "Faltan datos",
           "ready": "Listo",
           "review": "Por revisar",
           "unknown": "Estado no disponible",
@@ -2902,6 +2907,8 @@
           "format": "Formato",
           "format_csv": "CSV",
           "format_xlsx": "Excel",
+          "not_ready_one": "Faltan datos en {{count}} registro de tu selección.",
+          "not_ready_other": "Faltan datos en {{count}} registros de tu selección.",
           "pending_fiscal_purchases_one": "{{count}} compra tiene datos fiscales pendientes y no se incluye.",
           "pending_fiscal_purchases_other": "{{count}} compras tienen datos fiscales pendientes y no se incluyen.",
           "pending_fiscal_sales_one": "{{count}} venta tiene datos fiscales pendientes y no se incluye.",
@@ -3466,7 +3473,7 @@
           "label": "Encuentra lo que buscas"
         },
         "pending": {
-          "body": "“Faltan datos fiscales” te muestra cuáles necesitan información para el 606 en Compras o el 607 en Ventas.",
+          "body": "“Faltan datos” te muestra cuáles necesitan información. Complétalos antes de declarar.",
           "label": "Completa lo pendiente"
         },
         "title": "Tus compras y ventas, en orden"
@@ -3552,12 +3559,12 @@
       "month": {
         "expenses": "Gastos",
         "first_day": "Las cifras se llenan cuando apruebes tus primeros documentos.",
-        "fiscal_one": "Faltan datos fiscales en 1 registro",
-        "fiscal_other": "Faltan datos fiscales en {{count}} registros",
-      "fiscal_purchases_one": "Faltan datos fiscales en 1 compra",
-      "fiscal_purchases_other": "Faltan datos fiscales en {{count}} compras",
-      "fiscal_sales_one": "Faltan datos fiscales en 1 venta",
-      "fiscal_sales_other": "Faltan datos fiscales en {{count}} ventas",
+        "fiscal_one": "Faltan datos en 1 registro",
+        "fiscal_other": "Faltan datos en {{count}} registros",
+      "fiscal_purchases_one": "Faltan datos en 1 compra",
+      "fiscal_purchases_other": "Faltan datos en {{count}} compras",
+      "fiscal_sales_one": "Faltan datos en 1 venta",
+      "fiscal_sales_other": "Faltan datos en {{count}} ventas",
         "in_bandeja_one": "1 en la Bandeja",
       "in_bandeja_other": "{{count}} en la Bandeja",
         "included": "Documentos incluidos: {{counted}} de {{total}}",
@@ -3569,7 +3576,7 @@
         "see": "Ver",
         "terms": {
           "expenses": "Compras y gastos aprobados del mes, sin ITBIS.",
-          "fiscal": "El RNC o el NCF que el 606 o el 607 necesita.",
+          "fiscal": "Completa los datos que faltan antes de declarar.",
           "income": "Ventas aprobadas del mes, sin ITBIS.",
           "itbis_purchases": "ITBIS pagado en tus compras aprobadas.",
           "itbis_sales": "ITBIS cobrado en tus ventas aprobadas.",

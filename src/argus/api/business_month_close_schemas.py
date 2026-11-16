@@ -214,6 +214,8 @@ class MonthClose(_Wire):
     # The same documents counted per Registros tab and currency, in order:
     # Compras, then Ventas.
     missing_fiscal_rows: list[FiscalDataRow] = Field(default_factory=list)
+    # Current report readiness, counted per Registros tab and currency.
+    not_ready_rows: list[FiscalDataRow] = Field(default_factory=list)
     # The month's documents still pendiente; absent while settlement is off.
     cuentas_por_cobrar: list[DocumentLine] | None = _settlement()
     cuentas_por_pagar: list[DocumentLine] | None = _settlement()

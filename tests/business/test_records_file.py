@@ -300,6 +300,7 @@ def test_columns_follow_the_table_order_and_offer_only_the_tab_columns(fake):
         ("fiscal_number", False, False),
         ("itbis_amount", False, False),
         ("stage", False, True),
+        ("missing", False, True),
         ("attachment", False, True),
         ("funding", False, False),
         ("counterparty_id", False, False),
@@ -369,6 +370,7 @@ def test_the_default_file_keeps_the_name_and_ends_with_forma_de_pago(fake):
         ("itbis_amount", False, True),
         ("gross_amount", False, True),
         ("stage", False, True),
+        ("missing", False, True),
         ("fiscal_number", False, False),
         ("note", False, False),
         ("attachment", False, False),
@@ -389,6 +391,7 @@ def test_the_default_file_keeps_the_name_and_ends_with_forma_de_pago(fake):
         "ITBIS",
         "Total",
         "Estado",
+        "Motivo",
         "Forma de pago",
     ]
     assert values[:2] == ["101001577", "Ferretería Ozama"]
@@ -469,7 +472,7 @@ def test_values_are_words_amounts_are_numbers_and_dates_are_dates(fake):
     assert kinds[3:5] == [("n", "#,##0.00"), ("n", "#,##0.00")]
     assert [value for _, value, _ in cells[1]][2::3] == [
         "02 - GASTOS POR TRABAJOS, SUMINISTROS Y SERVICIOS",
-        "Falta el NCF",
+        "Faltan datos",
         "03 - TARJETA CRÉDITO/DÉBITO",
     ]
     assert [value for _, value, _ in cells[1][6:8]] == ["Sí", "Cuenta de operaciones"]

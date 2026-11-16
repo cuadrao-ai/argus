@@ -53,6 +53,7 @@ from argus.domain.business.reporting_preferences import (
 from argus.domain.business.reporting_query import (
     CALENDAR,
     ReportRecord,
+    count_not_ready,
     matching_records,
     report_columns,
     resolve_period,
@@ -68,11 +69,6 @@ _WORDS = json.loads(
     Path(__file__).with_name("records_file_words.generated.json").read_text("utf-8")
 )
 FileLocale = Literal["en", "es-419"]
-_STAGE_PATHS = {
-    "needs_review": "business.transactions.layout.workflow.review",
-    "ready_for_export": "business.transactions.layout.workflow.ready",
-    "exported": "business.transactions.layout.workflow.exported",
-}
 _DGII_TEXT = frozenset(
     {
         "rnc",
@@ -164,6 +160,8 @@ class DgiiExport(Contract):
 
 
 class ExportPreview(Contract):
+    #: Same filters and readiness verdict as the report overview, before pagination.
+    not_ready: int
     table: TableExport
     dgii: DgiiExport
 
@@ -320,6 +318,9 @@ def summarize_export(
     every = _with_currencies(request, "all")
     dgii = _dgii_selection(source, request)
     return ExportPreview(
+        not_ready=count_not_ready(
+            matching_records(source.records, request, source.observed_at)
+        ),
         table=TableExport(
             current=selection(request, False),
             all=None if every is None else selection(every, True),
@@ -340,16 +341,12 @@ def summarize_export(
     )
 
 
-def _stage_word(row: ReportRecord, locale: FileLocale) -> str | None:
-    words = _WORDS[locale]
-    if row.stage == "needs_fiscal_data":
-        missing = words["business.transactions.layout.workflow.missing"]
-        if row.export_missing_several:
-            return missing["several"]
-        if row.export_missing in missing and row.export_missing != "several":
-            return missing[row.export_missing]
-        return missing["detail_missing"]
-    return words[_STAGE_PATHS[row.stage]] if row.stage else None
+def _missing_word(row: ReportRecord, locale: FileLocale) -> str:
+    if row.ready or not row.missing:
+        return ""
+    words = _WORDS[locale]["business.transactions.layout.workflow.missing"]
+    first = words.get(row.missing[0], words["detail_missing"])
+    return f"{first} +{len(row.missing) - 1}" if len(row.missing) > 1 else first
 
 
 def _dgii_word(
@@ -388,7 +385,10 @@ def _table_cell(row: ReportRecord, key: FileColumn, locale: FileLocale) -> Cell:
     if key == "itbis_amount":
         return _amount(row.itbis_amount) if row.currency else None
     if key == "stage":
-        return _stage_word(row, locale)
+        state = "ready" if row.ready else "not_ready"
+        return _WORDS[locale][f"business.transactions.layout.workflow.{state}"]
+    if key == "missing":
+        return _missing_word(row, locale)
     if key == "note":
         return row.note
     if key == "attachment":

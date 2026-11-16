@@ -153,7 +153,8 @@ test("note and attachment keyboard actions do not open the dossier, dates/money/
   assert.equal(row.querySelector('[data-col="gross_amount"]')!.textContent, "9,007,199,254,740,993.01");
   assert.ok(row.querySelector('[data-col="gross_amount"] .cuadrao-amount'));
   assert.equal(row.querySelector('[data-col="moneda"]'), null);
-  assert.equal(row.querySelector('[data-record-workflow]')!.textContent, "Falta el tipo de gasto");
+  assert.equal(row.querySelector('[data-record-workflow]')!.textContent, "Faltan datos");
+  assert.equal(row.querySelector('[data-col="missing"]')!.textContent, "Falta el tipo de gasto+1");
   assert.equal(page.host.querySelector('[data-record-key="gasto:unknown"] [data-record-attachment]'), null);
   await page.click(page.host.querySelector('[data-record-attachment="gasto:original"]'));
   await page.click(page.button("Abrir adjunto vinculado"));

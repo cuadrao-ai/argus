@@ -24,6 +24,7 @@ TableColumn = Literal[
     "itbis_amount",
     "gross_amount",
     "stage",
+    "missing",
     "fiscal_number",
     "note",
     "attachment",
@@ -72,6 +73,7 @@ COLUMNS: tuple[ColumnSpec, ...] = (
     ColumnSpec("itbis_amount", "business.terms.itbis"),
     ColumnSpec("gross_amount", "business.terms.total"),
     ColumnSpec("stage", "business.transactions.layout.column_state"),
+    ColumnSpec("missing", "business.transactions.layout.column_reason"),
     ColumnSpec("fiscal_number", "business.transactions.columns.ncf", hidden=True),
     ColumnSpec("note", "business.transactions.columns.notas", hidden=True),
     ColumnSpec(
