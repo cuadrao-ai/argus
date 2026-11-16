@@ -6,6 +6,43 @@ export type BusinessFact<T> =
   | { state: "unknown"; value: null; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | null; verified: false; source_ids: string[] }
   | { state: "owner_does_not_know"; value: null; origin: "owner_stated" | "member_set"; verified: false; source_ids: string[] };
 
+/** What a reader may decide for a possible repeat. The server lists the allowed ones on each candidate. */
+export type BusinessDuplicateDecision = "same_purchase" | "different_purchase";
+/** The main data the compare view's diff shows, in its order. The server compares the file too; the column heads and previews show it. */
+export const BUSINESS_COMPARED_FIELDS = ["counterparty", "occurred_on", "amount", "currency", "fiscal_number"] as const;
+export type BusinessComparedField = (typeof BUSINESS_COMPARED_FIELDS)[number];
+/** One document of a possible repeat as its draft holds it now; null is unknown. */
+export type BusinessComparedDocument = {
+  draft_id: string;
+  counterparty: string | null;
+  occurred_on: string | null;
+  amount: string | null;
+  currency: string | null;
+  /** The NCF, else the e-CF number. */
+  fiscal_number: string | null;
+  /** The first file, with where and when it arrived. */
+  file: { connection_id: string; filename: string | null; media_type: string; channel: "web" | "whatsapp" | "email"; received_at: string } | null;
+  received_at: string | null;
+  approved_at: string | null;
+  /** `accepted` once approved; the reviewed document is always `open`. */
+  state: "open" | "accepted";
+};
+/**
+ * A document the reviewed one may repeat. The server owns why (`basis`), what this reader may decide
+ * (`decisions`), which values differ and what the fiscal numbers recommend; the web renders them and computes none.
+ */
+export type BusinessDuplicateCandidate = {
+  draft_id: string;
+  version: number;
+  basis: "read_facts" | "fiscal_number";
+  decisions: BusinessDuplicateDecision[];
+  comparison: {
+    document: BusinessComparedDocument;
+    other: BusinessComparedDocument;
+    differences: (BusinessComparedField | "file")[];
+    recommendation: BusinessDuplicateDecision | null;
+  };
+};
 export type BusinessFunding = { kind: "business_account"; account_id: string } | { kind: "owner_funds" };
 export type BusinessFacts = {
   kind: BusinessFact<"expense" | "income" | "transfer" | "refund" | "owner_contribution" | "owner_withdrawal" | "credit_purchase" | "payable_payment" | "loan_received" | "loan_payment">;
@@ -64,6 +101,8 @@ export type BusinessDraftRevision = {
   created_at: string;
   /** Why the server made a revision no person and no read made. */
   reason?: "business_rnc_set" | null;
+  /** The person's duplicate decision this revision records, with the other document as the server reads it now. */
+  duplicate?: { decision: "different_purchase"; other_draft_id: string; other_counterparty: string | null; other_filename: string | null } | null;
 };
 
 export type BusinessRecordContext = {
@@ -171,7 +210,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   /** Computed on every read, after approval too. Absent from servers older than #1590. */
   review_flags?: ReviewFlag[];
   approval_available: boolean;
-  duplicate_candidates?: { draft_id: string; version: number }[];
+  duplicate_candidates?: BusinessDuplicateCandidate[];
   /** The approve action this draft takes, by its kind; null while approval is not available. Absent from servers older than #1353. */
   approval_action?: BusinessApprovalAction | null;
   /** The server's sentence for this draft. Absent and null mean there is none. The web shows the words as sent. */

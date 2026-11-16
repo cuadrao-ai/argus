@@ -328,7 +328,7 @@ def project(
 # Fiscal reasons keep missing_items' order; distinct blocker reasons follow
 # in this table's order. Account details have no separate word in Registros.
 _BLOCKER_MISSING = {
-    "possible_duplicate": "duplicate_document",
+    "possible_duplicate": "possible_duplicate",
     "fact_required": DETAIL_MISSING,
     "activity_kind_unsupported": DETAIL_MISSING,
     "business_funding_unsupported": DETAIL_MISSING,

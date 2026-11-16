@@ -2867,6 +2867,7 @@
             "date_in_future": "La fecha del comprobante es futura",
             "date_too_old": "La fecha no es válida para este NCF",
             "duplicate_document": "Este NCF ya está registrado este mes",
+            "possible_duplicate": "Parece repetido",
             "itbis_cost_over_itbis": "El ITBIS al costo supera el ITBIS",
             "itbis_over_limit": "El ITBIS es muy alto para este monto",
             "itbis_proportionality_over_itbis": "La proporcionalidad supera el ITBIS",
@@ -3394,9 +3395,6 @@
     "create": {
       "label": "Crear"
     },
-    "attention": {
-      "duplicate": "Parece un recibo que ya guardaste: mismo comercio, fecha y total. No se guardará como un segundo gasto."
-    },
     "file_read": {
       "unreadable_title": "No pudimos leer este archivo",
       "not_a_receipt_title": "Esto no parece un recibo.",
@@ -3490,6 +3488,7 @@
       "changed_female": "{{field}} cambiada de {{before}} a {{after}}",
       "channel_email": "Correo",
       "channel_web": "Subido",
+      "duplicate": { "different_purchase": "[PENDIENTE COPY] Marcado como compra distinta de {{other}}" },
       "pm": "p.m.",
       "read": "Leído",
       "reason": { "business_rnc_set": "Lo emitió tu negocio" },
@@ -4524,8 +4523,40 @@
     },
     "receipts": {
       "duplicate_resolution": {
-        "button": "Es otra compra",
-        "explanation": "Confirma que estos recibos corresponden a compras distintas. El gasto todavía necesita revisión y aprobación."
+        "basis": {
+          "fiscal_number": "[PENDIENTE COPY] Mismo RNC y NCF que otro documento.",
+          "read_facts": "[PENDIENTE COPY] Mismo comercio, fecha y total que otro documento."
+        },
+        "column": {
+          "saved_before": "[PENDIENTE COPY] Guardado antes",
+          "this": "[PENDIENTE COPY] Este"
+        },
+        "compare": "Comparar",
+        "decision": {
+          "different_purchase": "Son compras distintas",
+          "same_purchase": "Eliminar este duplicado"
+        },
+        "different": "Diferente",
+        "field": {
+          "amount": "Total",
+          "counterparty": "Comercio",
+          "currency": "Moneda",
+          "fiscal_number": "NCF",
+          "occurred_on": "Fecha"
+        },
+        "marked_different": "[PENDIENTE COPY] Marcado como compras distintas.",
+        "no_file": "[PENDIENTE COPY] Este documento no tiene archivo.",
+        "recommendation": {
+          "different_purchase": "Mismo comercio, fecha, total y moneda. El NCF es distinto: probablemente son dos compras distintas.",
+          "same_purchase": "Es el mismo documento."
+        },
+        "refused_same_comprobante": "[PENDIENTE COPY] Mismo RNC y NCF: es un solo comprobante. Quédate con uno.",
+        "same": "Igual",
+        "table": {
+          "caption": "[PENDIENTE COPY] Datos principales de los dos documentos",
+          "field": "[PENDIENTE COPY] Dato"
+        },
+        "title": "Parece repetido"
       }
     },
     "reception": {

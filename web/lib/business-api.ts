@@ -5,7 +5,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-a
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, apiFetchIfChanged, CUADRAO_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
-import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
+import { isReviewFlagCode, readBusinessDossier, type BusinessApprovalAction, type BusinessDossier, type BusinessDuplicateDecision, type BusinessFactPatch, type BusinessMontosReview, type BusinessRecordContext, type ReviewFlagCode } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 import { businessSettingsRequest } from "./business-profile-api";
 
@@ -230,11 +230,11 @@ export async function reviewBusinessDraft(draftId: string, version: number, fact
   });
 }
 
-export async function resolveBusinessDuplicate(draftId: string, version: number, otherDraftId: string, otherVersion: number, idempotencyKey: string): Promise<BusinessDossier> {
+export async function resolveBusinessDuplicate(draftId: string, version: number, otherDraftId: string, otherVersion: number, decision: BusinessDuplicateDecision, idempotencyKey: string): Promise<BusinessDossier> {
   return fetchDossier(`/business/drafts/${encodeURIComponent(draftId)}/duplicate-resolution`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify({ version, other_draft_id: otherDraftId, other_version: otherVersion, decision: "different_purchase" }),
+    body: JSON.stringify({ version, other_draft_id: otherDraftId, other_version: otherVersion, decision }),
   });
 }
 

@@ -678,6 +678,7 @@ def test_over_http_a_page_shows_only_what_the_feed_promises(people, business, au
                 "role",
                 "personal",
                 "include",
+                "decision",
             }
             assert set(item["actor"]) == {"display_name", "kind", "id", "membership"}
             assert item["object"] is None or set(item["object"]) == {

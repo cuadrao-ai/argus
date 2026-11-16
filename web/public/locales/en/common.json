@@ -2867,6 +2867,7 @@
             "date_in_future": "The receipt date is in the future",
             "date_too_old": "The date is not valid for this NCF",
             "duplicate_document": "This NCF is already recorded this month",
+            "possible_duplicate": "Looks repeated",
             "itbis_cost_over_itbis": "ITBIS carried to cost is more than the ITBIS",
             "itbis_over_limit": "The ITBIS is too high for this amount",
             "itbis_proportionality_over_itbis": "Proportionality is more than the ITBIS",
@@ -3453,6 +3454,7 @@
       "changed_female": "{{field}} changed from {{before}} to {{after}}",
       "channel_email": "Email",
       "channel_web": "Uploaded",
+      "duplicate": { "different_purchase": "[PENDIENTE COPY] Marked as a different purchase from {{other}}" },
       "pm": "PM",
       "read": "Read",
       "reason": { "business_rnc_set": "Your business issued it" },
@@ -3489,9 +3491,6 @@
       "health": "Health",
       "shopping": "Shopping",
       "interest_fees": "Interest and fees"
-    },
-    "attention": {
-      "duplicate": "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense."
     },
     "file_read": {
       "unreadable_title": "We couldn't read this file",
@@ -4427,8 +4426,40 @@
     },
     "receipts": {
       "duplicate_resolution": {
-        "button": "This is a different purchase",
-        "explanation": "Confirm that these receipts are for different purchases. The expense still needs review and approval."
+        "basis": {
+          "fiscal_number": "[PENDIENTE COPY] Same RNC and NCF as another document.",
+          "read_facts": "[PENDIENTE COPY] Same merchant, date and total as another document."
+        },
+        "column": {
+          "saved_before": "[PENDIENTE COPY] Saved before",
+          "this": "[PENDIENTE COPY] This"
+        },
+        "compare": "Compare",
+        "decision": {
+          "different_purchase": "They are different purchases",
+          "same_purchase": "Delete this duplicate"
+        },
+        "different": "Different",
+        "field": {
+          "amount": "Total",
+          "counterparty": "Merchant",
+          "currency": "Currency",
+          "fiscal_number": "NCF",
+          "occurred_on": "Date"
+        },
+        "marked_different": "[PENDIENTE COPY] Marked as different purchases.",
+        "no_file": "[PENDIENTE COPY] This document has no file.",
+        "recommendation": {
+          "different_purchase": "Same merchant, date, total and currency. The NCF is different: these are probably two different purchases.",
+          "same_purchase": "It is the same document."
+        },
+        "refused_same_comprobante": "[PENDIENTE COPY] Same RNC and NCF: this is one comprobante. Keep one.",
+        "same": "Same",
+        "table": {
+          "caption": "[PENDIENTE COPY] Main data of both documents",
+          "field": "[PENDIENTE COPY] Field"
+        },
+        "title": "Looks repeated"
       }
     },
     "reception": {

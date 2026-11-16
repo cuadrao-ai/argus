@@ -17,6 +17,7 @@ from dataclasses import replace
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 
+from argus.domain.business.contracts.actions import DuplicateDecision
 from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution, Known
 from argus.domain.ingestion.reconcile import duplicates
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent, Observation
@@ -24,6 +25,24 @@ from argus.domain.ingestion.reconcile.store import ImportTx
 
 DUPLICATE_FIELDS = ("counterparty", "occurred_on", "amount", "currency")
 OPEN_OR_RECORDED = ("open", "accepting", "accepted")
+
+
+def same_value(name: str, one: object, other: object) -> bool:
+    """Whether two documents agree on one compared value, under the rule's
+    own normal form. Two absent values agree."""
+
+    return _norm(name, one) == _norm(name, other)
+
+
+def recommendation(one: str | None, other: str | None) -> DuplicateDecision | None:
+    """What two fiscal numbers say about a repeated read: equal numbers are
+    one document, different numbers are two purchases, and a missing number
+    on either side leaves the call to the person."""
+
+    left, right = _norm("fiscal_number", one), _norm("fiscal_number", other)
+    if left is None or right is None:
+        return None
+    return "same_purchase" if left == right else "different_purchase"
 
 
 def _norm(name: str, value: object) -> object | None:

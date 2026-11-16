@@ -365,13 +365,33 @@ def test_the_area_and_restriction_come_from_the_catalog():
             "personal",
             None,
         ),
+        (
+            {
+                "action": "resolve_duplicate",
+                "draft_id": str(DRAFT),
+                "request": {"decision": "same_purchase"},
+            },
+            "decision",
+            "same_purchase",
+        ),
+        (
+            {
+                "action": "resolve_duplicate",
+                "draft_id": str(DRAFT),
+                "request": {"decision": "merged"},
+            },
+            "decision",
+            None,
+        ),
     ],
 )
 def test_the_typed_detail_is_read_from_the_stored_command(command, field, expected):
     item = project(row(command))
     assert getattr(item, field) == expected
     assert {
-        f for f in ("role", "personal", "include") if getattr(item, f) is not None
+        f
+        for f in ("role", "personal", "include", "decision")
+        if getattr(item, f) is not None
     } <= {field}
 
 
@@ -411,6 +431,7 @@ def test_the_item_carries_the_stored_name_and_only_the_promised_fields():
         "role",
         "personal",
         "include",
+        "decision",
     }
     assert dumped["actor"] == {
         "display_name": "Exmiembro",

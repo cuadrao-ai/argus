@@ -213,6 +213,22 @@ def test_restore_keeps_a_valid_duplicate_decision_but_matching_ncf_still_collide
     repeated = duplicates._receipt(actions, b"Synthetic second fiscal photograph")
     repeated_id = _finish_repeat(repeated)
     assert _act(client, original_id, "restore").status_code == 200
+    _assert_duplicate_approval_refused(service, context, original_id, repeated_id)
+    _assert_duplicate_approval_refused(service, context, repeated_id, original_id)
+    # The person tells the read apart while the NCFs are unknown; the matching
+    # NCF read after it makes one comprobante, which approval accepts once.
+    deciding, other = (
+        (original_id, repeated_id)
+        if deciding_side == "original"
+        else (repeated_id, original_id)
+    )
+    decision = service.resolve_duplicate(
+        context,
+        deciding,
+        request_for(service, context, deciding, other),
+        str(uuid4()),
+    )
+    assert decision.outcome == "applied", decision
     for draft_id in (original_id, repeated_id):
         view = service.dossier(context, draft_id)
         updated = service.review(
@@ -236,20 +252,6 @@ def test_restore_keeps_a_valid_duplicate_decision_but_matching_ncf_still_collide
             str(uuid4()),
         )
         assert updated.outcome == "applied", updated
-    _assert_duplicate_approval_refused(service, context, original_id, repeated_id)
-    _assert_duplicate_approval_refused(service, context, repeated_id, original_id)
-    deciding, other = (
-        (original_id, repeated_id)
-        if deciding_side == "original"
-        else (repeated_id, original_id)
-    )
-    decision = service.resolve_duplicate(
-        context,
-        deciding,
-        request_for(service, context, deciding, other),
-        str(uuid4()),
-    )
-    assert decision.outcome == "applied", decision
     assert _act(client, original_id, "delete").status_code == 200
     assert _act(client, original_id, "restore").status_code == 200
     for draft_id in (original_id, repeated_id):
