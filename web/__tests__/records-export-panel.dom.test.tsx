@@ -72,7 +72,8 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
 });
 
 test("on desktop Exportar is a centered dialog with only the agreed pieces, never the side drawer", async () => {
-  const page = await mount();
+  // The one-time save tip has its own tests in records-export-save-as.
+  const page = await mount({ dismissedGuides: ["exportar-guardar"] });
   await open(page);
   const dialog = document.querySelector('[data-testid="records-export-dialog"]')!;
   assert.equal(dialog.getAttribute("role"), "dialog");

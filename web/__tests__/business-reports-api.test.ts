@@ -95,7 +95,7 @@ describe("Business report transport", () => {
   });
   test("previews the export from the table's request and saves the file under the server's name", async () => {
     const report = reportRequestSchema.parse({ schema_version: 2, page: 4, filters: { record_families: ["purchase"], currencies: ["DOP"] } });
-    const preview = { table: { current: { record_count: 3, currencies: ["DOP"], columns: [{ key: "counterparty", label_key: "business.transactions.columns.contraparte", required: true, shown: true }] }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [] } };
+    const preview = { table: { current: { record_count: 3, currencies: ["DOP"], columns: [{ key: "counterparty", label_key: "business.transactions.columns.contraparte", required: true, shown: true }], filenames: { xlsx: "Compras_noviembre-2026.xlsx", csv: "Compras_noviembre-2026.csv" } }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [], filenames: { xlsx: "606_noviembre-2026.xlsx", csv: "606_noviembre-2026.csv" } } };
     const previewCalls = respond(preview);
     const parsedPreview = await previewRecordsExport(scope, report);
     expect(parsedPreview).toEqual(preview);
@@ -128,6 +128,9 @@ describe("Business report transport", () => {
       const file = await downloadRecordsExport(scope, report, { mode: "dgii", format: "xlsx" });
       expect(file.filename).toBe(name);
       expect(new Headers(calls[0].options.headers).get("Accept-Language")).toBe(language);
+      // The preview names the file in the same language the export will.
+      await previewRecordsExport(scope, report).catch(() => undefined);
+      expect(new Headers(calls[1].options.headers).get("Accept-Language")).toBe(language);
     } finally { i18n.resolvedLanguage = previous; }
   });
   test("private view CRUD preserves preset, expected version and replay key, including an empty DELETE", async () => {

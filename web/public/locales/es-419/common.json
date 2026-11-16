@@ -2929,6 +2929,8 @@
           "rnc_notice_title_one": "{{count}} proveedor con RNC no activo o sin verificar",
           "rnc_notice_title_other": "{{count}} proveedores con RNC no activo o sin verificar",
           "rnc_view_suppliers": "Ver proveedores",
+          "save_failed": "No se pudo guardar el archivo.",
+          "saved": "Guardado",
           "summary_currencies_one": "{{count}} moneda",
           "summary_currencies_other": "{{count}} monedas",
           "summary_dgii_pending_one": "{{count}} pendiente",
@@ -3459,6 +3461,21 @@
           "body": "Agrega fotos o PDF de facturas y recibos. Si la lectura está activada, Cuadrao extrae sus datos.",
           "label": "Sube tus documentos"
         }
+      },
+      "exportar_guardar": {
+        "ask": {
+          "body": "[PENDIENTE COPY] Activa la opción de preguntar dónde guardar cada archivo. Así eliges la carpeta al exportar.",
+          "label": "[PENDIENTE COPY] Activa la pregunta"
+        },
+        "downloads": {
+          "body": "[PENDIENTE COPY] Entra en la sección de descargas.",
+          "label": "[PENDIENTE COPY] Busca Descargas"
+        },
+        "settings": {
+          "body": "[PENDIENTE COPY] En tu navegador, abre la configuración o las preferencias.",
+          "label": "[PENDIENTE COPY] Abre la configuración"
+        },
+        "title": "[PENDIENTE COPY] Elige dónde guardar cada archivo"
       },
       "placeholder": {
         "dismiss": "Ocultar guía",

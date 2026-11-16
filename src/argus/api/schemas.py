@@ -234,7 +234,9 @@ class AppleIdentity(BaseModel):
     subject: str = Field(min_length=1, max_length=512, repr=False)
 
 
-GuideCardId = Literal["actividad-intro", "bandeja-intro", "registros-intro"]
+GuideCardId = Literal[
+    "actividad-intro", "bandeja-intro", "exportar-guardar", "registros-intro"
+]
 
 
 class UserResponse(BaseModel):

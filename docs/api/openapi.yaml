@@ -4593,6 +4593,7 @@ paths:
           enum:
           - actividad-intro
           - bandeja-intro
+          - exportar-guardar
           - registros-intro
           type: string
       responses:
@@ -6736,6 +6737,15 @@ paths:
       - financial-accounts
       - business
       parameters:
+      - name: Accept-Language
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Language for the filename and table text. Send en or es-419 (default).
+        description: Language for the filename and table text. Send en or es-419 (default).
       - name: X-Business-Grant
         in: header
         required: false
@@ -19818,12 +19828,15 @@ components:
           items:
             $ref: '#/components/schemas/ExportColumn'
           type: array
+        filenames:
+          $ref: '#/components/schemas/ExportFileNames'
       additionalProperties: false
       type: object
       required:
       - record_count
       - currencies
       - columns
+      - filenames
     CurrencySummaryResponse:
       properties:
         currency:
@@ -20608,6 +20621,8 @@ components:
           items:
             $ref: '#/components/schemas/RncSupplier'
           type: array
+        filenames:
+          $ref: '#/components/schemas/ExportFileNames'
       additionalProperties: false
       type: object
       required:
@@ -20620,6 +20635,7 @@ components:
       - rnc_warning_count
       - rnc_supplier_count
       - rnc_suppliers
+      - filenames
     DgiiForeignCurrency:
       properties:
         '606':
@@ -21805,6 +21821,18 @@ components:
       - label_key
       - required
       - shown
+    ExportFileNames:
+      properties:
+        xlsx:
+          type: string
+        csv:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - xlsx
+      - csv
+      description: The name the export gives this choice's file in each format.
     ExportPreview:
       properties:
         table:
@@ -33166,6 +33194,7 @@ components:
               enum:
               - actividad-intro
               - bandeja-intro
+              - exportar-guardar
               - registros-intro
             type: array
           - type: 'null'

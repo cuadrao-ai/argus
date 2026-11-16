@@ -17,6 +17,7 @@ from faker import Faker
 
 from tests import test_business_actions_postgres as shared
 from tests import test_business_dgii_postgres as dgii
+from tests.business.test_records_export_filename import one_stem
 from tests.test_business_declaration_after_approval_postgres import (
     FILER,
     account_funding,
@@ -140,4 +141,10 @@ def test_usd_readiness_does_not_change_the_export_dialog_or_file(readiness_recor
     row = next(row for row in dataset.records if row.draft_id == dollars)
     assert (row.ready, row.missing) == (False, ("expense_type_missing",))
     after = summarize_export(dataset, request)
-    assert after.dgii == before.dgii
+    # The names carry the minute each read happened; the rest must not move.
+    assert one_stem(after.dgii.filenames.model_dump()) == one_stem(
+        before.dgii.filenames.model_dump()
+    )
+    assert after.dgii.model_dump(exclude={"filenames"}) == before.dgii.model_dump(
+        exclude={"filenames"}
+    )

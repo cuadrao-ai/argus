@@ -26,6 +26,7 @@ from argus.domain.business.authority import ActionContext, ActionError
 from argus.domain.business.reporting_file import (
     ExportPreview,
     ExportPreviewRequest,
+    FileLocale,
     RecordsExport,
     RecordsFile,
     content_disposition,
@@ -55,7 +56,24 @@ router = APIRouter(
 Context = Annotated[DraftContext, Depends(require_drafts)]
 Person = Annotated[BusinessPerson, Depends(require_business_person)]
 Key = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
+Language = Annotated[
+    str | None,
+    Header(
+        alias="Accept-Language",
+        description="Language for the filename and table text. Send en or es-419 (default).",
+    ),
+]
 T = TypeVar("T")
+
+
+def _file_locale(language: str | None) -> FileLocale:
+    first_language = (language or "").split(",", 1)[0].split(";", 1)[0].strip().lower()
+    return "en" if first_language.split("-", 1)[0] == "en" else "es-419"
+
+
+def _business_name(person: BusinessPerson, actor: ActionContext) -> str | None:
+    space = person.spaces.get(str(actor.actor.space_id))
+    return space.name if space else None
 
 
 def _run(request: Request, response: Response, operation: Callable[[], T]) -> T:
@@ -108,16 +126,19 @@ def preview_report_export(
     body: ExportPreviewRequest,
     context: Context,
     person: Person,
+    language: Language = None,
 ) -> ExportPreview:
-    return _run(
-        request,
-        response,
-        lambda: preview_export(
+    def preview() -> ExportPreview:
+        actor = context.for_space(request, person.spaces)
+        return preview_export(
             context.service.authority,
-            context.for_space(request, person.spaces),
+            actor,
             body.report,
-        ),
-    )
+            business_name=_business_name(person, actor),
+            locale=_file_locale(language),
+        )
+
+    return _run(request, response, preview)
 
 
 @router.post(
@@ -145,26 +166,16 @@ def download_report(
     body: RecordsExport,
     context: Context,
     person: Person,
-    language: Annotated[
-        str | None,
-        Header(
-            alias="Accept-Language",
-            description="Language for the filename and table text. Send en or es-419 (default).",
-        ),
-    ] = None,
+    language: Language = None,
 ) -> Response:
-    first_language = (language or "").split(",", 1)[0].split(";", 1)[0].strip().lower()
-    locale = "en" if first_language.split("-", 1)[0] == "en" else "es-419"
-
     def build() -> tuple[ActionContext, RecordsFile]:
         actor = context.for_space(request, person.spaces)
-        space = person.spaces.get(str(actor.actor.space_id))
         return actor, export_file(
             context.service.authority,
             actor,
             body,
-            business_name=space.name if space else None,
-            locale=locale,
+            business_name=_business_name(person, actor),
+            locale=_file_locale(language),
         )
 
     actor, built = _run(request, response, build)
