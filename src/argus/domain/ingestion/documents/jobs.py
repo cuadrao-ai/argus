@@ -458,3 +458,26 @@ def _take_again(
             requeue.wait_seconds,
             requeue.charged,
         )
+
+
+def hold_back(
+    service: DocumentsService, connection_id: str, attempt_id: str, until: datetime
+) -> bool:
+    """Return a read the breaker holds back to the queue until ``until``,
+    before anything claimed it. The same attempt waits again, charged nothing.
+    False when the read could not be put back; the caller then runs it and
+    the breaker refuses it at the provider's door instead."""
+    store = service.store
+    user_id = store.owner(connection_id=connection_id)
+    job = (
+        store.job(user_id=user_id, connection_id=connection_id) if user_id else None
+    )
+    if user_id is None or job is None or job.attempt_id != attempt_id:
+        return False
+    return store.advance(
+        user_id=user_id,
+        connection_id=connection_id,
+        now=service.hub.clock(),
+        expected_attempt_id=attempt_id,
+        job=job.model_copy(update={"dispatched_at": None, "not_before": until}),
+    )

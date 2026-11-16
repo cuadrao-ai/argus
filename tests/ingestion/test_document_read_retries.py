@@ -502,11 +502,17 @@ async def test_failures_across_reads_open_the_breaker_and_a_probe_closes_it(rig)
     assert calls == BREAKER_FAILURES
     worker = DocumentWorker(rig.service, DocumentJobSettings())
 
-    # No worker pulls while the breaker is open, however long a read waited.
+    # No worker runs a read while the breaker is open, however long it waited:
+    # each one it pulls goes back to the queue until the cooldown ends.
     opened = rig.breaker.state.opened_at
     rig.clock.now = opened + COOLDOWN - timedelta(seconds=1)
     assert all(rig.job(each).not_before <= rig.clock() for each in waiting)
     assert worker._take(rig.clock()) is None
+    for each in waiting:
+        assert rig.job(each).not_before == opened + COOLDOWN
+        assert rig.job(each).dispatched_at is None and rig.leyendo(each)
+        assert (rig.job(each).provider_calls, rig.draft(each).status) == (1, "queued")
+    assert rig.pull() is None
 
     # The read that was already pulled is held back: never sent, never charged.
     assert await run_attempt(rig.service, *held_take) == READS_PAUSED
@@ -606,6 +612,20 @@ async def test_a_breaker_that_cannot_be_reached_never_stops_a_read(rig, monkeypa
     assert await rig.take() == FAILED
     rig.wait_out(connection)
     assert await rig.take() == "prepared"
+
+
+@pytest.mark.asyncio
+async def test_a_worker_that_cannot_read_the_breaker_still_reads(rig, monkeypatch):
+    def down(now: datetime):  # noqa: ANN202
+        raise ConnectionError("database away")
+
+    monkeypatch.setattr(rig.breaker, "paused_until", down)
+    rig.answers(OK)
+    connection = await rig.queued()
+    worker = DocumentWorker(rig.service, DocumentJobSettings())
+    assert await run_attempt(rig.service, *worker._take(rig.clock())) == "prepared"
+    assert rig.draft(connection).status == "review_ready"
+    assert any("document_read_breaker_unavailable" in line for line in rig.logs)
 
 
 @pytest.mark.asyncio

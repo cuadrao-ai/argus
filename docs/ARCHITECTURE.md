@@ -435,8 +435,10 @@ Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
   next step belongs to the person, as the web design says. A second model is out
   of scope until it has its own receipt scorecard.
 - **Concurrency and budget unchanged.** The worker keeps 3 reads at a time
-  (`max_reads=3`), and uploads keep 3 in flight. No worker pulls a read while
-  the breaker is open, so the breaker sits in front of those shared read slots.
+  (`max_reads=3`), and uploads keep 3 in flight. A worker that pulls a read
+  while the breaker is open puts it straight back in the queue, so the breaker
+  sits in front of those shared read slots. An idle worker does not read the
+  breaker.
   Every provider call, a retry included, is charged to the Business read budget.
 
 ---

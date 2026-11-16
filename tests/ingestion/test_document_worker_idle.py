@@ -129,8 +129,8 @@ async def test_ten_idle_minutes_count_database_checks(
     idle_worker.settings = DocumentJobSettings(idle_poll_seconds=ceiling)
     await simulate(idle_worker, monkeypatch, seconds=600)
     assert idle_worker.service.store.pull.call_count == checks
-    # The breaker is read once before each pull and never on a timer of its own.
-    assert idle_worker.service.read_breaker.paused_until.call_count == checks
+    # An idle worker never reads the breaker: it is asked only for a pulled read.
+    assert idle_worker.service.read_breaker.paused_until.call_count == 0
 
 
 @pytest.mark.parametrize("value,expected", [(None, 5), ("60", 60), ("1", 1)])

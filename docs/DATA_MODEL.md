@@ -4043,8 +4043,9 @@ closed. `probe_at` is when the one probing read was sent, and it is null unless
 the table and its row. `src/argus/domain/ingestion/documents/breaker.py` owns
 the rules, and `config.py` beside it owns the numbers (5 failures in 120
 seconds, a 300-second cooldown). A closed breaker costs one single-row read
-before each pull and before each provider call. A write happens only when a
-call fails or the state changes. The table holds no customer data, so account
+for each read a worker pulls and one before each provider call. A worker with
+nothing to pull does not read it. A write happens only when a call fails or
+the state changes. The table holds no customer data, so account
 deletion and Business purge do not touch it.
 
 ### Existing ingestion persistence

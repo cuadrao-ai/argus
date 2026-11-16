@@ -2,8 +2,9 @@
 
 Only ``python -m workflows.document_worker`` runs one; the API never does. Every
 worker pulls from the same rows through ``store.pull``, which holds
-``max_reads`` across every puller. While the read breaker is open no worker
-pulls, so the breaker sits in front of those shared slots. A stop takes no new read, gives reads in
+``max_reads`` across every puller. While the read breaker is open a pulled
+read goes straight back to the queue, so the breaker sits in front of those
+shared slots. A stop takes no new read, gives reads in
 flight ``drain_seconds`` to finish and cancels the rest, which releases their
 leases for the next boot's sweep.
 """
@@ -23,6 +24,7 @@ from argus.domain.ingestion.documents.config import (
 )
 from argus.domain.ingestion.documents.jobs import (
     PreparationJobs,
+    hold_back,
     run_attempt,
     sweep_forever,
 )
@@ -94,10 +96,29 @@ class DocumentWorker:
         return found
 
     def _take(self, now: datetime) -> tuple[str, str] | None:
+        """The next read to run. The breaker is asked only once a read was
+        pulled, so an idle worker never reads it. A read pulled while it is
+        open is put back to wait, unsent and uncharged."""
+        store = self.service.store
+        while (pulled := store.pull(now=now, cap=self.settings.max_reads)) is not None:
+            until = self._paused_until(now)
+            if until is None or not hold_back(self.service, *pulled, until):
+                return pulled
+        return None
+
+    def _paused_until(self, now: datetime) -> datetime | None:
         breaker = self.service.read_breaker
-        if breaker is not None and breaker.paused_until(now) is not None:
+        if breaker is None:
             return None
-        return self.service.store.pull(now=now, cap=self.settings.max_reads)
+        try:
+            return breaker.paused_until(now)
+        except Exception as error:
+            # A breaker that cannot be reached never stops a read.
+            logger.warning(
+                "document_read_breaker_unavailable ask=paused_until failure_mode={}",
+                type(error).__name__,
+            )
+            return None
 
     async def _read(self, connection_id: str, attempt_id: str) -> str:
         outcome = await run_attempt(self.service, connection_id, attempt_id)
