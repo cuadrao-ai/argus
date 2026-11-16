@@ -93,6 +93,7 @@ OLD_HIDDEN = ["fiscal_number", "expense_type", "payment_form", "funding"]
                 "itbis_amount",
                 "gross_amount",
                 "stage",
+                "missing",
             ],
             [
                 "counterparty",
@@ -112,6 +113,7 @@ OLD_HIDDEN = ["fiscal_number", "expense_type", "payment_form", "funding"]
                 "itbis_amount",
                 "gross_amount",
                 "stage",
+                "missing",
             ],
             ["counterparty", "fiscal_number", "note", "attachment", "funding"],
         ),
@@ -197,7 +199,9 @@ def test_a_column_one_country_omits_cannot_be_the_only_one_shown(monkeypatch):
 def test_a_layout_from_before_the_taxpayer_id_still_loads():
     stored = {"order": OLD_ORDER, "hidden": OLD_HIDDEN, "density": 40}
     result = answer(ReportRequestV2.model_validate({"presentation": stored}))
-    assert result.presentation.order == (*OLD_ORDER, "counterparty_id")
+    expected = list(OLD_ORDER)
+    expected.insert(expected.index("stage") + 1, "missing")
+    assert result.presentation.order == (*expected, "counterparty_id")
     assert result.presentation.hidden == (*OLD_HIDDEN, "counterparty_id")
     assert result.presentation.density == 40
     assert result.columns[0].key == "counterparty" and result.columns[0].shown

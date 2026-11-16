@@ -27,7 +27,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 const row = (id: string, amount: string | null): ReportRecord => ({
   row_id: `draft:${id}`, draft_id: id, linked_activity_ids: [], revision: 3, report_date: null, date_basis: "document_issue", family: "purchase", stage: null,
-  technical_state: "processing", workflow_blockers: [], currency: amount ? "DOP" : null, gross_amount: amount, recorded_amount: null, recorded_currency: null, proposed_amount: null,
+  technical_state: "processing", ready: false, missing: ["detail_missing"], workflow_blockers: [], currency: amount ? "DOP" : null, gross_amount: amount, recorded_amount: null, recorded_currency: null, proposed_amount: null,
   money_kind: "expense", money_effect: "unknown", adjustment_effect: null, counterparty: id, counterparty_key: null, category_key: "uncategorized", funding_key: null, funding_label: null,
   funding_kind: null, has_document: false, document_kind: "unknown", fiscal_classification: "unknown", fiscal_number: null, note: "Nota actual", settlement_status: null, dependency_fingerprint: "dependency",
 });

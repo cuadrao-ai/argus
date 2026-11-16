@@ -23,7 +23,7 @@ const effect = z.enum(["known", "unknown", "unsupported"]);
 const viewName = z.string().trim().refine((value) => Array.from(value).length >= 1 && Array.from(value).length <= 120);
 export const reportSortSchema = z.enum(["date_desc", "date_asc", "name_asc", "name_desc", "amount_asc", "amount_desc"]);
 /** The server registry's column keys, the `Presentation` enum in docs/api/openapi.yaml. Cell renderers and layouts key on them; a test pins the two lists equal. */
-export const REPORT_PRESENTATION_KEYS = ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "fiscal_number", "note", "attachment", "payment_form", "funding"] as const;
+export const REPORT_PRESENTATION_KEYS = ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing", "fiscal_number", "note", "attachment", "payment_form", "funding"] as const;
 export type ReportColumnKey = typeof REPORT_PRESENTATION_KEYS[number];
 /** A layout as a request carries it. An old link's keys pass through; the server upgrades them and answers the layout the web keeps. */
 export const reportPresentationSchema = z.strictObject({
@@ -43,6 +43,7 @@ export const reportFiltersSchema = z.strictObject({
   record_families: z.preprocess((value) => Array.isArray(value) && (value.length === 0 || value.length === 2 && value.includes("sale") && value.includes("purchase")) ? ["purchase"] : value, z.tuple([family]).default(["purchase"])),
   // A saved view or address bar may still name a stage the server dropped when drafts left Registros; it reads as no stage filter, never as a 422.
   review_stages: z.array(z.string()).default([]).transform((values): ReportStage[] => values.filter((value): value is ReportStage => stage.safeParse(value).success)),
+  ready: z.boolean().nullable().default(null),
   fiscal_data: z.enum(["complete", "missing"]).nullable().default(null),
   has_document: z.boolean().nullable().default(null), currencies: z.array(z.string().regex(/^[A-Z]{3}$/)).max(200).default([]),
   amount_min: decimal.nullable().default(null), amount_max: decimal.nullable().default(null),
@@ -76,6 +77,7 @@ export const purchase606Schema = z.object({ expense_type: dgiiChoiceSchema.nulla
 export const reportRecordSchema = z.object({
   row_id: z.string().min(1), draft_id: z.string().nullable(), linked_activity_ids: z.array(z.string()), revision: count,
   report_date: day.nullable(), date_basis: z.enum(["document_issue", "activity_effective"]), family: family.nullable(), stage: stage.nullable(), fiscal_data: z.enum(["complete", "missing"]).nullable().optional(), export_missing: z.string().nullable().optional(), export_missing_several: z.boolean().optional(), export_line: z.boolean().optional(),
+  ready: z.boolean(), missing: z.array(z.string()),
   technical_state: z.string().nullable(), workflow_blockers: z.array(z.string()), currency: z.string().nullable(), gross_amount: decimal.nullable(),
   net_amount: decimal.nullable().optional(), net_amount_source: z.enum(["read", "calculated", "edited"]).nullable().optional(), amounts_difference: decimal.nullable().optional(),
   inheritance: z.record(z.string(), z.object({ field: z.enum(["net_amount", "itbis", "legal_tip", "occurred_on"]), value: z.string().nullable(), inherited: z.boolean() })).optional(),
@@ -107,7 +109,7 @@ export const reportAnswerSchema = z.object({
   excluded_unknown_dates: count, excluded_personal: z.object({ income: count, expense: count }).optional(),
   counterparties: z.array(z.object({ key: z.string(), labels: z.array(z.string()) })), categories: z.array(z.string()), expense_types: z.array(dgiiChoiceSchema).default([]),
   funding_sources: z.array(z.object({ key: z.string(), label: z.string().nullable(), kind: z.string().nullable() })), coverage_notes: z.array(z.string()),
-  overview: z.object({ needs_review: count, needs_fiscal_data: count.optional(), ready_for_export: count, exported: count.optional(), export_lines: count.optional() }).optional(), effective_sort: reportSortSchema.optional(),
+  overview: z.object({ not_ready: count, needs_review: count, needs_fiscal_data: count.optional(), ready_for_export: count, exported: count.optional(), export_lines: count.optional() }).optional(), effective_sort: reportSortSchema.optional(),
   sort_unavailable_reason: z.literal("amount_sort_requires_single_known_currency").nullable().optional(),
 });
 export const savedReportViewSchema = z.object({
