@@ -1,3 +1,5 @@
+import { formatDay } from "@/components/business-app/business-format";
+
 /** The server supplies every bound. Locale files own the sentences. */
 type Translate = (key: string, fallback: string, options?: Record<string, unknown>) => string;
 type DateReason = { code: string; min_date?: string; field?: string };
@@ -29,9 +31,9 @@ function reasonOf(error: unknown): DateReason | null {
   return value.cause && value.cause !== error ? reasonOf(value.cause) : null;
 }
 
-export function businessDateMessage(error: unknown, t: Translate, label?: string): string | null {
+export function businessDateMessage(error: unknown, t: Translate, locale: string, label?: string): string | null {
   const reason = reasonOf(error);
   if (!reason || (reason.code === "business_date_before_minimum" && typeof reason.min_date !== "string")) return null;
   const field = label ?? t(fields[reason.field ?? ""] ?? fields.occurred_on, "");
-  return t(`business.accepted_dates.${reason.code}`, "", { field, min_date: reason.min_date });
+  return t(`business.accepted_dates.${reason.code}`, "", { field, min_date: reason.min_date && formatDay(reason.min_date, locale) });
 }

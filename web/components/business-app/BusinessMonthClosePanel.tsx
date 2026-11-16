@@ -519,7 +519,7 @@ function BusinessMonthCloseContent({
             }
           : current,
       );
-      setWorkProblems((current) => new Map(current).set(documentId, { kind: document.kind, name: nameOf(document, t), text: businessDateMessage(error, t) ?? t("business.month_close.mark_failed", "We couldn't save that change. The status is back to what it was."), retry: () => void mark(document) }));
+      setWorkProblems((current) => new Map(current).set(documentId, { kind: document.kind, name: nameOf(document, t), text: businessDateMessage(error, t, locale) ?? t("business.month_close.mark_failed", "We couldn't save that change. The status is back to what it was."), retry: () => void mark(document) }));
       settle(documentId);
       return;
     }

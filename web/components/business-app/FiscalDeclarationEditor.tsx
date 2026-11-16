@@ -85,7 +85,7 @@ export default function FiscalDeclarationEditor({ dossier, fields, disabled, ope
       // Until the server leaves owner-paid purchases out of the list, picking one is refused this way.
       const purchase = pending.input.declaration.purchase_activity_id;
       if (status === 422 && code === "recorded_correction_unsupported" && typeof purchase === "string") { setRefused(purchase); return; }
-      setProblem({ text: businessDateMessage(error, t) || t(`business.dgii.error.${code}`, "") || t("business.dgii.save_failed", "We couldn't confirm the tax details were saved. Check the current record before you approve."), reference: referenceCode(error) });
+      setProblem({ text: businessDateMessage(error, t, locale) || t(`business.dgii.error.${code}`, "") || t("business.dgii.save_failed", "We couldn't confirm the tax details were saved. Check the current record before you approve."), reference: referenceCode(error) });
     } finally { setBusy(false); onBusy(false); }
   };
   const restore = async (field: string) => {

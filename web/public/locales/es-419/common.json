@@ -2218,8 +2218,8 @@
   },
   "business": {
     "accepted_dates": {
-      "business_date_after_today": "{{field}} no puede ser posterior a hoy.",
-      "business_date_before_minimum": "{{field}} debe ser del {{min_date}} en adelante."
+      "business_date_after_today": "{{field}} no puede ser después de hoy.",
+      "business_date_before_minimum": "{{field}} no puede tener más de 10 años. Usa el {{min_date}} o una fecha posterior."
     },
     "date_range": {
       "complete_dates": "Completa ambas fechas",
