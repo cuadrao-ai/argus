@@ -40,7 +40,7 @@ const user = (overrides: Partial<ApiUser> = {}): ApiUser => ({
   onboarding: {
     completed: false,
     stage: "language_selection",
-    language_confirmed: false,
+    language_confirmed: true,
     primary_goal: null,
   },
   ...overrides,

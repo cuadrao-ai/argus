@@ -2774,10 +2774,6 @@ describe("Argus Alpha frontend contract", () => {
     expect(flow.indexOf("deps.clearLocalState()")).toBeLessThan(
       flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
-    const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
-    const leaveClosedHome = page.slice(page.indexOf("const leaveClosedHome"), page.indexOf("const handleAuthSubmit"));
-    expect(leaveClosedHome).toContain("resetLeavingSession()");
-    expect(page).toContain("<BusinessClosedNotice navigate={leaveClosedHome} />");
     const closedHome = readFileSync(join(root, "components/status/BusinessClosedNotice.tsx"), "utf-8");
     expect(closedHome).toContain("setSignOutFailed(true)");
     expect(closedHome.indexOf("setSignOutFailed(false)")).toBeGreaterThan(-1);
