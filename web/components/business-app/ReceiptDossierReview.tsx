@@ -108,6 +108,7 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
 
 export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, notice }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail; notice?: ReactNode }) {
   const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const stateWord = useReceiptStateWord();
   const primaryKeys = usePrimaryKeys();
   const { source, reload, records, openPanel, guardPanel, panel, chosen } = useBusiness();
@@ -387,7 +388,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
   const saveHolds = autosave.busy || autosave.failed || dirty;
   const approvable = mutable && dossier.approval_available && !saveHolds;
   const reviewing = dossier.review_state === "open" && !recorded;
-  const attention = dossierAttention(dossier, t);
+  const attention = dossierAttention(dossier, t, locale);
 
   const flags = dossier.review_flags ?? [];
   const confirmCodes = flags.filter((flag) => flag.confirm).map((flag) => flag.code);

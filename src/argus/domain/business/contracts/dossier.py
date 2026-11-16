@@ -121,6 +121,8 @@ class DraftRevision(Contract):
 class Blocker(Contract):
     code: str
     field: FactField | None = None
+    min_date: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    today: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ReviewFlag(Contract):

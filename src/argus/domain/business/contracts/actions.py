@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -15,6 +14,7 @@ from pydantic import (
     model_validator,
 )
 
+from argus.domain.business.accepted_dates import PastBusinessDate
 from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance
@@ -308,7 +308,7 @@ class TypedPurchase(Contract):
     supplier or description."""
 
     amount: Money
-    occurred_on: date
+    occurred_on: PastBusinessDate
 
 
 #: The longest note a person writes, typed or on a record, in characters.
@@ -470,6 +470,7 @@ class Refused(Contract):
     existing_record_id: UUID | None = None
     # The review flags an approval_confirmation_required refusal names.
     flags: tuple[str, ...] = ()
+    context: dict[str, str] | None = None
 
     @model_serializer(mode="wrap")
     def omit_absent_record(
@@ -478,6 +479,8 @@ class Refused(Contract):
         payload = handler(self)
         if self.existing_record_id is None:
             payload.pop("existing_record_id", None)
+        if self.context is None:
+            payload.pop("context", None)
         if not self.flags:
             payload.pop("flags", None)
         return payload

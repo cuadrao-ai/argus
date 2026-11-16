@@ -1,5 +1,8 @@
 # Checked OpenAPI compatibility artifact. Generated from the canonical
 # FastAPI app.openapi() document by scripts/generate_openapi_artifact.py.
+# Business date refusals: business_date_before_minimum, business_date_after_today.
+# Request errors carry min_date/today in context.errors[].ctx; bank and fiscal
+# refusals carry them in context. Reader correction blockers carry min_date/today.
 # Structural gate: tests/test_openapi_compatibility.py (#234).
 openapi: 3.1.0
 info:
@@ -17133,6 +17136,14 @@ components:
             - receipt_state
             - category_id
           - type: 'null'
+        min_date:
+          anyOf:
+          - type: string
+          - type: 'null'
+        today:
+          anyOf:
+          - type: string
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -18081,7 +18092,7 @@ components:
         currency:
           $ref: '#/components/schemas/FactInput_Annotated_str__StringConstraints__'
         occurred_on:
-          $ref: '#/components/schemas/FactInput_date_'
+          $ref: '#/components/schemas/FactInput_Annotated_date__AfterValidator__'
         counterparty:
           $ref: '#/components/schemas/FactInput_str_'
         funding:
@@ -21849,6 +21860,16 @@ components:
           known: '#/components/schemas/KnownInput_Annotated_Union_WholeBusinessShare__PartialBusinessShare___FieldInfo_annotation_NoneType__required_True__discriminator__kind____'
           owner_does_not_know: '#/components/schemas/UncertainInput'
           unknown: '#/components/schemas/UncertainInput'
+    FactInput_Annotated_date__AfterValidator__:
+      oneOf:
+      - $ref: '#/components/schemas/KnownInput_Annotated_date__AfterValidator__'
+      - $ref: '#/components/schemas/UncertainInput'
+      discriminator:
+        propertyName: state
+        mapping:
+          known: '#/components/schemas/KnownInput_Annotated_date__AfterValidator__'
+          owner_does_not_know: '#/components/schemas/UncertainInput'
+          unknown: '#/components/schemas/UncertainInput'
     FactInput_Annotated_str__StringConstraints__:
       oneOf:
       - $ref: '#/components/schemas/KnownInput_Annotated_str__StringConstraints__'
@@ -21887,16 +21908,6 @@ components:
         propertyName: state
         mapping:
           known: '#/components/schemas/KnownInput_Literal__fiscal_receipt____informal_receipt____no_receipt___'
-          owner_does_not_know: '#/components/schemas/UncertainInput'
-          unknown: '#/components/schemas/UncertainInput'
-    FactInput_date_:
-      oneOf:
-      - $ref: '#/components/schemas/KnownInput_date_'
-      - $ref: '#/components/schemas/UncertainInput'
-      discriminator:
-        propertyName: state
-        mapping:
-          known: '#/components/schemas/KnownInput_date_'
           owner_does_not_know: '#/components/schemas/UncertainInput'
           unknown: '#/components/schemas/UncertainInput'
     FactInput_str_:
@@ -24867,6 +24878,19 @@ components:
       type: object
       required:
       - value
+    KnownInput_Annotated_date__AfterValidator__:
+      properties:
+        state:
+          type: string
+          const: known
+          default: known
+        value:
+          type: string
+          format: date
+      additionalProperties: false
+      type: object
+      required:
+      - value
     KnownInput_Annotated_str__StringConstraints__:
       properties:
         state:
@@ -24929,19 +24953,6 @@ components:
           - fiscal_receipt
           - informal_receipt
           - no_receipt
-      additionalProperties: false
-      type: object
-      required:
-      - value
-    KnownInput_date_:
-      properties:
-        state:
-          type: string
-          const: known
-          default: known
-        value:
-          type: string
-          format: date
       additionalProperties: false
       type: object
       required:
@@ -31214,12 +31225,12 @@ components:
         due_on:
           anyOf:
           - oneOf:
-            - $ref: '#/components/schemas/KnownInput_date_'
+            - $ref: '#/components/schemas/KnownInput_Annotated_date__AfterValidator__'
             - $ref: '#/components/schemas/UnknownInput'
             discriminator:
               propertyName: state
               mapping:
-                known: '#/components/schemas/KnownInput_date_'
+                known: '#/components/schemas/KnownInput_Annotated_date__AfterValidator__'
                 unknown: '#/components/schemas/UnknownInput'
           - type: 'null'
         montos:

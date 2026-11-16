@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from argus.domain.business.transactions import ActionTransaction
 
+from argus.domain.business.accepted_dates import reader_date_reason
 from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseDeclaration
 from argus.domain.business.contracts.facts import BusinessFacts, InheritedValue, Known
 from argus.domain.business.purchase_review import AMOUNT_SIDES, derived_amount, net_amount
@@ -57,11 +58,13 @@ def inheritance_state(
     if declaration is None:
         return {}
     tax = facts.fiscal.itbis if facts.fiscal is not None else None
+    # A date outside the accepted range is evidence to correct, never a payment date.
+    day = facts.occurred_on.value if paid and isinstance(facts.occurred_on, Known) else None
     sources = {
         "net_amount": net_amount(facts, declaration).amount,
         "itbis": tax.value if isinstance(tax, Known) else None,
         "legal_tip": facts.legal_tip.value if isinstance(facts.legal_tip, Known) else None,
-        "occurred_on": facts.occurred_on.value if paid and isinstance(facts.occurred_on, Known) else None,
+        "occurred_on": day if reader_date_reason(day) is None else None,
     }
     split = derived_amount(declaration, facts) if isinstance(declaration, PurchaseDeclaration) else None
     result = {}

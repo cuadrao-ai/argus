@@ -25,9 +25,9 @@ export function parseDayText(text: string): string | null {
   const parts = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(text.trim()) ?? /^(\d{2})(\d{2})(\d{2}|\d{4})$/.exec(text.trim());
   if (!parts) return null;
   const [day, month, year] = [Number(parts[1]), Number(parts[2]), parts[3].length === 2 ? 2000 + Number(parts[3]) : Number(parts[3])];
-  if (year < 1900) return null;
+  if (year < 1) return null;
   const iso = isoOf(year, month - 1, day);
-  return iso === `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` ? iso : null;
+  return iso === `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` ? iso : null;
 }
 
 export function monthOf(iso: string): Month {
@@ -36,7 +36,9 @@ export function monthOf(iso: string): Month {
 }
 
 export function isoOf(year: number, month: number, day: number): string {
-  return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+  const value = new Date(0);
+  value.setUTCFullYear(year, month, day);
+  return value.toISOString().slice(0, 10);
 }
 
 /** The same day of the month in another month, or that month's last day when it is shorter: 29 feb 2024 in 2026 is 28 feb. */
