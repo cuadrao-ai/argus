@@ -8,8 +8,16 @@ from uuid import uuid4
 
 import psycopg
 import pytest
+from argus.domain.business.annotations import EditCurrentNote, edit_note
+from argus.domain.business.contracts.actions import ReviewDraft
+from argus.domain.business.contracts.facts import BusinessFactPatch
 from psycopg.types.json import Jsonb
+from pydantic import ValidationError
 
+from tests import test_business_actions_postgres as shared
+
+users = shared.users
+actions = shared.actions
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -35,10 +43,10 @@ def database():
             ("business_bank_lines", "occurred_on"),
             ("business_bank_line_outcomes", "applied_settled_on"),
             ("business_document_settlements", "settled_on"),
-            ("business_draft_revisions", "after_due_on"),
         ]:
             db.execute(f"CREATE TABLE {schema}.{name} (id int primary key, metadata text, {field} date)")
-        db.execute(f"CREATE TABLE {schema}.business_invoice_revisions (id int primary key, metadata text, data jsonb)")
+        db.execute(f"CREATE TABLE {schema}.business_draft_revisions (id int primary key, metadata text, draft_id int, version int, after_due_on date)")
+        db.execute(f"CREATE TABLE {schema}.business_invoice_revisions (id int primary key, metadata text, invoice_id int, version int, data jsonb)")
         db.execute(f"CREATE TABLE {schema}.financial_import_events (id int primary key, metadata text, anchor_on date, resolution jsonb default '{{\"business\":{{}}}}')")
         yield db, schema
 
@@ -126,6 +134,109 @@ def test_grandfathered_metadata_updates_keep_dates_but_date_changes_fail(table, 
         db.execute(query, (value("2000-01-01"),))
         with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
             db.execute(f"INSERT INTO {schema}.{table} (id,{column}) VALUES (2,%s)", (value("0026-10-05"),))
+
+
+@pytest.mark.parametrize("table,parent,column,field", [
+    ("business_draft_revisions", "draft_id", "after_due_on", None),
+    ("business_invoice_revisions", "invoice_id", "data", "issued_on"),
+    ("business_invoice_revisions", "invoice_id", "data", "due_on"),
+])
+def test_appended_revision_keeps_its_parents_old_date_but_cannot_assert_one(table, parent, column, field):
+    def value(day):
+        return day if field is None else Jsonb({field: day, "note": uuid4().hex})
+
+    insert = f"INSERT INTO SCHEMA.{table} (id,{parent},version,{column}) VALUES (%s,%s,%s,%s)"
+    with database() as (db, schema):
+        insert = insert.replace("SCHEMA", schema)
+        db.execute(insert, (1, 7, 1, value("1999-12-31")))
+        db.execute(insert, (2, 7, 2, value("2000-01-01")))
+        db.execute(insert, (3, 8, 1, value("1999-12-31")))
+        db.execute(migration().replace("public.", schema + "."))
+        # The base is the parent's latest earlier revision, never an older one.
+        with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
+            db.execute(insert, (4, 7, 3, value("1999-12-31")))
+        db.execute(insert, (5, 8, 2, value("1999-12-31")))
+        db.execute(insert, (6, 8, 3, value("1999-12-31")))
+        with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
+            db.execute(insert, (7, 8, 4, value("1999-01-01")))
+        # Another parent's old date, and a first revision, are fresh input.
+        with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
+            db.execute(insert, (8, 9, 1, value("1999-12-31")))
+        db.execute(insert, (9, 8, 4, value(None)))
+        with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
+            db.execute(insert, (10, 8, 5, value("1999-12-31")))
+
+
+def legacy_due_on(service, draft_id, day):
+    """Store a due date as a row written before the floor existed holds it."""
+    floors = [
+        ("financial_import_events", "business_import_dates_floor"),
+        ("business_draft_revisions", "business_draft_due_date_floor"),
+        ("business_draft_revisions", "business_revision_immutable"),
+    ]
+    with service.authority.pool.connection() as db, db.transaction():
+        for table, trigger in floors:
+            db.execute(f"alter table public.{table} disable trigger {trigger}")
+        db.execute(
+            "update public.financial_import_events set resolution=jsonb_set("
+            "resolution,'{business,due_on}',to_jsonb(%s::text)) where id=%s",
+            (day, draft_id),
+        )
+        seeded = db.execute(
+            "update public.business_draft_revisions r set after_due_on=%s where draft_id=%s"
+            " and version=(select max(version) from public.business_draft_revisions where draft_id=r.draft_id)",
+            (day, draft_id),
+        )
+        assert seeded.rowcount == 1
+        for table, trigger in floors:
+            db.execute(f"alter table public.{table} enable trigger {trigger}")
+
+
+def due_dates(service, draft_id):
+    with service.authority.pool.connection() as db:
+        return db.execute(
+            "select before_due_on::text, after_due_on::text from public.business_draft_revisions"
+            " where draft_id=%s order by version",
+            (draft_id,),
+        ).fetchall()
+
+
+@shared.pytestmark
+@pytest.mark.owner_acts
+def test_draft_with_an_old_due_date_still_takes_edits_and_notes(actions):
+    service, context, _ = actions
+    draft_id, version = shared.create(service, context)
+    legacy_due_on(service, draft_id, "1999-12-31")
+
+    # save_revision: another field changes, the due date is copied forward.
+    amount = BusinessFactPatch(amount={"state": "known", "value": "900"})
+    edited = service.review(context, draft_id, ReviewDraft(version=version, facts=amount), str(uuid4()))
+    assert edited.outcome == "applied", edited
+    # save_annotation: a note changes nothing else.
+    noted = edit_note(
+        service.authority, context, draft_id,
+        EditCurrentNote(expected_version=edited.version, note="Pagar al suplidor"), str(uuid4()),
+    )
+    assert due_dates(service, draft_id)[-2:] == [("1999-12-31", "1999-12-31")] * 2
+
+    # The application refuses a new old date before storage is asked.
+    with pytest.raises(ValidationError):
+        ReviewDraft(version=noted.version, due_on={"state": "known", "value": "1999-01-01"})
+    # Storage refuses it from any writer that skips the application.
+    with service.authority.pool.connection() as db:
+        with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
+            db.execute(
+                "insert into public.business_draft_revisions"
+                " (space_id,draft_id,version,actor,after_facts,before_due_on,after_due_on)"
+                " select space_id,draft_id,version+1,actor,after_facts,after_due_on,%s"
+                " from public.business_draft_revisions where draft_id=%s and version=%s",
+                ("1999-01-01", draft_id, noted.version),
+            )
+    cleared = service.review(
+        context, draft_id, ReviewDraft(version=noted.version, due_on={"state": "unknown"}), str(uuid4())
+    )
+    assert cleared.outcome == "applied", cleared
+    assert due_dates(service, draft_id)[-1] == ("1999-12-31", None)
 
 
 @pytest.mark.parametrize("role", ["anon", "authenticated"])

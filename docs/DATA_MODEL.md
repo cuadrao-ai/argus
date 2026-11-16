@@ -3489,7 +3489,14 @@ EXECUTE grant on this function; the server role does. Six AFTER row triggers
 call that owner. They compare each date with OLD on updates, including the update
 selected by an upsert. Unchanged grandfathered dates remain editable through
 metadata changes such as delete/restore; changing one date does not revalidate
-another unchanged date in the same JSON object. A newly inserted row or a changed
+another unchanged date in the same JSON object. `business_draft_revisions` and
+`business_invoice_revisions` append one row per edit and copy unchanged dates
+forward, so an insert there has no OLD. Their triggers pass `previous_by=draft_id`
+or `previous_by=invoice_id`, and the function compares the new row with the same
+parent's latest earlier revision. It reads that revision only when a date is below
+the floor. A note or another field saved on a record with a grandfathered date
+therefore succeeds; a first revision, or a date that differs from the previous
+revision, is new input. A newly inserted row or a changed
 date below the floor raises SQLSTATE 23514. A CHECK with `NOT VALID` cannot express
 this distinction, because it still checks every updated row.
 
