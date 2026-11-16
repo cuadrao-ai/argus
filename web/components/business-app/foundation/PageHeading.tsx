@@ -47,7 +47,7 @@ export function PageHeading({ screen }: { screen: PageHeadingScreen }) {
   const { isBelowTablet: phone } = useResponsiveLayout();
   if (!phone || !heading) return null;
   return (
-    <div data-testid="business-page-heading" className="mb-[34px]">
+    <div data-testid="business-page-heading" data-surface-block="heading" className="mb-[34px]">
       <h2 className={`${heading.description ? "mb-2 " : ""}font-display text-[26px] font-medium leading-tight tracking-tight text-black dark:text-white`}>{heading.title}</h2>
       {heading.description ? <PageDescription text={heading.description} icon={heading.icon} /> : null}
     </div>

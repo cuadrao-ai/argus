@@ -40,7 +40,7 @@ function GuideCardForPerson({ cardId, title, points, pending = false }: Props) {
   };
   const hidden = pending ? empty : undefined;
   return (
-    <section className={`${styles.card} rounded-surface`} aria-labelledby={pending ? undefined : titleId} aria-hidden={pending || undefined} data-guide-slot={pending ? "" : undefined}>
+    <section data-surface-block="guide" className={`${styles.card} rounded-surface`} aria-labelledby={pending ? undefined : titleId} aria-hidden={pending || undefined} data-guide-slot={pending ? "" : undefined}>
       <header className={styles.header} style={hidden}>
         <h3 className="font-display" id={pending ? undefined : titleId}>{title}</h3>
         <button type="button" className={`${styles.close} rounded-full`} aria-label={t("business.guide_cards.placeholder.dismiss")} onClick={dismiss}>

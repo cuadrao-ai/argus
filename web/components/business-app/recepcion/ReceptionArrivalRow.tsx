@@ -18,9 +18,49 @@ import { receptionSender, receptionDocumentTitle, receptionTarget, type Receptio
 import type { ReceptionColumnKey, ReceptionPreferences } from "./reception-columns";
 import { originPlace, receptionPlaces } from "./reception-grid";
 import ReceptionOriginal from "./ReceptionOriginal";
+import motion from "../business-skeletons.module.css";
 import styles from "./reception.module.css";
 
 type CellProps = { style: CSSProperties; "data-testid": string };
+type Places = ReturnType<typeof receptionPlaces>;
+
+/**
+ * A row's places: the box, Contenido, the person's columns in their order with Canal, Remitente and the phone's
+ * arrival in one shared cell, then the actions. A loaded row and a pending row both draw through it.
+ */
+function RowPlaces({ places, box, identity, origin, cells, actions }: { places: Places; box: ReactNode; identity: ReactNode; origin: ReactNode; cells: Record<ReceptionColumnKey, ReactNode>; actions: ReactNode }) {
+  const together = originPlace(places.shown);
+  return <>{box}{identity}{places.shown.map(key => <Fragment key={key}>{key === together ? origin : null}{cells[key]}</Fragment>)}<div className={styles.rowActions} style={places.last}>{actions}</div></>;
+}
+
+function Bar({ width, height = 12, pill = false }: { width: number | string; height?: number; pill?: boolean }) {
+  return <span className={`${motion.block} ${motion.shimmer} ${styles.skeletonBar} ${pill ? "rounded-full" : "rounded-mark"}`} style={{ width, height }} />;
+}
+
+/** A row while the list's first page loads: the same places and cell boxes as a loaded row, each value a placeholder bar. */
+export function ReceptionPendingRow({ index, preferences, view, selectable }: { index: number; preferences: ReceptionPreferences; view: ReceptionView; selectable: boolean }) {
+  const places = receptionPlaces(preferences, { status: view !== "listos" });
+  const has = places.has;
+  const channel = (style?: CSSProperties) => has("source") ? <span className={styles.channel} style={style}><Bar width={76} /></span> : null;
+  const sender = (style?: CSSProperties) => has("sender") ? <span className={styles.sender} style={style} data-known="true"><Bar width={index % 2 ? 110 : 150} /></span> : null;
+  return <li className={`${styles.row} ${styles.skeletonRow}`} aria-hidden="true">
+    <RowPlaces places={places}
+      box={selectable ? <span className={styles.checkbox}><Bar width={16} height={16} /></span> : null}
+      identity={<span className={styles.identity}><Bar width={index % 2 ? 170 : 220} height={15} /></span>}
+      origin={<span className={styles.source} style={places.shared} data-info={has("source") || has("sender")}>{sender()}{channel()}{has("arrival") ? <span className={styles.mobileArrival}><Bar width={65} /></span> : null}</span>}
+      cells={{
+        file: <span className={styles.fileCell} style={places.at("file")} data-file="true"><Bar width={18} height={20} /></span>,
+        source: channel(places.at("source")),
+        sender: sender(places.at("sender")),
+        amount: <span className={styles.amountCell} style={places.at("amount")}><Bar width={64} /></span>,
+        currency: <span className={styles.currencyCell} style={places.at("currency")}><Bar width={30} /></span>,
+        status: <span className={styles.state} style={places.at("status")}><Bar width={112} height={21} pill /></span>,
+        arrival: <span className={styles.arrival} style={places.at("arrival")}><Bar width={72} /></span>,
+      }}
+      actions={<><div className={styles.rowAction}><div><Bar width={56} height={28} pill /></div></div><span className={styles.trashSlot} /></>}
+    />
+  </li>;
+}
 
 export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel, openPanel, preferences, selectable, checkable, checked, unseen, onCheck, onDelete }: { onDelete?: () => void; row: ReceptionRow; rowKey: string; arrived: boolean; view: ReceptionView; selectable: boolean; checkable: boolean; checked: boolean; unseen: boolean; onCheck: () => void; panel: BusinessPanelState; openPanel: (panel: BusinessPanelState) => void; preferences: ReceptionPreferences }) {
   const { t, i18n } = useTranslation();
@@ -48,7 +88,6 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
     {from()}{channel()}
     {arrival ? <span className={styles.mobileArrival}>{arrival}</span> : null}
   </span>;
-  const together = originPlace(places.shown);
   const cells: Record<ReceptionColumnKey, ReactNode> = {
     file: <span className={styles.fileCell} style={places.at("file")} data-file={!!receipt || row.kind === "note"}>{receipt ? <ReceptionOriginal receipt={receipt} /> : row.kind === "note" ? <Unknown meaning={word("without_file")} /> : <Unknown meaning={word("no_file")} />}</span>,
     source: channel({ style: places.at("source"), "data-testid": "reception-channel" }),
@@ -59,9 +98,9 @@ export default function ReceptionArrivalRow({ row, rowKey, arrived, view, panel,
     arrival: <span className={styles.arrival} style={places.at("arrival")}>{arrival}</span>,
   };
   return <li className={styles.row} data-list-row={rowKey} data-arrived={arrived} data-selected={selected} data-checked={checkable && checked} data-unseen={unseen} aria-current={selected ? "true" : undefined} data-testid="reception-row" data-kind={row.kind} onClick={event => { if (!(event.target as HTMLElement).closest("button,input,label,a")) open(); }}>
-    {!selectable ? null : checkable ? <label className={styles.checkbox}><input type="checkbox" checked={checked} onChange={onCheck} aria-label={t("business.reception_preview.select_document", { name: title })} /></label> : <span className={styles.checkbox} />}
-    {titleCut ? <Tooltip content={title} side="top">{identity}</Tooltip> : identity}
-    {places.shown.map(key => <Fragment key={key}>{key === together ? origin : null}{cells[key]}</Fragment>)}
-    <div className={styles.rowActions} style={places.last}><button type="button" className={`${styles.rowAction} rounded-full`} onClick={open}><span>{word("placeholder.open")}</span></button>{onDelete ? <Tooltip content={t("business.document_delete.delete")} side="top"><button type="button" className={`${styles.trashAction} rounded-full`} onClick={onDelete} aria-label={t("business.document_delete.label", { name: title })}><Trash2 size={17} aria-hidden="true" /></button></Tooltip> : <span className={styles.trashSlot} aria-hidden="true" />}</div>
+    <RowPlaces places={places} cells={cells} origin={origin}
+      box={!selectable ? null : checkable ? <label className={styles.checkbox}><input type="checkbox" checked={checked} onChange={onCheck} aria-label={t("business.reception_preview.select_document", { name: title })} /></label> : <span className={styles.checkbox} />}
+      identity={titleCut ? <Tooltip content={title} side="top">{identity}</Tooltip> : identity}
+      actions={<><button type="button" className={`${styles.rowAction} rounded-full`} onClick={open}><span>{word("placeholder.open")}</span></button>{onDelete ? <Tooltip content={t("business.document_delete.delete")} side="top"><button type="button" className={`${styles.trashAction} rounded-full`} onClick={onDelete} aria-label={t("business.document_delete.label", { name: title })}><Trash2 size={17} aria-hidden="true" /></button></Tooltip> : <span className={styles.trashSlot} aria-hidden="true" />}</>} />
   </li>;
 }

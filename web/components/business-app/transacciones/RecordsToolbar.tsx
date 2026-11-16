@@ -85,7 +85,7 @@ function PeriodChoices({ period, setPeriod, close }: { period: Period; setPeriod
 export function RecordsToolbarPending({ options }: { options: ReactNode }) {
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
   const control = (size: string) => <RecordsLoadingBar className={`${loading.control} ${size} !rounded-full`} />;
-  return <div className={styles.toolbarContainer} aria-hidden="true"><div data-testid="records-toolbar" className={`${styles.toolbar} mb-4 flex flex-wrap items-center gap-2`}>
+  return <div className={styles.toolbarContainer} data-surface-block="toolbar" aria-hidden="true"><div data-testid="records-toolbar" className={`${styles.toolbar} mb-4 flex flex-wrap items-center gap-2`}>
     {isBelowDesktop ? null : control(loading.views)}
     {!phone && barSearchAvailable ? null : <div className={styles.toolbarSearch} data-phone={phone}>{control(loading.search)}</div>}
     {control(loading.period)}{control(loading.currency)}{control(loading.filters)}
@@ -144,7 +144,7 @@ export function RecordsToolbar({ connected, filter, onChange, period, setPeriod,
     busy: false,
     notice: null,
   };
-  return <div className={styles.toolbarContainer}><div data-testid="records-toolbar" className={`${styles.toolbar} mb-4 flex flex-wrap items-center gap-2`}>
+  return <div className={styles.toolbarContainer} data-surface-block="toolbar"><div data-testid="records-toolbar" className={`${styles.toolbar} mb-4 flex flex-wrap items-center gap-2`}>
     {preview ? <RecordsViewsPreview views={connected?.views ?? sampleViews} /> : null}
     {searchInBar ? null : (
       <div className={styles.toolbarSearch} data-phone={phone}>

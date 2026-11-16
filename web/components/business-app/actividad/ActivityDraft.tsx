@@ -4,7 +4,7 @@
 // preview (sample data, `?activity=contract|empty|loading|error`) also shows the fields #1410 and ACT-2a add.
 // UI copy lives in the locale files (`business.activity_feed`).
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveLanguage } from "@/lib/language-features";
 import { Check, CalendarBlank, Lock } from "@phosphor-icons/react";
@@ -15,7 +15,8 @@ import { formatRelativeDay, formatShortDay } from "../business-format";
 import { EmptyState } from "../foundation/EmptyState";
 import GuideCard from "../foundation/GuideCard";
 import { PageHeading } from "../foundation/PageHeading";
-import ActivitySkeleton from "./ActivitySkeleton";
+import { SCREEN_READER_LOADING_LABEL, useDelayedPending } from "../business-skeletons";
+import skeleton from "../business-skeletons.module.css";
 import { ACTIVITY_CARD, ACTIVITY_DAY, ACTIVITY_GRID, ACTIVITY_GRID_LIVE, ACTIVITY_HEADER_ROW, ACTIVITY_ROW } from "./activity-layout";
 import { useActivityFeed } from "./useActivityFeed";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
@@ -72,6 +73,79 @@ const ACTION_META: Record<DraftItem["action"], { area: Area; group: Group }> = {
   change_role: { area: "business", group: "access" },
   other: { area: "business", group: "other" },
 };
+
+/* ---------- History ---------- */
+
+/** Placeholder widths vary row to row, as real names and actions do; fixed so the placeholder never flickers. */
+const PENDING_ROWS = [
+  { name: "w-24", what: "w-32", record: "w-40" },
+  { name: "w-20", what: "w-28", record: "w-36" },
+  { name: "w-28", what: "w-36", record: "w-32" },
+  { name: "w-24", what: "w-24", record: "w-44" },
+  { name: "w-20", what: "w-40", record: "w-28" },
+  { name: "w-28", what: "w-28", record: "w-36" },
+  { name: "w-24", what: "w-32", record: "w-32" },
+  { name: "w-20", what: "w-36", record: "w-40" },
+] as const;
+/** A second day starts after the fifth row, as a real history usually does. */
+const PENDING_DAYS = [PENDING_ROWS.slice(0, 5), PENDING_ROWS.slice(5)];
+
+/** A pending value holds one line of its slot's own text with the bar laid over it, so a pending row keeps its loaded height. */
+function Pending({ className }: { className: string }) {
+  return <span className={`relative inline-block max-w-full align-top ${className}`}>{"\u00a0"}<span data-testid="business-skeleton-shimmer" className={`${skeleton.shimmer} ${skeleton.block} absolute inset-x-0 inset-y-[22%] rounded-mark`} /></span>;
+}
+const pendingMark = (size: 24 | 32) => <span className={`${skeleton.shimmer} ${skeleton.block} block shrink-0 rounded-full ${size === 24 ? "h-6 w-6" : "h-8 w-8"}`} />;
+
+type RowParts = { mark: (size: 24 | 32) => ReactNode; name: ReactNode; what: ReactNode; record: ReactNode | null; area: ReactNode; time: ReactNode; sentence: ReactNode; phoneRecord: ReactNode | null; meta: ReactNode };
+
+/** One change's cells. A loaded row and a pending row both draw through it, so each value lands where its placeholder stood. */
+function ActivityRowCells({ parts: p, withRecord }: { parts: RowParts; withRecord: boolean }) {
+  return <>
+    {/* Desktop: one row per change. */}
+    <span className="hidden min-w-0 items-center gap-2.5 md:flex">{p.mark(24)}<span className="truncate">{p.name}</span></span>
+    <span className="hidden min-w-0 truncate md:block">{p.what}</span>
+    {withRecord ? <span className="hidden min-w-0 truncate md:block">{p.record}</span> : null}
+    <span className="hidden min-w-0 items-center gap-1.5 truncate text-[#56635e] dark:text-white/60 md:flex">{p.area}</span>
+    <span className="hidden text-right tabular-nums text-[#56635e] dark:text-white/60 md:block">{p.time}</span>
+    {/* Phone: a sentence, then where and when. */}
+    <span className="flex gap-3 md:hidden">
+      <span className="pt-0.5">{p.mark(32)}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] leading-snug">{p.sentence}</span>
+        {p.phoneRecord ? <span className="mt-0.5 block truncate text-[15px] leading-snug">{p.phoneRecord}</span> : null}
+        <span className="mt-1 flex flex-wrap items-center gap-x-1 text-[13px] text-[#56635e] dark:text-white/60">{p.meta}</span>
+      </span>
+    </span>
+  </>;
+}
+
+function ActivityDay({ label, name, children }: { label: ReactNode; name?: string; children: ReactNode }) {
+  return <section aria-label={name}><h3 className={`sticky top-0 z-[1] ${ACTIVITY_DAY}`}>{label}</h3><ul>{children}</ul></section>;
+}
+
+/**
+ * The history card: the column titles, then each day's band and rows. While the first page loads it is the same card
+ * with placeholder days and rows, hidden until the shared delay has passed, so content lands in place.
+ */
+function ActivityHistory({ columns, withRecord, pending, children }: { columns: readonly string[]; withRecord: boolean; pending?: { shown: boolean }; children?: ReactNode }) {
+  const grid = withRecord ? ACTIVITY_GRID : ACTIVITY_GRID_LIVE;
+  return (
+    <div className={ACTIVITY_CARD} data-surface-block="history" data-testid={pending ? "activity-loading" : undefined} role={pending ? "status" : undefined} aria-busy={pending ? true : undefined} aria-label={pending ? SCREEN_READER_LOADING_LABEL : undefined} style={pending && !pending.shown ? { visibility: "hidden" } : undefined}>
+      <div className={`${ACTIVITY_HEADER_ROW} ${grid}`} aria-hidden={pending ? true : undefined}>
+        {columns.map((label, index) => <span key={label} className={index === columns.length - 1 ? "text-right" : undefined}>{label}</span>)}
+      </div>
+      {pending ? <div aria-hidden="true">{PENDING_DAYS.map((rows, day) => (
+        <ActivityDay key={day} label={<Pending className="w-24" />}>
+          {rows.map((row, index) => (
+            <li key={index} className="border-b border-[#dce0da] last:border-0 dark:border-white/10"><div className={`${ACTIVITY_ROW} ${grid}`}>
+              <ActivityRowCells withRecord={withRecord} parts={{ mark: pendingMark, name: <Pending className={row.name} />, what: <Pending className={row.what} />, record: <Pending className={row.record} />, area: <Pending className="w-20" />, time: <Pending className="w-16" />, sentence: <Pending className="w-4/5" />, phoneRecord: withRecord ? <Pending className="w-1/2" /> : null, meta: <Pending className="w-1/3" /> }} />
+            </div></li>
+          ))}
+        </ActivityDay>
+      ))}</div> : children}
+    </div>
+  );
+}
 
 /* ---------- Screen ---------- */
 
@@ -212,6 +286,8 @@ export default function ActivityDraft() {
     : <span aria-label={c.noRecord} className="text-[#56635e] dark:text-white/60">{c.recordPlaceholder}</span>;
 
   const columns = live ? [c.cols.who, c.cols.what, c.cols.area, c.cols.time] : [c.cols.who, c.cols.what, c.cols.record, c.cols.area, c.cols.time];
+  const loading = mode === "loading" || (live && feed.status === "loading");
+  const placeholdersShown = useDelayedPending(loading);
   let body: React.ReactNode;
   if (mode === "error" || (live && feed.status === "error")) {
     // A failure says what happened, keeps the server's reference and offers a way out.
@@ -219,56 +295,44 @@ export default function ActivityDraft() {
       <EmptyState kind="error" title={c.errorTitle} body={c.errorBody} action={{ label: c.retry, run: live ? feed.retry : () => window.location.reload() }} secondary={{ label: c.goHome, run: () => openPanel({ kind: "overview" }) }} />
       {live && feed.reference ? <div className="flex justify-center pb-6"><ReferenceCode reference={feed.reference} /></div> : null}
     </div>;
-  } else if (mode === "loading" || (live && feed.status === "loading")) {
-    body = <ActivitySkeleton columns={columns} withRecord={!live} />;
+  } else if (loading) {
+    body = <ActivityHistory columns={columns} withRecord={!live} pending={{ shown: placeholdersShown }} />;
   } else if (all.length === 0) {
     body = <div className="rounded-surface border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-[#1f2225]"><EmptyState kind="first_run" mark="calendar" title={c.firstRunTitle} body={c.firstRunBody} /></div>;
   } else if (filtered.length === 0) {
     body = <div className="rounded-surface border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-[#1f2225]"><EmptyState kind="filtered" title={c.filteredTitle} body={c.filteredBody} action={{ label: c.filters.clear, run: clear }} /></div>;
   } else {
-    const grid = live ? ACTIVITY_GRID_LIVE : ACTIVITY_GRID;
     body = <>
-      <div className={ACTIVITY_CARD}>
-        <div className={`${ACTIVITY_HEADER_ROW} ${grid}`}>
-          {columns.map((label, index) => <span key={label} className={index === columns.length - 1 ? "text-right" : undefined}>{label}</span>)}
-        </div>
+      <ActivityHistory columns={columns} withRecord={!live}>
         {days.map(({ day, items }) => (
-          <section key={day} aria-label={dayLabel(day)}>
-            <h3 className={`sticky top-0 z-[1] ${ACTIVITY_DAY}`}>{dayLabel(day)}</h3>
-            <ul>
-              {items.map((item) => {
-                const run = open(item);
-                const who = actor(item, 24);
-                const content = <>
-                  {/* Desktop: one row per change. */}
-                  <span className="hidden min-w-0 items-center gap-2.5 md:flex">{who.mark}<span className="truncate">{who.name}</span></span>
-                  <span className="hidden min-w-0 truncate md:block">{what(item, true)}{channel(item) ? <span className="text-[#56635e] dark:text-white/60"> · {channel(item)}</span> : null}</span>
-                  {live ? null : <span className="hidden min-w-0 truncate md:block">{record(item)}</span>}
-                  <span className="hidden min-w-0 items-center gap-1.5 truncate text-[#56635e] dark:text-white/60 md:flex">{c.areas[ACTION_META[item.action].area]}{restricted(item) ? <Lock size={14} aria-label={c.managersOnly} /> : null}</span>
-                  <span className="hidden text-right tabular-nums text-[#56635e] dark:text-white/60 md:block">{time(item.occurred_at)}</span>
-                  {/* Phone: a sentence, then where and when. */}
-                  <span className="flex gap-3 md:hidden">
-                    <span className="pt-0.5">{actor(item, 32).mark}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[15px] leading-snug"><span className="font-medium">{who.name}</span> {what(item)}</span>
-                      {item.missing?.object_label ? <span className="mt-0.5 block truncate text-[15px] leading-snug">{record(item)}</span> : null}
-                      <span className="mt-1 flex flex-wrap items-center gap-x-1 text-[13px] text-[#56635e] dark:text-white/60">{restricted(item) ? <Lock size={13} aria-label={c.managersOnly} /> : null}{c.areas[ACTION_META[item.action].area]}{channel(item) ? <> · {channel(item)}</> : null} · <span className="tabular-nums">{time(item.occurred_at)}</span></span>
-                    </span>
-                  </span>
-                </>;
-                const rowClass = `${ACTIVITY_ROW} ${grid}`;
-                return (
-                  <li key={item.id} className="border-b border-[#dce0da] last:border-0 dark:border-white/10">
-                    {run
-                      ? <button type="button" onClick={run} className={`${rowClass} transition-colors duration-[80ms] hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]`}>{content}</button>
-                      : <div className={rowClass}>{content}</div>}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+          <ActivityDay key={day} name={dayLabel(day)} label={dayLabel(day)}>
+            {items.map((item) => {
+              const run = open(item);
+              const who = actor(item, 24);
+              const phoneArea = <>{restricted(item) ? <Lock size={13} aria-label={c.managersOnly} /> : null}{c.areas[ACTION_META[item.action].area]}</>;
+              const content = <ActivityRowCells withRecord={!live} parts={{
+                mark: (size) => size === 24 ? who.mark : actor(item, 32).mark,
+                name: who.name,
+                what: <>{what(item, true)}{channel(item) ? <span className="text-[#56635e] dark:text-white/60"> · {channel(item)}</span> : null}</>,
+                record: record(item),
+                area: <>{c.areas[ACTION_META[item.action].area]}{restricted(item) ? <Lock size={14} aria-label={c.managersOnly} /> : null}</>,
+                time: time(item.occurred_at),
+                sentence: <><span className="font-medium">{who.name}</span> {what(item)}</>,
+                phoneRecord: item.missing?.object_label ? record(item) : null,
+                meta: <>{phoneArea}{channel(item) ? <> · {channel(item)}</> : null} · <span className="tabular-nums">{time(item.occurred_at)}</span></>,
+              }} />;
+              const rowClass = `${ACTIVITY_ROW} ${live ? ACTIVITY_GRID_LIVE : ACTIVITY_GRID}`;
+              return (
+                <li key={item.id} className="border-b border-[#dce0da] last:border-0 dark:border-white/10">
+                  {run
+                    ? <button type="button" onClick={run} className={`${rowClass} transition-colors duration-[80ms] hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]`}>{content}</button>
+                    : <div className={rowClass}>{content}</div>}
+                </li>
+              );
+            })}
+          </ActivityDay>
         ))}
-      </div>
+      </ActivityHistory>
       {live ? (feed.next ? <div className="mt-4 flex flex-col items-center gap-2">
         {feed.more === "error" ? <p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{c.loadMoreFailed}</p> : null}
         {feed.more === "error" && feed.moreReference ? <ReferenceCode reference={feed.moreReference} /> : null}
@@ -281,7 +345,7 @@ export default function ActivityDraft() {
     <div data-testid="business-activity-draft">
       <PageHeading screen="activity" />
       {live && userId && chosen ? (
-        <GuideCard cardId="actividad-intro" title={t("business.guide_cards.actividad_intro.title")} points={[
+        <GuideCard cardId="actividad-intro" pending={loading} title={t("business.guide_cards.actividad_intro.title")} points={[
           { label: t("business.guide_cards.actividad_intro.follow.label"), body: t("business.guide_cards.actividad_intro.follow.body") },
           { label: t("business.guide_cards.actividad_intro.open.label"), body: t("business.guide_cards.actividad_intro.open.body") },
           { label: t("business.guide_cards.actividad_intro.deleted.label"), body: t("business.guide_cards.actividad_intro.deleted.body") },
