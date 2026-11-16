@@ -3,19 +3,19 @@
 import { useCallback, useRef } from "react";
 import type { PreviewFilters } from "./records-filter-preview-model";
 
-type FiscalSelection = Pick<PreviewFilters, "fiscal_data" | "review">;
+type ReadySelection = Pick<PreviewFilters, "ready">;
 
-export function useFiscalStageToggle(selected: FiscalSelection, apply: (selection: FiscalSelection) => void) {
-  const previous = useRef<FiscalSelection | null>(null);
+export function useFiscalStageToggle(selected: ReadySelection, apply: (selection: ReadySelection) => void) {
+  const previous = useRef<ReadySelection | null>(null);
   const clear = useCallback(() => { previous.current = null; }, []);
   const toggle = () => {
-    if (selected.fiscal_data === "missing" && selected.review.length === 0) {
-      const restore = previous.current ?? { fiscal_data: null, review: [] };
+    if (selected.ready === false) {
+      const restore = previous.current ?? { ready: null };
       clear();
       apply(restore);
     } else {
-      previous.current = { fiscal_data: selected.fiscal_data, review: [...selected.review] };
-      apply({ fiscal_data: "missing", review: [] });
+      previous.current = { ready: selected.ready };
+      apply({ ready: false });
     }
   };
   return { toggle, clear };

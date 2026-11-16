@@ -72,6 +72,15 @@
       ]
     },
     {
+      "key": "missing",
+      "label_key": "business.transactions.layout.column_reason",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
       "key": "fiscal_number",
       "label_key": "business.transactions.columns.ncf",
       "shown": false,
@@ -174,6 +183,15 @@
     {
       "key": "stage",
       "label_key": "business.transactions.layout.column_state",
+      "shown": true,
+      "families": [
+        "sale",
+        "purchase"
+      ]
+    },
+    {
+      "key": "missing",
+      "label_key": "business.transactions.layout.column_reason",
       "shown": true,
       "families": [
         "sale",

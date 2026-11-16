@@ -29,10 +29,9 @@ PATHS = (
     "business.export.form_no_aplica",
     "business.transactions.layout.overview.purchases",
     "business.transactions.layout.overview.sales",
-    "business.transactions.layout.workflow.exported",
     "business.transactions.layout.workflow.missing",
+    "business.transactions.layout.workflow.not_ready",
     "business.transactions.layout.workflow.ready",
-    "business.transactions.layout.workflow.review",
     "common.no",
     "common.yes",
 )

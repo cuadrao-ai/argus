@@ -54,7 +54,7 @@ export async function fulfillSyntheticBusinessFallback(
       presentation: report.schema_version === 2 ? report.presentation ?? recordedAnswer.presentation : recordedAnswer.presentation,
       columns: recordedAnswer.columns,
       items: [],
-      overview: { needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 },
+      overview: { not_ready: 0, needs_review: 0, needs_fiscal_data: 0, ready_for_export: 0, exported: 0 },
       effective_sort: "date_desc",
       sort_unavailable_reason: null,
       matching_count: 0,

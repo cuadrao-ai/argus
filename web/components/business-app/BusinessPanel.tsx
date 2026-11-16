@@ -15,7 +15,8 @@ import TransaccionesPanel from "./transacciones/TransaccionesPanel";
 import InvoiceWorkspaceEntry from "./invoicing/InvoiceWorkspaceEntry";
 import ActivityDraft from "./actividad/ActivityDraft";
 import { RecordsAnnotationsPreview } from "./transacciones/RecordsAnnotationsPreview";
-import { RecordEvidenceContext, RecordGlanceContext } from "./transacciones/RecordGlanceContext";
+import { RecordEvidenceContext, RecordGlanceContext, RecordReadinessContext, RecordRowsContext, type RefreshRecordRow } from "./transacciones/RecordGlanceContext";
+import { previewRecordMetadata } from "./transacciones/records-results-preview";
 import type { RecordRow } from "./transacciones/transacciones-model";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessSettingsPanel from "./BusinessSettingsPanel";
@@ -60,6 +61,10 @@ function recordKey(panel: RecordPanel): string {
     case "expense": return `expense:${panel.expenseId}`;
     case "email": return `email:${panel.emailId}`;
   }
+}
+
+function rowTarget(row: RecordRow): string | null {
+  return row.opens ? recordKey(row.opens) : null;
 }
 
 function RecordContent({ panel, preview }: { panel: RecordPanel; preview?: RecordRow }) {
@@ -122,12 +127,32 @@ const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as co
 const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", inbox: "canvas", transactions: "canvas", invoicing: "canvas", activity: "canvas", receipt: "canvas", draft: "canvas", business: "canvas", expense: "form" };
 
 export default function BusinessPanel() {
-  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus, invoicing } = useBusiness();
+  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus, invoicing, revision } = useBusiness();
   const previewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-  const scope = chosen?.space_id ?? "own";
-  const [glance, setGlance] = useState<{ scope: string; row: RecordRow } | null>(null);
-  const openGlance = (row: RecordRow) => { if (!row.opens) return; setGlance({ scope, row }); openPanel(row.opens); };
+  const scope = JSON.stringify([userId, chosen?.space_id ?? "own", chosen?.grant_id ?? null]);
+  const [glance, setGlance] = useState<{ scope: string; row: RecordRow; revision: number; refresh?: RefreshRecordRow } | null>(null);
+  const openGlance = (row: RecordRow, refresh?: RefreshRecordRow) => { if (!row.opens) return; setGlance({ scope, row, revision, refresh }); openPanel(row.opens); };
+  const refreshSelectedRow = useCallback((rows: readonly RecordRow[]) => {
+    setGlance((selected) => {
+      if (!selected || selected.scope !== scope) return selected;
+      const next = rows.find((row) => rowTarget(row) === rowTarget(selected.row));
+      if (!next) return null;
+      return next.report === selected.row.report ? selected : { ...selected, row: next };
+    });
+  }, [scope]);
   const { isBelowDesktop } = useResponsiveLayout();
+  // A phone unmounts Registros while the record is open. Ask the same report for its new answer after a save.
+  useEffect(() => {
+    if (!isBelowDesktop || previewEnabled || !glance?.refresh || glance.scope !== scope || glance.revision === revision) return;
+    const selected = glance;
+    const abort = new AbortController();
+    void glance.refresh(abort.signal).then((row) => {
+      if (!abort.signal.aborted) setGlance((current) => current === selected ? row ? { ...selected, row, revision } : null : current);
+    }, () => {
+      if (!abort.signal.aborted) setGlance((current) => current === selected ? null : current);
+    });
+    return () => abort.abort();
+  }, [glance, isBelowDesktop, previewEnabled, revision, scope]);
   const listRef = useRef<HTMLDivElement>(null);
   // The list is inert while a dossier covers it, so focus goes back to its row once the tray has gone.
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -156,11 +181,15 @@ export default function BusinessPanel() {
   const recordsPhonePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && record && recordList(record) === "transactions";
   const tray = record && (!isBelowDesktop || recordsPhonePreview) ? recordList(record) : null;
   const shown = tray ?? panel.kind;
-  const preview = previewEnabled && record?.kind === "expense" && glance?.scope === scope && glance.row.opens?.kind === "expense" && glance.row.opens.expenseId === record.expenseId ? glance.row : undefined;
+  const preview = previewEnabled && !glance?.row.report && record?.kind === "expense" && glance?.scope === scope && glance.row.opens?.kind === "expense" && glance.row.opens.expenseId === record.expenseId ? glance.row : undefined;
+  const selectedRow = record && glance?.scope === scope && rowTarget(glance.row) === recordKey(record) ? glance.row : null;
+  const readiness = selectedRow ? selectedRow.report ?? (previewEnabled ? previewRecordMetadata(selectedRow, chosen?.space_id ?? null) : null) : null;
   // Negocio bounds its own columns through SettingsLayout, so every tab shares one left edge and width.
   const column = SCREEN_COLUMN[shown] ?? "reading";
   return (
-    <RecordGlanceContext.Provider value={previewEnabled ? openGlance : null}>
+    <RecordGlanceContext.Provider value={openGlance}>
+      <RecordRowsContext.Provider value={refreshSelectedRow}>
+      <RecordReadinessContext.Provider value={readiness}>
       <RecordEvidenceContext.Provider value={(row) => { if (row.opens) { setGlance(null); openPanel(row.opens); } }}>
         <RecordsAnnotationsPreview><div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />
@@ -180,6 +209,8 @@ export default function BusinessPanel() {
       {record && tray ? <RecordTray panel={record} list={tray} listRef={listRef} returnFocusRef={returnFocusRef} preview={preview} /> : null}
         </div></RecordsAnnotationsPreview>
       </RecordEvidenceContext.Provider>
+      </RecordReadinessContext.Provider>
+      </RecordRowsContext.Provider>
     </RecordGlanceContext.Provider>
   );
 }

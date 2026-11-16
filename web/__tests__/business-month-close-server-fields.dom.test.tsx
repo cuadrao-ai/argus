@@ -231,7 +231,7 @@ describe("a non-final block with no documents left names the pending rate", () =
       dgii_forms: null,
       documents: [],
       unreviewed_movements: 0,
-      figures: [figure],
+      figures: [figure], fiscal_rows: [], not_ready_rows: [],
     };
     const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] };
     return {

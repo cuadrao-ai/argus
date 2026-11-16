@@ -13,7 +13,8 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 let cleanup = async () => {};
 afterEach(async () => { await cleanup(); document.body.innerHTML = ""; });
 
-async function badge(lng: "en" | "es-419", report: Partial<ReportRecord>) {
+async function badge(lng: "en" | "es-419", report: Partial<ReportRecord>, reason = false) {
+  await cleanup();
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -21,36 +22,36 @@ async function badge(lng: "en" | "es-419", report: Partial<ReportRecord>) {
   await i18n.init({ lng, resources: { [lng]: { translation: (await import(`@/public/locales/${lng}/common.json`)).default } }, interpolation: { escapeValue: false } });
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const RecordWorkflowBadge = (await import("@/components/business-app/transacciones/RecordWorkflowBadge")).default;
-  const row = { id: "r", report: { stage: "needs_fiscal_data", fiscal_data: "missing", ...report } } as unknown as RecordRow;
+  const Component = reason ? (await import("@/components/business-app/transacciones/RecordMissingReason")).default : RecordWorkflowBadge;
+  const row = { id: "r", report: { ready: false, missing: [], stage: "needs_fiscal_data", fiscal_data: "missing", ...report } } as unknown as RecordRow;
   const value = { chosen: { space_id: "s", capabilities: ["read"] } } as unknown as BusinessContextValue;
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
-  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><RecordWorkflowBadge row={row} /></BusinessContext.Provider></I18nextProvider>));
+  await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><Component row={row} /></BusinessContext.Provider></I18nextProvider>));
   cleanup = async () => { await act(async () => root.unmount()); };
-  return host.querySelector('[data-record-workflow="fiscal"]')!.textContent;
+  return host;
 }
 
-test("the badge names the one missing item in the reader's language", async () => {
-  assert.equal(await badge("en", { export_missing: "ncf_missing" }), "NCF is missing");
-  assert.equal(await badge("es-419", { export_missing: "ncf_missing" }), "Falta el NCF");
-  assert.equal(await badge("en", { export_missing: "rnc_invalid" }), "RNC has an error");
-});
-
-test("several missing items read as fiscal details missing", async () => {
-  assert.equal(await badge("en", { export_missing: "rnc_invalid", export_missing_several: true }), "Fiscal details missing");
-  assert.equal(await badge("es-419", { export_missing: "rnc_invalid", export_missing_several: true }), "Faltan datos fiscales");
-});
-
-test("an unmapped or absent code never shows the raw code", async () => {
-  assert.equal(await badge("en", { export_missing: "fiscal_unheard_of" }), "A detail is missing");
-  assert.equal(await badge("es-419", { export_missing: null }), "Falta un dato");
-});
-
-test("the badge says any word the server sends that the locale has", async () => {
-  for (const lng of ["es-419", "en"] as const) {
-    const words: Record<string, string> = (await import(`@/public/locales/${lng}/common.json`)).default.business.transactions.layout.workflow.missing;
-    assert.notEqual(words.itbis_over_limit, words.detail_missing);
-    assert.equal(await badge(lng, { export_missing: "itbis_over_limit" }), words.itbis_over_limit);
-    await cleanup();
+test("the chip uses ready alone, including an old exported row and an excluded ready row", async () => {
+  for (const [ready, stage, expected] of [[false, "exported", "Faltan datos"], [true, "needs_review", "Listo"]] as const) {
+    const host = await badge("es-419", { ready, stage, missing: ["rnc_invalid", "ncf_missing"] });
+    const chip = host.querySelector("[data-record-workflow]")!;
+    assert.equal(chip.textContent, expected);
+    assert.equal(chip.closest("button"), null);
+    assert.equal(chip.getAttribute("style"), "width: 120px;");
   }
-  assert.equal(await badge("es-419", { export_missing: "several" }), "Falta un dato");
+});
+
+test("Motivo shows the first reason and +N, with the full list on keyboard hover", async () => {
+  const host = await badge("es-419", { ready: false, missing: ["rnc_invalid", "ncf_missing", "expense_type_missing"] }, true);
+  const reason = host.querySelector<HTMLElement>("[data-record-missing]")!;
+  assert.equal(reason.textContent, "RNC con error+2");
+  const { act } = await import("react");
+  await act(async () => { reason.focus(); await new Promise((resolve) => setTimeout(resolve, 350)); });
+  assert.match(document.querySelector("[role=tooltip]")!.textContent!, /Falta el NCF/);
+  assert.match(document.querySelector("[role=tooltip]")!.textContent!, /Falta el tipo de gasto/);
+});
+
+test("Listo has no Motivo, and unknown reason codes use the locale fallback", async () => {
+  assert.equal((await badge("es-419", { ready: true, missing: ["ncf_missing"] }, true)).textContent, "");
+  assert.equal((await badge("en", { ready: false, missing: ["unheard_of"] }, true)).textContent, "A detail is missing");
 });

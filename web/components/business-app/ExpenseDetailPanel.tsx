@@ -9,6 +9,7 @@ import { recordGone, referenceCode } from "@/lib/failure-screen";
 import { useBusiness } from "./BusinessWorkspace";
 import type { RecordRow } from "./transacciones/transacciones-model";
 import RecordWorkflowBadge from "./transacciones/RecordWorkflowBadge";
+import { OpenRecordMissingReasons } from "./transacciones/RecordMissingReason";
 import RecordDgiiCell, { DgiiAnswer } from "./transacciones/RecordDgiiCell";
 import { RecordAttachmentPreview, RecordNotePreview } from "./transacciones/RecordsAnnotationsPreview";
 import { formatRecordActivityDate } from "./transacciones/records-row-preview";
@@ -33,7 +34,7 @@ import { resolveLanguage } from "@/lib/language-features";
  * stays beside it, so there is no way back and the tray owns focus.
  */
 export default function ExpenseDetailPanel({ expenseId, preview }: { expenseId: string; preview?: RecordRow }) {
-  return preview ? <LoadedRecordGlance row={preview} /> : <ExpenseDetailLoader expenseId={expenseId} />;
+  return <><OpenRecordMissingReasons />{preview ? <LoadedRecordGlance row={preview} /> : <ExpenseDetailLoader expenseId={expenseId} />}</>;
 }
 
 /** A local preview of facts already loaded in the selected row, with no detail request. */

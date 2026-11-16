@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createHttpMonthCloseClient,
+  createMockMonthCloseClient,
   loadCurrentMonth,
   joinCurrencyList,
   monthCloseNetDisplay,
@@ -49,6 +50,25 @@ function month(value: string, extra: Record<string, unknown> = {}) {
 }
 
 describe("month close reads the server's own fields", () => {
+  test("sample books group explicit readiness answers without blocking complete foreign-currency records", async () => {
+    const client = createMockMonthCloseClient({ now: new Date(2026, 10, 16), dollars: true });
+    const snapshot = await client.load("2026-11");
+    expect(snapshot.not_ready_rows).toEqual([
+      { family: "purchase", currency: "DOP", count: 2, by_currency: false },
+      { family: "sale", currency: "DOP", count: 1, by_currency: false },
+    ]);
+    expect(snapshot.documents.filter((row) => row.currency === "USD").map((row) => row.ready)).toEqual([true, true]);
+  });
+
+  test("not-ready rows come directly from the server and never from legacy fiscal rows", () => {
+    const rows = [{ family: "purchase", currency: "DOP", count: 7, by_currency: false }];
+    const legacy = [{ family: "purchase", currency: "DOP", count: 99, by_currency: false }];
+    expect(readMonthCloseWire(month("2026-11", { not_ready_rows: rows, missing_fiscal_rows: legacy })).not_ready_rows).toEqual(rows);
+    expect(readMonthCloseWire(month("2026-11", { missing_fiscal_rows: legacy })).not_ready_rows).toBeNull();
+    expect(readMonthCloseWire(month("2026-11", { not_ready_rows: [] })).not_ready_rows).toEqual([]);
+    expect(() => readMonthCloseWire(month("2026-11", { not_ready_rows: [{ ...rows[0], count: -1 }] }))).toThrow();
+  });
+
   test("today, earliest_month, payment_methods and each form's status come from the body", () => {
     const snapshot = readMonthCloseWire(month("2026-11"));
     expect(snapshot.today).toBe("2026-11-01");

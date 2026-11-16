@@ -53,6 +53,7 @@ import { showToast } from "./foundation/toasts";
 import { useShownRecord } from "./useShownRecord";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
+import { OpenRecordMissingReasons } from "./transacciones/RecordMissingReason";
 
 const FLAGGED_ROW: Record<ReviewFlagCode, ReviewRow> = { rnc_check_digit: "rnc", ncf_malformed: "fiscal_number", itbis_high: "itbis", amounts_mismatch: "amount" };
 
@@ -549,6 +550,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       </>}
     >
           {notice}
+          <OpenRecordMissingReasons />
           <DossierAttentionStrip items={attention} onOpen={canPrepare && mutable ? rows.open : undefined} onCompare={duplicateCompare.open} compareDisabled={busy || dirty || fiscalDirty || capturePending || captureOpen} />
           {/* The row in focus or under the pointer marks its value where the message says it verbatim. */}
           <div
