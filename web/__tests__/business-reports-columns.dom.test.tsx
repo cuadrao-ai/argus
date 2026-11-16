@@ -108,17 +108,23 @@ for (const outcome of ["ready", "failed"] as const) test(`Restore cannot save a 
 });
 
 
-test("a fresh connected table waits for server columns and offers no layout before the answer", async () => {
+test("a fresh connected table shows its skeleton and offers no layout controls before the server answer", async () => {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
   const page = await mount({ queryGate: gate, waitForAnswer: false });
   try {
-    assert.equal(document.querySelector("th[data-col]"), null);
+    await page.settle(() => document.querySelector('[data-testid="transacciones-loading"]') !== null);
+    const headers = [...document.querySelectorAll("th[data-col]")];
+    assert.ok(headers.length > 0, "the pending table keeps its header geometry");
+    assert.ok(headers.every((header) => header.closest('[data-testid="transacciones-loading"] [aria-hidden="true"]')), "only decorative skeleton headers appear before the server answer");
     assert.equal(document.querySelector('[data-testid="transacciones-view-options"]'), null);
     assert.equal(document.querySelector("[data-column-setting]"), null);
-    await page.settle(() => document.querySelector('[data-testid="fullscreen-loading"]') !== null);
+    assert.equal(document.querySelector('[data-testid="records-count"]') !== null, false);
+    assert.equal(document.querySelector('[data-testid="fullscreen-loading"]') !== null, false);
   } finally { await act(async () => release()); }
-  await page.settle(() => document.querySelector('th[data-col="gross_amount"]') !== null);
+  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
+  assert.equal(document.querySelector('[data-testid="transacciones-loading"]') !== null, false);
+  assert.deepEqual(renderedColumnKeys(), recordedReportAnswer.presentation.order.filter((key) => !recordedReportAnswer.presentation.hidden.includes(key)));
 });
 
 for (const family of ["purchase", "sale"] as const) {
