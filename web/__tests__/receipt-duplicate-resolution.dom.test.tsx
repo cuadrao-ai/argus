@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { BusinessDossier } from "@/lib/business-dossier";
+import type { BusinessDossier, BusinessDuplicateDecision } from "@/lib/business-dossier";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
@@ -11,7 +11,7 @@ beforeAll(() => {
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 type Mode = "success" | "error" | "stale" | "hold";
-async function mount(mode: Mode = "success", options: { readOnly?: boolean; closed?: boolean; noCandidates?: boolean; externalBusy?: boolean } = {}) {
+async function mount(mode: Mode = "success", options: { readOnly?: boolean; closed?: boolean; noCandidates?: boolean; externalBusy?: boolean; decisions?: BusinessDuplicateDecision[] } = {}) {
   const { act, useState } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -29,7 +29,7 @@ async function mount(mode: Mode = "success", options: { readOnly?: boolean; clos
     capabilities: options.readOnly ? ["read"] : ["read", "prepare"],
     blockers: [{ code: "possible_duplicate", field: null }, { code: "fact_required", field: "funding" }],
     approval_available: false,
-    duplicate_candidates: options.noCandidates ? [] : [{ draft_id: "draft-original", version: 3 }],
+    duplicate_candidates: options.noCandidates ? [] : [{ draft_id: "draft-original", version: 3, decisions: options.decisions ?? (options.readOnly ? [] : ["different_purchase"]) }],
   };
   const next: BusinessDossier = { ...initial, version: 8, blockers: [{ code: "fact_required", field: "funding" }], duplicate_candidates: [] };
   const i18n = i18next.createInstance();
@@ -131,3 +131,34 @@ for (const options of [{ readOnly: true }, { closed: true }, { noCandidates: tru
     } finally { await ui.cleanup(); }
   });
 }
+
+test("a candidate whose decisions leave out different_purchase shows no Es otra compra, only the original link", async () => {
+  const ui = await mount("success", { decisions: ["same_purchase"] });
+  try {
+    assert.ok(ui.host.querySelector('[data-testid="receipt-duplicate-resolution"]'));
+    assert.equal(ui.decide(), undefined);
+    assert.equal(ui.buttons().length, 1);
+    await ui.act(async () => { ui.buttons()[0].click(); });
+    assert.deepEqual(ui.opened, ["draft-original"]);
+    assert.equal(ui.requests.length, 0);
+  } finally { await ui.cleanup(); }
+});
+
+test("the duplicate transport sends the decision it was given", async () => {
+  const { resolveBusinessDuplicate } = await import("@/lib/business-api");
+  const oldFetch = globalThis.fetch;
+  const bodies: unknown[] = [];
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    return new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    for (const decision of ["same_purchase", "different_purchase"] as const) {
+      await resolveBusinessDuplicate("draft-new", 7, "draft-original", 3, decision, `key-${decision}`).catch(() => undefined);
+    }
+    assert.deepEqual(bodies, [
+      { version: 7, other_draft_id: "draft-original", other_version: 3, decision: "same_purchase" },
+      { version: 7, other_draft_id: "draft-original", other_version: 3, decision: "different_purchase" },
+    ]);
+  } finally { globalThis.fetch = oldFetch; }
+});

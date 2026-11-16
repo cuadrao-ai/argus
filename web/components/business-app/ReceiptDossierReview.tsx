@@ -85,9 +85,8 @@ export function ReceiptDuplicateResolution({ dossier, busy = false, onChanged, o
   const request = useRef<{ draftId: string; version: number; otherId: string; otherVersion: number; key: string } | null>(null);
   const candidates = dossier.duplicate_candidates ?? [];
   if (!candidates.length || dossier.review_state !== "open") return null;
-  const canPrepare = dossier.capabilities.includes("prepare");
   const resolve = async (candidate: (typeof candidates)[number]) => {
-    if (inFlight.current || busy || !canPrepare) return;
+    if (inFlight.current || busy || !candidate.decisions?.includes("different_purchase")) return;
     inFlight.current = true;
     setWorking(true);
     onBusyChange(true);
@@ -98,7 +97,7 @@ export function ReceiptDuplicateResolution({ dossier, busy = false, onChanged, o
       : { draftId: dossier.draft_id, version: dossier.version, otherId: candidate.draft_id, otherVersion: candidate.version, key: randomId() };
     request.current = command;
     try {
-      const next = await resolveBusinessDuplicate(dossier.draft_id, command.version, command.otherId, command.otherVersion, command.key);
+      const next = await resolveBusinessDuplicate(dossier.draft_id, command.version, command.otherId, command.otherVersion, "different_purchase", command.key);
       request.current = null;
       onChanged(next);
     } catch (error) {
@@ -116,7 +115,7 @@ export function ReceiptDuplicateResolution({ dossier, busy = false, onChanged, o
     <p className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.receipts.duplicate_resolution.explanation")}</p>
     {candidates.map((candidate) => <div key={candidate.draft_id} className="mt-3 flex flex-wrap gap-2">
       <button type="button" className={secondaryButtonClass} disabled={busy || working} onClick={() => onOpenOriginal(candidate.draft_id)}>{t("business.review.see_original")}</button>
-      {canPrepare ? <button type="button" className={secondaryButtonClass} disabled={busy || working} onClick={() => void resolve(candidate)}>
+      {candidate.decisions?.includes("different_purchase") ? <button type="button" className={secondaryButtonClass} disabled={busy || working} onClick={() => void resolve(candidate)}>
         {working ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
         {t("business.receipts.duplicate_resolution.button")}
       </button> : null}

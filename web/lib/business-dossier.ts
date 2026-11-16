@@ -6,6 +6,8 @@ export type BusinessFact<T> =
   | { state: "unknown"; value: null; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | null; verified: false; source_ids: string[] }
   | { state: "owner_does_not_know"; value: null; origin: "owner_stated" | "member_set"; verified: false; source_ids: string[] };
 
+/** What a reader may decide for a possible repeat. The server lists the allowed ones on each candidate. */
+export type BusinessDuplicateDecision = "same_purchase" | "different_purchase";
 export type BusinessFunding = { kind: "business_account"; account_id: string } | { kind: "owner_funds" };
 export type BusinessFacts = {
   kind: BusinessFact<"expense" | "income" | "transfer" | "refund" | "owner_contribution" | "owner_withdrawal" | "credit_purchase" | "payable_payment" | "loan_received" | "loan_payment">;
@@ -171,7 +173,8 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   /** Computed on every read, after approval too. Absent from servers older than #1590. */
   review_flags?: ReviewFlag[];
   approval_available: boolean;
-  duplicate_candidates?: { draft_id: string; version: number }[];
+  /** Each candidate lists what this reader may decide for the pair now; the web offers only those. Decisions are absent from servers older than #1676, which means none. */
+  duplicate_candidates?: { draft_id: string; version: number; decisions?: BusinessDuplicateDecision[] }[];
   /** The approve action this draft takes, by its kind; null while approval is not available. Absent from servers older than #1353. */
   approval_action?: BusinessApprovalAction | null;
   /** The server's sentence for this draft. Absent and null mean there is none. The web shows the words as sent. */

@@ -32,7 +32,7 @@ try {
       return route.abort();
     });
     await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
-    let dossier: BusinessDossier = { ...base, draft_id: "synthetic-new", version: 7, sources: [], capabilities: state === "readonly" ? ["read"] : ["read", "prepare", "approve"], document_type_editable: state !== "readonly", approval_available: false, approval_action: null, blockers: [{ code: "possible_duplicate", field: null }, { code: "fact_required", field: "funding" }], duplicate_candidates: [{ draft_id: "synthetic-original", version: 3 }], facts: { ...base.facts, funding: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } } };
+    let dossier: BusinessDossier = { ...base, draft_id: "synthetic-new", version: 7, sources: [], capabilities: state === "readonly" ? ["read"] : ["read", "prepare", "approve"], document_type_editable: state !== "readonly", approval_available: false, approval_action: null, blockers: [{ code: "possible_duplicate", field: null }, { code: "fact_required", field: "funding" }], duplicate_candidates: [{ draft_id: "synthetic-original", version: 3, decisions: state === "readonly" ? [] : ["different_purchase"] }], facts: { ...base.facts, funding: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } } };
     const writes: { body: unknown; key: string | undefined }[] = [];
     let release = () => {};
     const held = new Promise<void>((resolve) => { release = resolve; });
