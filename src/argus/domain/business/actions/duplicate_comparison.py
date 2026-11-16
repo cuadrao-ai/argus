@@ -33,31 +33,6 @@ _VALUES: tuple[ComparedField, ...] = (
 )
 
 
-def fiscal_repeats(
-    tx: ActionTransaction, draft_ids: Sequence[UUID]
-) -> dict[UUID, tuple[UUID, ...]]:
-    """For each draft, the other purchases, open or recorded, that share its
-    supplier RNC and comprobante, read from the columns the database's own
-    index is built on."""
-
-    rows = tx.rows(
-        "select distinct me.id, other.id as other_id from public.financial_import_events me"
-        " join public.financial_import_events other on other.owner_space_id=me.owner_space_id"
-        " and other.business_rnc=me.business_rnc"
-        " and other.business_fiscal_number=me.business_fiscal_number"
-        " where me.owner_space_id=%s and me.id=any(%s) and other.id<>me.id"
-        " and other.state in ('open','accepting','accepted')"
-        " and me.business_kind is distinct from 'income'"
-        " and other.business_kind is distinct from 'income'"
-        " order by me.id, other.id",
-        (tx.context.actor.space_id, list(draft_ids)),
-    )
-    found: dict[UUID, tuple[UUID, ...]] = {}
-    for row in rows:
-        found[row["id"]] = (*found.get(row["id"], ()), row["other_id"])
-    return found
-
-
 def _known(fact: object) -> Any:
     return fact.value if isinstance(fact, Known) else None
 

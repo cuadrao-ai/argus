@@ -4453,6 +4453,7 @@
           "different_purchase": "Same merchant, date, total and currency. The NCF is different: these are probably two different purchases.",
           "same_purchase": "It is the same document."
         },
+        "refused_same_comprobante": "[PENDIENTE COPY] Same RNC and NCF: this is one comprobante. Keep one.",
         "same": "Same",
         "table": {
           "caption": "[PENDIENTE COPY] Main data of both documents",

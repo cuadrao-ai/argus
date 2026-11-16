@@ -134,7 +134,9 @@ export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBa
       }
     } catch (error) {
       const code = error !== null && typeof error === "object" && "code" in error ? error.code : null;
-      setProblem(code === "stale_version" || code === "duplicate_evidence_changed" ? t("business.dossier.stale") : t("business.dossier.refused"));
+      setProblem(code === "stale_version" || code === "duplicate_evidence_changed" ? t("business.dossier.stale")
+        : code === "duplicate_same_comprobante" ? t(`${KEYS}.refused_same_comprobante`)
+        : t("business.dossier.refused"));
     } finally {
       inFlight.current = false;
       setWorking(null);

@@ -1433,8 +1433,9 @@ does it.
 6. **Before Listos: same comprobante.** A purchase with the same supplier RNC
    and NCF as another open or approved purchase stays out of Listos. It shows in
    Necesitan atención as "Parece repetido". This layer does not close Aprobar.
-   Only a `possible_duplicate` mark does. Owner: `_repeated` in
-   `src/argus/domain/business/actions/listos.py`.
+   Only a `possible_duplicate` mark does. Owner: `same_comprobante` in
+   `src/argus/domain/business/actions/fiscal.py`, read through
+   `repeated_purchases`.
 7. **At approval: same comprobante already approved.** The server refuses a
    purchase whose supplier RNC and NCF or e-CF match an approved purchase. A
    database unique index backs the check. The dossier says "Ya registraste este

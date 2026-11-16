@@ -4550,6 +4550,7 @@
           "different_purchase": "Mismo comercio, fecha, total y moneda. El NCF es distinto: probablemente son dos compras distintas.",
           "same_purchase": "Es el mismo documento."
         },
+        "refused_same_comprobante": "[PENDIENTE COPY] Mismo RNC y NCF: es un solo comprobante. Quédate con uno.",
         "same": "Igual",
         "table": {
           "caption": "[PENDIENTE COPY] Datos principales de los dos documentos",

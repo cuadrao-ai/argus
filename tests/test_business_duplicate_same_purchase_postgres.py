@@ -285,7 +285,7 @@ def test_a_shared_rnc_and_ncf_is_a_pair_the_owner_can_delete(actions):
         ),
         str(uuid4()),
     )
-    assert kept.code == "duplicate_pair_not_available", kept
+    assert kept.code == "duplicate_same_comprobante", kept
     decided = service.resolve_duplicate(
         context, second, _same_purchase(service, context, second, first), str(uuid4())
     )
@@ -323,15 +323,6 @@ def test_the_route_answers_the_deleted_dossier_with_its_reason(actions):
     assert body["duplicate_candidates"] == []
 
 
-def _total(service, draft_id, amount: str) -> None:
-    with service.authority.pool.connection() as db:
-        db.execute(
-            "update public.financial_import_events set resolution ="
-            " jsonb_set(resolution, '{business,facts,amount,value}', %s) where id=%s",
-            (Jsonb(amount), str(draft_id)),
-        )
-
-
 def _repeated(service, context, *draft_ids):
     """Whether the Bandeja rule still calls each draft a repeated comprobante."""
 
@@ -345,13 +336,9 @@ def _repeated(service, context, *draft_ids):
 
 
 @pytest.mark.owner_acts
-@pytest.mark.parametrize("shared_ncf", [False, True])
-def test_a_pair_settled_as_different_purchases_leaves_the_review(actions, shared_ncf):
+def test_a_pair_settled_as_different_purchases_leaves_the_review(actions):
     service, context, _ = actions
     first, second = _pair(actions)
-    if shared_ncf:
-        for draft_id in (first, second):
-            _fiscal_identity(service, draft_id, "131246753", "B0100000077")
     [candidate] = service.dossier(context, second).duplicate_candidates
     assert candidate.decisions == ("different_purchase", "same_purchase")
     kept = service.resolve_duplicate(
@@ -383,12 +370,3 @@ def test_a_pair_settled_as_different_purchases_leaves_the_review(actions, shared
         context, second, _same_purchase(service, context, second, first), str(uuid4())
     )
     assert refused.code == "duplicate_pair_not_available", refused
-    if shared_ncf:
-        _total(service, first, "300.00")
-        [back] = service.dossier(context, second).duplicate_candidates
-        assert (back.draft_id, back.basis, back.decisions) == (
-            first,
-            "fiscal_number",
-            ("same_purchase",),
-        )
-        assert _repeated(service, context, first, second) == {first: True, second: True}

@@ -8669,15 +8669,16 @@ strict positive integers. A live human with `prepare` may decide
 Business. The target must be open; the comparison may be open or accepted and
 is read-only. A stale version answers 409; a foreign or personal ID answers
 404 without disclosing its state. A bank or source-change warning cannot be
-cleared through this action.
+cleared through this action. Two purchases with one supplier RNC and fiscal
+number are one comprobante, which approval accepts once, so
+`different_purchase` on such a pair answers 422 `duplicate_same_comprobante`.
 
 `same_purchase` deletes the target document as a duplicate. It is the
 owner's alone and follows every rule of
 `POST /business/drafts/{draft_id}/delete`: it needs `approve`, an open
 document that is not being read and shares no attachment, and it answers the
 same refusals. The pair must be a pending receipt-fact pair or share one
-supplier RNC and fiscal number and not be settled as different purchases;
-any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
+supplier RNC and fiscal number; any other pair answers 422 `duplicate_pair_not_available`. The document goes to Eliminados with
 `deleted.reason = "duplicate"`, restorable until the purge. The other
 document is not changed. It writes no revision. A repeat with the same key
 replays the result; a repeat with a new key on a document already deleted for
@@ -8692,13 +8693,15 @@ candidate is `{draft_id, version, basis, decisions, comparison}`:
   same merchant, date, amount and currency) or `fiscal_number` (both purchases
   carry one supplier RNC and fiscal number). `fiscal_number` wins when both
   hold. A `fiscal_number` pair needs no `possible_duplicate` blocker.
-  A pair settled with `different_purchase` is no candidate on either side,
-  whatever its basis, until either document's read facts, live evidence or
-  attached files change. Bandeja's repeated-comprobante reason follows the
-  same rule.
+  A `read_facts` pair settled with `different_purchase` is no candidate on
+  either side until either document's read facts, live evidence or attached
+  files change. A `fiscal_number` pair is one comprobante: it stays a
+  candidate on both sides, and Bandeja's repeated-comprobante reason stays,
+  whatever answer a document stored before. Approval reads the same rule.
 - `decisions` lists what this reader may decide now: `different_purchase` for
-  a pending `read_facts` pair with `prepare`, and `same_purchase` when
-  `delete_available` is true. A client offers no other decision.
+  a pending `read_facts` pair with `prepare`, never for a `fiscal_number`
+  pair, and `same_purchase` when `delete_available` is true. A client offers
+  no other decision.
 - `comparison` is `{document, other, differences, recommendation}`.
   `document` is the reviewed draft and `other` the candidate, each
   `{draft_id, counterparty, occurred_on, amount, currency, fiscal_number, file: {connection_id, filename, media_type, channel, received_at} | null, received_at, approved_at, state}`

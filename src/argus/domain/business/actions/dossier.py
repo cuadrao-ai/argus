@@ -12,7 +12,11 @@ from argus.domain.business.actions.duplicate_comparison import (
     duplicate_revisions,
 )
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.fiscal import RememberedField, last_choice
+from argus.domain.business.actions.fiscal import (
+    RememberedField,
+    last_choice,
+    repeated_purchases,
+)
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.actions.reopen import linked_reason
@@ -177,10 +181,10 @@ def duplicate_candidates(
 ) -> tuple[DuplicateCandidate, ...]:
     """The documents this open draft may repeat, each with why and what the
     reader may decide. ``pending`` are the read-facts warnings still open; a
-    shared RNC and fiscal number is the stronger reason when both hold. A pair
-    settled as different purchases is neither, until its evidence changes."""
-
-    from argus.domain.business.actions.duplicate_resolution import fiscal_pairs
+    read-facts pair settled as different purchases is none until its evidence
+    changes. A shared RNC and fiscal number is one comprobante: it is the
+    stronger reason when both hold, no answer settles it, and keeping one is
+    the only decision."""
 
     if event.state != "open":
         return ()
@@ -190,7 +194,7 @@ def duplicate_candidates(
     )
     read = pending if warned else ()
     draft_id = UUID(event.id)
-    fiscal = tuple(str(i) for i in fiscal_pairs(tx, [event]).get(draft_id, ()))
+    fiscal = tuple(str(i) for i in repeated_purchases(tx, [event]).get(draft_id, ()))
     candidates = []
     for other_id in dict.fromkeys((*read, *fiscal)):
         try:
@@ -200,7 +204,7 @@ def duplicate_candidates(
         if other.state not in ("open", "accepted") or "business" not in other.resolution:
             continue
         decisions: tuple[DuplicateDecision, ...] = ()
-        if other_id in read and can_prepare:
+        if other_id in read and other_id not in fiscal and can_prepare:
             decisions += ("different_purchase",)
         if can_delete:
             decisions += ("same_purchase",)

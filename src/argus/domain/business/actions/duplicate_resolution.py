@@ -3,13 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from argus.domain.business.actions import document_deletion, mutations, plans, sources
-from argus.domain.business.actions.duplicate_comparison import fiscal_repeats
+from argus.domain.business.actions.fiscal import repeated_purchases
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
 from argus.domain.business.contracts.actions import (
     ActionOutcome,
@@ -49,35 +49,6 @@ def attachment_signature(tx: ActionTransaction, draft_id: str) -> str:
     return hashlib.sha256(
         json.dumps(evidence, sort_keys=True, default=str, separators=(",", ":")).encode()
     ).hexdigest()
-
-
-def fiscal_pairs(
-    tx: ActionTransaction, events: Iterable[ImportEvent]
-) -> dict[UUID, tuple[UUID, ...]]:
-    """For each draft, the purchases that share its supplier RNC and
-    comprobante, less those a person settled as a different purchase while
-    both documents still carry the evidence that decision saw."""
-
-    drafts = {UUID(event.id): event for event in events}
-
-    def source_signature(event_id: str) -> str:
-        return attachment_signature(tx, event_id)
-
-    found: dict[UUID, tuple[UUID, ...]] = {}
-    for draft_id, others in fiscal_repeats(tx, list(drafts)).items():
-        pending = []
-        for other_id in others:
-            try:
-                other = tx.imports.event(str(other_id))
-            except EventNotFound:
-                continue
-            if not different_purchase(
-                tx.imports, drafts[draft_id], other, source_signature
-            ):
-                pending.append(other_id)
-        if pending:
-            found[draft_id] = tuple(pending)
-    return found
 
 
 def _other_at(tx: ActionTransaction, request: ResolveDuplicate) -> ImportEvent:
@@ -136,7 +107,7 @@ def _delete_as_duplicate(
         tx, ExistingDraft(draft_id=draft_id, version=request.version)
     )
     other = _other_at(tx, request)
-    if UUID(other.id) not in fiscal_pairs(tx, [event]).get(
+    if UUID(other.id) not in repeated_purchases(tx, [event]).get(
         draft_id, ()
     ) and not _read_pair(tx, event, other, source_signature):
         raise ActionError("invalid_input", "duplicate_pair_not_available")
@@ -202,6 +173,9 @@ def _keep_as_different(
         tx, ExistingDraft(draft_id=draft_id, version=request.version)
     )
     other = _other_at(tx, request)
+    if UUID(other.id) in repeated_purchases(tx, [event]).get(draft_id, ()):
+        # One supplier RNC and comprobante is one purchase: only one approves.
+        raise ActionError("invalid_input", "duplicate_same_comprobante")
     if not _read_pair(tx, event, other, source_signature):
         raise ActionError("invalid_input", "duplicate_pair_not_available")
     resolution = dict(event.resolution)
