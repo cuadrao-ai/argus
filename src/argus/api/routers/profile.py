@@ -8,6 +8,7 @@ from psycopg import connect
 from pydantic import ValidationError
 
 from argus.api import state as api_state
+from argus.api.business_guide import dismissed_guide_cards
 from argus.api.dependencies import (
     current_user,
     dev_memory_fallback_enabled,
@@ -27,7 +28,13 @@ from argus.api.profile_images import (
     require_profile_images,
     storage_problem,
 )
-from argus.api.schemas import AppleIdentity, ProfilePatch, User, UserResponse
+from argus.api.schemas import (
+    AppleIdentity,
+    GuideCardId,
+    ProfilePatch,
+    User,
+    UserResponse,
+)
 from argus.domain.apple_sign_in.identity import LinkedAppleIdentity, linked_apple_identity
 from argus.domain.profile_images import (
     InvalidImage,
@@ -45,7 +52,10 @@ router = APIRouter(prefix="/api/v1", tags=["profile"])
 
 
 def _user_response(
-    user: User, context: AccountContext, apple_identity: LinkedAppleIdentity | None = None
+    user: User,
+    context: AccountContext,
+    apple_identity: LinkedAppleIdentity | None = None,
+    guides: list[GuideCardId] | None = None,
 ) -> UserResponse:
     return UserResponse(
         user=user,
@@ -67,6 +77,7 @@ def _user_response(
         ),
         capabilities=context.capabilities,
         public_account_access_enabled=public_account_access_enabled(),
+        dismissed_guide_cards=guides,
     )
 
 
@@ -107,11 +118,12 @@ def get_me(
 def _me(request: Request, user: User) -> UserResponse:
     context = account_context(request)
     identity = _apple_identity(request, user.id) if context.kind == "registered" else None
+    guides = dismissed_guide_cards(request, user.id)
     if api_state.supabase_gateway is not None:
         try:
             profile = api_state.supabase_gateway.get_user(user_id=user.id)
             if profile:
-                return _user_response(profile, context, identity)
+                return _user_response(profile, context, identity, guides)
         except Exception as exc:
             if not dev_memory_fallback_enabled():
                 raise
@@ -120,7 +132,7 @@ def _me(request: Request, user: User) -> UserResponse:
                 error=str(exc),
                 user_id=user.id,
             )
-    return _user_response(user, context, identity)
+    return _user_response(user, context, identity, guides)
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -191,7 +203,9 @@ def patch_me(
         user_id=user.id,
         fields=updated_fields,
     )
-    return _user_response(updated, context, identity)
+    return _user_response(
+        updated, context, identity, dismissed_guide_cards(request, user.id)
+    )
 
 
 _PHOTO_RESPONSES = {

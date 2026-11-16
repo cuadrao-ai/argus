@@ -281,7 +281,7 @@ export default function ActivityDraft() {
     <div data-testid="business-activity-draft">
       <PageHeading screen="activity" />
       {live && userId && chosen ? (
-        <GuideCard cardId="actividad-intro" userId={userId} title={t("business.guide_cards.actividad_intro.title")} points={[
+        <GuideCard cardId="actividad-intro" title={t("business.guide_cards.actividad_intro.title")} points={[
           { label: t("business.guide_cards.actividad_intro.follow.label"), body: t("business.guide_cards.actividad_intro.follow.body") },
           { label: t("business.guide_cards.actividad_intro.open.label"), body: t("business.guide_cards.actividad_intro.open.body") },
           { label: t("business.guide_cards.actividad_intro.deleted.label"), body: t("business.guide_cards.actividad_intro.deleted.body") },

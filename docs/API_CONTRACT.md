@@ -2714,7 +2714,8 @@ omitting it denies permanent accounts rather than allowing them.
   gated durable mutations fail with `403 account_conversion_required`;
   owner-scoped reads and the guest Start over route remain available.
 - `GET /api/v1/me` returns the verified account kind, guest expiry and limits,
-  and server capabilities with the ordinary profile.
+  and server capabilities with the ordinary profile. It also returns the
+  person's dismissed Business guide cards (see Business guide cards).
 
 The response includes `user`, `account_kind`, a nullable `guest` summary with
 expiry plus limits `1/2/5`, typed `capabilities`, and the
@@ -8345,16 +8346,20 @@ documents older than 7 days in batches of 25, at most 500 per run.
 
 ### Business guide cards
 
-`GET /api/v1/business/guide-cards/{card_id}` returns `{dismissed: boolean}`
-for the signed-in person. `POST /api/v1/business/guide-cards/{card_id}/dismiss`
-takes no body. After a dismissal commits, it returns `{dismissed: true}`.
-Repeating the request keeps the first dismissal time.
+`GET /api/v1/me` returns `dismissed_guide_cards`: the IDs of the guide cards
+the signed-in person dismissed, in card ID order. It is `null` when the server
+could not read them; `/me` still answers, and the web then shows no guide.
+`PATCH /api/v1/me` and `PUT /api/v1/me/photo` return the same field; other
+responses with this shape return `null`. There is no per-card read.
+`POST /api/v1/business/guide-cards/{card_id}/dismiss` takes no body. After a
+dismissal commits, it returns `{dismissed: true}`. Repeating the request keeps
+the first dismissal time.
 
 The card IDs are `actividad-intro`, `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
 follows the registered person across Businesses and sessions. The server takes
-the person ID from the session and ignores `X-Business-Grant` for these routes.
-Both responses use `Cache-Control: no-store`. If storage is unavailable, both
-routes return 503 `business_guide_unavailable` with a request reference.
+the person ID from the session and ignores `X-Business-Grant` for the dismiss
+route. Its response uses `Cache-Control: no-store`. If storage is unavailable,
+it returns 503 `business_guide_unavailable` with a request reference.
 
 ### Business receipt automatic reading and attention
 

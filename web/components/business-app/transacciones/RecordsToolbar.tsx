@@ -20,6 +20,8 @@ import RecordsFiltersPreview, { type ReportFilterCatalogues } from "./RecordsFil
 import { recordsCurrencySchema, type ReportPeriod } from "@/lib/business-reports-api";
 import type { PreviewFilters } from "./records-filter-preview-model";
 import { RecordsViewsPreview, sameRecipe, type RecordsViews, type SavedRecordsView, type RecordsViewSelection } from "./RecordsViewsPreview";
+import { RecordsLoadingBar } from "./RecordsLoadingPreview";
+import loading from "./records-loading-preview.module.css";
 
 export type RecordsFilter = { query: string; kind: RecordKind };
 export const EMPTY_RECORDS_FILTER: RecordsFilter = { query: "", kind: "gasto" };
@@ -77,6 +79,19 @@ function PeriodChoices({ period, setPeriod, close }: { period: Period; setPeriod
       <button type="button" disabled={!next} className={`${primaryButtonClass} mt-3 w-full`} onClick={() => { if (next) { setPeriod(next); close(); } }}>{t("business.period.apply")}</button>
     </div> : null}
   </>;
+}
+
+/** The connected toolbar before Registros can be asked: each control keeps its slot and size, with no value in it. */
+export function RecordsToolbarPending({ options }: { options: ReactNode }) {
+  const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
+  const control = (size: string) => <RecordsLoadingBar className={`${loading.control} ${size} !rounded-full`} />;
+  return <div className={styles.toolbarContainer} aria-hidden="true"><div data-testid="records-toolbar" className={`${styles.toolbar} mb-4 flex flex-wrap items-center gap-2`}>
+    {isBelowDesktop ? null : control(loading.views)}
+    {!phone && barSearchAvailable ? null : <div className={styles.toolbarSearch} data-phone={phone}>{control(loading.search)}</div>}
+    {control(loading.period)}{control(loading.currency)}{control(loading.filters)}
+    <div className={styles.toolbarOptions}>{options}</div>
+    <div className={styles.chips} />
+  </div></div>;
 }
 
 export type ConnectedRecordsToolbar = { reportPeriod: ReportPeriod; catalogues?: ReportFilterCatalogues; applyFilters: (filters: PreviewFilters) => void; views: RecordsViews };
