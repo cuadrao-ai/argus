@@ -41,11 +41,10 @@ export async function fulfillSyntheticBusinessFallback(
     } satisfies RegistryAnswer });
   }
 
-  const guide = path?.match(/^guide-cards\/([^/]+)(\/dismiss)?$/);
+  const guide = path?.match(/^guide-cards\/([^/]+)\/dismiss$/);
   if (guide && BUSINESS_GUIDE_CARD_IDS.some(id => id === guide[1])) {
-    const verb = guide[2] ? "POST" : "GET";
-    if (method !== verb || url.search) throw new Error(`Synthetic ${path} requires ${verb} without query parameters`);
-    return route.fulfill({ json: { dismissed: verb === "POST" } });
+    if (method !== "POST" || url.search) throw new Error(`Synthetic ${path} requires POST without query parameters`);
+    return route.fulfill({ json: { dismissed: true } });
   }
   if (path === "reports/query") {
     if (method !== "POST" || url.search) throw new Error("Synthetic reports/query requires POST without query parameters");

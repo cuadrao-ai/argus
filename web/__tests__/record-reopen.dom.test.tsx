@@ -51,6 +51,7 @@ async function mount({ serve = () => undefined, reopen }: Options = {}) {
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
   const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
+  const { ShellAccount } = await import("./support/shell-account");
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
   const i18n = i18next.createInstance();
@@ -91,7 +92,7 @@ async function mount({ serve = () => undefined, reopen }: Options = {}) {
       <I18nextProvider i18n={i18n}>
         <BusinessConsentTestProvider accepted>
           <BusinessWorkspaceProvider source={source as never}>
-            <Probe />
+            <ShellAccount member="synthetic-person" dismissed={["registros-intro"]}><Probe /></ShellAccount>
           </BusinessWorkspaceProvider>
         </BusinessConsentTestProvider>
       </I18nextProvider>,

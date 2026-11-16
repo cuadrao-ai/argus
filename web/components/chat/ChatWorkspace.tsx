@@ -5,6 +5,7 @@ import type { WorkspaceKeyboardShortcut } from "@/lib/keyboard-shortcuts";
 import type { LucideIcon } from "lucide-react";
 import type { ConversationSurface } from "@/lib/conversation-surface-api";
 import type { StorageKey } from "@/lib/browser-storage";
+import type { BusinessGuideCardId } from "@/lib/business-guide-api";
 import type { WorkspaceStarterEntry } from "./StarterActions";
 
 /**
@@ -26,6 +27,11 @@ export type ChatShellBridge = Readonly<{
   greetingName: string | null;
   /** Signed-in member identity, from the shell account response. */
   memberEmail?: string | null;
+  memberId?: string | null;
+  /** Guide cards the member dismissed, from the shell account response; null when the server could not say. */
+  dismissedGuideCards?: readonly BusinessGuideCardId[] | null;
+  /** Saves a dismissal. The shell's account drops the guide at once and takes the dismissal back if the save fails. */
+  dismissGuideCard?: (cardId: BusinessGuideCardId) => Promise<void>;
   /** Opens the shared search, optionally starting from a typed query. Absent when this shell has no search. */
   openSearch?: (query?: string) => void;
   openPersonalInvitation?: (trigger: HTMLElement) => void;
@@ -184,6 +190,14 @@ export type ChatWorkspace = Readonly<{
 }>;
 
 const ChatWorkspaceContext = createContext<ChatWorkspace | null>(null);
+const PanelShellContext = createContext<ChatShellBridge | null>(null);
+
+/** A workspace provides the bridge its `panel(bridge)` was rendered with, so a screen reads it on its first render. */
+export const PanelShellProvider = PanelShellContext.Provider;
+
+export function usePanelShell(): ChatShellBridge | null {
+  return useContext(PanelShellContext);
+}
 
 export const ChatWorkspaceProvider = ChatWorkspaceContext.Provider;
 
