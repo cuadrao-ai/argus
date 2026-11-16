@@ -13,13 +13,15 @@ import ReceiptImageZoom from "./ReceiptImageZoom";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { resolveLanguage } from "@/lib/language-features";
 
-export default function ReceiptSourcePreview({ detail, initialExpanded = false, showArrivalContext = true }: { initialExpanded?: boolean; showArrivalContext?: boolean; detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
+/** A document compared beside another carries only its file, so where and when it arrived are optional and their line shows only with both. */
+export default function ReceiptSourcePreview({ detail, initialExpanded = false, showArrivalContext = true }: { initialExpanded?: boolean; showArrivalContext?: boolean; detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "email_delivery_ids"> & Partial<Pick<ReceiptSummary, "received_at" | "channel">> }) {
   const { t, i18n } = useTranslation();
   const { source, openPanel } = useBusiness();
   const channelLabel = useChannelLabel();
   const deliveries = detail.email_delivery_ids?.length ?? 0;
   // The API lists deliveries earliest first; the first one is where the file first arrived by email.
   const firstEmail = detail.email_delivery_ids?.[0];
+  const arrival = showArrivalContext && detail.channel && detail.received_at ? { channel: detail.channel, receivedAt: detail.received_at } : null;
   const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; url: string; blob: Blob; sourceId: string } | { kind: "failed" }>({ kind: "loading" });
   const [expanded, setExpanded] = useState(initialExpanded);
   const [retry, setRetry] = useState(0);
@@ -69,12 +71,12 @@ export default function ReceiptSourcePreview({ detail, initialExpanded = false, 
           <span className="min-w-0 break-all">{detail.filename ?? t("business.review.source", "Original receipt")}</span>
           {current.kind === "ready" ? <a href={current.url} download={detail.filename ?? "receipt"} className={`${quietButtonClass} shrink-0 px-3`}><Download className="h-4 w-4" aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
         </div>
-        {showArrivalContext || detail.channel === "email" && firstEmail ? <p data-testid="receipt-source-channel">
-          {showArrivalContext ? detail.channel === "email" ? t("business.dossier.arrived_by_email", "Arrived by email") : channelLabel(detail.channel) : null}
-          {detail.channel === "email" && firstEmail ? <>{showArrivalContext ? " · " : null}<button type="button" data-testid="receipt-see-email" className={quietButtonClass} onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{t("business.dossier.see_email", "See email")}</button></> : null}
+        {arrival || detail.channel === "email" && firstEmail ? <p data-testid="receipt-source-channel">
+          {arrival ? arrival.channel === "email" ? t("business.dossier.arrived_by_email", "Arrived by email") : channelLabel(arrival.channel) : null}
+          {detail.channel === "email" && firstEmail ? <>{arrival ? " · " : null}<button type="button" data-testid="receipt-see-email" className={quietButtonClass} onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{t("business.dossier.see_email", "See email")}</button></> : null}
         </p> : null}
         {deliveries > 1 ? <p className="mt-1" data-testid="receipt-email-times">{t("business.dossier.email_times", { count: deliveries, defaultValue: "This file arrived {{count}} times by email." })}{firstEmail && detail.channel !== "email" ? <>{" "}<button type="button" className={quietButtonClass} onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{t("business.dossier.see_first_email", "See the first email")}</button></> : null}</p> : null}
-        {showArrivalContext ? <p className="mt-1">{t("business.dossier.received", "Received {{time}}", { time: formatTimestamp(detail.received_at, i18n.resolvedLanguage ?? resolveLanguage({})) })}</p> : null}
+        {arrival ? <p className="mt-1">{t("business.dossier.received", "Received {{time}}", { time: formatTimestamp(arrival.receivedAt, i18n.resolvedLanguage ?? resolveLanguage({})) })}</p> : null}
       </figcaption>
     </figure>
   );

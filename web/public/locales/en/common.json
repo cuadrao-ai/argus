@@ -4415,8 +4415,40 @@
     },
     "receipts": {
       "duplicate_resolution": {
-        "button": "This is a different purchase",
-        "explanation": "Confirm that these receipts are for different purchases. The expense still needs review and approval."
+        "basis": {
+          "fiscal_number": "[PENDIENTE COPY] Same RNC and NCF as another document.",
+          "read_facts": "[PENDIENTE COPY] Same merchant, date and total as another document."
+        },
+        "compare": "Compare",
+        "decision": {
+          "different_purchase": "They are different purchases",
+          "same_purchase": "Delete this duplicate"
+        },
+        "different": "Different",
+        "documents": {
+          "other": "[PENDIENTE COPY] The other document",
+          "this": "[PENDIENTE COPY] This document"
+        },
+        "field": {
+          "amount": "Total",
+          "counterparty": "Merchant",
+          "currency": "Currency",
+          "file": "File",
+          "fiscal_number": "NCF",
+          "occurred_on": "Date"
+        },
+        "no_file": "[PENDIENTE COPY] This document has no file.",
+        "recommendation": {
+          "different_purchase": "Same merchant, date, total and currency. The NCF is different: these are probably two different purchases.",
+          "same_purchase": "It is the same document."
+        },
+        "same": "Same",
+        "table": {
+          "caption": "[PENDIENTE COPY] Main data of both documents",
+          "field": "[PENDIENTE COPY] Field",
+          "state": "[PENDIENTE COPY] Comparison"
+        },
+        "title": "Looks repeated"
       }
     },
     "reception": {

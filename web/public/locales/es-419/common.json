@@ -4512,8 +4512,40 @@
     },
     "receipts": {
       "duplicate_resolution": {
-        "button": "Es otra compra",
-        "explanation": "Confirma que estos recibos corresponden a compras distintas. El gasto todavía necesita revisión y aprobación."
+        "basis": {
+          "fiscal_number": "[PENDIENTE COPY] Mismo RNC y NCF que otro documento.",
+          "read_facts": "[PENDIENTE COPY] Mismo comercio, fecha y total que otro documento."
+        },
+        "compare": "Comparar",
+        "decision": {
+          "different_purchase": "Son compras distintas",
+          "same_purchase": "Eliminar este duplicado"
+        },
+        "different": "Diferente",
+        "documents": {
+          "other": "[PENDIENTE COPY] El otro documento",
+          "this": "[PENDIENTE COPY] Este documento"
+        },
+        "field": {
+          "amount": "Total",
+          "counterparty": "Comercio",
+          "currency": "Moneda",
+          "file": "Archivo",
+          "fiscal_number": "NCF",
+          "occurred_on": "Fecha"
+        },
+        "no_file": "[PENDIENTE COPY] Este documento no tiene archivo.",
+        "recommendation": {
+          "different_purchase": "Mismo comercio, fecha, total y moneda. El NCF es distinto: probablemente son dos compras distintas.",
+          "same_purchase": "Es el mismo documento."
+        },
+        "same": "Igual",
+        "table": {
+          "caption": "[PENDIENTE COPY] Datos principales de los dos documentos",
+          "field": "[PENDIENTE COPY] Dato",
+          "state": "[PENDIENTE COPY] Comparación"
+        },
+        "title": "Parece repetido"
       }
     },
     "reception": {

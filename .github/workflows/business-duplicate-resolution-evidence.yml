@@ -8,6 +8,9 @@ on:
       - .github/workflows/business-duplicate-resolution-evidence.yml
       - web/scripts/receipt-duplicate-resolution-evidence.ts
       - web/components/business-app/ReceiptDossierReview.tsx
+      - web/components/business-app/ReceiptDuplicateCompare.tsx
+      - web/components/business-app/ReceiptReviewFrame.tsx
+      - web/components/business-app/ReceiptSourcePreview.tsx
       - web/lib/business-api.ts
       - web/lib/business-dossier.ts
       - web/public/locales/en/common.json

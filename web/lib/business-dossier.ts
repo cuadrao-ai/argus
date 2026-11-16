@@ -8,6 +8,38 @@ export type BusinessFact<T> =
 
 /** What a reader may decide for a possible repeat. The server lists the allowed ones on each candidate. */
 export type BusinessDuplicateDecision = "same_purchase" | "different_purchase";
+/** The main data a possible repeat compares, in the order the compare view shows it. */
+export const BUSINESS_COMPARED_FIELDS = ["counterparty", "occurred_on", "amount", "currency", "fiscal_number", "file"] as const;
+export type BusinessComparedField = (typeof BUSINESS_COMPARED_FIELDS)[number];
+/** One document of a possible repeat as its draft holds it now; null is unknown. */
+export type BusinessComparedDocument = {
+  draft_id: string;
+  counterparty: string | null;
+  occurred_on: string | null;
+  amount: string | null;
+  currency: string | null;
+  /** The NCF, else the e-CF number. */
+  fiscal_number: string | null;
+  file: { connection_id: string; filename: string | null; media_type: string } | null;
+  received_at: string | null;
+  approved_at: string | null;
+};
+/**
+ * A document the reviewed one may repeat. The server owns why (`basis`), what this reader may decide
+ * (`decisions`), which values differ and what the fiscal numbers recommend; the web renders them and computes none.
+ */
+export type BusinessDuplicateCandidate = {
+  draft_id: string;
+  version: number;
+  basis: "read_facts" | "fiscal_number";
+  decisions: BusinessDuplicateDecision[];
+  comparison: {
+    document: BusinessComparedDocument;
+    other: BusinessComparedDocument;
+    differences: BusinessComparedField[];
+    recommendation: BusinessDuplicateDecision | null;
+  };
+};
 export type BusinessFunding = { kind: "business_account"; account_id: string } | { kind: "owner_funds" };
 export type BusinessFacts = {
   kind: BusinessFact<"expense" | "income" | "transfer" | "refund" | "owner_contribution" | "owner_withdrawal" | "credit_purchase" | "payable_payment" | "loan_received" | "loan_payment">;
@@ -173,8 +205,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   /** Computed on every read, after approval too. Absent from servers older than #1590. */
   review_flags?: ReviewFlag[];
   approval_available: boolean;
-  /** Each candidate lists what this reader may decide for the pair now; the web offers only those. Decisions are absent from servers older than #1676, which means none. */
-  duplicate_candidates?: { draft_id: string; version: number; decisions?: BusinessDuplicateDecision[] }[];
+  duplicate_candidates?: BusinessDuplicateCandidate[];
   /** The approve action this draft takes, by its kind; null while approval is not available. Absent from servers older than #1353. */
   approval_action?: BusinessApprovalAction | null;
   /** The server's sentence for this draft. Absent and null mean there is none. The web shows the words as sent. */
