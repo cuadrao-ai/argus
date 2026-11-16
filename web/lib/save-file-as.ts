@@ -3,7 +3,7 @@ import { saveBlobDownload } from "./save-blob-download";
 export type SaveAsFormat = "xlsx" | "csv";
 
 type Writable = { write(data: Blob): Promise<void>; close(): Promise<void>; abort(): Promise<void> };
-type FileHandle = { createWritable(): Promise<Writable> };
+type FileHandle = { createWritable(): Promise<Writable>; remove?(): Promise<void> };
 type SaveFilePicker = (options: { suggestedName: string; id: string; types: { description?: string; accept: Record<string, string[]> }[] }) => Promise<FileHandle>;
 
 /** One picker id per type, so the system window remembers a folder for Excel and another for CSV. */
@@ -13,7 +13,12 @@ const TYPES: Record<SaveAsFormat, { id: string; accept: Record<string, string[]>
 };
 
 /** A place the person chose in the system Save As window, for the file named `filename`. */
-export type SaveAsPlace = { filename: string; write(blob: Blob): Promise<void> };
+export type SaveAsPlace = {
+  filename: string;
+  write(blob: Blob): Promise<void>;
+  /** Removes the empty file the window made on the pick, unless a write landed in it. */
+  discard(): Promise<void>;
+};
 
 function crossOriginFrame(): boolean {
   try { return window.top !== window.self && window.top?.location.origin !== window.location.origin; } catch { return true; }
@@ -45,20 +50,29 @@ export async function chooseSavePlace(filename: string, format: SaveAsFormat): P
   } catch (error) {
     return error instanceof DOMException && error.name === "AbortError" ? "cancelled" : null;
   }
+  let settled = false;
   return {
     filename,
     async write(blob) {
       const writable = await handle.createWritable();
       // The browser commits the file only on close; abort leaves no partial file.
       try { await writable.write(blob); await writable.close(); } catch (error) { await writable.abort().catch(() => undefined); throw error; }
+      settled = true;
+    },
+    async discard() {
+      if (settled) return;
+      settled = true;
+      // A feature check: remove() is not in every browser that has the window.
+      if (typeof handle.remove !== "function") return;
+      try { await handle.remove(); } catch { /* The empty file stays; the person loses nothing. */ }
     },
   };
 }
 
-/** Writes into the chosen place; with none, or when the write fails, the file downloads as before. */
+/** Writes into the chosen place; with none, or when the write fails, the place's empty file goes and the file downloads as before. */
 export async function saveToPlace(place: SaveAsPlace | null, blob: Blob, filename: string): Promise<"saved" | "downloaded"> {
   if (place) {
-    try { await place.write(blob); return "saved"; } catch { /* The person still gets the file, as a download. */ }
+    try { await place.write(blob); return "saved"; } catch { await place.discard(); }
   }
   saveBlobDownload(blob, filename);
   return "downloaded";

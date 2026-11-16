@@ -23,8 +23,7 @@ type Mode = RecordsExportChoice["mode"];
 type Format = RecordsExportChoice["format"];
 type Currencies = "all" | "current";
 type Load = { kind: "loading" } | { kind: "ready"; preview: ExportPreview } | { kind: "failed"; problem: ReportFailure };
-/** A failed file keeps the place chosen in Save As, so Reintentar asks the server again without asking where. */
-type Run = { kind: "idle" | "preparing" } | { kind: "failed"; problem: ReportFailure; place: SaveAsPlace | null };
+type Run = { kind: "idle" | "preparing" } | { kind: "failed"; problem: ReportFailure; toPlace: boolean };
 const LIMIT_CODES = new Set(["business_report_too_large"]);
 const SAVE_TIP = "business.guide_cards.exportar_guardar.";
 const noticeLinkClass = "inline min-h-0! min-w-0! cursor-pointer whitespace-nowrap rounded-mark text-[14px] leading-[inherit] text-[var(--cuadrao-green)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]";
@@ -68,6 +67,8 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   const [format, setFormat] = useState<Format>("xlsx");
   const [run, setRun] = useState<Run>({ kind: "idle" });
   const running = useRef<AbortController | null>(null);
+  /** The Save As place of a file that failed, kept so Reintentar asks the server again without asking where. */
+  const unwritten = useRef<SaveAsPlace | null>(null);
 
   useEffect(() => {
     const abort = new AbortController();
@@ -78,8 +79,8 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     );
     return () => abort.abort();
   }, [scope, request, transport, attempt]);
-  // Closing the panel cancels the file in flight: nothing downloads after it is gone.
-  useEffect(() => () => running.current?.abort(), []);
+  // Closing the panel cancels the file in flight: nothing downloads after it is gone, and no empty file stays.
+  useEffect(() => () => { running.current?.abort(); void unwritten.current?.discard(); }, []);
 
   const preview = load.kind === "ready" ? load.preview : null;
   const everyCurrency = currencies === "all" && preview?.table.all !== null;
@@ -103,11 +104,14 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     const filename = (mode === "dgii" ? preview.dgii : selection).filenames[format];
     const abort = new AbortController();
     running.current = abort;
+    const kept = unwritten.current?.filename === filename ? unwritten.current : null;
+    if (!kept) void unwritten.current?.discard();
     // Save As opens on the click itself, before the server builds the file.
-    const kept = run.kind === "failed" && run.place?.filename === filename ? run.place : null;
-    const place = kept ?? await chooseSavePlace(filename, format);
-    if (abort.signal.aborted) return;
-    if (place === "cancelled") { running.current = null; return; }
+    const chosen = kept ?? await chooseSavePlace(filename, format);
+    const place = chosen === "cancelled" ? null : chosen;
+    unwritten.current = place;
+    if (abort.signal.aborted) { void place?.discard(); return; }
+    if (chosen === "cancelled") { running.current = null; return; }
     setRun({ kind: "preparing" });
     let file: RecordsExportFile;
     try {
@@ -115,10 +119,11 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     } catch (error) {
       if (abort.signal.aborted) return;
       running.current = null;
-      setRun({ kind: "failed", problem: reportFailure(error), place });
+      setRun({ kind: "failed", problem: reportFailure(error), toPlace: place !== null });
       return;
     }
     if (abort.signal.aborted) return;
+    unwritten.current = null;
     const saved = await saveToPlace(place, file.blob, file.filename);
     running.current = null;
     onClose();
@@ -170,7 +175,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   ) : (
     <div className="space-y-2">
       {problem ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
-        {problem.kind === "access" ? t("business.transactions.reporting.access_unavailable") : LIMIT_CODES.has(problem.code) ? t("business.export.limit_error") : run.kind === "failed" && run.place ? t("business.transactions.reporting.export.save_failed") : t("business.transactions.reporting.export.error")}
+        {problem.kind === "access" ? t("business.transactions.reporting.access_unavailable") : LIMIT_CODES.has(problem.code) ? t("business.export.limit_error") : run.kind === "failed" && run.toPlace ? t("business.transactions.reporting.export.save_failed") : t("business.transactions.reporting.export.error")}
         {problem.kind !== "access" ? <> <button type="button" className={quietButtonClass} onClick={() => { if (run.kind === "failed") void download(); else setAttempt((value) => value + 1); }}>{t("common.retry")}</button></> : null}
         {problem.requestId ? <ReferenceCode reference={problem.requestId} /> : null}
       </p> : null}

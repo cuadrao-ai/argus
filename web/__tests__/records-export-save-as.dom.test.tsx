@@ -52,16 +52,26 @@ async function showToasts() {
   return host;
 }
 
-/** A Chromium Save As window: it records what it was asked and when, and the bytes written into the chosen place. */
-function chromiumPicker(page: Page, outcome: { cancel?: boolean; writeFails?: boolean } = {}) {
+/**
+ * A Chromium Save As window: it records what it was asked and when, the bytes
+ * written into the chosen place, and each chosen file removed again. Like
+ * Chromium, picking a place makes the file at once, empty.
+ */
+function chromiumPicker(page: Page, outcome: { cancel?: boolean; writeFails?: boolean; remove?: "missing" | "fails" } = {}) {
   const picked: Picked[] = [];
   const written: Blob[] = [];
   const aborted: number[] = [];
+  const removed: string[] = [];
   let writables = 0;
   (window as unknown as { showSaveFilePicker: (options: PickerOptions) => Promise<unknown> }).showSaveFilePicker = async (options) => {
     picked.push({ options, exportsBefore: exportCalls(page) });
     if (outcome.cancel) throw new DOMException("The user aborted a request.", "AbortError");
+    const remove = async () => {
+      removed.push(options.suggestedName);
+      if (outcome.remove === "fails") throw new DOMException("No permission.", "NotAllowedError");
+    };
     return {
+      ...(outcome.remove === "missing" ? {} : { remove }),
       createWritable: async () => {
         writables += 1;
         const pending: Blob[] = [];
@@ -73,7 +83,7 @@ function chromiumPicker(page: Page, outcome: { cancel?: boolean; writeFails?: bo
       },
     };
   };
-  return { picked, written, aborted, writables: () => writables };
+  return { picked, written, aborted, removed, writables: () => writables };
 }
 
 test("on Chromium the Save As window opens on the click, before the export request, with the server's name and one folder per type", async () => {
@@ -105,6 +115,7 @@ test("saved: the file is written to the chosen place and the toast says Guardado
   await page.click(downloadButton());
   await page.settle(() => save.written.length === 1);
   assert.equal(await save.written[0].text(), "Contraparte 1");
+  assert.deepEqual(save.removed, [], "a saved file is never removed");
   assert.equal(page.downloads.length, 0, "no second copy in Descargas");
   assert.equal(panel(), null, "the dialog closes once the file is saved");
   await page.settle(() => toasts.textContent?.includes("Guardado") ?? false);
@@ -123,9 +134,12 @@ test("cancel: the Save As window closes and nothing happens, with no error and n
   assert.equal(alert(), null);
   assert.ok(panel(), "the dialog stays open");
   assert.equal(downloadButton()!.disabled, false);
+  await page.click(page.button("Cerrar"));
+  await page.settle(() => panel() === null);
+  assert.deepEqual(save.removed, [], "a cancelled window made no file, so nothing is removed");
 });
 
-test("a failed write discards the partial file and falls back to the download with the same bytes", async () => {
+test("a failed write discards the partial file, removes the empty one, and falls back to the download with the same bytes", async () => {
   const toasts = await showToasts();
   const page = await mount();
   const save = chromiumPicker(page, { writeFails: true });
@@ -134,6 +148,7 @@ test("a failed write discards the partial file and falls back to the download wi
   await page.settle(() => page.downloads.length === 1);
   assert.deepEqual(save.aborted, [0], "the write is discarded, never committed");
   assert.equal(save.written.length, 0);
+  assert.deepEqual(save.removed, ["Compras todas las monedas.xlsx"], "the empty file goes; the download is the copy");
   assert.equal(await page.downloads[0].text(), "Contraparte 1");
   assert.equal(exportCalls(page), 1, "no second request");
   assert.match(toasts.textContent!, /Listo\. Revisa tus descargas/);
@@ -156,6 +171,55 @@ test("a failed build writes nothing and Reintentar asks the server again for the
   assert.equal(save.picked.length, 1, "the place is not asked again");
   assert.equal(exportCalls(page), 2);
   await page.settle(() => toasts.textContent?.includes("Guardado") ?? false);
+  assert.deepEqual(save.removed, [], "the file Reintentar wrote stays");
+});
+
+test("a failed build, then closing the export, removes the empty file Save As made", async () => {
+  const page = await mount();
+  const save = chromiumPicker(page);
+  page.fixture.controls.exportFails = true;
+  await open(page);
+  await page.click(downloadButton());
+  await page.settle(() => alert() !== null);
+  assert.deepEqual(save.removed, [], "the place stays while Reintentar can still write to it");
+  await page.click(page.button("Cerrar"));
+  await page.settle(() => panel() === null);
+  await page.settle(() => save.removed.length === 1);
+  assert.deepEqual(save.removed, ["Compras todas las monedas.xlsx"]);
+  assert.equal(save.writables(), 0);
+  assert.equal(page.downloads.length, 0);
+});
+
+test("after a failed build, choosing another file removes the first place's empty file", async () => {
+  const page = await mount();
+  const save = chromiumPicker(page);
+  page.fixture.controls.exportFails = true;
+  await open(page);
+  await page.click(downloadButton());
+  await page.settle(() => alert() !== null);
+  page.fixture.controls.exportFails = false;
+  await page.click(page.button("CSV"));
+  await page.click(downloadButton());
+  await page.settle(() => save.written.length === 1);
+  assert.deepEqual(save.picked.map(({ options }) => options.suggestedName), ["Compras todas las monedas.xlsx", "Compras todas las monedas.csv"]);
+  assert.deepEqual(save.removed, ["Compras todas las monedas.xlsx"], "only the abandoned place goes; the saved CSV stays");
+});
+
+test("where a handle has no remove(), or removing fails, closing after a failed build still closes cleanly", async () => {
+  for (const remove of ["missing", "fails"] as const) {
+    const page = await mount();
+    const save = chromiumPicker(page, { remove });
+    page.fixture.controls.exportFails = true;
+    await open(page);
+    await page.click(downloadButton());
+    await page.settle(() => alert() !== null);
+    await page.click(page.button("Cerrar"));
+    await page.settle(() => panel() === null);
+    assert.deepEqual(save.removed, remove === "fails" ? ["Compras todas las monedas.xlsx"] : []);
+    assert.equal(page.downloads.length, 0);
+    await cleanup();
+    document.body.innerHTML = "";
+  }
 });
 
 test("where the browser has no Save As window, the export downloads as today", async () => {
