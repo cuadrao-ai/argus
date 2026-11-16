@@ -395,9 +395,12 @@ export function workspaceShortcutKeys(shortcut: WorkspaceKeyboardShortcut, comma
   return [command ? "⌘" : "Ctrl", ...(shortcut.shift ? [command ? "⇧" : "Shift"] : []), shortcut.keyLabel];
 }
 
+export function isWorkspaceTypingTarget(target: EventTarget | null): boolean {
+  return Boolean((target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'));
+}
+
 export function workspaceKeyboardTargetBlocked(event: KeyboardEvent): boolean {
-  const target = event.target as HTMLElement | null;
-  return event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || Boolean(target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'));
+  return event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || isWorkspaceTypingTarget(event.target);
 }
 
 export function workspaceShortcutMatchesQuery(shortcut: WorkspaceKeyboardShortcut, command: boolean, query: string): boolean {
