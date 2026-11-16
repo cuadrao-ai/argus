@@ -178,6 +178,7 @@ test.describe("how it works", () => {
   });
 
   test("plays the chat in order and rewinds it", async ({ page }) => {
+    await page.clock.setFixedTime(new Date(2026, 10, 20, 9));
     await page.goto(PATH);
     await seekTo(page, TRACK, 0);
     await expect(page.locator("[data-chat-reply]")).toHaveCount(0);
@@ -185,7 +186,7 @@ test.describe("how it works", () => {
     await expect(page.locator("[data-chat-status]")).toHaveText("escribiendo...");
     await seekTo(page, TRACK, 0.36);
     await expect(page.locator("[data-chat-reply]")).toContainText("Factura recibida");
-    await expect(page.locator("[data-chat-date]")).toHaveText("15-11-2026");
+    await expect(page.locator("[data-chat-date]")).toHaveText("20-11-2026");
     await seekTo(page, TRACK, 0);
     await expect(page.locator("[data-chat-reply]")).toHaveCount(0);
   });
@@ -358,10 +359,11 @@ test.describe("closing sections", () => {
 
 test.describe("english page", () => {
   test("renders every section in English", async ({ page }) => {
+    await page.clock.setFixedTime(new Date(2026, 10, 20, 9));
     await page.goto("/en");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Every record.");
-    await expect(page.locator("[data-scene-date]")).toContainText("Sunday, November 15");
+    await expect(page.locator("[data-scene-date]")).toContainText("Friday, November 20");
     await expect(page.getByRole("heading", { name: "How it works" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Your accountant gets everything in order." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Can I use Cuadrao for my business yet?" })).toHaveAttribute(
