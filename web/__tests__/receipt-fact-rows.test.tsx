@@ -141,7 +141,7 @@ describe("the form marks the fields the server's blockers name; the attention st
   test("a blocker marks its row and a read value nobody confirmed does not", async () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, counterparty: known("extracted"), amount: unknown }, blockers: [{ code: "missing_fields", field: "amount" }], questions: [] } as BusinessDossier;
-    const attention = dossierAttention(dossier, (await i18n("es-419")).t);
+    const attention = dossierAttention(dossier, (await i18n("es-419")).t, "es-419");
     assert.deepEqual(attention.map((item) => item.field), ["amount"]);
     const { html } = await render(dossier, "es-419", true, attention, true);
     assert.ok(html.includes('data-fact="amount" data-standing="empty" data-blocked="true" data-attention="true"'));

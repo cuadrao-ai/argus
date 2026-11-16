@@ -10,7 +10,7 @@ async function setup() {
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", fallbackLng: false, resources: { "es-419": { translation: spanish } } });
   const fixtures = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
-  const attention = (dossier: BusinessDossier) => dossierAttention(dossier, i18n.t.bind(i18n));
+  const attention = (dossier: BusinessDossier) => dossierAttention(dossier, i18n.t.bind(i18n), i18n.language);
   return { fixtures, attention };
 }
 
