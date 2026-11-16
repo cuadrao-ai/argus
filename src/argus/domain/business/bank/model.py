@@ -9,6 +9,10 @@ from decimal import Decimal
 from typing import Literal, Protocol
 from uuid import UUID
 
+from pydantic import TypeAdapter, ValidationError
+
+from argus.domain.business.accepted_dates import PastBusinessDate
+
 MATCH_WINDOW_DAYS = 5
 
 ReaderId = Literal[
@@ -34,8 +38,9 @@ LineSense = Literal["charge", "deposit", "zero"]
 
 
 class BankMatchingError(Exception):
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, context: dict[str, str] | None = None) -> None:
         self.code = code
+        self.context = context
         super().__init__(code)
 
 
@@ -142,6 +147,13 @@ class NormalizedRow:
     amount: Decimal
     currency: str
     raw_line: Mapping[str, str]
+
+    def __post_init__(self) -> None:
+        try:
+            TypeAdapter(PastBusinessDate).validate_python(self.occurred_on)
+        except ValidationError as error:
+            refusal = error.errors()[0]
+            raise BankMatchingError(refusal["type"], {**refusal.get("ctx", {}), "field": "occurred_on"}) from None
 
 
 class MatchTarget(Protocol):
