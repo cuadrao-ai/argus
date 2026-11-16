@@ -44,12 +44,11 @@ function AmountValue({ line }: { line: AmountLine | undefined }) {
   return amount !== null ? <ExactAmount currency={line.currency} amount={amount} /> : <Unknown />;
 }
 
-function MoneyCard({ metric, icon, answer, loading, family }: { family: "sale" | "purchase"; metric: MoneyMetric; icon: LucideIcon; answer: ShelfAnswer | undefined; loading: boolean }) {
+function MoneyCard({ metric, icon, answer, loading, showSkeleton, family }: { family: "sale" | "purchase"; metric: MoneyMetric; icon: LucideIcon; answer: ShelfAnswer | undefined; loading: boolean; showSkeleton: boolean }) {
   const { t } = useTransaccionesWords();
   const title = t(metric === "total" ? `business.terms.net_card_${family === "purchase" ? "purchases" : "sales"}` : `${PREFIX}${metric}.title`);
   const lines = metric === "total" ? answer?.totals.filter((line) => line.basis === "document_net_family_amount") ?? [] : answer?.fiscal_totals?.filter((line) => line.basis === metric) ?? [];
   const line = lines.find((line) => line.kind === (family === "sale" ? "income" : "expense"));
-  const showSkeleton = useDelayedPending(loading);
   const familyMetric = metric === "total" || metric === "itbis";
   const helpers = (line: AmountLine | undefined) => {
     if (!line) return null;
@@ -77,22 +76,24 @@ function MoneyCard({ metric, icon, answer, loading, family }: { family: "sale" |
   </div>;
 }
 
-function CountCard({ icon, title, value, helper, loading, children }: { icon: LucideIcon; title: string; value: number | null; helper: string; loading: boolean; children?: ReactNode }) {
+function CountCard({ icon, title, value, helper, loading, showSkeleton, children }: { icon: LucideIcon; title: string; value: number | null; helper: string; loading: boolean; showSkeleton: boolean; children?: ReactNode }) {
   const { locale } = useTransaccionesWords();
-  const showSkeleton = useDelayedPending(loading);
   return <><Heading icon={icon} title={title} /><span className={`${styles.count} font-display`}>{value !== null ? new Intl.NumberFormat(locale).format(value) : loading ? <span aria-hidden="true" style={{ visibility: showSkeleton ? "visible" : "hidden" }}><RecordsLoadingBar overview /></span> : <Unknown />}</span><span className={styles.footer}><span className={styles.helper}>{helper}</span>{children}</span></>;
 }
 
-export default function RecordsOverviewPreview({ family, answer, fiscalCount, selected, onChoose, loading = false }: { family: "sale" | "purchase"; answer?: ShelfAnswer; fiscalCount: number | null; loading?: boolean; selected: readonly ReviewFilter[]; onChoose: (value: CardFilter) => void }) {
+/** `shown` lets the screen carry one wait across its parts; without it the cards wait on their own. */
+export default function RecordsOverviewPreview({ family, answer, fiscalCount, selected, onChoose, loading = false, shown }: { family: "sale" | "purchase"; answer?: ShelfAnswer; fiscalCount: number | null; loading?: boolean; shown?: boolean; selected: readonly ReviewFilter[]; onChoose: (value: CardFilter) => void }) {
   const { t } = useTransaccionesWords();
+  const delayed = useDelayedPending(loading);
+  const showSkeleton = loading && (shown ?? delayed);
   const current = loading ? undefined : answer;
   const fiscalActive = selected.length === 1 && selected[0] === "fiscal";
   return <div data-testid="records-overview-preview" className={styles.overview} aria-busy={loading}>
     <div className={styles.cards}>
-      {METRICS.slice(0, 2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} family={family} icon={metric.icon} answer={current} loading={loading} />)}
-      <div className={`${styles.card} ${styles.quantity}`} data-overview-card="quantity"><CountCard icon={Hash} title={t(`${PREFIX}quantity.title`)} value={current?.matching_count ?? null} loading={loading} helper={t(`${PREFIX}quantity_helper_placeholder`)} /></div>
-      {METRICS.slice(2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} family={family} icon={metric.icon} answer={current} loading={loading} />)}
-      <button type="button" data-overview-card="fiscal" data-overview-filter="fiscal" aria-pressed={fiscalActive} disabled={fiscalCount === null || loading || fiscalCount === 0 && !fiscalActive} onClick={() => onChoose("fiscal")} className={`${styles.card} ${styles.fiscal} ${styles.action}`}><CountCard icon={FileSearch} title={t(`${PREFIX}fiscal.title`)} value={loading ? null : fiscalCount} loading={loading} helper={t(`${PREFIX}fiscal.description_${family}`)}><Filter size={19} fill={fiscalActive ? "currentColor" : "none"} aria-hidden="true" /></CountCard></button>
+      {METRICS.slice(0, 2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} family={family} icon={metric.icon} answer={current} loading={loading} showSkeleton={showSkeleton} />)}
+      <div className={`${styles.card} ${styles.quantity}`} data-overview-card="quantity"><CountCard icon={Hash} title={t(`${PREFIX}quantity.title`)} value={current?.matching_count ?? null} loading={loading} showSkeleton={showSkeleton} helper={t(`${PREFIX}quantity_helper_placeholder`)} /></div>
+      {METRICS.slice(2).map((metric) => <MoneyCard key={metric.key} metric={metric.key} family={family} icon={metric.icon} answer={current} loading={loading} showSkeleton={showSkeleton} />)}
+      <button type="button" data-overview-card="fiscal" data-overview-filter="fiscal" aria-pressed={fiscalActive} disabled={fiscalCount === null || loading || fiscalCount === 0 && !fiscalActive} onClick={() => onChoose("fiscal")} className={`${styles.card} ${styles.fiscal} ${styles.action}`}><CountCard icon={FileSearch} title={t(`${PREFIX}fiscal.title`)} value={loading ? null : fiscalCount} loading={loading} showSkeleton={showSkeleton} helper={t(`${PREFIX}fiscal.description_${family}`)}><Filter size={19} fill={fiscalActive ? "currentColor" : "none"} aria-hidden="true" /></CountCard></button>
     </div>
   </div>;
 }

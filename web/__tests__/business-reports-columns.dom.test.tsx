@@ -108,23 +108,38 @@ for (const outcome of ["ready", "failed"] as const) test(`Restore cannot save a 
 });
 
 
-test("a fresh connected table shows its skeleton and offers no layout controls before the server answer", async () => {
+const skeletonHeaders = () => [...document.querySelectorAll('[data-testid="transacciones-loading"] thead th')];
+
+test("a fresh connected table names no column and offers no layout controls before the server answer", async () => {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
   const page = await mount({ queryGate: gate, waitForAnswer: false });
   try {
-    await page.settle(() => document.querySelector('[data-testid="transacciones-loading"]') !== null);
-    const headers = [...document.querySelectorAll("th[data-col]")];
-    assert.ok(headers.length > 0, "the pending table keeps its header geometry");
-    assert.ok(headers.every((header) => header.closest('[data-testid="transacciones-loading"] [aria-hidden="true"]')), "only decorative skeleton headers appear before the server answer");
+    await page.settle(() => skeletonHeaders().length > 0);
+    assert.ok(skeletonHeaders().every((header) => header.textContent === "" && header.querySelector(".shimmer")), "each pending header is a placeholder bar");
+    assert.equal(document.querySelector("thead th[data-col]"), null, "no column is named before the server answers");
     assert.equal(document.querySelector('[data-testid="transacciones-view-options"]'), null);
     assert.equal(document.querySelector("[data-column-setting]"), null);
-    assert.equal(document.querySelector('[data-testid="records-count"]') !== null, false);
-    assert.equal(document.querySelector('[data-testid="fullscreen-loading"]') !== null, false);
+    assert.equal(document.querySelector('[data-testid="records-count"]'), null);
   } finally { await act(async () => release()); }
   await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
-  assert.equal(document.querySelector('[data-testid="transacciones-loading"]') !== null, false);
+  assert.equal(document.querySelector('[data-testid="transacciones-loading"]'), null);
   assert.deepEqual(renderedColumnKeys(), recordedReportAnswer.presentation.order.filter((key) => !recordedReportAnswer.presentation.hidden.includes(key)));
+});
+
+test("once the server's columns are known, the pending table heads them in the server's order", async () => {
+  let hold: Promise<void> | null = null;
+  let release = () => {};
+  const page = await mount({ queryAnswer: async (_request, answer) => { await hold; return answer; } });
+  const loaded = renderedColumnKeys();
+  hold = new Promise<void>((resolve) => { release = resolve; });
+  try {
+    await page.click(page.button("Ventas"));
+    await page.settle(() => skeletonHeaders().length > 0);
+    assert.deepEqual(skeletonHeaders().map((header) => header.getAttribute("data-col")), loaded);
+    assert.ok(skeletonHeaders().every((header) => header.textContent !== ""));
+  } finally { release(); }
+  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
 });
 
 for (const family of ["purchase", "sale"] as const) {

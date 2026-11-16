@@ -57,6 +57,48 @@ for (const width of [1440, 390]) test(`Registros first load keeps its layout and
   } finally { await act(async () => release()); }
 });
 
+const cardSlots = () => [...document.querySelectorAll<HTMLElement>('[data-testid="records-overview-preview"] [data-overview-card]')];
+const showsPlaceholder = (card: HTMLElement) => { const bar = card.querySelector(".shimmer"); return bar !== null && bar.closest('[style*="hidden"]') === null; };
+const tableSkeletonShown = () => { const table = document.querySelector('[data-testid="transacciones-loading"]'); return table !== null && table.querySelector(".waiting") === null && table.querySelector(".shimmer") !== null; };
+
+for (const width of [1440, 390]) test(`Registros loading at ${width}px is its own layout: six cards with placeholders above the table, from the first wait to the answer`, async () => {
+  let release!: () => void;
+  const queryGate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ width, topLevel: true, grantId: fixtureId(3100), workspaceGrant: fixtureId(3101), queryGate, waitForAnswer: false });
+  try {
+    await pause(SKELETON_DELAY_MS + 20);
+    assert.equal(document.querySelector("[data-report-connected]"), null, "the workspace has not answered yet");
+    assert.ok(cardSlots().length === 6 && cardSlots().every(showsPlaceholder) && tableSkeletonShown(), "six cards, each with a placeholder, and the table");
+    assert.ok(cardSlots()[5].compareDocumentPosition(document.querySelector('[data-testid="transacciones-loading"]')!) & Node.DOCUMENT_POSITION_FOLLOWING);
+    page.context.records.workspaceGrant = fixtureId(3100);
+    await page.rerender();
+    assert.ok(document.querySelector("[data-report-connected]"), "the layout is up and the report answer is not");
+    assert.ok(cardSlots().length === 6 && cardSlots().every(showsPlaceholder) && tableSkeletonShown(), "the same wait keeps its placeholders");
+    await act(async () => release());
+    await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
+    assert.equal(document.querySelector('[data-testid="transacciones-loading"]'), null);
+    assert.ok(cardSlots().every((card) => card.querySelector(".shimmer") === null));
+  } finally { await act(async () => release()); }
+});
+
+test("the guide stays out of the skeleton until the server says it was not dismissed", async () => {
+  let answerGuide!: () => void;
+  const guideReadGate = new Promise<void>((resolve) => { answerGuide = resolve; });
+  let release!: () => void;
+  const queryGate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ guideReadGate, queryGate, waitForAnswer: false });
+  const guide = () => document.querySelector('[data-testid="transacciones"] > section[aria-labelledby]');
+  try {
+    await pause(SKELETON_DELAY_MS + 20);
+    assert.ok(tableSkeletonShown());
+    assert.equal(guide(), null);
+    await act(async () => release());
+    await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
+    assert.equal(guide(), null, "the records answer alone does not show the guide");
+  } finally { await act(async () => { release(); answerGuide(); }); }
+  await page.settle(() => guide() !== null);
+});
+
 test("Total stays static without requests, filters or navigation", async () => {
   const page = await mount();
   const calls = page.fixture.calls.length;
