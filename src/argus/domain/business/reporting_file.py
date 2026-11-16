@@ -148,7 +148,7 @@ class DgiiExport(Contract):
     record_count: int
     #: Every record the 606/607 holds back, for either reason below.
     pending_count: int
-    #: Pesos records the 606/607 holds for missing fiscal data, the card's count.
+    #: Pesos records the 606/607 holds for missing fiscal data.
     pending_fiscal_count: int
     #: Foreign-currency records the 606/607 holds until they have a rate.
     pending_rate_count: int
