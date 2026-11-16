@@ -78,7 +78,11 @@ for (const theme of ["light", "dark"] as const) for (const width of [1440, 390])
       const first = await canvas.evaluate(node => (node as HTMLCanvasElement).toDataURL());
       expect(await canvas.evaluate(node => {
         const canvas = node as HTMLCanvasElement;
-        const pixel = canvas.getContext("2d")!.getImageData(Math.round(canvas.width / 2), Math.round(canvas.height / 8), 1, 1).data;
+        const readback = document.createElement("canvas");
+        readback.width = canvas.width; readback.height = canvas.height;
+        const context = readback.getContext("2d", { willReadFrequently: true })!;
+        context.drawImage(canvas, 0, 0);
+        const pixel = context.getImageData(Math.round(canvas.width / 2), Math.round(canvas.height / 8), 1, 1).data;
         return pixel[1] > pixel[0] && pixel[1] > pixel[2] && pixel[3] === 255;
       })).toBe(true);
       expect(workers.some(url => url.includes("pdf.worker") && new URL(url).origin === new URL(page.url()).origin)).toBe(true);
@@ -86,7 +90,11 @@ for (const theme of ["light", "dark"] as const) for (const width of [1440, 390])
         const canvas = node as HTMLCanvasElement;
         const observer = new MutationObserver(() => {
           observer.disconnect();
-          const pixels = canvas.getContext("2d")!.getImageData(0, Math.round(canvas.height * 0.2), canvas.width, Math.round(canvas.height * 0.3)).data;
+          const readback = document.createElement("canvas");
+          readback.width = canvas.width; readback.height = canvas.height;
+          const context = readback.getContext("2d", { willReadFrequently: true })!;
+          context.drawImage(canvas, 0, 0);
+          const pixels = context.getImageData(0, Math.round(canvas.height * 0.2), canvas.width, Math.round(canvas.height * 0.3)).data;
           let ink = 0;
           for (let i = 0; i < pixels.length; i += 4) if (pixels[i] < 100 && pixels[i + 1] < 100 && pixels[i + 2] < 100 && pixels[i + 3] === 255) ink++;
           canvas.dataset.completeRedraw = String(ink > 200);
@@ -104,7 +112,11 @@ for (const theme of ["light", "dark"] as const) for (const width of [1440, 390])
       await expect(canvas).toHaveAttribute("data-page", "1");
       expect(await canvas.evaluate(node => {
         const canvas = node as HTMLCanvasElement;
-        const pixels = canvas.getContext("2d")!.getImageData(0, Math.round(canvas.height * 0.2), canvas.width, Math.round(canvas.height * 0.3)).data;
+        const readback = document.createElement("canvas");
+        readback.width = canvas.width; readback.height = canvas.height;
+        const context = readback.getContext("2d", { willReadFrequently: true })!;
+        context.drawImage(canvas, 0, 0);
+        const pixels = context.getImageData(0, Math.round(canvas.height * 0.2), canvas.width, Math.round(canvas.height * 0.3)).data;
         let ink = 0;
         for (let i = 0; i < pixels.length; i += 4) if (pixels[i] < 100 && pixels[i + 1] < 100 && pixels[i + 2] < 100 && pixels[i + 3] === 255) ink++;
         return ink;
