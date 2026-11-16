@@ -50,7 +50,7 @@ export const invoiceWriteSchema = z.strictObject({ data: invoiceDraftSchema, exp
 export type InvoiceWrite = z.infer<typeof invoiceWriteSchema>;
 export type CustomerWrite = z.infer<typeof customerWriteSchema>;
 export class InvoiceProblem extends Error {
-  constructor(readonly status: number, readonly code: string, readonly fieldErrors: Record<string, string> = {}, readonly requestId?: string) { super(code); }
+  constructor(readonly status: number, readonly code: string, readonly fieldErrors: Record<string, string> = {}, readonly requestId?: string, readonly context?: unknown) { super(code); }
 }
 export class InvoiceScopeChanged extends Error { constructor() { super("Business invoice scope changed"); } }
 
@@ -71,7 +71,7 @@ async function request<T>(scope: InvoiceScope, path: string, options: RequestIni
       check();
       const detail = z.record(z.string(), z.unknown()).catch({}).parse(body.detail);
       const context = z.record(z.string(), z.unknown()).catch({}).parse(detail.context ?? body.context);
-      throw new InvoiceProblem(response.status, String(detail.code ?? body.code ?? "invoice_request_failed"), z.record(z.string(), z.string()).catch({}).parse(context.field_errors), serverRequestId(response, body));
+      throw new InvoiceProblem(response.status, String(detail.code ?? body.code ?? "invoice_request_failed"), z.record(z.string(), z.string()).catch({}).parse(context.field_errors), serverRequestId(response, body), context);
     }
     const result = await consume(response);
     check();

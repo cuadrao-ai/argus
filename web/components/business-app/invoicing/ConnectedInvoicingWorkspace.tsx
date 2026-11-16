@@ -1,4 +1,6 @@
 "use client";
+
+import { businessDateMessage } from "@/lib/business-date-errors";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, Search, SlidersHorizontal } from "lucide-react";
@@ -7,6 +9,7 @@ import { browserAuthGeneration } from "@/lib/browser-auth-generation";
 import { currencySymbol } from "@/lib/money-entry";
 import { supportEmail } from "@/lib/support-email";
 import { getChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
+import { resolveLanguage } from "@/lib/language-features";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -58,14 +61,14 @@ function InvoiceStatusBadge({ invoice }: { invoice: api.SavedInvoice }) {
   return <span className={styles.badge} data-state={state === "uncertain_stage" ? "uncertain" : state}>{t(`business.invoicing.${state}`)}</span>;
 }
 function CommandStatus({ state, retry, reload }: { state: CommandState; retry: () => void; reload: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   if (state.kind === "idle" || state.kind === "disposed") return null;
   if (state.kind === "pending") return <p role="status">{t("business.invoicing.saving")}</p>;
   if (state.kind === "saved") return <p role="status">{t(`business.invoicing.${state.result.kind === "customer" ? "customer_saved" : "saved"}`)}</p>;
   const terminal = state.failure === "unavailable" || state.failure === "refused";
   const message = state.failure === "refused" ? t([`business.invoicing.refused_${state.command?.kind ?? "request"}`, "business.invoicing.refused"]) : t(`business.invoicing.${state.failure}`);
   return <div role="alert" className={styles.notice}>
-    <p>{message}</p>
+    <p>{businessDateMessage(state.problem, t, i18n.resolvedLanguage ?? resolveLanguage({})) ?? message}</p>
     {terminal ? <p>{t("auth.business_unavailable.body", { supportEmail })}</p> : null}
     {state.reference ? <ReferenceCode reference={state.reference} /> : null}
     {state.retryable ? <button type="button" className={quietButtonClass} onClick={retry}>{t("business.invoicing.retry")}</button> : state.failure === "conflict" ? <button type="button" className={quietButtonClass} onClick={reload}>{t("business.invoicing.reload")}</button> : null}

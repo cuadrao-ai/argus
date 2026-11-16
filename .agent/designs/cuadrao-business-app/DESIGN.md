@@ -1326,8 +1326,12 @@ is now an unread dot.
   Inicio's Necesita atención reads the same number, and the sidebar counts every
   waiting row. Tabs own status: Filtros has only Canal and Remitente, and picking
   a tab adds no chip.
+- A fourth tab, **Eliminados**, holds the documents the owner deleted. They leave
+  the other tabs and every count. The owner can restore one for 7 days. After 7
+  days the document worker purges it, and Borrar definitivamente purges it
+  sooner. Owner: `PURGE_AFTER` in `src/argus/domain/business/contracts/deletion.py`.
 - A receipt still being read shows only on Todos, as Leyendo, and no tab counts it.
-  A failed read stays in Necesitan atención.
+  A read that fails follows [When a read fails](#when-a-read-fails).
 - Estado follows the tab. Todos shows the soft tag. Necesitan atención shows only
   the reason, as plain text. Listos has no Estado column.
 - Tags are soft and fully rounded: Necesita atención `#9e2f39` on `#f6dfe0`, Leyendo
@@ -1343,8 +1347,9 @@ is now an unread dot.
   saves a receipt, that receipt is the row. An email is a row of its own only
   while it is read (on Todos, like a receipt being read) or when it brought no
   receipt (in Necesitan atención and Todos, counted there): the sender, the
-  subject and why. A repeat of a saved file is no row. Reintentar sits on the
-  email's record when the server allows a retry.
+  subject and why. A file saved before is no new row, as
+  [Duplicados](#duplicados) says. Reintentar sits on the email's record when the
+  server allows a retry.
 - The full email history lives in Negocio > Correo de recibos, under the
   receiving address, as a quiet Historial with its refresh.
 - What arrived since the last visit carries an unread dot on the row's left edge.
@@ -1359,6 +1364,114 @@ is now an unread dot.
 
 **Behavior rules (pending from Product).** Product may add a "Falta información"
 state here. Until Product defines it, it is not a status.
+
+#### When a read fails
+
+Designed 2026-11-15. #2192 built steps 1 and 2 on the server. Steps 3 and 4
+are pending #1681.
+
+1. While the automatic retries run, the receipt stays Leyendo on Todos. The
+   person never sees a retry or a failure in that time. The retry rules live in
+   [the architecture guide](../../../docs/ARCHITECTURE.md#when-a-receipt-read-fails).
+2. When the retries run out, or the failure is permanent, the receipt moves to
+   Necesitan atención with its reason, as plain text.
+3. The receipt offers one manual Leer de nuevo. It is no longer unlimited.
+4. If that read also fails, the person types the data by hand with Escribir los
+   datos (#1681).
+
+A read that is not finished 6 hours after the upload also moves to Necesitan
+atención, with its own reason: the reading service was unavailable, and the
+receipt did not fail (founder, 2026-11-16, built in #2192). This reason does
+not count against the one manual Leer de nuevo of step 3. The Bandeja row says
+"La lectura no terminó" (`business.attention_short.read_deadline_passed`). The
+open receipt's failed-read box shows that title, the line "El servicio de
+lectura no estuvo disponible. Puedes leerlo de nuevo."
+(`business.file_read.read_deadline_passed_body`) and Leer de nuevo (founder
+copy, 2026-11-16).
+
+Today, Leer de nuevo has no limit, and each press spends one read.
+
+### Duplicados
+
+Several layers catch a repeated document. Each layer catches a different kind
+of repeat at a different moment. The first four run before any read is spent.
+The list follows the order a document meets them, as the code at `f9a85da21`
+does it.
+
+1. **The same file twice in one upload list.** The web queue drops a file whose
+   name, size and last change match a file already in the list for this
+   Business. The person sees nothing (#1600). Owner: `add` in
+   `web/components/business-app/receipt-upload-queue.ts`.
+2. **The same file uploaded again.** The server finds the same bytes already
+   saved in this Business. It makes no new document and starts no read. The
+   upload row says "Ya estaba guardado. Este es ese recibo." When that document
+   is in Eliminados, the row says "Eliminado antes" and sits in a closed group
+   with its count, such as "2 eliminados antes". The owner can Restaurar it or
+   use Restaurar todos. After the purge, the same bytes save as a new document.
+   Owner: `upload` in
+   `src/argus/domain/ingestion/documents/service.py`, and
+   `web/components/business-app/ReceiptIntakeDialog.tsx`.
+3. **The same file by email.** An attachment goes through the same upload
+   check, so it makes no new document and no Bandeja row. In Negocio > Correo de
+   recibos, the Historial line for that file says "Ya recibiste este archivo"
+   when an earlier email brought it, or "Ya habías guardado este archivo" when
+   it was saved another way. Owner: `part_repeat` in
+   `src/argus/api/email_intake.py`.
+4. **The same file by WhatsApp.** WhatsApp is off by default. The same upload
+   check runs. The reply is "Ya lo teníamos. Revísalo aquí:" with a link. Owner: `upload` in
+   `src/argus/api/whatsapp.py`.
+5. **After the read: same purchase.** The read gives comercio, fecha, total and
+   moneda. When all four are known and equal those of another open or approved
+   document in the Business, the server marks the newer document
+   `possible_duplicate`. A restore marks both. The document goes to Necesitan
+   atención as "Parece repetido", and Aprobar stays closed until a person
+   decides. Today the panel offers "Ver el recibo ya guardado" and "Es otra
+   compra". [After the read](#after-the-read-parece-repetido) replaces those
+   buttons. Owner: `flag_receipt_duplicates` in
+   `src/argus/domain/business/duplicates.py`, and the `possible_duplicate`
+   blocker in `src/argus/domain/business/actions/dossier.py`.
+6. **Before Listos: same comprobante.** A purchase with the same supplier RNC
+   and NCF as another open or approved purchase stays out of Listos. It shows in
+   Necesitan atención as "Parece repetido". This layer does not close Aprobar.
+   Only a `possible_duplicate` mark does. Owner: `_repeated` in
+   `src/argus/domain/business/actions/listos.py`.
+7. **At approval: same comprobante already approved.** The server refuses a
+   purchase whose supplier RNC and NCF or e-CF match an approved purchase. A
+   database unique index backs the check. The dossier says "Ya registraste este
+   comprobante." with "Ver el registrado". Aprobar todos marks that row "Este
+   comprobante ya está registrado". A sale with an NCF already approved gets
+   "Este comprobante fiscal ya pertenece a otro registro guardado. Revísalo
+   antes de aprobar." Owner: `require_distinct_fiscal_document` in
+   `src/argus/domain/business/actions/fiscal.py`, and the refusal in
+   `src/argus/domain/business/actions/approval.py`.
+8. **In the 606 or 607.** Two records of the period with the same comprobante
+   stay out of the file with `fiscal_duplicate_document`. Registros shows "Este
+   NCF ya está registrado este mes". Owner: `src/argus/domain/business/dgii_export.py`.
+
+#### After the read: Parece repetido
+
+Designed 2026-11-15, build pending #1676. The founder locked it on the canvas
+"Inicio redesign mock", row "Parece repetido" (boards FlujoDuplicado and
+FlujoComparar). It changes layer 5 only. Every other layer stays as it is.
+
+1. In the review panel, the amber box says "Parece repetido" with one line on
+   why (same comercio, fecha and total) and one button, Comparar. The box has no
+   decision buttons. Más does not change.
+2. Comparar turns the same panel into a compare view. It shows a recommendation
+   line and a diff of the main data only: comercio, fecha, total, moneda, NCF and
+   archivo, each row marked Igual or Diferente. Both documents show in the
+   existing preview, with rotate, zoom, full screen and open original.
+3. The NCF decides the recommendation. A different NCF means two purchases, so
+   "Son compras distintas" is the primary action. The same NCF means the same
+   document, so "Eliminar este duplicado" is the primary action. With no NCF,
+   the person decides.
+4. "Eliminar este duplicado" sends the document to Eliminados with the reason.
+   The owner can restore it for 7 days. No extra label sits next to the button.
+5. The flow says "documento", not "recibo".
+
+Only the owner sees Eliminar. The server adds a `same_purchase` decision that
+deletes the document with a reason, and stores the reason on the deletion
+marker.
 
 ### Receipt detail
 
@@ -1682,7 +1795,7 @@ screen. Nothing the person is doing moves: the first row in view stays where it
 is, also at the start of the list and behind an open record, rows already shown
 keep their order, and selected rows, an open record and keyboard focus are kept
 by record, never by position.
-A failed read still offers Reintentar. A phone keeps the pull gesture. Returning
+A failed read follows [When a read fails](#when-a-read-fails). A phone keeps the pull gesture. Returning
 from detail preserves position.
 
 Narrow Bandeja adapts to a compact list instead of compressing desktop columns.

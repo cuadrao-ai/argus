@@ -29,7 +29,9 @@ def idle_worker(monkeypatch):
     monkeypatch.setattr(worker_module, "sweep_forever", sweep)
     store = SimpleNamespace(pull=Mock(return_value=None))
     service = SimpleNamespace(
-        store=store, hub=SimpleNamespace(clock=lambda: datetime.now(timezone.utc))
+        store=store,
+        hub=SimpleNamespace(clock=lambda: datetime.now(timezone.utc)),
+        read_breaker=SimpleNamespace(paused_until=Mock(return_value=None)),
     )
     worker = DocumentWorker(service, DocumentJobSettings())
     monkeypatch.setattr(worker, "_read", AsyncMock(return_value="prepared"))
@@ -127,6 +129,8 @@ async def test_ten_idle_minutes_count_database_checks(
     idle_worker.settings = DocumentJobSettings(idle_poll_seconds=ceiling)
     await simulate(idle_worker, monkeypatch, seconds=600)
     assert idle_worker.service.store.pull.call_count == checks
+    # An idle worker never reads the breaker: it is asked only for a pulled read.
+    assert idle_worker.service.read_breaker.paused_until.call_count == 0
 
 
 @pytest.mark.parametrize("value,expected", [(None, 5), ("60", 60), ("1", 1)])

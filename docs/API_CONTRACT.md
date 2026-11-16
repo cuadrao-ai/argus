@@ -8219,6 +8219,45 @@ HTTP request already sent. Model/composition/send unknown outcomes retain the
 existing no-blind-retry rule. Business checkpoint persistence remains disabled
 pending proof of its authorization and deletion lifecycle.
 
+### Business accepted dates (#2175, part 1)
+
+`src/argus/domain/business/accepted_dates.py` owns acceptance at fresh input:
+`PastBusinessDate` accepts the inclusive interval from ten calendar years before
+`ledger.today()` through that Dominican day. The leap-day floor clamps to
+February 28. `DueDate` uses the same floor with no future ceiling. Query filters
+are not record input and keep their existing behavior.
+
+Receipt fact patches and typed purchases, settlement updates, invoice writes
+and normalized bank imports use these types. Fiscal reviews accept date shapes
+at the request boundary, then compare payment/withholding dates with the stored
+declaration inside the authorized review transaction. Only changed values use
+the accepted range; clearing a date is allowed. Both full fiscal reviews and
+partial purchase reviews preserve unchanged legacy dates when other fields are
+edited. Internal previews likewise retain saved declarations without validating
+them as fresh input.
+Stored declarations, QR evidence, read purchases and response projections remain
+readable even when an old date would no longer be accepted as fresh input.
+`covered_through` is a derived response value, not a writable date field.
+
+| Refusal code | Meaning | Metadata |
+| --- | --- | --- |
+| `business_date_after_today` | A past-event date is later than the Dominican day. | `min_date`, `today` |
+| `business_date_before_minimum` | A date precedes the accepted floor. | `min_date`, `today` |
+
+Request validation returns HTTP 422 with the code in
+`context.errors[].type`, the field path in `loc`, and bounds in `ctx`.
+Bank import and changed fiscal-date refusals carry the code and
+`context.{field,min_date,today}`. Fiscal refusal metadata is retained in the
+action receipt, including an idempotent replay.
+The web renders those bounds; it does not calculate another rolling range.
+The two locale files own the refusal sentences.
+
+An out-of-range receipt read remains evidence on the draft. Its `occurred_on`
+blocker carries the same code and `min_date`/`today`, and its list anchor is null.
+The dossier asks for correction and retains the upload-year shortcut. Approval
+requires that correction; the read itself succeeds. No extraction prompt changes.
+Amounts remain outside this change (#2176).
+
 ### Business document deletion and restore
 
 `POST /business/drafts/{draft_id}/delete` and
@@ -8954,7 +8993,9 @@ optional ITBIS override does not rewrite the main ITBIS fact. Main amount
 updates refresh inherited fields on every revision. Payment-date inheritance
 uses the stored document settlement or the existing paid-bill mark, never the
 selected account. Reads and exports refresh inherited values when settlement
-changes. An explicit fiscal date remains an override. The existing monthly
+changes. An explicit fiscal date remains an override. An `occurred_on` outside
+the accepted date range is never inherited as `paid_on`: the inherited value is
+null, the fact keeps its evidence, and its date blocker stays. The existing monthly
 sin-comprobante purchase cost remains the gross amount because its ITBIS is
 not creditable; all other monthly net calculations use the same net owner.
 
@@ -10424,7 +10465,11 @@ accept path recorded.
   the day or the month was spent before this read could start; `error_code`
   is `business_read_budget_day` or `business_read_budget_month`, the receipt
   is saved unread with `preparable: true`, and a consented `/prepare` reads it
-  once the budget allows) or `other`. `error_code` stays the precise cause.
+  once the budget allows), `read_deadline_passed` (the read waited 6 hours
+  from the upload, or from the owner's own ask, with the reading service
+  unavailable; `error_code` is `document_read_deadline_passed`, the receipt
+  did not fail, `preparable` is true, and this reason never counts against
+  the owner's own retries) or `other`. `error_code` stays the precise cause.
   Nothing is retried automatically because of it.
 - The Business read budget counts every provider read a Business starts,
   whichever channel the receipt came from (web, email, WhatsApp, `/prepare`,

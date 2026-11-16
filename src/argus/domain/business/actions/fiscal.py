@@ -4,8 +4,10 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
+from argus.domain.business.accepted_dates import reader_date_reason
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dgii import (
+    DgiiDeclaration,
     FiscalReview,
     PurchaseDeclaration,
     printed_identifier,
@@ -19,6 +21,22 @@ from argus.domain.business.contracts.facts import (
     Unknown,
 )
 from argus.domain.business.fiscal_identity import document_identity
+
+
+def validate_changed_dates(before: DgiiDeclaration | None, after: DgiiDeclaration | None) -> None:
+    """Full reviews resubmit saved dates; only changed values are fresh input."""
+    if after is None:
+        return
+    field = "paid_on" if isinstance(after, PurchaseDeclaration) else "withheld_on"
+    value = getattr(after, field)
+    previous = getattr(before, field, None) if before is not None else None
+    if value == previous:
+        return
+    reason = reader_date_reason(value)
+    if reason is not None:
+        raise ActionError("invalid_input", reason.code, context={
+            "field": field, "min_date": reason.min_date, "today": reason.today,
+        })
 
 
 def _held(fact: Known | Unknown | OwnerDoesNotKnow) -> str | None:

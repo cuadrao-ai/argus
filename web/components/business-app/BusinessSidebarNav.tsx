@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
+import { isKeyboardShortcutHintModifierActive, isWorkspaceTypingTarget, workspaceShortcutKeys } from "@/lib/keyboard-shortcuts";
 import { NAV_GLYPHS, navGlyph } from "./nav-glyphs";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import { CuadraoMark } from "@/components/CuadraoMark";
-import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
+import { useChatWorkspace, type ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { invoicingShown, useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
 import { inboxCount as countInbox, porIgualarCount } from "./inbox-count";
 import { useIgualarEnabled } from "./transacciones/transacciones-gate";
@@ -17,6 +17,41 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   const { t } = useTranslation();
   const [command, setCommand] = useState(false);
   useEffect(() => { setCommand(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)); }, []);
+  const shortcuts = useChatWorkspace()?.keyboardShortcuts;
+  const [modifierHeld, setModifierHeld] = useState(false);
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const update = (event: KeyboardEvent) => {
+      setTyping(isWorkspaceTypingTarget(event.target));
+      setModifierHeld(isKeyboardShortcutHintModifierActive(event, command));
+    };
+    const focus = () => {
+      setTyping(isWorkspaceTypingTarget(document.activeElement));
+    };
+    const hide = () => setModifierHeld(false);
+    document.addEventListener("keydown", update);
+    document.addEventListener("keyup", update);
+    document.addEventListener("focusin", focus);
+    document.addEventListener("focusout", focus);
+    window.addEventListener("blur", hide);
+    focus();
+    return () => {
+      document.removeEventListener("keydown", update);
+      document.removeEventListener("keyup", update);
+      document.removeEventListener("focusin", focus);
+      document.removeEventListener("focusout", focus);
+      window.removeEventListener("blur", hide);
+    };
+  }, [command]);
+  const hint = (id: string) => {
+    const shortcut = shortcuts?.find((item) => item.id === id);
+    const show = modifierHeld && !typing && !shell.isBelowTablet;
+    return {
+      shortcutHint: shortcut ? workspaceShortcutKeys(shortcut, command).join(command ? "" : "+") : undefined,
+      showShortcutHint: show,
+      shortcutOnInteraction: !show && !typing && !shell.isBelowTablet,
+    };
+  };
   const { panel, openPanel, records, invoicing } = useBusiness();
   const inboxCount = countInbox(records);
   // Only beside the screen that lists them: with igualar off here, Transacciones shows no Por igualar.
@@ -41,8 +76,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         glyph={navGlyph(NAV_GLYPHS.overview)}
         label={t("business.nav.overview", "Overview")}
         active={isActive("overview")}
-        shortcutHint={quickJumpHintDisplay(1, command)}
-        shortcutOnInteraction={!shell.isBelowTablet}
+        {...hint("overview")}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "overview" })}
         iconSize={20}
@@ -52,8 +86,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         glyph={navGlyph(NAV_GLYPHS.inbox)}
         label={t("business.nav.inbox", "Inbox")}
         active={isActive("inbox")}
-        shortcutHint={quickJumpHintDisplay(2, command)}
-        shortcutOnInteraction={!shell.isBelowTablet}
+        {...hint("inbox")}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "inbox" })}
         trailing={count(inboxCount)}
@@ -65,8 +98,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         glyph={navGlyph(NAV_GLYPHS.transactions)}
         label={t("business.nav.transactions", "Transactions")}
         active={isActive("transactions")}
-        shortcutHint={quickJumpHintDisplay(3, command)}
-        shortcutOnInteraction={!shell.isBelowTablet}
+        {...hint("transactions")}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "transactions" })}
         trailing={count(igualarCount, "business-igualar-count")}
@@ -81,6 +113,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
       <SidebarNavButton
         glyph={navGlyph(NAV_GLYPHS.activity)} label={t("business.nav.activity")}
         active={isActive("activity")} collapsed={shell.sidebarCollapsed}
+        {...hint("activity")}
         onClick={() => openPanel({ kind: "activity" })} iconSize={20} variant="business"
       />
     </nav>
