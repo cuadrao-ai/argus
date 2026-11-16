@@ -122,7 +122,7 @@ try {
       stage = "owned runtime loading";
       await page.goto(`${web.origin}/biz?view=inbox`, { waitUntil: "domcontentloaded", timeout: 60000 });
       await page.waitForLoadState("load", { timeout: 60000 });
-      const skeleton = page.getByTestId("reception-skeleton");
+      const skeleton = page.getByTestId("reception-pending");
       await skeleton.waitFor();
       assert.equal(await skeleton.locator("li").count(), 5);
       assert.equal(await skeleton.getByRole("button").count(), 0);

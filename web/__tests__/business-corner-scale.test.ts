@@ -220,5 +220,5 @@ test("Reception geometry accepts only the cleared checkpoint selectors and value
   assert.deepEqual(unapprovedGeometry(path, ".count { border-radius:5px; }"), []);
   assert.ok(unapprovedGeometry(path, ".count { border-radius:6px; }").length);
   assert.ok(unapprovedGeometry(path, ".new { border-radius:5px; }").length);
-  assert.ok(unapprovedGeometry("components/business-app/recepcion/ReceptionSkeleton.tsx", "style={{ borderRadius: 4 }}").length);
+  assert.ok(unapprovedGeometry("components/business-app/recepcion/ReceptionArrivalRow.tsx", "style={{ borderRadius: 4 }}").length);
 });
