@@ -1279,7 +1279,7 @@ Order: Necesita atención, then the month card. While settlement is on, Cobros y
 
 Two columns once the canvas is 56rem or wider: Necesita atención on the left, flexible, and the month card on the right at a fixed 440px, 24px apart. Both cards have a 57px header band in the same tint over one divider, so their tops and dividers line up; their bottoms keep their natural heights. Narrower, one column in the order above.
 
-Necesita atención shows the server's Bandeja count (the sidebar's), "Ver todo", and up to six rows of about 62px, problems first: the source's icon, the supplier or the source, the Bandeja's reason as a tag with when it arrived, and Resolver or Revisar for someone who may prepare. A row never shows an amount. The month card shows Ingresos and Gastos, then Resultado neto (the largest figure, right-aligned), then ITBIS en ventas and ITBIS en compras, and a footer: "Incluye n de total documentos", "n en la Bandeja · Revisar" and "Faltan datos fiscales en n registros · Ver", which names compras or ventas when both tabs hold documents. Each label has a dotted-underline definition on hover and focus. The currency pill shows the ISO code whenever the Business holds documents in more than one currency in some month; its list holds this month's currencies, and the choice holds per Business for the session. There is no month close on Inicio.
+Necesita atención shows the server's Bandeja count (the sidebar's), "Ver todo", and up to six rows of about 62px, problems first: the source's icon, the supplier or the source, the Bandeja's reason as a tag with when it arrived, and Resolver or Revisar for someone who may prepare. A row never shows an amount. The month card shows Ingresos and Gastos, then Resultado neto (the largest figure, right-aligned), then ITBIS en ventas and ITBIS en compras, and a footer: "Incluye n de total documentos", "n en la Bandeja · Revisar" and "Faltan datos en n registros · Ver", which names compras or ventas when both tabs hold documents. Each label has a dotted-underline definition on hover and focus. The currency pill shows the ISO code whenever the Business holds documents in more than one currency in some month; its list holds this month's currencies, and the choice holds per Business for the session. There is no month close on Inicio.
 
 - A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
 - A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
@@ -1487,8 +1487,10 @@ ves; Formato DGII 606 or 607), the Columnas line, Monedas and Formato as
 segmented controls, the DGII line "La DGII define las columnas. Solo en pesos.",
 notices only when their count is above zero, and the green action with its
 count. Editar opens the column choice inside the same dialog with a back arrow. Revisar on
-the DGII notice shows exactly the records it counted: the tab, the period, pesos
-and Faltan datos fiscales, with the other filters and the search cleared.
+the DGII notice opens the tab and period in the form’s currency, with
+`fiscal_data: missing` and the other filters and the search cleared. The notice
+and summary use the server’s `dgii.pending_count`, including records held for
+a rate; no table filter changes that count.
 A finished download closes the dialog and says so in a toast with "Descargar de
 nuevo". The period ZIP has no sheet in Registros. Only the close-a-Business
 dialog downloads it, as the handover of the original receipts.
@@ -1604,7 +1606,7 @@ and interaction.
 
 Keep the existing compact content width. Show six separate, equal summary cards
 in two rows of three: Total, ITBIS and Cantidad in the first row; Bienes,
-Servicios and Faltan datos fiscales in the second. Below them, keep the existing
+Servicios and Faltan datos in the second. Below them, keep the existing
 filters, active filter chips and column picker, then the table. Total and payment
 subcards do not show.
 
@@ -1613,15 +1615,14 @@ value below left and footer or helper at the bottom left. Make the cards shallow
 while keeping the same readability. Use Cuadrao's own typography, soft fills,
 rounded corners and colors, with the corresponding dark-theme treatment.
 
-Faltan datos fiscales is the only action card. Clicking it or pressing Enter or
-Space applies its table filter. A second activation restores the prior status
-selection. The active filter remains
-visible and clearable. A mixed status selection is not an active Fiscal card.
-An inactive Fiscal card with zero matches is disabled; an active card remains
-clearable at zero. Editing statuses directly, clearing their chip, choosing a
-saved view or navigating history discards the previous status selection saved by
-the card. Changing other filters keeps it.
-The Fiscal card shows a directional cue at the bottom right, hover feedback, a
+Faltan datos is the only action card. Clicking it or pressing Enter or
+Space applies Estado: Faltan datos (`ready: false`). A second activation restores
+the prior readiness selection. The active filter remains visible and clearable.
+The card is active only for `ready: false`. An inactive card with zero matches
+is disabled; an active card remains clearable at zero. Editing Estado directly,
+clearing its chip, choosing a saved view or navigating history discards the
+previous readiness selection saved by the card. Changing other filters keeps it.
+The Faltan datos card shows a directional cue at the bottom right, hover feedback, a
 visible focus state, and an active state. Do not add a "Ver..." label or make the
 arrow a separate target.
 

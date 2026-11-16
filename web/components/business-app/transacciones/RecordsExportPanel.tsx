@@ -39,7 +39,7 @@ export type RecordsExportProps = {
   /** Optional filters and search the screen has on. */
   filterCount: number;
   transport: Pick<ReportingTransport, "exportPreview" | "exportFile">;
-  /** Shows the records counted by server readiness in the current table scope. */
+  /** Shows pending fiscal records for the tab, period and form currency, clearing other filters. */
   onReviewFiscal: (currency: string) => void;
   onClose: () => void;
 };
@@ -128,8 +128,8 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     </div>
     <span className="block font-mono">{supplier.rnc}</span>
   </li>);
-  const pendingFiscalSentence = preview?.not_ready ? t("business.transactions.reporting.export.not_ready", { count: preview.not_ready }) : null;
-  const reviewFiscal = preview ? <button type="button" className={sale ? quietButtonClass : noticeLinkClass} onClick={() => { onClose(); onReviewFiscal(current); }}>{t("business.transactions.reporting.export.review")}</button> : null;
+  const pendingFiscalSentence = preview?.dgii.pending_count ? t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_count }) : null;
+  const reviewFiscal = preview ? <button type="button" className={sale ? quietButtonClass : noticeLinkClass} onClick={() => { onClose(); onReviewFiscal(preview.dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button> : null;
   const pendingFiscal = pendingFiscalSentence ? sale ? <>{pendingFiscalSentence} {reviewFiscal}</> : <InlineNoticeAction sentence={pendingFiscalSentence}>{reviewFiscal}</InlineNoticeAction> : null;
   const pendingRate = preview?.dgii.pending_rate_count ? t(sale ? "business.transactions.reporting.export.pending_rate_sales" : "business.transactions.reporting.export.pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) }) : null;
   const notices606 = preview && !sale && mode === "dgii" && (preview.dgii.rnc_warning_count > 0 || pendingFiscal || pendingRate) ? (

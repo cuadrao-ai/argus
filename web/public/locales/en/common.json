@@ -2726,7 +2726,9 @@
             "review": "Review"
           },
           "no_matches": "No options match this search.",
-          "ready": {"all": "All"},
+          "ready": {
+            "all": "All"
+          },
           "record": "Record",
           "remove": "Remove filter",
           "search": "Search…",
@@ -2907,8 +2909,6 @@
           "format": "Format",
           "format_csv": "CSV",
           "format_xlsx": "Excel",
-          "not_ready_one": "Missing data on {{count}} record in your selection.",
-          "not_ready_other": "Missing data on {{count}} records in your selection.",
           "pending_fiscal_purchases_one": "{{count}} purchase has pending fiscal data and is not included.",
           "pending_fiscal_purchases_other": "{{count}} purchases have pending fiscal data and are not included.",
           "pending_fiscal_sales_one": "{{count}} sale has pending fiscal data and is not included.",

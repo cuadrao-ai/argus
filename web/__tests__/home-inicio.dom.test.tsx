@@ -389,12 +389,19 @@ describe("the month card's second round (Lucas, 2026-11-09)", () => {
     } finally { await page.close(); }
   });
 
-  test("an older server without readiness rows never falls back to its fiscal count", async () => {
-    const page = await monthCard(server({ not_ready_rows: undefined }));
-    try {
-      assert.equal(page.find("home-month-fiscal"), null);
-    } finally { await page.close(); }
-  });
+  for (const readiness of [null, undefined]) {
+    test(`unavailable readiness (${readiness}) stays unknown while the other month figures render`, async () => {
+      const page = await monthCard(server({ not_ready_rows: readiness }));
+      try {
+        assert.equal(page.find("home-month-fiscal-unknown")?.textContent, "Faltan datos: Todavía no se puede calcular.");
+        assert.equal(page.find("home-month-fiscal"), null);
+        assert.equal(page.find("home-month-fiscal-open"), null);
+        assert.equal(page.find("home-month-income")?.textContent, "RD$ 268,044");
+        assert.equal(page.find("home-month-net")?.textContent, "-RD$ 47,762");
+        assert.equal(page.find("home-month-included")?.textContent, "Documentos incluidos: 21 de 28");
+      } finally { await page.close(); }
+    });
+  }
 
   test("with both tabs not ready, each line names its tab and opens it", async () => {
     const rows = [{ family: "purchase", currency: "DOP", count: 1, by_currency: false }, { family: "sale", currency: "DOP", count: 2, by_currency: false }];

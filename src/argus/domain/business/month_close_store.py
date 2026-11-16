@@ -117,10 +117,18 @@ def read_month(
     today = ledger.today()
     with _session(authority, context, "read") as (connection, auth):
         documents, by_id = _collect(authority, connection, auth.context)
-        from argus.domain.business.reporting_store import _projected
+        from argus.domain.business.reporting_store import projected_records
 
-        snapshot, records, _registry = _projected(authority, auth.context, connection)
-        readiness = not_ready_rows(records, month, snapshot.observed_at)
+        readiness = None
+        try:
+            snapshot, records, _registry = projected_records(
+                authority, auth.context, connection
+            )
+        except ActionError as error:
+            if error.code != "business_report_too_large":
+                raise
+        else:
+            readiness = not_ready_rows(records, month, snapshot.observed_at)
         forms, foreign, no_payment_form, missing = _form_statuses(
             connection, auth.context, tuple(by_id.values()), start, end, today
         )
@@ -188,6 +196,7 @@ def empty_month(
         dict.fromkeys(COLUMNS, "no_operations"),
         settlement=settlement,
         bandeja=bandeja,
+        readiness=[],
     )
 
 
@@ -210,7 +219,7 @@ def month_close(  # noqa: ANN001
     return {
         "month": month,
         "today": today,
-        "not_ready_rows": readiness or [],
+        "not_ready_rows": readiness,
         **({"payment_methods": list(PAYMENT_METHODS)} if settlement else {}),
         "dgii_forms": forms,
         "dgii_foreign_currency": foreign or foreign_currency({}),

@@ -114,7 +114,6 @@ export function createBusinessReportHttpFixture() {
       const foreign = family.filter((row) => row.fiscal_data && row.currency && row.currency !== controls.dgiiCurrency);
       const pendingFiscal = family.filter((row) => row.fiscal_data === "missing" && row.currency === controls.dgiiCurrency).length;
       return Response.json({
-        not_ready: matchingRecords(report).filter((row) => !row.ready).length,
         table: { current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } }), true) },
         dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort(), rnc_suppliers: controls.rncSuppliers, rnc_supplier_count: controls.rncSuppliers.length, rnc_warning_count: controls.rncSuppliers.reduce((sum, supplier) => sum + supplier.record_count, 0) },
       });

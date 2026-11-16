@@ -985,7 +985,7 @@ function BusinessMonthCloseContent({
         currency={cardCurrency}
         net={net}
         firstDay={snapshot !== null && snapshot.earliest_month === null}
-        notReadyRows={(snapshot?.not_ready_rows ?? []).filter((row) => row.currency === cardCurrency)}
+        notReadyRows={snapshot?.not_ready_rows?.filter((row) => row.currency === cardCurrency) ?? null}
         openBandeja={openBandeja}
         // Registros lists only the currencies it can show one at a time; a row in another keeps its count and no Ver.
         openNotReady={(row) => (openRecords && range && recordsCurrencySchema.safeParse(row.currency).success ? () => openRecords({ family: row.family, currency: row.currency, ...range, ready: false }) : null)}

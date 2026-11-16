@@ -107,7 +107,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const { userId, businessId, grantId } = scope;
   const scopeKey = `${userId}:${businessId}`;
   const singleCurrency = useCallback((request: ReportRequest): ReportRequest => {
-    request = { ...request, filters: { ...request.filters, fiscal_data: null, review_stages: [] } };
+    request = { ...request, filters: { ...request.filters, review_stages: [] } };
     if (request.filters.currencies.length === 1 && recordsCurrencySchema.safeParse(request.filters.currencies[0]).success) return request;
     return { ...request, filters: { ...request.filters, currencies: [defaultCurrency], amount_min: null, amount_max: null } };
   }, [defaultCurrency]);
@@ -205,8 +205,8 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   // The export works on the table's request as it stood when Exportar was pressed.
   const [exporting, setExporting] = useState<{ request: ReportRequest; scope: ReportScope; periodLabel: string; filterCount: number } | null>(null);
   const exportRequested = useRecordsExportRequested();
-  // The readiness notice counts the current table scope; preserve it when opening its records.
-  const reviewDgiiPending = (currency: string) => recipe({ filters: reportFiltersSchema.parse({ ...state.request.filters, currencies: [currency], ready: false, fiscal_data: null, review_stages: [] }) });
+  // Revisar restores the DGII fiscal scope and clears the other table filters.
+  const reviewDgiiPending = (currency: string) => recipe({ filters: reportFiltersSchema.parse({ period: state.request.filters.period, record_families: state.request.filters.record_families, currencies: [currency], fiscal_data: "missing" }) });
   const openExport = () => { if (presentation) setExporting({ scope: { userId, businessId, grantId }, request: reportRequestSchema.parse({ ...state.request, schema_version: 2, presentation }), periodLabel: periodLabel(selectedPeriod, state.request.filters.period), filterCount: activeFilterGroups(filters).length + (filter.query.trim() ? 1 : 0) }); };
   const views = state.views.kind === "ready" ? state.views.items : [];
   const viewProblem = state.viewOperation.kind === "failed" ? state.viewOperation.problem : state.views.kind === "failed" ? state.views.problem : null;

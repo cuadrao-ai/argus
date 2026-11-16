@@ -53,7 +53,6 @@ from argus.domain.business.reporting_preferences import (
 from argus.domain.business.reporting_query import (
     CALENDAR,
     ReportRecord,
-    count_not_ready,
     matching_records,
     report_columns,
     resolve_period,
@@ -160,8 +159,6 @@ class DgiiExport(Contract):
 
 
 class ExportPreview(Contract):
-    #: Same filters and readiness verdict as the report overview, before pagination.
-    not_ready: int
     table: TableExport
     dgii: DgiiExport
 
@@ -318,9 +315,6 @@ def summarize_export(
     every = _with_currencies(request, "all")
     dgii = _dgii_selection(source, request)
     return ExportPreview(
-        not_ready=count_not_ready(
-            matching_records(source.records, request, source.observed_at)
-        ),
         table=TableExport(
             current=selection(request, False),
             all=None if every is None else selection(every, True),

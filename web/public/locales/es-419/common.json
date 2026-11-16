@@ -2726,7 +2726,9 @@
             "review": "Revisión"
           },
           "no_matches": "No hay opciones con esa búsqueda.",
-          "ready": {"all": "Todos"},
+          "ready": {
+            "all": "Todos"
+          },
           "record": "Registro",
           "remove": "Quitar filtro",
           "search": "Buscar…",
@@ -2907,8 +2909,6 @@
           "format": "Formato",
           "format_csv": "CSV",
           "format_xlsx": "Excel",
-          "not_ready_one": "Faltan datos en {{count}} registro de tu selección.",
-          "not_ready_other": "Faltan datos en {{count}} registros de tu selección.",
           "pending_fiscal_purchases_one": "{{count}} compra tiene datos fiscales pendientes y no se incluye.",
           "pending_fiscal_purchases_other": "{{count}} compras tienen datos fiscales pendientes y no se incluyen.",
           "pending_fiscal_sales_one": "{{count}} venta tiene datos fiscales pendientes y no se incluye.",

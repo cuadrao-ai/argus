@@ -1010,7 +1010,7 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     documents: lines.map((line) => wireDocument(line, malformed.has(line.activity_id))),
     figures: readFigures(value.currencies),
     fiscal_rows: readFiscalRows(value.missing_fiscal_rows),
-    not_ready_rows: readFiscalRows(value.not_ready_rows),
+    not_ready_rows: readFiscalRows(value.not_ready_rows ?? undefined),
     unreviewed_movements,
   };
 }

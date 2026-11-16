@@ -95,9 +95,11 @@ describe("Business report transport", () => {
   });
   test("previews the export from the table's request and saves the file under the server's name", async () => {
     const report = reportRequestSchema.parse({ schema_version: 2, page: 4, filters: { record_families: ["purchase"], currencies: ["DOP"] } });
-    const preview = { not_ready: 3, table: { current: { record_count: 3, currencies: ["DOP"], columns: [{ key: "counterparty", label_key: "business.transactions.columns.contraparte", required: true, shown: true }] }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [] } };
+    const preview = { table: { current: { record_count: 3, currencies: ["DOP"], columns: [{ key: "counterparty", label_key: "business.transactions.columns.contraparte", required: true, shown: true }] }, all: null }, dgii: { form: "606", currency: "DOP", record_count: 1, pending_count: 2, pending_fiscal_count: 2, pending_rate_count: 0, pending_rate_currencies: [], rnc_warning_count: 0, rnc_supplier_count: 0, rnc_suppliers: [] } };
     const previewCalls = respond(preview);
-    expect(await previewRecordsExport(scope, report)).toEqual(preview);
+    const parsedPreview = await previewRecordsExport(scope, report);
+    expect(parsedPreview).toEqual(preview);
+    expect(parsedPreview).not.toHaveProperty("not_ready");
     expect(previewCalls[0].path).toEndWith("/business/reports/export/preview");
     expect(JSON.parse(String(previewCalls[0].options.body))).toEqual({ report });
     const calls: Call[] = [];

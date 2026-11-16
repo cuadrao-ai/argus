@@ -183,7 +183,6 @@ const exportColumnSchema = z.object({ key: z.string(), label_key: z.string(), re
 const currencySelectionSchema = z.object({ record_count: count, currencies: z.array(z.string()), columns: z.array(exportColumnSchema).min(1) });
 /** What the Registros export would hold, counted by the server before any file is built. */
 export const exportPreviewSchema = z.object({
-  not_ready: count,
   table: z.object({
     current: currencySelectionSchema,
     /** Null while an amount range ties the export to the screen's currency. */

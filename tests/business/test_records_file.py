@@ -725,6 +725,7 @@ def test_dgii_follows_only_tab_and_period_and_holds_only_complete_pesos_lines():
     assert preview.dgii.pending_rate_count == foreign_cards == 2
     assert preview.dgii.pending_rate_currencies == ("EUR", "USD")
     assert preview.dgii.pending_count == peso_card + foreign_cards
+    assert set(preview.model_dump()) == {"table", "dgii"}
     manifest, lines = fiscal_manifest(
         tuple(month.approved.values()),
         rnc=FILER,

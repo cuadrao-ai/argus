@@ -21661,8 +21661,6 @@ components:
       - shown
     ExportPreview:
       properties:
-        not_ready:
-          type: integer
         table:
           $ref: '#/components/schemas/TableExport'
         dgii:
@@ -21670,7 +21668,6 @@ components:
       additionalProperties: false
       type: object
       required:
-      - not_ready
       - table
       - dgii
     ExportPreviewRequest:
@@ -26677,9 +26674,11 @@ components:
             $ref: '#/components/schemas/FiscalDataRow'
           type: array
         not_ready_rows:
-          items:
-            $ref: '#/components/schemas/FiscalDataRow'
-          type: array
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/FiscalDataRow'
+            type: array
+          - type: 'null'
         cuentas_por_cobrar:
           anyOf:
           - items:

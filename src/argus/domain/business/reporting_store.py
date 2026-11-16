@@ -283,9 +283,14 @@ def read_recorded(
         return result
 
 
-def _projected(
+def projected_records(
     authority: BusinessAuthority, context: ActionContext, connection: Connection
 ) -> tuple[RecordedSnapshot, tuple[ReportRecord, ...], RncRegistrySnapshot]:
+    """Project Registros on the caller's authorized transaction snapshot.
+
+    Raises ``business_report_too_large`` when the projection cannot cover it.
+    """
+
     from argus.domain.business.actions.dossier import record_context, workflow_blockers
     from argus.domain.business.contracts.dossier import ReviewQuestion
     from argus.domain.business.contracts.facts import (
@@ -550,7 +555,7 @@ def read_export_source(
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         authorize(connection, context.actor, context.grant_id).require("export")
-        snapshot, records, rnc_registry = _projected(authority, context, connection)
+        snapshot, records, rnc_registry = projected_records(authority, context, connection)
         authorize(connection, context.actor, context.grant_id).require("export")
     return ExportSource(
         records,
@@ -580,7 +585,7 @@ def read_report_snapshot(
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         authorize(connection, context.actor, context.grant_id).require(capability)
-        snapshot, records, _ = _projected(authority, context, connection)
+        snapshot, records, _ = projected_records(authority, context, connection)
         result = run_query(
             snapshot.identity(""),
             records,

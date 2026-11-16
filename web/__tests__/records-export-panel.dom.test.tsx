@@ -146,14 +146,14 @@ test("Editar chooses columns in the table's order inside the same panel, with Co
   assert.deepEqual(exports(page)[0].columns, ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "missing", "fiscal_number", "payment_form"]);
 });
 
-test("Formato DGII keeps its server export counts and Revisar applies readiness", async () => {
+test("Formato DGII uses the server pending count and Revisar restores its fiscal scope", async () => {
   const page = await mount({ edit: fiscalBooks });
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 4 registros");
   assert.match(dialogText(), /La DGII define las columnas\. Solo en pesos\./);
   assert.match(summary()!, /^Octubre de 2026 · 4 listas · 5 pendientes$/, "the summary counts what the notices hold back");
-  assert.match(dialogText(), /Faltan datos en 3 registros de tu selección\./);
+  assert.match(dialogText(), /5 compras tienen datos fiscales pendientes y no se incluyen\./);
   assert.match(dialogText(), /2 compras en EUR y USD necesitan tasa y no se incluyen\./);
   const notices = document.querySelector('[data-testid="records-export-notices"]')!;
   assert.ok(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(notices));
@@ -175,8 +175,8 @@ test("Formato DGII keeps its server export counts and Revisar applies readiness"
   await page.settle(() => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length > queries);
   assert.equal(panel(), null);
   const last = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as ReportRequest;
-  assert.equal(last.filters.ready, false);
-  assert.equal(document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed"), "true");
+  assert.equal(last.filters.fiscal_data, "missing");
+  assert.equal(last.filters.ready, null);
 });
 
 test("Formato DGII says every record is ready only when the server holds none back", async () => {
@@ -205,22 +205,34 @@ test("before the server counts, the button names no number and cannot start", as
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 63 registros");
 });
 
-test("Revisar preserves the table scope and currency for the server readiness count", async () => {
-  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["purchase"], currencies: ["DOP"], q: "Proveedor 9", document_kinds: ["unknown"] } });
+test("DGII notice ignores table filters and Revisar clears them for the form currency", async () => {
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["purchase"], currencies: ["DOP"], q: "Proveedor 9", document_kinds: ["unknown"], ready: false } });
   const page = await mount({ edit: fiscalBooks, initial });
-  // A different DGII currency must not replace the table scope counted by readiness.
   page.fixture.controls.dgiiCurrency = "EUR";
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   await page.settle(() => page.button("Revisar") !== undefined);
-  const notice = Number(/Faltan datos en (\d+) registros?/.exec(dialogText())![1]);
+  assert.match(dialogText(), /9 compras tienen datos fiscales pendientes y no se incluyen\./, "the notice uses DGII pending_count, independent of the one table match and pending_fiscal_count");
+  assert.match(summary()!, /9 pendientes$/);
+  const queries = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length;
   await page.click(page.button("Revisar"));
-  await page.settle(() => panel() === null && document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "true" && document.querySelector('[data-testid="records-count"]') !== null);
+  await page.settle(() => panel() === null && page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length > queries);
   const last = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as ReportRequest;
-  assert.deepEqual(last.filters, reportFiltersSchema.parse({ ...initial.filters, ready: false }));
-  assert.ok(document.querySelector('button[aria-label="Moneda: DOP"]'), "the screen keeps the table currency");
-  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, new RegExp(`de ${notice} registros?`));
-  assert.equal(notice, 1);
+  assert.deepEqual(last.filters, reportFiltersSchema.parse({ period: initial.filters.period, record_families: initial.filters.record_families, currencies: ["EUR"], fiscal_data: "missing" }));
+  assert.ok(document.querySelector('button[aria-label="Moneda: EUR"]'), "the screen uses the form currency");
+});
+
+test("a restored DGII fiscal scope survives sorting", async () => {
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" }, record_families: ["purchase"], currencies: ["DOP"], fiscal_data: "missing" } });
+  const page = await mount({ edit: fiscalBooks, initial });
+  const queries = () => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query"));
+  assert.equal((queries().at(-1)!.body as ReportRequest).filters.fiscal_data, "missing");
+  const before = queries().length;
+  await page.click(document.querySelector('th[data-col="date"] button'));
+  await page.settle(() => queries().length > before);
+  const sorted = queries().at(-1)!.body as ReportRequest;
+  assert.equal(sorted.sort, "date_asc");
+  assert.deepEqual(sorted.filters, initial.filters);
 });
 
 test("no records disables the export and sends no request", async () => {
@@ -398,7 +410,7 @@ test("607 keeps pending notices below the options", async () => {
   assert.match(dialogText(), /Formato DGII 607/);
   assert.equal(document.querySelector('[data-testid="records-export-notices"]'), null);
   const notice = document.querySelector('[data-testid="records-export-dgii"]')!;
-  assert.match(notice.textContent!, /Faltan datos en 1 registro de tu selección\./);
+  assert.match(notice.textContent!, /1 venta tiene datos fiscales pendientes y no se incluye\./);
   assert.ok(notice.contains(page.button("Revisar")!));
   assert.ok(page.button("Revisar")!.classList.contains("min-h-11"), "607 keeps its existing review button");
   assert.equal(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(page.button("Revisar")!), false);

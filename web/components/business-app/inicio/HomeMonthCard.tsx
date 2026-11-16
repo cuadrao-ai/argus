@@ -57,8 +57,8 @@ export type HomeMonthCardProps = {
   net: MonthCloseNetDisplay;
   /** No approved document ever: the figures read RD$ 0, muted, and the footer says when they fill. */
   firstDay: boolean;
-  /** The server's "Faltan datos" rows in the shown currency, one per Registros tab. */
-  notReadyRows: readonly MonthCloseFiscalRow[];
+  /** The server's "Faltan datos" rows in the shown currency, one per Registros tab; null while unknown. */
+  notReadyRows: readonly MonthCloseFiscalRow[] | null;
   /** Opens the Bandeja; absent for someone who may not prepare. */
   openBandeja?: () => void;
   /** What a not-ready row's Ver opens: Registros on that tab with "Faltan datos"; null offers no Ver. */
@@ -100,7 +100,9 @@ export function HomeMonthCard({ switcher, currencyMenu, state, error, block, cur
           {openBandeja ? <>{" · "}<button type="button" data-testid="home-month-bandeja-open" className={LINK} onClick={openBandeja}>{t("business.inicio.month.review")}</button></> : null}
         </p>
       ) : null}
-      {notReadyRows.map((fiscal) => {
+      {notReadyRows === null ? (
+        <p data-testid="home-month-fiscal-unknown">{t("business.transactions.layout.workflow.not_ready")}{": "}{t("business.month_close.figure_unknown")}</p>
+      ) : notReadyRows.map((fiscal) => {
         const open = openNotReady?.(fiscal) ?? null;
         return (
           <p key={fiscal.family} data-testid="home-month-fiscal" data-family={fiscal.family}>

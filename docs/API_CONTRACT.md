@@ -8778,7 +8778,9 @@ the Registros list it counts). `not_ready_rows` uses the same row shape and
 ordering for Inicio's "Faltan datos" line, but its counts come from the current
 report projection and `ready: false` selection in the requested month. Each
 row opens Registros with that month, family, currency and `ready: false`;
-its count matches `overview.not_ready` for that selection. Legacy fiscal
+its count matches `overview.not_ready` for that selection. `[]` means no
+not-ready rows; `null` means projection refused with `business_report_too_large`,
+so Inicio shows unknown while the other month-card fields remain available. Legacy fiscal
 lists remain unchanged. `filing_ready` is removed. Each currency block
 carries `documents_counted`, `documents_total` and `documents_in_bandeja`
 (ints): of the month's documents in that currency, from the same list as the
@@ -10752,12 +10754,6 @@ accept path recorded.
   (`counterparty`): the file holds it even while the table hides it. `default` is
   Forma de pago on Compras: it is offered checked while the table hides it, and
   then it is the last column. The modal renders this list.
-  The top-level `not_ready` counts false readiness verdicts with every request
-  filter, including search, currency and `ready`, before pagination. It equals
-  the same report's `overview.not_ready`; both use `reporting_query.count_not_ready`.
-  The dialog's "Faltan datos" notice
-  reads this count; its Revisar action preserves the current filters and sets
-  `ready: false`.
   `dgii` counts by the tab and period only, whatever the other filters say:
   `form` is `606` on Compras and `607` on Ventas, `currency` the form's one
   currency (`DOP`), `record_count` the records whose
@@ -10766,6 +10762,9 @@ accept path recorded.
   `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing`, and
   `pending_rate_count` with `pending_rate_currencies` the foreign-currency
   records the form holds until they have a rate. No count is computed on the web.
+  The DGII notice and summary both read `dgii.pending_count`. Revisar keeps
+  only the tab and period, selects the form’s currency and `fiscal_data: missing`,
+  and clears every other filter and search. Lo que ves retains the table request.
   These form inclusion and rate counts remain separate from report readiness.
   `rnc_warning_count` counts exported purchase rows with an inactive
   or unverified RNC, and `rnc_supplier_count` counts their unique normalized
