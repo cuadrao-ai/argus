@@ -248,13 +248,15 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                       <span className="mt-1 block">{terminal.body}</span>
                     </span>
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {terminal.upload && uploadAnother ? (
-                      <button type="button" className={primaryButtonClass} onClick={uploadAnother.run}>
-                        {terminal.uploadLabel}
-                      </button>
-                    ) : null}
-                  </div>
+                  {terminal.upload ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {uploadAnother ? (
+                        <button type="button" className={primaryButtonClass} onClick={uploadAnother.run}>
+                          {terminal.uploadLabel}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <p className="flex gap-2.5">

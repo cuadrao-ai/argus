@@ -227,3 +227,48 @@ test("the sample's first row and Papelería Central open their dossier", async (
     assert.equal(dossier.facts.counterparty.value, name);
   }
 });
+
+/** A read that failed and can be read again, opened by someone who may prepare it, with a working "Leer de nuevo". */
+async function openRetryable(state: Pick<ReceiptDetail, "attention" | "error_code">) {
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+  const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
+  const base = await createFixtureBusinessDataSource().receipt("rcpt-blurry");
+  assert.ok(base.record_context);
+  const detail = { ...base, ...notReceipt(), ...failedRead, ...state, preparable: true, record_context: { ...base.record_context, capabilities: ["read", "prepare"] } } as ReceiptDetail;
+  const prepared: string[] = [];
+  const source = { ...liveBusinessDataSource, receipt: async () => detail, prepareReceipt: async (id: string) => { prepared.push(id); } };
+  const page = await render(() => <BusinessConsentTestProvider accepted><ReceiptReviewPanel target={{ kind: "receipt", id: detail.id }} /></BusinessConsentTestProvider>, { source } as Partial<BusinessContextValue>);
+  return { page, prepared, id: detail.id, notice: () => page.host.querySelector('[data-testid="receipt-attention"]')! };
+}
+
+test("a read that passed its deadline says the read did not finish, why, and reads again", async () => {
+  const { page, prepared, id, notice } = await openRetryable({ attention: "read_deadline_passed", error_code: "document_read_deadline_passed" });
+  try {
+    assert.equal(notice().querySelector("span.font-medium")?.textContent, "La lectura no terminó");
+    assert.match(notice().textContent ?? "", /El servicio de lectura no estuvo disponible\. Puedes leerlo de nuevo\./);
+    assert.equal(/PENDIENTE|Subir otro archivo/.test(notice().textContent ?? ""), false);
+    assert.deepEqual([...notice().querySelectorAll("button")].map((button) => button.textContent), ["Leer de nuevo"]);
+    await page.act(async () => page.button("Leer de nuevo")!.click());
+    await page.settle();
+    assert.deepEqual(prepared, [id]);
+  } finally {
+    await page.close();
+  }
+});
+
+test("a read that stopped keeps its one short line and its Leer de nuevo", async () => {
+  const { page, prepared, id, notice } = await openRetryable({ attention: "interrupted", error_code: "business_preparation_binding_missing" });
+  try {
+    assert.equal(notice().querySelector("span.font-medium"), null, "no title: the short word stays alone");
+    assert.equal(notice().querySelector("p")?.textContent, "La lectura se detuvo");
+    assert.match(notice().textContent ?? "", /Si reintentas, el recibo se envía/);
+    assert.deepEqual([...notice().querySelectorAll("button")].map((button) => button.textContent), ["Leer de nuevo"]);
+    await page.act(async () => page.button("Leer de nuevo")!.click());
+    await page.settle();
+    assert.deepEqual(prepared, [id]);
+  } finally {
+    await page.close();
+  }
+});

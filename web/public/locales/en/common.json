@@ -3487,6 +3487,7 @@
       "unreadable_title": "We couldn't read this file",
       "not_a_receipt_title": "This doesn't look like a receipt.",
       "not_a_receipt_body": "Upload the photo or the PDF of a receipt.",
+      "read_deadline_passed_body": "The reading service wasn't available. You can read it again.",
       "placeholder": {
         "unreadable_body": "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light."
       },
@@ -4292,7 +4293,7 @@
       "duplicate": "Looks like a repeat",
       "read_budget_day": "[COPY PENDING] Reads tomorrow: today's read limit was reached",
       "read_budget_month": "[COPY PENDING] Reads next month: this month's read limit was reached",
-      "read_deadline_passed": "[COPY PENDING] Not read in time: the reading service was unavailable",
+      "read_deadline_passed": "Reading didn't finish",
       "other": "Needs attention"
     },
     "inbox": {

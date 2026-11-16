@@ -1382,9 +1382,12 @@ are pending #1681.
 A read that is not finished 6 hours after the upload also moves to Necesitan
 atención, with its own reason: the reading service was unavailable, and the
 receipt did not fail (founder, 2026-11-16, built in #2192). This reason does
-not count against the one manual Leer de nuevo of step 3. Its line uses the
-placeholder key `business.attention_short.read_deadline_passed` until the copy
-arrives.
+not count against the one manual Leer de nuevo of step 3. The Bandeja row says
+"La lectura no terminó" (`business.attention_short.read_deadline_passed`). The
+open receipt's failed-read box shows that title, the line "El servicio de
+lectura no estuvo disponible. Puedes leerlo de nuevo."
+(`business.file_read.read_deadline_passed_body`) and Leer de nuevo (founder
+copy, 2026-11-16).
 
 Today, Leer de nuevo has no limit, and each press spends one read.
 
