@@ -15,6 +15,7 @@ import psycopg
 import pytest
 from argus.domain.ingestion.documents.breaker import (
     COOLDOWN,
+    Admission,
     BreakerState,
     PostgresReadBreaker,
 )
@@ -22,9 +23,14 @@ from argus.domain.ingestion.documents.config import (
     BREAKER_FAILURES,
     BREAKER_WINDOW_SECONDS,
     MAX_PROVIDER_CALLS,
+    READ_DEADLINE_SECONDS,
 )
-from argus.domain.ingestion.documents.failures import READS_PAUSED, ReadFailure
-from argus.domain.ingestion.documents.jobs import run_attempt
+from argus.domain.ingestion.documents.failures import (
+    READ_DEADLINE_PASSED,
+    READS_PAUSED,
+    ReadFailure,
+)
+from argus.domain.ingestion.documents.jobs import SweepReport, run_attempt
 from argus.domain.ingestion.documents.models import (
     DocumentExtractionError,
     ExtractionBatch,
@@ -47,7 +53,10 @@ FAILED = "extraction_provider_failed"
 
 def close(pool: ConnectionPool) -> None:
     with pool.connection() as db:
-        db.execute(f"update {TABLE} set failures='{{}}', opened_at=null, probe_at=null")
+        db.execute(
+            f"update {TABLE} set failures='{{}}', opened_at=null, probe_at=null, "
+            "probe_id=null"
+        )
 
 
 @pytest.fixture
@@ -86,7 +95,13 @@ def test_the_migration_leaves_one_closed_row_that_cannot_be_doubled(pool):
     with pool.connection() as db, pytest.raises(psycopg.errors.CheckViolation):
         db.execute(f"insert into {TABLE}(singleton) values (false)")
     with pool.connection() as db, pytest.raises(psycopg.errors.CheckViolation):
-        db.execute(f"update {TABLE} set probe_at=now(), opened_at=null")
+        db.execute(
+            f"update {TABLE} set probe_at=now(), probe_id='probe', opened_at=null"
+        )
+    # A probe always has its id, and an id always has its probe.
+    for unnamed in ("probe_at=now()", "probe_id='probe'"):
+        with pool.connection() as db, pytest.raises(psycopg.errors.CheckViolation):
+            db.execute(f"update {TABLE} set opened_at=now(), {unnamed}")
     assert state(pool) == BreakerState()
 
 
@@ -139,13 +154,27 @@ def test_every_worker_and_the_next_deploy_see_the_same_breaker(pool, other_pool)
     opened = NOON + timedelta(seconds=BREAKER_FAILURES - 1)
 
     assert there.paused_until(opened) == opened + COOLDOWN
-    assert there.admit(opened + COOLDOWN - timedelta(seconds=1)) == opened + COOLDOWN
+    held = there.admit(opened + COOLDOWN - timedelta(seconds=1))
+    assert (held.until, held.probe) == (opened + COOLDOWN, None)
     # A new process starts with no memory of its own and reads the same row.
     with ConnectionPool(shared.DSN, min_size=0, max_size=2) as redeploy:
         assert PostgresReadBreaker(redeploy).paused_until(opened) == opened + COOLDOWN
 
+    # A call sent before it opened answers or fails late, from either worker:
+    # the breaker stays open and its cooldown does not move.
     there.succeeded(opened + timedelta(seconds=1))
-    assert here.paused_until(opened + timedelta(seconds=1)) is None
+    here.failed(opened + timedelta(seconds=2))
+    assert state(pool) == BreakerState(opened_at=opened)
+    assert here.paused_until(opened + timedelta(seconds=2)) == opened + COOLDOWN
+
+    # One worker sends the probe; another reports for it with the probe's id.
+    probing = there.admit(opened + COOLDOWN)
+    assert probing.until is None and state(pool).probe_id == probing.probe
+    here.succeeded(opened + COOLDOWN)
+    here.failed(opened + COOLDOWN)
+    assert state(pool).probe_id == probing.probe, "only the probe's end counts"
+    here.succeeded(opened + COOLDOWN, probing.probe)
+    assert here.paused_until(opened + COOLDOWN) is None
     assert state(pool) == BreakerState()
 
 
@@ -163,18 +192,22 @@ def test_one_read_probes_however_many_ask_at_once(pool, other_pool):
     askers = [PostgresReadBreaker(pool), PostgresReadBreaker(other_pool)] * 3
     barrier = Barrier(len(askers))
 
-    def ask(breaker: PostgresReadBreaker) -> datetime | None:
+    def ask(breaker: PostgresReadBreaker) -> Admission:
         barrier.wait()
         return breaker.admit(after)
 
     with ThreadPoolExecutor(max_workers=len(askers)) as threads:
         answers = list(threads.map(ask, askers))
-    assert answers.count(None) == 1, "exactly one read is sent as the probe"
-    assert all(until > after for until in answers if until is not None)
-    assert state(pool).probe_at == after
+    [probe] = [answer.probe for answer in answers if answer.until is None]
+    assert all(answer.until > after for answer in answers if answer.probe is None)
+    assert (state(pool).probe_at, state(pool).probe_id) == (after, probe)
 
     # The probe fails: the cooldown starts again for everyone.
-    PostgresReadBreaker(other_pool).failed(after + timedelta(seconds=2))
+    PostgresReadBreaker(other_pool).failed(after + timedelta(seconds=2), probe)
+    assert state(pool) == BreakerState(opened_at=after + timedelta(seconds=2))
+    # The same probe reports again, late: nothing moves.
+    PostgresReadBreaker(pool).succeeded(after + timedelta(seconds=3), probe)
+    PostgresReadBreaker(pool).failed(after + timedelta(seconds=3), probe)
     assert state(pool) == BreakerState(opened_at=after + timedelta(seconds=2))
 
 
@@ -297,4 +330,49 @@ async def test_a_read_the_open_breaker_holds_is_not_charged_a_call(pool, users):
     assert await run_attempt(api.service, connection, held.attempt_id) == "prepared"
     assert state(pool) == BreakerState()
     assert extractor.calls == 1 and rows(pool, connection) == 1
+    documents.forget(api.service, owner, connection)
+
+
+@pytest.mark.asyncio
+async def test_a_held_read_expires_six_hours_after_the_upload(pool, users):
+    """On the real store: the breaker holds the read, the outage outlasts the
+    deadline, and the sweep's pass over this row ends the read with its own
+    reason while the breaker stays open."""
+    clock, extractor = documents.far_clock(), documents.Extractor()
+    api = documents.instance(pool, clock, extractor)
+    breaker = PostgresReadBreaker(pool)
+    api.service.read_breaker = breaker
+    store, owner = api.service.store, users["owner"]
+    connection = await documents.capture(api.service, owner)
+    uploaded = store.draft(user_id=owner, connection_id=connection).created_at
+    api.jobs.start(user_id=owner, connection_id=connection)
+    [attempt] = api.attempts(connection)
+    assert store.job(user_id=owner, connection_id=connection).asked_at == uploaded
+    opened = open_breaker(breaker, clock.now)
+    clock.now = opened
+
+    assert await run_attempt(api.service, connection, attempt) == READS_PAUSED
+    held = store.job(user_id=owner, connection_id=connection)
+    assert (held.asked_at, held.not_before) == (uploaded, opened + COOLDOWN)
+
+    def swept() -> list[str]:
+        # The sweep's own pass, over this test's row only: other tests leave
+        # rows waiting in the shared database.
+        report = SweepReport()
+        api.jobs._reconcile(owner, connection, clock.now, report)
+        return report.expired
+
+    clock.now = uploaded + timedelta(seconds=READ_DEADLINE_SECONDS - 1)
+    assert swept() == []
+    clock.now += timedelta(seconds=1)
+    assert swept() == [connection]
+    draft = store.draft(user_id=owner, connection_id=connection)
+    assert (draft.status, draft.error_code) == (
+        "needs_attention",
+        READ_DEADLINE_PASSED,
+    )
+    assert _pull_only(store, clock, connection) is None
+    assert swept() == []
+    assert state(pool) == BreakerState(opened_at=opened)
+    assert extractor.calls == 0
     documents.forget(api.service, owner, connection)

@@ -33,6 +33,10 @@ from argus.llm.openrouter_transport import timed_out
 FailureKind = Literal["transient", "paused", "config", "permanent"]
 
 READS_PAUSED = "document_reads_paused"
+# The reason of a read that waited past its deadline with the service
+# unavailable. The receipt itself did not fail, so this code must never count
+# against the person's own "Leer de nuevo".
+READ_DEADLINE_PASSED = "document_read_deadline_passed"
 # The searchable tag of the error log a config failure writes.
 CONFIG_ALERT = "document_read_config_alert"
 _CONFIG_CODES = frozenset({"missing_vision_model", "missing_api_key", "missing_model"})

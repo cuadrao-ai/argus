@@ -19,6 +19,11 @@ A take that failed for now (the provider timed out, broke off, answered 5xx or
 ``not_before``, so no worker sleeps on it and the person keeps seeing it being
 read. The provider calls of one read are counted on its job across every take,
 reruns included, and stop at ``MAX_PROVIDER_CALLS``.
+
+A read does not wait for ever. The sweep moves a read still waiting in the
+queue ``READ_DEADLINE_SECONDS`` after it was asked for to ``needs_attention``
+with ``READ_DEADLINE_PASSED``, whether a retry's wait, the open breaker or a
+stopped worker held it there.
 """
 
 from __future__ import annotations
@@ -36,8 +41,11 @@ from argus.domain.ingestion.connections import (
     ConnectionNotFound,
     SourceConnection,
 )
-from argus.domain.ingestion.documents.config import load_document_extraction_settings
-from argus.domain.ingestion.documents.failures import Requeue
+from argus.domain.ingestion.documents.config import (
+    READ_DEADLINE_SECONDS,
+    load_document_extraction_settings,
+)
+from argus.domain.ingestion.documents.failures import READ_DEADLINE_PASSED, Requeue
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     DocumentExtractionError,
@@ -57,6 +65,7 @@ OUTCOME_UNKNOWN = "document_preparation_outcome_unknown"
 # A pulled attempt that never claimed is presumed lost after the same window a
 # lease lasts.
 DISPATCH_WINDOW = DEFAULT_LEASE
+READ_DEADLINE = timedelta(seconds=READ_DEADLINE_SECONDS)
 
 
 def in_flight(
@@ -81,12 +90,31 @@ def dispatched(draft: DocumentDraft, job: PreparationJob | None) -> bool:
     return job is not None and job.draft_version == draft.version
 
 
+def read_expired(
+    draft: DocumentDraft,
+    job: PreparationJob | None,
+    connection: SourceConnection,
+    now: datetime,
+) -> bool:
+    """A read still waiting in the queue past its deadline. The deadline counts
+    from when the read was asked for; a read with no attempt yet was asked for
+    when its draft was queued. A read a worker has taken is left to end."""
+    if draft.status != "queued" or lease_live(connection, now):
+        return False
+    waiting = dispatched(draft, job)
+    if waiting and job.dispatched_at is not None:
+        return False
+    asked = (job.asked_at if waiting else None) or draft.updated_at
+    return now >= asked + READ_DEADLINE
+
+
 @dataclass
 class SweepReport:
     redispatched: list[str] = field(default_factory=list)
     rerun: list[str] = field(default_factory=list)
     exhausted: list[str] = field(default_factory=list)
     outcome_unknown: list[str] = field(default_factory=list)
+    expired: list[str] = field(default_factory=list)
     errors: int = 0
 
 
@@ -155,6 +183,16 @@ class PreparationJobs:
         if draft is None:
             return
         if draft.status in {"queued", "preparing"}:
+            if read_expired(draft, job, connection, now):
+                if self._settle(
+                    user_id, connection_id, now, job, draft, READ_DEADLINE_PASSED
+                ):
+                    report.expired.append(connection_id)
+                    logger.warning(
+                        "document_read_failed connection_id={} code={} kind=expired",
+                        *(connection_id, READ_DEADLINE_PASSED),
+                    )
+                return
             if in_flight(draft, job, connection, now):
                 return
             reason = "unclaimed" if draft.status == "queued" else "interrupted"
@@ -286,7 +324,7 @@ class PreparationJobs:
         """Make a new attempt current and leave it for a puller. A sweep also
         returns an interrupted or failed draft to ``queued``. ``carried`` is
         the earlier attempt of the same read: its provider calls and waits
-        still count."""
+        still count, and so does the moment it was asked for."""
         requeued = (
             self.service.revise(draft, status="queued", error_code=None)
             if requeue and draft.status != "queued"
@@ -299,6 +337,8 @@ class PreparationJobs:
             reruns=reruns,
             provider_calls=carried.provider_calls if carried else 0,
             retry_waited=carried.retry_waited if carried else 0,
+            asked_at=(carried.asked_at if carried else None)
+            or (requeued or draft).updated_at,
         )
         return self.service.store.advance(
             user_id=user_id,
@@ -317,8 +357,9 @@ async def sweep_forever(
     upkeep: Callable[[], object] | None = None,
 ) -> None:
     """Waits while extraction is off: a queued draft is then neither sent to
-    the model nor failed, and resumes when extraction is back. ``upkeep``
-    runs on every pass, extraction on or off, and paces itself."""
+    the model nor failed. When extraction is back it resumes, or ends on its
+    read deadline when that passed meanwhile. ``upkeep`` runs on every pass,
+    extraction on or off, and paces itself."""
 
     while True:
         if upkeep is not None:
@@ -439,6 +480,7 @@ def _take_again(
         reruns=job.reruns,
         provider_calls=job.provider_calls,
         not_before=now + timedelta(seconds=requeue.wait_seconds),
+        asked_at=job.asked_at or now,
         retry_waited=job.retry_waited
         + (requeue.wait_seconds if requeue.charged else 0.0),
     )

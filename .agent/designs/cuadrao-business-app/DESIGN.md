@@ -1379,6 +1379,13 @@ are pending #1681.
 4. If that read also fails, the person types the data by hand with Escribir los
    datos (#1681).
 
+A read that is not finished 6 hours after the upload also moves to Necesitan
+atención, with its own reason: the reading service was unavailable, and the
+receipt did not fail (founder, 2026-11-16, built in #2192). This reason does
+not count against the one manual Leer de nuevo of step 3. Its line uses the
+placeholder key `business.attention_short.read_deadline_passed` until the copy
+arrives.
+
 Today, Leer de nuevo has no limit, and each press spends one read.
 
 ### Duplicados

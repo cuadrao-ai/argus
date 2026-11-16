@@ -420,11 +420,31 @@ Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
   `public.document_read_breaker` owns the state, one row. 5 failed provider
   calls inside 2 minutes stop all sends for 5 minutes. Then one read probes
   the provider: its answer closes the breaker, and its failure starts the 5
-  minutes again. Every worker and every new deploy read the same row. A read
+  minutes again. Only the probe moves an open breaker. Its admission carries
+  the probe's id (`probe_id` on the row), and the call reports its end with
+  that id. A call sent before the breaker opened, or a probe that was given
+  up, carries no id or an old one, so its late answer does not close the
+  breaker and its late failure does not start the 5 minutes again.
+  Every worker and every new deploy read the same row. A read
   the breaker holds back goes back to the queue and is charged no call, no
   wait and no read budget. The breaker has no timer of its own. It changes
   only when a read asks to be sent or reports how its call ended. If the
   breaker row cannot be read, reads continue.
+- **Read deadline.** A read still waiting in the queue 6 hours after it was
+  asked for goes to Necesitan atención with the code
+  `document_read_deadline_passed` (attention `read_deadline_passed`): the read
+  waited too long with the service unavailable, and the receipt did not fail.
+  `READ_DEADLINE_SECONDS` in `config.py` owns the 6 hours. `asked_at` on the
+  `preparation_job` owns the start: the upload for the read an upload starts,
+  and the owner's ask for a later "Leer de nuevo". The first try, a retry and
+  a rerun after a dead worker do not move it. The worker's existing sweep
+  (`read_expired` in `jobs.py`) checks it on the rows it already loads, so a
+  read that a retry's wait, the open breaker or a stopped worker holds still
+  expires. No new loop or timer runs. The sweep leaves a read alone once a
+  worker took it. That read ends by its own answer, and a take that fails for
+  now goes back to the queue, where the next sweep ends it. This code must not
+  count against the owner's manual "Leer de nuevo" limit, which ships in
+  #1681.
 - **Idempotent writes.** Each extraction write is keyed by the document:
   `financial_document_extractions` has one row for each document, and the
   canonical Business bridge is keyed by the document's binding and checks the

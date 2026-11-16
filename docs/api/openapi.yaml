@@ -16699,6 +16699,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
             - reading
             - not_read
@@ -18617,6 +18618,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
           - type: 'null'
         label:
@@ -28875,6 +28877,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
           - type: 'null'
         duplicate_of:
@@ -29167,6 +29170,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
           - type: 'null'
         duplicate_of:
@@ -29437,6 +29441,7 @@ components:
             - duplicate
             - read_budget_day
             - read_budget_month
+            - read_deadline_passed
             - other
           - type: 'null'
         duplicate_of:

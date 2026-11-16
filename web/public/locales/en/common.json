@@ -4292,6 +4292,7 @@
       "duplicate": "Looks like a repeat",
       "read_budget_day": "[COPY PENDING] Reads tomorrow: today's read limit was reached",
       "read_budget_month": "[COPY PENDING] Reads next month: this month's read limit was reached",
+      "read_deadline_passed": "[COPY PENDING] Not read in time: the reading service was unavailable",
       "other": "Needs attention"
     },
     "inbox": {

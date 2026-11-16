@@ -132,6 +132,10 @@ PROVIDER_CALLS_PER_READ = 2
 # Provider calls one read may make across every take, the two above included.
 # A read that still fails then goes to Necesitan atención.
 MAX_PROVIDER_CALLS = 4
+# A read still waiting in the queue this long after it was asked for (the
+# upload, for the read an upload starts) goes to Necesitan atención, whatever
+# held it there: a retry's wait, the open breaker or a stopped worker.
+READ_DEADLINE_SECONDS = 6 * 60 * 60.0
 # The wait before the next take starts at this and grows by RETRY_FACTOR for
 # each call the read already made. Half of each wait is random.
 RETRY_BASE_SECONDS = 15.0

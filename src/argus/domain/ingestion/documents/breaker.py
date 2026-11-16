@@ -6,11 +6,18 @@ are the four pure functions below; a store only loads the state, applies one
 of them under a lock and saves the result. A read the breaker holds back was
 never sent, so it is charged nothing. Nothing here runs on a timer: the state
 moves only when a read asks to be sent or reports how its call ended.
+
+Only the probe moves an open breaker. Its admission carries the probe's id,
+and the call reports its end with that id. A call admitted before the breaker
+opened, or a probe that was given up, carries no id or an old one: its late
+answer does not close the breaker and its late failure does not restart the
+cooldown.
 """
 
 from __future__ import annotations
 
 import threading
+import uuid
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Protocol
@@ -35,11 +42,22 @@ _ASK_AGAIN = timedelta(seconds=RETRY_BASE_SECONDS)
 class BreakerState:
     """Closed while ``opened_at`` is ``None``. ``failures`` are the recent
     failed calls of a closed breaker; ``probe_at`` is when the one probe of an
-    open breaker was sent."""
+    open breaker was sent, and ``probe_id`` names that probe."""
 
     failures: tuple[datetime, ...] = ()
     opened_at: datetime | None = None
     probe_at: datetime | None = None
+    probe_id: str | None = None
+
+
+@dataclass(frozen=True)
+class Admission:
+    """The answer to a read that asks to be sent. ``until`` set: held back,
+    ask again then. ``probe`` set: sent as the probe of an open breaker; the
+    call reports its end with it."""
+
+    until: datetime | None = None
+    probe: str | None = None
 
 
 def _probe_window() -> timedelta:
@@ -60,30 +78,38 @@ def paused_until(state: BreakerState, now: datetime) -> datetime | None:
 
 
 def admitted(
-    state: BreakerState, now: datetime
-) -> tuple[BreakerState, datetime | None]:
-    """Ask to send one read. The first to ask after the cooldown is the probe."""
+    state: BreakerState, now: datetime, probe_id: str
+) -> tuple[BreakerState, Admission]:
+    """Ask to send one read. The first to ask after the cooldown is the probe,
+    named ``probe_id``."""
     until = paused_until(state, now)
     if until is not None or state.opened_at is None:
-        return state, until
-    return replace(state, probe_at=now), None
+        return state, Admission(until=until)
+    return replace(state, probe_at=now, probe_id=probe_id), Admission(probe=probe_id)
 
 
-def failed(state: BreakerState, now: datetime) -> BreakerState:
-    """A provider call failed. Enough of them in the window open the breaker;
-    a failed probe starts the cooldown again. A call sent before the breaker
-    opened changes nothing when it fails late."""
+def _current_probe(state: BreakerState, probe: str | None) -> bool:
+    return probe is not None and probe == state.probe_id
+
+
+def failed(
+    state: BreakerState, now: datetime, probe: str | None = None
+) -> BreakerState:
+    """A provider call failed. Enough of them in the window open a closed
+    breaker. Only the failure of the current probe moves an open one: it
+    starts the cooldown again."""
     if state.opened_at is not None:
-        return state if state.probe_at is None else BreakerState(opened_at=now)
+        return BreakerState(opened_at=now) if _current_probe(state, probe) else state
     recent = (*(at for at in state.failures if at > now - WINDOW), now)
     if len(recent) >= BREAKER_FAILURES:
         return BreakerState(opened_at=now)
     return replace(state, failures=recent)
 
 
-def succeeded(state: BreakerState) -> BreakerState:
-    """A provider call answered: an open breaker closes."""
-    return state if state.opened_at is None else BreakerState()
+def succeeded(state: BreakerState, probe: str | None = None) -> BreakerState:
+    """A provider call answered. Only the answer of the current probe closes
+    an open breaker."""
+    return BreakerState() if _current_probe(state, probe) else state
 
 
 def _log(before: BreakerState, after: BreakerState) -> None:
@@ -108,12 +134,17 @@ class ReadBreaker(Protocol):
         """Read only: when a read may next be sent, or ``None`` for now."""
         ...
 
-    def admit(self, now: datetime) -> datetime | None:
-        """Ask to send one read: ``None`` to send it, else when to ask again."""
+    def admit(self, now: datetime) -> Admission:
+        """Ask to send one read."""
         ...
 
-    def failed(self, now: datetime) -> None: ...
-    def succeeded(self, now: datetime) -> None: ...
+    def failed(self, now: datetime, probe: str | None = None) -> None:
+        """The call admitted with ``probe`` failed."""
+        ...
+
+    def succeeded(self, now: datetime, probe: str | None = None) -> None:
+        """The call admitted with ``probe`` answered."""
+        ...
 
 
 class InMemoryReadBreaker:
@@ -129,29 +160,29 @@ class InMemoryReadBreaker:
         with self._lock:
             return paused_until(self.state, now)
 
-    def admit(self, now: datetime) -> datetime | None:
+    def admit(self, now: datetime) -> Admission:
         with self._lock:
-            after, until = admitted(self.state, now)
+            after, admission = admitted(self.state, now, uuid.uuid4().hex)
             self._move(after)
-            return until
+            return admission
 
-    def failed(self, now: datetime) -> None:
+    def failed(self, now: datetime, probe: str | None = None) -> None:
         with self._lock:
-            self._move(failed(self.state, now))
+            self._move(failed(self.state, now, probe))
 
-    def succeeded(self, now: datetime) -> None:
+    def succeeded(self, now: datetime, probe: str | None = None) -> None:
         with self._lock:
-            self._move(succeeded(self.state))
+            self._move(succeeded(self.state, probe))
 
 
-_COLUMNS = "failures, opened_at, probe_at"
+_COLUMNS = "failures, opened_at, probe_at, probe_id"
 _TABLE = "public.document_read_breaker"
 
 
 class PostgresReadBreaker:
     """The one row of ``document_read_breaker``. A closed breaker costs a read
-    one select and a successful call nothing more; a write happens only when a
-    call fails or the breaker changes state."""
+    one select and a successful call nothing; a write happens only when a call
+    fails or the breaker changes state."""
 
     def __init__(self, pool) -> None:  # noqa: ANN001
         self._pool = pool
@@ -179,8 +210,14 @@ class PostgresReadBreaker:
             after = move(before)
             if after != before:
                 connection.execute(
-                    f"update {_TABLE} set failures=%s, opened_at=%s, probe_at=%s",
-                    (list(after.failures), after.opened_at, after.probe_at),
+                    f"update {_TABLE} set failures=%s, opened_at=%s, probe_at=%s, "
+                    "probe_id=%s",
+                    (
+                        list(after.failures),
+                        after.opened_at,
+                        after.probe_at,
+                        after.probe_id,
+                    ),
                 )
         _log(before, after)
         return after
@@ -188,37 +225,39 @@ class PostgresReadBreaker:
     def paused_until(self, now: datetime) -> datetime | None:
         return paused_until(self._load(), now)
 
-    def admit(self, now: datetime) -> datetime | None:
+    def admit(self, now: datetime) -> Admission:
         if self._load().opened_at is None:
-            return None
-        until: list[datetime | None] = []
+            return Admission()
+        answer: list[Admission] = []
 
         def move(state: BreakerState) -> BreakerState:
-            after, wait = admitted(state, now)
-            until.append(wait)
+            after, admission = admitted(state, now, uuid.uuid4().hex)
+            answer.append(admission)
             return after
 
         self._apply(move)
-        return until[0]
+        return answer[0]
 
-    def failed(self, now: datetime) -> None:
-        self._apply(lambda state: failed(state, now))
+    def failed(self, now: datetime, probe: str | None = None) -> None:
+        self._apply(lambda state: failed(state, now, probe))
 
-    def succeeded(self, now: datetime) -> None:
-        if self._load().opened_at is not None:
-            self._apply(succeeded)
+    def succeeded(self, now: datetime, probe: str | None = None) -> None:
+        # Only a probe's answer can move the breaker: any other costs nothing.
+        if probe is not None:
+            self._apply(lambda state: succeeded(state, probe))
 
 
 def ask_breaker(
-    breaker: ReadBreaker | None, ask: str, now: datetime
-) -> datetime | None:
-    """Ask the breaker (``paused_until``, ``admit``) or tell it how a call
-    ended (``failed``, ``succeeded``). A breaker that cannot be reached never
-    stops a read: the failure is logged and the read goes on."""
+    breaker: ReadBreaker | None, ask: str, now: datetime, *probe: str | None
+) -> datetime | Admission | None:
+    """Ask the breaker (``paused_until``, ``admit``) or tell it how the call
+    admitted with ``probe`` ended (``failed``, ``succeeded``). A breaker that
+    cannot be reached never stops a read: the failure is logged and the read
+    goes on."""
     if breaker is None:
         return None
     try:
-        return getattr(breaker, ask)(now)
+        return getattr(breaker, ask)(now, *probe)
     except Exception as error:
         logger.warning(
             "document_read_breaker_unavailable ask={} failure_mode={}",
