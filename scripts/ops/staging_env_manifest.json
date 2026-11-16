@@ -914,7 +914,11 @@
           }
         }
       ],
-      "remove": [],
+      "remove": [
+        {
+          "name": "CUADRAO_BUSINESS_PILOT_ENABLED"
+        }
+      ],
       "hold": [
         {
           "name": "CUADRAO-DEV-KEY-PILOT",
@@ -1089,6 +1093,9 @@
         }
       ],
       "remove": [
+        {
+          "name": "NEXT_PUBLIC_BUSINESS_PILOT_ENABLED"
+        },
         {
           "name": "CUADRAO_RESEND_WEBHOOK_SECRET"
         }

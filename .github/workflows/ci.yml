@@ -308,7 +308,7 @@ jobs:
         run: |
           cd web
           bunx playwright test e2e/browser-storage-disclosure.spec.ts
-          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3101 bunx playwright test \
+          PLAYWRIGHT_PORT=3101 bunx playwright test \
             e2e/business-receipt-upload-recovery.spec.ts \
             e2e/amounts-hidden-css.spec.ts \
             e2e/business-cambiar-imagen.spec.ts \
@@ -320,7 +320,7 @@ jobs:
             e2e/menu-settings-auth-regression.spec.ts \
             e2e/receipt-navigation-scope.spec.ts \
             e2e/records-export-notices.spec.ts
-          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
+          PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
 
       - name: Verify auth button labels stay readable in every state
         run: cd web && PLAYWRIGHT_PORT=3103 bunx playwright test e2e/auth-button-contrast.spec.ts

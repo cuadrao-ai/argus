@@ -47,13 +47,13 @@ def test_qa_key_file_changes_only_model_credentials(monkeypatch, tmp_path):
     path = tmp_path / "keys.env"
     path.write_text(
         f"CUADRAO_OPENROUTER_API_KEY_DEV={secret}\n"
-        "CUADRAO_BUSINESS_PILOT_ENABLED=false\n"
+        "SYNTHETIC_UNRELATED_SETTING=false\n"
         "APP_ENV=production\n"
     )
     monkeypatch.setenv("APP_ENV", "test")
-    monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "true")
+    monkeypatch.setenv("SYNTHETIC_UNRELATED_SETTING", "true")
     configure_model_key_file(path)
-    assert os.environ["CUADRAO_BUSINESS_PILOT_ENABLED"] == "true"
+    assert os.environ["SYNTHETIC_UNRELATED_SETTING"] == "true"
     assert os.environ["APP_ENV"] == "test"
     assert _redact_api_key(secret) == ""
 

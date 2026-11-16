@@ -9392,7 +9392,7 @@ The finalizer reads and locks the saved extraction batch and original binding. I
 
 Original access, issuer, current source/consent and document lease are checked before extraction and again in the completion transaction. A new grant cannot substitute for the captured grant. Exact replay requires current access and returns the original settled result without another revision. Source, draft revision/link and action receipt commit together; a failed completion check rolls them back.
 
-Existing `ARGUS_BUSINESS_PILOT_ENABLED`, `ARGUS_INGESTION_ENABLED` and `ARGUS_DOCUMENT_EXTRACTION_ENABLED` gates remain the rollout controls and default off. This candidate adds no separate bridge switch: enabling those gates makes a consented Business upload use the bridge. The extraction setting blocks new model calls; a direct resume of an already-saved batch can still reach completion. Integration delivery keeps the existing gates off. Enabling, connected UI acceptance and model-quality acceptance remain separate decisions.
+Existing `ARGUS_INGESTION_ENABLED` and `ARGUS_DOCUMENT_EXTRACTION_ENABLED` gates remain the rollout controls and default off. This candidate adds no separate bridge switch: enabling those gates makes a consented Business upload use the bridge. The extraction setting blocks new model calls; a direct resume of an already-saved batch can still reach completion. Integration delivery keeps the existing gates off. Enabling, connected UI acceptance and model-quality acceptance remain separate decisions.
 
 **Evidence limit.** An invoice amount due is not proof that payment occurred. This candidate's unverified extraction and draft creation do not establish payment, fiscal validity or accounting acceptance. The current receipt/invoice interpretation quality gate remains open; these contract paragraphs do not claim it is solved.
 
@@ -9501,9 +9501,8 @@ new top-level review UI is introduced.
 
 #### Existing pilot behavior
 
-Off unless `ARGUS_BUSINESS_PILOT_ENABLED` and `ARGUS_INGESTION_ENABLED` are
-both true. While either is off every route below answers 404
-`business_unavailable`; the pilot flag is checked before authentication. With
+The pilot-wide availability gate is retired. Ingestion and extraction keep their
+own controls. With
 `ARGUS_DOCUMENT_EXTRACTION_ENABLED` off, only receipt upload and preparation
 answer 404. Saved receipts stay readable and downloadable, and review,
 confirm, hand entry, expenses and the space routes keep working. Every response is
@@ -11265,11 +11264,8 @@ for this delivery.
 #### Business lifecycle backend checkpoint, October 21, 2026
 
 This checkpoint supersedes the readiness status above. `require_lifecycle_ready`
-is removed. The nine lifecycle and transfer operations answer behind the existing
-Business surface gate only: with the pilot switch
-(`CUADRAO_BUSINESS_PILOT_ENABLED`, falling back to `ARGUS_BUSINESS_PILOT_ENABLED`)
-off they answer `404 business_unavailable`, as every Business route does. Global
-account deletion keeps its own switch and is unchanged.
+is removed. The nine lifecycle and transfer operations use the Business surface dependency.
+Global account deletion keeps its own switch and is unchanged.
 
 `GET /business/owned-spaces` is the close preview. Each Business now also carries
 `member_count` (the live members who lose access on close), `reopen_until` (the
