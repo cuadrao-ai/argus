@@ -7,7 +7,7 @@ import { useTransaccionesWords } from "./transacciones-words";
 /** Without `onChange` the tabs are pending: they show the tab Registros opens on and take no input. */
 export default function RecordsTypeTabs({ value, onChange }: { value: RecordKind; onChange?: (value: RecordKind) => void }) {
   const { t } = useTransaccionesWords();
-  return <div inert={!onChange} className="mb-4 border-b border-[color-mix(in_srgb,var(--fg)_11%,transparent)] pb-3">
+  return <div data-surface-block="tabs" inert={!onChange} className="mb-4 border-b border-[color-mix(in_srgb,var(--fg)_11%,transparent)] pb-3">
     <BusinessListTabs label={t("business.transactions.layout.filters.record")} idPrefix="records-type" value={value} onChange={onChange ?? (() => undefined)} items={([
       { value: "gasto", label: t("business.transactions.layout.overview.purchases") },
       { value: "venta", label: t("business.transactions.layout.overview.sales") },

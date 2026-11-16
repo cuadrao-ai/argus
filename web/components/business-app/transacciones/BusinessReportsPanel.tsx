@@ -84,7 +84,7 @@ function RecordsHeading() {
   const { panel } = useBusiness();
   const { isBelowTablet: phone } = useResponsiveLayout();
   const { t } = useTransaccionesWords();
-  return phone || panel.kind !== "transactions" ? <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2><BusinessAddMenu placement="header" /></div> : null;
+  return phone || panel.kind !== "transactions" ? <div data-surface-block="heading" className="mb-5 flex flex-wrap items-end justify-between gap-3"><h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2><BusinessAddMenu placement="header" /></div> : null;
 }
 
 /** Until the first wait has lasted the shared delay, the screen paints nothing, then all of its placeholders at once. */
