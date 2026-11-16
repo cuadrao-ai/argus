@@ -101,7 +101,7 @@ export function HomeMonthCard({ switcher, currencyMenu, state, error, block, cur
         </p>
       ) : null}
       {notReadyRows === null ? (
-        <p data-testid="home-month-fiscal-unknown">{t("business.transactions.layout.workflow.not_ready")}{": "}{t("business.month_close.figure_unknown")}</p>
+        <p data-testid="home-month-fiscal-unknown">{t("business.inicio.month.fiscal_unknown")}</p>
       ) : notReadyRows.map((fiscal) => {
         const open = openNotReady?.(fiscal) ?? null;
         return (

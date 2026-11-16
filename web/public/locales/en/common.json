@@ -2715,7 +2715,7 @@
           "fiscal_data": {
             "all": "All",
             "complete": "Complete",
-            "missing": "Missing data"
+            "missing": "Missing"
           },
           "groups": {
             "account": "Account",
@@ -4217,6 +4217,7 @@
       "fiscal_purchases_other": "Missing data on {{count}} purchases",
       "fiscal_sales_one": "Missing data on 1 sale",
       "fiscal_sales_other": "Missing data on {{count}} sales",
+        "fiscal_unknown": "[PENDIENTE COPY] Missing data: can't be calculated yet.",
         "in_bandeja_one": "1 in the Inbox",
       "in_bandeja_other": "{{count}} in the Inbox",
         "included": "Documents included: {{counted}} of {{total}}",

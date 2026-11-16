@@ -2715,7 +2715,7 @@
           "fiscal_data": {
             "all": "Todos",
             "complete": "Completos",
-            "missing": "Faltan datos"
+            "missing": "Faltan"
           },
           "groups": {
             "account": "Cuenta",
@@ -3569,6 +3569,7 @@
       "fiscal_purchases_other": "Faltan datos en {{count}} compras",
       "fiscal_sales_one": "Faltan datos en 1 venta",
       "fiscal_sales_other": "Faltan datos en {{count}} ventas",
+        "fiscal_unknown": "[PENDIENTE COPY] Faltan datos: todavía no se puede calcular.",
         "in_bandeja_one": "1 en la Bandeja",
       "in_bandeja_other": "{{count}} en la Bandeja",
         "included": "Documentos incluidos: {{counted}} de {{total}}",

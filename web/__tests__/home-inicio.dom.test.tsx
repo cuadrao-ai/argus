@@ -393,7 +393,7 @@ describe("the month card's second round (Lucas, 2026-11-09)", () => {
     test(`unavailable readiness (${readiness}) stays unknown while the other month figures render`, async () => {
       const page = await monthCard(server({ not_ready_rows: readiness }));
       try {
-        assert.equal(page.find("home-month-fiscal-unknown")?.textContent, "Faltan datos: Todavía no se puede calcular.");
+        assert.equal(page.find("home-month-fiscal-unknown")?.textContent, "[PENDIENTE COPY] Faltan datos: todavía no se puede calcular.");
         assert.equal(page.find("home-month-fiscal"), null);
         assert.equal(page.find("home-month-fiscal-open"), null);
         assert.equal(page.find("home-month-income")?.textContent, "RD$ 268,044");
@@ -463,7 +463,9 @@ describe("what Inicio no longer has", () => {
     const inicio = (spanish as unknown as { business: { inicio: { attention: Record<string, unknown>; month: Record<string, unknown> } } }).business.inicio;
     assert.equal("first_day_channels" in inicio.attention, false, "one first-day sentence for every channel");
     assert.deepEqual(Object.keys(inicio.month).filter((key) => key.startsWith("included")), ["included"], "one coverage line shape");
-    assert.doesNotMatch(JSON.stringify(inicio), /PENDIENTE COPY/);
+    const { fiscal_unknown, ...approvedMonthCopy } = inicio.month;
+    assert.match(String(fiscal_unknown), /^\[PENDIENTE COPY\] /, "only the new unknown line awaits copy approval");
+    assert.doesNotMatch(JSON.stringify({ ...inicio, month: approvedMonthCopy }), /PENDIENTE COPY/);
     const sample = (await import("@/lib/business-month-close")).createMockMonthCloseClient();
     assert.equal("closeMonth" in sample, false);
   });

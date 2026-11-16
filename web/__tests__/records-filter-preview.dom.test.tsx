@@ -341,5 +341,5 @@ for (const width of [1440, 390]) test(`Estado offers only server readiness at ${
   const applied = JSON.parse(document.querySelector('[data-testid="applied-filters"]')!.textContent!);
   assert.equal(applied.ready, true);
   assert.equal("review" in applied, false);
-  assert.equal("fiscal_data" in applied, false);
+  assert.equal(applied.fiscal_data, null);
 });

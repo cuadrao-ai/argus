@@ -128,7 +128,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     </div>
     <span className="block font-mono">{supplier.rnc}</span>
   </li>);
-  const pendingFiscalSentence = preview?.dgii.pending_count ? t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_count }) : null;
+  const pendingFiscalSentence = preview?.dgii.pending_fiscal_count ? t(sale ? "business.transactions.reporting.export.pending_fiscal_sales" : "business.transactions.reporting.export.pending_fiscal_purchases", { count: preview.dgii.pending_fiscal_count }) : null;
   const reviewFiscal = preview ? <button type="button" className={sale ? quietButtonClass : noticeLinkClass} onClick={() => { onClose(); onReviewFiscal(preview.dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button> : null;
   const pendingFiscal = pendingFiscalSentence ? sale ? <>{pendingFiscalSentence} {reviewFiscal}</> : <InlineNoticeAction sentence={pendingFiscalSentence}>{reviewFiscal}</InlineNoticeAction> : null;
   const pendingRate = preview?.dgii.pending_rate_count ? t(sale ? "business.transactions.reporting.export.pending_rate_sales" : "business.transactions.reporting.export.pending_rate_purchases", { count: preview.dgii.pending_rate_count, currencies: joinCurrencyList(preview.dgii.pending_rate_currencies, t("business.month_close.list_and")) }) : null;

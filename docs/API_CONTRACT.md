@@ -10803,9 +10803,13 @@ accept path recorded.
   `pending_fiscal_count` the pesos records whose `fiscal_data` is `missing`, and
   `pending_rate_count` with `pending_rate_currencies` the foreign-currency
   records the form holds until they have a rate. No count is computed on the web.
-  The DGII notice and summary both read `dgii.pending_count`. Revisar keeps
-  only the tab and period, selects the form’s currency and `fiscal_data: missing`,
-  and clears every other filter and search. Lo que ves retains the table request.
+  The fiscal-data notice reads `dgii.pending_fiscal_count`; the summary reads
+  `dgii.pending_count` (fiscal plus rate). Rate-held records have their own notice.
+  Revisar keeps only the tab and period, selects the form’s currency and
+  `fiscal_data: missing`, and clears every other filter and search. That fiscal
+  selection appears as a clearable chip, not a filter-picker option. Other filter
+  changes retain it until its chip or Limpiar clears it. Lo que ves retains the
+  table request.
   These form inclusion and rate counts remain separate from report readiness.
   `rnc_warning_count` counts exported purchase rows with an inactive
   or unverified RNC, and `rnc_supplier_count` counts their unique normalized

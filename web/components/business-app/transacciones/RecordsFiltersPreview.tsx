@@ -8,7 +8,7 @@ import BottomSheet from "@/components/ui/BottomSheet";
 import MoneyInput from "@/components/money/MoneyInput";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import RecordsFilterSelection from "./RecordsFilterSelection";
-import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, validPreviewAmount, type FilterGroup, type PreviewFilters } from "./records-filter-preview-model";
+import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, validPreviewAmount, type FilterGroup, type ActiveFilterGroup, type PreviewFilters } from "./records-filter-preview-model";
 import { SAMPLE_EXPENSE_TYPES } from "./records-results-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import { REPORT_DOCUMENT_KINDS, type DgiiChoice } from "@/lib/business-reports-api";
@@ -114,8 +114,9 @@ export default function RecordsFiltersPreview({ options, value: filters, onChang
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
   const active = activeFilterGroups(filters);
   const canClear = active.length > 0;
-  const chipLabel = (group: FilterGroup) => group === "expense_type" ? t("business.dossier.placeholder.expense_type") : word(`groups.${group}`);
-  const valueLabel = (group: FilterGroup) => {
+  const chipLabel = (group: ActiveFilterGroup) => group === "expense_type" ? t("business.dossier.placeholder.expense_type") : word(`groups.${group}`);
+  const valueLabel = (group: ActiveFilterGroup) => {
+    if (group === "fiscal_data") return word(`fiscal_data.${filters.fiscal_data}`);
     if (group === "ready") return t(`business.transactions.layout.workflow.${filters.ready ? "ready" : "not_ready"}`);
     if (group === "counterparty") return String(filters.counterparty.length);
     if (group === "attachment") return word(`attachment.${filters.attachment}`);
@@ -126,6 +127,6 @@ export default function RecordsFiltersPreview({ options, value: filters, onChang
     <button type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={(event) => openEditor(event.currentTarget, "filters")}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span>{active.length > 0 ? <span className={styles.count}>{active.length}</span> : null}<ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>
     {editor !== null ? phone ? <FilterEditor offered={offered} key={editor} catalogues={catalogues} phone initialGroup={editor} initial={filters} apply={setFilters} close={close} /> : createPortal(<div ref={panel} role="dialog" aria-label={word("title")} className={styles.popover} style={position}><FilterEditor offered={offered} key={editor} catalogues={catalogues} initialGroup={editor} initial={filters} apply={setFilters} close={close} /></div>, document.body) : null}
     <div className={styles.toolbarOptions}>{options}</div>
-    <div className={styles.chips} data-testid="records-preview-filter-chips">{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={group === "amount" ? undefined : word("remove") + " " + chipLabel(group)} aria-haspopup={group === "amount" ? "dialog" : undefined} onClick={(event) => group === "amount" ? openEditor(event.currentTarget, "amount") : setFilters({ ...filters, [group]: emptyPreviewFilters(filters.amount.currency)[group] })}><span>{group === "counterparty" ? t("business.transactions.layout.filters.counterparty_short", { count: filters.counterparty.length }) : `${chipLabel(group)} · ${valueLabel(group)}`}</span>{group !== "amount" ? <X size={14} aria-hidden="true" /> : null}</button>)}{canClear ? <button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(filters.amount.currency))}>{t("business.transactions.layout.clear")}</button> : null}</div>
+    <div className={styles.chips} data-testid="records-preview-filter-chips">{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={group === "amount" ? undefined : word("remove") + " " + chipLabel(group)} aria-haspopup={group === "amount" ? "dialog" : undefined} onClick={(event) => group === "amount" ? openEditor(event.currentTarget, "amount") : setFilters({ ...filters, [group]: emptyPreviewFilters(filters.amount.currency)[group] })}><span>{group === "counterparty" ? t("business.transactions.layout.filters.counterparty_short", { count: filters.counterparty.length }) : `${chipLabel(group)}${group === "fiscal_data" ? ": " : " · "}${valueLabel(group)}`}</span>{group !== "amount" ? <X size={14} aria-hidden="true" /> : null}</button>)}{canClear ? <button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(filters.amount.currency))}>{t("business.transactions.layout.clear")}</button> : null}</div>
   </>;
 }

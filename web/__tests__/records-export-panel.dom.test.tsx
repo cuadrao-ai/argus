@@ -153,7 +153,7 @@ test("Formato DGII uses the server pending count and Revisar restores its fiscal
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 4 registros");
   assert.match(dialogText(), /La DGII define las columnas\. Solo en pesos\./);
   assert.match(summary()!, /^Octubre de 2026 · 4 listas · 5 pendientes$/, "the summary counts what the notices hold back");
-  assert.match(dialogText(), /5 compras tienen datos fiscales pendientes y no se incluyen\./);
+  assert.match(dialogText(), /3 compras tienen datos fiscales pendientes y no se incluyen\./);
   assert.match(dialogText(), /2 compras en EUR y USD necesitan tasa y no se incluyen\./);
   const notices = document.querySelector('[data-testid="records-export-notices"]')!;
   assert.ok(document.querySelector('[data-testid="records-export-mode-dgii"]')!.contains(notices));
@@ -212,7 +212,7 @@ test("DGII notice ignores table filters and Revisar clears them for the form cur
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   await page.settle(() => page.button("Revisar") !== undefined);
-  assert.match(dialogText(), /9 compras tienen datos fiscales pendientes y no se incluyen\./, "the notice uses DGII pending_count, independent of the one table match and pending_fiscal_count");
+  assert.match(dialogText(), /1 compra tiene datos fiscales pendientes y no se incluye\./, "the notice uses DGII pending_fiscal_count, independent of table filters and the fiscal-plus-rate summary");
   assert.match(summary()!, /9 pendientes$/);
   const queries = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length;
   await page.click(page.button("Revisar"));
@@ -220,6 +220,38 @@ test("DGII notice ignores table filters and Revisar clears them for the form cur
   const last = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as ReportRequest;
   assert.deepEqual(last.filters, reportFiltersSchema.parse({ period: initial.filters.period, record_families: initial.filters.record_families, currencies: ["EUR"], fiscal_data: "missing" }));
   assert.ok(document.querySelector('button[aria-label="Moneda: EUR"]'), "the screen uses the form currency");
+});
+
+for (const clearWith of ["chip", "clear"]) test(`Revisar exposes its fiscal scope, keeps it through filter changes, and clears it with ${clearWith}`, async () => {
+  const page = await mount({ edit: fiscalBooks });
+  await open(page);
+  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+  await page.settle(() => page.button("Revisar") !== undefined);
+  await page.click(page.button("Revisar"));
+  const queries = () => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query"));
+  await page.settle(() => panel() === null && (queries().at(-1)!.body as ReportRequest).filters.fiscal_data === "missing");
+  const chips = () => document.querySelector('[data-testid="records-preview-filter-chips"]')!;
+  assert.equal(chips().querySelector('button[aria-label="Quitar filtro Datos fiscales"]')?.textContent, "Datos fiscales: Faltan");
+  assert.equal(document.querySelectorAll("tbody tr").length, 3, "the three visible fiscal-pending records match the notice");
+  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /3/);
+  await page.click(page.button("Filtros"));
+  assert.equal(document.querySelector('[data-group="fiscal_data"]'), null, "the DGII-only scope is not offered in the picker");
+  await page.click(document.querySelector('[data-group="document"]'));
+  const unknown = [...document.querySelectorAll("label")].find((label) => label.textContent?.trim() === "sin dato")?.querySelector("input");
+  assert.ok(unknown);
+  await page.click(unknown);
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => (queries().at(-1)!.body as ReportRequest).filters.document_kinds.includes("unknown"));
+  assert.equal((queries().at(-1)!.body as ReportRequest).filters.fiscal_data, "missing");
+  assert.ok(chips().querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
+  await page.click(document.querySelector('[data-overview-card="fiscal"] button') ?? document.querySelector('[data-overview-card="fiscal"]'));
+  await page.settle(() => (queries().at(-1)!.body as ReportRequest).filters.ready === false);
+  assert.equal((queries().at(-1)!.body as ReportRequest).filters.fiscal_data, "missing", "the readiness card also keeps the explicit fiscal scope");
+  await page.click(clearWith === "chip" ? chips().querySelector('button[aria-label="Quitar filtro Datos fiscales"]') : page.button("Limpiar filtros"));
+  await page.settle(() => (queries().at(-1)!.body as ReportRequest).filters.fiscal_data === null);
+  assert.equal(chips().querySelector('button[aria-label="Quitar filtro Datos fiscales"]'), null);
+  assert.deepEqual((queries().at(-1)!.body as ReportRequest).filters.document_kinds, clearWith === "chip" ? ["unknown"] : []);
+  assert.equal((queries().at(-1)!.body as ReportRequest).filters.ready, clearWith === "chip" ? false : null);
 });
 
 test("a restored DGII fiscal scope survives sorting", async () => {

@@ -1488,9 +1488,13 @@ segmented controls, the DGII line "La DGII define las columnas. Solo en pesos.",
 notices only when their count is above zero, and the green action with its
 count. Editar opens the column choice inside the same dialog with a back arrow. Revisar on
 the DGII notice opens the tab and period in the form’s currency, with
-`fiscal_data: missing` and the other filters and the search cleared. The notice
-and summary use the server’s `dgii.pending_count`, including records held for
-a rate; no table filter changes that count.
+`fiscal_data: missing` and the other filters and the search cleared. This fiscal
+selection appears as the clearable chip "Datos fiscales: Faltan", outside the
+filter picker. Its x or Limpiar clears it; other filter changes preserve it.
+The notice counts records held for missing fiscal data with the server’s
+`dgii.pending_fiscal_count`. Records held for a rate have their own notice; the
+summary alone uses `dgii.pending_count` (fiscal plus rate). Table filters do not
+change these counts.
 A finished download closes the dialog and says so in a toast with "Descargar de
 nuevo". The period ZIP has no sheet in Registros. Only the close-a-Business
 dialog downloads it, as the handover of the original receipts.

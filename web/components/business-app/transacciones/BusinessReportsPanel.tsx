@@ -61,6 +61,7 @@ export function reportFiltersForUi(filters: ReportFilters): PreviewFilters {
   const currency = recordsCurrencySchema.parse(filters.currencies[0]);
   const result = emptyPreviewFilters(currency);
   result.ready = filters.ready;
+  result.fiscal_data = filters.fiscal_data;
   result.attachment = filters.has_document === null ? "any" : filters.has_document ? "with" : "without";
   result.amount = { currency, min: filters.amount_min ?? "", max: filters.amount_max ?? "" };
   result.counterparty = filters.counterparties; result.expense_type = filters.expense_types; result.account = filters.funding_sources;
@@ -68,7 +69,7 @@ export function reportFiltersForUi(filters: ReportFilters): PreviewFilters {
   return result;
 }
 export function reportFiltersFromUi(current: ReportFilters, filters: PreviewFilters, kind: RecordsFilter["kind"]): ReportFilters {
-  return { ...current, record_families: [kind === "venta" ? "sale" : "purchase"], ready: filters.ready, fiscal_data: null, review_stages: [], has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: [filters.amount.currency], amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, categories: [], expense_types: kind === "venta" ? [] : filters.expense_type, funding_sources: filters.account, document_kinds: filters.document as ReportFilters["document_kinds"], fiscal_classifications: filters.fiscal.map((value) => /^[be]\d\d$/i.test(value) ? value.toUpperCase() : value) };
+  return { ...current, record_families: [kind === "venta" ? "sale" : "purchase"], ready: filters.ready, fiscal_data: filters.fiscal_data, review_stages: [], has_document: filters.attachment === "any" ? null : filters.attachment === "with", currencies: [filters.amount.currency], amount_min: filters.amount.min || null, amount_max: filters.amount.max || null, counterparties: filters.counterparty, categories: [], expense_types: kind === "venta" ? [] : filters.expense_type, funding_sources: filters.account, document_kinds: filters.document as ReportFilters["document_kinds"], fiscal_classifications: filters.fiscal.map((value) => /^[be]\d\d$/i.test(value) ? value.toUpperCase() : value) };
 }
 
 export function RecordsWorkspaceUnavailable() {
@@ -141,7 +142,7 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const selectedPeriod = periodForUi(state.request.filters.period, periodAnswer);
   const updateUrl = (request: ReportRequest, anchor = state.anchor, push = false) => writeReportLocation(request, anchor, scopeKey, push);
   const load = (request: ReportRequest, push = true) => { updateUrl(request, state.anchor, push); void controller.load(request); };
-  const { toggle: toggleFiscal, clear: clearFiscal } = useFiscalStageToggle(filters, (selection) => load(reportRequestSchema.parse({ ...state.request, filters: { ...state.request.filters, ready: selection.ready, fiscal_data: null, review_stages: [] }, page: 1 })));
+  const { toggle: toggleFiscal, clear: clearFiscal } = useFiscalStageToggle(filters, (selection) => load(reportRequestSchema.parse({ ...state.request, filters: { ...state.request.filters, ready: selection.ready, review_stages: [] }, page: 1 })));
   useEffect(() => { updateUrl(state.request); }, [state.request, state.anchor]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const restore = (event: PopStateEvent) => { if (isProgrammaticPop(event)) return; const url = new URL(window.location.href); if (url.searchParams.get("report_scope") !== scopeKey) return; const next = restoreReportLocation(url.searchParams); clearFiscal(); controller.rememberAnchor(next.anchor); void controller.load(singleCurrency(next.request)); };
