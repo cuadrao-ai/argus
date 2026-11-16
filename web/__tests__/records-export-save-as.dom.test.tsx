@@ -55,9 +55,10 @@ async function showToasts() {
 /**
  * A Chromium Save As window: it records what it was asked and when, the bytes
  * written into the chosen place, and each chosen file removed again. Like
- * Chromium, picking a place makes the file at once, empty.
+ * Chromium, picking a new place makes the file at once, empty; picking an
+ * `existing` file and confirming Replace keeps its bytes until a write lands.
  */
-function chromiumPicker(page: Page, outcome: { cancel?: boolean; writeFails?: boolean; remove?: "missing" | "fails" } = {}) {
+function chromiumPicker(page: Page, outcome: { cancel?: boolean; writeFails?: boolean; remove?: "missing" | "fails"; existing?: string; getFile?: "missing" | "fails" } = {}) {
   const picked: Picked[] = [];
   const written: Blob[] = [];
   const aborted: number[] = [];
@@ -66,18 +67,24 @@ function chromiumPicker(page: Page, outcome: { cancel?: boolean; writeFails?: bo
   (window as unknown as { showSaveFilePicker: (options: PickerOptions) => Promise<unknown> }).showSaveFilePicker = async (options) => {
     picked.push({ options, exportsBefore: exportCalls(page) });
     if (outcome.cancel) throw new DOMException("The user aborted a request.", "AbortError");
+    let contents = new Blob([outcome.existing ?? ""]);
     const remove = async () => {
       removed.push(options.suggestedName);
       if (outcome.remove === "fails") throw new DOMException("No permission.", "NotAllowedError");
     };
+    const getFile = async () => {
+      if (outcome.getFile === "fails") throw new DOMException("The file could not be read.", "NotReadableError");
+      return new File([contents], options.suggestedName);
+    };
     return {
       ...(outcome.remove === "missing" ? {} : { remove }),
+      ...(outcome.getFile === "missing" ? {} : { getFile }),
       createWritable: async () => {
         writables += 1;
         const pending: Blob[] = [];
         return {
           write: async (blob: Blob) => { if (outcome.writeFails) throw new DOMException("The disk is full.", "QuotaExceededError"); pending.push(blob); },
-          close: async () => { written.push(...pending); },
+          close: async () => { written.push(...pending); contents = new Blob(pending); },
           abort: async () => { aborted.push(pending.length); },
         };
       },
@@ -188,6 +195,39 @@ test("a failed build, then closing the export, removes the empty file Save As ma
   assert.deepEqual(save.removed, ["Compras todas las monedas.xlsx"]);
   assert.equal(save.writables(), 0);
   assert.equal(page.downloads.length, 0);
+});
+
+test("a failed build, then closing the export, never removes an existing file the person chose to replace", async () => {
+  const page = await mount();
+  const save = chromiumPicker(page, { existing: "last month's 606" });
+  page.fixture.controls.exportFails = true;
+  await open(page);
+  await page.click(downloadButton());
+  await page.settle(() => alert() !== null);
+  await page.click(page.button("Cerrar"));
+  await page.settle(() => panel() === null);
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+  assert.deepEqual(save.removed, [], "a file with bytes in it is the person's, never removed");
+  assert.equal(save.writables(), 0);
+});
+
+test("where the chosen file cannot be read, closing after a failed build keeps it and still closes cleanly", async () => {
+  for (const getFile of ["missing", "fails"] as const) {
+    const page = await mount();
+    const save = chromiumPicker(page, { getFile });
+    page.fixture.controls.exportFails = true;
+    await open(page);
+    await page.click(downloadButton());
+    await page.settle(() => alert() !== null);
+    await page.click(page.button("Cerrar"));
+    await page.settle(() => panel() === null);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    assert.deepEqual(save.removed, [], `getFile ${getFile}: an unread file is never removed`);
+    assert.equal(alert(), null);
+    assert.equal(page.downloads.length, 0);
+    await cleanup();
+    document.body.innerHTML = "";
+  }
 });
 
 test("after a failed build, choosing another file removes the first place's empty file", async () => {

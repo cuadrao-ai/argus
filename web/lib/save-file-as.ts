@@ -3,7 +3,7 @@ import { saveBlobDownload } from "./save-blob-download";
 export type SaveAsFormat = "xlsx" | "csv";
 
 type Writable = { write(data: Blob): Promise<void>; close(): Promise<void>; abort(): Promise<void> };
-type FileHandle = { createWritable(): Promise<Writable>; remove?(): Promise<void> };
+type FileHandle = { createWritable(): Promise<Writable>; getFile?(): Promise<Blob>; remove?(): Promise<void> };
 type SaveFilePicker = (options: { suggestedName: string; id: string; types: { description?: string; accept: Record<string, string[]> }[] }) => Promise<FileHandle>;
 
 /** One picker id per type, so the system window remembers a folder for Excel and another for CSV. */
@@ -16,7 +16,7 @@ const TYPES: Record<SaveAsFormat, { id: string; accept: Record<string, string[]>
 export type SaveAsPlace = {
   filename: string;
   write(blob: Blob): Promise<void>;
-  /** Removes the empty file the window made on the pick, unless a write landed in it. */
+  /** Removes the file the window made on the pick, only while it is still empty and no write landed in it. */
   discard(): Promise<void>;
 };
 
@@ -62,9 +62,12 @@ export async function chooseSavePlace(filename: string, format: SaveAsFormat): P
     async discard() {
       if (settled) return;
       settled = true;
-      // A feature check: remove() is not in every browser that has the window.
-      if (typeof handle.remove !== "function") return;
-      try { await handle.remove(); } catch { /* The empty file stays; the person loses nothing. */ }
+      // Feature checks: getFile() and remove() are not in every browser that has the window.
+      if (typeof handle.remove !== "function" || typeof handle.getFile !== "function") return;
+      try {
+        // A file with bytes may be one the person chose to replace: it is theirs, so it stays.
+        if ((await handle.getFile()).size === 0) await handle.remove();
+      } catch { /* The file stays; the person loses nothing. */ }
     },
   };
 }
