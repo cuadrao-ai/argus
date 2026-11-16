@@ -90,6 +90,8 @@ for (const width of [1280, 390]) {
   test.describe(`Spanish manual notes ${width}px`, () => {
     test.use({ viewport: { width, height: 900 } });
     test("original sparse note opens canonical review, appends and returns through note search", async ({ page }) => {
+      // Quarantined at 1280px: fails about 1 run in 3 on integration too (#2208). 390px still runs.
+      test.skip(width === 1280, "Flaky on integration, see #2208");
       const { state } = await setup(page);
       const write = await newNote(page);
       const original = "  Ayer compré pintura para el taller.\nNo sé cuánto pagué.  ";

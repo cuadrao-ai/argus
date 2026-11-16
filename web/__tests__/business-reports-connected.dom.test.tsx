@@ -1099,3 +1099,13 @@ test("counterparty options never reuse the previous tab while its next request i
   await page.settle(() => document.querySelector('[role="dialog"]')?.textContent?.includes("Cliente sintético") === true);
   assert.doesNotMatch(document.querySelector('[role="dialog"]')!.textContent!, /Proveedor sintético|Alias antiguo/);
 });
+
+test("a sheet still open when the test ends spends its history step before the next test sets its address", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"] } }) });
+  await page.click(document.querySelector('[data-testid="records-export"]'));
+  await page.settle(() => document.querySelector('[role="dialog"]') !== null);
+  await cleanup();
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(window.location.search, "", "the closed sheet's back step must not restore the Ventas address");
+});

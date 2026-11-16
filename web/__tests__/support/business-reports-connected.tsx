@@ -7,6 +7,7 @@ import { ShellAccount } from "./shell-account";
 import BusinessReportsPanel, { ConnectedBusinessReports } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { setChosenGrant } from "@/lib/business-grant";
+import { openOverlayEntries } from "@/lib/overlay-history";
 import { reportAnswerSchema, reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest, type RecordsCurrency } from "@/lib/business-reports-api";
 import { createBusinessReportHttpFixture, fixtureId } from "../fixtures/business-report-http-fixture";
 import { recordedReportAnswer } from "../fixtures/recorded-report-answer";
@@ -67,7 +68,11 @@ export async function mountConnectedReport(options: { onAdd?: () => void; defaul
     else { context.records.workspace = null; context.records.error = true; context.records.refused = options.workspaceFailure === "refused"; context.records.failureReference = "SYNTHETIC-REF"; }
   }
   await rerender();
-  cleanup = async () => { await act(async () => root.unmount()); globalThis.fetch = originalFetch; globalThis.getComputedStyle = computedStyle; URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; };
+  cleanup = async () => {
+    await act(async () => root.unmount());
+    // A sheet open at unmount spends its history entry on a later tick. Wait for that step, or it lands on the next test's address.
+    for (let tick = 0; openOverlayEntries().length > 0 && tick < 20; tick++) await new Promise((resolve) => setTimeout(resolve, 0));
+    globalThis.fetch = originalFetch; globalThis.getComputedStyle = computedStyle; URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; };
   const settle = async (predicate: () => boolean) => { for (let i = 0; i < 80; i++) { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); }); if (predicate()) return; } throw new Error(`Missing state ${document.body.textContent?.slice(-600)}`); };
   const click = async (element: Element | undefined | null) => { assert.ok(element); await act(async () => (element as HTMLElement).click()); };
   const button = (label: string) => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === label || label === "Filtros" && button.textContent?.startsWith("Filtros") || button.getAttribute("aria-label") === label);
