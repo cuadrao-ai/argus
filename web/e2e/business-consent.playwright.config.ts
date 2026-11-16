@@ -21,7 +21,6 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       NEXT_PUBLIC_MOCK_AUTH: "true",
-      NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true",
       NEXT_PUBLIC_CUADRAO_API_URL: `http://localhost:${port}/api/v1`,
       NEXT_PUBLIC_SUPABASE_URL: `http://localhost:${port}`,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "synthetic",

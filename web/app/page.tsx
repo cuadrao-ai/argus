@@ -20,9 +20,7 @@ import {
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
-import { resetLeavingSession } from "@/lib/logout-flow";
-import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
-import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { guestAccessEnabled } from "@/lib/private-alpha-flags";
 import { sessionEndedNotice } from "@/lib/failure-screen";
 import {
   guestEntryAvailable,
@@ -32,7 +30,6 @@ import {
 import {
   captureLandingIntentFromLocation,
   postAuthPath,
-  signedInHomeClosed,
 } from "@/lib/landing-intent";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
 import { landingLanguageChoices, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
@@ -70,7 +67,6 @@ export default function LandingPage() {
   const [authMode, setAuthMode] = useState<AuthMode>("intro");
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [verificationFailed, setVerificationFailed] = useState(false);
-  const [homeClosed, setHomeClosed] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
     useState(false);
@@ -92,7 +88,7 @@ export default function LandingPage() {
           setIsCheckingSession(false);
           return;
         }
-        if (verified === "none" && skipAuthenticatedRedirect() && !signedInHomeClosed()) {
+        if (verified === "none" && skipAuthenticatedRedirect()) {
           setIsCheckingSession(false);
           return;
         }
@@ -103,17 +99,11 @@ export default function LandingPage() {
           setIsCheckingSession(false);
           return;
         }
-        if (!sessionAdmitted(meResponse.account_kind, businessPilotEnabled)) {
+        if (!sessionAdmitted(meResponse.account_kind, true)) {
           // Business has no guest mode: the guest session is ended here so it
           // cannot bounce between the front door and the Business shell.
           await logoutFromApi().catch(() => undefined);
           if (cancelled) return;
-          setIsCheckingSession(false);
-          return;
-        }
-        if (signedInHomeClosed()) {
-          setHomeClosed(true);
-          setAuthMode("login");
           setIsCheckingSession(false);
           return;
         }
@@ -157,25 +147,11 @@ export default function LandingPage() {
   const showRequest = () => updateAuthMode("request");
   const showSignup = () => updateAuthMode("signup");
   const showLogin = () => updateAuthMode("login");
-  const leaveClosedHome = (href: string) => {
-    resetLeavingSession();
-    setHomeClosed(false);
-    if (href === "/" || href.startsWith("/?auth=login")) {
-      updateAuthMode("login");
-      return;
-    }
-    window.location.assign(href);
-  };
-
   const handleAuthSubmit = async (submission: AuthFormSubmission) => {
     const allowMockSignupNetwork =
       process.env.NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP === "true" &&
       submission.mode === "signup";
     if (isMockAuth && !allowMockSignupNetwork) {
-      if (signedInHomeClosed()) {
-        setHomeClosed(true);
-        return;
-      }
       router.replace(postAuthPath());
       router.refresh();
       return;
@@ -191,10 +167,6 @@ export default function LandingPage() {
       if (result.needsEmailConfirmation) {
         return { status: "email_confirmation_required" as const };
       }
-      if (signedInHomeClosed()) {
-        setHomeClosed(true);
-        return;
-      }
       router.replace(postAuthPath());
       router.refresh();
       return;
@@ -205,7 +177,6 @@ export default function LandingPage() {
       password: submission.password,
     });
     await continueWithChosenLanguage();
-    if (signedInHomeClosed()) return;
     router.refresh();
   };
 
@@ -218,16 +189,12 @@ export default function LandingPage() {
     }
     // Sign-in or recovery chosen while the save ran wins, so the signed-in home is not entered.
     if (signal?.aborted) return;
-    if (signedInHomeClosed()) {
-      setHomeClosed(true);
-      return;
-    }
     router.replace(postAuthPath());
   }
 
   const finishConfirmedSignup = async ({ signal }: { signal: AbortSignal }) => {
     await continueWithChosenLanguage(signal);
-    if (signal.aborted || signedInHomeClosed()) return;
+    if (signal.aborted) return;
     router.refresh();
   };
 
@@ -236,7 +203,7 @@ export default function LandingPage() {
   const entrySurface = resolveLandingEntrySurface({
     authMode,
     // A Business build has no guest chat: a signed-out visitor sees login.
-    guestEntryAvailable: guestEntryAvailable({ businessBuild: businessPilotEnabled, probeFailedClosed: profileProbeFailedClosed, guestAccessEnabled, guestCaptchaConfigured }),
+    guestEntryAvailable: guestEntryAvailable({ businessBuild: true, probeFailedClosed: profileProbeFailedClosed, guestAccessEnabled, guestCaptchaConfigured }),
     isCheckingSession,
   });
 
@@ -253,21 +220,19 @@ export default function LandingPage() {
     <>
       <DevModeBadge />
       <main
-        data-auth-split={(isSignup || authMode === "login") && !homeClosed ? "true" : undefined}
+        data-auth-split={(isSignup || authMode === "login") ? "true" : undefined}
         className={`${styles.screen} group/auth relative flex min-h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#fafbf8] px-6 py-8 md:px-12 dark:bg-[#172b26] min-[80rem]:data-[auth-split=true]:grid min-[80rem]:data-[auth-split=true]:grid-cols-2 min-[80rem]:data-[auth-split=true]:p-0`}
       >
         <SettingsMenu />
 
-        {!homeClosed ? <div data-auth-logo="true" className="flex flex-grow items-center justify-center group-data-[auth-split=true]/auth:pb-[34px] group-data-[auth-split=true]/auth:pt-16 min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24">
+        <div data-auth-logo="true" className="flex flex-grow items-center justify-center group-data-[auth-split=true]/auth:pb-[34px] group-data-[auth-split=true]/auth:pt-16 min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24">
           <h1 className="z-10 max-w-full select-none" aria-label="Cuadrao">
             <CuadraoLockup width={268} />
           </h1>
-        </div> : null}
+        </div>
 
-        <div data-auth-brand={homeClosed ? undefined : "cuadrao"} className={homeClosed ? "relative z-10 flex w-full flex-1 flex-col items-center justify-center py-[55px]" : "relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4 min-[80rem]:group-data-[auth-split=true]/auth:justify-center min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24"}>
-          {homeClosed ? (
-            <BusinessClosedNotice navigate={leaveClosedHome} />
-          ) : authMode === "intro" ? (
+        <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4 min-[80rem]:group-data-[auth-split=true]/auth:justify-center min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24">
+          {authMode === "intro" ? (
             <button
               type="button"
               onClick={showRequest}
@@ -303,7 +268,7 @@ export default function LandingPage() {
             </div>
           )}
 
-          {!homeClosed && otherLanguages.length > 0 ? (
+          {otherLanguages.length > 0 ? (
             <p className="text-[13px] tracking-wide text-black/60 dark:text-white/60" data-testid="auth-language-switch">
               {otherLanguages.map((language) => (
                 <button

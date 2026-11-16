@@ -6,7 +6,6 @@ import { THEME_STORAGE_KEY } from "@/lib/browser-storage";
 import { I18nProvider } from "@/components/I18nProvider";
 import { AuthLinkErrorGate } from "@/components/status/AuthLinkErrorGate";
 import { documentLanguage, resolveLanguage } from "@/lib/language-features";
-import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import localFont from "next/font/local";
 
 const inter = localFont({
@@ -49,7 +48,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang={documentLanguage(resolveLanguage({}), businessPilotEnabled)} suppressHydrationWarning className="antialiased h-full">
+    <html lang={documentLanguage(resolveLanguage({}), true)} suppressHydrationWarning className="antialiased h-full">
       <body className={`${spaceGrotesk.variable} ${inter.variable} min-h-full flex flex-col font-sans transition-colors duration-200`}>
         <ThemeProvider
           attribute="class"

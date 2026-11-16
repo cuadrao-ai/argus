@@ -75,7 +75,7 @@ import {
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
-import { businessPilotEnabledFromEnv, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
+import { evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
 import { QuickJumpBadge } from "@/components/keyboard/QuickJumpBadge";
@@ -179,9 +179,7 @@ export default function ProfileMenu({
   const homeCountryAvailable = !isBusiness && accountKind === "registered";
   const whatsappLinkAvailable =
     accountKind === "registered" &&
-    (isBusiness
-      ? receivingChannels.whatsapp.available
-      : businessPilotEnabledFromEnv());
+    (!isBusiness || receivingChannels.whatsapp.available);
   // What Ajustes lists for this account, in its order.
   const windowSections = SETTINGS_WINDOW_ORDER.filter((panel) => ({
     appearance: true,

@@ -57,7 +57,7 @@ import {
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
 import { commitShellLanguage } from "@/lib/language-features";
-import { businessPilotEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
+import { omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
 import { isLeavingSession, leaveSession } from "@/lib/logout-flow";
 import { createSessionRecovery } from "@/lib/session-recovery";
 import { SessionRecoveryScreen } from "@/components/status/SessionRecoveryScreen";
@@ -291,7 +291,7 @@ function ChatInterfaceContent() {
     if (nextAccount === null) return null;
     authenticatedUserIdRef.current = nextAccount.user.id;
     setAccount(nextAccount);
-    await commitShellLanguage(i18n, businessPilotEnabled, nextAccount.user.language);
+    await commitShellLanguage(i18n, true, nextAccount.user.language);
     setProfileState("established");
     return nextAccount;
   }, [i18n]);
@@ -1719,7 +1719,7 @@ function ChatInterfaceContent() {
       },
       navigate: (href) => { window.location.href = href; },
       onFailed: () => showToast(t("settings.logout_error", "We couldn’t sign out this browser. Try again."), "error"),
-      businessBuild: businessPilotEnabled,
+      businessBuild: true,
       accountDeleted: Boolean(options.sessionEnded),
     });
   };

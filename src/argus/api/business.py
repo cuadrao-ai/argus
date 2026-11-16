@@ -22,7 +22,6 @@ from argus.api.documents import (
 )
 from argus.api.ingestion import IngestionContext, require_ingestion_context
 from argus.api.whatsapp import whatsapp_history_store
-from argus.domain.business.config import business_pilot_enabled
 from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.memberships import MembershipError
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
@@ -63,8 +62,6 @@ def require_business_surface(
     # The header is read where the scope is resolved (chosen_scope); declared
     # here so every Business route documents it.
     del grant
-    if not business_pilot_enabled():
-        raise unavailable_problem(request)
 
 
 def grant_not_live_problem(request: Request) -> HTTPException:

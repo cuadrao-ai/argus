@@ -89,27 +89,6 @@ def client():
         yield browser, service, app
 
 
-@pytest.fixture
-def surface_off(monkeypatch):
-    """The real Business surface gate, with the pilot switch off."""
-    for name in ("CUADRAO_BUSINESS_PILOT_ENABLED", "ARGUS_BUSINESS_PILOT_ENABLED"):
-        monkeypatch.setenv(name, "false")
-
-
-def test_commands_answer_only_while_the_business_surface_is_on(client, surface_off):
-    browser, service, app = client
-    del app.dependency_overrides[require_business_surface]
-    response = browser.post(
-        f"/api/v1/business/spaces/{SPACE}/close",
-        json={"confirmation": "Taller Luna"},
-        headers={"Idempotency-Key": "close-1"},
-    )
-    assert response.status_code == 404
-    assert response.json()["detail"]["code"] == "business_unavailable"
-    assert response.headers["cache-control"] == "no-store"
-    assert service.calls == []
-
-
 @pytest.mark.parametrize("action", ["close", "reopen"])
 def test_command_uses_authenticated_actor_and_preserves_key(client, action):
     browser, service, _ = client
@@ -221,8 +200,8 @@ def test_real_database_route_enforces_owner_and_closed_member_access(
 
 
 @pytest.mark.parametrize("path", ["owned-spaces", "closed-spaces"])
-def test_discovery_follows_the_surface_gate_and_authenticated_owner(
-    client, surface_off, path
+def test_discovery_uses_authenticated_owner_without_a_pilot_gate(
+    client, path
 ):
     browser, service, app = client
     answer = browser.get(f"/api/v1/business/{path}?owner_id=someone-else")
@@ -230,10 +209,9 @@ def test_discovery_follows_the_surface_gate_and_authenticated_owner(
     assert service.calls[0][1] == ACTOR
     service.calls.clear()
     del app.dependency_overrides[require_business_surface]
-    denied = browser.get(f"/api/v1/business/{path}")
-    assert denied.status_code == 404
-    assert denied.json()["detail"]["code"] == "business_unavailable"
-    assert service.calls == []
+    answer = browser.get(f"/api/v1/business/{path}?owner_id=someone-else")
+    assert answer.status_code == 200
+    assert service.calls[0][1] == ACTOR
 
 
 def test_preview_carries_member_count_reopen_deadline_and_eligibility(client):

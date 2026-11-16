@@ -97,7 +97,6 @@ def rig(monkeypatch: pytest.MonkeyPatch) -> Iterator[Rig]:
     monkeypatch.setenv("NEXT_PUBLIC_MOCK_AUTH", "false")
     monkeypatch.setenv("CUADRAO_MOCK_AUTH", "false")
     monkeypatch.setenv("ARGUS_DEV_MEMORY_FALLBACK", "false")
-    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
     monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "true")
     gateway = local_supabase_gateway()
     created: list[str] = []
@@ -213,19 +212,10 @@ def test_pre_existing_and_business_chats_stay_on_their_own_surface(
         "How is my supplier ledger doing?",
     ]
 
-    monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED")
-    _personal_reads_refused(rig, alice)
-    refused = rig.client.get(
-        "/api/v1/conversations", params={"surface": "business"}, headers=alice.headers
-    )
-    assert (refused.status_code, refused.json()["code"]) == (404, "business_unavailable")
 
-
-@pytest.mark.parametrize("flag", ["true", "false"])
 def test_personal_delete_all_refuses_and_preserves_every_chat(
-    rig: Rig, monkeypatch: pytest.MonkeyPatch, flag: str
+    rig: Rig
 ) -> None:
-    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", flag)
     alice = rig.alice
 
     cleared = rig.client.delete(

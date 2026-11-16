@@ -29,7 +29,6 @@ STATEMENT = (
 
 @pytest.fixture
 def bank_client(ingestion_env, gateway, monkeypatch) -> Iterator[TestClient]:  # noqa: ANN001
-    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
     monkeypatch.setenv("ARGUS_BUSINESS_BANK_MATCHING_ENABLED", "true")
     monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
     assert api_state.PERSISTENCE_MODE == "memory"
@@ -117,7 +116,6 @@ def test_bank_flag_off_stays_404_while_the_pilot_is_on(
     gateway,
     monkeypatch,  # noqa: ANN001
 ) -> None:
-    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
     monkeypatch.delenv("ARGUS_BUSINESS_BANK_MATCHING_ENABLED", raising=False)
     monkeypatch.delenv("CUADRAO_BUSINESS_BANK_MATCHING_ENABLED", raising=False)
     with (

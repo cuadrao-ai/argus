@@ -2,7 +2,6 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
-test.skip(process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED !== "true", "/biz needs the Business pilot server");
 
 const SPACE = "6038d05e-0000-4000-8000-000000000001";
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAAEUlEQVR4nGNkYPjPwMDAAAAECAEBT2vd0wAAAABJRU5ErkJggg==", "base64");

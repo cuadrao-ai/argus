@@ -62,7 +62,7 @@ export function reportFailure(error: unknown, mutation = false): ReportFailure {
   const kind = status === 401 || status === 403 || problem?.name === "ChatAccountChangedError" || problem?.message === "Browser session changed" || ["business_closed", "business_grant_not_live", "business_report_scope_changed"].includes(code) ? "access"
     : code === "business_report_view_changed" || code === "stale_version" ? "version"
     : ["idempotency_conflict", "business_action_conflict", "supporting_file_already_linked"].includes(code) ? "conflict"
-    : ["business_report_too_large", "business_pilot_disabled", "business_reports_unavailable", "business_annotation_unavailable", "business_annotation_unsupported", "document_source_unavailable"].includes(code) ? "unavailable"
+    : ["business_report_too_large", "business_reports_unavailable", "business_annotation_unavailable", "business_annotation_unsupported", "document_source_unavailable"].includes(code) ? "unavailable"
     : problem?.name === "ZodError" ? "failed"
     : mutation && (status === undefined || status >= 500) ? "uncertain" : "failed";
   return { kind, code, requestId: problem?.requestId };

@@ -35,7 +35,6 @@ const pathname = value => { try { return new URL(value).pathname; } catch { retu
 const environment = {
   PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR,
   NEXT_PUBLIC_MOCK_AUTH: "true",
-  NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true",
   NEXT_PUBLIC_CUADRAO_API_URL: `${fixture.origin}/api/v1`, NEXT_TELEMETRY_DISABLED: "1",
 };
 const probe = createServer();

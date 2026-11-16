@@ -16,7 +16,6 @@ from argus.api import state as api_state
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE, documents_service
 from argus.api.ingestion import ingestion_enabled
-from argus.domain.business.config import business_pilot_enabled
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
@@ -87,7 +86,6 @@ def configure_email_intake(runtime: EmailCapture | None) -> None:
 def capture_enabled() -> bool:
     return (
         EmailIntakeSettings().capture_enabled
-        and business_pilot_enabled()
         and ingestion_enabled()
         and load_document_extraction_settings().enabled
     )
@@ -145,7 +143,6 @@ def intake_conditions(app) -> dict[str, bool]:  # noqa: ANN001
     settings = EmailIntakeSettings()
     return {
         "email_capture_flag": settings.capture_enabled,
-        "business_pilot_flag": business_pilot_enabled(),
         "ingestion_flag": ingestion_enabled(),
         "document_extraction_flag": load_document_extraction_settings().enabled,
         "persistence_supabase": api_state.PERSISTENCE_MODE == "supabase",

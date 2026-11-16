@@ -3,8 +3,6 @@ import { writeFile } from "node:fs/promises";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { installReceiptBusiness } from "./support/business-receipt-fixture";
 
-test.skip(process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED !== "true", "/biz needs the Business pilot server");
-
 // Two real pages with different colored headers and readable synthetic contents.
 function twoPagePdf() {
   const stream = (page: number) => `${page === 1 ? "0.1 0.35 0.25" : "0.15 0.25 0.65"} rg 40 650 520 100 re f\n0 0 0 rg BT /F1 24 Tf 50 600 Td (Comprobante de prueba - ${page}/2) Tj 0 -60 Td /F1 16 Tf (Compra de materiales) Tj 0 -40 Td (Total: RD$ 1,180.00) Tj 0 -40 Td (ITBIS: RD$ 180.00) Tj ET`;

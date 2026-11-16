@@ -1,5 +1,4 @@
 import { LANGUAGE_STORAGE_KEY, readStored, writeStored } from "./browser-storage";
-import { businessPilotEnabled } from "./private-alpha-flags";
 
 export const BUSINESS_PREVIEW_LANGUAGE_KEY = "cuadrao-business-preview-language";
 
@@ -49,7 +48,7 @@ export type LanguageSources = {
 /** The one precedence every reader uses: account, then the device choice, then the browser on a consumer build, then the default. */
 export function resolveLanguage(
   sources: LanguageSources,
-  businessBuild: boolean = businessPilotEnabled,
+  businessBuild: boolean = true,
 ): ArgusLanguage {
   const chosen = sources.account || sources.device || (businessBuild ? null : sources.browser);
   return chosen ? normalizeEnabledLanguage(chosen) : defaultLanguage(businessBuild);
@@ -58,7 +57,7 @@ export function resolveLanguage(
 /** The account language that may decide. Business counts it only once the person saved one; a consumer account's counts as it is. */
 export function accountLanguage<Code extends string>(
   user: { language?: Code | null; onboarding?: { language_confirmed?: boolean } | null } | null | undefined,
-  businessBuild: boolean = businessPilotEnabled,
+  businessBuild: boolean = true,
 ): Code | null {
   if (!user?.language) return null;
   if (businessBuild && !user.onboarding?.language_confirmed) return null;
@@ -85,7 +84,7 @@ export function fallbackChain(shown: string | undefined, defaultLanguage: ArgusL
   return defaultLanguage === "en" ? ["en"] : [defaultLanguage, "en"];
 }
 
-export const DEFAULT_LANGUAGE = defaultLanguage(businessPilotEnabled);
+export const DEFAULT_LANGUAGE = defaultLanguage(true);
 
 export function normalizeEnabledLanguage(language?: string | null): ArgusLanguage {
   if (language?.toLowerCase().startsWith("es")) {

@@ -37,7 +37,7 @@ describe("Business has no guest mode", () => {
 
   test("the pages and the shell are wired to those rules (CI runs no fixture e2e, so the wiring is pinned here)", () => {
     const rootPage = source("app/page.tsx");
-    expect(rootPage).toContain("if (!sessionAdmitted(meResponse.account_kind, businessPilotEnabled)) {");
+    expect(rootPage).toContain("if (!sessionAdmitted(meResponse.account_kind, true)) {");
     expect(rootPage.indexOf("await logoutFromApi().catch(() => undefined);")).toBeGreaterThan(rootPage.indexOf("if (!sessionAdmitted("));
     const bizPage = source("app/biz/page.tsx");
     expect(bizPage).toContain("await classifyBusinessIdentity(");

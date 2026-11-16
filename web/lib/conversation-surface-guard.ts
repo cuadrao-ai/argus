@@ -1,5 +1,4 @@
 import type { ConversationSurface } from "./conversation-surface-api";
-import { businessPilotEnabled } from "./private-alpha-flags";
 
 /**
  * A conversation opens only in the shell of its own surface. The backend says
@@ -48,7 +47,7 @@ export function conversationExitHref(
   currentHref: string,
   conversationId: string,
   surface: ConversationSurface,
-  businessBuild: boolean = businessPilotEnabled,
+  businessBuild: boolean = true,
 ): string {
   if (businessBuild && surface === "personal") {
     const current = new URL(currentHref);

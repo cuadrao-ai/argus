@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
-test.skip(process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED !== "true", "/dev/business-preview needs the Business pilot server");
 
 async function openPicker(page: Page, width: number) {
   await page.setViewportSize({ width, height: 900 });

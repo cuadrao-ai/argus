@@ -368,7 +368,7 @@
       ]
     },
     "codex/cuadrao-biz-landing-20261013": {
-      "description": "On a Cuadrao Business build (NEXT_PUBLIC_BUSINESS_PILOT_ENABLED) the signed-in home is /biz: login without return_to lands there, the signed-out /chat guest page is gone (signed-out visitors go to login) and the Business UI links that pointed at /chat use the signed-in home. return_to stays allow-listed to same-origin /biz paths. Consumer builds are unchanged.",
+      "description": "On a Cuadrao Business build the signed-in home is /biz: login without return_to lands there, the signed-out /chat guest page is gone (signed-out visitors go to login) and the Business UI links that pointed at /chat use the signed-in home. return_to stays allow-listed to same-origin /biz paths. Consumer builds are unchanged.",
       "base_ref": "origin/codex/private-alpha-next",
       "allow": [
         ".agent/ownership/branch_ownership.json",

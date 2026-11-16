@@ -199,13 +199,12 @@ def test_a_saved_document_is_read_and_deleted_with_intake_off(
 @pytest.mark.parametrize(
     "off",
     [
-        {"ARGUS_BUSINESS_PILOT_ENABLED": "false"},
         {"ARGUS_WHATSAPP_INTAKE_ENABLED": "false"},
-        {"ARGUS_INGESTION_ENABLED": "false", "ARGUS_BUSINESS_PILOT_ENABLED": "false"},
+        {"ARGUS_INGESTION_ENABLED": "false"},
     ],
-    ids=["pilot-off", "intake-off", "everything-off"],
+    ids=["intake-off", "ingestion-off"],
 )
-def test_unlink_with_business_or_intake_off_ends_the_link_and_codes(
+def test_unlink_with_ingestion_or_intake_off_ends_the_link_and_codes(
     api: Api, off: dict[str, str]
 ) -> None:
     with api.running() as client:
