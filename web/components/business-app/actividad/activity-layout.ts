@@ -1,4 +1,4 @@
-/** Actividad's row geometry, shared by the history and its loading skeleton so loading never shifts the layout. */
+/** Actividad's row geometry, for loaded and pending rows alike, so loading never shifts the layout. */
 export const ACTIVITY_GRID = "md:grid md:grid-cols-[minmax(180px,220px)_minmax(0,1.1fr)_minmax(0,1fr)_120px_96px] md:items-center md:gap-4";
 /** The live history has no Registro column until the feed names records (#1410). */
 export const ACTIVITY_GRID_LIVE = "md:grid md:grid-cols-[minmax(180px,220px)_minmax(0,1fr)_120px_96px] md:items-center md:gap-4";

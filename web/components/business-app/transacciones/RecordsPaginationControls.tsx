@@ -3,14 +3,17 @@
 import { Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ToolbarPicker } from "./RecordsToolbar";
+import { RecordsLoadingBar } from "./RecordsLoadingPreview";
 import { pageLinks, type PaginationState } from "./records-pagination";
+import loadingStyles from "./records-loading-preview.module.css";
 import styles from "./records-page.module.css";
 
-export default function RecordsPaginationControls({ page, pages, pageSize, rangeLabel, onPageChange, onPageSizeChange, hideSinglePage = false, label, pageSizeLabel }: { page: number; pages: number; pageSize: PaginationState["pageSize"]; rangeLabel: string; onPageChange: (page: number) => void; onPageSizeChange: (size: PaginationState["pageSize"]) => void; hideSinglePage?: boolean; label?: string; pageSizeLabel?: string }) {
+/** `loading`: the first page is pending, so the count the server owns is a placeholder bar (shown after the screen's shared delay) and the pages stay at one. */
+export default function RecordsPaginationControls({ page, pages, pageSize, rangeLabel, onPageChange, onPageSizeChange, hideSinglePage = false, label, pageSizeLabel, loading = false, shown = true }: { page: number; pages: number; pageSize: PaginationState["pageSize"]; rangeLabel: string; onPageChange: (page: number) => void; onPageSizeChange: (size: PaginationState["pageSize"]) => void; hideSinglePage?: boolean; label?: string; pageSizeLabel?: string; loading?: boolean; shown?: boolean }) {
   const { t } = useTranslation();
   const word = (key: string) => t(`business.transactions.pagination.${key}`);
-  return <div className={styles.container}><footer className={styles.footer} data-testid="records-pagination" data-page={page}>
-    <span data-testid="records-count" className={styles.count} aria-live="polite">{rangeLabel}</span>
+  return <div className={styles.container}><footer className={styles.footer} data-testid="records-pagination" data-surface-block="pagination" data-page={page} aria-busy={loading || undefined}>
+    {loading ? <span className={styles.count} aria-hidden="true" style={shown ? undefined : { visibility: "hidden" }}><RecordsLoadingBar className={loadingStyles.count} /></span> : <span data-testid="records-count" className={styles.count} aria-live="polite">{rangeLabel}</span>}
     <ToolbarPicker flip label={pageSizeLabel ?? word("page_size")} value={t("business.transactions.pagination.per_page", { count: pageSize })}>
       {close => <>{([25, 50, 100] as const).map(size => <button type="button" key={size} className={styles.option} onClick={() => { onPageSizeChange(size); close(); }}>{t("business.transactions.pagination.per_page", { count: size })}{pageSize === size ? <Check size={16} aria-hidden="true" /> : null}</button>)}</>}
     </ToolbarPicker>
