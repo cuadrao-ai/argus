@@ -34,6 +34,7 @@ from argus.domain.ingestion.documents.config import (
 )
 from argus.domain.ingestion.documents.dgii_qr import with_qr
 from argus.domain.ingestion.documents.ecf_checks import EcfDocument, safe_ecf_checks
+from argus.domain.ingestion.documents.failures import classify
 from argus.domain.ingestion.documents.models import (
     RECEIPT_CURRENCY_CONFLICT,
     RECEIPT_PURCHASE_AMBIGUOUS,
@@ -575,7 +576,7 @@ class DocumentExtractor:
     ) -> ExtractionResult | None:
         """The provider call, made once more when it times out. The second call
         is admitted again, so it is charged like the first. Any other failure,
-        and the last timeout, end the read."""
+        and the last timeout, end this take of the read."""
         for number in range(1, PROVIDER_CALLS_PER_READ + 1):
             try:
                 return await call()
@@ -657,6 +658,7 @@ class DocumentExtractor:
             raise exc.reason from None
         except Exception as exc:
             failure = DocumentExtractionError("extraction_provider_failed", True)
+            failure.read_failure = classify(exc)
             detached = _detach_http_response(exc)
             if detached is not None:
                 failure.response = detached

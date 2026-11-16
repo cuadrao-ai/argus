@@ -13,6 +13,12 @@ new paid attempt. The extractor's own second call when the provider times out
 is made inside the same attempt under its lease. A superseded attempt cannot
 claim the draft, and its late result is refused by the connection lease, so a
 receipt is saved once however many attempts complete.
+
+A take that failed for now (the provider timed out, broke off, answered 5xx or
+429, or the breaker held the read back) goes back to ``queued`` with a
+``not_before``, so no worker sleeps on it and the person keeps seeing it being
+read. The provider calls of one read are counted on its job across every take,
+reruns included, and stop at ``MAX_PROVIDER_CALLS``.
 """
 
 from __future__ import annotations
@@ -21,7 +27,7 @@ import asyncio
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from loguru import logger
 
@@ -31,6 +37,7 @@ from argus.domain.ingestion.connections import (
     SourceConnection,
 )
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
+from argus.domain.ingestion.documents.failures import Requeue
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     DocumentExtractionError,
@@ -172,6 +179,7 @@ class PreparationJobs:
                     attempt=job.attempt + 1,
                     requeue=True,
                     reruns=job.reruns + 1,
+                    carried=job,
                 ):
                     report.rerun.append(connection_id)
                     logger.warning(
@@ -206,6 +214,7 @@ class PreparationJobs:
                 # A saved preparation replays without a provider call.
                 unmarked=not fresh and not saved,
                 reruns=0 if fresh or job is None else job.reruns,
+                carried=None if fresh else job,
             ):
                 report.redispatched.append(connection_id)
                 logger.info(
@@ -272,9 +281,12 @@ class PreparationJobs:
         requeue: bool,
         unmarked: bool = False,
         reruns: int = 0,
+        carried: PreparationJob | None = None,
     ) -> bool:
         """Make a new attempt current and leave it for a puller. A sweep also
-        returns an interrupted or failed draft to ``queued``."""
+        returns an interrupted or failed draft to ``queued``. ``carried`` is
+        the earlier attempt of the same read: its provider calls and waits
+        still count."""
         requeued = (
             self.service.revise(draft, status="queued", error_code=None)
             if requeue and draft.status != "queued"
@@ -285,6 +297,8 @@ class PreparationJobs:
             attempt_id=str(uuid.uuid4()),
             draft_version=(requeued or draft).version,
             reruns=reruns,
+            provider_calls=carried.provider_calls if carried else 0,
+            retry_waited=carried.retry_waited if carried else 0,
         )
         return self.service.store.advance(
             user_id=user_id,
@@ -358,6 +372,12 @@ async def run_attempt(
         )
         return "prepared"
     except (DocumentServiceError, DocumentExtractionError) as error:
+        requeue = getattr(error, "requeue", None)
+        if isinstance(requeue, Requeue):
+            await asyncio.to_thread(
+                _take_again, service, user_id, connection_id, attempt_id, requeue
+            )
+            return error.code
         if not error.retryable:
             return error.code
         job = service.store.job(user_id=user_id, connection_id=connection_id)
@@ -387,3 +407,54 @@ async def run_attempt(
             failure_mode=type(error).__name__,
         )
         return "document_extraction_failed"
+
+
+def _take_again(
+    service: DocumentsService,
+    user_id: str,
+    connection_id: str,
+    attempt_id: str,
+    requeue: Requeue,
+) -> None:
+    """Put the read this take left claimed back in the queue for its next
+    take, in one write. The same read continues: its attempt number, reruns
+    and provider calls stay. A take that lost its claim writes nothing, and
+    the sweep recovers a read whose worker died before this write."""
+    store, now = service.store, service.hub.clock()
+    draft = store.draft(user_id=user_id, connection_id=connection_id)
+    job = store.job(user_id=user_id, connection_id=connection_id)
+    if (
+        draft is None
+        or job is None
+        or job.attempt_id != attempt_id
+        or draft.status != "preparing"
+        or not own_claim(draft, job)
+    ):
+        return
+    queued = service.revise(draft, status="queued", error_code=None)
+    again = PreparationJob(
+        attempt=job.attempt,
+        attempt_id=str(uuid.uuid4()),
+        draft_version=queued.version,
+        reruns=job.reruns,
+        provider_calls=job.provider_calls,
+        not_before=now + timedelta(seconds=requeue.wait_seconds),
+        retry_waited=job.retry_waited
+        + (requeue.wait_seconds if requeue.charged else 0.0),
+    )
+    if store.advance(
+        user_id=user_id,
+        connection_id=connection_id,
+        now=now,
+        expected_attempt_id=attempt_id,
+        job=again,
+        draft=queued,
+    ):
+        logger.warning(
+            "document_read_waits connection_id={} provider_calls={} "
+            "wait_seconds={:.0f} charged={}",
+            connection_id,
+            job.provider_calls,
+            requeue.wait_seconds,
+            requeue.charged,
+        )

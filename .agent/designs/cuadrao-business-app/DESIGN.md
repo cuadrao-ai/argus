@@ -1367,7 +1367,8 @@ state here. Until Product defines it, it is not a status.
 
 #### When a read fails
 
-Designed 2026-11-15, build pending #2192 and #1681.
+Designed 2026-11-15. #2192 built steps 1 and 2 on the server. Steps 3 and 4
+are pending #1681.
 
 1. While the automatic retries run, the receipt stays Leyendo on Todos. The
    person never sees a retry or a failure in that time. The retry rules live in

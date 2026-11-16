@@ -384,42 +384,60 @@ health check.
 
 ### When a receipt read fails
 
-Designed 2026-11-15 with the founder, build pending #2192. The design is sized
-for pilot scale. It replaces today's rule. Today a read makes at most two
-provider calls, and the second runs only after a timeout (`PROVIDER_CALLS_PER_READ` in
-`src/argus/domain/ingestion/documents/config.py`). Any other failure sends the
-receipt to Necesitan atención at once. What the person sees lives in
+Designed 2026-11-15 with the founder and built in #2192. The design is sized
+for pilot scale. What the person sees lives in
 [the Business web app design](../.agent/designs/cuadrao-business-app/DESIGN.md#when-a-read-fails).
+Each fact below has one owner in `src/argus/domain/ingestion/documents/`.
 
-- **Transient or permanent.** The worker retries a timeout, an interrupted read,
-  a 5xx answer and a 429 answer. After a 429 it waits at least the
-  `Retry-After` time. It fails fast on an unreadable or unsupported file, a
-  missing source file and a file that is not a receipt. It also fails fast on an
-  auth or configuration error (401, 403, a missing model or key), and that error
-  alerts the team, because the fault is ours, not the receipt's.
-- **Bounded, jittered backoff.** One read gets at most 4 attempts in total,
-  today's 2 included. The wait between attempts grows exponentially, with
-  jitter. The total wait has a hard cap of about 10 minutes.
-- **Dead letter.** When the attempts run out, the receipt goes to Necesitan
-  atención with its reason. That tab is the dead letter, and people already
-  work it. The worker logs the final error with the document id. There is no
-  separate dead-letter queue.
-- **Circuit breaker.** When the provider fails across several reads in a short
-  window (for example 5 failures in 2 minutes), the worker stops all sends for a
-  cooldown (for example 5 minutes). Then one read probes the provider. The
-  breaker state lives in the database, so every worker and every new deploy
-  read the same state. A read that waits on an open breaker is not charged an
-  attempt.
-- **Idempotent writes.** Each extraction write is keyed by the document. A retry
-  overwrites the earlier result and never adds a second one. #2067 made the read
-  hash stable. The build checks the existing write paths and tests them.
+- **Transient or permanent.** `classify` in `failures.py` gives every failure
+  its kind. The worker retries a timeout, an interrupted read, a 5xx answer and
+  a 429 answer. After a 429 it waits at least the `Retry-After` time. It fails
+  fast on an unreadable or unsupported file, a missing source file, a file that
+  is not a receipt and an answer that came back wrong. It also fails fast on an
+  auth or configuration error (401, 403, a missing model or key). That error
+  writes an error log with the tag `document_read_config_alert` and the
+  document id, because the fault is ours, not the receipt's.
+- **Bounded, jittered backoff.** The numbers live in `config.py`, beside
+  `PROVIDER_CALLS_PER_READ`. One read gets at most 4 provider calls in total
+  (`MAX_PROVIDER_CALLS`). One take of a read still makes at most 2: the first,
+  and one more at once when it times out. Every other retry waits in the queue.
+  The wait starts at 15 seconds and grows 4 times for each call already made
+  (15, 60, 240 seconds). Half of each wait is random. The waits of one read
+  never add up to more than 10 minutes. A `Retry-After` that does not fit
+  inside that total ends the read.
+- **The wait is in the queue.** A take that failed for now puts the receipt
+  back to `queued` with a `not_before` time on its `preparation_job`, in one
+  write. No worker sleeps on it and it holds no read slot. `store.pull` skips
+  it until that time. The count of calls (`provider_calls`) is written before
+  each call, so a worker that dies does not reset it. The owner's "Leer de
+  nuevo" starts a new read with a new count.
+- **Dead letter.** When the calls run out, the receipt goes to Necesitan
+  atención with its reason, the same failed state as before. That tab is the
+  dead letter, and people already work it. The worker logs the final error as
+  `document_read_failed` with the document id. There is no separate
+  dead-letter queue.
+- **Circuit breaker.** `breaker.py` owns the rules and
+  `public.document_read_breaker` owns the state, one row. 5 failed provider
+  calls inside 2 minutes stop all sends for 5 minutes. Then one read probes
+  the provider: its answer closes the breaker, and its failure starts the 5
+  minutes again. Every worker and every new deploy read the same row. A read
+  the breaker holds back goes back to the queue and is charged no call, no
+  wait and no read budget. The breaker has no timer of its own. It changes
+  only when a read asks to be sent or reports how its call ended. If the
+  breaker row cannot be read, reads continue.
+- **Idempotent writes.** Each extraction write is keyed by the document:
+  `financial_document_extractions` has one row for each document, and the
+  canonical Business bridge is keyed by the document's binding and checks the
+  read hash that #2067 made stable. A retry writes into the same row and never
+  adds a second one. Tests prove it in memory and on Postgres.
 - **Escalation, not blind retries.** A read that returns a wrong answer is not
-  retried. The review checks catch it. When the automatic attempts run out, the
+  retried. The review checks catch it. When the automatic calls run out, the
   next step belongs to the person, as the web design says. A second model is out
   of scope until it has its own receipt scorecard.
-- **Concurrency unchanged.** The worker keeps 3 reads at a time (`max_reads=3`),
-  and uploads keep 3 in flight. The breaker sits in front of those shared read
-  slots.
+- **Concurrency and budget unchanged.** The worker keeps 3 reads at a time
+  (`max_reads=3`), and uploads keep 3 in flight. No worker pulls a read while
+  the breaker is open, so the breaker sits in front of those shared read slots.
+  Every provider call, a retry included, is charged to the Business read budget.
 
 ---
 # 7. Communication Protocols

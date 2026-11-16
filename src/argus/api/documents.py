@@ -115,6 +115,10 @@ def _service_over(
         store = InMemoryDocumentStore(hub.connections)
     from argus.domain.business.actions import BusinessActions
     from argus.domain.business.read_budget import InMemoryReadBudget, PostgresReadBudget
+    from argus.domain.ingestion.documents.breaker import (
+        InMemoryReadBreaker,
+        PostgresReadBreaker,
+    )
     from argus.domain.ingestion.reconcile.service import ReconciliationService
 
     actions = (
@@ -129,6 +133,7 @@ def _service_over(
         business_actions=actions,
         business_preparation_required=pool is not None,
         read_budget=InMemoryReadBudget() if pool is None else PostgresReadBudget(pool),
+        read_breaker=InMemoryReadBreaker() if pool is None else PostgresReadBreaker(pool),
     )
     from argus.api.business_spaces import business_access
     from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
