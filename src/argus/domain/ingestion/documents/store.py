@@ -92,7 +92,8 @@ class DocumentStore(Protocol):
     def pull(self, *, now: datetime, cap: int) -> tuple[str, str] | None:
         """Dispatch the oldest waiting attempt to the caller and return its
         connection and attempt ids, or ``None`` when nothing waits or ``cap``
-        reads already run. A read is any live lease on a queued or preparing
+        reads already run. An attempt whose ``not_before`` is still ahead is
+        not waiting yet. A read is any live lease on a queued or preparing
         draft, and any attempt dispatched for a queued draft within one lease
         window, so the cap holds across workers and every other path to a read.
         Two callers never take the same attempt."""
@@ -107,8 +108,9 @@ class DocumentStore(Protocol):
         holder: str,
         now: datetime,
     ) -> bool:
-        """Record that ``attempt_id`` may now reach the provider and renew the
-        lease, only while ``holder`` holds it and the attempt is current."""
+        """Record that ``attempt_id`` may now reach the provider, count the
+        call and renew the lease, only while ``holder`` holds it and the
+        attempt is current."""
         ...
 
     def advance(
@@ -432,6 +434,7 @@ class InMemoryDocumentStore:
                     and job is not None
                     and taken is None
                     and job.draft_version == draft.version
+                    and (job.not_before is None or job.not_before <= now)
                 ):
                     waiting.append((draft.created_at, key, job))
             if reading >= cap or not waiting:
@@ -504,6 +507,9 @@ class InMemoryDocumentStore:
                 row, lease_until=now + DEFAULT_LEASE
             )
             self._jobs[key] = job.model_copy(
-                update={"provider_call_started_at": now}
+                update={
+                    "provider_call_started_at": now,
+                    "provider_calls": job.provider_calls + 1,
+                }
             ).model_dump_json()
             return True

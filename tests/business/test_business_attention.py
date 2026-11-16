@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from argus.api.documents import documents_service
 from argus.api.ingestion import ingestion_hub
+from argus.domain.ingestion.documents.failures import READ_DEADLINE_PASSED
 from argus.domain.ingestion.documents.jobs import OUTCOME_UNKNOWN
 
 from tests.business.receipt_stub import PURCHASE, ReceiptStub
@@ -65,6 +66,25 @@ def _enter_and_confirm(alice: Owner, receipt_id: str) -> dict:  # noqa: F811
         "3450.00",
     )
     return body
+
+
+def test_a_read_past_its_deadline_has_its_own_reason_and_can_be_asked_again(
+    alice: Owner,  # noqa: F811
+    stub: ReceiptStub,
+) -> None:
+    stub.failure = READ_DEADLINE_PASSED
+    receipt_id = prepared(alice)
+    expired = alice.detail(receipt_id)
+    assert (_next(expired), expired["error_code"]) == (
+        ("needs_attention", "read_deadline_passed", True, True),
+        READ_DEADLINE_PASSED,
+    )
+    assert alice.get("/updates").json()["items"][0]["attention"] == (
+        "read_deadline_passed"
+    )
+    retried = alice.post(f"/receipts/{receipt_id}/prepare", **CONSENT)
+    assert retried.status_code == 200, retried.text
+    assert _next(alice.detail(receipt_id))[0] == "review_ready"
 
 
 def test_a_failed_read_offers_a_consented_retry_and_entry_by_hand(

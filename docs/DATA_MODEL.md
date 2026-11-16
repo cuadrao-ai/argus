@@ -3480,6 +3480,47 @@ boundary proposal is approved.
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
 
+### Business date floor (#2175)
+
+`supabase/migrations/20261115060328_business_dates_floor.sql` owns the fixed
+stored-date floor. Its `enforce_business_date_floor()` function requires dates
+on or after 2000-01-01 for inserts and changed date values. Client roles have no
+EXECUTE grant on this function; the server role does. Six AFTER row triggers
+call that owner. They compare each date with OLD on updates, including the update
+selected by an upsert. Unchanged grandfathered dates remain editable through
+metadata changes such as delete/restore; changing one date does not revalidate
+another unchanged date in the same JSON object. `business_draft_revisions` and
+`business_invoice_revisions` append one row per edit and copy unchanged dates
+forward, so an insert there has no OLD. Their triggers pass `previous_by=draft_id`
+or `previous_by=invoice_id`, and the function compares the new row with the same
+parent's latest earlier revision. It reads that revision only when a date is below
+the floor. A note or another field saved on a record with a grandfathered date
+therefore succeeds; a first revision, or a date that differs from the previous
+revision, is new input. A newly inserted row or a changed
+date below the floor raises SQLSTATE 23514. A CHECK with `NOT VALID` cannot express
+this distinction, because it still checks every updated row.
+
+| Table | Current dates checked |
+| --- | --- |
+| `business_bank_line_outcomes` | `applied_settled_on` |
+| `business_bank_lines` | `occurred_on` |
+| `business_document_settlements` | `settled_on` |
+| `business_draft_revisions` | `after_due_on` |
+| `business_invoice_revisions` | Nonempty `data.issued_on`, `data.due_on` |
+| `financial_import_events` | Business `anchor_on`, person-stated `facts.occurred_on`; resolution `due_on`, `dgii.paid_on`, `dgii.withheld_on` |
+
+Null dates remain unknown. Other products' imports are unaffected. Prior values
+in correction history and raw reader evidence are retained, including a wrong
+year: correcting a record must not erase or refuse its history. A read date
+outside the application range remains review evidence with a null list anchor
+and a correction blocker. Response models continue to read old stored dates.
+
+The application range has one separate owner, `accepted_dates.py`, which uses
+the Dominican business day. No rolling date expression is stored in the database guard.
+This migration performs no cleanup or validation scan. It does not certify
+historical rows as valid. No hosted count or migration application was performed
+for this change.
+
 ### Business name prompt
 
 `spaces.business_name_prompt_seen_at` recorded the first owner visit that
@@ -4031,6 +4072,26 @@ version. Existing exact-version references and creation-only `from_action`
 references keep their prior semantics and replay. This changes no table, grant,
 approval contract or ownership of current facts.
 
+### Document read breaker
+
+`document_read_breaker` is server-only, with RLS, no policy and no client
+grants. It holds one row (`singleton` is its primary key and is always true),
+so every document worker and every new deploy read the same state. `failures`
+holds the times of the recent failed provider calls while the breaker is
+closed. `opened_at` is set while sends are stopped, and null while it is
+closed. `probe_at` is when the one probing read was sent, and it is null unless
+`opened_at` is set. `probe_id` names that probe and is set exactly when
+`probe_at` is: only the call that carries this id closes the breaker or starts
+its cooldown again. A probe that was admitted and never sent clears both and
+leaves `opened_at` as it was. Migration `20261116063000_document_read_breaker.sql` adds
+the table and its row. `src/argus/domain/ingestion/documents/breaker.py` owns
+the rules, and `config.py` beside it owns the numbers (5 failures in 120
+seconds, a 300-second cooldown). A closed breaker costs one single-row read
+for each read a worker pulls and one before each provider call. A worker with
+nothing to pull does not read it. A write happens only when a call fails or
+the state changes. The table holds no customer data, so account
+deletion and Business purge do not touch it.
+
 ### Existing ingestion persistence
 
 `financial_document_extractions` owns the durable draft, the immutable preparation
@@ -4041,8 +4102,21 @@ or split proposals. `batch` holds typed observations, receipt itemization,
 projection issues and compatible canonical candidates. It may be null before
 preparation. `preparation_job` names the current preparation attempt (number,
 ID, the draft version it was dispatched for, dispatch time, when its provider
-call started, a retry request, and `reruns`). Every read goes through it: no
-setting leaves a read outside the attempt record.
+call started, a retry request, `reruns`, `provider_calls`, `not_before`,
+`retry_waited` and `asked_at`). Every read goes through it: no setting leaves a
+read outside the attempt record.
+`provider_calls` counts the provider calls this read was admitted for, across
+every take. It is written with the provider-call time, before the provider can
+be reached, and it stops at 4 (`MAX_PROVIDER_CALLS`). `not_before` is when a
+take that waits out a temporary failure, or an open read breaker, may be
+pulled; a puller skips the row until then. `retry_waited` is the seconds of
+such waits the read was charged, at most 600. `asked_at` is when the read was
+asked for: the upload for the read an upload starts, the owner's ask for a
+later one. Every take of the same read keeps it, and the read deadline (6
+hours, `READ_DEADLINE_SECONDS`) counts from it. The first three are omitted
+from the JSON when zero or null, like `reruns`, and `asked_at` when null, with
+the same rollback effect. The owner's "Leer de nuevo" starts a new preparation
+with the first three cleared and a new `asked_at`.
 `reruns` counts the paid attempts of this preparation the sweep started because
 an earlier attempt died past its provider-call time with no saved batch; it
 bounds them at one (`MAX_RERUNS`). It is omitted from the JSON when zero, so a

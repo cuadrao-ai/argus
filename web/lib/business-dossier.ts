@@ -167,7 +167,7 @@ export type BusinessDossier = BusinessRecordContext & DocumentDeleteAccess & {
   sources: BusinessSourceEvidence[];
   questions: BusinessReviewQuestion[];
   history: BusinessDraftRevision[];
-  blockers: { code: string; field: BusinessFactField | null }[];
+  blockers: { code: string; field: BusinessFactField | null; min_date?: string; today?: string }[];
   /** Computed on every read, after approval too. Absent from servers older than #1590. */
   review_flags?: ReviewFlag[];
   approval_available: boolean;

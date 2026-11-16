@@ -19,6 +19,7 @@ from pydantic import (
 from pydantic.json_schema import SkipJsonSchema
 from typing_extensions import TypeAliasType
 
+from argus.domain.business.accepted_dates import DueDate, PastBusinessDate
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
 from argus.domain.business.contracts.dgii import DgiiDeclaration
 from argus.domain.business.document_type import DocumentType
@@ -334,7 +335,7 @@ class UnknownInput(Contract):
 
 
 #: A due date a person states, or takes back to unknown.
-DueOnInput = Annotated[KnownInput[date] | UnknownInput, Field(discriminator="state")]
+DueOnInput = Annotated[KnownInput[DueDate] | UnknownInput, Field(discriminator="state")]
 
 
 class MontosReview(Contract):
@@ -366,7 +367,7 @@ class BusinessFactPatch(Contract):
     kind: FactInput[ActivityKind] | SkipJsonSchema[None] = None
     amount: FactInput[Amount] | SkipJsonSchema[None] = None
     currency: FactInput[Currency] | SkipJsonSchema[None] = None
-    occurred_on: FactInput[date] | SkipJsonSchema[None] = None
+    occurred_on: FactInput[PastBusinessDate] | SkipJsonSchema[None] = None
     counterparty: FactInput[str] | SkipJsonSchema[None] = None
     funding: FactInput[Funding] | SkipJsonSchema[None] = None
     business_share: FactInput[BusinessShare] | SkipJsonSchema[None] = None

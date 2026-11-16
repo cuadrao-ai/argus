@@ -168,15 +168,15 @@ describe("the single-date picker", () => {
     await page.close();
   });
 
-  test("a phone number pad's ddmmaaaa counts, a year before 1900 does not, and a wrong day is marked invalid", async () => {
+  test("calendar years reach the server-owned range check and phone digits still parse", async () => {
     const changes: [string | null, boolean][] = [];
     const page = await picker("", (iso, invalid) => changes.push([iso, invalid]));
     await page.act(async () => { page.input.focus(); });
     await page.type(page.input, "14/10/0026");
-    assert.equal(page.input.getAttribute("aria-invalid"), "true");
+    assert.equal(page.input.getAttribute("aria-invalid"), "false");
     await page.type(page.input, "05102026");
     assert.equal(page.input.getAttribute("aria-invalid"), "false");
-    assert.deepEqual(changes, [[null, true], ["2026-10-05", false]]);
+    assert.deepEqual(changes, [["0026-10-14", false], ["2026-10-05", false]]);
     await page.close();
   });
 
@@ -255,7 +255,7 @@ describe("typed dates", () => {
       ["4/11/202", null],
       ["4/11/02026", null],
       ["4/1126", null],
-      ["14/10/0026", null],
+      ["14/10/0026", "0026-10-14"],
       ["4-11-26", null],
       ["", null],
     ];
@@ -448,4 +448,15 @@ describe("receipt detail uses the picker for its date", () => {
     assert.deepEqual(patches.at(-1), [{ occurred_on: { state: "known", value: "2026-10-02" } }, false]);
     await page.close();
   });
+});
+
+test("a read year 0026 offers the upload-year correction", async () => {
+  const changes: [string | null, boolean][] = [];
+  const page = await picker("0026-10-05", (iso, invalid) => changes.push([iso, invalid]), { kind: "document", uploadedAt: "2026-11-15T12:00:00Z" });
+  await page.act(async () => { page.trigger.click(); });
+  const fix = page.host.querySelector<HTMLButtonElement>('[data-testid="date-picker-upload-year"] button');
+  assert.ok(fix);
+  await page.act(async () => { fix.click(); });
+  assert.deepEqual(changes, [["2026-10-05", false]]);
+  await page.close();
 });

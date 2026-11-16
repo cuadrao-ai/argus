@@ -126,8 +126,27 @@ def load_document_extraction_settings() -> DocumentExtractionSettings:
         return _disabled_document_extraction_settings()
 
 
-# Provider calls one read may make: the first, and one more when it times out.
+# Provider calls one take of a read may make: the first, and one more when it
+# times out.
 PROVIDER_CALLS_PER_READ = 2
+# Provider calls one read may make across every take, the two above included.
+# A read that still fails then goes to Necesitan atención.
+MAX_PROVIDER_CALLS = 4
+# A read still waiting in the queue this long after it was asked for (the
+# upload, for the read an upload starts) goes to Necesitan atención, whatever
+# held it there: a retry's wait, the open breaker or a stopped worker.
+READ_DEADLINE_SECONDS = 6 * 60 * 60.0
+# The wait before the next take starts at this and grows by RETRY_FACTOR for
+# each call the read already made. Half of each wait is random.
+RETRY_BASE_SECONDS = 15.0
+RETRY_FACTOR = 4
+# The waits of one read never add up to more than this.
+RETRY_MAX_WAIT_SECONDS = 600.0
+# This many provider failures inside the window pause every send for the
+# cooldown. Then one read probes the provider.
+BREAKER_FAILURES = 5
+BREAKER_WINDOW_SECONDS = 120.0
+BREAKER_COOLDOWN_SECONDS = 300.0
 # Local work around the provider calls: decoding, the budget charge, the saves.
 _READ_LOCAL_SECONDS = 30.0
 # How long a read cancelled at the end of a drain gets to release its lease.
@@ -136,7 +155,7 @@ CANCEL_SECONDS = 5.0
 
 def read_seconds() -> float:
     """The longest one read can take: every provider call at its timeout, plus
-    the local work around them. Every wait sized for a read derives from it."""
+    the local work around them. Every wait sized for one take derives from it."""
     timeout = openrouter_profile_for_task("document_extraction").timeout_seconds
     return PROVIDER_CALLS_PER_READ * timeout + _READ_LOCAL_SECONDS
 

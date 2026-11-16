@@ -22,7 +22,7 @@ test("the attention strip leaves out a recorded dossier's blockers and keeps the
   const accepted = await fixture.approveDraft(ready.draft_id, ready.version);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
-  const render = (dossier: BusinessDossier) => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(DossierAttentionStrip, { items: dossierAttention(dossier, i18n.t.bind(i18n)) })));
+  const render = (dossier: BusinessDossier) => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(DossierAttentionStrip, { items: dossierAttention(dossier, i18n.t.bind(i18n), i18n.language) })));
   const closed = { ...accepted, blockers: [{ code: "business_draft_not_open", field: null }] };
   assert.equal(render(closed), "");
   const open = await fixture.dossier(dossierFixtureIds.unknown);
