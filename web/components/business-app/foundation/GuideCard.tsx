@@ -14,6 +14,10 @@ type Props = {
   userId: string;
   title: string;
   points: [GuidePoint, GuidePoint, GuidePoint];
+  /** Called once the read settles: whether the card takes space. A failed read shows its retry, so it counts as shown. */
+  onKnown?: (shown: boolean) => void;
+  /** Held, the card still reads but draws nothing, so a screen can draw it in the same frame as the rest. */
+  held?: boolean;
 };
 
 type State =
@@ -24,7 +28,7 @@ export default function GuideCard(props: Props) {
   return <GuideCardForPerson key={JSON.stringify([props.userId, props.cardId])} {...props} />;
 }
 
-function GuideCardForPerson({ cardId, userId, title, points }: Props) {
+function GuideCardForPerson({ cardId, userId, title, points, onKnown, held = false }: Props) {
   const { t } = useTranslation();
   const titleId = useId();
   const request = useRef<AbortController | null>(null);
@@ -50,7 +54,11 @@ function GuideCardForPerson({ cardId, userId, title, points }: Props) {
     return () => request.current?.abort();
   }, [perform]);
 
-  if (state.kind === "loading" || state.kind === "hidden") return null;
+  useEffect(() => {
+    if (state.kind !== "loading") onKnown?.(state.kind !== "hidden");
+  }, [state.kind, onKnown]);
+
+  if (held || state.kind === "loading" || state.kind === "hidden") return null;
 
   const read = () => {
     setState({ kind: "loading" });

@@ -81,7 +81,7 @@ for (const width of [1440, 390]) test(`Registros loading at ${width}px is its ow
   } finally { await act(async () => release()); }
 });
 
-test("the guide stays out of the skeleton until the server says it was not dismissed", async () => {
+test("the guide stays out of the skeleton, and the page draws with it once the server says it was not dismissed", async () => {
   let answerGuide!: () => void;
   const guideReadGate = new Promise<void>((resolve) => { answerGuide = resolve; });
   let release!: () => void;
@@ -93,10 +93,12 @@ test("the guide stays out of the skeleton until the server says it was not dismi
     assert.ok(tableSkeletonShown());
     assert.equal(guide(), null);
     await act(async () => release());
-    await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
-    assert.equal(guide(), null, "the records answer alone does not show the guide");
+    await pause(100);
+    assert.equal(document.querySelector('[data-testid="records-count"]'), null, "the records answer alone does not draw the page");
+    assert.ok(tableSkeletonShown() && guide() === null, "the skeleton holds while the guide is unknown");
   } finally { await act(async () => { release(); answerGuide(); }); }
-  await page.settle(() => guide() !== null);
+  await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
+  assert.ok(guide(), "the guide draws in the same frame as the page");
 });
 
 test("Total stays static without requests, filters or navigation", async () => {

@@ -19,7 +19,9 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 type GuideRequest = { method: string; url: string; signal: AbortSignal | null | undefined; finish: (response: Response) => void };
 
-async function mount() {
+type HoldProps = { onKnown?: (shown: boolean) => void; held?: boolean };
+
+async function mount(first: HoldProps = {}) {
   const originalFetch = globalThis.fetch;
   const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
@@ -32,7 +34,7 @@ async function mount() {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  const render = async (userId = "ana") => {
+  const render = async (userId = "ana", hold: HoldProps = first) => {
     await act(async () => root.render(
       <I18nextProvider i18n={i18n}>
         <GuideCard cardId="bandeja-intro" userId={userId} title="Del documento al registro"
@@ -41,6 +43,7 @@ async function mount() {
             { label: "Revisa y aprueba", body: "El documento pasa a Registros." },
             { label: "Retoma lo pendiente", body: "Vuelve a la revisión." },
           ]}
+          {...hold}
         />
       </I18nextProvider>,
     ));
@@ -142,6 +145,28 @@ test("an earlier person's read or save cannot change a new person's guide", asyn
     await page.finish(4, state(true));
     assert.equal(page.guide(), null);
   } finally { await page.close(); }
+});
+
+test("without onKnown or held the card draws as before; held, it reads, draws nothing and reports what it learned", async () => {
+  const plain = await mount();
+  try {
+    await plain.finish(0, state(false));
+    assert.ok(plain.guide(), "no new props: the card draws once its read says it was not dismissed");
+  } finally { await plain.close(); }
+  for (const [answer, shown] of [[() => state(false), true], [() => state(true), false], [unavailable, true]] as const) {
+    const known: boolean[] = [];
+    const onKnown = (value: boolean) => { known.push(value); };
+    const page = await mount({ onKnown, held: true });
+    try {
+      assert.equal(page.requests.length, 1, "held still reads");
+      await page.finish(0, answer());
+      assert.deepEqual(known, [shown]);
+      assert.equal(page.host.childElementCount, 0, "held draws nothing");
+      await page.render("ana", { onKnown, held: false });
+      assert.equal(page.requests.length, 1, "letting go draws what it read without a second read");
+      assert.equal(page.host.childElementCount > 0, shown);
+    } finally { await page.close(); }
+  }
 });
 
 /** The `card_id` enum the checked OpenAPI artifact declares under one guide-card path. */
