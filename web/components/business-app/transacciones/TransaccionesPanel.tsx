@@ -1,6 +1,5 @@
 "use client";
 
-import FullscreenLoading from "@/components/FullscreenLoading";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Check, SlidersHorizontal } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -54,7 +53,7 @@ export default function TransaccionesPanel() {
   const { source, records } = useBusiness();
   const igualar = useIgualarEnabled();
   if (source.mode === "live" && !igualar) return <BusinessReportsPanel />;
-  if (!recordsCurrencySchema.safeParse(records.workspace?.records_default_currency).success) return records.error || records.workspace ? <RecordsWorkspaceUnavailable /> : <FullscreenLoading />;
+  if (!recordsCurrencySchema.safeParse(records.workspace?.records_default_currency).success) return records.error || records.workspace ? <RecordsWorkspaceUnavailable /> : <RecordsLoadingPreview />;
   return <LegacyTransaccionesPanel />;
 }
 

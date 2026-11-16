@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Coroutine
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from argus.api.business import BusinessPerson, MembershipRoute, require_business_person
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
+from argus.api.schemas import GuideCardId
 
 
 class GuideRoute(MembershipRoute):
@@ -43,7 +44,6 @@ router = APIRouter(
     responses={403: {"description": "A registered account is required."}},
 )
 
-CardId = Literal["actividad-intro", "bandeja-intro", "registros-intro"]
 Person = Annotated[BusinessPerson, Depends(require_business_person)]
 
 
@@ -62,52 +62,48 @@ def _unavailable(request: Request) -> HTTPException:
     )
 
 
-def _state(
-    request: Request, person: BusinessPerson, card_id: CardId, *, dismiss: bool
-) -> BusinessGuideState:
-    pool = getattr(request.app.state, "financial_accounts_pool", None)
+def _failed(request: Request, error: Error) -> None:
+    logger.warning(
+        "Business guide database request failed",
+        request_id=getattr(request.state, "request_id", None),
+        failure_mode=type(error).__name__,
+    )
+
+
+def dismissed_guide_cards(request: Request, user_id: str) -> list[GuideCardId] | None:
+    """The guide cards this person dismissed, for `GET /me`; None when they cannot be read."""
+    pool = getattr(getattr(request.scope.get("app"), "state", None), "financial_accounts_pool", None)
     if pool is None:
-        raise _unavailable(request)
-    key = (person.person_id, card_id)
+        return None
     try:
         with pool.connection() as connection:
-            if dismiss:
-                connection.execute(
-                    "insert into public.business_guide_dismissals (user_id, card_id)"
-                    " values (%s, %s) on conflict (user_id, card_id) do nothing",
-                    key,
-                )
-                dismissed = True
-            else:
-                dismissed = (
-                    connection.execute(
-                        "select 1 from public.business_guide_dismissals"
-                        " where user_id = %s and card_id = %s",
-                        key,
-                    ).fetchone()
-                    is not None
-                )
+            rows = connection.execute(
+                "select card_id from public.business_guide_dismissals where user_id = %s",
+                (user_id,),
+            ).fetchall()
     except Error as error:
-        logger.warning(
-            "Business guide database request failed",
-            request_id=getattr(request.state, "request_id", None),
-            failure_mode=type(error).__name__,
-        )
-        raise _unavailable(request) from None
-    return BusinessGuideState(dismissed=dismissed)
-
-
-@router.get("/guide-cards/{card_id}")
-def get_guide_card(
-    request: Request, person: Person, card_id: CardId
-) -> BusinessGuideState:
-    """Read the signed-in person's guide state. The Business grant is ignored."""
-    return _state(request, person, card_id, dismiss=False)
+        _failed(request, error)
+        return None
+    dismissed = {card_id for (card_id,) in rows}
+    return [card_id for card_id in get_args(GuideCardId) if card_id in dismissed]
 
 
 @router.post("/guide-cards/{card_id}/dismiss")
 def dismiss_guide_card(
-    request: Request, person: Person, card_id: CardId
+    request: Request, person: Person, card_id: GuideCardId
 ) -> BusinessGuideState:
     """Dismiss this guide for the signed-in person. The Business grant is ignored."""
-    return _state(request, person, card_id, dismiss=True)
+    pool = getattr(request.app.state, "financial_accounts_pool", None)
+    if pool is None:
+        raise _unavailable(request)
+    try:
+        with pool.connection() as connection:
+            connection.execute(
+                "insert into public.business_guide_dismissals (user_id, card_id)"
+                " values (%s, %s) on conflict (user_id, card_id) do nothing",
+                (person.person_id, card_id),
+            )
+    except Error as error:
+        _failed(request, error)
+        raise _unavailable(request) from None
+    return BusinessGuideState(dismissed=True)

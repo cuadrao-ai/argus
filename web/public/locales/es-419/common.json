@@ -3401,6 +3401,7 @@
       "unreadable_title": "No pudimos leer este archivo",
       "not_a_receipt_title": "Esto no parece un recibo.",
       "not_a_receipt_body": "Sube la foto o el PDF de un comprobante.",
+      "read_deadline_passed_body": "El servicio de lectura no estuvo disponible. Puedes leerlo de nuevo.",
       "placeholder": {
         "unreadable_body": "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz."
       },
@@ -3463,7 +3464,6 @@
       },
       "placeholder": {
         "dismiss": "Ocultar guía",
-        "read_failed": "No pudimos cargar la guía.",
         "save_failed": "No pudimos ocultar la guía."
       },
       "registros_intro": {
@@ -3653,6 +3653,7 @@
       "duplicate": "Parece repetido",
       "read_budget_day": "[PENDIENTE COPY] Se lee mañana: hoy se alcanzó el límite de lecturas",
       "read_budget_month": "[PENDIENTE COPY] Se lee el próximo mes: se alcanzó el límite de lecturas",
+      "read_deadline_passed": "La lectura no terminó",
       "other": "Necesita atención"
     },
     "inbox": {

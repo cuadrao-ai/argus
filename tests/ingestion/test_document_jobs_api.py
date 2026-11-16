@@ -388,21 +388,20 @@ def test_a_timed_out_read_is_read_once_more_and_shown_as_one(jobs_client, monkey
     assert len(imports(jobs_client)) == 1
 
 
-def test_a_second_timeout_is_one_clear_failure_the_owner_reads_again(
+def test_a_second_timeout_waits_in_the_queue_and_the_worker_reads_it_again(
     jobs_client, monkeypatch
 ):
     provider = Provider("timeout", "timeout", "succeed")
-    install(monkeypatch, provider)
+    clock = install(monkeypatch, provider)
     connection = upload(jobs_client)
-    wait_for(lambda: document(jobs_client, connection)["status"] == "needs_attention")
-    assert document(jobs_client, connection)["error_code"] == (
-        "extraction_provider_failed"
-    )
+    wait_for(lambda: job(connection).not_before is not None)
+    waiting = document(jobs_client, connection)
+    assert (waiting["status"], waiting["error_code"]) == ("queued", None)
     time.sleep(0.2)
-    assert provider.calls == 2
+    assert provider.calls == job(connection).provider_calls == 2
     assert job(connection).retry is False
 
-    assert retry_with_consent(jobs_client, connection).status_code == 200
+    clock.offset += job(connection).not_before - clock()
     wait_for(lambda: document(jobs_client, connection)["status"] == "review_ready")
     assert provider.calls == 3
     assert len(imports(jobs_client)) == 1

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, setSystemTime, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
+import { SKELETON_DELAY_MS } from "@/components/business-app/business-skeletons";
 import { reportFiltersForUi, reportFiltersFromUi } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { emptyPreviewFilters, validPreviewAmount } from "@/components/business-app/transacciones/records-filter-preview-model";
 import { reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest } from "@/lib/business-reports-api";
@@ -35,6 +36,50 @@ test("connected pages, full count, accent search and filtered overview use real 
 });
 
 const overviewCards = () => [...document.querySelectorAll<HTMLButtonElement>('[data-testid="records-overview-preview"] [data-overview-filter]')];
+
+for (const width of [1440, 390]) test(`Registros first load keeps its layout and row skeleton at ${width}px instead of the full-screen loader`, async () => {
+  let release!: () => void;
+  const queryGate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ width, queryGate, waitForAnswer: false });
+  try {
+    await pause(SKELETON_DELAY_MS + 20);
+    const skeleton = document.querySelector('[data-testid="transacciones-loading"]');
+    assert.ok(skeleton, "Registros draws its own pending rows before preferences arrive");
+    assert.equal(skeleton.getAttribute("role"), "status");
+    assert.equal(skeleton.querySelectorAll("tbody tr").length, 8);
+    assert.equal(skeleton.querySelectorAll("li").length, 8);
+    assert.ok(document.querySelector('[data-testid="records-overview-preview"]'));
+    assert.ok(document.querySelector('input[type="search"]'));
+    assert.equal(document.querySelector('[data-testid="fullscreen-loading"]'), null);
+    await act(async () => release());
+    await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
+    assert.equal(document.querySelector('[data-testid="transacciones-loading"]'), null);
+  } finally { await act(async () => release()); }
+});
+
+const cardSlots = () => [...document.querySelectorAll<HTMLElement>('[data-testid="records-overview-preview"] [data-overview-card]')];
+const showsPlaceholder = (card: HTMLElement) => { const bar = card.querySelector(".shimmer"); return bar !== null && bar.closest('[style*="hidden"]') === null; };
+const tableSkeletonShown = () => { const table = document.querySelector('[data-testid="transacciones-loading"]'); return table !== null && table.querySelector(".waiting") === null && table.querySelector(".shimmer") !== null; };
+
+for (const width of [1440, 390]) test(`Registros loading at ${width}px is its own layout: six cards with placeholders above the table, from the first wait to the answer`, async () => {
+  let release!: () => void;
+  const queryGate = new Promise<void>((resolve) => { release = resolve; });
+  const page = await mount({ width, topLevel: true, grantId: fixtureId(3100), workspaceGrant: fixtureId(3101), queryGate, waitForAnswer: false });
+  try {
+    await pause(SKELETON_DELAY_MS + 20);
+    assert.equal(document.querySelector("[data-report-connected]"), null, "the workspace has not answered yet");
+    assert.ok(cardSlots().length === 6 && cardSlots().every(showsPlaceholder) && tableSkeletonShown(), "six cards, each with a placeholder, and the table");
+    assert.ok(cardSlots()[5].compareDocumentPosition(document.querySelector('[data-testid="transacciones-loading"]')!) & Node.DOCUMENT_POSITION_FOLLOWING);
+    page.context.records.workspaceGrant = fixtureId(3100);
+    await page.rerender();
+    assert.ok(document.querySelector("[data-report-connected]"), "the layout is up and the report answer is not");
+    assert.ok(cardSlots().length === 6 && cardSlots().every(showsPlaceholder) && tableSkeletonShown(), "the same wait keeps its placeholders");
+    await act(async () => release());
+    await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
+    assert.equal(document.querySelector('[data-testid="transacciones-loading"]'), null);
+    assert.ok(cardSlots().every((card) => card.querySelector(".shimmer") === null));
+  } finally { await act(async () => release()); }
+});
 
 test("Total stays static without requests, filters or navigation", async () => {
   const page = await mount();
@@ -862,8 +907,8 @@ test("a currency-filtered six-card answer clears old figures while loading and s
     await page.type(document.querySelector('input[type="search"]')!, "absent");
     assert.equal(document.querySelector('[data-testid="records-overview-preview"]')?.getAttribute("aria-busy"), "true");
     assert.deepEqual(shelfMoney(), [null, null, null, null]);
-    assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "");
-    assert.equal(fiscalCount(), "");
+    assert.equal(document.querySelector('[data-overview-card="quantity"] .font-display')?.textContent, "\u00a0");
+    assert.equal(fiscalCount(), "\u00a0");
   } finally { await act(async () => release()); }
   await page.settle(() => document.querySelector('[data-empty-kind="no_results"]') !== null);
   assert.deepEqual(shelfMoney(), [null, null, null, null]);
@@ -908,7 +953,9 @@ test("a valid URL currency wins over the server default and keeps its explicit a
 
 test("the connected entry waits for the current grant workspace before sending any report query", async () => {
   const page = await mount({ topLevel: true, defaultCurrency: "USD", grantId: fixtureId(3100), workspaceGrant: fixtureId(3101), waitForAnswer: false });
-  await pause(30);
+  await pause(SKELETON_DELAY_MS + 20);
+  assert.ok(document.querySelector('[data-testid="transacciones-loading"]'), "workspace loading uses the Registros skeleton");
+  assert.equal(document.querySelector('[data-testid="fullscreen-loading"]'), null);
   assert.equal(sentFilters(page).length, 0);
   page.context.records.workspaceGrant = fixtureId(3100);
   await page.rerender();
@@ -1061,25 +1108,14 @@ test("counterparty options never reuse the previous tab while its next request i
   assert.doesNotMatch(document.querySelector('[role="dialog"]')!.textContent!, /Proveedor sintético|Alias antiguo/);
 });
 
-test("Registros shows its own guide on both tabs and hides it only after the server confirms the dismissal", async () => {
-  let confirm = () => {};
-  const page = await mount({ dismissedGuides: ["bandeja-intro"], guideDismissGate: new Promise<void>((resolve) => { confirm = resolve; }) });
-  const guide = () => document.querySelector<HTMLElement>('[data-testid="transacciones"] > section[aria-labelledby]');
-  await page.settle(() => guide() !== null);
-  const copy = spanish.business.guide_cards.registros_intro;
-  assert.equal(guide()!.querySelector("h3")?.textContent, copy.title);
-  assert.deepEqual([...guide()!.querySelectorAll("li strong")].map((item) => item.textContent), [copy.browse.label, copy.find.label, copy.pending.label]);
-  assert.ok(guide()!.compareDocumentPosition(document.querySelector('[data-testid="records-overview-preview"]')!) & Node.DOCUMENT_POSITION_FOLLOWING);
-  await page.click(page.button("Ventas"));
-  await page.settle(() => page.button("Ventas")?.getAttribute("aria-selected") === "true");
-  assert.ok(guide());
-  await page.click(page.button("Ocultar guía"));
-  assert.ok(guide());
-  assert.equal(page.button("Ocultar guía")?.disabled, true);
-  await act(async () => confirm());
-  await page.settle(() => guide() === null);
-  assert.deepEqual(page.guideRequests, ["GET /business/guide-cards/registros-intro", "POST /business/guide-cards/registros-intro/dismiss"]);
-  assert.deepEqual([...page.dismissedGuides].sort(), ["bandeja-intro", "registros-intro"]);
+test("a sheet still open when the test ends spends its history step before the next test sets its address", async () => {
+  const page = await mount({ initial: reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"] } }) });
+  await page.click(document.querySelector('[data-testid="records-export"]'));
+  await page.settle(() => document.querySelector('[role="dialog"]') !== null);
+  await cleanup();
+  (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL("http://localhost/biz");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(window.location.search, "", "the closed sheet's back step must not restore the Ventas address");
 });
 
 

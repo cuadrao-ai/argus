@@ -1367,7 +1367,8 @@ state here. Until Product defines it, it is not a status.
 
 #### When a read fails
 
-Designed 2026-11-15, build pending #2192 and #1681.
+Designed 2026-11-15. #2192 built steps 1 and 2 on the server. Steps 3 and 4
+are pending #1681.
 
 1. While the automatic retries run, the receipt stays Leyendo on Todos. The
    person never sees a retry or a failure in that time. The retry rules live in
@@ -1377,6 +1378,16 @@ Designed 2026-11-15, build pending #2192 and #1681.
 3. The receipt offers one manual Leer de nuevo. It is no longer unlimited.
 4. If that read also fails, the person types the data by hand with Escribir los
    datos (#1681).
+
+A read that is not finished 6 hours after the upload also moves to Necesitan
+atención, with its own reason: the reading service was unavailable, and the
+receipt did not fail (founder, 2026-11-16, built in #2192). This reason does
+not count against the one manual Leer de nuevo of step 3. The Bandeja row says
+"La lectura no terminó" (`business.attention_short.read_deadline_passed`). The
+open receipt's failed-read box shows that title, the line "El servicio de
+lectura no estuvo disponible. Puedes leerlo de nuevo."
+(`business.file_read.read_deadline_passed_body`) and Leer de nuevo (founder
+copy, 2026-11-16).
 
 Today, Leer de nuevo has no limit, and each press spends one read.
 

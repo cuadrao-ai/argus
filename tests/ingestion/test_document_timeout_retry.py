@@ -1,7 +1,9 @@
 """A read whose provider call times out is read once more inside the same
 attempt, under the same lease: admitted and charged like any read, saved once,
-shown to nobody as a second read. Any other provider error, and a second
-timeout, settle the receipt so the owner can ask "Leer de nuevo"."""
+shown to nobody as a second read. A read no worker took (no attempt on its
+row) settles on any other provider error and on a second timeout, so the owner
+can ask "Leer de nuevo". A worker's take that fails for now waits in the queue
+instead: ``test_document_read_retries`` owns that."""
 
 from __future__ import annotations
 
@@ -253,7 +255,7 @@ async def test_nobody_reads_the_receipt_while_it_is_read_once_more(rig):
 
 
 @pytest.mark.asyncio
-async def test_a_worker_attempt_reads_once_more_inside_itself_and_never_again(rig):
+async def test_a_worker_attempt_reads_once_more_inside_itself_then_waits(rig):
     provider = rig.answers(asyncio.TimeoutError, asyncio.TimeoutError)
     connection = await rig.upload()
     jobs = PreparationJobs(rig.service)
@@ -264,10 +266,11 @@ async def test_a_worker_attempt_reads_once_more_inside_itself_and_never_again(ri
         "extraction_provider_failed"
     )
     job = store.job(user_id=rig.owner, connection_id=connection)
-    assert job.provider_call_started_at is not None and not job.retry
+    assert job.provider_calls == 2 and not job.retry
+    assert job.not_before > rig.service.hub.clock()
     assert jobs.sweep().redispatched == []
     assert store.pull(now=rig.service.hub.clock(), cap=3) is None
-    assert rig.draft(connection).status == "needs_attention"
+    assert rig.draft(connection).status == "queued"
     assert (provider.calls, rig.budget.charged) == (2, 2)
 
 

@@ -234,6 +234,9 @@ class AppleIdentity(BaseModel):
     subject: str = Field(min_length=1, max_length=512, repr=False)
 
 
+GuideCardId = Literal["actividad-intro", "bandeja-intro", "registros-intro"]
+
+
 class UserResponse(BaseModel):
     user: User | GuestUser
     apple_identity: AppleIdentity | None = None
@@ -246,6 +249,10 @@ class UserResponse(BaseModel):
     photo_url: str | None = Field(
         default=None,
         description="A signed URL to the person's 256 px profile photo, valid for about an hour; null without one.",
+    )
+    dismissed_guide_cards: list[GuideCardId] | None = Field(
+        default=None,
+        description="The Business guide cards this person dismissed; null when they could not be read.",
     )
 
     @model_validator(mode="after")

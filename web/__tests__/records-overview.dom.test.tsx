@@ -59,6 +59,19 @@ test("loading clears every old card count", async () => {
 });
 
 
+test("pending cards hold the loaded slots, so nothing moves when numbers arrive", async () => {
+  const slots = () => [...document.querySelectorAll<HTMLElement>("[data-overview-card]")].map((el) => [el.dataset.overviewCard, [...el.querySelectorAll<HTMLElement>("[data-overview-slot]")].map((slot) => `${slot.dataset.overviewSlot}.${slot.className}`)]);
+  const page = await mount({ loading: true });
+  const pending = slots();
+  const money = ["currency", "amount"]; const count = ["count"];
+  assert.deepEqual(pending.map(([key, list]) => [key, (list as string[]).map((slot) => slot.split(".")[0])]), [["total", money], ["itbis", money], ["quantity", count], ["goods", money], ["services", money], ["fiscal", count]]);
+  for (const slot of document.querySelectorAll("[data-overview-slot]")) assert.equal(slot.textContent, "\u00a0", "a pending slot holds one line of its own text box");
+  await page.render({ loading: false });
+  assert.deepEqual(slots(), pending);
+  await page.render({ loading: false, answer: undefined, notReadyCount: null });
+  assert.deepEqual(slots(), pending);
+});
+
 test("known zero is an amount while missing and unusable populated values remain unknown", async () => {
   const rows = [fiscal({ applicable_count: 1, populated_count: 1, unknown_count: 0, complete: true, amount: "0.00", known_amount: "0.00" })];
   const page = await mount({ answer: { ...answer, fiscal_totals: rows } });

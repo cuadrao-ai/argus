@@ -295,7 +295,7 @@ function ChatInterfaceContent() {
     setProfileState("established");
     return nextAccount;
   }, [i18n]);
-  const { onProfileUpdated, greetingName } = useProfileUpdates(account, setAccount);
+  const { onProfileUpdated, dismissGuideCard, greetingName } = useProfileUpdates(account, setAccount);
   const [messages, setMessages] = useState<Message[]>([]);
   // Long-lived handlers (the undo toast) need the current transcript, not
   // the render that created them.
@@ -611,7 +611,7 @@ function ChatInterfaceContent() {
   const openPersonalInvitation = useCallback((trigger: HTMLElement) => {
     setInvitationOpenRequest((previous) => ({ id: (previous?.id ?? 0) + 1, trigger }));
   }, []);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, openSearch: searchEntryEnabled ? openSearch : undefined, openPersonalInvitation, resetToEmptyChatSurface, closeTransientSidebar });
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, memberId: account?.user.id, dismissedGuideCards: account?.dismissed_guide_cards, dismissGuideCard, openSearch: searchEntryEnabled ? openSearch : undefined, openPersonalInvitation, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;

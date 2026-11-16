@@ -213,7 +213,7 @@ function ReceptionWorkspace() {
     <section className={styles.workspace} aria-label={t("business.inbox.title")} data-testid="reception-preview" data-selectable={selectable} data-status={showStatus} data-density={preferences.density} data-columns={shownReceptionColumns(preferences, { status: showStatus }).join(" ")} style={{ ...receptionGrid(preferences, { select: selectable, status: showStatus }, amountSize.width, RECORDS_PREVIEW_COLUMNS.find(column => column.key === "moneda")!.width!), "--row-height": `${DENSITY_ROW_PX[preferences.density]}px` } as CSSProperties}>
       {inPanel ? <div className={styles.phoneHeading}><h2 className="font-display">{t("business.inbox.title")}</h2></div> : null}
       {source.mode === "live" && userId && chosen ? (
-        <GuideCard cardId="bandeja-intro" userId={userId} title={guide("title")}
+        <GuideCard cardId="bandeja-intro" title={guide("title")}
           points={[
             { label: guide("upload.label"), body: guide("upload.body") },
             { label: guide("review.label"), body: guide("review.body") },
