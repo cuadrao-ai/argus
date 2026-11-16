@@ -180,7 +180,9 @@ export async function queryBusinessReport(scope: ReportScope, report: ReportRequ
 }
 /** One file column: `required` ones are always in the file. */
 const exportColumnSchema = z.object({ key: z.string(), label_key: z.string(), required: z.boolean(), shown: z.boolean() });
-const currencySelectionSchema = z.object({ record_count: count, currencies: z.array(z.string()), columns: z.array(exportColumnSchema).min(1) });
+/** The server's name for this choice's file in each format; the web never composes one. */
+const exportFileNamesSchema = z.object({ xlsx: z.string().min(1), csv: z.string().min(1) });
+const currencySelectionSchema = z.object({ record_count: count, currencies: z.array(z.string()), columns: z.array(exportColumnSchema).min(1), filenames: exportFileNamesSchema });
 /** What the Registros export would hold, counted by the server before any file is built. */
 export const exportPreviewSchema = z.object({
   table: z.object({
@@ -188,7 +190,7 @@ export const exportPreviewSchema = z.object({
     /** Null while an amount range ties the export to the screen's currency. */
     all: currencySelectionSchema.nullable(),
   }),
-  dgii: z.object({ form: z.enum(["606", "607"]), currency: z.string(), record_count: count, pending_count: count, pending_fiscal_count: count, pending_rate_count: count, pending_rate_currencies: z.array(z.string()), rnc_warning_count: count, rnc_supplier_count: count, rnc_suppliers: z.array(z.object({ name: z.string(), rnc: z.string(), estado: z.string(), status: z.enum(["rnc_inactive", "rnc_unverified"]), record_count: count })) }),
+  dgii: z.object({ form: z.enum(["606", "607"]), currency: z.string(), record_count: count, pending_count: count, pending_fiscal_count: count, pending_rate_count: count, pending_rate_currencies: z.array(z.string()), rnc_warning_count: count, rnc_supplier_count: count, rnc_suppliers: z.array(z.object({ name: z.string(), rnc: z.string(), estado: z.string(), status: z.enum(["rnc_inactive", "rnc_unverified"]), record_count: count })), filenames: exportFileNamesSchema }),
 });
 export type ExportPreview = z.infer<typeof exportPreviewSchema>;
 export type RecordsExportChoice =
@@ -196,12 +198,14 @@ export type RecordsExportChoice =
   | { mode: "dgii"; format: "xlsx" | "csv" };
 export type RecordsExportFile = { blob: Blob; filename: string };
 const FILE_TYPES = new Set(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/csv"]);
+/** The language the server names the file and writes its text in. */
+const fileLanguage = () => ({ "Accept-Language": (i18n.resolvedLanguage || i18n.language)?.startsWith("en") ? "en" : "es-419" });
 
 export function previewRecordsExport(scope: ReportScope, report: ReportRequest, signal?: AbortSignal): Promise<ExportPreview> {
-  return json(scope, "/business/reports/export/preview", exportPreviewSchema, { method: "POST", body: JSON.stringify({ report: reportRequestSchema.parse(report) }), signal });
+  return json(scope, "/business/reports/export/preview", exportPreviewSchema, { method: "POST", headers: fileLanguage(), body: JSON.stringify({ report: reportRequestSchema.parse(report) }), signal });
 }
 export async function downloadRecordsExport(scope: ReportScope, report: ReportRequest, choice: RecordsExportChoice, signal?: AbortSignal): Promise<RecordsExportFile> {
-  return request(scope, "/business/reports/export", { method: "POST", headers: { "Accept-Language": (i18n.resolvedLanguage || i18n.language)?.startsWith("en") ? "en" : "es-419" }, body: JSON.stringify({ report: reportRequestSchema.parse(report), ...choice }), signal }, async (response) => {
+  return request(scope, "/business/reports/export", { method: "POST", headers: fileLanguage(), body: JSON.stringify({ report: reportRequestSchema.parse(report), ...choice }), signal }, async (response) => {
     const type = response.headers.get("Content-Type")?.split(";")[0].trim() ?? "";
     // The server names the file; the web saves it under that name.
     const disposition = response.headers.get("Content-Disposition") ?? "";

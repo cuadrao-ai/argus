@@ -8353,7 +8353,7 @@ responses with this shape return `null`. There is no per-card read.
 dismissal commits, it returns `{dismissed: true}`. Repeating the request keeps
 the first dismissal time.
 
-The card IDs are `actividad-intro`, `bandeja-intro` and `registros-intro`. An unknown ID returns 422. The preference
+The card IDs are `actividad-intro`, `bandeja-intro`, `exportar-guardar` and `registros-intro`. An unknown ID returns 422. The preference
 follows the registered person across Businesses and sessions. The server takes
 the person ID from the session and ignores `X-Business-Grant` for the dismiss
 route. Its response uses `Cache-Control: no-store`. If storage is unavailable,
@@ -10829,6 +10829,12 @@ accept path recorded.
   snapshot and line review as fiscal selection. Pending and excluded rows do
   not count. Sales return zero counts and an empty list. The notice does not
   block download.
+  `table.current`, `table.all` and `dgii` each carry `filenames`, `{xlsx, csv}`:
+  the name the export below gives that choice's file in each format, from the
+  same `records_filename` with the same Business name, period, dates and
+  `Accept-Language`. The web offers it in the Save As window before the file is
+  built and never composes a name. The name's time is the preview's read; an
+  export read in a later minute names its own file with its own time.
 
 - POST `/api/v1/business/reports/export` takes `{report, mode, columns, currencies,
   format}` and returns one no-store file. `Content-Disposition`, exposed to

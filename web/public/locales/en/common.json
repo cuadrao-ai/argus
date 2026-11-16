@@ -2928,6 +2928,8 @@
           "rnc_notice_title_one": "{{count}} supplier with an inactive or unverified RNC",
           "rnc_notice_title_other": "{{count}} suppliers with an inactive or unverified RNC",
           "rnc_view_suppliers": "View suppliers",
+          "save_failed": "Couldn't save the file.",
+          "saved": "Saved",
           "summary_currencies_one": "{{count}} currency",
           "summary_currencies_other": "{{count}} currencies",
           "summary_dgii_pending_one": "{{count}} pending",
@@ -3424,6 +3426,21 @@
           "body": "Add photos or PDFs of invoices and receipts. If reading is on, Cuadrao extracts their details.",
           "label": "Upload your documents"
         }
+      },
+      "exportar_guardar": {
+        "ask": {
+          "body": "[PENDIENTE COPY] Turn on the option to ask where to save each file. Then you pick the folder when you export.",
+          "label": "[PENDIENTE COPY] Turn on asking"
+        },
+        "downloads": {
+          "body": "[PENDIENTE COPY] Go to the downloads section.",
+          "label": "[PENDIENTE COPY] Find Downloads"
+        },
+        "settings": {
+          "body": "[PENDIENTE COPY] In your browser, open Settings or Preferences.",
+          "label": "[PENDIENTE COPY] Open settings"
+        },
+        "title": "[PENDIENTE COPY] Choose where to save each file"
       },
       "placeholder": {
         "dismiss": "Hide guide",

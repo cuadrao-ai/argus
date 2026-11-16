@@ -11,8 +11,10 @@ import { joinCurrencyList } from "@/lib/business-month-close";
 import { reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
 import type { ExportPreview, RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
 import { saveBlobDownload } from "@/lib/save-blob-download";
+import { canSaveAs, chooseSavePlace, saveToPlace, type SaveAsPlace } from "@/lib/save-file-as";
 import DgiiRegistryTag from "../DgiiRegistryTag";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
+import GuideCard from "../foundation/GuideCard";
 import { showToast } from "../foundation/toasts";
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-filter-preview.module.css";
@@ -21,8 +23,10 @@ type Mode = RecordsExportChoice["mode"];
 type Format = RecordsExportChoice["format"];
 type Currencies = "all" | "current";
 type Load = { kind: "loading" } | { kind: "ready"; preview: ExportPreview } | { kind: "failed"; problem: ReportFailure };
-type Run = { kind: "idle" | "preparing" } | { kind: "failed"; problem: ReportFailure };
+/** A failed file keeps the place chosen in Save As, so Reintentar asks the server again without asking where. */
+type Run = { kind: "idle" | "preparing" } | { kind: "failed"; problem: ReportFailure; place: SaveAsPlace | null };
 const LIMIT_CODES = new Set(["business_report_too_large"]);
+const SAVE_TIP = "business.guide_cards.exportar_guardar.";
 const noticeLinkClass = "inline min-h-0! min-w-0! cursor-pointer whitespace-nowrap rounded-mark text-[14px] leading-[inherit] text-[var(--cuadrao-green)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]";
 
 function InlineNoticeAction({ sentence, children }: { sentence: string; children: ReactNode }) {
@@ -94,10 +98,16 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     : [periodLabel, filterCount ? t("business.transactions.reporting.export.summary_filters", { count: filterCount }) : null, t("business.transactions.reporting.export.summary_records", { count }), (selection?.currencies.length ?? 0) > 1 ? t("business.transactions.reporting.export.summary_currencies", { count: selection?.currencies.length }) : null];
 
   const download = async () => {
-    if (!preview || !count || running.current) return;
+    if (!preview || !count || !selection || running.current) return;
     const choice: RecordsExportChoice = mode === "dgii" ? { mode, format } : { mode, format, columns, currencies: everyCurrency ? "all" : "current" };
+    const filename = (mode === "dgii" ? preview.dgii : selection).filenames[format];
     const abort = new AbortController();
     running.current = abort;
+    // Save As opens on the click itself, before the server builds the file.
+    const kept = run.kind === "failed" && run.place?.filename === filename ? run.place : null;
+    const place = kept ?? await chooseSavePlace(filename, format);
+    if (abort.signal.aborted) return;
+    if (place === "cancelled") { running.current = null; return; }
     setRun({ kind: "preparing" });
     let file: RecordsExportFile;
     try {
@@ -105,15 +115,16 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     } catch (error) {
       if (abort.signal.aborted) return;
       running.current = null;
-      setRun({ kind: "failed", problem: reportFailure(error) });
+      setRun({ kind: "failed", problem: reportFailure(error), place });
       return;
     }
     if (abort.signal.aborted) return;
+    const saved = await saveToPlace(place, file.blob, file.filename);
     running.current = null;
-    saveBlobDownload(file.blob, file.filename);
     onClose();
+    if (saved === "saved") showToast({ kind: "success", text: t("business.transactions.reporting.export.saved") });
     // The same bytes again, never a second request.
-    showToast({ kind: "success", text: t("business.transactions.reporting.export.done"), action: { label: t("business.transactions.reporting.export.download_again"), run: () => saveBlobDownload(file.blob, file.filename) } });
+    else showToast({ kind: "success", text: t("business.transactions.reporting.export.done"), action: { label: t("business.transactions.reporting.export.download_again"), run: () => saveBlobDownload(file.blob, file.filename) } });
   };
 
   const toggle = (key: string) => setChosen(columns.includes(key) ? columns.filter((item) => item !== key) : fileColumns.map((column) => column.key).filter((item) => item === key || columns.includes(item)));
@@ -159,7 +170,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   ) : (
     <div className="space-y-2">
       {problem ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
-        {problem.kind === "access" ? t("business.transactions.reporting.access_unavailable") : LIMIT_CODES.has(problem.code) ? t("business.export.limit_error") : t("business.transactions.reporting.export.error")}
+        {problem.kind === "access" ? t("business.transactions.reporting.access_unavailable") : LIMIT_CODES.has(problem.code) ? t("business.export.limit_error") : run.kind === "failed" && run.place ? t("business.transactions.reporting.export.save_failed") : t("business.transactions.reporting.export.error")}
         {problem.kind !== "access" ? <> <button type="button" className={quietButtonClass} onClick={() => { if (run.kind === "failed") void download(); else setAttempt((value) => value + 1); }}>{t("common.retry")}</button></> : null}
         {problem.requestId ? <ReferenceCode reference={problem.requestId} /> : null}
       </p> : null}
@@ -213,6 +224,12 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
           {sale && pendingRate ? <p>{pendingRate}</p> : null}
         </div> : null}
         {preview ? <div className="mt-3"><SegmentedControl fill testId="records-export-format" label={t("business.transactions.reporting.export.format")} value={format} onChange={setFormat} segments={[{ key: "xlsx" as const, label: t("business.transactions.reporting.export.format_xlsx") }, { key: "csv" as const, label: t("business.transactions.reporting.export.format_csv") }]} /></div> : null}
+        {/* Without Save As on a desktop, one tip on letting the browser ask where to save. */}
+        {preview && !isBelowDesktop && !canSaveAs() ? <div className="mt-4 empty:hidden"><GuideCard cardId="exportar-guardar" title={t(`${SAVE_TIP}title`)} points={[
+          { label: t(`${SAVE_TIP}settings.label`), body: t(`${SAVE_TIP}settings.body`) },
+          { label: t(`${SAVE_TIP}downloads.label`), body: t(`${SAVE_TIP}downloads.body`) },
+          { label: t(`${SAVE_TIP}ask.label`), body: t(`${SAVE_TIP}ask.body`) },
+        ]} /></div> : null}
       </>}
     </div>
   );

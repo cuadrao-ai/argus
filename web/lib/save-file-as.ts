@@ -1,0 +1,65 @@
+import { saveBlobDownload } from "./save-blob-download";
+
+export type SaveAsFormat = "xlsx" | "csv";
+
+type Writable = { write(data: Blob): Promise<void>; close(): Promise<void>; abort(): Promise<void> };
+type FileHandle = { createWritable(): Promise<Writable> };
+type SaveFilePicker = (options: { suggestedName: string; id: string; types: { description?: string; accept: Record<string, string[]> }[] }) => Promise<FileHandle>;
+
+/** One picker id per type, so the system window remembers a folder for Excel and another for CSV. */
+const TYPES: Record<SaveAsFormat, { id: string; accept: Record<string, string[]> }> = {
+  xlsx: { id: "cuadrao-export-xlsx", accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] } },
+  csv: { id: "cuadrao-export-csv", accept: { "text/csv": [".csv"] } },
+};
+
+/** A place the person chose in the system Save As window, for the file named `filename`. */
+export type SaveAsPlace = { filename: string; write(blob: Blob): Promise<void> };
+
+function crossOriginFrame(): boolean {
+  try { return window.top !== window.self && window.top?.location.origin !== window.location.origin; } catch { return true; }
+}
+
+/** The system Save As window, when this browser has one here: a feature check, never the browser's name. */
+function saveFilePicker(): SaveFilePicker | null {
+  if (typeof window === "undefined") return null;
+  const picker = (window as { showSaveFilePicker?: SaveFilePicker }).showSaveFilePicker;
+  return typeof picker === "function" && !crossOriginFrame() ? picker.bind(window) : null;
+}
+
+export function canSaveAs(): boolean {
+  return saveFilePicker() !== null;
+}
+
+/**
+ * Opens the Save As window with the server's file name. Call it first in the
+ * click, before any await: the browser opens it only during the click.
+ * `cancelled` when the person closes it; null when there is no window here or
+ * it fails, and the file then downloads as before.
+ */
+export async function chooseSavePlace(filename: string, format: SaveAsFormat): Promise<SaveAsPlace | "cancelled" | null> {
+  const picker = saveFilePicker();
+  if (!picker) return null;
+  let handle: FileHandle;
+  try {
+    handle = await picker({ suggestedName: filename, id: TYPES[format].id, types: [{ accept: TYPES[format].accept }] });
+  } catch (error) {
+    return error instanceof DOMException && error.name === "AbortError" ? "cancelled" : null;
+  }
+  return {
+    filename,
+    async write(blob) {
+      const writable = await handle.createWritable();
+      // The browser commits the file only on close; abort leaves no partial file.
+      try { await writable.write(blob); await writable.close(); } catch (error) { await writable.abort().catch(() => undefined); throw error; }
+    },
+  };
+}
+
+/** Writes into the chosen place; with none, or when the write fails, the file downloads as before. */
+export async function saveToPlace(place: SaveAsPlace | null, blob: Blob, filename: string): Promise<"saved" | "downloaded"> {
+  if (place) {
+    try { await place.write(blob); return "saved"; } catch { /* The person still gets the file, as a download. */ }
+  }
+  saveBlobDownload(blob, filename);
+  return "downloaded";
+}

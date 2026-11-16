@@ -108,14 +108,16 @@ export function createBusinessReportHttpFixture() {
         const listed = serverColumns(presentation, sale).flatMap(({ key, label_key, shown }) => [{ key, label_key, required: key === "counterparty", shown: shown || key === "counterparty" || key === "payment_form", last: key === "payment_form" && !shown }, ...all && key === "gross_amount" ? [{ key: "currency", label_key: "business.transactions.columns.moneda", required: true, shown: true, last: false }] : []]);
         return [...listed.filter((column) => !column.last), ...listed.filter((column) => column.last)].map(({ key, label_key, required, shown }) => ({ key, label_key, required, shown }));
       };
-      const selection = (rows: ReportRecord[], all = false) => ({ record_count: rows.length, currencies: [...new Set(rows.flatMap((row) => row.currency ? [row.currency] : []))].sort(), columns: fileColumns(all) });
+      // The server names each choice's file; the fixture's names only tell the choices apart.
+      const names = (choice: string) => ({ xlsx: `${sale ? "Ventas" : "Compras"} ${choice}.xlsx`, csv: `${sale ? "Ventas" : "Compras"} ${choice}.csv` });
+      const selection = (rows: ReportRecord[], all = false) => ({ record_count: rows.length, currencies: [...new Set(rows.flatMap((row) => row.currency ? [row.currency] : []))].sort(), columns: fileColumns(all), filenames: names(all ? "todas las monedas" : `solo ${report.filters.currencies[0] ?? ""}`.trim()) });
       const bounded = report.filters.amount_min !== null || report.filters.amount_max !== null;
       const family = records.filter((row) => row.family === report.filters.record_families[0]);
       const foreign = family.filter((row) => row.fiscal_data && row.currency && row.currency !== controls.dgiiCurrency);
       const pendingFiscal = family.filter((row) => row.fiscal_data === "missing" && row.currency === controls.dgiiCurrency).length;
       return Response.json({
         table: { current: selection(matchingRecords(report)), all: bounded ? null : selection(matchingRecords({ ...report, filters: { ...report.filters, currencies: [] } }), true) },
-        dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort(), rnc_suppliers: controls.rncSuppliers, rnc_supplier_count: controls.rncSuppliers.length, rnc_warning_count: controls.rncSuppliers.reduce((sum, supplier) => sum + supplier.record_count, 0) },
+        dgii: { form: sale ? "607" : "606", currency: controls.dgiiCurrency, record_count: family.filter((row) => row.fiscal_data === "complete").length, pending_count: pendingFiscal + foreign.length, pending_fiscal_count: pendingFiscal, pending_rate_count: foreign.length, pending_rate_currencies: [...new Set(foreign.map((row) => row.currency!))].sort(), rnc_suppliers: controls.rncSuppliers, rnc_supplier_count: controls.rncSuppliers.length, rnc_warning_count: controls.rncSuppliers.reduce((sum, supplier) => sum + supplier.record_count, 0), filenames: names(sale ? "607" : "606") },
       });
     }
     if (path.endsWith("/reports/export")) {
