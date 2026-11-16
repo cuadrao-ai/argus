@@ -102,10 +102,11 @@ def test_inicio_groups_current_month_report_readiness_by_family_and_currency(fak
         assert answer.overview.not_ready == item["count"]
 
 
+@pytest.mark.parametrize("settlement", [False, True])
 @pytest.mark.parametrize("family", ["purchase", "sale"])
 @pytest.mark.parametrize("refusal", [None, "business_report_too_large", "permission_denied"])
 def test_month_reader_uses_projected_readiness_on_its_authorized_snapshot(
-    fake, monkeypatch, family, refusal
+    fake, monkeypatch, family, refusal, settlement
 ):
     from contextlib import contextmanager
     from types import SimpleNamespace
@@ -163,10 +164,10 @@ def test_month_reader_uses_projected_readiness_on_its_authorized_snapshot(
     )
     if refusal == "permission_denied":
         with pytest.raises(ActionError, match=refusal):
-            month_close_store.read_month(authority, context, "2026-09", settlement=False)
+            month_close_store.read_month(authority, context, "2026-09", settlement=settlement)
         return
     answer = MonthClose.model_validate(
-        month_close_store.read_month(authority, context, "2026-09", settlement=False)
+        month_close_store.read_month(authority, context, "2026-09", settlement=settlement)
     )
     assert answer.missing_fiscal_rows == []
     assert answer.month == "2026-09"
