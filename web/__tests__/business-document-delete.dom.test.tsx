@@ -271,6 +271,20 @@ test("the dialog preview renders the source through a CSP-safe data URL", async 
 });
 
 for (const kind of ["draft", "receipt"] as const) {
+  test(`the ${kind} dossier delete menu keeps its dark hover on the Danger tint`, async () => {
+    const page = await mount();
+    const ready = await page.source.receipt("ready");
+    assert.ok(ready.draft_id);
+    await page.act(async () => page.api().openPanel(kind === "receipt"
+      ? { kind: "receipt", receiptId: ready.id, list: "inbox" }
+      : { kind: "draft", draftId: ready.draft_id!, list: "inbox" }));
+    await page.wait(() => !!document.querySelector('[data-testid="delete-document-menu"]'));
+    await page.click(document.querySelector('[data-testid="receipt-more"] > button'));
+    const menuItem = document.querySelector<HTMLButtonElement>('[data-testid="delete-document-menu"]')!;
+    assert.ok(menuItem.classList.contains("hover:bg-[#f6dfe0]/50"), "keep the light hover treatment");
+    assert.ok(menuItem.classList.contains("dark:hover:bg-[#ec9aa0]/10"), "dark hover must not inherit the light fill behind the Danger label");
+  });
+
   test(`restoring an open ${kind} dossier updates the same panel and the toast Ver keeps it editable`, async () => {
     const page = await mount("owner", false, 1, true);
     await page.act(async () => page.api().openPanel(kind === "receipt"
