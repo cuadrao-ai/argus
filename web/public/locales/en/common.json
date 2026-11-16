@@ -3420,7 +3420,6 @@
       },
       "placeholder": {
         "dismiss": "Hide guide",
-        "read_failed": "We couldn't load the guide.",
         "save_failed": "We couldn't hide the guide."
       },
       "registros_intro": {

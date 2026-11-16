@@ -1,87 +1,53 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useId, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
-import { dismissBusinessGuideCard, getBusinessGuideCard, type BusinessGuideCardId } from "@/lib/business-guide-api";
+import { usePanelShell } from "@/components/chat/ChatWorkspace";
+import type { BusinessGuideCardId } from "@/lib/business-guide-api";
 import { serverRequestReference } from "@/lib/failure-screen";
 import styles from "./guide-card.module.css";
 
 type GuidePoint = { label: string; body: string };
 type Props = {
   cardId: BusinessGuideCardId;
-  userId: string;
   title: string;
   points: [GuidePoint, GuidePoint, GuidePoint];
+  /** While its screen is pending, the card holds its own size and place with nothing in it. */
+  pending?: boolean;
 };
 
-type State =
-  | { kind: "loading" | "hidden" | "visible" | "saving" }
-  | { kind: "read-failed" | "save-failed"; reference: string | null };
+const empty: CSSProperties = { visibility: "hidden" };
 
+/** Shown until the person dismisses it. Whether they did comes with the shell's account; unknown shows nothing. */
 export default function GuideCard(props: Props) {
-  return <GuideCardForPerson key={JSON.stringify([props.userId, props.cardId])} {...props} />;
+  const shell = usePanelShell();
+  return <GuideCardForPerson key={shell?.memberId ?? ""} {...props} />;
 }
 
-function GuideCardForPerson({ cardId, userId, title, points }: Props) {
+function GuideCardForPerson({ cardId, title, points, pending = false }: Props) {
   const { t } = useTranslation();
   const titleId = useId();
-  const request = useRef<AbortController | null>(null);
-  const [state, setState] = useState<State>({ kind: "loading" });
-  const perform = useCallback(async (action: "read" | "dismiss") => {
-    request.current?.abort();
-    const controller = new AbortController();
-    request.current = controller;
-    const options = { cardId, expectedUserId: userId, signal: controller.signal };
-    try {
-      const { dismissed } = await (action === "read" ? getBusinessGuideCard(options) : dismissBusinessGuideCard(options));
-      if (!controller.signal.aborted) setState({ kind: dismissed ? "hidden" : "visible" });
-    } catch (error) {
-      if (!controller.signal.aborted) setState({
-        kind: action === "read" ? "read-failed" : "save-failed",
-        reference: serverRequestReference(error),
-      });
-    }
-  }, [cardId, userId]);
+  const shell = usePanelShell();
+  const [saveFailure, setSaveFailure] = useState<{ reference: string | null } | null>(null);
+  const dismissed = shell?.dismissedGuideCards;
+  if (!dismissed || dismissed.includes(cardId)) return null;
 
-  useEffect(() => {
-    void perform("read");
-    return () => request.current?.abort();
-  }, [perform]);
-
-  if (state.kind === "loading" || state.kind === "hidden") return null;
-
-  const read = () => {
-    setState({ kind: "loading" });
-    void perform("read");
-  };
   const dismiss = () => {
-    setState({ kind: "saving" });
-    void perform("dismiss");
+    setSaveFailure(null);
+    void shell?.dismissGuideCard?.(cardId).catch((error: unknown) => setSaveFailure({ reference: serverRequestReference(error) }));
   };
-  const failure = state.kind === "read-failed" || state.kind === "save-failed" ? (
-    <div className={styles.failure} role="alert">
-      <p>
-        {t(state.kind === "read-failed" ? "business.guide_cards.placeholder.read_failed" : "business.guide_cards.placeholder.save_failed")}
-        {state.reference ? <span className={styles.reference}><ReferenceCode reference={state.reference} /></span> : null}
-      </p>
-      <button type="button" className={styles.retry} onClick={state.kind === "read-failed" ? read : dismiss}>{t("common.retry")}</button>
-    </div>
-  ) : null;
-
-  if (state.kind === "read-failed") return failure;
-
-  const saving = state.kind === "saving";
+  const hidden = pending ? empty : undefined;
   return (
-    <section className={`${styles.card} rounded-surface`} aria-labelledby={titleId} aria-busy={saving}>
-      <header className={styles.header}>
-        <h3 className="font-display" id={titleId}>{title}</h3>
-        <button type="button" className={`${styles.close} rounded-full`} aria-label={t("business.guide_cards.placeholder.dismiss")} onClick={dismiss} disabled={saving}>
+    <section className={`${styles.card} rounded-surface`} aria-labelledby={pending ? undefined : titleId} aria-hidden={pending || undefined} data-guide-slot={pending ? "" : undefined}>
+      <header className={styles.header} style={hidden}>
+        <h3 className="font-display" id={pending ? undefined : titleId}>{title}</h3>
+        <button type="button" className={`${styles.close} rounded-full`} aria-label={t("business.guide_cards.placeholder.dismiss")} onClick={dismiss}>
           <X size={18} aria-hidden="true" />
         </button>
       </header>
-      <ul className={styles.points}>
+      <ul className={styles.points} style={hidden}>
         {points.map(({ label, body }) => (
           <li key={label}>
             <strong>{label}</strong>
@@ -89,8 +55,15 @@ function GuideCardForPerson({ cardId, userId, title, points }: Props) {
           </li>
         ))}
       </ul>
-      {failure}
+      {saveFailure && !pending ? (
+        <div className={styles.failure} role="alert">
+          <p>
+            {t("business.guide_cards.placeholder.save_failed")}
+            {saveFailure.reference ? <span className={styles.reference}><ReferenceCode reference={saveFailure.reference} /></span> : null}
+          </p>
+          <button type="button" className={styles.retry} onClick={dismiss}>{t("common.retry")}</button>
+        </div>
+      ) : null}
     </section>
   );
 }
-
