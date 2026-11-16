@@ -22,7 +22,7 @@ import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
-import { ReceiptDuplicateCompare, ReceiptDuplicateResolution, useDuplicateCompare } from "./ReceiptDuplicateCompare";
+import { ReceiptDuplicateCompare, useDuplicateCompare } from "./ReceiptDuplicateCompare";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import { useAmountsPreview } from "./useAmountsPreview";
@@ -549,7 +549,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
       </>}
     >
           {notice}
-          <DossierAttentionStrip items={attention} onOpen={canPrepare && mutable ? rows.open : undefined} />
+          <DossierAttentionStrip items={attention} onOpen={canPrepare && mutable ? rows.open : undefined} onCompare={duplicateCompare.open} compareDisabled={busy || dirty || fiscalDirty || capturePending || captureOpen} />
           {/* The row in focus or under the pointer marks its value where the message says it verbatim. */}
           <div
             onFocus={(event) => setHighlight(rowValues(event.target))}
@@ -571,7 +571,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt, n
           </div>
           <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} fields={fields} disabled={busy || dirty || capturePending || captureOpen} open={moreOpen} onOpenChange={setMoreOpen} reviewFiscal={source.reviewFiscal} reviewMontos={source.reviewMontos} onBusy={setFiscalBusy} onDirty={setFiscalDirty} onChanged={(value) => { setDossier(value); reload(); }} />
           <ReceiptReviewQuestions questions={dossier.questions} />
-          <ReceiptDuplicateResolution dossier={dossier} busy={busy || dirty || fiscalDirty || capturePending || captureOpen} onCompare={duplicateCompare.open} />
           {problem ? <div role="alert" className="text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><p className="flex items-start gap-2"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem.text}</p>{problem.reference ? <ReferenceCode reference={problem.reference} /> : null}</div> : null}
           {duplicate ? <div role="alert" data-testid="dossier-duplicate" className={SURFACE_CARD}><p className="text-[15px] leading-[22px] text-[#172b26] dark:text-white">{t("business.dossier.duplicate_recorded", "You already recorded this fiscal receipt.")}</p>{duplicate.recordId ? <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "draft", draftId: duplicate.recordId as string })}>{t("business.dossier.see_recorded", "See the recorded one")}</button> : null}</div> : null}
           {approval ? <div className={SURFACE_CARD}><div role="status"><p className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{(dossier.facts.kind.value === "income" ? t("business.dgii.recorded_income", "Income was recorded after revision {{version}} was approved.", { version: approval.approved_revision }) : dossier.facts.kind.value === "refund" ? t("business.dgii.recorded_refund", "A refund was recorded after revision {{version}} was approved.", { version: approval.approved_revision }) : t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: approval.approved_revision }))}</p><p className="mt-1 pl-6 text-[13px] text-black/65 dark:text-white/65">{t("business.expenses.recorded_on", "Recorded on {{when}}", { when: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? resolveLanguage({}), { day: "numeric", month: "short", year: "numeric" }).format(new Date(approval.approved_at)) })}</p></div><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: approval.actor.display_name, issuer: approval.actor.issuer_display_name })}</p>{dossier.declaration_editable ? null : <p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p>}</div> : null}

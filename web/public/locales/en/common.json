@@ -3485,9 +3485,6 @@
       "shopping": "Shopping",
       "interest_fees": "Interest and fees"
     },
-    "attention": {
-      "duplicate": "This looks like a receipt you already saved: same merchant, date and total. It won't be saved as a second expense."
-    },
     "file_read": {
       "unreadable_title": "We couldn't read this file",
       "not_a_receipt_title": "This doesn't look like a receipt.",

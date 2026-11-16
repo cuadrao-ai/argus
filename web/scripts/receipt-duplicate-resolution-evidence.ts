@@ -92,10 +92,16 @@ try {
     });
     try {
       await page.goto(`${baseURL}/biz?draft=synthetic-new`);
-      const box = page.getByTestId("receipt-duplicate-resolution");
+      // The duplicate is one entry of the top box, beside the other blockers; nothing else on the panel says it.
+      const review = page.getByTestId("business-record-review");
+      const strip = review.getByTestId("dossier-attention");
+      const box = strip.getByTestId("duplicate-entry");
       await expect(box).toBeVisible();
       await page.addStyleTag({ content: FREEZE_CSS });
       await expect(box.getByText("Parece repetido", { exact: true })).toBeVisible();
+      await expect(review.getByText("Parece repetido", { exact: true })).toHaveCount(1);
+      await expect(review.getByText(/Parece un recibo/)).toHaveCount(0);
+      await expect(strip.locator('[data-field="funding"] button')).toBeVisible();
       await expect(box.getByRole("button")).toHaveCount(1);
       const comparar = box.getByRole("button", { name: "Comparar", exact: true });
       await expect(comparar).toBeVisible();
@@ -103,7 +109,7 @@ try {
       const footer = page.getByTestId("receipt-review-footer");
       const distinct = footer.getByRole("button", { name: "Son compras distintas", exact: true });
       const remove = footer.getByRole("button", { name: "Eliminar este duplicado", exact: true });
-      if (state === "box") await box.scrollIntoViewIfNeeded();
+      if (state === "box") await strip.scrollIntoViewIfNeeded();
       else {
         await comparar.click();
         await expect(view).toBeVisible();

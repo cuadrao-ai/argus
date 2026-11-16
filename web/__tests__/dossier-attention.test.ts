@@ -35,7 +35,24 @@ describe("what stops approval on a dossier", () => {
     const items = attention({ ...open, blockers: [{ code: "unknown_funding", field: "funding" }, { code: "possible_duplicate", field: null }] });
     assert.deepEqual(items.map((item) => item.field), ["funding", null]);
     assert.equal(items[0].text, "Confirma cómo se pagó. · Cómo se pagó");
-    assert.match(items[1].text, /ya guardaste/);
+    assert.equal(items[1].text, "Parece repetido");
+    assert.deepEqual(items[1].duplicates, [], "nothing to compare without a candidate");
+  });
+
+  test("the duplicate is one item, where its blocker is, with a line and a document per candidate", async () => {
+    const { fixtures, attention } = await setup();
+    const open = await fixtures.dossier(dossierFixtureIds.unknown);
+    const candidate = (draftId: string, basis: "read_facts" | "fiscal_number") => ({ draft_id: draftId, version: 1, basis, decisions: [], comparison: { document: { draft_id: open.draft_id, counterparty: null, occurred_on: null, amount: null, currency: null, fiscal_number: null, file: null, received_at: null, approved_at: null }, other: { draft_id: draftId, counterparty: null, occurred_on: null, amount: null, currency: null, fiscal_number: null, file: null, received_at: null, approved_at: null }, differences: [], recommendation: null } });
+    const items = attention({ ...open, review_state: "open", blockers: [{ code: "possible_duplicate", field: null }, { code: "unknown_funding", field: "funding" }], duplicate_candidates: [candidate("a", "read_facts"), candidate("b", "fiscal_number")] });
+    assert.deepEqual(items.map((item) => item.text.startsWith("Parece repetido")), [true, false]);
+    assert.deepEqual(items[0].duplicates, [
+      { draftId: "a", text: spanish.business.receipts.duplicate_resolution.basis.read_facts },
+      { draftId: "b", text: spanish.business.receipts.duplicate_resolution.basis.fiscal_number },
+    ]);
+    // An RNC and NCF pair adds no blocker, and still shows, after what blocks.
+    const fiscal = attention({ ...open, review_state: "open", blockers: [{ code: "unknown_funding", field: "funding" }], duplicate_candidates: [candidate("b", "fiscal_number")] });
+    assert.deepEqual(fiscal.map((item) => item.text === "Parece repetido"), [false, true]);
+    assert.equal(attention({ ...open, review_state: "accepted", blockers: [], duplicate_candidates: [candidate("b", "fiscal_number")] }).length, 0, "a closed document compares nothing");
   });
 
   test("a blocker with no copy of its own still says something", async () => {

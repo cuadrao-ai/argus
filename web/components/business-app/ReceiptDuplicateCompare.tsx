@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, CircleAlert, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveBusinessDuplicate } from "@/lib/business-api";
 import { BUSINESS_COMPARED_FIELDS, type BusinessComparedDocument, type BusinessComparedField, type BusinessDossier, type BusinessDuplicateCandidate, type BusinessDuplicateDecision } from "@/lib/business-dossier";
@@ -10,8 +10,7 @@ import { randomId } from "@/lib/random-id";
 import { dangerButtonClass, dangerConfirmButtonClass, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
-
-const KEYS = "business.receipts.duplicate_resolution";
+import { DUPLICATE_KEYS as KEYS } from "./dossier-attention";
 
 /**
  * Which candidate the review panel compares now, if any. A candidate the server no longer lists, another draft or a
@@ -31,27 +30,6 @@ export function useDuplicateCompare(dossier: BusinessDossier | null) {
       requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-compare="${otherId}"]`)?.focus());
     },
   };
-}
-
-/** The amber "Parece repetido" box: why, as the server says it, and Comparar. It decides nothing. */
-export function ReceiptDuplicateResolution({ dossier, busy = false, onCompare }: {
-  dossier: BusinessDossier;
-  busy?: boolean;
-  onCompare: (otherId: string) => void;
-}) {
-  const { t } = useTranslation();
-  const candidates = dossier.duplicate_candidates ?? [];
-  if (!candidates.length || dossier.review_state !== "open") return null;
-  return <section data-testid="receipt-duplicate-resolution" aria-labelledby="duplicate-resolution-title" className="rounded-surface border border-[#e6c9a8] bg-[#fdf6ec] px-4 py-3 dark:border-[#6b5235] dark:bg-[#2a241c]">
-    <h3 id="duplicate-resolution-title" className="flex items-center gap-2 text-[14px] font-medium leading-5 text-[#172b26] dark:text-white">
-      <CircleAlert className="h-4 w-4 shrink-0 text-[#9a5b13] dark:text-[#e8b26f]" aria-hidden="true" />
-      {t(`${KEYS}.title`)}
-    </h3>
-    {candidates.map((candidate) => <div key={candidate.draft_id} className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <p data-testid="duplicate-basis" className="min-w-0 flex-1 basis-48 text-[14px] leading-5 text-[#172b26] dark:text-white">{t(`${KEYS}.basis.${candidate.basis}`)}</p>
-      <button type="button" data-compare={candidate.draft_id} className={secondaryButtonClass} disabled={busy} onClick={() => onCompare(candidate.draft_id)}>{t(`${KEYS}.compare`)}</button>
-    </div>)}
-  </section>;
 }
 
 function shownValue(field: BusinessComparedField, document: BusinessComparedDocument, locale: string): string {

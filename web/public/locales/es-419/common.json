@@ -3388,9 +3388,6 @@
     "create": {
       "label": "Crear"
     },
-    "attention": {
-      "duplicate": "Parece un recibo que ya guardaste: mismo comercio, fecha y total. No se guardará como un segundo gasto."
-    },
     "file_read": {
       "unreadable_title": "No pudimos leer este archivo",
       "not_a_receipt_title": "Esto no parece un recibo.",
