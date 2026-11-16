@@ -38,6 +38,7 @@ export function monthCloseWire(month: string) {
     missing_rnc: [],
     missing_ncf: [],
     missing_fiscal_rows: [],
+    not_ready_rows: [],
     cuentas_por_cobrar: [{ ...PENDING_INVOICE, occurred_on: `${month}-05` }],
     cuentas_por_pagar: [],
     currencies: [{

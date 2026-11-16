@@ -29,6 +29,7 @@ function serverLayout(presentation: ReportPresentation): ReportPresentation {
   const hidden = presentation.hidden.filter((key) => key !== "family" && key !== "currency").map(rename);
   if (!order.includes("payment_form") && order.includes("expense_type")) { order.splice(order.indexOf("expense_type") + 1, 0, "payment_form"); hidden.push("payment_form"); }
   if (!order.includes("net_amount")) order.splice(order.includes("gross_amount") ? order.indexOf("gross_amount") : order.length, 0, "net_amount");
+  if (!order.includes("missing")) order.splice(order.includes("stage") ? order.indexOf("stage") + 1 : order.length, 0, "missing");
   for (const { key } of recordedReportAnswer.columns) if (!order.includes(key)) { order.push(key); if (!hidden.includes(key)) hidden.push(key); }
   return { ...presentation, order, hidden };
 }
@@ -45,7 +46,7 @@ function latestMonth(rows: readonly ReportRecord[]) {
 export function createBusinessReportHttpFixture() {
   const records: ReportRecord[] = Array.from({ length: 126 }, (_, index) => ({
     row_id: `draft:${fixtureId(index + 1)}`, draft_id: fixtureId(index + 1), linked_activity_ids: [fixtureId(1000 + index)], revision: 3,
-    report_date: index === 0 ? "1999-10-01" : index === 2 ? null : "2026-10-20", date_basis: "document_issue", family: index % 2 ? "sale" : "purchase", stage: index === 2 ? null : "needs_review", technical_state: index === 2 ? "processing" : null, workflow_blockers: [],
+    report_date: index === 0 ? "1999-10-01" : index === 2 ? null : "2026-10-20", date_basis: "document_issue", family: index % 2 ? "sale" : "purchase", stage: index === 2 ? null : "needs_review", technical_state: index === 2 ? "processing" : null, workflow_blockers: [], ready: true, missing: [],
     currency: index === 2 ? null : index === 1 ? "USD" : "DOP", gross_amount: index === 2 ? null : "100.00", recorded_amount: index === 2 ? null : "100.00", recorded_currency: index === 2 ? null : index === 1 ? "USD" : "DOP", proposed_amount: null,
     money_kind: index % 2 ? "income" : "expense", money_effect: index === 2 ? "unknown" : "known", adjustment_effect: null,
     counterparty: index === 125 ? "José Peña" : `Proveedor ${index + 1}`, counterparty_key: null, category_key: "uncategorized", funding_key: null, funding_label: null, funding_kind: null,
@@ -60,12 +61,13 @@ export function createBusinessReportHttpFixture() {
   let createdViews = 0;
   const storage = new Map([[fixtureId(700), new TextEncoder().encode("original synthetic bytes")], [fixtureId(701), new TextEncoder().encode("other synthetic bytes")]]);
   const replay = new Map<string, { signature: string; result: Record<string, unknown> }>();
-  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", rncSuppliers: [] as ExportPreview["dgii"]["rnc_suppliers"], noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
+  const controls = { presentation: recordedReportAnswer.presentation, exportFails: false, exports: [] as { mode: string }[], dgiiCurrency: "DOP", rncSuppliers: [] as ExportPreview["dgii"]["rnc_suppliers"], noteUncertain: false, fileUncertainAt: 0, files: 0, readOnly: false, originalAvailable: true, legacy: false, overview: { not_ready: 0, needs_review: 6, needs_fiscal_data: 60, ready_for_export: 40, exported: 20 } as Record<string, number>, reportForbidden: false, reportUnavailable: false };
   const dossier = (row: ReportRecord) => ({ draft_id: row.draft_id, version: row.revision, current_note: row.note, note_edit_available: !controls.readOnly, supporting_append_available: !controls.readOnly, annotation_unavailable_reason: controls.readOnly ? "business_annotation_unavailable" : null });
   const problem = (status: number, code: string) => Response.json({ code, detail: code }, { status });
   const matchingRecords = (report: ReportRequest) => {
     let matching = records.filter((row) => !report.filters.q || text(`${row.counterparty} ${row.note} ${row.attachment_sources?.map((source) => source.filename).join(" ")}`).includes(text(report.filters.q)));
     matching = matching.filter((row) => row.family === report.filters.record_families[0]);
+    if (report.filters.ready !== null) matching = matching.filter((row) => row.ready === report.filters.ready);
     if (report.filters.fiscal_data !== null) matching = matching.filter((row) => row.fiscal_data === report.filters.fiscal_data);
     if (report.filters.counterparties.length) matching = matching.filter((row) => row.counterparty_key && report.filters.counterparties.includes(row.counterparty_key));
     if (report.filters.review_stages.length) matching = matching.filter((row) => row.stage && report.filters.review_stages.includes(row.stage));
@@ -95,7 +97,7 @@ export function createBusinessReportHttpFixture() {
         totals: documentFamilyTotals(matching),
         fingerprint: "a".repeat(64), captured_at: "2026-10-26T12:00:00Z", resolved_period: report.filters.period.kind === "latest_month" ? latestMonth(records) : { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0,
         counterparties: [{ key: "101001577", labels: ["Proveedor autorizado"] }], categories: ["uncategorized"], expense_types: [{ code: "02", label: "Gastos por trabajos, suministros y servicios" }], funding_sources: [], coverage_notes: ["legal_cancellation_coverage_unavailable", "records_only_evidence_separate"],
-        ...controls.legacy ? {} : { overview: { ...controls.overview, ...("needs_fiscal_data" in controls.overview ? { needs_fiscal_data: matching.filter((row) => row.fiscal_data === "missing").length } : {}) }, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
+        ...controls.legacy ? {} : { overview: { ...controls.overview, ...("not_ready" in controls.overview ? { not_ready: matching.filter((row) => !row.ready).length } : {}), ...("needs_fiscal_data" in controls.overview ? { needs_fiscal_data: matching.filter((row) => row.fiscal_data === "missing").length } : {}) }, effective_sort, sort_unavailable_reason: blocked ? "amount_sort_requires_single_known_currency" : null } }));
     }
     if (path.endsWith("/reports/export/preview")) {
       const report = reportRequestSchema.parse((body as { report: unknown }).report);

@@ -275,7 +275,7 @@ describe("month close layouts", () => {
     const client: MonthCloseClient = {
       mode: "mock",
       async load(month) {
-        return { month, from: `${month}-01`, to: `${month}-31`, unreviewed_movements: 0, earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null, documents: [], figures: [] };
+        return { month, from: `${month}-01`, to: `${month}-31`, unreviewed_movements: 0, earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null, documents: [], figures: [], fiscal_rows: [], not_ready_rows: [] };
       },
       openItems: noOpenItems,
       markCobrado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
@@ -354,7 +354,7 @@ describe("month close layouts", () => {
       unreviewed_movements: 0,
       earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [invoice("a", 20), invoice("b", 21), invoice("c", 22), invoice("d", 23), invoice("e", 24)],
-      figures: [],
+      figures: [], fiscal_rows: [], not_ready_rows: [],
     };
     const client: MonthCloseClient = {
       mode: "mock",
@@ -394,7 +394,7 @@ describe("month close layouts", () => {
       to: "2026-10-31",
       unreviewed_movements: 0,
       earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
-      documents: [],
+      documents: [], fiscal_rows: [], not_ready_rows: [],
       figures: [{ currency: "DOP", income_before_itbis: null, expense_before_itbis: null, net_before_itbis: null, itbis_paid: null }],
     };
     const client: MonthCloseClient = {
@@ -574,7 +574,7 @@ describe("Inicio ITBIS totals", () => {
     const snapshot: MonthCloseSnapshot = {
       month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31",
       unreviewed_movements: 0, earliest_month: null, payment_methods: ["otro"], dgii_forms: null,
-      documents: [], fiscal_rows: [],
+      documents: [], fiscal_rows: [], not_ready_rows: [],
       figures: [{ currency: "DOP", income_before_itbis: "1000.00", expense_before_itbis: "2000.00", net_before_itbis: figures.net, itbis_paid: figures.itbis_paid, itbis_charged: figures.itbis_charged, itbis_cobrado: null, net_result_final: true, pending_count: 0 }],
     };
     return {

@@ -20,8 +20,8 @@ const shownKeys = (value: RecordsViewPreferences) => visibleRecordsColumns(value
 const forFamily = (family: "purchase" | "sale"): RecordsViewPreferences => ({ ...sampleRecordsPreferences(), columns: sampleRecordsColumns(family) });
 
 test("the server's default table starts with RNC o Cédula on Compras and on Ventas", () => {
-  assert.deepEqual(shownKeys(forFamily("purchase")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
-  assert.deepEqual(shownKeys(forFamily("sale")), ["counterparty_id", "date", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.deepEqual(shownKeys(forFamily("purchase")), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
+  assert.deepEqual(shownKeys(forFamily("sale")), ["counterparty_id", "date", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
   assert.deepEqual(recordsColumnSettings(forFamily("purchase")).filter((column) => !column.shown).map(({ key }) => key), ["counterparty", "fiscal_number", "note", "attachment", "payment_form", "funding"]);
 });
 
@@ -34,7 +34,7 @@ test("the person can hide any column, but the last one shown stays", () => {
   }
   assert.deepEqual(shownKeys(value), shown.slice(-1));
   assert.equal(toggleRecordsColumn(value, shown.at(-1)!), value);
-  assert.deepEqual(shownKeys(toggleRecordsColumn(value, "note")), ["stage", "note"]);
+  assert.deepEqual(shownKeys(toggleRecordsColumn(value, "note")), ["missing", "note"]);
 });
 
 test("any column moves, to the first place too, and the first shown column is the frozen one", () => {
@@ -58,7 +58,7 @@ test("a taxpayer id reads with the DGII's hyphens", () => {
 const row = (id: string, name: string | null, taxpayer: string | null): RecordRow => ({
   id, kind: "gasto", occurredOn: "2026-10-25", counterparty: name, money: { amount: "-1250000.00", currency: "DOP" }, categoryId: null, account: null, hasProof: false,
   marks: { personal: false, markedBy: null, fiscal: null }, opens: { kind: "expense", expenseId: id },
-  report: { family: "purchase", stage: "ready_for_export", currency: "DOP", gross_amount: "1250000.00", net_amount: "1059322.03", itbis_amount: "190677.97", counterparty: name, counterparty_key: taxpayer, fiscal_number: null, dgii_606: null, workflow_blockers: [] } as unknown as RecordRow["report"],
+  report: { family: "purchase", ready: true, missing: [], stage: "ready_for_export", currency: "DOP", gross_amount: "1250000.00", net_amount: "1059322.03", itbis_amount: "190677.97", counterparty: name, counterparty_key: taxpayer, fiscal_number: null, dgii_606: null, workflow_blockers: [] } as unknown as RecordRow["report"],
 });
 
 async function mount(preferences: RecordsViewPreferences) {
@@ -83,7 +83,8 @@ test("every column title is bold in one style, and the table names the new colum
   const { host } = await mount(forFamily("purchase"));
   const titles = [...host.querySelectorAll<HTMLElement>("thead th")];
   assert.equal(titles[0].textContent, "RNC o Cédula");
-  assert.equal(titles.length, 7);
+  assert.equal(titles.length, 8);
+  assert.equal(titles.at(-1)?.textContent, "Motivo");
   for (const title of titles) {
     assert.match(title.className, /\bfont-semibold\b/, title.textContent ?? "");
     assert.doesNotMatch(title.className, /\bfont-normal\b/);

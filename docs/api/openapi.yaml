@@ -21613,6 +21613,7 @@ components:
           - itbis_amount
           - gross_amount
           - stage
+          - missing
           - fiscal_number
           - note
           - attachment
@@ -26646,6 +26647,12 @@ components:
           items:
             $ref: '#/components/schemas/FiscalDataRow'
           type: array
+        not_ready_rows:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/FiscalDataRow'
+            type: array
+          - type: 'null'
         cuentas_por_cobrar:
           anyOf:
           - items:
@@ -28044,6 +28051,7 @@ components:
             - itbis_amount
             - gross_amount
             - stage
+            - missing
             - fiscal_number
             - note
             - attachment
@@ -28062,6 +28070,7 @@ components:
             - itbis_amount
             - gross_amount
             - stage
+            - missing
             - fiscal_number
             - note
             - attachment
@@ -29762,6 +29771,7 @@ components:
             - itbis_amount
             - gross_amount
             - stage
+            - missing
             - fiscal_number
             - note
             - attachment
@@ -30123,6 +30133,7 @@ components:
           - itbis_amount
           - gross_amount
           - stage
+          - missing
           - fiscal_number
           - note
           - attachment

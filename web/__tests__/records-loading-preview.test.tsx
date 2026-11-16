@@ -50,7 +50,7 @@ test("phone skeleton has the loaded list's two-line layout and the same containe
 });
 
 test("unknown overview counts use placeholders only during a pending request", async () => {
-  const props = { family: "purchase" as const, fiscalCount: null, selected: [], onChoose: () => {} };
+  const props = { family: "purchase" as const, notReadyCount: null, selected: false, onChoose: () => {} };
   const pending = await render(<RecordsOverviewPreview {...props} loading />);
   const settled = await render(<RecordsOverviewPreview {...props} />);
   assert.match(pending, /visibility:hidden/);

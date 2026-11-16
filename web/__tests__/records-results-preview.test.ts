@@ -14,9 +14,9 @@ const rows = [record("exp-gas", "gasto", "-2100.00", "DOP"), record("exp-hosting
 test("preview defaults are the server's: RNC first, with the name, notes and account fields offered hidden", () => {
   const prefs = sampleRecordsPreferences();
   assert.equal(prefs.order.length, recordedReportAnswer.presentation.order.length);
-  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
   assert.deepEqual(prefs.hidden, ["counterparty", "fiscal_number", "note", "attachment", "payment_form", "funding"]);
-  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "funding")).length, 8);
+  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "funding")).length, 9);
   assert.deepEqual(visibleRecordsColumns(toggleRecordsColumn(prefs, "counterparty")).map(({ key }) => key).slice(0, 2), ["counterparty_id", "counterparty"], "the name shows beside the RNC once chosen");
   assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "stage")).some(({ key }) => key === "stage"), false);
 });
@@ -109,11 +109,11 @@ test("partial settlements stay linked to their record and use exact currency tot
   assert.deepEqual(summarizeSettlementPreview(changed, "fixture-space", "gasto").currencies, [{ currency: "DOP", total: "3000.00", settled: null, balance: null }]);
 });
 
-test("workflow filters preserve fiscal and export stages", async () => {
-  const { matchesPreviewWorkflow } = await import("@/components/business-app/transacciones/records-results-preview");
-  assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["export"])).length, 4);
-  assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["fiscal", "exported"])).length, 2);
-  assert.equal(matchesPreviewWorkflow(rows[0], "fixture-client", ["fiscal"]), false);
+test("sample filters consume explicit readiness, including ready excluded rows", async () => {
+  const { matchesPreviewReady } = await import("@/components/business-app/transacciones/records-results-preview");
+  assert.equal(rows.filter((row) => matchesPreviewReady(row, "fixture-space", true)).length, 5);
+  assert.equal(rows.filter((row) => matchesPreviewReady(row, "fixture-space", false)).length, 1);
+  assert.equal(matchesPreviewReady(rows[0], "fixture-client", false), false);
 });
 
 

@@ -168,6 +168,9 @@ def _current_columns(value: Any) -> Any:
     if "net_amount" not in order:
         index = order.index("gross_amount") if "gross_amount" in order else len(order)
         order.insert(index, "net_amount")
+    if "missing" not in order:
+        index = order.index("stage") + 1 if "stage" in order else len(order)
+        order.insert(index, "missing")
     for key in TABLE_COLUMNS:
         if key not in order:
             order.append(key)

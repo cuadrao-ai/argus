@@ -47,12 +47,12 @@ async function mount(kind: "filters" | "date" | "toolbar", width = 1440, initial
 test("filter draft is discarded on Escape, committed by Apply, and removable by group", async () => {
   const page = await mount("filters");
   await page.click(page.button("Filtros"));
-  await page.click(page.button("Datos fiscales"));
+  await page.click(page.button("Estado"));
   await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")?.querySelector("input"));
   await page.escape();
   assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
   await page.click(page.button("Filtros"));
-  await page.click(page.button("Datos fiscales"));
+  await page.click(page.button("Estado"));
   assert.equal([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")!.querySelector<HTMLInputElement>("input")!.checked, false);
   await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Faltan datos")?.querySelector("input"));
   await page.click(page.button("Adjunto"));
@@ -62,7 +62,7 @@ test("filter draft is discarded on Escape, committed by Apply, and removable by 
   assert.match(chips.textContent ?? "", /Faltan datos/);
   assert.match(chips.textContent ?? "", /Sin documento/);
   assert.equal(page.host.querySelector('button[aria-haspopup="dialog"]')?.textContent, "Filtros2");
-  await page.click(document.querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
+  await page.click(document.querySelector('button[aria-label="Quitar filtro Estado"]'));
   assert.doesNotMatch(chips.textContent ?? "", /Faltan datos/);
   await page.click(page.button("Limpiar filtros"));
   assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]')?.textContent, "");
@@ -328,4 +328,18 @@ test("the desktop filter trigger toggles and Escape restores focus", async () =>
   await page.click(trigger); await page.escape();
   assert.equal(document.querySelector('[role="dialog"]'), null);
   assert.equal(document.activeElement, trigger);
+});
+
+for (const width of [1440, 390]) test(`Estado offers only server readiness at ${width}px`, async () => {
+  const page = await mount("filters", width);
+  await page.click(page.button("Filtros"));
+  await page.click(page.button("Estado"));
+  const choices = [...document.querySelectorAll('input[type="radio"]')];
+  assert.deepEqual(choices.map((input) => input.closest("label")?.textContent), ["Todos", "Listo", "Faltan datos"]);
+  await page.click(choices[1]);
+  await page.click(page.button("Aplicar"));
+  const applied = JSON.parse(document.querySelector('[data-testid="applied-filters"]')!.textContent!);
+  assert.equal(applied.ready, true);
+  assert.equal("review" in applied, false);
+  assert.equal(applied.fiscal_data, null);
 });

@@ -33,7 +33,7 @@ test.describe("Inicio with settlement off", () => {
         if (state.phase === "failed") return route.fulfill({ status: 503, json: { code: "synthetic_failure" } });
         const wire = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
         if (state.phase === "empty") return route.fulfill({ json: { ...wire, earliest_month: null, currencies: [], cuentas_por_cobrar: [] } });
-        return route.fulfill({ json: { ...wire, earliest_month: "2026-01", cuentas_por_cobrar: [], missing_fiscal_rows: [{ family: "purchase", currency: "DOP", count: 3, by_currency: false }], currencies: wire.currencies.map(block => ({ ...block, net_result_final: true, itbis_charged: "8730.00", itbis_charged_minor: 873000, documents_counted: 4, documents_total: 4, documents_in_bandeja: 0 })) } });
+        return route.fulfill({ json: { ...wire, earliest_month: "2026-01", cuentas_por_cobrar: [], missing_fiscal_rows: [{ family: "purchase", currency: "DOP", count: 17, by_currency: false }], not_ready_rows: [{ family: "purchase", currency: "DOP", count: 3, by_currency: false }], currencies: wire.currencies.map(block => ({ ...block, net_result_final: true, itbis_charged: "8730.00", itbis_charged_minor: 873000, documents_counted: 4, documents_total: 4, documents_in_bandeja: 0 })) } });
       }
       if (path === "open-items") { state.openItems++; return route.fulfill({ status: 404, json: { code: "business_settlement_unavailable" } }); }
       return route.fulfill({ status: 404, json: { code: "fixture_only" } });

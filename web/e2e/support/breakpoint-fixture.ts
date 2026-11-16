@@ -375,6 +375,8 @@ export async function installBreakpointFixture(
           can_submit_feedback: true,
         },
         public_account_access_enabled: false,
+        /* No guide card dismissed yet, so every Business guide shows. */
+        dismissed_guide_cards: [],
       });
     }
 

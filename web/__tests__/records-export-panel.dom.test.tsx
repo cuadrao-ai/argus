@@ -42,9 +42,9 @@ async function open(page: Page) {
 /** Purchases with a fiscal verdict: four complete pesos lines, three pending, and two in other currencies. */
 function fiscalBooks(rows: ReportRecord[]) {
   const purchases = rows.filter((row) => row.family === "purchase");
-  purchases.slice(0, 4).forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; });
-  purchases.slice(4, 7).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; });
-  purchases.slice(7, 9).forEach((row, index) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.currency = index ? "EUR" : "USD"; });
+  purchases.slice(0, 4).forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.ready = true; row.missing = []; });
+  purchases.slice(4, 7).forEach((row) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["ncf_missing"]; });
+  purchases.slice(7, 9).forEach((row, index) => { row.stage = "needs_fiscal_data"; row.fiscal_data = "missing"; row.ready = false; row.missing = ["ncf_missing"]; row.currency = index ? "EUR" : "USD"; });
 }
 
 test("Lo que ves exports the table's request, its columns and every currency, with the server's count", async () => {
@@ -55,7 +55,7 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   assert.match(dialogText(), /Exportar compras/);
   assert.match(dialogText(), /1 filtro · 63 registros · 3 monedas/);
   assert.equal(downloadButton()!.textContent!.trim(), "Exportar 63 registros");
-  assert.match(dialogText(), /Columnas de tu tabla \(9\)/);
+  assert.match(dialogText(), /Columnas de tu tabla \(10\)/);
   const [sent] = previews(page).map((call) => call.body as { report: ReportRequest }).slice(-1);
   assert.equal(sent.report.filters.q, "proveedor");
   assert.deepEqual(sent.report.filters.currencies, ["DOP"]);
@@ -66,7 +66,7 @@ test("Lo que ves exports the table's request, its columns and every currency, wi
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
   const [body] = exports(page);
-  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "payment_form"], currencies: "all", format: "csv" });
+  assert.deepEqual({ mode: body.mode, columns: body.columns, currencies: body.currencies, format: body.format }, { mode: "table", columns: ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "missing", "payment_form"], currencies: "all", format: "csv" });
   assert.equal(body.report.filters.q, "proveedor");
   assert.equal(panel(), null, "the panel closes once the file is saved");
 });
@@ -125,28 +125,28 @@ test("Editar chooses columns in the table's order inside the same panel, with Co
   assert.equal(document.querySelectorAll('[role="dialog"]').length, 1, "a sub-view, not a second modal");
   const boxes = () => [...document.querySelectorAll<HTMLInputElement>('[data-testid="records-export-columns"] input[type="checkbox"]')];
   const labels = () => [...document.querySelectorAll('[data-testid="records-export-columns"] label')].map((label) => label.textContent);
-  assert.deepEqual(labels(), ["RNC o Cédula", "Contraparte", "Fecha", "Tipo de gasto", "Monto sin ITBIS", "ITBIS", "Total", "Moneda", "Estado", "NCF", "Notas", "Adjunto", "Cuenta", "Forma de pago"]);
+  assert.deepEqual(labels(), ["RNC o Cédula", "Contraparte", "Fecha", "Tipo de gasto", "Monto sin ITBIS", "ITBIS", "Total", "Moneda", "Estado", "Motivo", "NCF", "Notas", "Adjunto", "Cuenta", "Forma de pago"]);
   assert.equal(boxes()[1].checked && boxes()[1].disabled, true, "the name stays in the file though the table hides it");
   assert.equal(boxes()[7].checked && boxes()[7].disabled, true, "Moneda is locked on with every currency");
-  assert.equal(boxes()[13].checked && !boxes()[13].disabled, true, "Forma de pago is offered checked");
-  assert.deepEqual(boxes().map((box) => box.checked), [true, true, true, true, true, true, true, true, true, false, false, false, false, true]);
-  await act(async () => boxes()[9].click());
+  assert.equal(boxes()[14].checked && !boxes()[14].disabled, true, "Forma de pago is offered checked");
+  assert.deepEqual(boxes().map((box) => box.checked), [true, true, true, true, true, true, true, true, true, true, false, false, false, false, true]);
+  await act(async () => boxes()[10].click());
   await act(async () => boxes()[8].click());
   await page.click(page.button("Listo"));
-  await page.settle(() => /Columnas personalizadas \(9\)/.test(dialogText()));
+  await page.settle(() => /Columnas personalizadas \(10\)/.test(dialogText()));
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
   await page.click(page.button("Usar las de mi tabla"));
   await page.click(page.button("Exportar compras"));
-  await page.settle(() => /Columnas de tu tabla \(9\)/.test(dialogText()));
+  await page.settle(() => /Columnas de tu tabla \(10\)/.test(dialogText()));
   await page.click(document.querySelector('[data-testid="records-export-edit-columns"]'));
-  await act(async () => boxes()[9].click());
+  await act(async () => boxes()[10].click());
   await page.click(page.button("Listo"));
   await page.click(downloadButton());
   await page.settle(() => page.downloads.length === 1);
-  assert.deepEqual(exports(page)[0].columns, ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "fiscal_number", "payment_form"]);
+  assert.deepEqual(exports(page)[0].columns, ["counterparty_id", "counterparty", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "currency", "stage", "missing", "fiscal_number", "payment_form"]);
 });
 
-test("Formato DGII counts only tab and period, shows the server's notices and Revisar applies the fiscal filter", async () => {
+test("Formato DGII uses the server pending count and Revisar restores its fiscal scope", async () => {
   const page = await mount({ edit: fiscalBooks });
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
@@ -176,11 +176,11 @@ test("Formato DGII counts only tab and period, shows the server's notices and Re
   assert.equal(panel(), null);
   const last = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as ReportRequest;
   assert.equal(last.filters.fiscal_data, "missing");
-  assert.equal(document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed"), "true");
+  assert.equal(last.filters.ready, null);
 });
 
 test("Formato DGII says every record is ready only when the server holds none back", async () => {
-  const page = await mount({ edit: (rows) => rows.filter((row) => row.family === "purchase").forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.currency = "DOP"; }) });
+  const page = await mount({ edit: (rows) => rows.filter((row) => row.family === "purchase").forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.ready = true; row.missing = []; row.currency = "DOP"; }) });
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 63 registros");
@@ -205,22 +205,66 @@ test("before the server counts, the button names no number and cannot start", as
   await page.settle(() => downloadButton()!.textContent!.trim() === "Exportar 63 registros");
 });
 
-test("Revisar from the DGII notice leaves only tab, period, the form's currency and Faltan datos, so the list holds the notice's count", async () => {
-  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["purchase"], currencies: ["DOP"], counterparties: ["101001577"], q: "proveedor", has_document: true } });
+test("DGII notice ignores table filters and Revisar clears them for the form currency", async () => {
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["purchase"], currencies: ["DOP"], q: "Proveedor 9", document_kinds: ["unknown"], ready: false } });
   const page = await mount({ edit: fiscalBooks, initial });
-  // The server names the form's currency; a non-default one proves Revisar uses it, not the screen's default.
   page.fixture.controls.dgiiCurrency = "EUR";
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   await page.settle(() => page.button("Revisar") !== undefined);
-  const notice = Number(/(\d+) compras? tienen? datos fiscales pendientes/.exec(dialogText())![1]);
+  assert.match(dialogText(), /1 compra tiene datos fiscales pendientes y no se incluye\./, "the notice uses DGII pending_fiscal_count, independent of table filters and the fiscal-plus-rate summary");
+  assert.match(summary()!, /9 pendientes$/);
+  const queries = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length;
   await page.click(page.button("Revisar"));
-  await page.settle(() => panel() === null && document.querySelector('[data-overview-filter="fiscal"]')?.getAttribute("aria-pressed") === "true" && document.querySelector('[data-testid="records-count"]') !== null);
+  await page.settle(() => panel() === null && page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).length > queries);
   const last = page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).at(-1)!.body as ReportRequest;
-  assert.deepEqual(last.filters, reportFiltersSchema.parse({ period: initial.filters.period, record_families: ["purchase"], currencies: ["EUR"], fiscal_data: "missing" }));
-  assert.ok(document.querySelector('button[aria-label="Moneda: EUR"]'), "the screen switches to the form's currency");
-  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, new RegExp(`de ${notice} registros?`));
-  assert.equal(notice, 1);
+  assert.deepEqual(last.filters, reportFiltersSchema.parse({ period: initial.filters.period, record_families: initial.filters.record_families, currencies: ["EUR"], fiscal_data: "missing" }));
+  assert.ok(document.querySelector('button[aria-label="Moneda: EUR"]'), "the screen uses the form currency");
+});
+
+for (const clearWith of ["chip", "clear"]) test(`Revisar exposes its fiscal scope, keeps it through filter changes, and clears it with ${clearWith}`, async () => {
+  const page = await mount({ edit: fiscalBooks });
+  await open(page);
+  await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
+  await page.settle(() => page.button("Revisar") !== undefined);
+  await page.click(page.button("Revisar"));
+  const queries = () => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query"));
+  await page.settle(() => panel() === null && (queries().at(-1)!.body as ReportRequest).filters.fiscal_data === "missing");
+  const chips = () => document.querySelector('[data-testid="records-preview-filter-chips"]')!;
+  assert.equal(chips().querySelector('button[aria-label="Quitar filtro Datos fiscales"]')?.textContent, "Datos fiscales: Faltan");
+  assert.equal(document.querySelectorAll("tbody tr").length, 3, "the three visible fiscal-pending records match the notice");
+  assert.match(document.querySelector('[data-testid="records-count"]')!.textContent!, /3/);
+  await page.click(page.button("Filtros"));
+  assert.equal(document.querySelector('[data-group="fiscal_data"]'), null, "the DGII-only scope is not offered in the picker");
+  await page.click(document.querySelector('[data-group="document"]'));
+  const unknown = [...document.querySelectorAll("label")].find((label) => label.textContent?.trim() === "sin dato")?.querySelector("input");
+  assert.ok(unknown);
+  await page.click(unknown);
+  await page.click(page.button("Aplicar"));
+  await page.settle(() => (queries().at(-1)!.body as ReportRequest).filters.document_kinds.includes("unknown"));
+  assert.equal((queries().at(-1)!.body as ReportRequest).filters.fiscal_data, "missing");
+  assert.ok(chips().querySelector('button[aria-label="Quitar filtro Datos fiscales"]'));
+  await page.click(document.querySelector('[data-overview-card="fiscal"] button') ?? document.querySelector('[data-overview-card="fiscal"]'));
+  await page.settle(() => (queries().at(-1)!.body as ReportRequest).filters.ready === false);
+  assert.equal((queries().at(-1)!.body as ReportRequest).filters.fiscal_data, "missing", "the readiness card also keeps the explicit fiscal scope");
+  await page.click(clearWith === "chip" ? chips().querySelector('button[aria-label="Quitar filtro Datos fiscales"]') : page.button("Limpiar filtros"));
+  await page.settle(() => (queries().at(-1)!.body as ReportRequest).filters.fiscal_data === null);
+  assert.equal(chips().querySelector('button[aria-label="Quitar filtro Datos fiscales"]'), null);
+  assert.deepEqual((queries().at(-1)!.body as ReportRequest).filters.document_kinds, clearWith === "chip" ? ["unknown"] : []);
+  assert.equal((queries().at(-1)!.body as ReportRequest).filters.ready, clearWith === "chip" ? false : null);
+});
+
+test("a restored DGII fiscal scope survives sorting", async () => {
+  const initial = reportRequestSchema.parse({ schema_version: 2, filters: { period: { kind: "this_month" }, record_families: ["purchase"], currencies: ["DOP"], fiscal_data: "missing" } });
+  const page = await mount({ edit: fiscalBooks, initial });
+  const queries = () => page.fixture.calls.filter((call) => call.path.endsWith("/reports/query"));
+  assert.equal((queries().at(-1)!.body as ReportRequest).filters.fiscal_data, "missing");
+  const before = queries().length;
+  await page.click(document.querySelector('th[data-col="date"] button'));
+  await page.settle(() => queries().length > before);
+  const sorted = queries().at(-1)!.body as ReportRequest;
+  assert.equal(sorted.sort, "date_asc");
+  assert.deepEqual(sorted.filters, initial.filters);
 });
 
 test("no records disables the export and sends no request", async () => {
@@ -367,7 +411,7 @@ for (const language of ["es-419", "en"] as const) {
   });
 
   test(`one RNC supplier uses the singular notice in ${language}`, async () => {
-    const page = await mount({ language, edit: (rows) => rows.filter((row) => row.family === "purchase").forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.currency = "DOP"; }) });
+    const page = await mount({ language, edit: (rows) => rows.filter((row) => row.family === "purchase").forEach((row) => { row.stage = "ready_for_export"; row.fiscal_data = "complete"; row.ready = true; row.missing = []; row.currency = "DOP"; }) });
     page.fixture.controls.rncSuppliers = [
       { name: "Suplidor registrado", rnc: "101001577", estado: "SUSPENDIDO", status: "rnc_inactive", record_count: 2 },
     ];
@@ -392,7 +436,7 @@ test("zero RNC warnings hide the notice in DGII mode", async () => {
 
 test("607 keeps pending notices below the options", async () => {
   const initial = reportRequestSchema.parse({ schema_version: 2, filters: { record_families: ["sale"], currencies: ["DOP"] } });
-  const page = await mount({ initial, edit: (rows) => rows.filter((row) => row.family === "sale").slice(0, 1).forEach((row) => { row.fiscal_data = "missing"; row.stage = "needs_fiscal_data"; }) });
+  const page = await mount({ initial, edit: (rows) => rows.filter((row) => row.family === "sale").slice(0, 1).forEach((row) => { row.fiscal_data = "missing"; row.ready = false; row.missing = ["ncf_missing"]; row.stage = "needs_fiscal_data"; }) });
   await open(page);
   await page.click(document.querySelector('[data-testid="records-export-mode-dgii"] input'));
   assert.match(dialogText(), /Formato DGII 607/);
@@ -431,5 +475,5 @@ test("Registros renders distinct server net, ITBIS and Total columns and its car
   assert.equal(card.querySelector(".cuadrao-amount")?.getAttribute("aria-label"), "DOP 80.00");
   assert.equal(card.querySelector("button"), null);
   await open(page);
-  assert.match(dialogText(), /Columnas de tu tabla \(9\)/);
+  assert.match(dialogText(), /Columnas de tu tabla \(10\)/);
 });
