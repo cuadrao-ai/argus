@@ -922,6 +922,33 @@ async def test_a_read_cut_by_a_deploy_keeps_its_deadline(rig):
 
 
 @pytest.mark.asyncio
+async def test_a_take_written_before_the_deadline_existed_is_not_ended_early(rig):
+    """A waiting take with no ``asked_at`` counts from when its draft was last
+    queued, so the deploy of the deadline ends no read at once."""
+    connection = await rig.queued()
+    rig.clock.pass_(READ_DEADLINE_SECONDS * 2)
+    rig.service.queue(
+        user_id=rig.owner, connection_id=connection, consent=True, scope=rig.scope
+    )
+    queued = rig.draft(connection)
+    old = rig.job(connection)
+    rig.store.advance(
+        user_id=rig.owner,
+        connection_id=connection,
+        now=rig.clock(),
+        expected_attempt_id=old.attempt_id,
+        job=PreparationJob(
+            attempt=1, attempt_id=str(uuid4()), draft_version=queued.version
+        ),
+    )
+    assert rig.job(connection).asked_at is None
+    rig.clock.pass_(READ_DEADLINE_SECONDS - 1)
+    assert rig.jobs.sweep().expired == []
+    rig.clock.pass_(1)
+    assert rig.jobs.sweep().expired == [connection]
+
+
+@pytest.mark.asyncio
 async def test_the_deadline_adds_nothing_to_an_idle_sweep(rig, monkeypatch):
     """A sweep with nothing waiting asks the database once, as before. One
     with a read inside its deadline reads that row and writes nothing."""
