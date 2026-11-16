@@ -2,14 +2,17 @@
 
 import os
 from contextlib import contextmanager
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 from uuid import uuid4
 
 import psycopg
 import pytest
+from argus.domain.business import ledger
 from argus.domain.business.annotations import EditCurrentNote, edit_note
 from argus.domain.business.contracts.actions import ReviewDraft
+from argus.domain.business.contracts.dgii import PurchaseReview
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from psycopg.types.json import Jsonb
 from pydantic import ValidationError
@@ -237,6 +240,54 @@ def test_draft_with_an_old_due_date_still_takes_edits_and_notes(actions):
     )
     assert cleared.outcome == "applied", cleared
     assert due_dates(service, draft_id)[-1] == ("1999-12-31", None)
+
+
+def paid_bill_read_on(service, draft_id, day):
+    """A paid bill whose date the reader took from the paper, with no declaration yet."""
+    with service.authority.pool.connection() as db:
+        seeded = db.execute(
+            "update public.financial_import_events set resolution=jsonb_set(jsonb_set("
+            "resolution,'{business,bill_mark}','\"Factura pagada\"'),'{business,facts,occurred_on}',"
+            "jsonb_build_object('state','known','value',%s::text,'origin','extracted','verified',false,"
+            "'source_ids',resolution#>'{business,facts,amount,source_ids}')) where id=%s",
+            (day, draft_id),
+        )
+        assert seeded.rowcount == 1
+
+
+@shared.pytestmark
+@pytest.mark.owner_acts
+@pytest.mark.parametrize("accepted", [False, True])
+def test_category_review_copies_only_an_accepted_read_date_into_the_payment_date(actions, accepted):
+    service, context, _ = actions
+    draft_id, version = shared.create(service, context)
+    read = (ledger.today() - timedelta(days=30)).isoformat() if accepted else "0026-10-05"
+    paid_bill_read_on(service, draft_id, read)
+
+    # The person submits no date: inherit_amounts fills paid_on from the read.
+    request = ReviewDraft(version=version, purchase=PurchaseReview(category="02"))
+    reviewed = service.review(context, draft_id, request, str(uuid4()))
+    assert reviewed.outcome == "applied", reviewed
+    view = service.dossier(context, draft_id)
+    assert view.dgii.category == "02"
+    assert view.dgii.paid_on == (date.fromisoformat(read) if accepted else None)
+    assert view.inheritance["paid_on"].value == (read if accepted else None)
+    # The read stays as evidence and still asks the person to correct it.
+    assert (view.facts.occurred_on.value.isoformat(), view.facts.occurred_on.origin) == (read, "extracted")
+    asks = [item.code for item in view.blockers if item.field == "occurred_on"]
+    assert asks == ([] if accepted else ["business_date_before_minimum"])
+
+    # A person asserting the same old date is refused before storage, and by storage.
+    typed = ReviewDraft(version=reviewed.version, purchase=PurchaseReview(paid_on="0026-10-05"))
+    refused = service.review(context, draft_id, typed, str(uuid4()))
+    assert (refused.outcome, refused.code) == ("invalid_input", "business_date_before_minimum")
+    with service.authority.pool.connection() as db:
+        with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
+            db.execute(
+                "update public.financial_import_events set resolution=jsonb_set("
+                "resolution,'{business,dgii,paid_on}','\"0026-10-05\"') where id=%s",
+                (draft_id,),
+            )
 
 
 @pytest.mark.parametrize("role", ["anon", "authenticated"])
