@@ -4527,21 +4527,20 @@
           "fiscal_number": "[PENDIENTE COPY] Mismo RNC y NCF que otro documento.",
           "read_facts": "[PENDIENTE COPY] Mismo comercio, fecha y total que otro documento."
         },
+        "column": {
+          "saved_before": "[PENDIENTE COPY] Guardado antes",
+          "this": "[PENDIENTE COPY] Este"
+        },
         "compare": "Comparar",
         "decision": {
           "different_purchase": "Son compras distintas",
           "same_purchase": "Eliminar este duplicado"
         },
         "different": "Diferente",
-        "documents": {
-          "other": "[PENDIENTE COPY] El otro documento",
-          "this": "[PENDIENTE COPY] Este documento"
-        },
         "field": {
           "amount": "Total",
           "counterparty": "Comercio",
           "currency": "Moneda",
-          "file": "Archivo",
           "fiscal_number": "NCF",
           "occurred_on": "Fecha"
         },
@@ -4554,8 +4553,7 @@
         "same": "Igual",
         "table": {
           "caption": "[PENDIENTE COPY] Datos principales de los dos documentos",
-          "field": "[PENDIENTE COPY] Dato",
-          "state": "[PENDIENTE COPY] Comparación"
+          "field": "[PENDIENTE COPY] Dato"
         },
         "title": "Parece repetido"
       }

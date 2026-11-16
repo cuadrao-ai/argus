@@ -197,6 +197,10 @@ class ComparedFile(Contract):
     connection_id: UUID
     filename: str | None
     media_type: str
+    #: Where and when the file arrived, as ``AttachmentSource`` says it: the
+    #: stored row says ``web``; the API boundary sets ``whatsapp`` and ``email``.
+    channel: Literal["web", "whatsapp", "email"]
+    received_at: datetime
 
 
 class ComparedDocument(Contract):
@@ -213,6 +217,8 @@ class ComparedDocument(Contract):
     file: ComparedFile | None = None
     received_at: datetime | None = None
     approved_at: datetime | None = None
+    #: ``accepted`` once approved. The reviewed document is always ``open``.
+    state: Literal["open", "accepted"]
 
 
 ComparedField = Literal[

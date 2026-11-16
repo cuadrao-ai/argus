@@ -31,8 +31,8 @@ const STATES: State[] = ["box", "compare", "same", "readonly", "pending", "failu
 /** The server's candidate for each state: `same` is an RNC and NCF pair, which lists only same_purchase. */
 function candidate(state: State): BusinessDuplicateCandidate {
   const same = state === "same";
-  const document = { draft_id: "synthetic-new", counterparty: "Ferretería de prueba", occurred_on: "2026-11-03", amount: "1180.00", currency: "DOP", fiscal_number: same ? "B0100000123" : "B0100000456", file: { connection_id: "synthetic-file-new", filename: "factura-nueva.svg", media_type: "image/svg+xml" }, received_at: "2026-11-04T12:00:00Z", approved_at: null };
-  const other = { ...document, draft_id: "synthetic-original", fiscal_number: "B0100000123", file: { connection_id: "synthetic-file-original", filename: "factura.svg", media_type: "image/svg+xml" }, received_at: "2026-11-03T12:00:00Z" };
+  const document = { draft_id: "synthetic-new", counterparty: "Ferretería de prueba", occurred_on: "2026-11-03", amount: "1180.00", currency: "DOP", fiscal_number: same ? "B0100000123" : "B0100000456", file: { connection_id: "synthetic-file-new", filename: "factura-nueva.svg", media_type: "image/svg+xml", channel: "web" as const, received_at: "2026-11-04T12:00:00Z" }, received_at: "2026-11-04T12:00:00Z", approved_at: null, state: "open" as const };
+  const other = { ...document, draft_id: "synthetic-original", fiscal_number: "B0100000123", file: { connection_id: "synthetic-file-original", filename: "factura.svg", media_type: "image/svg+xml", channel: "whatsapp" as const, received_at: "2026-11-03T12:00:00Z" }, received_at: "2026-11-03T12:00:00Z" };
   return {
     draft_id: "synthetic-original",
     version: 3,
@@ -114,8 +114,11 @@ try {
         await comparar.click();
         await expect(view).toBeVisible();
         await expect(box).toHaveCount(0);
-        await expect(view.getByTestId("duplicate-compare-row")).toHaveCount(6);
-        await expect(view.locator('[data-testid="duplicate-compare-row"][data-state="different"]')).toHaveCount(state === "same" ? 1 : 2);
+        await expect(view.getByTestId("duplicate-compare-row")).toHaveCount(5);
+        await expect(view.locator('[data-testid="duplicate-compare-row"][data-state="different"]')).toHaveCount(state === "same" ? 0 : 1);
+        await expect(view.locator('[data-testid="duplicate-compare-row"] th [data-compare-marker="different"]')).toHaveCount(state === "same" ? 0 : 1);
+        await expect(view.locator('[data-testid="duplicate-compare-row"] th [data-compare-marker="same"][aria-label="Igual"]')).toHaveCount(state === "same" ? 5 : 4);
+        await expect(view.locator("thead [data-compare-file]")).toHaveText(["factura-nueva.svg", "factura.svg"]);
         await expect(view.getByTestId("receipt-original-source")).toHaveCount(2);
         await expect(view.getByTestId("receipt-viewer")).toHaveCount(2);
         await expect(footer.getByRole("button", { name: "Volver", exact: true })).toBeVisible();

@@ -8,8 +8,8 @@ export type BusinessFact<T> =
 
 /** What a reader may decide for a possible repeat. The server lists the allowed ones on each candidate. */
 export type BusinessDuplicateDecision = "same_purchase" | "different_purchase";
-/** The main data a possible repeat compares, in the order the compare view shows it. */
-export const BUSINESS_COMPARED_FIELDS = ["counterparty", "occurred_on", "amount", "currency", "fiscal_number", "file"] as const;
+/** The main data the compare view's diff shows, in its order. The server compares the file too; the column heads and previews show it. */
+export const BUSINESS_COMPARED_FIELDS = ["counterparty", "occurred_on", "amount", "currency", "fiscal_number"] as const;
 export type BusinessComparedField = (typeof BUSINESS_COMPARED_FIELDS)[number];
 /** One document of a possible repeat as its draft holds it now; null is unknown. */
 export type BusinessComparedDocument = {
@@ -20,9 +20,12 @@ export type BusinessComparedDocument = {
   currency: string | null;
   /** The NCF, else the e-CF number. */
   fiscal_number: string | null;
-  file: { connection_id: string; filename: string | null; media_type: string } | null;
+  /** The first file, with where and when it arrived. */
+  file: { connection_id: string; filename: string | null; media_type: string; channel: "web" | "whatsapp" | "email"; received_at: string } | null;
   received_at: string | null;
   approved_at: string | null;
+  /** `accepted` once approved; the reviewed document is always `open`. */
+  state: "open" | "accepted";
 };
 /**
  * A document the reviewed one may repeat. The server owns why (`basis`), what this reader may decide
@@ -36,7 +39,7 @@ export type BusinessDuplicateCandidate = {
   comparison: {
     document: BusinessComparedDocument;
     other: BusinessComparedDocument;
-    differences: BusinessComparedField[];
+    differences: (BusinessComparedField | "file")[];
     recommendation: BusinessDuplicateDecision | null;
   };
 };

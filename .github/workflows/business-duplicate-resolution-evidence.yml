@@ -13,6 +13,8 @@ on:
       - web/components/business-app/ReceiptReviewFrame.tsx
       - web/components/business-app/ReceiptSourcePreview.tsx
       - web/components/business-app/dossier-attention.ts
+      - web/components/business-app/foundation/StatusChip.tsx
+      - web/components/business-app/foundation/status-chip.module.css
       - web/lib/business-api.ts
       - web/lib/business-dossier.ts
       - web/public/locales/en/common.json

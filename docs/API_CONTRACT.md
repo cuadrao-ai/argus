@@ -8701,9 +8701,13 @@ candidate is `{draft_id, version, basis, decisions, comparison}`:
   `delete_available` is true. A client offers no other decision.
 - `comparison` is `{document, other, differences, recommendation}`.
   `document` is the reviewed draft and `other` the candidate, each
-  `{draft_id, counterparty, occurred_on, amount, currency, fiscal_number, file: {connection_id, filename, media_type} | null, received_at, approved_at}`
+  `{draft_id, counterparty, occurred_on, amount, currency, fiscal_number, file: {connection_id, filename, media_type, channel, received_at} | null, received_at, approved_at, state}`
   with null for an unknown value. `fiscal_number` is the NCF, else the e-CF
-  number. `differences` lists the fields that differ, of `counterparty`,
+  number. `file` is the first attached file; its `channel` (`web`,
+  `whatsapp` or `email`) and `received_at` follow the same rule as the
+  dossier's attachment sources, so the stored `web` becomes `whatsapp` or
+  `email` at the API boundary. `state` is `accepted` once the document is
+  approved, else `open`; the reviewed document is always `open`. `differences` lists the fields that differ, of `counterparty`,
   `occurred_on`, `amount`, `currency`, `fiscal_number` and `file` (the file is
   compared by its stored digest); a field not listed is equal.
   `recommendation` follows the fiscal number alone: `same_purchase` when both

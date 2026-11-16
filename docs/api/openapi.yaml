@@ -19081,10 +19081,16 @@ components:
           - type: string
             format: date-time
           - type: 'null'
+        state:
+          type: string
+          enum:
+          - open
+          - accepted
       additionalProperties: false
       type: object
       required:
       - draft_id
+      - state
       description: 'The main data of one document of a possible repeat, as its draft
 
         holds it now. An unknown value is null.'
@@ -19099,12 +19105,23 @@ components:
           - type: 'null'
         media_type:
           type: string
+        channel:
+          type: string
+          enum:
+          - web
+          - whatsapp
+          - email
+        received_at:
+          type: string
+          format: date-time
       additionalProperties: false
       type: object
       required:
       - connection_id
       - filename
       - media_type
+      - channel
+      - received_at
     ConditionalPayoff:
       properties:
         state:

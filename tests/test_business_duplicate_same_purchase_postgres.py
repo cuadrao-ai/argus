@@ -220,6 +220,51 @@ def test_the_comparison_recommends_by_the_fiscal_number(
 
 
 @pytest.mark.owner_acts
+def test_the_comparison_says_where_when_and_in_what_state_each_document_is(actions):
+    from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
+
+    from tests.test_business_document_delete_postgres import _client
+
+    service, context, _ = actions
+    first, second = _pair(actions)
+    [candidate] = service.dossier(context, second).duplicate_candidates
+    for document in (candidate.comparison.document, candidate.comparison.other):
+        assert document.state == "open"
+        assert document.file is not None
+        assert document.file.channel == "web"
+        assert document.file.received_at is not None
+    ready = service.review(
+        context,
+        first,
+        ReviewDraft(
+            version=service.dossier(context, first).version,
+            facts={
+                "funding": {"state": "known", "value": {"kind": "owner_funds"}},
+                "business_share": {"state": "known", "value": {"kind": "all"}},
+            },
+        ),
+        str(uuid4()),
+    )
+    approved = service.approve(
+        context,
+        first,
+        ApproveExpense(version=ready.version, action="record_expense"),
+        str(uuid4()),
+    )
+    assert approved.outcome == "applied", approved
+    answer = _client(service, context).get(f"/api/v1/business/drafts/{second}/dossier")
+    assert answer.status_code == 200, answer.text
+    [shown] = answer.json()["duplicate_candidates"]
+    document, other = shown["comparison"]["document"], shown["comparison"]["other"]
+    assert (document["state"], other["state"]) == ("open", "accepted")
+    assert other["approved_at"] is not None
+    for item in (document, other):
+        assert item["file"]["channel"] == "web"
+        assert item["file"]["received_at"]
+        assert item["received_at"]
+
+
+@pytest.mark.owner_acts
 def test_a_shared_rnc_and_ncf_is_a_pair_the_owner_can_delete(actions):
     service, context, _ = actions
     first, second = _fiscal_pair(actions)

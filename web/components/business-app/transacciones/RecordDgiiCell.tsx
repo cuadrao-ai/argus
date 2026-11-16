@@ -8,7 +8,7 @@ import { previewRecordMetadata } from "./records-results-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import { Truncated, Unknown } from "./transacciones-parts";
 import palette from "./records-overview-preview.module.css";
-import styles from "./transacciones-cells.module.css";
+import chip from "../foundation/status-chip.module.css";
 
 /** The 606 answers a row carries: the server's for a live row, the sample's illustration otherwise. Undefined when no read says. */
 export function record606(row: RecordRow, businessId: string | null): Purchase606 | null | undefined {
@@ -27,7 +27,7 @@ export function DgiiAnswer({ purchase, field }: { purchase: Purchase606 | null |
   const { t } = useTransaccionesWords();
   if (purchase === undefined) return <Unknown />;
   if (purchase === null) return <Unknown meaning={t("business.export.form_no_aplica")} />;
-  if (!purchase[field]) return <span data-dgii-missing={field} className={`${styles.workflow} ${palette.review}`}>{dgiiAnswerText(t, purchase, field)}</span>;
+  if (!purchase[field]) return <span data-dgii-missing={field} className={`${chip.workflow} ${palette.review}`}>{dgiiAnswerText(t, purchase, field)}</span>;
   return <Truncated text={dgiiAnswerText(t, purchase, field)} />;
 }
 

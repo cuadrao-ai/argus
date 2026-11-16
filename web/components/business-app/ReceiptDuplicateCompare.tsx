@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveBusinessDuplicate } from "@/lib/business-api";
 import { BUSINESS_COMPARED_FIELDS, type BusinessComparedDocument, type BusinessComparedField, type BusinessDossier, type BusinessDuplicateCandidate, type BusinessDuplicateDecision } from "@/lib/business-dossier";
 import { resolveLanguage } from "@/lib/language-features";
 import { randomId } from "@/lib/random-id";
-import { dangerButtonClass, dangerConfirmButtonClass, primaryButtonClass, secondaryButtonClass } from "./business-ui";
-import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
+import { dangerButtonClass, dangerConfirmButtonClass, primaryButtonClass, secondaryButtonClass, useChannelLabel } from "./business-ui";
+import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
+import { StatusChip } from "./foundation/StatusChip";
 import { showToast } from "./foundation/toasts";
 import { DUPLICATE_KEYS as KEYS } from "./dossier-attention";
 
@@ -47,9 +48,12 @@ function shownValue(field: BusinessComparedField, document: BusinessComparedDocu
   switch (field) {
     case "occurred_on": return formatDay(document.occurred_on, locale) || UNKNOWN_VALUE;
     case "amount": return formatMoney(document.amount, document.currency, locale) || document.amount || UNKNOWN_VALUE;
-    case "file": return document.file ? document.file.filename || document.file.media_type : UNKNOWN_VALUE;
     default: return document[field] || UNKNOWN_VALUE;
   }
+}
+
+function fileName(document: BusinessComparedDocument): string {
+  return document.file ? document.file.filename || document.file.media_type : UNKNOWN_VALUE;
 }
 
 function ComparedPreview({ label, document }: { label: string; document: BusinessComparedDocument }) {
@@ -69,9 +73,10 @@ function decisionClass(decision: BusinessDuplicateDecision, recommended: boolean
 }
 
 /**
- * The review panel turned into the compare view: the server's recommendation, the main data of both documents marked
- * Igual or Diferente by the server's differences, both originals in the existing preview, and in the footer Volver
- * and the decisions the server lists for this pair, never another. `frame` places the body and the footer in the panel.
+ * The review panel turned into the compare view: the server's recommendation, a split diff of both documents' main
+ * data (each column head names its file and where and when it arrived; a row the server's differences list carries the
+ * Diferente chip after its name, any other a quiet check), both originals in the existing preview, and in the footer
+ * Volver and the decisions the server lists for this pair, never another. `frame` places the body and the footer in the panel.
  */
 export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBack, onBusyChange, onChanged, onDeleted, frame }: {
   dossier: BusinessDossier;
@@ -93,7 +98,15 @@ export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBa
   const request = useRef<{ draftId: string; version: number; otherId: string; otherVersion: number; decision: BusinessDuplicateDecision; key: string } | null>(null);
   const title = useRef<HTMLHeadingElement>(null);
   useEffect(() => { title.current?.focus(); }, []);
+  const channelLabel = useChannelLabel();
   const { comparison } = candidate;
+  // Under each file name: this one, or the other's state, then where and when it arrived.
+  const arrival = (side: "document" | "other", item: BusinessComparedDocument) => [
+    side === "document" ? t(`${KEYS}.column.this`) : item.state === "accepted" ? t("business.status.pill_approved") : t(`${KEYS}.column.saved_before`),
+    item.file ? channelLabel(item.file.channel) : null,
+    item.received_at ? formatTimestamp(item.received_at, locale) : null,
+  ].filter(Boolean).join(" · ");
+  const sides = [["document", comparison.document], ["other", comparison.other]] as const;
   const differs = new Set(comparison.differences);
   const recommended = comparison.recommendation;
   const decisions = [...candidate.decisions.filter((item) => item !== recommended), ...candidate.decisions.filter((item) => item === recommended)];
@@ -138,27 +151,33 @@ export function ReceiptDuplicateCompare({ dossier, candidate, busy = false, onBa
       <caption className="sr-only">{t(`${KEYS}.table.caption`)}</caption>
       <thead>
         <tr className="text-left text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">
-          <th scope="col" className="w-[22%] py-2 pr-2 font-normal"><span className="sr-only">{t(`${KEYS}.table.field`)}</span></th>
-          <th scope="col" className="py-2 pr-2 font-medium">{t(`${KEYS}.documents.this`)}</th>
-          <th scope="col" className="py-2 pr-2 font-medium">{t(`${KEYS}.documents.other`)}</th>
-          <th scope="col" className="w-[24%] py-2 font-normal"><span className="sr-only">{t(`${KEYS}.table.state`)}</span></th>
+          <th scope="col" className="w-[36%] py-2 pr-2 font-normal"><span className="sr-only">{t(`${KEYS}.table.field`)}</span></th>
+          {sides.map(([side, item]) => <th key={side} scope="col" data-compare-side={side} className="py-2 pr-2 align-bottom font-normal">
+            <span data-compare-file className="block break-words font-medium text-[#172b26] dark:text-white">{fileName(item)}</span>
+            <span data-compare-arrival className="mt-0.5 block text-[12px] leading-4">{arrival(side, item)}</span>
+          </th>)}
         </tr>
       </thead>
       <tbody>
         {BUSINESS_COMPARED_FIELDS.map((field) => {
           const different = differs.has(field);
           return <tr key={field} data-testid="duplicate-compare-row" data-field={field} data-state={different ? "different" : "same"} className={`border-t border-[#DCE0DA] align-top dark:border-white/10 ${different ? "bg-[#fdf6ec] dark:bg-[#2a241c]" : ""}`}>
-            <th scope="row" className="py-2 pl-1 pr-2 text-left font-normal text-[#56635e] dark:text-white/70">{t(`${KEYS}.field.${field}`)}</th>
+            <th scope="row" className="py-2 pl-1 pr-2 text-left font-normal text-[#56635e] dark:text-white/70">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>{t(`${KEYS}.field.${field}`)}</span>
+                {different
+                  ? <StatusChip tone="warning" data-compare-marker="different">{t(`${KEYS}.different`)}</StatusChip>
+                  : <Check role="img" aria-label={t(`${KEYS}.same`)} data-compare-marker="same" strokeWidth={2} className="h-4 w-4 shrink-0 text-[#56635e] dark:text-white/60" />}
+              </span>
+            </th>
             <td className={`break-words py-2 pr-2 text-[#172b26] dark:text-white ${field === "amount" ? "cuadrao-amount tabular-nums" : ""}`}>{shownValue(field, comparison.document, locale)}</td>
             <td className={`break-words py-2 pr-2 text-[#172b26] dark:text-white ${field === "amount" ? "cuadrao-amount tabular-nums" : ""}`}>{shownValue(field, comparison.other, locale)}</td>
-            <td className={`py-2 pr-1 text-right text-[13px] ${different ? "font-medium text-[#9a5b13] dark:text-[#e8b26f]" : "text-[#56635e] dark:text-white/70"}`}>{t(`${KEYS}.${different ? "different" : "same"}`)}</td>
           </tr>;
         })}
       </tbody>
     </table>
     <div className="grid gap-4 @[40rem]:grid-cols-2">
-      <ComparedPreview label={t(`${KEYS}.documents.this`)} document={comparison.document} />
-      <ComparedPreview label={t(`${KEYS}.documents.other`)} document={comparison.other} />
+      {sides.map(([side, item]) => <ComparedPreview key={side} label={arrival(side, item)} document={item} />)}
     </div>
   </div>;
 
