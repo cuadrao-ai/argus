@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 from argus.domain.business.contracts.deletion import DeletedDocument, deletion
 from argus.domain.business.contracts.facts import BusinessResolution, Known
+from argus.domain.ingestion.documents.failures import READ_DEADLINE_PASSED
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
 from argus.domain.ingestion.documents.service import entered_by_owner
 from argus.domain.ingestion.receipt_review import (
@@ -50,6 +51,7 @@ Attention = Literal[
     "duplicate",
     "read_budget_day",
     "read_budget_month",
+    "read_deadline_passed",
     "other",
 ]
 # Preparation failures with nothing read, by the code the draft records.
@@ -109,6 +111,9 @@ _UNREAD_ATTENTION: Mapping[str, Attention] = {
     # The Business read budget was spent; a person asks again once it allows.
     "business_read_budget_day": "read_budget_day",
     "business_read_budget_month": "read_budget_month",
+    # The read waited past its deadline with the service unavailable: not a
+    # failure of the receipt, and the owner may ask for the read again.
+    READ_DEADLINE_PASSED: "read_deadline_passed",
 }
 # A read the model answered that still cannot become a record.
 READ_REFUSAL_ATTENTION: Mapping[str, Attention] = {

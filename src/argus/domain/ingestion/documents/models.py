@@ -242,7 +242,13 @@ class PreparationJob(_Frozen):
     false. ``provider_call_started_at`` is committed before the provider can be
     reached; ``retry`` records a retryable failure that happened before it.
     ``reruns`` counts the attempts of this preparation the sweep started
-    because an earlier one died past its provider marker, each paid again."""
+    because an earlier one died past its provider marker, each paid again.
+    ``provider_calls`` counts the provider calls this read was admitted for,
+    across every take; ``not_before`` is when a take waiting out a failure may
+    be pulled; ``retry_waited`` is the seconds of such waits so far.
+    ``asked_at`` is when this read was asked for, kept across every take: the
+    upload for the read an upload starts, the person's ask for a later one.
+    The read deadline counts from it."""
 
     attempt: int = Field(ge=1)
     attempt_id: str = Field(min_length=1, max_length=64)
@@ -252,3 +258,11 @@ class PreparationJob(_Frozen):
     provider_call_started_at: datetime | None = None
     retry: bool = False
     reruns: int = Field(default=0, ge=0, exclude_if=lambda value: value == 0)
+    provider_calls: int = Field(default=0, ge=0, exclude_if=lambda value: value == 0)
+    not_before: datetime | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    retry_waited: float = Field(default=0, ge=0, exclude_if=lambda value: value == 0)
+    asked_at: datetime | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )

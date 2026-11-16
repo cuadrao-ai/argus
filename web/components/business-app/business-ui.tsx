@@ -57,7 +57,7 @@ export function useCategoryLabel() {
       : t("business.category.none", "No category");
 }
 
-/** Title and body for a terminal read. Other attention values keep their short word. */
+/** Title and body for a read that ended with something to say. Other attention values keep their short word. */
 export function useTerminalRead() {
   const { t } = useTranslation();
   return (attention: ReceiptAttention | null, errorCode: string | null) => {
@@ -84,6 +84,17 @@ export function useTerminalRead() {
           "Upload the photo or the PDF of a receipt.",
         ),
         upload: true,
+        uploadLabel,
+      };
+    }
+    if (attention === "read_deadline_passed") {
+      return {
+        title: t("business.attention_short.read_deadline_passed", "Reading didn't finish"),
+        body: t(
+          "business.file_read.read_deadline_passed_body",
+          "The reading service wasn't available. You can read it again.",
+        ),
+        upload: false,
         uploadLabel,
       };
     }

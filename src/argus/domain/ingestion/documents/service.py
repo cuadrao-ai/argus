@@ -24,6 +24,24 @@ from argus.domain.ingestion.connections import (
     SourceConnection,
 )
 from argus.domain.ingestion.contract import ImportCandidate, SourceKind, SourceRef
+from argus.domain.ingestion.documents.breaker import (
+    Admission,
+    AdmittedCall,
+    ReadBreaker,
+    ask_breaker,
+)
+from argus.domain.ingestion.documents.config import (
+    MAX_PROVIDER_CALLS,
+    PROVIDER_CALLS_PER_READ,
+)
+from argus.domain.ingestion.documents.failures import (
+    READS_PAUSED,
+    alert_config,
+    classify,
+    held_back,
+    next_take,
+    provider_answered,
+)
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     DraftProposal,
@@ -150,6 +168,7 @@ class DocumentsService:
         business_actions: BusinessActions | None = None,
         business_preparation_required: bool = False,
         read_budget: ReadBudget | None = None,
+        read_breaker: ReadBreaker | None = None,
     ) -> None:
         self.hub, self.store, self.extractor = hub, store, extractor
         # One bounded decode/capture at a time on this app-owned service.
@@ -161,6 +180,7 @@ class DocumentsService:
         # Reads a Business may start today and this month, charged just before
         # the provider is reached, whichever channel the receipt came from.
         self.read_budget = read_budget
+        self.read_breaker = read_breaker  # Stops sends while the provider fails.
         # An app with a Postgres pool never falls back to legacy Business
         # delivery; without a pool there is no canonical wiring to require.
         self.business_preparation_required = business_preparation_required
@@ -619,9 +639,12 @@ class DocumentsService:
             connection_id=connection_id, holder=holder, now=self.hub.clock()
         ):
             raise DocumentServiceError("document_busy", retryable=True)
+        calls_left = PROVIDER_CALLS_PER_READ
         if attempt_id is not None:
             # Checked under the lease: a reconciler cannot supersede a held lease.
             job = self.store.job(user_id=user_id, connection_id=connection_id)
+            if job is not None:
+                calls_left = MAX_PROVIDER_CALLS - job.provider_calls
             if (
                 job is None
                 or job.attempt_id != attempt_id
@@ -634,6 +657,13 @@ class DocumentsService:
 
         # Set once a provider call is admitted: only such a read is reported.
         provider_called = False
+        # The last call the breaker admitted in this take.
+        call: AdmittedCall | None = None
+
+        async def ended(answered: bool) -> None:
+            if call is not None:
+                await asyncio.to_thread(call.end, self.hub.clock(), answered)
+
         read_started = read_ms = None
         try:
             business = self._canonical_business(connection_id, scope)
@@ -689,7 +719,11 @@ class DocumentsService:
                 )
 
                 async def before_request() -> None:
-                    nonlocal provider_called
+                    nonlocal provider_called, calls_left, call
+                    # Asked again in the same take: the call before timed out.
+                    await ended(False)
+                    if calls_left <= 0:
+                        raise DocumentServiceError("extraction_provider_failed")
                     if not self._reading_allowed(user_id, connection_id):
                         raise DocumentServiceError("document_reading_not_allowed")
                     if business:
@@ -700,6 +734,15 @@ class DocumentsService:
                             holder=holder,
                             attempt_id=attempt_id,
                         )
+                    # Before anything is charged: a held read was never sent.
+                    admission = await self._admit()
+                    if admission.until is not None:
+                        raise held_back(
+                            DocumentServiceError(READS_PAUSED),
+                            admission.until - self.hub.clock(),
+                        )
+                    # From here to the end of ``extract`` the call is out.
+                    call = AdmittedCall(self.read_breaker, admission)
                     if attempt_id is not None and not self.store.mark_provider_call(
                         user_id=user_id,
                         connection_id=connection_id,
@@ -715,18 +758,26 @@ class DocumentsService:
                         )
                         if refused is not None:
                             raise DocumentServiceError(refused)
-                    provider_called = True
+                    call.sent = provider_called = True
+                    calls_left -= 1
 
                 read_started = time.monotonic()
-                batch = await self.extractor.extract(
-                    content=content,
-                    filename=draft.filename,
-                    media_type=draft.media_type,
-                    connection_id=connection_id,
-                    observed_at=self.hub.clock(),
-                    prepared=prepared,
-                    before_request=before_request,
-                )
+                # The one place an admitted call ends at the breaker: however
+                # ``extract`` returns, the call that is out is told once.
+                try:
+                    batch = await self.extractor.extract(
+                        content=content,
+                        filename=draft.filename,
+                        media_type=draft.media_type,
+                        connection_id=connection_id,
+                        observed_at=self.hub.clock(),
+                        prepared=prepared,
+                        before_request=before_request,
+                    )
+                except Exception as error:
+                    await ended(provider_answered(error))
+                    raise
+                await ended(True)
                 read_ms = _elapsed_ms(read_started)
                 batch = clean_extracted_text(batch)
                 self._validate(batch, connection_id)
@@ -825,28 +876,46 @@ class DocumentsService:
                     connection_id,
                     code,
                 )
+            failure = classify(error)
+            requeue = next_take(
+                failure,
+                attempt_id,
+                partial(self.store.job, user_id=user_id, connection_id=connection_id),
+            )
+            if failure.kind == "config":
+                alert_config(connection_id, code, error)
             try:
                 withdrawn = code == "document_reading_not_allowed"
                 # A withdrawn permission or a spent budget is not a failure:
                 # the receipt waits saved and unread, the budget with its reason.
                 unread = withdrawn or code in READ_BUDGET_REFUSALS
-                if draft.source_available:
-                    self._update(
-                        user_id,
-                        draft,
+                if requeue is not None:
+                    # The draft stays claimed and shows as being read: the
+                    # puller writes its next take once the lease is released.
+                    error.requeue = requeue
+                else:
+                    if not unread:
+                        logger.warning(
+                            "document_read_failed connection_id={} code={} kind={}",
+                            *(connection_id, code, failure.kind),
+                        )
+                    if draft.source_available:
+                        self._update(
+                            user_id,
+                            draft,
+                            holder=holder,
+                            status="saved" if unread else "needs_attention",
+                            error_code=None if withdrawn else code,
+                            **({"consent": False} if unread else {}),
+                            source_available=code != "document_source_unavailable",
+                        )
+                    repo.record_failure(
+                        connection_id=connection_id,
                         holder=holder,
-                        status="saved" if unread else "needs_attention",
-                        error_code=None if withdrawn else code,
-                        **({"consent": False} if unread else {}),
-                        source_available=code != "document_source_unavailable",
+                        code=code,
+                        status="error",
+                        now=self.hub.clock(),
                     )
-                repo.record_failure(
-                    connection_id=connection_id,
-                    holder=holder,
-                    code=code,
-                    status="error",
-                    now=self.hub.clock(),
-                )
             except (ConnectionNotFound, DocumentServiceError):
                 pass
             business_id = space_id(scope)
@@ -862,6 +931,14 @@ class DocumentsService:
             raise
         finally:
             repo.release(connection_id=connection_id, holder=holder)
+
+    async def _admit(self) -> Admission:
+        return (
+            await asyncio.to_thread(
+                ask_breaker, self.read_breaker, "admit", self.hub.clock()
+            )
+            or Admission()
+        )
 
     def _canonical_business(self, connection_id: str, scope: OwnerScope) -> bool:
         """A Business receipt takes the canonical bridge when it is wired.

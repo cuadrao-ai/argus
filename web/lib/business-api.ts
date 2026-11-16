@@ -42,6 +42,7 @@ export const RECEIPT_ATTENTIONS = [
   "duplicate",
   "read_budget_day",
   "read_budget_month",
+  "read_deadline_passed",
   "other",
 ] as const;
 export type ReceiptAttention = (typeof RECEIPT_ATTENTIONS)[number];

@@ -13,6 +13,17 @@ new paid attempt. The extractor's own second call when the provider times out
 is made inside the same attempt under its lease. A superseded attempt cannot
 claim the draft, and its late result is refused by the connection lease, so a
 receipt is saved once however many attempts complete.
+
+A take that failed for now (the provider timed out, broke off, answered 5xx or
+429, or the breaker held the read back) goes back to ``queued`` with a
+``not_before``, so no worker sleeps on it and the person keeps seeing it being
+read. The provider calls of one read are counted on its job across every take,
+reruns included, and stop at ``MAX_PROVIDER_CALLS``.
+
+A read does not wait for ever. The sweep moves a read still waiting in the
+queue ``READ_DEADLINE_SECONDS`` after it was asked for to ``needs_attention``
+with ``READ_DEADLINE_PASSED``, whether a retry's wait, the open breaker or a
+stopped worker held it there.
 """
 
 from __future__ import annotations
@@ -21,7 +32,7 @@ import asyncio
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from loguru import logger
 
@@ -30,7 +41,11 @@ from argus.domain.ingestion.connections import (
     ConnectionNotFound,
     SourceConnection,
 )
-from argus.domain.ingestion.documents.config import load_document_extraction_settings
+from argus.domain.ingestion.documents.config import (
+    READ_DEADLINE_SECONDS,
+    load_document_extraction_settings,
+)
+from argus.domain.ingestion.documents.failures import READ_DEADLINE_PASSED, Requeue
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     DocumentExtractionError,
@@ -50,6 +65,7 @@ OUTCOME_UNKNOWN = "document_preparation_outcome_unknown"
 # A pulled attempt that never claimed is presumed lost after the same window a
 # lease lasts.
 DISPATCH_WINDOW = DEFAULT_LEASE
+READ_DEADLINE = timedelta(seconds=READ_DEADLINE_SECONDS)
 
 
 def in_flight(
@@ -74,12 +90,31 @@ def dispatched(draft: DocumentDraft, job: PreparationJob | None) -> bool:
     return job is not None and job.draft_version == draft.version
 
 
+def read_expired(
+    draft: DocumentDraft,
+    job: PreparationJob | None,
+    connection: SourceConnection,
+    now: datetime,
+) -> bool:
+    """A read still waiting in the queue past its deadline. The deadline counts
+    from when the read was asked for; a read with no attempt yet was asked for
+    when its draft was queued. A read a worker has taken is left to end."""
+    if draft.status != "queued" or lease_live(connection, now):
+        return False
+    waiting = dispatched(draft, job)
+    if waiting and job.dispatched_at is not None:
+        return False
+    asked = (job.asked_at if waiting else None) or draft.updated_at
+    return now >= asked + READ_DEADLINE
+
+
 @dataclass
 class SweepReport:
     redispatched: list[str] = field(default_factory=list)
     rerun: list[str] = field(default_factory=list)
     exhausted: list[str] = field(default_factory=list)
     outcome_unknown: list[str] = field(default_factory=list)
+    expired: list[str] = field(default_factory=list)
     errors: int = 0
 
 
@@ -148,6 +183,16 @@ class PreparationJobs:
         if draft is None:
             return
         if draft.status in {"queued", "preparing"}:
+            if read_expired(draft, job, connection, now):
+                if self._settle(
+                    user_id, connection_id, now, job, draft, READ_DEADLINE_PASSED
+                ):
+                    report.expired.append(connection_id)
+                    logger.warning(
+                        "document_read_failed connection_id={} code={} kind=expired",
+                        *(connection_id, READ_DEADLINE_PASSED),
+                    )
+                return
             if in_flight(draft, job, connection, now):
                 return
             reason = "unclaimed" if draft.status == "queued" else "interrupted"
@@ -172,6 +217,7 @@ class PreparationJobs:
                     attempt=job.attempt + 1,
                     requeue=True,
                     reruns=job.reruns + 1,
+                    carried=job,
                 ):
                     report.rerun.append(connection_id)
                     logger.warning(
@@ -206,6 +252,7 @@ class PreparationJobs:
                 # A saved preparation replays without a provider call.
                 unmarked=not fresh and not saved,
                 reruns=0 if fresh or job is None else job.reruns,
+                carried=None if fresh else job,
             ):
                 report.redispatched.append(connection_id)
                 logger.info(
@@ -272,9 +319,12 @@ class PreparationJobs:
         requeue: bool,
         unmarked: bool = False,
         reruns: int = 0,
+        carried: PreparationJob | None = None,
     ) -> bool:
         """Make a new attempt current and leave it for a puller. A sweep also
-        returns an interrupted or failed draft to ``queued``."""
+        returns an interrupted or failed draft to ``queued``. ``carried`` is
+        the earlier attempt of the same read: its provider calls and waits
+        still count, and so does the moment it was asked for."""
         requeued = (
             self.service.revise(draft, status="queued", error_code=None)
             if requeue and draft.status != "queued"
@@ -285,6 +335,10 @@ class PreparationJobs:
             attempt_id=str(uuid.uuid4()),
             draft_version=(requeued or draft).version,
             reruns=reruns,
+            provider_calls=carried.provider_calls if carried else 0,
+            retry_waited=carried.retry_waited if carried else 0,
+            asked_at=(carried.asked_at if carried else None)
+            or (requeued or draft).updated_at,
         )
         return self.service.store.advance(
             user_id=user_id,
@@ -303,8 +357,9 @@ async def sweep_forever(
     upkeep: Callable[[], object] | None = None,
 ) -> None:
     """Waits while extraction is off: a queued draft is then neither sent to
-    the model nor failed, and resumes when extraction is back. ``upkeep``
-    runs on every pass, extraction on or off, and paces itself."""
+    the model nor failed. When extraction is back it resumes, or ends on its
+    read deadline when that passed meanwhile. ``upkeep`` runs on every pass,
+    extraction on or off, and paces itself."""
 
     while True:
         if upkeep is not None:
@@ -358,6 +413,12 @@ async def run_attempt(
         )
         return "prepared"
     except (DocumentServiceError, DocumentExtractionError) as error:
+        requeue = getattr(error, "requeue", None)
+        if isinstance(requeue, Requeue):
+            await asyncio.to_thread(
+                _take_again, service, user_id, connection_id, attempt_id, requeue
+            )
+            return error.code
         if not error.retryable:
             return error.code
         job = service.store.job(user_id=user_id, connection_id=connection_id)
@@ -387,3 +448,78 @@ async def run_attempt(
             failure_mode=type(error).__name__,
         )
         return "document_extraction_failed"
+
+
+def _take_again(
+    service: DocumentsService,
+    user_id: str,
+    connection_id: str,
+    attempt_id: str,
+    requeue: Requeue,
+) -> None:
+    """Put the read this take left claimed back in the queue for its next
+    take, in one write. The same read continues: its attempt number, reruns
+    and provider calls stay. A take that lost its claim writes nothing, and
+    the sweep recovers a read whose worker died before this write."""
+    store, now = service.store, service.hub.clock()
+    draft = store.draft(user_id=user_id, connection_id=connection_id)
+    job = store.job(user_id=user_id, connection_id=connection_id)
+    if (
+        draft is None
+        or job is None
+        or job.attempt_id != attempt_id
+        or draft.status != "preparing"
+        or not own_claim(draft, job)
+    ):
+        return
+    queued = service.revise(draft, status="queued", error_code=None)
+    again = PreparationJob(
+        attempt=job.attempt,
+        attempt_id=str(uuid.uuid4()),
+        draft_version=queued.version,
+        reruns=job.reruns,
+        provider_calls=job.provider_calls,
+        not_before=now + timedelta(seconds=requeue.wait_seconds),
+        asked_at=job.asked_at or now,
+        retry_waited=job.retry_waited
+        + (requeue.wait_seconds if requeue.charged else 0.0),
+    )
+    if store.advance(
+        user_id=user_id,
+        connection_id=connection_id,
+        now=now,
+        expected_attempt_id=attempt_id,
+        job=again,
+        draft=queued,
+    ):
+        logger.warning(
+            "document_read_waits connection_id={} provider_calls={} "
+            "wait_seconds={:.0f} charged={}",
+            connection_id,
+            job.provider_calls,
+            requeue.wait_seconds,
+            requeue.charged,
+        )
+
+
+def hold_back(
+    service: DocumentsService, connection_id: str, attempt_id: str, until: datetime
+) -> bool:
+    """Return a read the breaker holds back to the queue until ``until``,
+    before anything claimed it. The same attempt waits again, charged nothing.
+    False when the read could not be put back; the caller then runs it and
+    the breaker refuses it at the provider's door instead."""
+    store = service.store
+    user_id = store.owner(connection_id=connection_id)
+    job = (
+        store.job(user_id=user_id, connection_id=connection_id) if user_id else None
+    )
+    if user_id is None or job is None or job.attempt_id != attempt_id:
+        return False
+    return store.advance(
+        user_id=user_id,
+        connection_id=connection_id,
+        now=service.hub.clock(),
+        expected_attempt_id=attempt_id,
+        job=job.model_copy(update={"dispatched_at": None, "not_before": until}),
+    )

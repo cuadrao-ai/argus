@@ -4075,6 +4075,26 @@ version. Existing exact-version references and creation-only `from_action`
 references keep their prior semantics and replay. This changes no table, grant,
 approval contract or ownership of current facts.
 
+### Document read breaker
+
+`document_read_breaker` is server-only, with RLS, no policy and no client
+grants. It holds one row (`singleton` is its primary key and is always true),
+so every document worker and every new deploy read the same state. `failures`
+holds the times of the recent failed provider calls while the breaker is
+closed. `opened_at` is set while sends are stopped, and null while it is
+closed. `probe_at` is when the one probing read was sent, and it is null unless
+`opened_at` is set. `probe_id` names that probe and is set exactly when
+`probe_at` is: only the call that carries this id closes the breaker or starts
+its cooldown again. A probe that was admitted and never sent clears both and
+leaves `opened_at` as it was. Migration `20261116063000_document_read_breaker.sql` adds
+the table and its row. `src/argus/domain/ingestion/documents/breaker.py` owns
+the rules, and `config.py` beside it owns the numbers (5 failures in 120
+seconds, a 300-second cooldown). A closed breaker costs one single-row read
+for each read a worker pulls and one before each provider call. A worker with
+nothing to pull does not read it. A write happens only when a call fails or
+the state changes. The table holds no customer data, so account
+deletion and Business purge do not touch it.
+
 ### Existing ingestion persistence
 
 `financial_document_extractions` owns the durable draft, the immutable preparation
@@ -4085,8 +4105,21 @@ or split proposals. `batch` holds typed observations, receipt itemization,
 projection issues and compatible canonical candidates. It may be null before
 preparation. `preparation_job` names the current preparation attempt (number,
 ID, the draft version it was dispatched for, dispatch time, when its provider
-call started, a retry request, and `reruns`). Every read goes through it: no
-setting leaves a read outside the attempt record.
+call started, a retry request, `reruns`, `provider_calls`, `not_before`,
+`retry_waited` and `asked_at`). Every read goes through it: no setting leaves a
+read outside the attempt record.
+`provider_calls` counts the provider calls this read was admitted for, across
+every take. It is written with the provider-call time, before the provider can
+be reached, and it stops at 4 (`MAX_PROVIDER_CALLS`). `not_before` is when a
+take that waits out a temporary failure, or an open read breaker, may be
+pulled; a puller skips the row until then. `retry_waited` is the seconds of
+such waits the read was charged, at most 600. `asked_at` is when the read was
+asked for: the upload for the read an upload starts, the owner's ask for a
+later one. Every take of the same read keeps it, and the read deadline (6
+hours, `READ_DEADLINE_SECONDS`) counts from it. The first three are omitted
+from the JSON when zero or null, like `reruns`, and `asked_at` when null, with
+the same rollback effect. The owner's "Leer de nuevo" starts a new preparation
+with the first three cleared and a new `asked_at`.
 `reruns` counts the paid attempts of this preparation the sweep started because
 an earlier attempt died past its provider-call time with no saved batch; it
 bounds them at one (`MAX_RERUNS`). It is omitted from the JSON when zero, so a
