@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 import { sampleRecordsOverview } from "@/components/business-app/transacciones/records-overview-sample";
-import { matchesPreviewWorkflow } from "@/components/business-app/transacciones/records-results-preview";
+import { matchesPreviewReady } from "@/components/business-app/transacciones/records-results-preview";
 import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
 
 const record = (id: string, kind: RecordRow["kind"], amount: string, currency = "DOP"): RecordRow => ({ id, kind, occurredOn: "2026-11-02", counterparty: "Sample", money: { amount, currency }, categoryId: null, account: null, hasProof: null, marks: { personal: false, markedBy: null, fiscal: null }, opens: null });
@@ -15,7 +15,7 @@ test("sample cards count and sum selected purchases and retain partial fiscal fa
   assert.equal(result.answer.totals[0].amount, "6900.00");
   assert.equal(result.answer.totals[0].matching_count, 2);
   assert.equal(result.answer.totals.find((line) => line.basis === "document_net_family_amount")?.amount, "5847.46");
-  assert.equal(result.fiscalCount, 2);
+  assert.equal(result.notReadyCount, 2);
   assert.deepEqual(result.answer.fiscal_totals?.map(({ basis, amount, known_amount, populated_count, unknown_count }) => ({ basis, amount, known_amount, populated_count, unknown_count })), [
     { basis: "itbis", amount: "1052.54", known_amount: "1052.54", populated_count: 2, unknown_count: 0 },
     { basis: "goods", amount: null, known_amount: "1779.66", populated_count: 1, unknown_count: 1 },
@@ -27,11 +27,11 @@ test("sample cards count and sum selected purchases and retain partial fiscal fa
 test("search and fiscal subsets change totals and the fiscal count", () => {
   assert.equal(sample([purchases[0]])!.answer.totals[0].amount, "2100.00");
   assert.equal(sample([purchases[0]])!.answer.matching_count, 1);
-  assert.equal(sample([purchases[0]])!.fiscalCount, 1);
-  const fiscalRows = rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["fiscal"]));
+  assert.equal(sample([purchases[0]])!.notReadyCount, 1);
+  const fiscalRows = rows.filter((row) => matchesPreviewReady(row, "fixture-space", false));
   assert.equal(sample(fiscalRows)!.answer.matching_count, 2);
   assert.equal(sample(fiscalRows)!.answer.totals[0].amount, "6900.00");
-  assert.equal(sample([])!.fiscalCount, 0);
+  assert.equal(sample([])!.notReadyCount, 0);
   assert.deepEqual(sample([])!.answer, { matching_count: 0, totals: [], fiscal_totals: [] });
 });
 

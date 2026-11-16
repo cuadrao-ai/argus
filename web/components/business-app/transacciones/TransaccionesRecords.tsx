@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useContext, useState, type KeyboardEvent } from "react";
+import { Fragment, useContext, useEffect, useState, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, FileText } from "lucide-react";
 import { currencySymbol } from "@/lib/money-entry";
 import { businessWorkspaceCurrency } from "@/lib/business-api";
@@ -8,7 +8,7 @@ import { useBusiness } from "../BusinessWorkspace";
 import { formatAmount, formatMoney, formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
 import { isOpenRecord } from "../record-tray";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { RecordArrivalsContext, RecordGlanceContext } from "./RecordGlanceContext";
+import { RecordArrivalsContext, RecordGlanceContext, RecordRowsContext } from "./RecordGlanceContext";
 import pageStyles from "./records-page.module.css";
 import cellStyles from "./transacciones-cells.module.css";
 import { RecordMarks, useOwnerView } from "../business-ui";
@@ -17,6 +17,7 @@ import { headerCurrency, magnitude, type RecordRow } from "./transacciones-model
 import { AccountLabel, amountColumnSize, PlainAmount, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
 import { visibleRecordsColumns, recordsMinimumWidth, taxpayerIdText, type RecordsViewPreferences } from "./records-view-preferences";
 import { formatRecordActivityDate, previewAmountColumnSize, recordRowKey } from "./records-row-preview";
+import RecordMissingReason from "./RecordMissingReason";
 import RecordWorkflowBadge from "./RecordWorkflowBadge";
 import RecordDgiiCell from "./RecordDgiiCell";
 import { RecordAnnotationActions, RecordAttachmentPreview, RecordNotePreview } from "./RecordsAnnotationsPreview";
@@ -25,6 +26,10 @@ import { CELL, COLUMNS, PIN_CLASS, RECORDS_TITLE } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN_VALUE;
+function useReportRows(records: readonly RecordRow[]) {
+  const refresh = useContext(RecordRowsContext);
+  useEffect(() => { refresh?.(records); }, [records, refresh]);
+}
 /** A frozen cell: the open row keeps its green edge on the left one. */
 const PINNED = { left: `${PIN_CLASS.left} group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`, right: PIN_CLASS.right } as const;
 /** The columns a header click sorts, by the sort each one sets. */
@@ -49,6 +54,7 @@ function Proof({ row }: { row: RecordRow }) {
  * record screen yet, so its row is plain.
  */
 export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange, preferences, sort, onSortChange, amountSortAvailable = false, sortNoticeId, serverSorted = false }: { serverSorted?: boolean; sort?: RecordsSort; onSortChange?: (sort: RecordsSort) => void; amountSortAvailable?: boolean; sortNoticeId?: string; preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
+  useReportRows(records);
   const { t, locale } = useTransaccionesWords();
   const owner = useOwnerView();
   const openGlance = useContext(RecordGlanceContext);
@@ -133,6 +139,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
                     <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
                   </Tooltip>}
                 </td>),
+              missing: (<td {...at("missing", "text-left")}><RecordMissingReason row={row} /></td>),
               stage: (<td {...at("stage", "text-left")}><RecordWorkflowBadge row={row} /></td>),
               expense_type: (<td {...at("expense_type", "text-left")}><RecordDgiiCell row={row} field="expense_type" /></td>),
               payment_form: (<td {...at("payment_form", "text-left")}><RecordDgiiCell row={row} field="payment_form" /></td>),
@@ -207,6 +214,7 @@ export function RecordsList({ records, rowRef }: { records: readonly RecordRow[]
 
 /** Narrow saved-record preview. Only this or the table mounts, so row refs stay unique. */
 export function RecordsNarrowList({ records, rowRef }: { records: readonly RecordRow[]; rowRef: (id: string, node: HTMLElement | null) => void }) {
+  useReportRows(records);
   const { t, locale } = useTransaccionesWords();
   const { panel, openPanel } = useBusiness();
   const openGlance = useContext(RecordGlanceContext);

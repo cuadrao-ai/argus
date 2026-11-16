@@ -2661,6 +2661,7 @@
         "clear": "Clear filters",
         "clear_search": "Clear search",
         "column_attachment": "Attachment",
+        "column_reason": "Reason",
         "column_state": "Status",
         "column_type": "Type",
         "count_one": "{{count}} record",
@@ -2714,7 +2715,7 @@
           "fiscal_data": {
             "all": "All",
             "complete": "Complete",
-            "missing": "Missing data"
+            "missing": "Missing"
           },
           "groups": {
             "account": "Account",
@@ -2725,9 +2726,13 @@
             "document": "Document type",
             "fiscal": "Fiscal type",
             "fiscal_data": "Fiscal data",
+            "ready": "Status",
             "review": "Review"
           },
           "no_matches": "No options match this search.",
+          "ready": {
+            "all": "All"
+          },
           "record": "Record",
           "remove": "Remove filter",
           "search": "Search…",
@@ -2746,6 +2751,7 @@
             "title": "Already exported"
           },
           "fiscal": {
+            "description": "Complete them before filing",
             "description_purchase": "Complete them before the 606",
             "description_sale": "Complete them before the 607",
             "title": "Missing fiscal data"
@@ -2840,6 +2846,7 @@
         },
         "workflow": {
           "exported": "Exported",
+          "not_ready": "Missing data",
           "ready": "Ready",
           "review": "To review",
           "unknown": "Status unavailable",
@@ -3433,7 +3440,7 @@
           "label": "Find what you need"
         },
         "pending": {
-          "body": "\"Missing fiscal data\" shows which ones need details for the 606 on Purchases or the 607 on Sales.",
+          "body": "\"Missing data\" shows which records need details. Complete them before filing.",
           "label": "Finish what's pending"
         },
         "title": "Your purchases and sales, in order"
@@ -4204,12 +4211,13 @@
       "month": {
         "expenses": "Expenses",
         "first_day": "The figures fill in when you approve your first documents.",
-        "fiscal_one": "Fiscal data missing on 1 record",
-        "fiscal_other": "Fiscal data missing on {{count}} records",
-      "fiscal_purchases_one": "Fiscal data missing on 1 purchase",
-      "fiscal_purchases_other": "Fiscal data missing on {{count}} purchases",
-      "fiscal_sales_one": "Fiscal data missing on 1 sale",
-      "fiscal_sales_other": "Fiscal data missing on {{count}} sales",
+        "fiscal_one": "Missing data on 1 record",
+        "fiscal_other": "Missing data on {{count}} records",
+      "fiscal_purchases_one": "Missing data on 1 purchase",
+      "fiscal_purchases_other": "Missing data on {{count}} purchases",
+      "fiscal_sales_one": "Missing data on 1 sale",
+      "fiscal_sales_other": "Missing data on {{count}} sales",
+        "fiscal_unknown": "[PENDIENTE COPY] Missing data: can't be calculated yet.",
         "in_bandeja_one": "1 in the Inbox",
       "in_bandeja_other": "{{count}} in the Inbox",
         "included": "Documents included: {{counted}} of {{total}}",
@@ -4221,7 +4229,7 @@
         "see": "See",
         "terms": {
           "expenses": "Approved purchases and expenses for the month, before ITBIS.",
-          "fiscal": "The RNC or NCF the 606 or 607 needs.",
+          "fiscal": "Complete the missing data before filing.",
           "income": "Approved sales for the month, before ITBIS.",
           "itbis_purchases": "ITBIS paid on your approved purchases.",
           "itbis_sales": "ITBIS charged on your approved sales.",

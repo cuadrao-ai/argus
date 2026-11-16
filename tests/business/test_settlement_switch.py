@@ -43,6 +43,14 @@ BLOCK_SETTLEMENT_KEYS = {
     "by_status",
 }
 STANDING = {"606": "prepared_candidate", "607": "prepared_candidate"}
+READINESS_ANSWERS = [
+    pytest.param(None, id="unknown"),
+    pytest.param([], id="known-empty"),
+    pytest.param(
+        [{"family": "purchase", "currency": "DOP", "count": 2, "by_currency": False}],
+        id="known-missing",
+    ),
+]
 
 
 @pytest.fixture
@@ -76,8 +84,12 @@ def _open_month() -> list:
     ]
 
 
-def _october(documents, settlement: bool, forms=STANDING) -> dict:  # noqa: ANN001
-    return month_close("2026-10", DAY, documents, dict(forms), settlement=settlement)
+def _october(
+    documents, settlement: bool, forms=STANDING, readiness: list[dict] | None = None
+) -> dict:  # noqa: ANN001
+    return month_close(
+        "2026-10", DAY, documents, dict(forms), settlement=settlement, readiness=readiness
+    )
 
 
 def _lines(close: dict) -> list[dict]:
@@ -119,16 +131,20 @@ def _stripped(close: dict) -> dict:
     return shown
 
 
-def test_off_the_month_close_carries_no_settlement_state() -> None:
+@pytest.mark.parametrize("readiness", READINESS_ANSWERS)
+def test_off_the_month_close_carries_no_settlement_state(
+    readiness: list[dict] | None,
+) -> None:
     held = document(activity_id="no-rnc", rnc=None, status="pendiente")
-    close = _october([*_open_month(), held], settlement=False)
+    close = _october([*_open_month(), held], settlement=False, readiness=readiness)
     assert SETTLEMENT_KEYS.isdisjoint(close)
     [block] = close["currencies"]
     assert BLOCK_SETTLEMENT_KEYS.isdisjoint(block)
     assert _lines(close) and all("status" not in line for line in _lines(close))
     # Every fiscal figure, list and reason stays what it was.
-    on = _october([*_open_month(), held], settlement=True)
+    on = _october([*_open_month(), held], settlement=True, readiness=readiness)
     assert _stripped(close) == _stripped(on)
+    assert close["not_ready_rows"] == on["not_ready_rows"] == readiness
     MonthClose.model_validate(with_unreviewed(close))
 
 
@@ -171,13 +187,17 @@ def test_on_the_net_result_still_waits_on_every_mark() -> None:
     assert on["itbis_cobrado_minor"] == 0
 
 
-def test_on_the_month_close_is_unchanged() -> None:
+@pytest.mark.parametrize("readiness", READINESS_ANSWERS)
+def test_on_the_month_close_is_unchanged(readiness: list[dict] | None) -> None:
     start, end = month_period("2026-10")
-    on = _october(_open_month(), settlement=True)
-    assert on == month_close("2026-10", DAY, _open_month(), dict(STANDING))
+    on = _october(_open_month(), settlement=True, readiness=readiness)
+    assert on == month_close(
+        "2026-10", DAY, _open_month(), dict(STANDING), readiness=readiness
+    )
     assert on == {
         "month": "2026-10",
         "today": DAY,
+        "not_ready_rows": readiness,
         "payment_methods": list(PAYMENT_METHODS),
         "dgii_forms": STANDING,
         "dgii_foreign_currency": foreign_currency({}),

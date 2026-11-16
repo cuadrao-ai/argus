@@ -39,7 +39,7 @@ export type RecordsExportProps = {
   /** Optional filters and search the screen has on. */
   filterCount: number;
   transport: Pick<ReportingTransport, "exportPreview" | "exportFile">;
-  /** Shows the records the DGII notice counts: tab, period, the form's currency and Faltan datos fiscales. */
+  /** Shows pending fiscal records for the tab, period and form currency, clearing other filters. */
   onReviewFiscal: (currency: string) => void;
   onClose: () => void;
 };

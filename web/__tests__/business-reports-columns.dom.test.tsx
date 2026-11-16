@@ -16,13 +16,13 @@ afterEach(async () => { await cleanup(); (await import("@/components/layout/over
 afterAll(async () => { await GlobalRegistrator.unregister(); if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; });
 
 const renderedColumnKeys = () => [...document.querySelectorAll("thead th")].map((node) => node.getAttribute("data-col"));
-test("an old saved URL shows the server's upgrade: the net amount before the total, RNC o Cédula, NCF and ITBIS hidden, and later edits kept", async () => {
+test("an old saved URL shows the server's upgrade: Motivo after Estado, the net amount before the total, and optional fiscal columns hidden, and later edits kept", async () => {
   // A link from before RNC o Cédula, NCF, the net amount and ITBIS were columns.
   const presentation = { order: ["counterparty", "funding", "payment_form", "expense_type", "attachment", "note", "stage", "gross_amount", "date"], hidden: ["date"], density: 40 as const };
   const request = reportRequestSchema.parse({ schema_version: 2, presentation });
   window.history.replaceState(null, "", `/biz?report=${encodeURIComponent(JSON.stringify(request))}`);
   const page = await mount();
-  const expectedColumns = ["counterparty", "funding", "payment_form", "expense_type", "attachment", "note", "stage", "net_amount", "gross_amount"];
+  const expectedColumns = ["counterparty", "funding", "payment_form", "expense_type", "attachment", "note", "stage", "missing", "net_amount", "gross_amount"];
   assert.deepEqual(renderedColumnKeys(), expectedColumns);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
@@ -37,18 +37,18 @@ test("an old saved URL shows the server's upgrade: the net amount before the tot
   await page.settle(() => document.querySelector('[data-testid="records-count"]') !== null);
   assert.deepEqual(renderedColumnKeys(), [...expectedColumns, "fiscal_number"]);
   const restored = restoreReportLocation(new URLSearchParams(window.location.search)).request;
-  const upgraded = presentation.order.flatMap((key) => key === "gross_amount" ? ["net_amount", key] : [key]);
+  const upgraded = presentation.order.flatMap((key) => key === "gross_amount" ? ["net_amount", key] : key === "stage" ? [key, "missing"] : [key]);
   assert.deepEqual(restored.schema_version === 2 && restored.presentation, { ...presentation, order: [...upgraded, "counterparty_id", "itbis_amount", "fiscal_number"], hidden: ["date", "counterparty_id", "itbis_amount"] });
 });
 
 for (const language of ["es-419", "en"] as const) test(`server defaults start with RNC o Cédula and every other column stays in the menu in ${language}`, async () => {
   const page = await mount({ language });
-  assert.deepEqual(renderedColumnKeys(), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage"]);
+  assert.deepEqual(renderedColumnKeys(), ["counterparty_id", "date", "expense_type", "net_amount", "itbis_amount", "gross_amount", "stage", "missing"]);
   assert.equal(document.querySelector("thead th")?.textContent, language === "en" ? "RNC or ID" : "RNC o Cédula");
   assert.ok(page.fixture.calls.filter((call) => call.path.endsWith("/reports/query")).every((call) => !Object.hasOwn(call.body as object, "presentation")), "fresh V1 and V2 requests leave defaults to the server");
   await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-  const shown = ["counterparty_id", "expense_type"];
-  for (const [key, label] of language === "en" ? [["counterparty_id", "RNC or ID"], ["expense_type", "Expense type"], ["counterparty", "Counterparty"], ["fiscal_number", "NCF"], ["note", "Notes"], ["attachment", "Attachment"], ["payment_form", "Payment method"], ["funding", "Account"]] : [["counterparty_id", "RNC o Cédula"], ["expense_type", "Tipo de gasto"], ["counterparty", "Contraparte"], ["fiscal_number", "NCF"], ["note", "Notas"], ["attachment", "Adjunto"], ["payment_form", "Forma de pago"], ["funding", "Cuenta"]]) {
+  const shown = ["counterparty_id", "expense_type", "missing"];
+  for (const [key, label] of language === "en" ? [["missing", "Reason"], ["counterparty_id", "RNC or ID"], ["expense_type", "Expense type"], ["counterparty", "Counterparty"], ["fiscal_number", "NCF"], ["note", "Notes"], ["attachment", "Attachment"], ["payment_form", "Payment method"], ["funding", "Account"]] : [["missing", "Motivo"], ["counterparty_id", "RNC o Cédula"], ["expense_type", "Tipo de gasto"], ["counterparty", "Contraparte"], ["fiscal_number", "NCF"], ["note", "Notas"], ["attachment", "Adjunto"], ["payment_form", "Forma de pago"], ["funding", "Cuenta"]]) {
     const row = document.querySelector(`[data-column-setting="${key}"]`);
     assert.ok(row?.textContent?.includes(label));
     const checkbox = row?.querySelector<HTMLInputElement>('input[type="checkbox"]');
@@ -60,7 +60,7 @@ for (const language of ["es-419", "en"] as const) test(`server defaults start wi
 test("server layout changes render, saved views retain the effective layout, and Restore asks for fresh defaults", async () => {
   const chosen: typeof recordedReportAnswer.presentation = { ...recordedReportAnswer.presentation, order: [...recordedReportAnswer.presentation.order].reverse(), hidden: [], density: 40 as const };
   const page = await mount({ presentation: chosen });
-  assert.deepEqual(renderedColumnKeys(), ["funding", "payment_form", "attachment", "note", "fiscal_number", "stage", "gross_amount", "itbis_amount", "net_amount", "expense_type", "date", "counterparty", "counterparty_id"]);
+  assert.deepEqual(renderedColumnKeys(), ["funding", "payment_form", "attachment", "note", "fiscal_number", "missing", "stage", "gross_amount", "itbis_amount", "net_amount", "expense_type", "date", "counterparty", "counterparty_id"]);
   assert.equal(document.querySelector("table")?.getAttribute("data-density"), "compacto");
   await page.click(page.button("Vistas")); await page.click(page.button("Guardar vista actual"));
   await page.type(document.querySelector('input[maxlength="120"]')!, "Mi diseño"); await page.click(page.button("Guardar"));
