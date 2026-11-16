@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Download, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
@@ -9,9 +9,10 @@ import { useBusiness } from "./BusinessWorkspace";
 import { formatTimestamp } from "./business-format";
 import { quietButtonClass, secondaryButtonClass, useChannelLabel } from "./business-ui";
 import { DelayedSourceWell } from "./business-skeletons";
-import ReceiptImageZoom from "./ReceiptImageZoom";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { resolveLanguage } from "@/lib/language-features";
+
+const ReceiptImageZoom = lazy(() => import("./ReceiptImageZoom"));
 
 export default function ReceiptSourcePreview({ detail, initialExpanded = false, showArrivalContext = true }: { initialExpanded?: boolean; showArrivalContext?: boolean; detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
   const { t, i18n } = useTranslation();
@@ -56,10 +57,8 @@ export default function ReceiptSourcePreview({ detail, initialExpanded = false, 
           </div>
         ) : current.kind === "loading" ? (
           <DelayedSourceWell />
-        ) : detail.media_type === "application/pdf" && source.mode === "live" ? (
-          <iframe title={t("business.review.source", "Original receipt")} src={current.url} className="h-[480px] w-full" />
-        ) : (detail.media_type.startsWith("image/") || source.mode === "fixture") ? (
-          <ReceiptImageZoom src={current.url} blob={current.blob} sourceId={current.sourceId} alt={t("business.review.source", "Original receipt")} />
+        ) : (detail.media_type === "application/pdf" || detail.media_type.startsWith("image/") || source.mode === "fixture") ? (
+          <Suspense fallback={<DelayedSourceWell />}><ReceiptImageZoom src={current.url} blob={current.blob} sourceId={current.sourceId} pdf={detail.media_type === "application/pdf" && source.mode === "live"} alt={t("business.review.source", "Original receipt")} /></Suspense>
         ) : (
           <p className="p-5 text-[14px] text-black/65 dark:text-white/65">{t("business.dossier.download_source", "Download the original to read this file.")}</p>
         )}
