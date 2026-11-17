@@ -75,9 +75,14 @@ def generated_parameter_lines(source: str) -> list[int]:
             continue
         keywords = {item.arg: item.value for item in node.keywords}
         explicit_ids = keywords.get("ids", node.args[3] if len(node.args) > 3 else None)
-        if explicit_ids is not None and not (
-            isinstance(explicit_ids, ast.Constant) and explicit_ids.value is None
+        if (
+            explicit_ids is not None
+            and not isinstance(explicit_ids, (ast.List, ast.Tuple))
+            and not (
+                isinstance(explicit_ids, ast.Constant) and explicit_ids.value is None
+            )
         ):
+            # Callable and other dynamic ID expressions keep collection comparison.
             continue
         names = node.args[0] if node.args else keywords.get("argnames")
         values = node.args[1] if len(node.args) > 1 else keywords.get("argvalues")
@@ -95,14 +100,26 @@ def generated_parameter_lines(source: str) -> list[int]:
             rows = [values.elt]
         else:
             rows = [values]
-        for row in rows:
+        for index, row in enumerate(rows):
+            if isinstance(explicit_ids, (ast.List, ast.Tuple)):
+                entries = explicit_ids.elts
+                if isinstance(values, (ast.List, ast.Tuple)) and not any(
+                    isinstance(value, ast.Starred) for value in values.elts
+                ):
+                    entries = entries[index : index + 1]
+                # Expanded/unordered rows require every supplied ID to be explicit;
+                # collection still checks that a nonempty IDs list has the right length.
+                if entries and all(
+                    isinstance(entry, ast.Constant) and isinstance(entry.value, str)
+                    for entry in entries
+                ):
+                    continue
             row = resolve(row)
             if isinstance(row, ast.Call) and origin(row.func) == "pytest.param":
                 if any(
                     item.arg == "id"
-                    and not (
-                        isinstance(item.value, ast.Constant) and item.value.value is None
-                    )
+                    and isinstance(item.value, ast.Constant)
+                    and isinstance(item.value.value, str)
                     for item in row.keywords
                 ):
                     continue

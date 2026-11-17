@@ -110,6 +110,53 @@ class TestIdStabilityTests(unittest.TestCase):
             [],
         )
 
+    def test_literal_ids_cover_each_generated_parameter_row(self) -> None:
+        from scripts.ci.check_test_ids import generated_parameter_lines
+
+        prelude = "import pytest\nimport random\nrandom.seed(42)\n"
+        cases = [
+            ("[random.random()], ids=[None]", True),
+            ("[random.random()], ids=[]", True),
+            ("[random.random()], ids=()", True),
+            ("[random.random(), random.random()], ids=['a']", True),
+            ("[random.random(), random.random()], ids=('a', None)", True),
+            ("[random.random()], ids=[1]", True),
+            ("[random.random() for _ in range(2)], ids=['a', None]", True),
+            ("[random.random() for _ in range(2)], ids=['a', 'b']", False),
+            ("[random.random(), random.random()], ids=['a', 'b']", False),
+            ("[random.random(), random.random()], ids=('a', 'b')", False),
+            ("[random.random(), 1], ids=['a', None]", False),
+            ("[1, random.random()], ids=[None, 'b']", False),
+            ("[pytest.param(random.random(), id='a')], ids=[None]", False),
+            ("[pytest.param(random.random(), id='a')], ids=[]", False),
+            (
+                "[random.random(), pytest.param(random.random(), id='b')], ids=['a']",
+                False,
+            ),
+            ("[pytest.param(random.random(), id=None)], ids=[None]", True),
+            ("[random.random()], ids=lambda value: 'a'", False),
+            ("[random.random()], ids=case_ids", False),
+        ]
+        for arguments, rejected in cases:
+            with self.subTest(arguments=arguments):
+                source = (
+                    prelude
+                    + f"@pytest.mark.parametrize('value', {arguments})\ndef test_value(value): pass\n"
+                )
+                self.assertEqual(bool(generated_parameter_lines(source)), rejected)
+
+    def test_seeded_values_with_fallback_ids_are_rejected(self) -> None:
+        for ids in ("[None, None]", "[]", "['first']"):
+            with self.subTest(ids=ids):
+                result = self.run_check(
+                    "import pytest\nfrom faker import Faker\n"
+                    "fake = Faker()\nFaker.seed(42)\n"
+                    f"@pytest.mark.parametrize('value', [fake.name(), fake.name()], ids={ids})\n"
+                    "def test_value(value):\n    raise AssertionError('must not execute')\n"
+                )
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("explicit parameter IDs", result.stderr)
+
     def test_random_explicit_ids_are_rejected(self) -> None:
         result = self.run_check(
             "import pytest\nfrom uuid import uuid4\n"
